@@ -34,7 +34,7 @@ namespace SharpConsoleUI.Controls
 		private TextJustification _headerAlignment = TextJustification.Left;
 		private Padding _padding = new Padding(1, 0, 1, 0);
 		private bool _useSafeBorder = false;
-	private bool _wordWrap = true;
+		private bool _wordWrap = true;
 
 		// Mouse interaction state
 		private bool _wantsMouseEvents = true;

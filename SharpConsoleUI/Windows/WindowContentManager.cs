@@ -6,9 +6,9 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Logging;
-using SharpConsoleUI.Controls;
 
 namespace SharpConsoleUI.Windows
 {

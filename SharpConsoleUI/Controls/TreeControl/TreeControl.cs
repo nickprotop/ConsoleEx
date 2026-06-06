@@ -6,16 +6,15 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Configuration;
-using SharpConsoleUI.Core;
-using SharpConsoleUI.Events;
-using SharpConsoleUI.Helpers;
-using SharpConsoleUI.Layout;
 using System.Collections.ObjectModel;
 using System.Drawing;
 using System.Text;
-
+using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Core;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -25,7 +24,7 @@ namespace SharpConsoleUI.Controls
 	{
 		private readonly List<TreeNode> _rootNodes = new();
 		private Color? _backgroundColorValue;
-	private Color? _highlightBackgroundColorValue;
+		private Color? _highlightBackgroundColorValue;
 		private int? _calculatedMaxVisibleItems;
 		private List<TreeNode> _flattenedNodes = new();
 

@@ -201,7 +201,7 @@ namespace SharpConsoleUI.Controls
 					// Security: Validate font path to prevent path traversal attacks
 					string normalizedInput = _fontPath.Replace('\\', '/');
 					if (normalizedInput.Contains("../") || normalizedInput.Contains("..\\") ||
-					    Path.IsPathFullyQualified(_fontPath))
+						Path.IsPathFullyQualified(_fontPath))
 					{
 						throw new ArgumentException($"Invalid font path: path traversal detected in '{_fontPath}'");
 					}
@@ -212,7 +212,7 @@ namespace SharpConsoleUI.Controls
 
 					string normalizedFontsDir = Path.GetFullPath(fontsDir);
 					if (!safePath.StartsWith(normalizedFontsDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
-					    !safePath.Equals(normalizedFontsDir, StringComparison.OrdinalIgnoreCase))
+						!safePath.Equals(normalizedFontsDir, StringComparison.OrdinalIgnoreCase))
 					{
 						throw new ArgumentException($"Invalid font path: path traversal detected in '{_fontPath}'");
 					}

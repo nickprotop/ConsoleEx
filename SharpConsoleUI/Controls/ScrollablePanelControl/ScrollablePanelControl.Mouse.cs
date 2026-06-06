@@ -147,7 +147,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc />
-	public bool ProcessMouseEvent(MouseEventArgs args)
+		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
 			var log = GetConsoleWindowSystem?.LogService;
 
@@ -290,7 +290,7 @@ namespace SharpConsoleUI.Controls
 			// Child mouse capture: route drag/press/release to the child that started the drag,
 			// preventing sibling controls from stealing the drag via re-hit-testing.
 			if (_mouseCaptureChild != null &&
-			    args.HasAnyFlag(Drivers.MouseFlags.Button1Pressed, Drivers.MouseFlags.Button1Dragged, Drivers.MouseFlags.Button1Released))
+				args.HasAnyFlag(Drivers.MouseFlags.Button1Pressed, Drivers.MouseFlags.Button1Dragged, Drivers.MouseFlags.Button1Released))
 			{
 				if (args.HasFlag(Drivers.MouseFlags.Button1Released))
 				{
@@ -372,7 +372,7 @@ namespace SharpConsoleUI.Controls
 								this.GetParentWindow()?.FocusManager.SetFocus((IFocusableControl)child, FocusReason.Mouse);
 								// Correct the coordinator path to the actually clicked child.
 								// RequestFocus(SPC) → SPC.SetFocus(Programmatic) delegates to the
-						
+
 							}
 							// For containers (e.g. HorizontalGrid with CanReceiveFocus=false):
 							// Don't call SetFocus — let the mouse forwarding + the container's own

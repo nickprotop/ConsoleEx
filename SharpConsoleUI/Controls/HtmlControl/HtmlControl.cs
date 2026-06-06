@@ -585,7 +585,7 @@ namespace SharpConsoleUI.Controls
 						var response = await HtmlImageLoader.HttpClient.GetAsync(url, ct);
 						var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
 						if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ||
-						    contentType.Contains("svg", StringComparison.OrdinalIgnoreCase))
+							contentType.Contains("svg", StringComparison.OrdinalIgnoreCase))
 						{
 							imageCache[url] = null;
 						}

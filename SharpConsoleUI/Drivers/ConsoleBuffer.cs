@@ -6,11 +6,11 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Text;
+using System.Text.RegularExpressions;
 using SharpConsoleUI.Drivers.Input;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace SharpConsoleUI.Drivers
 {
@@ -134,7 +134,7 @@ namespace SharpConsoleUI.Drivers
 			// Background: A=0 means use terminal default (49), otherwise explicit RGB.
 			// In PreserveTerminalTransparency mode, any non-opaque bg also emits 49.
 			if (bg.A == 0 ||
-			    (_options.TerminalTransparencyMode == Configuration.TerminalTransparencyMode.PreserveTerminalTransparency && bg.A < 255))
+				(_options.TerminalTransparencyMode == Configuration.TerminalTransparencyMode.PreserveTerminalTransparency && bg.A < 255))
 			{
 				sb.Append(";49");
 			}

@@ -1,7 +1,15 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
+using System.Drawing;
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
-using System.Drawing;
 
 namespace SharpConsoleUI.Controls;
 
@@ -12,28 +20,28 @@ namespace SharpConsoleUI.Controls;
 /// </summary>
 internal class MenuPortalContent : PortalContentBase
 {
-    private readonly MenuControl _owner;
-    private readonly MenuDropdown _dropdown;
+	private readonly MenuControl _owner;
+	private readonly MenuDropdown _dropdown;
 
-    public MenuPortalContent(MenuControl owner, MenuDropdown dropdown)
-    {
-        _owner = owner;
-        _dropdown = dropdown;
-    }
+	public MenuPortalContent(MenuControl owner, MenuDropdown dropdown)
+	{
+		_owner = owner;
+		_dropdown = dropdown;
+	}
 
-    /// <inheritdoc/>
-    public override Rectangle GetPortalBounds() => _dropdown.Bounds;
+	/// <inheritdoc/>
+	public override Rectangle GetPortalBounds() => _dropdown.Bounds;
 
-    /// <inheritdoc/>
-    public override bool ProcessMouseEvent(MouseEventArgs args)
-    {
-        return _owner.ProcessDropdownMouseEvent(_dropdown, args);
-    }
+	/// <inheritdoc/>
+	public override bool ProcessMouseEvent(MouseEventArgs args)
+	{
+		return _owner.ProcessDropdownMouseEvent(_dropdown, args);
+	}
 
-    /// <inheritdoc/>
-    protected override void PaintPortalContent(CharacterBuffer buffer, LayoutRect bounds,
-        LayoutRect clipRect, Color defaultFg, Color defaultBg)
-    {
-        _owner.PaintDropdownInternal(buffer, _dropdown, clipRect);
-    }
+	/// <inheritdoc/>
+	protected override void PaintPortalContent(CharacterBuffer buffer, LayoutRect bounds,
+		LayoutRect clipRect, Color defaultFg, Color defaultBg)
+	{
+		_owner.PaintDropdownInternal(buffer, _dropdown, clipRect);
+	}
 }

@@ -1,3 +1,11 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Panel;
@@ -7,32 +15,32 @@ namespace SharpConsoleUI.Panel;
 /// </summary>
 public class SeparatorElement : PanelElement
 {
-    /// <summary>
-    /// Initializes a new SeparatorElement.
-    /// </summary>
-    /// <param name="name">Optional element name. Defaults to "separator".</param>
-    public SeparatorElement(string? name = null)
-        : base(name ?? "separator")
-    {
-    }
+	/// <summary>
+	/// Initializes a new SeparatorElement.
+	/// </summary>
+	/// <param name="name">Optional element name. Defaults to "separator".</param>
+	public SeparatorElement(string? name = null)
+		: base(name ?? "separator")
+	{
+	}
 
-    /// <summary>
-    /// Gets or sets the separator character to display.
-    /// </summary>
-    public char SeparatorChar { get; set; } = '│';
+	/// <summary>
+	/// Gets or sets the separator character to display.
+	/// </summary>
+	public char SeparatorChar { get; set; } = '│';
 
-    /// <summary>
-    /// Gets or sets an optional separator color override.
-    /// </summary>
-    public Color? SeparatorColor { get; set; }
+	/// <summary>
+	/// Gets or sets an optional separator color override.
+	/// </summary>
+	public Color? SeparatorColor { get; set; }
 
-    /// <inheritdoc/>
-    public override int? FixedWidth => 1;
+	/// <inheritdoc/>
+	public override int? FixedWidth => 1;
 
-    /// <inheritdoc/>
-    public override void Render(CharacterBuffer buffer, int x, int y, int width, Color fg, Color bg)
-    {
-        var effectiveFg = SeparatorColor ?? fg;
-        buffer.SetNarrowCell(x, y, SeparatorChar, effectiveFg, bg);
-    }
+	/// <inheritdoc/>
+	public override void Render(CharacterBuffer buffer, int x, int y, int width, Color fg, Color bg)
+	{
+		var effectiveFg = SeparatorColor ?? fg;
+		buffer.SetNarrowCell(x, y, SeparatorChar, effectiveFg, bg);
+	}
 }

@@ -9,10 +9,10 @@
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
+using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Drivers;
 
 namespace SharpConsoleUI.Builders;
 

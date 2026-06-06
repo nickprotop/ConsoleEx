@@ -151,7 +151,7 @@ namespace SharpConsoleUI.Themes
 			var theme = GetTheme(themeName);
 			if (theme == null)
 				throw new InvalidOperationException($"Default theme '{themeName}' is not registered. " +
-				                                    "Ensure the theme is registered before calling GetDefaultTheme().");
+													"Ensure the theme is registered before calling GetDefaultTheme().");
 			return theme;
 		}
 

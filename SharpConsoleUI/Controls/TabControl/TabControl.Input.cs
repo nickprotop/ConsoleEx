@@ -6,11 +6,11 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Linq;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
-using SharpConsoleUI.Parsing;
-using System.Linq;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Parsing;
 
 namespace SharpConsoleUI.Controls
 {
@@ -24,7 +24,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool CanFocusWithMouse => false; // TabControl itself not focusable
 
-		#pragma warning disable CS0067 // Event never raised (interface requirement)
+#pragma warning disable CS0067 // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
@@ -44,7 +44,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
-		#pragma warning restore CS0067
+#pragma warning restore CS0067
 
 		/// <summary>
 		/// Returns the tab index at the given control-relative X position on the header row,

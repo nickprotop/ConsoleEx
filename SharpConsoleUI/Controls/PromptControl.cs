@@ -6,14 +6,14 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System;
+using System.Drawing;
+using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
-using SharpConsoleUI;
 using SharpConsoleUI.Layout;
-using System;
-using System.Drawing;
 
 namespace SharpConsoleUI.Controls
 {
@@ -311,19 +311,19 @@ namespace SharpConsoleUI.Controls
 						return true;
 
 					case ConsoleKey.V: // Ctrl+V: paste
-					{
-						var clip = ClipboardHelper.GetText();
-						if (!string.IsNullOrEmpty(clip))
 						{
-							// Sanitize: single-line
-							clip = clip.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
-							DeleteSelection();
-							_input = _input.Insert(_cursorPosition, clip);
-							MoveCursorTo(_cursorPosition + clip.Length);
-							InputChanged?.Invoke(this, _input);
+							var clip = ClipboardHelper.GetText();
+							if (!string.IsNullOrEmpty(clip))
+							{
+								// Sanitize: single-line
+								clip = clip.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
+								DeleteSelection();
+								_input = _input.Insert(_cursorPosition, clip);
+								MoveCursorTo(_cursorPosition + clip.Length);
+								InputChanged?.Invoke(this, _input);
+							}
+							return true;
 						}
-						return true;
-					}
 
 					case ConsoleKey.X: // Ctrl+X: cut
 						if (HasSelection)
@@ -662,7 +662,7 @@ namespace SharpConsoleUI.Controls
 
 			// Focus on click
 			if (args.HasFlag(Drivers.MouseFlags.Button1Clicked) ||
-			    args.HasFlag(Drivers.MouseFlags.Button1Pressed))
+				args.HasFlag(Drivers.MouseFlags.Button1Pressed))
 			{
 				if (!HasFocus && CanFocusWithMouse)
 					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);

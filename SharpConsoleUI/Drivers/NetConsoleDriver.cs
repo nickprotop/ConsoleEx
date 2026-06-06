@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -6,9 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Drivers.Input;
-using SharpConsoleUI.Helpers;
-using SharpConsoleUI.Themes;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -17,6 +14,9 @@ using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using SharpConsoleUI.Drivers.Input;
+using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Themes;
 using Size = SharpConsoleUI.Helpers.Size;
 
 namespace SharpConsoleUI.Drivers
@@ -528,8 +528,8 @@ namespace SharpConsoleUI.Drivers
 
 			// Write to /dev/tty on Unix
 			if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
-			    RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ||
-			    RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD))
+				RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ||
+				RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD))
 			{
 				try
 				{
@@ -853,8 +853,8 @@ namespace SharpConsoleUI.Drivers
 
 				// Write to /dev/tty on Unix
 				if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
-				    RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ||
-				    RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD))
+					RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ||
+					RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD))
 				{
 					try
 					{
@@ -984,62 +984,62 @@ namespace SharpConsoleUI.Drivers
 						List<ConsoleKeyInfo> consoleKeyInfoSequence = new List<ConsoleKeyInfo>();
 						consoleKeyInfoSequence.Add(key);
 
-					// Normalize Ctrl+Space: Terminals often send this as Ctrl+2 (D2) with NUL character (0x00)
-					if (key.Key == ConsoleKey.D2 && (key.Modifiers & ConsoleModifiers.Control) != 0 && key.KeyChar == '\0')
-					{
-						var normalizedKey = new ConsoleKeyInfo(
-							'\0',                         // NUL char (matches raw byte, prevents isTypingKey misdetection)
-							ConsoleKey.Spacebar,          // Spacebar key
-							false,                        // shift
-							false,                        // alt
-							true                          // ctrl
-						);
-						KeyPressed?.Invoke(this, normalizedKey);
-						continue;
-					}
-
-					// Map control characters
-					if (key.KeyChar >= '\u0001' && key.KeyChar <= '\u001A' && key.KeyChar != '\t' && key.KeyChar != '\r')
-					{
-						// Convert control character to corresponding letter (A-Z)
-						char baseChar = (char)(key.KeyChar + 'A' - 1);
-
-						// Create new ConsoleKeyInfo with the mapped key
-						var mappedKey = new ConsoleKeyInfo(
-							key.KeyChar,  // Keep original control character
-							(ConsoleKey)baseChar, // Map to corresponding letter's ConsoleKey
-							false,  // shift
-							false,  // alt
-							true    // ctrl
-						);
-
-						KeyPressed?.Invoke(this, mappedKey);
-						continue;
-					}
-
-					switch (key.KeyChar)
-					{
-						case '\b': // Backspace
-							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\b', ConsoleKey.Backspace, (key.Modifiers & ConsoleModifiers.Shift) != 0, (key.Modifiers & ConsoleModifiers.Alt) != 0, (key.Modifiers & ConsoleModifiers.Control) != 0));
-							continue;
-						case '\x7f': // Backspace
-							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\x7f', ConsoleKey.Backspace, (key.Modifiers & ConsoleModifiers.Shift) != 0, (key.Modifiers & ConsoleModifiers.Alt) != 0, (key.Modifiers & ConsoleModifiers.Control) != 0));
-							continue;
-						case '\t': // Tab
-							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\t', ConsoleKey.Tab, (key.Modifiers & ConsoleModifiers.Shift) != 0, (key.Modifiers & ConsoleModifiers.Alt) != 0, (key.Modifiers & ConsoleModifiers.Control) != 0));
-							continue;
-						case '\r': // Enter
-							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\r', ConsoleKey.Enter, (key.Modifiers & ConsoleModifiers.Shift) != 0, (key.Modifiers & ConsoleModifiers.Alt) != 0, (key.Modifiers & ConsoleModifiers.Control) != 0));
-							continue;
-						case ' ': // Spacebar
-							KeyPressed?.Invoke(this, new ConsoleKeyInfo(' ', ConsoleKey.Spacebar, (key.Modifiers & ConsoleModifiers.Shift) != 0, (key.Modifiers & ConsoleModifiers.Alt) != 0, (key.Modifiers & ConsoleModifiers.Control) != 0));
-							continue;
-					}
-
-					if (key.KeyChar == '\x1b' || key.KeyChar == '\u001b') // ESC character
-					{
-						if (Console.KeyAvailable)
+						// Normalize Ctrl+Space: Terminals often send this as Ctrl+2 (D2) with NUL character (0x00)
+						if (key.Key == ConsoleKey.D2 && (key.Modifiers & ConsoleModifiers.Control) != 0 && key.KeyChar == '\0')
 						{
+							var normalizedKey = new ConsoleKeyInfo(
+								'\0',                         // NUL char (matches raw byte, prevents isTypingKey misdetection)
+								ConsoleKey.Spacebar,          // Spacebar key
+								false,                        // shift
+								false,                        // alt
+								true                          // ctrl
+							);
+							KeyPressed?.Invoke(this, normalizedKey);
+							continue;
+						}
+
+						// Map control characters
+						if (key.KeyChar >= '\u0001' && key.KeyChar <= '\u001A' && key.KeyChar != '\t' && key.KeyChar != '\r')
+						{
+							// Convert control character to corresponding letter (A-Z)
+							char baseChar = (char)(key.KeyChar + 'A' - 1);
+
+							// Create new ConsoleKeyInfo with the mapped key
+							var mappedKey = new ConsoleKeyInfo(
+								key.KeyChar,  // Keep original control character
+								(ConsoleKey)baseChar, // Map to corresponding letter's ConsoleKey
+								false,  // shift
+								false,  // alt
+								true    // ctrl
+							);
+
+							KeyPressed?.Invoke(this, mappedKey);
+							continue;
+						}
+
+						switch (key.KeyChar)
+						{
+							case '\b': // Backspace
+								KeyPressed?.Invoke(this, new ConsoleKeyInfo('\b', ConsoleKey.Backspace, (key.Modifiers & ConsoleModifiers.Shift) != 0, (key.Modifiers & ConsoleModifiers.Alt) != 0, (key.Modifiers & ConsoleModifiers.Control) != 0));
+								continue;
+							case '\x7f': // Backspace
+								KeyPressed?.Invoke(this, new ConsoleKeyInfo('\x7f', ConsoleKey.Backspace, (key.Modifiers & ConsoleModifiers.Shift) != 0, (key.Modifiers & ConsoleModifiers.Alt) != 0, (key.Modifiers & ConsoleModifiers.Control) != 0));
+								continue;
+							case '\t': // Tab
+								KeyPressed?.Invoke(this, new ConsoleKeyInfo('\t', ConsoleKey.Tab, (key.Modifiers & ConsoleModifiers.Shift) != 0, (key.Modifiers & ConsoleModifiers.Alt) != 0, (key.Modifiers & ConsoleModifiers.Control) != 0));
+								continue;
+							case '\r': // Enter
+								KeyPressed?.Invoke(this, new ConsoleKeyInfo('\r', ConsoleKey.Enter, (key.Modifiers & ConsoleModifiers.Shift) != 0, (key.Modifiers & ConsoleModifiers.Alt) != 0, (key.Modifiers & ConsoleModifiers.Control) != 0));
+								continue;
+							case ' ': // Spacebar
+								KeyPressed?.Invoke(this, new ConsoleKeyInfo(' ', ConsoleKey.Spacebar, (key.Modifiers & ConsoleModifiers.Shift) != 0, (key.Modifiers & ConsoleModifiers.Alt) != 0, (key.Modifiers & ConsoleModifiers.Control) != 0));
+								continue;
+						}
+
+						if (key.KeyChar == '\x1b' || key.KeyChar == '\u001b') // ESC character
+						{
+							if (Console.KeyAvailable)
+							{
 								var nextKey = Console.ReadKey(true);
 								consoleKeyInfoSequence.Add(nextKey);
 
@@ -1049,76 +1049,77 @@ namespace SharpConsoleUI.Drivers
 									while (Console.KeyAvailable)
 									{
 										var ansiKey = Console.ReadKey(true);
-									consoleKeyInfoSequence.Add(ansiKey);
+										consoleKeyInfoSequence.Add(ansiKey);
 
-									if (char.IsLetter(ansiKey.KeyChar) || ansiKey.KeyChar == '~' || ansiKey.KeyChar == '\r' || ansiKey.KeyChar == '\t')
-									{
+										if (char.IsLetter(ansiKey.KeyChar) || ansiKey.KeyChar == '~' || ansiKey.KeyChar == '\r' || ansiKey.KeyChar == '\t')
+										{
+											ansiSequence.Append(ansiKey.KeyChar);
+											break;
+										}
 										ansiSequence.Append(ansiKey.KeyChar);
-										break;
-									}
-									ansiSequence.Append(ansiKey.KeyChar);
-								}
-
-								// Check if this is a SGR mouse sequence (format: ESC[<button;x;y M/m)
-								if (ansiSequence.ToString().StartsWith("<") && (ansiSequence.ToString().EndsWith("M") || ansiSequence.ToString().EndsWith("m")))
-								{
-									{
-										string mouseSeq = ansiSequence.ToString();
 									}
 
-									// Use SequenceHelper for SGR mouse parsing (supports unlimited coordinates)
-									// Provide proper continuous button press handler for drag operations
-									SequenceHelper.GetMouse(consoleKeyInfoSequence.ToArray(), out List<MouseFlags> mouseFlags, out Point pos, 
-										(flags, position) => {
-											// Handle continuous mouse events (drag operations)
-											var continuousFlags = new List<MouseFlags> { flags };
-											MouseEvent?.Invoke(this, continuousFlags, position);
-										});
-									if (mouseFlags.Count > 0)
+									// Check if this is a SGR mouse sequence (format: ESC[<button;x;y M/m)
+									if (ansiSequence.ToString().StartsWith("<") && (ansiSequence.ToString().EndsWith("M") || ansiSequence.ToString().EndsWith("m")))
 									{
-										MouseEvent?.Invoke(this, mouseFlags, pos);
+										{
+											string mouseSeq = ansiSequence.ToString();
+										}
+
+										// Use SequenceHelper for SGR mouse parsing (supports unlimited coordinates)
+										// Provide proper continuous button press handler for drag operations
+										SequenceHelper.GetMouse(consoleKeyInfoSequence.ToArray(), out List<MouseFlags> mouseFlags, out Point pos,
+											(flags, position) =>
+											{
+												// Handle continuous mouse events (drag operations)
+												var continuousFlags = new List<MouseFlags> { flags };
+												MouseEvent?.Invoke(this, continuousFlags, position);
+											});
+										if (mouseFlags.Count > 0)
+										{
+											MouseEvent?.Invoke(this, mouseFlags, pos);
+											continue;
+										}
+										else
+										{
+										}
+									}
+
+									var consoleKeyInfo = MapAnsiToConsoleKeyInfo(ansiSequence.ToString(), consoleKeyInfoSequence);
+
+									if (consoleKeyInfo.isMouse != true && consoleKeyInfo.consoleKeyInfo.HasValue)
+									{
+										KeyPressed?.Invoke(this, consoleKeyInfo.consoleKeyInfo.Value);
 										continue;
 									}
-									else
-									{
-									}
 								}
-
-								var consoleKeyInfo = MapAnsiToConsoleKeyInfo(ansiSequence.ToString(), consoleKeyInfoSequence);
-
-								if (consoleKeyInfo.isMouse != true && consoleKeyInfo.consoleKeyInfo.HasValue)
+								else
 								{
-									KeyPressed?.Invoke(this, consoleKeyInfo.consoleKeyInfo.Value);
+									// This is an Alt + key combination (ESC followed by key)
+									var altKey = new ConsoleKeyInfo(
+										nextKey.KeyChar,
+										nextKey.Key,
+										(nextKey.Modifiers & ConsoleModifiers.Shift) != 0,
+										true, // Alt is pressed
+										(nextKey.Modifiers & ConsoleModifiers.Control) != 0);
+
+									KeyPressed?.Invoke(this, altKey);
 									continue;
 								}
 							}
 							else
 							{
-								// This is an Alt + key combination (ESC followed by key)
-								var altKey = new ConsoleKeyInfo(
-									nextKey.KeyChar,
-									nextKey.Key,
-									(nextKey.Modifiers & ConsoleModifiers.Shift) != 0,
-									true, // Alt is pressed
-									(nextKey.Modifiers & ConsoleModifiers.Control) != 0);
-
-								KeyPressed?.Invoke(this, altKey);
+								// Plain ESC key
+								KeyPressed?.Invoke(this, new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false));
 								continue;
 							}
 						}
 						else
 						{
-							// Plain ESC key
-							KeyPressed?.Invoke(this, new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false));
-							continue;
+							// Regular key press
+							KeyPressed?.Invoke(this, key);
 						}
 					}
-					else
-					{
-						// Regular key press
-						KeyPressed?.Invoke(this, key);
-					}
-				}
 				} // End lock(_consoleLock) - all Console I/O now protected
 				Thread.Sleep(10);
 			}
@@ -1230,7 +1231,7 @@ namespace SharpConsoleUI.Drivers
 
 				// Media/Special keys  
 				case 'M': // Mouse events - legacy X10 format (ESC [ M <button> <x> <y>)
-					// Read the remaining mouse data for X10 format
+						  // Read the remaining mouse data for X10 format
 					if (Console.KeyAvailable)
 					{
 						var button = Console.ReadKey(true);
@@ -1315,36 +1316,36 @@ namespace SharpConsoleUI.Drivers
 							mouseFlags.Add(MouseFlags.Button1Pressed);
 							_lastButton = MouseFlags.Button1Pressed;
 						}
-					else if (_lastButton == MouseFlags.Button1Pressed)
-					{
-						// SAFEGUARD: Ignore duplicate release events (< 50ms = driver bug)
-						// The console mouse driver sometimes generates duplicate Button1Released events
-						var timeSinceLastClick = (DateTime.Now - _lastClickTime).TotalMilliseconds;
-						if (_lastClickPosition?.X == position.X &&
-							_lastClickPosition?.Y == position.Y &&
-							timeSinceLastClick < 50)
+						else if (_lastButton == MouseFlags.Button1Pressed)
 						{
-							// Duplicate event, ignore it
-							return true;
+							// SAFEGUARD: Ignore duplicate release events (< 50ms = driver bug)
+							// The console mouse driver sometimes generates duplicate Button1Released events
+							var timeSinceLastClick = (DateTime.Now - _lastClickTime).TotalMilliseconds;
+							if (_lastClickPosition?.X == position.X &&
+								_lastClickPosition?.Y == position.Y &&
+								timeSinceLastClick < 50)
+							{
+								// Duplicate event, ignore it
+								return true;
+							}
+
+							mouseFlags.Add(MouseFlags.Button1Released);
+							mouseFlags.Add(MouseFlags.Button1Clicked);
+
+							// Check for double/triple click
+							if (_lastClickPosition?.X == position.X &&
+								_lastClickPosition?.Y == position.Y &&
+								timeSinceLastClick < DoubleClickTime)
+							{
+								if (mouseFlags.Contains(MouseFlags.Button1DoubleClicked))
+									mouseFlags.Add(MouseFlags.Button1TripleClicked);
+								else
+									mouseFlags.Add(MouseFlags.Button1DoubleClicked);
+							}
+
+							_lastClickPosition = position;
+							_lastClickTime = DateTime.Now;
 						}
-
-						mouseFlags.Add(MouseFlags.Button1Released);
-						mouseFlags.Add(MouseFlags.Button1Clicked);
-
-						// Check for double/triple click
-						if (_lastClickPosition?.X == position.X &&
-							_lastClickPosition?.Y == position.Y &&
-							timeSinceLastClick < DoubleClickTime)
-						{
-							if (mouseFlags.Contains(MouseFlags.Button1DoubleClicked))
-								mouseFlags.Add(MouseFlags.Button1TripleClicked);
-							else
-								mouseFlags.Add(MouseFlags.Button1DoubleClicked);
-						}
-
-						_lastClickPosition = position;
-						_lastClickTime = DateTime.Now;
-					}
 						break;
 
 					case 1: // Button 2 (Middle button)

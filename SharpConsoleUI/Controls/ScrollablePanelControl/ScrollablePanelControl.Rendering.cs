@@ -9,8 +9,8 @@
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Extensions;
-using SharpConsoleUI.Layout;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
 
 namespace SharpConsoleUI.Controls

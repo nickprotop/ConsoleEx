@@ -5,10 +5,10 @@
 // Email: nikolaos.protopapas@gmail.com
 // License: MIT
 // -----------------------------------------------------------------------
-using SharpConsoleUI.Configuration;
-using SharpConsoleUI.Controls;
 using System;
 using System.Threading;
+using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Controls;
 
 namespace SharpConsoleUI.Parsing;
 

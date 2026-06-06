@@ -103,7 +103,7 @@ namespace SharpConsoleUI.Core
 		public bool HasWindowsChanged(WindowSystemState other)
 		{
 			return Windows.Count != other.Windows.Count ||
-			       !Windows.Keys.SequenceEqual(other.Windows.Keys);
+				   !Windows.Keys.SequenceEqual(other.Windows.Keys);
 		}
 	}
 

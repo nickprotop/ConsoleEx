@@ -6,14 +6,13 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Core;
-using SharpConsoleUI.Helpers;
-using SharpConsoleUI.Layout;
 using System.Drawing;
-
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -398,7 +397,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool CanFocusWithMouse => true;
 
-		#pragma warning disable CS0067
+#pragma warning disable CS0067
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
@@ -418,7 +417,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
-		#pragma warning restore CS0067
+#pragma warning restore CS0067
 
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)

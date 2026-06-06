@@ -6,9 +6,9 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Timers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using System.Timers;
 using Size = System.Drawing.Size;
 using Timer = System.Timers.Timer;
 

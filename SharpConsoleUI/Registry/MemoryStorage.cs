@@ -1,3 +1,11 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
 using System.Text.Json.Nodes;
 
 namespace SharpConsoleUI.Registry;
@@ -8,17 +16,17 @@ namespace SharpConsoleUI.Registry;
 /// </summary>
 public class MemoryStorage : IRegistryStorage
 {
-    private JsonNode? _stored;
+	private JsonNode? _stored;
 
-    /// <inheritdoc/>
-    public void Save(JsonNode root)
-    {
-        _stored = root.DeepClone();
-    }
+	/// <inheritdoc/>
+	public void Save(JsonNode root)
+	{
+		_stored = root.DeepClone();
+	}
 
-    /// <inheritdoc/>
-    public JsonNode? Load()
-    {
-        return _stored?.DeepClone();
-    }
+	/// <inheritdoc/>
+	public JsonNode? Load()
+	{
+		return _stored?.DeepClone();
+	}
 }

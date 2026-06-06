@@ -6,9 +6,9 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Events;
-using SharpConsoleUI.Drivers;
 using System.Drawing;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls

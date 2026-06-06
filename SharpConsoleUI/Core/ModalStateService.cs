@@ -404,8 +404,8 @@ namespace SharpConsoleUI.Core
 			var state = CurrentState;
 			var modalNames = state.ModalStack.Select(m => m.Title).ToArray();
 			return $"Modals: Count={state.ModalCount}, " +
-			       $"Stack=[{string.Join(", ", modalNames)}], " +
-			       $"Topmost={state.TopmostModal?.Title ?? "none"}";
+				   $"Stack=[{string.Join(", ", modalNames)}], " +
+				   $"Topmost={state.TopmostModal?.Title ?? "none"}";
 		}
 
 		#endregion

@@ -21,76 +21,76 @@ namespace SharpConsoleUI.Controls
 		/// how HorizontalLayout.MeasureChildren works in the DOM system. Space distribution
 		/// happens during arrangement, not measurement.
 		/// </remarks>
-        public override LayoutSize MeasureDOM(LayoutConstraints constraints)
-        {
-            List<ColumnContainer> measureColumns;
-            List<SplitterControl> measureSplitters;
-            Dictionary<IInteractiveControl, int> measureSplitterControls;
-            lock (_gridLock)
-            {
-                measureColumns = new List<ColumnContainer>(_columns);
-                measureSplitters = new List<SplitterControl>(_splitters);
-                measureSplitterControls = new Dictionary<IInteractiveControl, int>(_splitterControls);
-            }
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
+		{
+			List<ColumnContainer> measureColumns;
+			List<SplitterControl> measureSplitters;
+			Dictionary<IInteractiveControl, int> measureSplitterControls;
+			lock (_gridLock)
+			{
+				measureColumns = new List<ColumnContainer>(_columns);
+				measureSplitters = new List<SplitterControl>(_splitters);
+				measureSplitterControls = new Dictionary<IInteractiveControl, int>(_splitterControls);
+			}
 
-            int totalWidth = Margin.Left + Margin.Right;
-            int maxHeight = 0;
+			int totalWidth = Margin.Left + Margin.Right;
+			int maxHeight = 0;
 
-            // Measure each column and sum actual widths (skip hidden ones)
-            for (int i = 0; i < measureColumns.Count; i++)
-            {
-                var column = measureColumns[i];
-                if (!column.Visible) continue;
+			// Measure each column and sum actual widths (skip hidden ones)
+			for (int i = 0; i < measureColumns.Count; i++)
+			{
+				var column = measureColumns[i];
+				if (!column.Visible) continue;
 
-                int columnWidth;
-                int columnHeight = 0;
+				int columnWidth;
+				int columnHeight = 0;
 
-                if (column.Width.HasValue)
-                {
-                    // Column has explicit width - use it, but still measure for height
-                    columnWidth = column.Width.Value;
-                    if (column is IDOMPaintable paintable)
-                    {
-                        var childSize = paintable.MeasureDOM(
-                            LayoutConstraints.Loose(columnWidth, constraints.MaxHeight));
-                        columnHeight = childSize.Height;
-                    }
-                    else
-                    {
-                        columnHeight = column.GetLogicalContentSize().Height;
-                    }
-                }
-                else if (column is IDOMPaintable paintable)
-                {
-                    // Measure with loose constraints to get natural content size
-                    var childSize = paintable.MeasureDOM(
-                        LayoutConstraints.Loose(constraints.MaxWidth, constraints.MaxHeight));
-                    columnWidth = childSize.Width;
-                    columnHeight = childSize.Height;
-                }
-                else
-                {
-                    var size = column.GetLogicalContentSize();
-                    columnWidth = size.Width;
-                    columnHeight = size.Height;
-                }
+				if (column.Width.HasValue)
+				{
+					// Column has explicit width - use it, but still measure for height
+					columnWidth = column.Width.Value;
+					if (column is IDOMPaintable paintable)
+					{
+						var childSize = paintable.MeasureDOM(
+							LayoutConstraints.Loose(columnWidth, constraints.MaxHeight));
+						columnHeight = childSize.Height;
+					}
+					else
+					{
+						columnHeight = column.GetLogicalContentSize().Height;
+					}
+				}
+				else if (column is IDOMPaintable paintable)
+				{
+					// Measure with loose constraints to get natural content size
+					var childSize = paintable.MeasureDOM(
+						LayoutConstraints.Loose(constraints.MaxWidth, constraints.MaxHeight));
+					columnWidth = childSize.Width;
+					columnHeight = childSize.Height;
+				}
+				else
+				{
+					var size = column.GetLogicalContentSize();
+					columnWidth = size.Width;
+					columnHeight = size.Height;
+				}
 
-                totalWidth += columnWidth;
-                maxHeight = Math.Max(maxHeight, columnHeight);
+				totalWidth += columnWidth;
+				maxHeight = Math.Max(maxHeight, columnHeight);
 
-                // Add splitter width if present after this column
-                var splitter = measureSplitters.FirstOrDefault(s => measureSplitterControls[s] == i);
-                if (splitter != null && splitter.Visible)
-                {
-                    totalWidth += splitter.Width ?? 1;
-                }
-            }
+				// Add splitter width if present after this column
+				var splitter = measureSplitters.FirstOrDefault(s => measureSplitterControls[s] == i);
+				if (splitter != null && splitter.Visible)
+				{
+					totalWidth += splitter.Width ?? 1;
+				}
+			}
 
-            return new LayoutSize(
-                Math.Clamp(totalWidth, constraints.MinWidth, constraints.MaxWidth),
-                Math.Clamp(maxHeight + Margin.Top + Margin.Bottom, constraints.MinHeight, constraints.MaxHeight)
-            );
-        }
+			return new LayoutSize(
+				Math.Clamp(totalWidth, constraints.MinWidth, constraints.MaxWidth),
+				Math.Clamp(maxHeight + Margin.Top + Margin.Bottom, constraints.MinHeight, constraints.MaxHeight)
+			);
+		}
 
 
 		/// <inheritdoc/>

@@ -242,9 +242,9 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
 		/// <inheritdoc/>
-		#pragma warning disable CS0067, CS0414
+#pragma warning disable CS0067, CS0414
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
-		#pragma warning restore CS0067, CS0414
+#pragma warning restore CS0067, CS0414
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseRightClick;

@@ -6,13 +6,13 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using System.Drawing;
 using Size = System.Drawing.Size;
-using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {
@@ -187,7 +187,7 @@ namespace SharpConsoleUI.Controls
 			int startX = _dropdownBounds.X;
 			int paintY = _dropdownBounds.Y;
 
-			int effectiveMaxVisibleItems =  _maxVisibleItems;
+			int effectiveMaxVisibleItems = _maxVisibleItems;
 			int itemsToShow = Math.Min(effectiveMaxVisibleItems, items.Count - dropdownScroll);
 
 			// Clamp to available height in bounds

@@ -7,24 +7,24 @@
 // -----------------------------------------------------------------------
 
 using System.Collections.Concurrent;
+using System.Drawing;
 using System.Threading;
-using SharpConsoleUI.Themes;
-using SharpConsoleUI.Helpers;
-using SharpConsoleUI.Events;
-using SharpConsoleUI.Core;
+using SharpConsoleUI.Animation;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Core;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Input;
 using SharpConsoleUI.Logging;
-using SharpConsoleUI.Plugins;
-using SharpConsoleUI.Configuration;
-using SharpConsoleUI.Animation;
-using SharpConsoleUI.Windows;
 using SharpConsoleUI.Models;
-using SharpConsoleUI.Rendering;
 using SharpConsoleUI.Performance;
+using SharpConsoleUI.Plugins;
+using SharpConsoleUI.Rendering;
+using SharpConsoleUI.Themes;
+using SharpConsoleUI.Windows;
 using static SharpConsoleUI.Window;
-using SharpConsoleUI.Drivers;
-using System.Drawing;
 using Size = SharpConsoleUI.Helpers.Size;
 
 namespace SharpConsoleUI
@@ -496,7 +496,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		public event EventHandler<Core.IdleStateEventArgs>? IdleStateChanged
 		{
-			add    { _inputStateService.IdleStateChanged += value; }
+			add { _inputStateService.IdleStateChanged += value; }
 			remove { _inputStateService.IdleStateChanged -= value; }
 		}
 
@@ -746,41 +746,41 @@ namespace SharpConsoleUI
 			var wd = _options.Watchdog ?? new Configuration.WatchdogOptions();
 			if (wd.Enabled)
 			{
-			_watchdog.WithLogging(msg => _logService.LogWarning(msg, "Watchdog"));
-			_watchdog.Start(
-				scanForEmergencyExit: ScanInputQueueForEmergencyExit,
-				onForceExit: () =>
-				{
-					_logService.LogCritical("Watchdog: forcing exit \u2014 main loop unresponsive", null, "Watchdog");
-					// Hard kill in 1s — guarantees exit even if Stop() deadlocks
-					new Thread(() => { Thread.Sleep(1000); Environment.Exit(1); })
+				_watchdog.WithLogging(msg => _logService.LogWarning(msg, "Watchdog"));
+				_watchdog.Start(
+					scanForEmergencyExit: ScanInputQueueForEmergencyExit,
+					onForceExit: () =>
+					{
+						_logService.LogCritical("Watchdog: forcing exit \u2014 main loop unresponsive", null, "Watchdog");
+						// Hard kill in 1s — guarantees exit even if Stop() deadlocks
+						new Thread(() => { Thread.Sleep(1000); Environment.Exit(1); })
 						{ IsBackground = true, Name = "WatchdogKill" }.Start();
-					try { _consoleDriver.Stop(); } catch { }
-					Environment.Exit(1);
-				},
-				onRecovery: () =>
-				{
-					// Force full repaint to clear the ANSI banner that was written
-					// directly to the terminal, bypassing the CharacterBuffer.
-					Render.DesktopNeedsRender = true;
-					Render.InvalidateAllWindows();
-				},
-				onUnresponsive: stalledFor =>
-				{
-					var args = new Core.UnresponsiveEventArgs(
-						stalledFor, _currentPhase, _currentCallback, DateTime.UtcNow,
-						showBanner: wd.ShowUnresponsiveBanner);
-					Unresponsive?.Invoke(this, args);
-					return args.ShowBanner;
-				},
-				onRecovered: wasStalledFor =>
-				{
-					var args = new Core.RecoveredEventArgs(
-						wasStalledFor, DateTime.UtcNow, fullRefresh: wd.FullRefreshOnRecovery);
-					Recovered?.Invoke(this, args);
-					if (args.FullRefresh)
-						ForceFullRepaint();
-				});
+						try { _consoleDriver.Stop(); } catch { }
+						Environment.Exit(1);
+					},
+					onRecovery: () =>
+					{
+						// Force full repaint to clear the ANSI banner that was written
+						// directly to the terminal, bypassing the CharacterBuffer.
+						Render.DesktopNeedsRender = true;
+						Render.InvalidateAllWindows();
+					},
+					onUnresponsive: stalledFor =>
+					{
+						var args = new Core.UnresponsiveEventArgs(
+							stalledFor, _currentPhase, _currentCallback, DateTime.UtcNow,
+							showBanner: wd.ShowUnresponsiveBanner);
+						Unresponsive?.Invoke(this, args);
+						return args.ShowBanner;
+					},
+					onRecovered: wasStalledFor =>
+					{
+						var args = new Core.RecoveredEventArgs(
+							wasStalledFor, DateTime.UtcNow, fullRefresh: wd.FullRefreshOnRecovery);
+						Recovered?.Invoke(this, args);
+						if (args.FullRefresh)
+							ForceFullRepaint();
+					});
 			}
 
 			// Initialize the console window system with background color and character
@@ -1182,7 +1182,7 @@ namespace SharpConsoleUI
 					{
 						ownerControl = windowControl;
 
-							// Use FocusManager as the source of truth for the deepest focused control
+						// Use FocusManager as the source of truth for the deepest focused control
 						var deepestControl = ActiveWindow.FocusManager.FocusedControl as IWindowControl;
 
 						// Check deepest control first, then fall back to top-level control

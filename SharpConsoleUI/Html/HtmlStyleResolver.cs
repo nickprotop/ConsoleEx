@@ -102,138 +102,138 @@ namespace SharpConsoleUI.Html
 			{
 				try
 				{
-				// Font weight → Bold
-				var fontWeight = css.GetPropertyValue("font-weight");
-				if (!string.IsNullOrEmpty(fontWeight))
-				{
-					if (fontWeight == "bold" || fontWeight == "bolder" ||
-					    (int.TryParse(fontWeight, out var weight) && weight >= 700))
+					// Font weight → Bold
+					var fontWeight = css.GetPropertyValue("font-weight");
+					if (!string.IsNullOrEmpty(fontWeight))
 					{
-						style.Decorations |= TextDecoration.Bold;
+						if (fontWeight == "bold" || fontWeight == "bolder" ||
+							(int.TryParse(fontWeight, out var weight) && weight >= 700))
+						{
+							style.Decorations |= TextDecoration.Bold;
+						}
 					}
-				}
 
-				// Font style → Italic
-				var fontStyle = css.GetPropertyValue("font-style");
-				if (fontStyle == "italic" || fontStyle == "oblique")
-				{
-					style.Decorations |= TextDecoration.Italic;
-				}
-
-				// Text decoration
-				var textDec = css.GetPropertyValue("text-decoration");
-				if (!string.IsNullOrEmpty(textDec))
-				{
-					if (textDec.Contains("underline", StringComparison.OrdinalIgnoreCase))
-						style.Decorations |= TextDecoration.Underline;
-					if (textDec.Contains("line-through", StringComparison.OrdinalIgnoreCase))
-						style.Decorations |= TextDecoration.Strikethrough;
-				}
-
-				// Also check text-decoration-line (used by some browsers/parsers)
-				var textDecLine = css.GetPropertyValue("text-decoration-line");
-				if (!string.IsNullOrEmpty(textDecLine))
-				{
-					if (textDecLine.Contains("underline", StringComparison.OrdinalIgnoreCase))
-						style.Decorations |= TextDecoration.Underline;
-					if (textDecLine.Contains("line-through", StringComparison.OrdinalIgnoreCase))
-						style.Decorations |= TextDecoration.Strikethrough;
-				}
-
-				// Color → Foreground
-				var color = css.GetPropertyValue("color");
-				if (!string.IsNullOrEmpty(color))
-				{
-					var parsed = ParseCssColor(color);
-					if (parsed.HasValue)
-						style.Foreground = parsed.Value;
-				}
-
-				// Background color
-				var bgColor = css.GetPropertyValue("background-color");
-				if (!string.IsNullOrEmpty(bgColor))
-				{
-					var parsed = ParseCssColor(bgColor);
-					if (parsed.HasValue)
-						style.Background = parsed.Value;
-				}
-
-				// Text alignment
-				var textAlign = css.GetPropertyValue("text-align");
-				if (!string.IsNullOrEmpty(textAlign))
-				{
-					style.Alignment = textAlign.ToLowerInvariant() switch
+					// Font style → Italic
+					var fontStyle = css.GetPropertyValue("font-style");
+					if (fontStyle == "italic" || fontStyle == "oblique")
 					{
-						"center" => TextAlignment.Center,
-						"right" => TextAlignment.Right,
-						_ => TextAlignment.Left,
-					};
-				}
+						style.Decorations |= TextDecoration.Italic;
+					}
 
-				// Display
-				var display = css.GetPropertyValue("display");
-				if (display == "none")
-				{
-					style.IsHidden = true;
-				}
-				else if (display == "grid")
-				{
-					style.DisplayGrid = "grid";
-				}
+					// Text decoration
+					var textDec = css.GetPropertyValue("text-decoration");
+					if (!string.IsNullOrEmpty(textDec))
+					{
+						if (textDec.Contains("underline", StringComparison.OrdinalIgnoreCase))
+							style.Decorations |= TextDecoration.Underline;
+						if (textDec.Contains("line-through", StringComparison.OrdinalIgnoreCase))
+							style.Decorations |= TextDecoration.Strikethrough;
+					}
 
-				// White space
-				var whiteSpace = css.GetPropertyValue("white-space");
-				if (whiteSpace == "pre" || whiteSpace == "pre-wrap" || whiteSpace == "pre-line")
-				{
-					style.PreserveWhitespace = true;
-				}
+					// Also check text-decoration-line (used by some browsers/parsers)
+					var textDecLine = css.GetPropertyValue("text-decoration-line");
+					if (!string.IsNullOrEmpty(textDecLine))
+					{
+						if (textDecLine.Contains("underline", StringComparison.OrdinalIgnoreCase))
+							style.Decorations |= TextDecoration.Underline;
+						if (textDecLine.Contains("line-through", StringComparison.OrdinalIgnoreCase))
+							style.Decorations |= TextDecoration.Strikethrough;
+					}
 
-				// Margins
-				style.MarginTop = ParsePxToLines(css.GetPropertyValue("margin-top"));
-				style.MarginBottom = ParsePxToLines(css.GetPropertyValue("margin-bottom"));
-				style.MarginLeft = ParsePxToChars(css.GetPropertyValue("margin-left"));
-				style.MarginRight = ParsePxToChars(css.GetPropertyValue("margin-right"));
+					// Color → Foreground
+					var color = css.GetPropertyValue("color");
+					if (!string.IsNullOrEmpty(color))
+					{
+						var parsed = ParseCssColor(color);
+						if (parsed.HasValue)
+							style.Foreground = parsed.Value;
+					}
 
-				// Padding
-				style.PaddingTop = ParsePxToLines(css.GetPropertyValue("padding-top"));
-				style.PaddingBottom = ParsePxToLines(css.GetPropertyValue("padding-bottom"));
-				style.PaddingLeft = ParsePxToChars(css.GetPropertyValue("padding-left"));
-				style.PaddingRight = ParsePxToChars(css.GetPropertyValue("padding-right"));
+					// Background color
+					var bgColor = css.GetPropertyValue("background-color");
+					if (!string.IsNullOrEmpty(bgColor))
+					{
+						var parsed = ParseCssColor(bgColor);
+						if (parsed.HasValue)
+							style.Background = parsed.Value;
+					}
 
-				// Border
-				var border = css.GetPropertyValue("border");
-				var borderStyle = css.GetPropertyValue("border-style");
-				if (!string.IsNullOrEmpty(border) && !border.Contains("none") && !border.Contains("0"))
-				{
-					style.HasBorder = true;
-				}
-				else if (!string.IsNullOrEmpty(borderStyle) && borderStyle != "none")
-				{
-					style.HasBorder = true;
-				}
+					// Text alignment
+					var textAlign = css.GetPropertyValue("text-align");
+					if (!string.IsNullOrEmpty(textAlign))
+					{
+						style.Alignment = textAlign.ToLowerInvariant() switch
+						{
+							"center" => TextAlignment.Center,
+							"right" => TextAlignment.Right,
+							_ => TextAlignment.Left,
+						};
+					}
 
-				// Grid template columns
-				var gridCols = css.GetPropertyValue("grid-template-columns");
-				if (!string.IsNullOrEmpty(gridCols))
-				{
-					style.GridTemplateColumns = gridCols;
-				}
+					// Display
+					var display = css.GetPropertyValue("display");
+					if (display == "none")
+					{
+						style.IsHidden = true;
+					}
+					else if (display == "grid")
+					{
+						style.DisplayGrid = "grid";
+					}
 
-				// Grid gap
-				var gap = css.GetPropertyValue("gap");
-				if (!string.IsNullOrEmpty(gap))
-				{
-					style.GridGap = ParsePxToChars(gap);
-				}
+					// White space
+					var whiteSpace = css.GetPropertyValue("white-space");
+					if (whiteSpace == "pre" || whiteSpace == "pre-wrap" || whiteSpace == "pre-line")
+					{
+						style.PreserveWhitespace = true;
+					}
 
-				// Width
-				var width = css.GetPropertyValue("width");
-				if (!string.IsNullOrEmpty(width))
-				{
-					var w = ParsePxToChars(width);
-					if (w > 0)
-						style.ExplicitWidth = w;
-				}
+					// Margins
+					style.MarginTop = ParsePxToLines(css.GetPropertyValue("margin-top"));
+					style.MarginBottom = ParsePxToLines(css.GetPropertyValue("margin-bottom"));
+					style.MarginLeft = ParsePxToChars(css.GetPropertyValue("margin-left"));
+					style.MarginRight = ParsePxToChars(css.GetPropertyValue("margin-right"));
+
+					// Padding
+					style.PaddingTop = ParsePxToLines(css.GetPropertyValue("padding-top"));
+					style.PaddingBottom = ParsePxToLines(css.GetPropertyValue("padding-bottom"));
+					style.PaddingLeft = ParsePxToChars(css.GetPropertyValue("padding-left"));
+					style.PaddingRight = ParsePxToChars(css.GetPropertyValue("padding-right"));
+
+					// Border
+					var border = css.GetPropertyValue("border");
+					var borderStyle = css.GetPropertyValue("border-style");
+					if (!string.IsNullOrEmpty(border) && !border.Contains("none") && !border.Contains("0"))
+					{
+						style.HasBorder = true;
+					}
+					else if (!string.IsNullOrEmpty(borderStyle) && borderStyle != "none")
+					{
+						style.HasBorder = true;
+					}
+
+					// Grid template columns
+					var gridCols = css.GetPropertyValue("grid-template-columns");
+					if (!string.IsNullOrEmpty(gridCols))
+					{
+						style.GridTemplateColumns = gridCols;
+					}
+
+					// Grid gap
+					var gap = css.GetPropertyValue("gap");
+					if (!string.IsNullOrEmpty(gap))
+					{
+						style.GridGap = ParsePxToChars(gap);
+					}
+
+					// Width
+					var width = css.GetPropertyValue("width");
+					if (!string.IsNullOrEmpty(width))
+					{
+						var w = ParsePxToChars(width);
+						if (w > 0)
+							style.ExplicitWidth = w;
+					}
 				}
 				catch
 				{
@@ -317,8 +317,8 @@ namespace SharpConsoleUI.Html
 				return null;
 
 			if (byte.TryParse(parts[0].Trim(), out var r) &&
-			    byte.TryParse(parts[1].Trim(), out var g) &&
-			    byte.TryParse(parts[2].Trim(), out var b))
+				byte.TryParse(parts[1].Trim(), out var g) &&
+				byte.TryParse(parts[2].Trim(), out var b))
 			{
 				return new Color(r, g, b);
 			}
@@ -337,9 +337,9 @@ namespace SharpConsoleUI.Html
 			}
 
 			if (hex.Length == 6 &&
-			    byte.TryParse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber, null, out var r) &&
-			    byte.TryParse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber, null, out var g) &&
-			    byte.TryParse(hex.Substring(4, 2), System.Globalization.NumberStyles.HexNumber, null, out var b))
+				byte.TryParse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber, null, out var r) &&
+				byte.TryParse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber, null, out var g) &&
+				byte.TryParse(hex.Substring(4, 2), System.Globalization.NumberStyles.HexNumber, null, out var b))
 			{
 				return new Color(r, g, b);
 			}
@@ -360,7 +360,7 @@ namespace SharpConsoleUI.Html
 			if (value.EndsWith("em", StringComparison.OrdinalIgnoreCase))
 			{
 				if (double.TryParse(value.AsSpan(0, value.Length - 2), System.Globalization.NumberStyles.Float,
-					    System.Globalization.CultureInfo.InvariantCulture, out var em))
+						System.Globalization.CultureInfo.InvariantCulture, out var em))
 				{
 					return (int)Math.Round(em);
 				}
@@ -368,13 +368,13 @@ namespace SharpConsoleUI.Html
 			else if (value.EndsWith("px", StringComparison.OrdinalIgnoreCase))
 			{
 				if (double.TryParse(value.AsSpan(0, value.Length - 2), System.Globalization.NumberStyles.Float,
-					    System.Globalization.CultureInfo.InvariantCulture, out var px))
+						System.Globalization.CultureInfo.InvariantCulture, out var px))
 				{
 					return (int)Math.Round(px / 16.0);
 				}
 			}
 			else if (double.TryParse(value, System.Globalization.NumberStyles.Float,
-				         System.Globalization.CultureInfo.InvariantCulture, out var raw))
+						 System.Globalization.CultureInfo.InvariantCulture, out var raw))
 			{
 				// Bare number treated as px
 				return (int)Math.Round(raw / 16.0);
@@ -396,7 +396,7 @@ namespace SharpConsoleUI.Html
 			if (value.EndsWith("em", StringComparison.OrdinalIgnoreCase))
 			{
 				if (double.TryParse(value.AsSpan(0, value.Length - 2), System.Globalization.NumberStyles.Float,
-					    System.Globalization.CultureInfo.InvariantCulture, out var em))
+						System.Globalization.CultureInfo.InvariantCulture, out var em))
 				{
 					return (int)Math.Round(em * HtmlConstants.EmToCharRatio);
 				}
@@ -404,13 +404,13 @@ namespace SharpConsoleUI.Html
 			else if (value.EndsWith("px", StringComparison.OrdinalIgnoreCase))
 			{
 				if (double.TryParse(value.AsSpan(0, value.Length - 2), System.Globalization.NumberStyles.Float,
-					    System.Globalization.CultureInfo.InvariantCulture, out var px))
+						System.Globalization.CultureInfo.InvariantCulture, out var px))
 				{
 					return (int)Math.Round(px / HtmlConstants.PxToCharRatio);
 				}
 			}
 			else if (double.TryParse(value, System.Globalization.NumberStyles.Float,
-				         System.Globalization.CultureInfo.InvariantCulture, out var raw))
+						 System.Globalization.CultureInfo.InvariantCulture, out var raw))
 			{
 				return (int)Math.Round(raw / HtmlConstants.PxToCharRatio);
 			}

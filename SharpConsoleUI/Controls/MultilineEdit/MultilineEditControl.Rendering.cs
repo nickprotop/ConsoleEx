@@ -9,9 +9,9 @@
 using System.Text;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {
@@ -194,7 +194,7 @@ namespace SharpConsoleUI.Controls
 			Color activeThumbColor = HasFocus ? Color.Cyan1 : Color.Grey;
 			Color activeTrackColor = HasFocus ? Color.Grey : Color.Grey23;
 
-				int contentStartX = startX + gutterWidth;
+			int contentStartX = startX + gutterWidth;
 
 			for (int i = 0; i < linesToPaint; i++)
 			{
@@ -773,7 +773,7 @@ namespace SharpConsoleUI.Controls
 			lock (_contentLock)
 			{
 				_syntaxTokenCache ??= new Dictionary<int, IReadOnlyList<SyntaxToken>>();
-				_lineStateCache   ??= new Dictionary<int, SyntaxLineState>();
+				_lineStateCache ??= new Dictionary<int, SyntaxLineState>();
 
 				if (_syntaxTokenCache.TryGetValue(lineIndex, out var cached))
 					return cached;
@@ -793,7 +793,7 @@ namespace SharpConsoleUI.Controls
 			lock (_contentLock)
 			{
 				_syntaxTokenCache ??= new Dictionary<int, IReadOnlyList<SyntaxToken>>();
-				_lineStateCache   ??= new Dictionary<int, SyntaxLineState>();
+				_lineStateCache ??= new Dictionary<int, SyntaxLineState>();
 
 				// Find the furthest line whose start-state is already known
 				int startFrom = lineIndex;
@@ -812,7 +812,7 @@ namespace SharpConsoleUI.Controls
 					var lineText = i < _lines.Count ? _lines[i] : string.Empty;
 					var (tokens, endState) = _syntaxHighlighter!.Tokenize(lineText, i, startState);
 
-					_syntaxTokenCache[i]   = tokens;
+					_syntaxTokenCache[i] = tokens;
 					_lineStateCache[i + 1] = endState; // state at the START of the next line
 				}
 			}

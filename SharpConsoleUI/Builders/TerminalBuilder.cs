@@ -1,3 +1,11 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
 using System.Runtime.Versioning;
 using SharpConsoleUI.Controls.Terminal;
 using SharpConsoleUI.Logging;
@@ -12,52 +20,52 @@ namespace SharpConsoleUI.Builders;
 [SupportedOSPlatform("windows")]
 public class TerminalBuilder
 {
-    // Default shell: bash on Linux/macOS, cmd.exe on Windows.
-    private string _exe = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/bash";
-    private string[]? _args;
-    private string? _workingDirectory;
-    private ILogService? _logService;
-    private Color? _defaultBackground;
+	// Default shell: bash on Linux/macOS, cmd.exe on Windows.
+	private string _exe = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/bash";
+	private string[]? _args;
+	private string? _workingDirectory;
+	private ILogService? _logService;
+	private Color? _defaultBackground;
 
-    /// <summary>Sets the executable to launch inside the terminal.</summary>
-    public TerminalBuilder WithExe(string exe)         { _exe = exe; return this; }
-    /// <summary>Sets the arguments passed to the executable.</summary>
-    public TerminalBuilder WithArgs(params string[] a) { _args = a;  return this; }
-    /// <summary>Sets the working directory for the spawned process.</summary>
-    public TerminalBuilder WithWorkingDirectory(string? dir) { _workingDirectory = dir; return this; }
-    /// <summary>Attaches a log service so PTY lifecycle events are recorded under the "PTY"/"Terminal" categories.</summary>
-    public TerminalBuilder WithLogService(ILogService? logService) { _logService = logService; return this; }
-    /// <summary>
-    /// Sets the VT100's default background color (SGR 49 / cleared cells). Pass
-    /// <see cref="Color.Transparent"/> (A=0) to make empty terminal cells emit SGR 49
-    /// so the host terminal's own background (or its transparency) shows through.
-    /// </summary>
-    public TerminalBuilder WithBackgroundColor(Color color) { _defaultBackground = color; return this; }
+	/// <summary>Sets the executable to launch inside the terminal.</summary>
+	public TerminalBuilder WithExe(string exe) { _exe = exe; return this; }
+	/// <summary>Sets the arguments passed to the executable.</summary>
+	public TerminalBuilder WithArgs(params string[] a) { _args = a; return this; }
+	/// <summary>Sets the working directory for the spawned process.</summary>
+	public TerminalBuilder WithWorkingDirectory(string? dir) { _workingDirectory = dir; return this; }
+	/// <summary>Attaches a log service so PTY lifecycle events are recorded under the "PTY"/"Terminal" categories.</summary>
+	public TerminalBuilder WithLogService(ILogService? logService) { _logService = logService; return this; }
+	/// <summary>
+	/// Sets the VT100's default background color (SGR 49 / cleared cells). Pass
+	/// <see cref="Color.Transparent"/> (A=0) to make empty terminal cells emit SGR 49
+	/// so the host terminal's own background (or its transparency) shows through.
+	/// </summary>
+	public TerminalBuilder WithBackgroundColor(Color color) { _defaultBackground = color; return this; }
 
-    /// <summary>Returns a self-contained TerminalControl (PTY open, shim running, read loop active).</summary>
-    public TerminalControl Build() => new TerminalControl(_exe, _args, _workingDirectory, _logService, _defaultBackground);
+	/// <summary>Returns a self-contained TerminalControl (PTY open, shim running, read loop active).</summary>
+	public TerminalControl Build() => new TerminalControl(_exe, _args, _workingDirectory, _logService, _defaultBackground);
 
-    /// <summary>
-    /// Convenience: builds a TerminalControl and opens a default centered window.
-    /// </summary>
-    /// <param name="ws">The window system to open the terminal in.</param>
-    /// <param name="width">Terminal columns. Defaults to desktop width minus 6, minimum 60.</param>
-    /// <param name="height">Terminal rows. Defaults to desktop height minus 6, minimum 20.</param>
-    public void Open(ConsoleWindowSystem ws, int? width = null, int? height = null)
-    {
-        // Auto-attach log service from the window system if not explicitly set.
-        _logService ??= ws.LogService;
+	/// <summary>
+	/// Convenience: builds a TerminalControl and opens a default centered window.
+	/// </summary>
+	/// <param name="ws">The window system to open the terminal in.</param>
+	/// <param name="width">Terminal columns. Defaults to desktop width minus 6, minimum 60.</param>
+	/// <param name="height">Terminal rows. Defaults to desktop height minus 6, minimum 20.</param>
+	public void Open(ConsoleWindowSystem ws, int? width = null, int? height = null)
+	{
+		// Auto-attach log service from the window system if not explicitly set.
+		_logService ??= ws.LogService;
 
-        var t = Build();
-        int cols = width  ?? Math.Max(ws.DesktopDimensions.Width  - 6, 60);
-        int rows = height ?? Math.Max(ws.DesktopDimensions.Height - 6, 20);
-        var window = new WindowBuilder(ws)
-            .WithTitle(t.Title)
-            .WithSize(cols + 2, rows + 2)
-            .Centered()
-            .Closable(true)
-            .AddControl(t)
-            .Build();
-        ws.AddWindow(window);
-    }
+		var t = Build();
+		int cols = width ?? Math.Max(ws.DesktopDimensions.Width - 6, 60);
+		int rows = height ?? Math.Max(ws.DesktopDimensions.Height - 6, 20);
+		var window = new WindowBuilder(ws)
+			.WithTitle(t.Title)
+			.WithSize(cols + 2, rows + 2)
+			.Centered()
+			.Closable(true)
+			.AddControl(t)
+			.Build();
+		ws.AddWindow(window);
+	}
 }

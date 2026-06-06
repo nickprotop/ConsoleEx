@@ -1,3 +1,11 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
 using System.Runtime.InteropServices;
 using SharpConsoleUI.Registry;
 
@@ -11,35 +19,35 @@ namespace SharpConsoleUI.Configuration;
 /// <param name="FlushInterval">If set, a background timer flushes to disk on this interval. Null disables timer-based flushing.</param>
 /// <param name="Storage">Custom storage backend. If null, a JsonFileStorage backed by FilePath is used.</param>
 public record RegistryConfiguration(
-    string FilePath = "registry.json",
-    bool EagerFlush = false,
-    TimeSpan? FlushInterval = null,
-    IRegistryStorage? Storage = null
+	string FilePath = "registry.json",
+	bool EagerFlush = false,
+	TimeSpan? FlushInterval = null,
+	IRegistryStorage? Storage = null
 )
 {
-    /// <summary>
-    /// Default configuration using a platform-appropriate path:
-    /// Windows: %APPDATA%\&lt;appname&gt;\registry.json
-    /// Linux/macOS: ~/.config/&lt;appname&gt;/registry.json
-    /// </summary>
-    public static RegistryConfiguration Default => new(FilePath: GetDefaultFilePath());
+	/// <summary>
+	/// Default configuration using a platform-appropriate path:
+	/// Windows: %APPDATA%\&lt;appname&gt;\registry.json
+	/// Linux/macOS: ~/.config/&lt;appname&gt;/registry.json
+	/// </summary>
+	public static RegistryConfiguration Default => new(FilePath: GetDefaultFilePath());
 
-    /// <summary>Creates a configuration that persists to the specified file path.</summary>
-    public static RegistryConfiguration ForFile(string filePath) => new(FilePath: filePath);
+	/// <summary>Creates a configuration that persists to the specified file path.</summary>
+	public static RegistryConfiguration ForFile(string filePath) => new(FilePath: filePath);
 
-    /// <summary>
-    /// Returns the platform-appropriate default registry file path.
-    /// Uses %APPDATA% on Windows and ~/.config on Linux/macOS,
-    /// with the process name as a subfolder.
-    /// </summary>
-    public static string GetDefaultFilePath()
-    {
-        var appName = Path.GetFileNameWithoutExtension(Environment.ProcessPath) ?? "app";
+	/// <summary>
+	/// Returns the platform-appropriate default registry file path.
+	/// Uses %APPDATA% on Windows and ~/.config on Linux/macOS,
+	/// with the process name as a subfolder.
+	/// </summary>
+	public static string GetDefaultFilePath()
+	{
+		var appName = Path.GetFileNameWithoutExtension(Environment.ProcessPath) ?? "app";
 
-        string configDir = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config");
+		string configDir = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+			? Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)
+			: Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config");
 
-        return Path.Combine(configDir, appName, "registry.json");
-    }
+		return Path.Combine(configDir, appName, "registry.json");
+	}
 }

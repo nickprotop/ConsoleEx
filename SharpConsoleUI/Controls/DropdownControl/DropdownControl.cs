@@ -6,19 +6,18 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Configuration;
-using SharpConsoleUI.Core;
-using SharpConsoleUI.Drivers;
-using SharpConsoleUI.Events;
-using SharpConsoleUI.Helpers;
-using SharpConsoleUI.Layout;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Text;
-using Size = System.Drawing.Size;
-
+using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Core;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
+using Size = System.Drawing.Size;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -164,7 +163,7 @@ namespace SharpConsoleUI.Controls
 
 		#region IMouseAwareControl Events and Properties
 
-		#pragma warning disable CS0067  // Event never raised (interface requirement)
+#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
@@ -184,7 +183,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
-		#pragma warning restore CS0067
+#pragma warning restore CS0067
 
 		/// <inheritdoc/>
 		public bool WantsMouseEvents => _isEnabled;
@@ -265,7 +264,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-				public bool HasFocus
+		public bool HasFocus
 		{
 			get => ComputeHasFocus();
 		}

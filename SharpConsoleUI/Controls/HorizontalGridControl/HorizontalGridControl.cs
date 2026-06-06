@@ -6,16 +6,15 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Helpers;
-using SharpConsoleUI.Layout;
-using SharpConsoleUI.Events;
-using SharpConsoleUI.Drivers;
-using SharpConsoleUI.Core;
 using System.ComponentModel.Design;
 using System.Data.Common;
 using System.Drawing;
-
+using SharpConsoleUI.Core;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -75,7 +74,7 @@ namespace SharpConsoleUI.Controls
 	{
 		private List<ColumnContainer> _columns = new List<ColumnContainer>();
 		private readonly object _gridLock = new();
-			/// <summary>
+		/// <summary>
 		/// Gets the currently focused child control within the grid.
 		/// </summary>
 		public IInteractiveControl? FocusedContent => GetFocusedChildFromCoordinator();
@@ -277,16 +276,16 @@ namespace SharpConsoleUI.Controls
 		public override bool Visible
 		{ get => base.Visible; set { base.Visible = value; } }
 
-	/// <inheritdoc/>
-	public override int? Width
-	{
-		get => base.Width;
-		set
+		/// <inheritdoc/>
+		public override int? Width
 		{
-			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-			base.Width = validatedValue;
+			get => base.Width;
+			set
+			{
+				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+				base.Width = validatedValue;
+			}
 		}
-	}
 
 		/// <inheritdoc/>
 		public bool WantsMouseEvents => IsEnabled;
@@ -351,7 +350,7 @@ namespace SharpConsoleUI.Controls
 
 		#region Events
 
-		#pragma warning disable CS0067  // Event never raised (interface requirement)
+#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
@@ -369,7 +368,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
-		#pragma warning restore CS0067
+#pragma warning restore CS0067
 
 		#endregion
 

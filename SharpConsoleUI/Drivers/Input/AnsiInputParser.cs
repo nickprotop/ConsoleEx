@@ -585,7 +585,7 @@ namespace SharpConsoleUI.Drivers.Input
 					case 0: flags.Add(MouseFlags.Button1Pressed); flags.Add(MouseFlags.Button1Dragged); break;
 					case 1: flags.Add(MouseFlags.Button2Pressed); flags.Add(MouseFlags.Button2Dragged); break;
 					case 2: flags.Add(MouseFlags.Button3Pressed); flags.Add(MouseFlags.Button3Dragged); break;
-					// baseButton 3 = motion with no button
+						// baseButton 3 = motion with no button
 				}
 			}
 			else

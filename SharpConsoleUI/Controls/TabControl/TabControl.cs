@@ -6,13 +6,13 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Linq;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Events;
-using SharpConsoleUI.Drivers;
-using System.Linq;
 
 namespace SharpConsoleUI.Controls
 {
@@ -197,70 +197,70 @@ namespace SharpConsoleUI.Controls
 		public int ActiveTabIndex
 		{
 			get => _activeTabIndex;
-		set
-		{
-			TabChangingEventArgs? changingArgs = null;
-			TabChangedEventArgs? changedArgs = null;
-
-			// Phase 1: Validate and prepare event args under lock
-			lock (_tabLock)
+			set
 			{
-				if (_activeTabIndex != value && value >= 0 && value < _tabPages.Count)
+				TabChangingEventArgs? changingArgs = null;
+				TabChangedEventArgs? changedArgs = null;
+
+				// Phase 1: Validate and prepare event args under lock
+				lock (_tabLock)
 				{
-					var oldTab = _activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count ? _tabPages[_activeTabIndex] : null;
-					var newTab = value >= 0 && value < _tabPages.Count ? _tabPages[value] : null;
-					changingArgs = new TabChangingEventArgs(_activeTabIndex, value, oldTab, newTab);
+					if (_activeTabIndex != value && value >= 0 && value < _tabPages.Count)
+					{
+						var oldTab = _activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count ? _tabPages[_activeTabIndex] : null;
+						var newTab = value >= 0 && value < _tabPages.Count ? _tabPages[value] : null;
+						changingArgs = new TabChangingEventArgs(_activeTabIndex, value, oldTab, newTab);
+					}
+				}
+
+				if (changingArgs == null)
+					return;
+
+				// Phase 2: Fire TabChanging event outside lock (can be canceled)
+				TabChanging?.Invoke(this, changingArgs);
+				if (changingArgs.Cancel)
+					return;
+
+				// Phase 3: Commit the change under lock
+				lock (_tabLock)
+				{
+					// Re-validate in case state changed while we were outside the lock
+					if (value >= 0 && value < _tabPages.Count)
+					{
+						// Toggle visibility and release focus from old tab's content
+						if (_activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count)
+						{
+							var oldContent = _tabPages[_activeTabIndex].Content;
+							oldContent.Visible = false;
+
+							// If the focused control lives inside the old tab, clear its focus through FocusManager
+							// then re-focus the TabControl itself so Tab navigation still works
+							var window = this.GetParentWindow();
+							var focused = window?.FocusManager.FocusedControl as IWindowControl;
+							if (focused != null && ContainsFocusedControl(oldContent, focused))
+							{
+								window?.FocusManager.SetFocus(null, FocusReason.Programmatic);
+								// Re-focus TabControl so it remains the active focus target
+								if (this is IFocusableControl tabFc)
+									window?.FocusManager.SetFocus(tabFc, FocusReason.Programmatic);
+							}
+						}
+
+						_activeTabIndex = value;
+						OnPropertyChanged();
+						_tabPages[_activeTabIndex].Content.Visible = true;
+
+						changedArgs = new TabChangedEventArgs(changingArgs.OldIndex, changingArgs.NewIndex, changingArgs.OldTab, changingArgs.NewTab);
+					}
+				}
+
+				// Phase 4: Fire TabChanged event outside lock
+				if (changedArgs != null)
+				{
+					Core.AsyncEvent.Raise(TabChanged, TabChangedAsync, this, changedArgs, Container?.GetConsoleWindowSystem?.LogService);
+					Invalidate(true);
 				}
 			}
-
-			if (changingArgs == null)
-				return;
-
-			// Phase 2: Fire TabChanging event outside lock (can be canceled)
-			TabChanging?.Invoke(this, changingArgs);
-			if (changingArgs.Cancel)
-				return;
-
-			// Phase 3: Commit the change under lock
-			lock (_tabLock)
-			{
-				// Re-validate in case state changed while we were outside the lock
-				if (value >= 0 && value < _tabPages.Count)
-				{
-					// Toggle visibility and release focus from old tab's content
-					if (_activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count)
-					{
-						var oldContent = _tabPages[_activeTabIndex].Content;
-						oldContent.Visible = false;
-
-					// If the focused control lives inside the old tab, clear its focus through FocusManager
-					// then re-focus the TabControl itself so Tab navigation still works
-					var window = this.GetParentWindow();
-					var focused = window?.FocusManager.FocusedControl as IWindowControl;
-					if (focused != null && ContainsFocusedControl(oldContent, focused))
-					{
-						window?.FocusManager.SetFocus(null, FocusReason.Programmatic);
-						// Re-focus TabControl so it remains the active focus target
-						if (this is IFocusableControl tabFc)
-							window?.FocusManager.SetFocus(tabFc, FocusReason.Programmatic);
-					}
-					}
-
-					_activeTabIndex = value;
-					OnPropertyChanged();
-					_tabPages[_activeTabIndex].Content.Visible = true;
-
-					changedArgs = new TabChangedEventArgs(changingArgs.OldIndex, changingArgs.NewIndex, changingArgs.OldTab, changingArgs.NewTab);
-				}
-			}
-
-			// Phase 4: Fire TabChanged event outside lock
-			if (changedArgs != null)
-			{
-				Core.AsyncEvent.Raise(TabChanged, TabChangedAsync, this, changedArgs, Container?.GetConsoleWindowSystem?.LogService);
-				Invalidate(true);
-			}
-		}
 		}
 
 		/// <summary>
@@ -268,79 +268,79 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public IReadOnlyList<TabPage> TabPages { get { lock (_tabLock) { return _tabPages.ToList().AsReadOnly(); } } }
 
-	#region Events
+		#region Events
 
-	/// <summary>
-	/// Raised before the active tab changes. Can be canceled.
-	/// </summary>
-	public event EventHandler<TabChangingEventArgs>? TabChanging;
+		/// <summary>
+		/// Raised before the active tab changes. Can be canceled.
+		/// </summary>
+		public event EventHandler<TabChangingEventArgs>? TabChanging;
 
-	/// <summary>
-	/// Raised after the active tab has changed.
-	/// </summary>
-	public event EventHandler<TabChangedEventArgs>? TabChanged;
+		/// <summary>
+		/// Raised after the active tab has changed.
+		/// </summary>
+		public event EventHandler<TabChangedEventArgs>? TabChanged;
 
-	/// <summary>Async counterpart of <see cref="TabChanged"/>.</summary>
-	public event Core.AsyncEventHandler<TabChangedEventArgs>? TabChangedAsync;
+		/// <summary>Async counterpart of <see cref="TabChanged"/>.</summary>
+		public event Core.AsyncEventHandler<TabChangedEventArgs>? TabChangedAsync;
 
-	/// <summary>
-	/// Raised when a tab is added to the control.
-	/// </summary>
-	public event EventHandler<TabEventArgs>? TabAdded;
+		/// <summary>
+		/// Raised when a tab is added to the control.
+		/// </summary>
+		public event EventHandler<TabEventArgs>? TabAdded;
 
-	/// <summary>Async counterpart of <see cref="TabAdded"/>.</summary>
-	public event Core.AsyncEventHandler<TabEventArgs>? TabAddedAsync;
+		/// <summary>Async counterpart of <see cref="TabAdded"/>.</summary>
+		public event Core.AsyncEventHandler<TabEventArgs>? TabAddedAsync;
 
-	/// <summary>
-	/// Raised when a tab is removed from the control.
-	/// </summary>
-	public event EventHandler<TabEventArgs>? TabRemoved;
+		/// <summary>
+		/// Raised when a tab is removed from the control.
+		/// </summary>
+		public event EventHandler<TabEventArgs>? TabRemoved;
 
-	/// <summary>Async counterpart of <see cref="TabRemoved"/>.</summary>
-	public event Core.AsyncEventHandler<TabEventArgs>? TabRemovedAsync;
+		/// <summary>Async counterpart of <see cref="TabRemoved"/>.</summary>
+		public event Core.AsyncEventHandler<TabEventArgs>? TabRemovedAsync;
 
-	/// <summary>
-	/// Raised when the user clicks the close (×) button on a closable tab.
-	/// The tab is NOT automatically removed — subscribe and call RemoveTab to close it.
-	/// </summary>
-	public event EventHandler<TabEventArgs>? TabCloseRequested;
+		/// <summary>
+		/// Raised when the user clicks the close (×) button on a closable tab.
+		/// The tab is NOT automatically removed — subscribe and call RemoveTab to close it.
+		/// </summary>
+		public event EventHandler<TabEventArgs>? TabCloseRequested;
 
-	#endregion
+		#endregion
 
-	#region Convenience Properties
+		#region Convenience Properties
 
-	/// <summary>
-	/// Gets the currently active tab page, or null if no tabs exist.
-	/// </summary>
-	public TabPage? ActiveTab
-	{
-		get
+		/// <summary>
+		/// Gets the currently active tab page, or null if no tabs exist.
+		/// </summary>
+		public TabPage? ActiveTab
 		{
-			lock (_tabLock)
+			get
 			{
-				return _activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count
-					? _tabPages[_activeTabIndex]
-					: null;
+				lock (_tabLock)
+				{
+					return _activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count
+						? _tabPages[_activeTabIndex]
+						: null;
+				}
 			}
 		}
-	}
 
-	/// <summary>
-	/// Gets the number of tabs in the control.
-	/// </summary>
-	public int TabCount { get { lock (_tabLock) { return _tabPages.Count; } } }
+		/// <summary>
+		/// Gets the number of tabs in the control.
+		/// </summary>
+		public int TabCount { get { lock (_tabLock) { return _tabPages.Count; } } }
 
-	/// <summary>
-	/// Gets whether the control has any tabs.
-	/// </summary>
-	public bool HasTabs { get { lock (_tabLock) { return _tabPages.Count > 0; } } }
+		/// <summary>
+		/// Gets whether the control has any tabs.
+		/// </summary>
+		public bool HasTabs { get { lock (_tabLock) { return _tabPages.Count > 0; } } }
 
-	/// <summary>
-	/// Gets the titles of all tabs.
-	/// </summary>
-	public IEnumerable<string> TabTitles { get { lock (_tabLock) { return _tabPages.Select(t => t.Title).ToList(); } } }
+		/// <summary>
+		/// Gets the titles of all tabs.
+		/// </summary>
+		public IEnumerable<string> TabTitles { get { lock (_tabLock) { return _tabPages.Select(t => t.Title).ToList(); } } }
 
-	#endregion
+		#endregion
 
 		/// <summary>
 		/// Inserts a new tab at the specified index.

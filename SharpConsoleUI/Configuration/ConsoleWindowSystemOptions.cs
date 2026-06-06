@@ -1,3 +1,11 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
 using SharpConsoleUI.Rendering;
 
 namespace SharpConsoleUI.Configuration;
@@ -76,121 +84,121 @@ public enum TerminalTransparencyMode
 /// Configuration options for ConsoleWindowSystem behavior.
 /// </summary>
 public record ConsoleWindowSystemOptions(
-    bool EnablePerformanceMetrics = false,
-    bool EnableFrameRateLimiting = true,
-    int TargetFPS = 60,
-    bool ClampToWindowWidth = false,
+	bool EnablePerformanceMetrics = false,
+	bool EnableFrameRateLimiting = true,
+	int TargetFPS = 60,
+	bool ClampToWindowWidth = false,
 
-    // Dirty tracking granularity (Smart = adaptive [default], Cell = minimal output, Line = fewer cursor moves)
-    DirtyTrackingMode DirtyTrackingMode = DirtyTrackingMode.Smart,
+	// Dirty tracking granularity (Smart = adaptive [default], Cell = minimal output, Line = fewer cursor moves)
+	DirtyTrackingMode DirtyTrackingMode = DirtyTrackingMode.Smart,
 
-    // Smart mode tuning parameters (only used when DirtyTrackingMode = Smart)
-    float SmartModeCoverageThreshold = 0.6f,      // >60% dirty cells → use LINE mode
-    int SmartModeFragmentationThreshold = 5,      // >5 separate regions → use LINE mode
+	// Smart mode tuning parameters (only used when DirtyTrackingMode = Smart)
+	float SmartModeCoverageThreshold = 0.6f,      // >60% dirty cells → use LINE mode
+	int SmartModeFragmentationThreshold = 5,      // >5 separate regions → use LINE mode
 
-    // Animation system
-    bool EnableAnimations = true,
+	// Animation system
+	bool EnableAnimations = true,
 
-    // Window rendering optimizations
-    bool ClearDestinationOnWindowMove = true,
+	// Window rendering optimizations
+	bool ClearDestinationOnWindowMove = true,
 
-    // ===== DIAGNOSTICS & TESTING =====
-    // Rendering diagnostics for testing and debugging (default: false, zero overhead when disabled)
-    bool EnableDiagnostics = false,
-    int DiagnosticsRetainFrames = 1,
-    DiagnosticsLayers DiagnosticsLayers = DiagnosticsLayers.All,
-    bool EnableQualityAnalysis = false,
-    bool EnablePerformanceProfiling = false,
+	// ===== DIAGNOSTICS & TESTING =====
+	// Rendering diagnostics for testing and debugging (default: false, zero overhead when disabled)
+	bool EnableDiagnostics = false,
+	int DiagnosticsRetainFrames = 1,
+	DiagnosticsLayers DiagnosticsLayers = DiagnosticsLayers.All,
+	bool EnableQualityAnalysis = false,
+	bool EnablePerformanceProfiling = false,
 
-    // Panel system configuration
-    Func<SharpConsoleUI.Panel.PanelBuilder, SharpConsoleUI.Panel.PanelBuilder>? TopPanelConfig = null,
-    Func<SharpConsoleUI.Panel.PanelBuilder, SharpConsoleUI.Panel.PanelBuilder>? BottomPanelConfig = null,
+	// Panel system configuration
+	Func<SharpConsoleUI.Panel.PanelBuilder, SharpConsoleUI.Panel.PanelBuilder>? TopPanelConfig = null,
+	Func<SharpConsoleUI.Panel.PanelBuilder, SharpConsoleUI.Panel.PanelBuilder>? BottomPanelConfig = null,
 
-    // Panel visibility (both visible by default)
-    bool ShowTopPanel = true,
-    bool ShowBottomPanel = true,
+	// Panel visibility (both visible by default)
+	bool ShowTopPanel = true,
+	bool ShowBottomPanel = true,
 
-    // Desktop background configuration (gradient, pattern, animated). Null uses theme defaults.
-    DesktopBackgroundConfig? DesktopBackground = null,
+	// Desktop background configuration (gradient, pattern, animated). Null uses theme defaults.
+	DesktopBackgroundConfig? DesktopBackground = null,
 
-    // Terminal transparency behavior for semi-transparent windows over transparent desktop
-    TerminalTransparencyMode TerminalTransparencyMode = TerminalTransparencyMode.PreserveWindowColor,
+	// Terminal transparency behavior for semi-transparent windows over transparent desktop
+	TerminalTransparencyMode TerminalTransparencyMode = TerminalTransparencyMode.PreserveWindowColor,
 
-    // Global shortcut overrides. Set to null to disable, or provide a custom key.
-    // Default: Ctrl+T cycles windows, Ctrl+Q exits.
-    ConsoleKey? WindowCycleKey = ConsoleKey.T,
-    ConsoleKey? ExitKey = ConsoleKey.Q,
+	// Global shortcut overrides. Set to null to disable, or provide a custom key.
+	// Default: Ctrl+T cycles windows, Ctrl+Q exits.
+	ConsoleKey? WindowCycleKey = ConsoleKey.T,
+	ConsoleKey? ExitKey = ConsoleKey.Q,
 
-    // Main-loop watchdog configuration. Null uses defaults (new WatchdogOptions()).
-    WatchdogOptions? Watchdog = null,
+	// Main-loop watchdog configuration. Null uses defaults (new WatchdogOptions()).
+	WatchdogOptions? Watchdog = null,
 
-    // Install a UI SynchronizationContext for the duration of Run() so `await` inside handlers
-    // resumes on the main-loop (UI) thread (WinForms/WPF model). Default false.
-    // Default is false to preserve legacy behavior: awaited continuations resume on the thread
-    // pool, so a handler that blocks on async work (.Result/.Wait()/.GetAwaiter().GetResult())
-    // freezes-then-recovers instead of deadlocking. Set true to opt into the WinForms/WPF model
-    // where `await` resumes on the UI thread — but then handlers MUST use `await` and never block
-    // on async work on the UI thread, or the captured continuation deadlocks against the loop.
-    bool InstallSynchronizationContext = false
+	// Install a UI SynchronizationContext for the duration of Run() so `await` inside handlers
+	// resumes on the main-loop (UI) thread (WinForms/WPF model). Default false.
+	// Default is false to preserve legacy behavior: awaited continuations resume on the thread
+	// pool, so a handler that blocks on async work (.Result/.Wait()/.GetAwaiter().GetResult())
+	// freezes-then-recovers instead of deadlocking. Set true to opt into the WinForms/WPF model
+	// where `await` resumes on the UI thread — but then handlers MUST use `await` and never block
+	// on async work on the UI thread, or the captured continuation deadlocks against the loop.
+	bool InstallSynchronizationContext = false
 )
 {
-    private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";
+	private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";
 
-    /// <summary>
-    /// Gets the minimum time between frames in milliseconds based on TargetFPS.
-    /// </summary>
-    public int MinFrameTime => TargetFPS > 0 ? 1000 / TargetFPS : 16;
+	/// <summary>
+	/// Gets the minimum time between frames in milliseconds based on TargetFPS.
+	/// </summary>
+	public int MinFrameTime => TargetFPS > 0 ? 1000 / TargetFPS : 16;
 
-    /// <summary>
-    /// Gets the default configuration with frame rate limiting enabled at 60 FPS.
-    /// </summary>
-    public static ConsoleWindowSystemOptions Default => new();
+	/// <summary>
+	/// Gets the default configuration with frame rate limiting enabled at 60 FPS.
+	/// </summary>
+	public static ConsoleWindowSystemOptions Default => new();
 
-    /// <summary>
-    /// Creates a new configuration, checking environment variable SHARPCONSOLEUI_PERF_METRICS for override.
-    /// </summary>
-    /// <param name="enableMetrics">Explicit enable flag, or null to check environment variable.</param>
-    /// <param name="enableFrameRateLimiting">Enable frame rate limiting (default: true).</param>
-    /// <param name="targetFPS">Target frames per second (default: 60).</param>
-    /// <returns>A new ConsoleWindowSystemOptions instance.</returns>
-    public static ConsoleWindowSystemOptions Create(
-        bool? enableMetrics = null,
-        bool? enableFrameRateLimiting = null,
-        int? targetFPS = null)
-    {
-        bool metricsEnabled = enableMetrics ?? GetEnvironmentOverride();
-        bool frameRateLimitingEnabled = enableFrameRateLimiting ?? true;
-        int fps = targetFPS ?? 60;
+	/// <summary>
+	/// Creates a new configuration, checking environment variable SHARPCONSOLEUI_PERF_METRICS for override.
+	/// </summary>
+	/// <param name="enableMetrics">Explicit enable flag, or null to check environment variable.</param>
+	/// <param name="enableFrameRateLimiting">Enable frame rate limiting (default: true).</param>
+	/// <param name="targetFPS">Target frames per second (default: 60).</param>
+	/// <returns>A new ConsoleWindowSystemOptions instance.</returns>
+	public static ConsoleWindowSystemOptions Create(
+		bool? enableMetrics = null,
+		bool? enableFrameRateLimiting = null,
+		int? targetFPS = null)
+	{
+		bool metricsEnabled = enableMetrics ?? GetEnvironmentOverride();
+		bool frameRateLimitingEnabled = enableFrameRateLimiting ?? true;
+		int fps = targetFPS ?? 60;
 
-        return new ConsoleWindowSystemOptions(
-            EnablePerformanceMetrics: metricsEnabled,
-            EnableFrameRateLimiting: frameRateLimitingEnabled,
-            TargetFPS: fps
-        );
-    }
+		return new ConsoleWindowSystemOptions(
+			EnablePerformanceMetrics: metricsEnabled,
+			EnableFrameRateLimiting: frameRateLimitingEnabled,
+			TargetFPS: fps
+		);
+	}
 
-    private static bool GetEnvironmentOverride()
-    {
-        var envValue = Environment.GetEnvironmentVariable(PerfMetricsEnvVar);
-        if (string.IsNullOrWhiteSpace(envValue))
-            return false;
+	private static bool GetEnvironmentOverride()
+	{
+		var envValue = Environment.GetEnvironmentVariable(PerfMetricsEnvVar);
+		if (string.IsNullOrWhiteSpace(envValue))
+			return false;
 
-        return envValue.Equals("true", StringComparison.OrdinalIgnoreCase) ||
-               envValue.Equals("1", StringComparison.OrdinalIgnoreCase);
-    }
+		return envValue.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+			   envValue.Equals("1", StringComparison.OrdinalIgnoreCase);
+	}
 
-    /// <summary>
-    /// Gets a configuration with performance metrics enabled.
-    /// </summary>
-    public static ConsoleWindowSystemOptions WithMetrics => new(EnablePerformanceMetrics: true);
+	/// <summary>
+	/// Gets a configuration with performance metrics enabled.
+	/// </summary>
+	public static ConsoleWindowSystemOptions WithMetrics => new(EnablePerformanceMetrics: true);
 
-    /// <summary>
-    /// Gets a configuration with frame rate limiting disabled (renders as fast as possible).
-    /// </summary>
-    public static ConsoleWindowSystemOptions WithoutFrameRateLimiting => new(EnableFrameRateLimiting: false);
+	/// <summary>
+	/// Gets a configuration with frame rate limiting disabled (renders as fast as possible).
+	/// </summary>
+	public static ConsoleWindowSystemOptions WithoutFrameRateLimiting => new(EnableFrameRateLimiting: false);
 
-    /// <summary>
-    /// Gets a configuration with custom target FPS.
-    /// </summary>
-    public static ConsoleWindowSystemOptions WithTargetFPS(int fps) => new(TargetFPS: fps);
+	/// <summary>
+	/// Gets a configuration with custom target FPS.
+	/// </summary>
+	public static ConsoleWindowSystemOptions WithTargetFPS(int fps) => new(TargetFPS: fps);
 }

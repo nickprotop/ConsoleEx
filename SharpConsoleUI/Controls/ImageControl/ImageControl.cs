@@ -304,30 +304,30 @@ namespace SharpConsoleUI.Controls
 					return (srcCols, srcRows, 0, 0);
 
 				case ImageScaleMode.Fit:
-				{
-					double scale = Math.Min((double)availWidth / srcCols, (double)availHeight / srcRows);
-					int cols = Math.Max(1, (int)(srcCols * scale));
-					int rows = Math.Max(1, (int)(srcRows * scale));
-					return (cols, rows, 0, 0);
-				}
+					{
+						double scale = Math.Min((double)availWidth / srcCols, (double)availHeight / srcRows);
+						int cols = Math.Max(1, (int)(srcCols * scale));
+						int rows = Math.Max(1, (int)(srcRows * scale));
+						return (cols, rows, 0, 0);
+					}
 
 				case ImageScaleMode.Fill:
-				{
-					double scale = Math.Max((double)availWidth / srcCols, (double)availHeight / srcRows);
-					int cols = Math.Max(1, (int)Math.Ceiling(srcCols * scale));
-					int rows = Math.Max(1, (int)Math.Ceiling(srcRows * scale));
-					int cropX = Math.Max(0, (cols - availWidth) / 2);
-					int cropY = Math.Max(0, (rows - availHeight) / 2);
-					return (cols, rows, cropX, cropY);
-				}
+					{
+						double scale = Math.Max((double)availWidth / srcCols, (double)availHeight / srcRows);
+						int cols = Math.Max(1, (int)Math.Ceiling(srcCols * scale));
+						int rows = Math.Max(1, (int)Math.Ceiling(srcRows * scale));
+						int cropX = Math.Max(0, (cols - availWidth) / 2);
+						int cropY = Math.Max(0, (rows - availHeight) / 2);
+						return (cols, rows, cropX, cropY);
+					}
 
 				case ImageScaleMode.Stretch:
 				default:
-				{
-					int cols = Math.Max(1, availWidth);
-					int rows = Math.Max(1, availHeight);
-					return (cols, rows, 0, 0);
-				}
+					{
+						int cols = Math.Max(1, availWidth);
+						int rows = Math.Max(1, availHeight);
+						return (cols, rows, 0, 0);
+					}
 			}
 		}
 

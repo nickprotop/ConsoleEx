@@ -9,8 +9,8 @@
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
-using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
 
 namespace SharpConsoleUI.Controls
 {

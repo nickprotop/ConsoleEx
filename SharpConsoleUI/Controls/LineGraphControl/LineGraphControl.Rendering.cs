@@ -24,8 +24,8 @@ namespace SharpConsoleUI.Controls
 			int borderSize = _borderStyle != BorderStyle.None ? 2 : 0;
 
 			bool titleAndBaselineInline = _inlineTitleWithBaseline &&
-			                              _titlePosition == _baselinePosition &&
-			                              _showBaseline;
+										  _titlePosition == _baselinePosition &&
+										  _showBaseline;
 
 			int titleHeight = !string.IsNullOrEmpty(_title) && !titleAndBaselineInline ? 1 : 0;
 			int baselineHeight = _showBaseline ? 1 : 0;
@@ -84,8 +84,8 @@ namespace SharpConsoleUI.Controls
 			int borderSize = _borderStyle != BorderStyle.None ? 1 : 0;
 
 			bool titleAndBaselineInline = _inlineTitleWithBaseline &&
-			                              _titlePosition == _baselinePosition &&
-			                              _showBaseline;
+										  _titlePosition == _baselinePosition &&
+										  _showBaseline;
 
 			int titleHeight = !string.IsNullOrEmpty(_title) && !titleAndBaselineInline ? 1 : 0;
 			int baselineHeight = _showBaseline ? 1 : 0;

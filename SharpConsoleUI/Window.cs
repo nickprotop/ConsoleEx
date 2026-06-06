@@ -6,14 +6,14 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
 using SharpConsoleUI.Controls;
-using SharpConsoleUI.Events;
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Core;
 using SharpConsoleUI.Rendering;
-using System.Drawing;
 
 namespace SharpConsoleUI
 {
@@ -140,7 +140,7 @@ namespace SharpConsoleUI
 
 		private readonly Window? _parentWindow;
 		internal readonly WindowLayoutManager _layoutManager;
-	private readonly Windows.WindowContentManager _contentManager;
+		private readonly Windows.WindowContentManager _contentManager;
 		private Color? _activeBorderForegroundColor;
 		private Color? _activeTitleForegroundColor;
 		internal int _bottomStickyHeight;
@@ -161,7 +161,7 @@ namespace SharpConsoleUI
 		private bool _isActive;
 		private Controls.IFocusableControl? _savedFocusOnDeactivate;
 		/// <summary>Manages focus state for this window. Use to set, query, or move focus.</summary>
-	public FocusManager FocusManager { get; private set; } = null!;
+		public FocusManager FocusManager { get; private set; } = null!;
 		internal WindowRootScope RootScope { get; private set; } = null!;
 		private int? _minimumHeight = Configuration.ControlDefaults.DefaultWindowMinimumHeight;
 		private int? _minimumWidth = Configuration.ControlDefaults.DefaultWindowMinimumWidth;
@@ -195,8 +195,8 @@ namespace SharpConsoleUI
 		/// </summary>
 		public event Windows.WindowRenderer.BufferPaintDelegate? PreBufferPaint
 		{
-			add    { if (_renderer != null) _renderer.PreBufferPaint  += value; }
-			remove { if (_renderer != null) _renderer.PreBufferPaint  -= value; }
+			add { if (_renderer != null) _renderer.PreBufferPaint += value; }
+			remove { if (_renderer != null) _renderer.PreBufferPaint -= value; }
 		}
 
 		/// <summary>
@@ -205,7 +205,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		public event Windows.WindowRenderer.BufferPaintDelegate? PostBufferPaint
 		{
-			add    { if (_renderer != null) _renderer.PostBufferPaint += value; }
+			add { if (_renderer != null) _renderer.PostBufferPaint += value; }
 			remove { if (_renderer != null) _renderer.PostBufferPaint -= value; }
 		}
 
@@ -240,29 +240,29 @@ namespace SharpConsoleUI
 			_windowSystem = windowSystem;
 			_layoutManager = new WindowLayoutManager(this);
 
-		// Initialize renderer for DOM-based layout
-		_renderer = new Windows.WindowRenderer(
-			this,
-			_windowSystem?.LogService);
+			// Initialize renderer for DOM-based layout
+			_renderer = new Windows.WindowRenderer(
+				this,
+				_windowSystem?.LogService);
 
-		// Initialize content manager for control collection management
-		_contentManager = new Windows.WindowContentManager(
-			() => Title,
-			_windowSystem?.LogService,
-			() => Invalidate(true),
-			() => _renderer?.InvalidateDOM());
+			// Initialize content manager for control collection management
+			_contentManager = new Windows.WindowContentManager(
+				() => Title,
+				_windowSystem?.LogService,
+				() => Invalidate(true),
+				() => _renderer?.InvalidateDOM());
 
-		// Initialize border renderer
-		_borderRenderer = new Windows.BorderRenderer(
-			this,
-			() => _windowSystem?.ConsoleDriver!,
-			() => _windowSystem?.DesktopUpperLeft ?? Point.Empty,
-			() => _windowSystem?.DesktopBottomRight ?? Point.Empty);
+			// Initialize border renderer
+			_borderRenderer = new Windows.BorderRenderer(
+				this,
+				() => _windowSystem?.ConsoleDriver!,
+				() => _windowSystem?.DesktopUpperLeft ?? Point.Empty,
+				() => _windowSystem?.DesktopBottomRight ?? Point.Empty);
 
-		// Initialize event dispatcher, root scope and focus manager
-		_eventDispatcher = new Windows.WindowEventDispatcher(this);
-		RootScope = new Core.WindowRootScope(this);
-		FocusManager = new Core.FocusManager(this);
+			// Initialize event dispatcher, root scope and focus manager
+			_eventDispatcher = new Windows.WindowEventDispatcher(this);
+			RootScope = new Core.WindowRootScope(this);
+			FocusManager = new Core.FocusManager(this);
 
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();
@@ -306,29 +306,29 @@ namespace SharpConsoleUI
 			_parentWindow = parentWindow;
 			_layoutManager = new WindowLayoutManager(this);
 
-		// Initialize renderer for DOM-based layout
-		_renderer = new Windows.WindowRenderer(
-			this,
-			_windowSystem?.LogService);
+			// Initialize renderer for DOM-based layout
+			_renderer = new Windows.WindowRenderer(
+				this,
+				_windowSystem?.LogService);
 
-		// Initialize content manager for control collection management
-		_contentManager = new Windows.WindowContentManager(
-			() => Title,
-			_windowSystem?.LogService,
-			() => Invalidate(true),
-			() => _renderer?.InvalidateDOM());
+			// Initialize content manager for control collection management
+			_contentManager = new Windows.WindowContentManager(
+				() => Title,
+				_windowSystem?.LogService,
+				() => Invalidate(true),
+				() => _renderer?.InvalidateDOM());
 
-		// Initialize border renderer
-		_borderRenderer = new Windows.BorderRenderer(
-			this,
-			() => _windowSystem?.ConsoleDriver!,
-			() => _windowSystem?.DesktopUpperLeft ?? Point.Empty,
-			() => _windowSystem?.DesktopBottomRight ?? Point.Empty);
+			// Initialize border renderer
+			_borderRenderer = new Windows.BorderRenderer(
+				this,
+				() => _windowSystem?.ConsoleDriver!,
+				() => _windowSystem?.DesktopUpperLeft ?? Point.Empty,
+				() => _windowSystem?.DesktopBottomRight ?? Point.Empty);
 
-		// Initialize event dispatcher, root scope and focus manager
-		_eventDispatcher = new Windows.WindowEventDispatcher(this);
-		RootScope = new Core.WindowRootScope(this);
-		FocusManager = new Core.FocusManager(this);
+			// Initialize event dispatcher, root scope and focus manager
+			_eventDispatcher = new Windows.WindowEventDispatcher(this);
+			RootScope = new Core.WindowRootScope(this);
+			FocusManager = new Core.FocusManager(this);
 
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();
@@ -658,25 +658,25 @@ namespace SharpConsoleUI
 		/// </summary>
 		public bool UseDesktopPortals { get; set; } = false;
 
-	private bool _renderLock = false;
+		private bool _renderLock = false;
 
-	internal bool RenderLock
-	{
-		get => _renderLock;
-		set
+		internal bool RenderLock
 		{
-			if (_renderLock != value)
+			get => _renderLock;
+			set
 			{
-				_renderLock = value;
-
-				// When unlocking, force re-render to show accumulated changes
-				if (!_renderLock)
+				if (_renderLock != value)
 				{
-					IsDirty = true;
+					_renderLock = value;
+
+					// When unlocking, force re-render to show accumulated changes
+					if (!_renderLock)
+					{
+						IsDirty = true;
+					}
 				}
 			}
 		}
-	}
 
 		/// <summary>
 		/// Gets or sets the left position of the window in character columns.

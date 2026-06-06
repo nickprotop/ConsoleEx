@@ -6,11 +6,11 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
-using System.Drawing;
 using Size = System.Drawing.Size;
 
 namespace SharpConsoleUI.Windows
@@ -224,7 +224,7 @@ namespace SharpConsoleUI.Windows
 						// === EXISTING: NON-SCROLL EVENTS (clicks, etc.) ===
 						// Centralized focus handling on click (left-click and right-click)
 						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked,
-						                    MouseFlags.Button3Pressed, MouseFlags.Button3Clicked))
+											MouseFlags.Button3Pressed, MouseFlags.Button3Clicked))
 						{
 							HandleClickFocus(targetControl);
 						}
@@ -249,7 +249,7 @@ namespace SharpConsoleUI.Windows
 						if (targetControl != null && targetControl is not Controls.IMouseAwareControl)
 						{
 							if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked,
-							                    MouseFlags.Button3Pressed, MouseFlags.Button3Clicked))
+												MouseFlags.Button3Pressed, MouseFlags.Button3Clicked))
 							{
 								_window.RaiseUnhandledMouseClick(args);
 							}
@@ -258,7 +258,7 @@ namespace SharpConsoleUI.Windows
 
 						// Fire UnhandledMouseClick event for clicks on empty/unhandled space
 						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked,
-						                    MouseFlags.Button3Pressed, MouseFlags.Button3Clicked))
+											MouseFlags.Button3Pressed, MouseFlags.Button3Clicked))
 						{
 							_window.RaiseUnhandledMouseClick(args);
 							return true; // Considered handled after event fires
@@ -299,7 +299,7 @@ namespace SharpConsoleUI.Windows
 			if (root == null) return;
 
 			if (!args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked,
-			                     MouseFlags.Button3Pressed, MouseFlags.Button3Clicked))
+								 MouseFlags.Button3Pressed, MouseFlags.Button3Clicked))
 				return;
 
 			var contentPos = GetContentCoordinates(args.WindowPosition);
@@ -358,24 +358,24 @@ namespace SharpConsoleUI.Windows
 		/// </summary>
 		private Point GetControlRelativePosition(IWindowControl control, Point windowPosition)
 		{
-		// Use DOM bounds if available (for sticky and container controls)
-		var node = _window._renderer?.GetLayoutNode(control);
-		if (node != null)
-		{
-		  // Convert window position to content position
-			var contentPos = GetContentCoordinates(windowPosition);
+			// Use DOM bounds if available (for sticky and container controls)
+			var node = _window._renderer?.GetLayoutNode(control);
+			if (node != null)
+			{
+				// Convert window position to content position
+				var contentPos = GetContentCoordinates(windowPosition);
 
-			// Make relative to control's AbsoluteBounds
-			return new Point(
-				contentPos.X - node.AbsoluteBounds.X,
-				contentPos.Y - node.AbsoluteBounds.Y
-			);
+				// Make relative to control's AbsoluteBounds
+				return new Point(
+					contentPos.X - node.AbsoluteBounds.X,
+					contentPos.Y - node.AbsoluteBounds.Y
+				);
+			}
+
+			// Fallback to layout manager for controls not in DOM
+			var bounds = _window._layoutManager.GetOrCreateControlBounds(control);
+			return bounds.WindowToControl(windowPosition);
 		}
-
-		// Fallback to layout manager for controls not in DOM
-		var bounds = _window._layoutManager.GetOrCreateControlBounds(control);
-		return bounds.WindowToControl(windowPosition);
-	}
 
 		/// <summary>
 		/// Centralized focus handling for mouse clicks.
@@ -455,7 +455,7 @@ namespace SharpConsoleUI.Windows
 
 				// Return null if outside content area (title bar, borders)
 				if (contentX < 0 || contentY < 0 ||
-				    contentX >= _window.Width - 2 || contentY >= _window.Height - 2)
+					contentX >= _window.Width - 2 || contentY >= _window.Height - 2)
 					return null;
 
 				// Use DOM tree hit-testing for correct nested control detection

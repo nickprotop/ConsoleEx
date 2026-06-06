@@ -6,20 +6,20 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
+using System.Text;
+using System.Text.RegularExpressions;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
-using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 using Spectre.Console;
 using Spectre.Console.Rendering;
-using System.Drawing;
-using System.Text;
-using System.Text.RegularExpressions;
 using Color = Spectre.Console.Color;
+using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using NativeColor = SharpConsoleUI.Color;
+using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 
 namespace SharpConsoleUI.Controls
 {
@@ -280,30 +280,30 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-        public override LayoutSize MeasureDOM(LayoutConstraints constraints)
-        {
-            if (_renderable == null)
-            {
-                return new LayoutSize(
-                    Math.Clamp(Margin.Left + Margin.Right, constraints.MinWidth, constraints.MaxWidth),
-                    Math.Clamp(Margin.Top + Margin.Bottom, constraints.MinHeight, constraints.MaxHeight)
-                );
-            }
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
+		{
+			if (_renderable == null)
+			{
+				return new LayoutSize(
+					Math.Clamp(Margin.Left + Margin.Right, constraints.MinWidth, constraints.MaxWidth),
+					Math.Clamp(Margin.Top + Margin.Bottom, constraints.MinHeight, constraints.MaxHeight)
+				);
+			}
 
-            var bgColor = BackgroundColor;
-            int targetWidth = Width ?? constraints.MaxWidth - Margin.Left - Margin.Right;
+			var bgColor = BackgroundColor;
+			int targetWidth = Width ?? constraints.MaxWidth - Margin.Left - Margin.Right;
 
-            var content = RenderToAnsi(_renderable, targetWidth, null, bgColor);
+			var content = RenderToAnsi(_renderable, targetWidth, null, bgColor);
 
-            int maxWidth = content.Count > 0 ? content.Max(line => StripAnsiLength(line)) : 0;
-            int width = maxWidth + Margin.Left + Margin.Right;
-            int height = content.Count + Margin.Top + Margin.Bottom;
+			int maxWidth = content.Count > 0 ? content.Max(line => StripAnsiLength(line)) : 0;
+			int width = maxWidth + Margin.Left + Margin.Right;
+			int height = content.Count + Margin.Top + Margin.Bottom;
 
-            return new LayoutSize(
-                Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
-                Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
-            );
-        }
+			return new LayoutSize(
+				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
+				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
+			);
+		}
 
 
 		/// <inheritdoc/>

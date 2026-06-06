@@ -6,113 +6,113 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Controls;
-using SharpConsoleUI.Helpers;
-using SharpConsoleUI.Core;
 using System.Drawing;
+using SharpConsoleUI.Controls;
+using SharpConsoleUI.Core;
+using SharpConsoleUI.Helpers;
 
 namespace SharpConsoleUI
 {
 	public partial class Window
 	{
-	/// <inheritdoc/>
-	public void AddControl(IWindowControl content)
-	{
-		lock (_lock)
+		/// <inheritdoc/>
+		public void AddControl(IWindowControl content)
 		{
-			// Delegate to content manager for core collection management
-			_contentManager.AddControl(_controls, _interactiveContents, content, this);
-
-			// Trigger DOM rebuild so layout is ready for focus/scroll calculations
-			EnsureContentReady();
-
-			// Auto-focus the first interactive control added to the window.
-			// Only triggers when no control is currently focused (prevents stealing focus).
-			if (content is IInteractiveControl && FocusManager.FocusedControl == null)
-				FocusManager.MoveFocus(false);
-
-			// Auto-scroll to bottom for non-sticky controls if nothing is focused
-			if (content.StickyPosition == StickyPosition.None && FocusManager.FocusedControl == null)
-				GoToBottom();
-		}
-	}
-	/// <summary>
-	/// Inserts a control at the specified index.
-	/// </summary>
-	public void InsertControl(int index, IWindowControl content)
-	{
-		lock (_lock)
-		{
-			_contentManager.InsertControl(_controls, _interactiveContents, index, content, this);
-			EnsureContentReady();
-		}
-	}
-
-	/// <summary>
-	/// Removes all controls from the window.
-	/// </summary>
-	public void ClearControls()
-	{
-		lock (_lock)
-		{
-			// Dispose all controls first
-			foreach (var content in _controls.ToList())
+			lock (_lock)
 			{
-				content.Dispose();
+				// Delegate to content manager for core collection management
+				_contentManager.AddControl(_controls, _interactiveContents, content, this);
+
+				// Trigger DOM rebuild so layout is ready for focus/scroll calculations
+				EnsureContentReady();
+
+				// Auto-focus the first interactive control added to the window.
+				// Only triggers when no control is currently focused (prevents stealing focus).
+				if (content is IInteractiveControl && FocusManager.FocusedControl == null)
+					FocusManager.MoveFocus(false);
+
+				// Auto-scroll to bottom for non-sticky controls if nothing is focused
+				if (content.StickyPosition == StickyPosition.None && FocusManager.FocusedControl == null)
+					GoToBottom();
 			}
-
-			// Clear focus tracking through coordinator
-			FocusManager.SetFocus(null, Controls.FocusReason.Programmatic);
-
-			// Delegate to content manager for core clearing
-			_contentManager.ClearControls(_controls, _interactiveContents);
 		}
-	}
+		/// <summary>
+		/// Inserts a control at the specified index.
+		/// </summary>
+		public void InsertControl(int index, IWindowControl content)
+		{
+			lock (_lock)
+			{
+				_contentManager.InsertControl(_controls, _interactiveContents, index, content, this);
+				EnsureContentReady();
+			}
+		}
+
+		/// <summary>
+		/// Removes all controls from the window.
+		/// </summary>
+		public void ClearControls()
+		{
+			lock (_lock)
+			{
+				// Dispose all controls first
+				foreach (var content in _controls.ToList())
+				{
+					content.Dispose();
+				}
+
+				// Clear focus tracking through coordinator
+				FocusManager.SetFocus(null, Controls.FocusReason.Programmatic);
+
+				// Delegate to content manager for core clearing
+				_contentManager.ClearControls(_controls, _interactiveContents);
+			}
+		}
 
 		/// <summary>
 		/// Removes a control from this window and disposes it.
 		/// </summary>
 		/// <param name="content">The control to remove.</param>
 		public void RemoveContent(IWindowControl content)
-	{
-		lock (_lock)
 		{
-			// Handle focus logic before removing
-			if (content is IInteractiveControl interactiveControl)
+			lock (_lock)
 			{
-				bool wasFocused = interactiveControl is IFocusableControl fc && FocusManager.IsFocused(fc);
-
-				if (wasFocused)
+				// Handle focus logic before removing
+				if (content is IInteractiveControl interactiveControl)
 				{
-					// Clear focus on the removed control
-					FocusManager.SetFocus(null, Controls.FocusReason.Programmatic);
-				}
+					bool wasFocused = interactiveControl is IFocusableControl fc && FocusManager.IsFocused(fc);
 
-				// After clearing, auto-focus next control if one exists
-				if (wasFocused && _interactiveContents.Count > 1)
-				{
-					var nextControl = _interactiveContents.FirstOrDefault(ic => ic != interactiveControl);
-					if (nextControl != null)
+					if (wasFocused)
 					{
-						FocusManager.SetFocus(nextControl as Controls.IFocusableControl, Controls.FocusReason.Programmatic);
+						// Clear focus on the removed control
+						FocusManager.SetFocus(null, Controls.FocusReason.Programmatic);
+					}
+
+					// After clearing, auto-focus next control if one exists
+					if (wasFocused && _interactiveContents.Count > 1)
+					{
+						var nextControl = _interactiveContents.FirstOrDefault(ic => ic != interactiveControl);
+						if (nextControl != null)
+						{
+							FocusManager.SetFocus(nextControl as Controls.IFocusableControl, Controls.FocusReason.Programmatic);
+						}
 					}
 				}
-			}
 
-			// Delegate to content manager for core removal
-			if (_contentManager.RemoveControl(_controls, _interactiveContents, content))
-			{
-				// Dispose the control
-				content.Dispose();
+				// Delegate to content manager for core removal
+				if (_contentManager.RemoveControl(_controls, _interactiveContents, content))
+				{
+					// Dispose the control
+					content.Dispose();
 
-				// Trigger DOM rebuild
-				EnsureContentReady();
+					// Trigger DOM rebuild
+					EnsureContentReady();
 
-				// Auto-scroll to bottom
-				GoToBottom();
+					// Auto-scroll to bottom
+					GoToBottom();
+				}
 			}
 		}
-	}
 
 		/// <summary>
 		/// Determines whether this window contains the specified control.
@@ -262,7 +262,7 @@ namespace SharpConsoleUI
 				ToolbarControl toolbar => toolbar.Items,
 				HorizontalGridControl grid => grid.Columns.SelectMany(c => c.Contents),
 				ColumnContainer column => column.Contents,
-			ScrollablePanelControl panel => panel.Children,
+				ScrollablePanelControl panel => panel.Children,
 				TabControl tabControl => tabControl.TabPages.Select(tp => tp.Content),
 				_ => null
 			};

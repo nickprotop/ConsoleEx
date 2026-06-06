@@ -6,8 +6,8 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Configuration;
 using System.Text;
+using SharpConsoleUI.Configuration;
 
 namespace SharpConsoleUI.Controls
 {

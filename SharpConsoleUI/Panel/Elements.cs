@@ -1,3 +1,11 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
 using SharpConsoleUI.Panel.Builders;
 
 namespace SharpConsoleUI.Panel;
@@ -8,40 +16,40 @@ namespace SharpConsoleUI.Panel;
 /// </summary>
 public static class Elements
 {
-    /// <summary>
-    /// Creates a StatusTextElement builder with the specified markup text.
-    /// </summary>
-    /// <param name="text">The markup text to display.</param>
-    public static StatusTextElementBuilder StatusText(string text) => new(text);
+	/// <summary>
+	/// Creates a StatusTextElement builder with the specified markup text.
+	/// </summary>
+	/// <param name="text">The markup text to display.</param>
+	public static StatusTextElementBuilder StatusText(string text) => new(text);
 
-    /// <summary>
-    /// Creates a SeparatorElement builder.
-    /// </summary>
-    public static SeparatorElementBuilder Separator() => new();
+	/// <summary>
+	/// Creates a SeparatorElement builder.
+	/// </summary>
+	public static SeparatorElementBuilder Separator() => new();
 
-    /// <summary>
-    /// Creates a StartMenuElement builder.
-    /// </summary>
-    public static StartMenuElementBuilder StartMenu() => new();
+	/// <summary>
+	/// Creates a StartMenuElement builder.
+	/// </summary>
+	public static StartMenuElementBuilder StartMenu() => new();
 
-    /// <summary>
-    /// Creates a TaskBarElement builder.
-    /// </summary>
-    public static TaskBarElementBuilder TaskBar() => new();
+	/// <summary>
+	/// Creates a TaskBarElement builder.
+	/// </summary>
+	public static TaskBarElementBuilder TaskBar() => new();
 
-    /// <summary>
-    /// Creates a ClockElement builder.
-    /// </summary>
-    public static ClockElementBuilder Clock() => new();
+	/// <summary>
+	/// Creates a ClockElement builder.
+	/// </summary>
+	public static ClockElementBuilder Clock() => new();
 
-    /// <summary>
-    /// Creates a PerformanceElement builder.
-    /// </summary>
-    public static PerformanceElementBuilder Performance() => new();
+	/// <summary>
+	/// Creates a PerformanceElement builder.
+	/// </summary>
+	public static PerformanceElementBuilder Performance() => new();
 
-    /// <summary>
-    /// Creates a CustomElement builder with the specified name.
-    /// </summary>
-    /// <param name="name">The element name.</param>
-    public static CustomElementBuilder Custom(string name) => new(name);
+	/// <summary>
+	/// Creates a CustomElement builder with the specified name.
+	/// </summary>
+	/// <param name="name">The element name.</param>
+	public static CustomElementBuilder Custom(string name) => new(name);
 }

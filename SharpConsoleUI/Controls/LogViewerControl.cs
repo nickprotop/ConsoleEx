@@ -6,14 +6,14 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Collections.Concurrent;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
-using SharpConsoleUI.Drivers;
-using SharpConsoleUI.Events;
-using System.Collections.Concurrent;
 
 namespace SharpConsoleUI.Controls;
 
@@ -25,512 +25,512 @@ namespace SharpConsoleUI.Controls;
 /// </summary>
 public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
 {
-    private readonly ILogService _logService;
-    private readonly ScrollablePanelControl _scrollPanel;
-    private readonly Dictionary<LogEntry, MarkupControl> _entryControls = new();
-    private readonly List<LogEntry> _displayedLogs = new();
-
-    // Thread-safe queue for pending log entries (can be added from any thread)
-    private readonly ConcurrentQueue<LogEntry> _pendingEntries = new();
-    private volatile bool _pendingClear = false;
-
-    private LogLevel _filterLevel = LogLevel.Trace;
-    private string? _filterCategory;
-    private string? _title;
-
-    /// <summary>
-    /// Creates a new LogViewerControl bound to the specified log service
-    /// </summary>
-    /// <param name="logService">The log service to display entries from</param>
-    public LogViewerControl(ILogService logService)
-    {
-        _logService = logService ?? throw new ArgumentNullException(nameof(logService));
-
-        _scrollPanel = new ScrollablePanelControl
-        {
-            AutoScroll = true,
-            VerticalScrollMode = ScrollMode.Scroll,
-            ShowScrollbar = true
-        };
-
-        _logService.LogAdded += OnLogAdded;
-        _logService.LogsCleared += OnLogsCleared;
-
-        // Load existing logs (we're on the creating thread, not UI thread yet)
-        // Queue them for processing on first paint
-        foreach (var entry in _logService.GetAllLogs())
-        {
-            if (entry.Level >= _filterLevel)
-            {
-                if (_filterCategory == null || entry.Category == _filterCategory)
-                {
-                    _pendingEntries.Enqueue(entry);
-                }
-            }
-        }
-    }
-
-    #region Events
-
-    #pragma warning disable CS0067  // Event never raised (interface requirement)
-    /// <summary>
-    /// Occurs when the control is clicked.
-    /// </summary>
-    public event EventHandler<MouseEventArgs>? MouseClick;
-
-    /// <summary>
-    /// Occurs when the control is double-clicked.
-    /// </summary>
-    public event EventHandler<MouseEventArgs>? MouseDoubleClick;
-
-    /// <summary>
-    /// Occurs when the control is right-clicked with the mouse.
-    /// </summary>
-    public event EventHandler<MouseEventArgs>? MouseRightClick;
-
-    /// <summary>
-    /// Occurs when the mouse enters the control area.
-    /// </summary>
-    public event EventHandler<MouseEventArgs>? MouseEnter;
-
-    /// <summary>
-    /// Occurs when the mouse leaves the control area.
-    /// </summary>
-    public event EventHandler<MouseEventArgs>? MouseLeave;
-
-    /// <summary>
-    /// Occurs when the mouse moves over the control.
-    /// </summary>
-    public event EventHandler<MouseEventArgs>? MouseMove;
-    #pragma warning restore CS0067
-
-    #endregion
-
-    #region BaseControl Overrides
-
-    /// <summary>
-    /// Gets the actual rendered width of the control content in characters.
-    /// </summary>
-    public override int? ContentWidth
-    {
-        get
-        {
-            return Width ?? 80 + Margin.Left + Margin.Right;
-        }
-    }
-
-    /// <inheritdoc/>
-    public override System.Drawing.Size GetLogicalContentSize()
-    {
-        // Reuse ContentWidth to include margins consistently
-        int width = ContentWidth ?? 0;
-
-        int titleHeight = string.IsNullOrEmpty(_title) ? 0 : 1;
-        var panelSize = _scrollPanel.GetLogicalContentSize();
-        int height = titleHeight + panelSize.Height;
-
-        return new System.Drawing.Size(width, height);
-    }
-
-    #endregion
-
-    #region IInteractiveControl Properties
-
-    /// <inheritdoc/>
-    public bool HasFocus
-    {
-        get => ComputeHasFocus();
-    }
-
-    /// <inheritdoc/>
-    public bool IsEnabled { get; set; } = true;
-
-    #endregion
-
-    #region IFocusableControl Properties
-
-    /// <inheritdoc/>
-    public bool CanReceiveFocus => Visible && IsEnabled;
-
-    #endregion
-
-    #region IMouseAwareControl Properties
-
-    /// <inheritdoc/>
-    public bool WantsMouseEvents => true;
-
-    /// <inheritdoc/>
-    public bool CanFocusWithMouse => CanReceiveFocus;
-
-    #endregion
-
-    #region LogViewerControl Properties
-
-    /// <summary>
-    /// Gets or sets whether to automatically scroll to show new log entries.
-    /// This now delegates to the internal ScrollablePanelControl.
-    /// </summary>
-    public bool AutoScroll
-    {
-        get => _scrollPanel.AutoScroll;
-        set => _scrollPanel.AutoScroll = value;
-    }
-
-    /// <summary>
-    /// Gets or sets the minimum log level to display (filters out lower levels)
-    /// </summary>
-    public LogLevel FilterLevel
-    {
-        get => _filterLevel;
-        set
-        {
-            _filterLevel = value;
-            OnPropertyChanged();
-            RefreshLogs();
-        }
-    }
-
-    /// <summary>
-    /// Gets or sets the category filter (null means show all categories)
-    /// </summary>
-    public string? FilterCategory
-    {
-        get => _filterCategory;
-        set
-        {
-            _filterCategory = value;
-            OnPropertyChanged();
-            RefreshLogs();
-        }
-    }
-
-    /// <summary>
-    /// Gets or sets a title to display above the log entries
-    /// </summary>
-    public string? Title
-    {
-        get => _title;
-        set => SetProperty(ref _title, value);
-    }
-
-    #endregion
-
-    #region Dispose
-
-    /// <inheritdoc/>
-    protected override void OnDisposing()
-    {
-        _logService.LogAdded -= OnLogAdded;
-        _logService.LogsCleared -= OnLogsCleared;
-        _scrollPanel.Dispose();
-    }
-
-    #endregion
-
-    #region IInteractiveControl Methods
-
-    /// <inheritdoc/>
-    public bool ProcessKey(ConsoleKeyInfo keyInfo)
-    {
-        if (!IsEnabled || !HasFocus) return false;
-
-        // Handle clear logs
-        if (keyInfo.Key == ConsoleKey.Delete ||
-            (keyInfo.Key == ConsoleKey.C && keyInfo.Modifiers.HasFlag(ConsoleModifiers.Control)))
-        {
-            _logService.ClearLogs();
-            return true;
-        }
-
-        // Handle scroll keys directly (inner panel can't check focus)
-        switch (keyInfo.Key)
-        {
-            case ConsoleKey.UpArrow:
-                _scrollPanel.ScrollVerticalBy(-1);
-                return true;
-            case ConsoleKey.DownArrow:
-                _scrollPanel.ScrollVerticalBy(1);
-                return true;
-            case ConsoleKey.PageUp:
-                _scrollPanel.ScrollVerticalBy(-(_scrollPanel.ActualHeight > 0 ? _scrollPanel.ActualHeight : 10));
-                return true;
-            case ConsoleKey.PageDown:
-                _scrollPanel.ScrollVerticalBy(_scrollPanel.ActualHeight > 0 ? _scrollPanel.ActualHeight : 10);
-                return true;
-            case ConsoleKey.Home:
-                _scrollPanel.ScrollToTop();
-                return true;
-            case ConsoleKey.End:
-                _scrollPanel.ScrollToBottom();
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    #endregion
-
-
-    #region IMouseAwareControl Methods
-
-    /// <inheritdoc/>
-    public bool ProcessMouseEvent(MouseEventArgs args)
-    {
-
-        // Handle right-click
-        if (args.HasFlag(MouseFlags.Button3Clicked))
-        {
-            MouseRightClick?.Invoke(this, args);
-            return true;
-        }
-
-        // Delegate mouse handling to scroll panel
-        return _scrollPanel.ProcessMouseEvent(args);
-    }
-
-    #endregion
-
-    #region Private Methods - Event Handlers (called from any thread)
-
-    private void OnLogAdded(object? sender, LogEntry entry)
-    {
-        // Check if entry passes filter
-        if (entry.Level < _filterLevel)
-            return;
-
-        if (_filterCategory != null && entry.Category != _filterCategory)
-            return;
-
-        // Queue for processing on UI thread during paint
-        _pendingEntries.Enqueue(entry);
-
-        // Trigger repaint (Invalidate is safe to call from any thread)
-        Container?.Invalidate(true);
-    }
-
-    private void OnLogsCleared(object? sender, EventArgs e)
-    {
-        // Signal clear - will be processed on UI thread during paint
-        _pendingClear = true;
-
-        // Trigger repaint
-        Container?.Invalidate(true);
-    }
-
-    #endregion
-
-    #region Private Methods - UI Thread Processing
-
-    /// <summary>
-    /// Processes pending queue entries. Must be called from UI thread (during paint).
-    /// </summary>
-    private void ProcessPendingEntries()
-    {
-        // Handle clear first
-        if (_pendingClear)
-        {
-            _pendingClear = false;
-
-            // Clear the queue of any pending entries
-            while (_pendingEntries.TryDequeue(out _)) { }
-
-            // Clear displayed logs
-            _displayedLogs.Clear();
-            foreach (var control in _entryControls.Values)
-            {
-                _scrollPanel.RemoveControl(control);
-            }
-            _entryControls.Clear();
-        }
-
-        // Process pending additions
-        while (_pendingEntries.TryDequeue(out var entry))
-        {
-            _displayedLogs.Add(entry);
-
-            // Create MarkupControl for this entry
-            var markup = new MarkupControl(new List<string> { entry.ToMarkup() }) { Wrap = true };
-            _entryControls[entry] = markup;
-            _scrollPanel.AddControl(markup);
-
-            // Trim if we have too many
-            while (_displayedLogs.Count > _logService.MaxBufferSize)
-            {
-                var oldEntry = _displayedLogs[0];
-                _displayedLogs.RemoveAt(0);
-
-                if (_entryControls.TryGetValue(oldEntry, out var oldControl))
-                {
-                    _scrollPanel.RemoveControl(oldControl);
-                    _entryControls.Remove(oldEntry);
-                }
-            }
-        }
-    }
-
-    private void RefreshLogs()
-    {
-        // Signal clear and re-queue matching logs
-        _pendingClear = true;
-
-        // Queue filtered logs
-        foreach (var entry in _logService.GetAllLogs())
-        {
-            if (entry.Level >= _filterLevel)
-            {
-                if (_filterCategory == null || entry.Category == _filterCategory)
-                {
-                    _pendingEntries.Enqueue(entry);
-                }
-            }
-        }
-
-        Container?.Invalidate(true);
-    }
-
-    #endregion
-
-    #region IDOMPaintable Implementation
-
-    /// <inheritdoc/>
-    public override LayoutSize MeasureDOM(LayoutConstraints constraints)
-    {
-        // Process pending entries before measuring
-        ProcessPendingEntries();
-
-        int contentWidth = constraints.MaxWidth - Margin.Left - Margin.Right;
-        int titleHeight = string.IsNullOrEmpty(_title) ? 0 : 1;
-
-        // Measure the scroll panel
-        var panelConstraints = new LayoutConstraints(
-            MinWidth: 1,
-            MaxWidth: contentWidth,
-            MinHeight: 1,
-            MaxHeight: Math.Max(1, constraints.MaxHeight - titleHeight - Margin.Top - Margin.Bottom)
-        );
-        var panelSize = (_scrollPanel as IDOMPaintable).MeasureDOM(panelConstraints);
-
-        int totalHeight = titleHeight + panelSize.Height + Margin.Top + Margin.Bottom;
-        int width = (Width ?? contentWidth) + Margin.Left + Margin.Right;
-
-        return new LayoutSize(
-            Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
-            Math.Clamp(totalHeight, constraints.MinHeight, constraints.MaxHeight)
-        );
-    }
-
-    /// <inheritdoc/>
-    public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
-    {
-        SetActualBounds(bounds);
-
-        // Process pending entries on UI thread
-        ProcessPendingEntries();
-
-        var bgColor = Container?.BackgroundColor ?? defaultBg;
-        var fgColor = Container?.ForegroundColor ?? defaultFg;
-        var effectiveBg = Color.Transparent;
-        int targetWidth = bounds.Width - Margin.Left - Margin.Right;
-
-        if (targetWidth <= 0) return;
-
-        int startX = bounds.X + Margin.Left;
-        int startY = bounds.Y + Margin.Top;
-        int currentY = startY;
-
-        // Fill top margin
-        ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);
-
-        // Render title if set
-        int titleHeight = 0;
-        if (!string.IsNullOrEmpty(_title))
-        {
-            titleHeight = 1;
-            if (currentY >= clipRect.Y && currentY < clipRect.Bottom && currentY < bounds.Bottom)
-            {
-                // Fill left margin
-                if (Margin.Left > 0)
-                {
-                    ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), fgColor, effectiveBg);
-                }
-
-                var titleColor = (ComputeHasFocus()) ? Color.Cyan1 : Color.Grey;
-                var titleCells = Parsing.MarkupParser.Parse(_title, titleColor, bgColor);
-                int titleDisplayWidth = titleCells.Count;
-
-                // Truncate to fit
-                if (titleDisplayWidth > targetWidth)
-                {
-                    titleCells = titleCells.GetRange(0, targetWidth);
-                    titleDisplayWidth = targetWidth;
-                }
-
-                // Apply alignment
-                int alignOffset = 0;
-                if (titleDisplayWidth < targetWidth)
-                {
-                    switch (HorizontalAlignment)
-                    {
-                        case HorizontalAlignment.Center:
-                            alignOffset = (targetWidth - titleDisplayWidth) / 2;
-                            break;
-                        case HorizontalAlignment.Right:
-                            alignOffset = targetWidth - titleDisplayWidth;
-                            break;
-                    }
-                }
-
-                // Fill left alignment padding
-                if (alignOffset > 0)
-                {
-                    ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, currentY, alignOffset, 1), fgColor, effectiveBg);
-                }
-
-                // Write title
-                for (int i = 0; i < titleDisplayWidth && startX + alignOffset + i < clipRect.Right; i++)
-                {
-                    int x = startX + alignOffset + i;
-                    if (x >= clipRect.X)
-                    {
-                        buffer.SetCell(x, currentY, titleCells[i]);
-                    }
-                }
-
-                // Fill right padding
-                int rightPadStart = startX + alignOffset + titleDisplayWidth;
-                int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
-                if (rightPadWidth > 0)
-                {
-                    ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightPadStart, currentY, rightPadWidth, 1), fgColor, effectiveBg);
-                }
-
-                // Fill right margin
-                if (Margin.Right > 0)
-                {
-                    ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), fgColor, effectiveBg);
-                }
-            }
-            currentY++;
-        }
-
-        // Render scroll panel
-        int panelHeight = bounds.Height - Margin.Top - Margin.Bottom - titleHeight;
-        if (panelHeight > 0)
-        {
-            var panelBounds = new LayoutRect(startX, currentY, targetWidth, panelHeight);
-            var panelClipRect = clipRect.Intersect(panelBounds);
-
-            // Update scroll panel container reference for proper invalidation
-            _scrollPanel.Container = this.Container;
-            _scrollPanel.BackgroundColor = bgColor;
-            _scrollPanel.ForegroundColor = fgColor;
-
-            (_scrollPanel as IDOMPaintable).PaintDOM(buffer, panelBounds, panelClipRect, fgColor, bgColor);
-        }
-
-        // Fill bottom margin
-        ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, effectiveBg);
-    }
-
-    #endregion
+	private readonly ILogService _logService;
+	private readonly ScrollablePanelControl _scrollPanel;
+	private readonly Dictionary<LogEntry, MarkupControl> _entryControls = new();
+	private readonly List<LogEntry> _displayedLogs = new();
+
+	// Thread-safe queue for pending log entries (can be added from any thread)
+	private readonly ConcurrentQueue<LogEntry> _pendingEntries = new();
+	private volatile bool _pendingClear = false;
+
+	private LogLevel _filterLevel = LogLevel.Trace;
+	private string? _filterCategory;
+	private string? _title;
+
+	/// <summary>
+	/// Creates a new LogViewerControl bound to the specified log service
+	/// </summary>
+	/// <param name="logService">The log service to display entries from</param>
+	public LogViewerControl(ILogService logService)
+	{
+		_logService = logService ?? throw new ArgumentNullException(nameof(logService));
+
+		_scrollPanel = new ScrollablePanelControl
+		{
+			AutoScroll = true,
+			VerticalScrollMode = ScrollMode.Scroll,
+			ShowScrollbar = true
+		};
+
+		_logService.LogAdded += OnLogAdded;
+		_logService.LogsCleared += OnLogsCleared;
+
+		// Load existing logs (we're on the creating thread, not UI thread yet)
+		// Queue them for processing on first paint
+		foreach (var entry in _logService.GetAllLogs())
+		{
+			if (entry.Level >= _filterLevel)
+			{
+				if (_filterCategory == null || entry.Category == _filterCategory)
+				{
+					_pendingEntries.Enqueue(entry);
+				}
+			}
+		}
+	}
+
+	#region Events
+
+#pragma warning disable CS0067  // Event never raised (interface requirement)
+	/// <summary>
+	/// Occurs when the control is clicked.
+	/// </summary>
+	public event EventHandler<MouseEventArgs>? MouseClick;
+
+	/// <summary>
+	/// Occurs when the control is double-clicked.
+	/// </summary>
+	public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+
+	/// <summary>
+	/// Occurs when the control is right-clicked with the mouse.
+	/// </summary>
+	public event EventHandler<MouseEventArgs>? MouseRightClick;
+
+	/// <summary>
+	/// Occurs when the mouse enters the control area.
+	/// </summary>
+	public event EventHandler<MouseEventArgs>? MouseEnter;
+
+	/// <summary>
+	/// Occurs when the mouse leaves the control area.
+	/// </summary>
+	public event EventHandler<MouseEventArgs>? MouseLeave;
+
+	/// <summary>
+	/// Occurs when the mouse moves over the control.
+	/// </summary>
+	public event EventHandler<MouseEventArgs>? MouseMove;
+#pragma warning restore CS0067
+
+	#endregion
+
+	#region BaseControl Overrides
+
+	/// <summary>
+	/// Gets the actual rendered width of the control content in characters.
+	/// </summary>
+	public override int? ContentWidth
+	{
+		get
+		{
+			return Width ?? 80 + Margin.Left + Margin.Right;
+		}
+	}
+
+	/// <inheritdoc/>
+	public override System.Drawing.Size GetLogicalContentSize()
+	{
+		// Reuse ContentWidth to include margins consistently
+		int width = ContentWidth ?? 0;
+
+		int titleHeight = string.IsNullOrEmpty(_title) ? 0 : 1;
+		var panelSize = _scrollPanel.GetLogicalContentSize();
+		int height = titleHeight + panelSize.Height;
+
+		return new System.Drawing.Size(width, height);
+	}
+
+	#endregion
+
+	#region IInteractiveControl Properties
+
+	/// <inheritdoc/>
+	public bool HasFocus
+	{
+		get => ComputeHasFocus();
+	}
+
+	/// <inheritdoc/>
+	public bool IsEnabled { get; set; } = true;
+
+	#endregion
+
+	#region IFocusableControl Properties
+
+	/// <inheritdoc/>
+	public bool CanReceiveFocus => Visible && IsEnabled;
+
+	#endregion
+
+	#region IMouseAwareControl Properties
+
+	/// <inheritdoc/>
+	public bool WantsMouseEvents => true;
+
+	/// <inheritdoc/>
+	public bool CanFocusWithMouse => CanReceiveFocus;
+
+	#endregion
+
+	#region LogViewerControl Properties
+
+	/// <summary>
+	/// Gets or sets whether to automatically scroll to show new log entries.
+	/// This now delegates to the internal ScrollablePanelControl.
+	/// </summary>
+	public bool AutoScroll
+	{
+		get => _scrollPanel.AutoScroll;
+		set => _scrollPanel.AutoScroll = value;
+	}
+
+	/// <summary>
+	/// Gets or sets the minimum log level to display (filters out lower levels)
+	/// </summary>
+	public LogLevel FilterLevel
+	{
+		get => _filterLevel;
+		set
+		{
+			_filterLevel = value;
+			OnPropertyChanged();
+			RefreshLogs();
+		}
+	}
+
+	/// <summary>
+	/// Gets or sets the category filter (null means show all categories)
+	/// </summary>
+	public string? FilterCategory
+	{
+		get => _filterCategory;
+		set
+		{
+			_filterCategory = value;
+			OnPropertyChanged();
+			RefreshLogs();
+		}
+	}
+
+	/// <summary>
+	/// Gets or sets a title to display above the log entries
+	/// </summary>
+	public string? Title
+	{
+		get => _title;
+		set => SetProperty(ref _title, value);
+	}
+
+	#endregion
+
+	#region Dispose
+
+	/// <inheritdoc/>
+	protected override void OnDisposing()
+	{
+		_logService.LogAdded -= OnLogAdded;
+		_logService.LogsCleared -= OnLogsCleared;
+		_scrollPanel.Dispose();
+	}
+
+	#endregion
+
+	#region IInteractiveControl Methods
+
+	/// <inheritdoc/>
+	public bool ProcessKey(ConsoleKeyInfo keyInfo)
+	{
+		if (!IsEnabled || !HasFocus) return false;
+
+		// Handle clear logs
+		if (keyInfo.Key == ConsoleKey.Delete ||
+			(keyInfo.Key == ConsoleKey.C && keyInfo.Modifiers.HasFlag(ConsoleModifiers.Control)))
+		{
+			_logService.ClearLogs();
+			return true;
+		}
+
+		// Handle scroll keys directly (inner panel can't check focus)
+		switch (keyInfo.Key)
+		{
+			case ConsoleKey.UpArrow:
+				_scrollPanel.ScrollVerticalBy(-1);
+				return true;
+			case ConsoleKey.DownArrow:
+				_scrollPanel.ScrollVerticalBy(1);
+				return true;
+			case ConsoleKey.PageUp:
+				_scrollPanel.ScrollVerticalBy(-(_scrollPanel.ActualHeight > 0 ? _scrollPanel.ActualHeight : 10));
+				return true;
+			case ConsoleKey.PageDown:
+				_scrollPanel.ScrollVerticalBy(_scrollPanel.ActualHeight > 0 ? _scrollPanel.ActualHeight : 10);
+				return true;
+			case ConsoleKey.Home:
+				_scrollPanel.ScrollToTop();
+				return true;
+			case ConsoleKey.End:
+				_scrollPanel.ScrollToBottom();
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	#endregion
+
+
+	#region IMouseAwareControl Methods
+
+	/// <inheritdoc/>
+	public bool ProcessMouseEvent(MouseEventArgs args)
+	{
+
+		// Handle right-click
+		if (args.HasFlag(MouseFlags.Button3Clicked))
+		{
+			MouseRightClick?.Invoke(this, args);
+			return true;
+		}
+
+		// Delegate mouse handling to scroll panel
+		return _scrollPanel.ProcessMouseEvent(args);
+	}
+
+	#endregion
+
+	#region Private Methods - Event Handlers (called from any thread)
+
+	private void OnLogAdded(object? sender, LogEntry entry)
+	{
+		// Check if entry passes filter
+		if (entry.Level < _filterLevel)
+			return;
+
+		if (_filterCategory != null && entry.Category != _filterCategory)
+			return;
+
+		// Queue for processing on UI thread during paint
+		_pendingEntries.Enqueue(entry);
+
+		// Trigger repaint (Invalidate is safe to call from any thread)
+		Container?.Invalidate(true);
+	}
+
+	private void OnLogsCleared(object? sender, EventArgs e)
+	{
+		// Signal clear - will be processed on UI thread during paint
+		_pendingClear = true;
+
+		// Trigger repaint
+		Container?.Invalidate(true);
+	}
+
+	#endregion
+
+	#region Private Methods - UI Thread Processing
+
+	/// <summary>
+	/// Processes pending queue entries. Must be called from UI thread (during paint).
+	/// </summary>
+	private void ProcessPendingEntries()
+	{
+		// Handle clear first
+		if (_pendingClear)
+		{
+			_pendingClear = false;
+
+			// Clear the queue of any pending entries
+			while (_pendingEntries.TryDequeue(out _)) { }
+
+			// Clear displayed logs
+			_displayedLogs.Clear();
+			foreach (var control in _entryControls.Values)
+			{
+				_scrollPanel.RemoveControl(control);
+			}
+			_entryControls.Clear();
+		}
+
+		// Process pending additions
+		while (_pendingEntries.TryDequeue(out var entry))
+		{
+			_displayedLogs.Add(entry);
+
+			// Create MarkupControl for this entry
+			var markup = new MarkupControl(new List<string> { entry.ToMarkup() }) { Wrap = true };
+			_entryControls[entry] = markup;
+			_scrollPanel.AddControl(markup);
+
+			// Trim if we have too many
+			while (_displayedLogs.Count > _logService.MaxBufferSize)
+			{
+				var oldEntry = _displayedLogs[0];
+				_displayedLogs.RemoveAt(0);
+
+				if (_entryControls.TryGetValue(oldEntry, out var oldControl))
+				{
+					_scrollPanel.RemoveControl(oldControl);
+					_entryControls.Remove(oldEntry);
+				}
+			}
+		}
+	}
+
+	private void RefreshLogs()
+	{
+		// Signal clear and re-queue matching logs
+		_pendingClear = true;
+
+		// Queue filtered logs
+		foreach (var entry in _logService.GetAllLogs())
+		{
+			if (entry.Level >= _filterLevel)
+			{
+				if (_filterCategory == null || entry.Category == _filterCategory)
+				{
+					_pendingEntries.Enqueue(entry);
+				}
+			}
+		}
+
+		Container?.Invalidate(true);
+	}
+
+	#endregion
+
+	#region IDOMPaintable Implementation
+
+	/// <inheritdoc/>
+	public override LayoutSize MeasureDOM(LayoutConstraints constraints)
+	{
+		// Process pending entries before measuring
+		ProcessPendingEntries();
+
+		int contentWidth = constraints.MaxWidth - Margin.Left - Margin.Right;
+		int titleHeight = string.IsNullOrEmpty(_title) ? 0 : 1;
+
+		// Measure the scroll panel
+		var panelConstraints = new LayoutConstraints(
+			MinWidth: 1,
+			MaxWidth: contentWidth,
+			MinHeight: 1,
+			MaxHeight: Math.Max(1, constraints.MaxHeight - titleHeight - Margin.Top - Margin.Bottom)
+		);
+		var panelSize = (_scrollPanel as IDOMPaintable).MeasureDOM(panelConstraints);
+
+		int totalHeight = titleHeight + panelSize.Height + Margin.Top + Margin.Bottom;
+		int width = (Width ?? contentWidth) + Margin.Left + Margin.Right;
+
+		return new LayoutSize(
+			Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
+			Math.Clamp(totalHeight, constraints.MinHeight, constraints.MaxHeight)
+		);
+	}
+
+	/// <inheritdoc/>
+	public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
+	{
+		SetActualBounds(bounds);
+
+		// Process pending entries on UI thread
+		ProcessPendingEntries();
+
+		var bgColor = Container?.BackgroundColor ?? defaultBg;
+		var fgColor = Container?.ForegroundColor ?? defaultFg;
+		var effectiveBg = Color.Transparent;
+		int targetWidth = bounds.Width - Margin.Left - Margin.Right;
+
+		if (targetWidth <= 0) return;
+
+		int startX = bounds.X + Margin.Left;
+		int startY = bounds.Y + Margin.Top;
+		int currentY = startY;
+
+		// Fill top margin
+		ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);
+
+		// Render title if set
+		int titleHeight = 0;
+		if (!string.IsNullOrEmpty(_title))
+		{
+			titleHeight = 1;
+			if (currentY >= clipRect.Y && currentY < clipRect.Bottom && currentY < bounds.Bottom)
+			{
+				// Fill left margin
+				if (Margin.Left > 0)
+				{
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), fgColor, effectiveBg);
+				}
+
+				var titleColor = (ComputeHasFocus()) ? Color.Cyan1 : Color.Grey;
+				var titleCells = Parsing.MarkupParser.Parse(_title, titleColor, bgColor);
+				int titleDisplayWidth = titleCells.Count;
+
+				// Truncate to fit
+				if (titleDisplayWidth > targetWidth)
+				{
+					titleCells = titleCells.GetRange(0, targetWidth);
+					titleDisplayWidth = targetWidth;
+				}
+
+				// Apply alignment
+				int alignOffset = 0;
+				if (titleDisplayWidth < targetWidth)
+				{
+					switch (HorizontalAlignment)
+					{
+						case HorizontalAlignment.Center:
+							alignOffset = (targetWidth - titleDisplayWidth) / 2;
+							break;
+						case HorizontalAlignment.Right:
+							alignOffset = targetWidth - titleDisplayWidth;
+							break;
+					}
+				}
+
+				// Fill left alignment padding
+				if (alignOffset > 0)
+				{
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, currentY, alignOffset, 1), fgColor, effectiveBg);
+				}
+
+				// Write title
+				for (int i = 0; i < titleDisplayWidth && startX + alignOffset + i < clipRect.Right; i++)
+				{
+					int x = startX + alignOffset + i;
+					if (x >= clipRect.X)
+					{
+						buffer.SetCell(x, currentY, titleCells[i]);
+					}
+				}
+
+				// Fill right padding
+				int rightPadStart = startX + alignOffset + titleDisplayWidth;
+				int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
+				if (rightPadWidth > 0)
+				{
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightPadStart, currentY, rightPadWidth, 1), fgColor, effectiveBg);
+				}
+
+				// Fill right margin
+				if (Margin.Right > 0)
+				{
+					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), fgColor, effectiveBg);
+				}
+			}
+			currentY++;
+		}
+
+		// Render scroll panel
+		int panelHeight = bounds.Height - Margin.Top - Margin.Bottom - titleHeight;
+		if (panelHeight > 0)
+		{
+			var panelBounds = new LayoutRect(startX, currentY, targetWidth, panelHeight);
+			var panelClipRect = clipRect.Intersect(panelBounds);
+
+			// Update scroll panel container reference for proper invalidation
+			_scrollPanel.Container = this.Container;
+			_scrollPanel.BackgroundColor = bgColor;
+			_scrollPanel.ForegroundColor = fgColor;
+
+			(_scrollPanel as IDOMPaintable).PaintDOM(buffer, panelBounds, panelClipRect, fgColor, bgColor);
+		}
+
+		// Fill bottom margin
+		ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, effectiveBg);
+	}
+
+	#endregion
 }

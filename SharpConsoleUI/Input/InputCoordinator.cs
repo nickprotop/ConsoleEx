@@ -6,11 +6,11 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Logging;
-using System.Drawing;
 
 namespace SharpConsoleUI.Input
 {
@@ -275,7 +275,7 @@ namespace SharpConsoleUI.Input
 			// Route drag/release events to the window with active control capture,
 			// even if the cursor is over a different window.
 			if (!IsDragging && !IsResizing &&
-			    (flags.Contains(MouseFlags.Button1Dragged) || flags.Contains(MouseFlags.Button1Released)))
+				(flags.Contains(MouseFlags.Button1Dragged) || flags.Contains(MouseFlags.Button1Released)))
 			{
 				foreach (var w in _context.Windows.Values)
 				{
@@ -505,22 +505,22 @@ namespace SharpConsoleUI.Input
 		private static ResizeDirection AllowedDirection(Window window, ResizeDirection direction)
 		{
 			var d = window.AllowedResizeDirections;
-			bool topActive    = d.HasFlag(ResizeBorderDirections.TopExpand)    || d.HasFlag(ResizeBorderDirections.TopContract);
+			bool topActive = d.HasFlag(ResizeBorderDirections.TopExpand) || d.HasFlag(ResizeBorderDirections.TopContract);
 			bool bottomActive = d.HasFlag(ResizeBorderDirections.BottomExpand) || d.HasFlag(ResizeBorderDirections.BottomContract);
-			bool leftActive   = d.HasFlag(ResizeBorderDirections.LeftExpand)   || d.HasFlag(ResizeBorderDirections.LeftContract);
-			bool rightActive  = d.HasFlag(ResizeBorderDirections.RightExpand)  || d.HasFlag(ResizeBorderDirections.RightContract);
+			bool leftActive = d.HasFlag(ResizeBorderDirections.LeftExpand) || d.HasFlag(ResizeBorderDirections.LeftContract);
+			bool rightActive = d.HasFlag(ResizeBorderDirections.RightExpand) || d.HasFlag(ResizeBorderDirections.RightContract);
 
 			bool allowed = direction switch
 			{
-				ResizeDirection.Top         => topActive,
-				ResizeDirection.Bottom      => bottomActive,
-				ResizeDirection.Left        => leftActive,
-				ResizeDirection.Right       => rightActive,
-				ResizeDirection.TopLeft     => topActive    && leftActive,
-				ResizeDirection.TopRight    => topActive    && rightActive,
-				ResizeDirection.BottomLeft  => bottomActive && leftActive,
+				ResizeDirection.Top => topActive,
+				ResizeDirection.Bottom => bottomActive,
+				ResizeDirection.Left => leftActive,
+				ResizeDirection.Right => rightActive,
+				ResizeDirection.TopLeft => topActive && leftActive,
+				ResizeDirection.TopRight => topActive && rightActive,
+				ResizeDirection.BottomLeft => bottomActive && leftActive,
 				ResizeDirection.BottomRight => bottomActive && rightActive,
-				_                           => true
+				_ => true
 			};
 			return allowed ? direction : ResizeDirection.None;
 		}
@@ -728,8 +728,8 @@ namespace SharpConsoleUI.Input
 					newHeight += deltaY;
 					break;
 				case ResizeDirection.TopLeft:
-					deltaX = ClampResizeDelta(deltaX, dirs.HasFlag(ResizeBorderDirections.LeftExpand),   dirs.HasFlag(ResizeBorderDirections.LeftContract));
-					deltaY = ClampResizeDelta(deltaY, dirs.HasFlag(ResizeBorderDirections.TopExpand),    dirs.HasFlag(ResizeBorderDirections.TopContract));
+					deltaX = ClampResizeDelta(deltaX, dirs.HasFlag(ResizeBorderDirections.LeftExpand), dirs.HasFlag(ResizeBorderDirections.LeftContract));
+					deltaY = ClampResizeDelta(deltaY, dirs.HasFlag(ResizeBorderDirections.TopExpand), dirs.HasFlag(ResizeBorderDirections.TopContract));
 					newLeft += deltaX;
 					newWidth -= deltaX;
 					newTop += deltaY;
@@ -737,13 +737,13 @@ namespace SharpConsoleUI.Input
 					break;
 				case ResizeDirection.TopRight:
 					deltaX = ClampResizeDelta(deltaX, dirs.HasFlag(ResizeBorderDirections.RightContract), dirs.HasFlag(ResizeBorderDirections.RightExpand));
-					deltaY = ClampResizeDelta(deltaY, dirs.HasFlag(ResizeBorderDirections.TopExpand),     dirs.HasFlag(ResizeBorderDirections.TopContract));
+					deltaY = ClampResizeDelta(deltaY, dirs.HasFlag(ResizeBorderDirections.TopExpand), dirs.HasFlag(ResizeBorderDirections.TopContract));
 					newWidth += deltaX;
 					newTop += deltaY;
 					newHeight -= deltaY;
 					break;
 				case ResizeDirection.BottomLeft:
-					deltaX = ClampResizeDelta(deltaX, dirs.HasFlag(ResizeBorderDirections.LeftExpand),    dirs.HasFlag(ResizeBorderDirections.LeftContract));
+					deltaX = ClampResizeDelta(deltaX, dirs.HasFlag(ResizeBorderDirections.LeftExpand), dirs.HasFlag(ResizeBorderDirections.LeftContract));
 					deltaY = ClampResizeDelta(deltaY, dirs.HasFlag(ResizeBorderDirections.BottomContract), dirs.HasFlag(ResizeBorderDirections.BottomExpand));
 					newLeft += deltaX;
 					newWidth -= deltaX;
@@ -931,55 +931,55 @@ namespace SharpConsoleUI.Input
 
 		#endregion
 
-	#region Mouse Event Propagation
+		#region Mouse Event Propagation
 
-	/// <summary>
-	/// Handles window click for activation and mouse event propagation.
-	/// </summary>
-	private void HandleWindowClick(Window window, List<MouseFlags> flags, Point point)
-	{
-		// Block clicks on windows that are blocked by a modal — flash the modal instead
-		var blockingModal = _context.ModalStateService.GetBlockingModal(window);
-		if (blockingModal != null)
+		/// <summary>
+		/// Handles window click for activation and mouse event propagation.
+		/// </summary>
+		private void HandleWindowClick(Window window, List<MouseFlags> flags, Point point)
 		{
-			_windowStateService.FlashWindow(blockingModal);
-			return;
+			// Block clicks on windows that are blocked by a modal — flash the modal instead
+			var blockingModal = _context.ModalStateService.GetBlockingModal(window);
+			if (blockingModal != null)
+			{
+				_windowStateService.FlashWindow(blockingModal);
+				return;
+			}
+
+			if (window != _context.ActiveWindow)
+			{
+				// Window is not active - activate it
+				_context.SetActiveWindow(window);
+			}
+			else
+			{
+				// Window is already active - propagate the click event
+				PropagateMouseEventToWindow(window, flags, point);
+			}
 		}
 
-		if (window != _context.ActiveWindow)
+		/// <summary>
+		/// Propagates a mouse event to the specified window.
+		/// </summary>
+		private void PropagateMouseEventToWindow(Window window, List<MouseFlags> flags, Point point)
 		{
-			// Window is not active - activate it
-			_context.SetActiveWindow(window);
+			// Calculate window-relative coordinates
+			var windowPosition = GeometryHelpers.TranslateToRelative(window, point, _context.DesktopUpperLeft.Y);
+
+			// Create mouse event arguments
+			var mouseArgs = new Events.MouseEventArgs(
+				flags,
+				windowPosition, // This will be recalculated for control-relative coordinates in the window
+				point, // Absolute desktop coordinates
+				windowPosition, // Window-relative coordinates
+				window
+			);
+
+			// Propagate to the window
+			window.EventDispatcher?.ProcessMouseEvent(mouseArgs);
 		}
-		else
-		{
-			// Window is already active - propagate the click event
-			PropagateMouseEventToWindow(window, flags, point);
-		}
-	}
 
-	/// <summary>
-	/// Propagates a mouse event to the specified window.
-	/// </summary>
-	private void PropagateMouseEventToWindow(Window window, List<MouseFlags> flags, Point point)
-	{
-		// Calculate window-relative coordinates
-		var windowPosition = GeometryHelpers.TranslateToRelative(window, point, _context.DesktopUpperLeft.Y);
-
-		// Create mouse event arguments
-		var mouseArgs = new Events.MouseEventArgs(
-			flags,
-			windowPosition, // This will be recalculated for control-relative coordinates in the window
-			point, // Absolute desktop coordinates
-			windowPosition, // Window-relative coordinates
-			window
-		);
-
-		// Propagate to the window
-		window.EventDispatcher?.ProcessMouseEvent(mouseArgs);
-	}
-
-	#endregion
+		#endregion
 
 		#region Properties (Delegation to Services)
 

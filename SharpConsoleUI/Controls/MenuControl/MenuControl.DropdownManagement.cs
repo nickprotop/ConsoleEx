@@ -1,350 +1,358 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
+using System.Drawing;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using System.Drawing;
 using Size = System.Drawing.Size;
 
 namespace SharpConsoleUI.Controls;
 
 public partial class MenuControl
 {
-    #region Dropdown Lifecycle
+	#region Dropdown Lifecycle
 
-    private void OpenDropdownInternal(MenuItem item)
-    {
-        if (!item.HasChildren)
-            return;
+	private void OpenDropdownInternal(MenuItem item)
+	{
+		if (!item.HasChildren)
+			return;
 
-        // Check if already open - prevent duplicate portals
-        if (item.IsOpen && _openDropdowns.Any(d => d.ParentItem == item))
-        {
-            return;
-        }
+		// Check if already open - prevent duplicate portals
+		if (item.IsOpen && _openDropdowns.Any(d => d.ParentItem == item))
+		{
+			return;
+		}
 
-        item.IsOpen = true;
+		item.IsOpen = true;
 
-        var dropdown = new MenuDropdown
-        {
-            ParentItem = item,
-            VisibleItems = item.Children.ToList(),
-            MaxVisibleItems = MaxDropdownHeight
-        };
+		var dropdown = new MenuDropdown
+		{
+			ParentItem = item,
+			VisibleItems = item.Children.ToList(),
+			MaxVisibleItems = MaxDropdownHeight
+		};
 
-        // Calculate dropdown bounds
-        dropdown.Bounds = CalculateDropdownBounds(item);
+		// Calculate dropdown bounds
+		dropdown.Bounds = CalculateDropdownBounds(item);
 
-        _openDropdowns.Add(dropdown);
+		_openDropdowns.Add(dropdown);
 
-        // Subscribe to dismiss events when first dropdown opens
-        if (_openDropdowns.Count == 1)
-        {
-            var parentWindow = this.GetParentWindow();
-            if (parentWindow != null)
-            {
-                parentWindow.UnhandledMouseClick += OnWindowUnhandledMouseClick;
-                parentWindow.Deactivated += OnWindowDeactivated;
-            }
-        }
+		// Subscribe to dismiss events when first dropdown opens
+		if (_openDropdowns.Count == 1)
+		{
+			var parentWindow = this.GetParentWindow();
+			if (parentWindow != null)
+			{
+				parentWindow.UnhandledMouseClick += OnWindowUnhandledMouseClick;
+				parentWindow.Deactivated += OnWindowDeactivated;
+			}
+		}
 
-        // Create portal for dropdown overlay
-        var portalContent = new MenuPortalContent(this, dropdown);
-        var host = GetPortalHost();
-        if (host != null)
-        {
-            var portalNode = host.CreatePortal(this, portalContent);
-            if (portalNode != null)
-            {
-                _dropdownPortals[dropdown] = portalNode;
-            }
-        }
+		// Create portal for dropdown overlay
+		var portalContent = new MenuPortalContent(this, dropdown);
+		var host = GetPortalHost();
+		if (host != null)
+		{
+			var portalNode = host.CreatePortal(this, portalContent);
+			if (portalNode != null)
+			{
+				_dropdownPortals[dropdown] = portalNode;
+			}
+		}
 
-        Container?.Invalidate(true);
-    }
+		Container?.Invalidate(true);
+	}
 
-    private void OpenSubmenu(MenuItem item)
-    {
-        if (!item.HasChildren)
-            return;
+	private void OpenSubmenu(MenuItem item)
+	{
+		if (!item.HasChildren)
+			return;
 
-        // Close any existing submenu at this level or deeper
-        var host = GetPortalHost();
-        while (_openDropdowns.Count > 0)
-        {
-            var last = _openDropdowns[_openDropdowns.Count - 1];
-            if (last.ParentItem != null && last.ParentItem.GetDepth() >= item.GetDepth())
-            {
-                last.ParentItem.IsOpen = false;
+		// Close any existing submenu at this level or deeper
+		var host = GetPortalHost();
+		while (_openDropdowns.Count > 0)
+		{
+			var last = _openDropdowns[_openDropdowns.Count - 1];
+			if (last.ParentItem != null && last.ParentItem.GetDepth() >= item.GetDepth())
+			{
+				last.ParentItem.IsOpen = false;
 
-                // Remove portal before removing dropdown from list
-                if (_dropdownPortals.TryGetValue(last, out var portalNode) && host != null)
-                {
-                    host.RemovePortal(this, portalNode);
-                    _dropdownPortals.Remove(last);
-                }
+				// Remove portal before removing dropdown from list
+				if (_dropdownPortals.TryGetValue(last, out var portalNode) && host != null)
+				{
+					host.RemovePortal(this, portalNode);
+					_dropdownPortals.Remove(last);
+				}
 
-                _openDropdowns.RemoveAt(_openDropdowns.Count - 1);
-            }
-            else
-            {
-                break;
-            }
-        }
+				_openDropdowns.RemoveAt(_openDropdowns.Count - 1);
+			}
+			else
+			{
+				break;
+			}
+		}
 
-        OpenDropdownInternal(item);
+		OpenDropdownInternal(item);
 
-        // Focus first item in new submenu
-        var firstItem = item.Children.FirstOrDefault(i => !i.IsSeparator && i.IsEnabled);
-        if (firstItem != null)
-        {
-            _focusedItem = firstItem;
-        }
+		// Focus first item in new submenu
+		var firstItem = item.Children.FirstOrDefault(i => !i.IsSeparator && i.IsEnabled);
+		if (firstItem != null)
+		{
+			_focusedItem = firstItem;
+		}
 
-        Container?.Invalidate(true);
-    }
+		Container?.Invalidate(true);
+	}
 
-    private void CloseLastOpenMenu()
-    {
-        if (_openDropdowns.Count > 0)
-        {
-            var last = _openDropdowns[_openDropdowns.Count - 1];
-            if (last.ParentItem != null)
-                last.ParentItem.IsOpen = false;
+	private void CloseLastOpenMenu()
+	{
+		if (_openDropdowns.Count > 0)
+		{
+			var last = _openDropdowns[_openDropdowns.Count - 1];
+			if (last.ParentItem != null)
+				last.ParentItem.IsOpen = false;
 
-            // Remove portal if it exists
-            if (_dropdownPortals.TryGetValue(last, out var portalNode))
-            {
-                var host = GetPortalHost();
-                if (host != null)
-                {
-                    host.RemovePortal(this, portalNode);
-                }
-                _dropdownPortals.Remove(last);
-            }
+			// Remove portal if it exists
+			if (_dropdownPortals.TryGetValue(last, out var portalNode))
+			{
+				var host = GetPortalHost();
+				if (host != null)
+				{
+					host.RemovePortal(this, portalNode);
+				}
+				_dropdownPortals.Remove(last);
+			}
 
-            _openDropdowns.RemoveAt(_openDropdowns.Count - 1);
-            Container?.Invalidate(true);
-        }
-    }
+			_openDropdowns.RemoveAt(_openDropdowns.Count - 1);
+			Container?.Invalidate(true);
+		}
+	}
 
-    /// <summary>
-    /// Closes any submenus that are deeper than the specified dropdown.
-    /// Called when hovering over a leaf item to close sibling submenus.
-    /// </summary>
-    private void CloseSiblingSubmenus(MenuDropdown currentDropdown)
-    {
-        var host = GetPortalHost();
-        int currentIndex = _openDropdowns.IndexOf(currentDropdown);
-        if (currentIndex < 0) return;
+	/// <summary>
+	/// Closes any submenus that are deeper than the specified dropdown.
+	/// Called when hovering over a leaf item to close sibling submenus.
+	/// </summary>
+	private void CloseSiblingSubmenus(MenuDropdown currentDropdown)
+	{
+		var host = GetPortalHost();
+		int currentIndex = _openDropdowns.IndexOf(currentDropdown);
+		if (currentIndex < 0) return;
 
-        // Close all dropdowns after the current one
-        while (_openDropdowns.Count > currentIndex + 1)
-        {
-            var last = _openDropdowns[_openDropdowns.Count - 1];
-            if (last.ParentItem != null)
-            {
-                last.ParentItem.IsOpen = false;
-            }
+		// Close all dropdowns after the current one
+		while (_openDropdowns.Count > currentIndex + 1)
+		{
+			var last = _openDropdowns[_openDropdowns.Count - 1];
+			if (last.ParentItem != null)
+			{
+				last.ParentItem.IsOpen = false;
+			}
 
-            if (_dropdownPortals.TryGetValue(last, out var portalNode) && host != null)
-            {
-                host.RemovePortal(this, portalNode);
-                _dropdownPortals.Remove(last);
-            }
+			if (_dropdownPortals.TryGetValue(last, out var portalNode) && host != null)
+			{
+				host.RemovePortal(this, portalNode);
+				_dropdownPortals.Remove(last);
+			}
 
-            _openDropdowns.RemoveAt(_openDropdowns.Count - 1);
-        }
-    }
+			_openDropdowns.RemoveAt(_openDropdowns.Count - 1);
+		}
+	}
 
-    #endregion
+	#endregion
 
-    #region Dropdown Positioning
+	#region Dropdown Positioning
 
-    private Rectangle CalculateDropdownBounds(MenuItem item)
-    {
-        if (!item.HasChildren)
-            return new Rectangle(0, 0, 0, 0);
+	private Rectangle CalculateDropdownBounds(MenuItem item)
+	{
+		if (!item.HasChildren)
+			return new Rectangle(0, 0, 0, 0);
 
-        // Calculate dropdown dimensions
-        int maxTextWidth = 0;
-        int maxShortcutWidth = 0;
-        int itemCount = 0;
+		// Calculate dropdown dimensions
+		int maxTextWidth = 0;
+		int maxShortcutWidth = 0;
+		int itemCount = 0;
 
-        foreach (var child in item.Children)
-        {
-            if (child.IsSeparator)
-            {
-                itemCount++;
-                continue;
-            }
+		foreach (var child in item.Children)
+		{
+			if (child.IsSeparator)
+			{
+				itemCount++;
+				continue;
+			}
 
-            int textWidth = MeasureText(child.Text);
-            maxTextWidth = Math.Max(maxTextWidth, textWidth);
+			int textWidth = MeasureText(child.Text);
+			maxTextWidth = Math.Max(maxTextWidth, textWidth);
 
-            if (!string.IsNullOrEmpty(child.Shortcut))
-            {
-                int shortcutWidth = MeasureText(child.Shortcut);
-                maxShortcutWidth = Math.Max(maxShortcutWidth, shortcutWidth);
-            }
+			if (!string.IsNullOrEmpty(child.Shortcut))
+			{
+				int shortcutWidth = MeasureText(child.Shortcut);
+				maxShortcutWidth = Math.Max(maxShortcutWidth, shortcutWidth);
+			}
 
-            itemCount++;
-        }
+			itemCount++;
+		}
 
-        // Calculate dropdown size
-        int dropdownWidth = maxTextWidth + maxShortcutWidth + Configuration.ControlDefaults.MenuItemDropdownPadding;
-        dropdownWidth = Math.Max(dropdownWidth, Configuration.ControlDefaults.MenuDropdownMinWidth);
-        dropdownWidth = Math.Min(dropdownWidth, Configuration.ControlDefaults.MenuDropdownMaxWidth);
+		// Calculate dropdown size
+		int dropdownWidth = maxTextWidth + maxShortcutWidth + Configuration.ControlDefaults.MenuItemDropdownPadding;
+		dropdownWidth = Math.Max(dropdownWidth, Configuration.ControlDefaults.MenuDropdownMinWidth);
+		dropdownWidth = Math.Min(dropdownWidth, Configuration.ControlDefaults.MenuDropdownMaxWidth);
 
-        int dropdownHeight = Math.Min(itemCount + 2, MaxDropdownHeight + 2);
+		int dropdownHeight = Math.Min(itemCount + 2, MaxDropdownHeight + 2);
 
-        // Get screen dimensions from window system or parent window
-        Window? parentWindow = this.GetParentWindow();
-        int screenWidth = parentWindow?.Width ?? 80;
-        int screenHeight = parentWindow?.Height ?? 24;
+		// Get screen dimensions from window system or parent window
+		Window? parentWindow = this.GetParentWindow();
+		int screenWidth = parentWindow?.Width ?? 80;
+		int screenHeight = parentWindow?.Height ?? 24;
 
-        if (Container?.GetConsoleWindowSystem != null)
-        {
-            var ws = Container.GetConsoleWindowSystem;
-            var dimensions = ws.DesktopDimensions;
-            screenWidth = dimensions.Width;
-            screenHeight = dimensions.Height;
-        }
+		if (Container?.GetConsoleWindowSystem != null)
+		{
+			var ws = Container.GetConsoleWindowSystem;
+			var dimensions = ws.DesktopDimensions;
+			screenWidth = dimensions.Width;
+			screenHeight = dimensions.Height;
+		}
 
-        // Determine screen bounds for clamping
-        // Use window buffer bounds if available (portals use window-relative coordinates)
-        Rectangle screenBounds;
-        if (parentWindow != null && parentWindow.UseDesktopPortals)
-        {
-            // Desktop portal mode — submenus render as desktop portals,
-            // so clamp to full desktop bounds in window-content-relative coordinates
-            var ws = Container?.GetConsoleWindowSystem;
-            if (ws != null)
-            {
-                var desktopBR = ws.DesktopBottomRight;
-                // Translate desktop bounds to window-content-relative
-                int contentLeft = parentWindow.Left + 1;
-                int contentTop = parentWindow.Top + 1;
-                screenBounds = new Rectangle(
-                    -contentLeft, -contentTop,
-                    desktopBR.X + 1, desktopBR.Y + 1);
-            }
-            else
-            {
-                screenBounds = new Rectangle(0, 0, screenWidth, screenHeight);
-            }
-        }
-        else if (parentWindow != null)
-        {
-            int bufferWidth = parentWindow.Width - 2;
-            int bufferHeight = parentWindow.Height - 2;
-            screenBounds = new Rectangle(0, 0, bufferWidth, bufferHeight);
-        }
-        else if (Container is Core.DesktopPortalContainer dpc)
-        {
-            // Desktop portal context — clamp to available screen space in buffer coordinates.
-            // Item bounds are in buffer space (layout positions relative to buffer origin).
-            // Using BufferOrigin (instead of Bounds) ensures the range covers the full buffer,
-            // allowing submenus to use space above the portal when BufferOrigin < Bounds.Y.
-            var ws = Container.GetConsoleWindowSystem!;
-            var desktopBR = ws.DesktopBottomRight;
-            var originX = dpc.Portal.BufferOrigin.X;
-            var originY = dpc.Portal.BufferOrigin.Y;
-            screenBounds = new Rectangle(0, 0,
-                desktopBR.X + 1 - originX,
-                desktopBR.Y + 1 - originY);
-        }
-        else
-        {
-            screenBounds = new Rectangle(0, 0, screenWidth, screenHeight);
-        }
+		// Determine screen bounds for clamping
+		// Use window buffer bounds if available (portals use window-relative coordinates)
+		Rectangle screenBounds;
+		if (parentWindow != null && parentWindow.UseDesktopPortals)
+		{
+			// Desktop portal mode — submenus render as desktop portals,
+			// so clamp to full desktop bounds in window-content-relative coordinates
+			var ws = Container?.GetConsoleWindowSystem;
+			if (ws != null)
+			{
+				var desktopBR = ws.DesktopBottomRight;
+				// Translate desktop bounds to window-content-relative
+				int contentLeft = parentWindow.Left + 1;
+				int contentTop = parentWindow.Top + 1;
+				screenBounds = new Rectangle(
+					-contentLeft, -contentTop,
+					desktopBR.X + 1, desktopBR.Y + 1);
+			}
+			else
+			{
+				screenBounds = new Rectangle(0, 0, screenWidth, screenHeight);
+			}
+		}
+		else if (parentWindow != null)
+		{
+			int bufferWidth = parentWindow.Width - 2;
+			int bufferHeight = parentWindow.Height - 2;
+			screenBounds = new Rectangle(0, 0, bufferWidth, bufferHeight);
+		}
+		else if (Container is Core.DesktopPortalContainer dpc)
+		{
+			// Desktop portal context — clamp to available screen space in buffer coordinates.
+			// Item bounds are in buffer space (layout positions relative to buffer origin).
+			// Using BufferOrigin (instead of Bounds) ensures the range covers the full buffer,
+			// allowing submenus to use space above the portal when BufferOrigin < Bounds.Y.
+			var ws = Container.GetConsoleWindowSystem!;
+			var desktopBR = ws.DesktopBottomRight;
+			var originX = dpc.Portal.BufferOrigin.X;
+			var originY = dpc.Portal.BufferOrigin.Y;
+			screenBounds = new Rectangle(0, 0,
+				desktopBR.X + 1 - originX,
+				desktopBR.Y + 1 - originY);
+		}
+		else
+		{
+			screenBounds = new Rectangle(0, 0, screenWidth, screenHeight);
+		}
 
-        bool isTopLevel = (item.Parent == null);
-        var itemBounds = item.Bounds;
+		bool isTopLevel = (item.Parent == null);
+		var itemBounds = item.Bounds;
 
-        // Determine placement based on context
-        PortalPlacement placement;
-        if (isTopLevel && _orientation == MenuOrientation.Horizontal)
-        {
-            // Horizontal menu bar - top-level dropdowns open Below/Above
-            // Use screen coordinates for direction check
-            int contentTop = 0;
-            if (parentWindow != null)
-            {
-                contentTop = parentWindow.Top + (parentWindow.ShowTitle ? 2 : 1);
-            }
-            int screenBottom = contentTop + itemBounds.Bottom;
-            int screenTop = contentTop + itemBounds.Top;
+		// Determine placement based on context
+		PortalPlacement placement;
+		if (isTopLevel && _orientation == MenuOrientation.Horizontal)
+		{
+			// Horizontal menu bar - top-level dropdowns open Below/Above
+			// Use screen coordinates for direction check
+			int contentTop = 0;
+			if (parentWindow != null)
+			{
+				contentTop = parentWindow.Top + (parentWindow.ShowTitle ? 2 : 1);
+			}
+			int screenBottom = contentTop + itemBounds.Bottom;
+			int screenTop = contentTop + itemBounds.Top;
 
-            bool fitsBelow = (screenBottom + dropdownHeight <= screenHeight);
-            bool fitsAbove = (screenTop - dropdownHeight >= 0);
+			bool fitsBelow = (screenBottom + dropdownHeight <= screenHeight);
+			bool fitsAbove = (screenTop - dropdownHeight >= 0);
 
-            placement = (!fitsBelow && fitsAbove) ? PortalPlacement.Above : PortalPlacement.Below;
-        }
-        else
-        {
-            // Vertical menu OR nested submenu - opens Right/Left
-            // Use actual screen coordinates for direction check
-            int contentLeft = 0;
-            int contentTop = 0;
-            if (parentWindow != null)
-            {
-                contentLeft = parentWindow.Left + 1;
-                contentTop = parentWindow.Top + (parentWindow.ShowTitle ? 2 : 1);
-            }
-            else if (Container is Core.DesktopPortalContainer dpc2)
-            {
-                // Portal's Bounds.X/Y is the screen offset
-                contentLeft = dpc2.Portal.Bounds.X;
-                contentTop = dpc2.Portal.Bounds.Y;
-            }
-            int screenRight = contentLeft + itemBounds.Right;
-            int screenLeft = contentLeft + itemBounds.Left;
-            int screenBottom = contentTop + itemBounds.Bottom;
+			placement = (!fitsBelow && fitsAbove) ? PortalPlacement.Above : PortalPlacement.Below;
+		}
+		else
+		{
+			// Vertical menu OR nested submenu - opens Right/Left
+			// Use actual screen coordinates for direction check
+			int contentLeft = 0;
+			int contentTop = 0;
+			if (parentWindow != null)
+			{
+				contentLeft = parentWindow.Left + 1;
+				contentTop = parentWindow.Top + (parentWindow.ShowTitle ? 2 : 1);
+			}
+			else if (Container is Core.DesktopPortalContainer dpc2)
+			{
+				// Portal's Bounds.X/Y is the screen offset
+				contentLeft = dpc2.Portal.Bounds.X;
+				contentTop = dpc2.Portal.Bounds.Y;
+			}
+			int screenRight = contentLeft + itemBounds.Right;
+			int screenLeft = contentLeft + itemBounds.Left;
+			int screenBottom = contentTop + itemBounds.Bottom;
 
-            bool fitsRight = (screenRight + dropdownWidth <= screenWidth);
-            bool fitsLeft = (screenLeft - dropdownWidth >= 0);
-            // Also check vertical: does the dropdown fit above the bottom edge?
-            bool fitsDown = (screenBottom + dropdownHeight <= screenHeight);
+			bool fitsRight = (screenRight + dropdownWidth <= screenWidth);
+			bool fitsLeft = (screenLeft - dropdownWidth >= 0);
+			// Also check vertical: does the dropdown fit above the bottom edge?
+			bool fitsDown = (screenBottom + dropdownHeight <= screenHeight);
 
-            placement = (!fitsRight && fitsLeft) ? PortalPlacement.Left : PortalPlacement.Right;
+			placement = (!fitsRight && fitsLeft) ? PortalPlacement.Left : PortalPlacement.Right;
 
-            // If dropdown doesn't fit vertically, PortalPositioner will clamp it
-        }
+			// If dropdown doesn't fit vertically, PortalPositioner will clamp it
+		}
 
-        // Use PortalPositioner for final placement and clamping
-        var request = new PortalPositionRequest(
-            Anchor: new Rectangle(itemBounds.X, itemBounds.Y, itemBounds.Width, itemBounds.Height),
-            ContentSize: new Size(dropdownWidth, dropdownHeight),
-            ScreenBounds: screenBounds,
-            Placement: placement
-        );
+		// Use PortalPositioner for final placement and clamping
+		var request = new PortalPositionRequest(
+			Anchor: new Rectangle(itemBounds.X, itemBounds.Y, itemBounds.Width, itemBounds.Height),
+			ContentSize: new Size(dropdownWidth, dropdownHeight),
+			ScreenBounds: screenBounds,
+			Placement: placement
+		);
 
-        var result = PortalPositioner.Calculate(request);
-        var finalBounds = result.Bounds;
+		var result = PortalPositioner.Calculate(request);
+		var finalBounds = result.Bounds;
 
-        // PortalPositioner truncates height when near bottom edge.
-        // For menus, shift Y upward instead to show the full dropdown.
-        if (finalBounds.Height < dropdownHeight)
-        {
-            int fullHeight = Math.Min(dropdownHeight, screenBounds.Height);
-            int shiftedY = Math.Max(screenBounds.Y, screenBounds.Y + screenBounds.Height - fullHeight);
-            finalBounds = new Rectangle(finalBounds.X, shiftedY, finalBounds.Width, fullHeight);
-        }
+		// PortalPositioner truncates height when near bottom edge.
+		// For menus, shift Y upward instead to show the full dropdown.
+		if (finalBounds.Height < dropdownHeight)
+		{
+			int fullHeight = Math.Min(dropdownHeight, screenBounds.Height);
+			int shiftedY = Math.Max(screenBounds.Y, screenBounds.Y + screenBounds.Height - fullHeight);
+			finalBounds = new Rectangle(finalBounds.X, shiftedY, finalBounds.Width, fullHeight);
+		}
 
-        return finalBounds;
-    }
+		return finalBounds;
+	}
 
-    #endregion
+	#endregion
 
-    #region Dropdown Helpers
+	#region Dropdown Helpers
 
-    private void ExecuteMenuItem(MenuItem item)
-    {
-        if (!item.IsEnabled || item.HasChildren)
-            return;
+	private void ExecuteMenuItem(MenuItem item)
+	{
+		if (!item.IsEnabled || item.HasChildren)
+			return;
 
-        item.Action?.Invoke();
-        ItemSelected?.Invoke(this, item);
-    }
+		item.Action?.Invoke();
+		ItemSelected?.Invoke(this, item);
+	}
 
-    #endregion
+	#endregion
 }

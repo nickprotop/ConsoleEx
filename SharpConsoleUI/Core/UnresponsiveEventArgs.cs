@@ -1,3 +1,11 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
 // SharpConsoleUI/Core/UnresponsiveEventArgs.cs
 namespace SharpConsoleUI.Core;
 
@@ -9,13 +17,13 @@ namespace SharpConsoleUI.Core;
 public sealed class UnresponsiveEventArgs : EventArgs
 {
 	/// <summary>How long the main loop had gone without a heartbeat when the stall was detected.</summary>
-	public TimeSpan      StalledFor   { get; }
+	public TimeSpan StalledFor { get; }
 	/// <summary>The main-loop phase executing when the stall was detected.</summary>
-	public MainLoopPhase Phase        { get; }
+	public MainLoopPhase Phase { get; }
 	/// <summary>Best-effort label of the user callback that was executing, or null if unknown.</summary>
-	public string?       BlockedIn    { get; }
+	public string? BlockedIn { get; }
 	/// <summary>UTC timestamp when the stall was detected.</summary>
-	public DateTime      TimestampUtc { get; }
+	public DateTime TimestampUtc { get; }
 
 	/// <summary>
 	/// When true (default = WatchdogOptions.ShowUnresponsiveBanner), the built-in ANSI banner is

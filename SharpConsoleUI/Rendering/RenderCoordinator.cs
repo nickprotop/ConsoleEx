@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
@@ -13,7 +14,6 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Logging;
 using SharpConsoleUI.Performance;
 using SharpConsoleUI.Themes;
-using System.Drawing;
 
 namespace SharpConsoleUI.Rendering
 {
@@ -233,95 +233,95 @@ namespace SharpConsoleUI.Rendering
 
 			lock (_renderLock)
 			{
-			// DESKTOP BACKGROUND UPDATE: Re-blit exposed desktop areas when the buffer changed.
-			// NeedsScreenUpdate is set by DesktopBackgroundService on config change, theme change,
-			// or animation tick. We blit the updated buffer to all exposed desktop regions.
-			{
-				var service = _windowSystemContext.DesktopBackgroundService;
-				if (service.NeedsScreenUpdate && service.HasBuffer)
+				// DESKTOP BACKGROUND UPDATE: Re-blit exposed desktop areas when the buffer changed.
+				// NeedsScreenUpdate is set by DesktopBackgroundService on config change, theme change,
+				// or animation tick. We blit the updated buffer to all exposed desktop regions.
 				{
-					service.NeedsScreenUpdate = false;
-
-					// Re-render the buffer on the render thread (animation timer only
-					// sets the flag — rendering here avoids race conditions with the
-					// thread pool timer writing to the buffer while we read it).
-					var desktopDims = _windowSystemContext.DesktopDimensions;
-					service.Render(desktopDims.Width, desktopDims.Height);
-					var desktopRect = new Rectangle(0, 0, desktopDims.Width, desktopDims.Height);
-
-					// Collect all visible (non-minimized) windows
-					_overlappingClearsPool.Clear();
-					foreach (var w in _windowSystemContext.Windows.Values)
+					var service = _windowSystemContext.DesktopBackgroundService;
+					if (service.NeedsScreenUpdate && service.HasBuffer)
 					{
-						if (w.State != WindowState.Minimized)
-							_overlappingClearsPool.Add(w);
-					}
+						service.NeedsScreenUpdate = false;
 
-					// Calculate exposed desktop regions (areas not covered by any window)
-					var exposedRegions = _windowSystemContext.VisibleRegions
-						.CalculateVisibleRegions(desktopRect, _overlappingClearsPool);
+						// Re-render the buffer on the render thread (animation timer only
+						// sets the flag — rendering here avoids race conditions with the
+						// thread pool timer writing to the buffer while we read it).
+						var desktopDims = _windowSystemContext.DesktopDimensions;
+						service.Render(desktopDims.Width, desktopDims.Height);
+						var desktopRect = new Rectangle(0, 0, desktopDims.Width, desktopDims.Height);
 
-					foreach (var region in exposedRegions)
-					{
-						_renderer.BlitDesktopRegion(region.Left, region.Top, region.Width, region.Height,
-							_windowSystemContext.Theme);
-					}
-
-					// Invalidate transparent windows — they composite against the desktop
-					// buffer which just changed, so they need to re-render.
-					foreach (var w in _windowSystemContext.Windows.Values)
-					{
-						if (w.State != WindowState.Minimized && w.BackgroundColor.A < 255)
-							w.Invalidate(true);
-					}
-				}
-			}
-
-			// ATOMIC DESKTOP CLEARING: Clear old window positions before rendering
-			// FIX: Calculate visible regions to avoid overwriting windows below (prevents empty regions bug)
-			if (_pendingDesktopClears.Count > 0)
-			{
-				// If animation is active, re-render the buffer so exposed regions
-				// show the current animation frame, not a stale one from the last tick.
-				var bgService = _windowSystemContext.DesktopBackgroundService;
-				if (bgService.Config?.PaintCallback != null && bgService.HasBuffer)
-				{
-					var dims = _windowSystemContext.DesktopDimensions;
-					bgService.Render(dims.Width, dims.Height);
-				}
-
-				// Copy list to avoid race condition (mouse events can add during iteration)
-				_clearsCopyPool.Clear();
-				_clearsCopyPool.AddRange(_pendingDesktopClears);
-				_pendingDesktopClears.Clear();
-
-				foreach (var clearRect in _clearsCopyPool)
-				{
-					// Find all visible windows that overlap with clear area
-					_overlappingClearsPool.Clear();
-					foreach (var w in _windowSystemContext.Windows.Values)
-					{
-						if (w.State != WindowState.Minimized &&
-						    GeometryHelpers.DoesRectangleIntersect(clearRect,
-						        new Rectangle(w.Left, w.Top, w.Width, w.Height)))
+						// Collect all visible (non-minimized) windows
+						_overlappingClearsPool.Clear();
+						foreach (var w in _windowSystemContext.Windows.Values)
 						{
-							_overlappingClearsPool.Add(w);
+							if (w.State != WindowState.Minimized)
+								_overlappingClearsPool.Add(w);
+						}
+
+						// Calculate exposed desktop regions (areas not covered by any window)
+						var exposedRegions = _windowSystemContext.VisibleRegions
+							.CalculateVisibleRegions(desktopRect, _overlappingClearsPool);
+
+						foreach (var region in exposedRegions)
+						{
+							_renderer.BlitDesktopRegion(region.Left, region.Top, region.Width, region.Height,
+								_windowSystemContext.Theme);
+						}
+
+						// Invalidate transparent windows — they composite against the desktop
+						// buffer which just changed, so they need to re-render.
+						foreach (var w in _windowSystemContext.Windows.Values)
+						{
+							if (w.State != WindowState.Minimized && w.BackgroundColor.A < 255)
+								w.Invalidate(true);
 						}
 					}
-					var overlappingWindows = _overlappingClearsPool;
+				}
 
-					// Calculate visible regions (areas NOT covered by windows)
-					var visibleRegions = _windowSystemContext.VisibleRegions
-						.CalculateVisibleRegions(clearRect, overlappingWindows);
-
-					// Only clear visible regions (never overwrite windows!)
-					foreach (var region in visibleRegions)
+				// ATOMIC DESKTOP CLEARING: Clear old window positions before rendering
+				// FIX: Calculate visible regions to avoid overwriting windows below (prevents empty regions bug)
+				if (_pendingDesktopClears.Count > 0)
+				{
+					// If animation is active, re-render the buffer so exposed regions
+					// show the current animation frame, not a stale one from the last tick.
+					var bgService = _windowSystemContext.DesktopBackgroundService;
+					if (bgService.Config?.PaintCallback != null && bgService.HasBuffer)
 					{
-						_renderer.BlitDesktopRegion(region.Left, region.Top, region.Width, region.Height,
-							_windowSystemContext.Theme);
+						var dims = _windowSystemContext.DesktopDimensions;
+						bgService.Render(dims.Width, dims.Height);
+					}
+
+					// Copy list to avoid race condition (mouse events can add during iteration)
+					_clearsCopyPool.Clear();
+					_clearsCopyPool.AddRange(_pendingDesktopClears);
+					_pendingDesktopClears.Clear();
+
+					foreach (var clearRect in _clearsCopyPool)
+					{
+						// Find all visible windows that overlap with clear area
+						_overlappingClearsPool.Clear();
+						foreach (var w in _windowSystemContext.Windows.Values)
+						{
+							if (w.State != WindowState.Minimized &&
+								GeometryHelpers.DoesRectangleIntersect(clearRect,
+									new Rectangle(w.Left, w.Top, w.Width, w.Height)))
+							{
+								_overlappingClearsPool.Add(w);
+							}
+						}
+						var overlappingWindows = _overlappingClearsPool;
+
+						// Calculate visible regions (areas NOT covered by windows)
+						var visibleRegions = _windowSystemContext.VisibleRegions
+							.CalculateVisibleRegions(clearRect, overlappingWindows);
+
+						// Only clear visible regions (never overwrite windows!)
+						foreach (var region in visibleRegions)
+						{
+							_renderer.BlitDesktopRegion(region.Left, region.Top, region.Width, region.Height,
+								_windowSystemContext.Theme);
+						}
 					}
 				}
-			}
 
 				// RENDERING ORDER:
 				// 1. Windows first (so we can measure their dirty chars)
@@ -813,9 +813,9 @@ namespace SharpConsoleUI.Rendering
 			// causes it to be skipped (e.g., marked clean prematurely or covered check race).
 			var dragState = _windowStateService.CurrentDrag;
 			if (dragState != null && dragState.Window != null &&
-			    dragState.Window.State != WindowState.Minimized &&
-			    dragState.Window.Width > 0 && dragState.Window.Height > 0 &&
-			    !_windowsToRender.Contains(dragState.Window))
+				dragState.Window.State != WindowState.Minimized &&
+				dragState.Window.Width > 0 && dragState.Window.Height > 0 &&
+				!_windowsToRender.Contains(dragState.Window))
 			{
 				dragState.Window.Invalidate(true);
 				_windowsToRender.Add(dragState.Window);

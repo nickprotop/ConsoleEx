@@ -30,814 +30,814 @@ namespace SharpConsoleUI.Builders;
 /// </example>
 public sealed class WindowBuilder
 {
-    private readonly ConsoleWindowSystem _windowSystem;
-
-    private string? _title;
-    private string? _name;
-    private WindowBounds? _bounds;
-    private Color? _backgroundColor;
-    private Color? _foregroundColor;
-    private bool _isModal = false;
-    private WindowState _state = WindowState.Normal;
-    private bool _isResizable = true;
-    private ResizeBorderDirections _resizeDirections = ResizeBorderDirections.All;
-    private bool _isClosable = true;
-    private bool _isMovable = true;
-    private bool _isMinimizable = true;
-    private bool _isMaximizable = true;
-    private int? _minWidth;
-    private int? _minHeight;
-    private int? _maxWidth;
-    private int? _maxHeight;
-    private Window? _parentWindow;
-    private readonly List<IWindowControl> _controls = new();
-    private Window.WindowThreadDelegateAsync? _asyncWindowThread;
-    private bool _alwaysOnTop = false;
-    private bool _showInTaskbar = true;
-    private bool _closeOnDeactivate = false;
-    private bool _useDesktopPortals = false;
-    private EventHandler? _activatedHandler;
-    private EventHandler? _deactivatedHandler;
-    private EventHandler<KeyPressedEventArgs>? _keyPressedHandler;
-    private EventHandler? _closedHandler;
-    private EventHandler<ClosingEventArgs>? _closingHandler;
-    private EventHandler? _resizeHandler;
-    private EventHandler? _shownHandler;
-    private EventHandler<Window.WindowStateChangedEventArgs>? _stateChangedHandler;
-    private BorderStyle _borderStyle = BorderStyle.DoubleLine;
-    private bool _showTitle = true;
-    private bool _showCloseButton = true;
-    private Color? _activeBorderColor;
-    private Color? _inactiveBorderColor;
-    private GradientBackground? _backgroundGradient;
-    private Rendering.TransparencyBrush? _transparencyBrush;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="WindowBuilder"/> class.
-    /// </summary>
-    /// <param name="windowSystem">The console window system that will manage the created window.</param>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="windowSystem"/> is null.</exception>
-    public WindowBuilder(ConsoleWindowSystem windowSystem)
-    {
-        _windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
-    }
-
-    /// <summary>
-    /// Sets the window title displayed in the title bar.
-    /// </summary>
-    /// <param name="title">The title text to display.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithTitle(string title)
-    {
-        _title = title;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets the window name for singleton window patterns.
-    /// Windows can be found and activated by name.
-    /// </summary>
-    /// <param name="name">The unique window name used for identification.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithName(string name)
-    {
-        _name = name;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets the window bounds including position and size.
-    /// </summary>
-    /// <param name="x">The X coordinate of the window's left edge.</param>
-    /// <param name="y">The Y coordinate of the window's top edge.</param>
-    /// <param name="width">The width of the window in characters.</param>
-    /// <param name="height">The height of the window in characters.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithBounds(int x, int y, int width, int height)
-    {
-        _bounds = new WindowBounds(x, y, width, height);
-        return this;
-    }
-
-    /// <summary>
-    /// Sets the window bounds using a <see cref="WindowBounds"/> instance.
-    /// </summary>
-    /// <param name="bounds">The bounds defining position and size of the window.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithBounds(WindowBounds bounds)
-    {
-        _bounds = bounds;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets the window position without changing its size.
-    /// If no size has been set, defaults to 80x25 characters.
-    /// </summary>
-    /// <param name="x">The X coordinate of the window's left edge.</param>
-    /// <param name="y">The Y coordinate of the window's top edge.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder AtPosition(int x, int y)
-    {
-        _bounds = _bounds?.WithPosition(x, y) ?? new WindowBounds(x, y, 80, 25);
-        return this;
-    }
-
-    /// <summary>Use <see cref="AtPosition"/> instead.</summary>
-    [Obsolete("Use AtPosition() instead.")]
-    public WindowBuilder WithPosition(int x, int y) => AtPosition(x, y);
-
-    /// <summary>
-    /// Sets the window size without changing its position.
-    /// If no position has been set, defaults to position (0, 0).
-    /// </summary>
-    /// <param name="width">The width of the window in characters.</param>
-    /// <param name="height">The height of the window in characters.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithSize(int width, int height)
-    {
-        _bounds = _bounds?.WithSize(width, height) ?? new WindowBounds(0, 0, width, height);
-        return this;
-    }
-
-    /// <summary>
-    /// Centers the window on the screen based on the current desktop dimensions.
-    /// Should be called after <see cref="WithSize"/> to ensure correct centering.
-    /// </summary>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder Centered()
-    {
-        var screenWidth = _windowSystem.DesktopDimensions.Width;
-        var screenHeight = _windowSystem.DesktopDimensions.Height;
-        var windowWidth = _bounds?.Width ?? 80;
-        var windowHeight = _bounds?.Height ?? 25;
-
-        var x = (screenWidth - windowWidth) / 2;
-        var y = (screenHeight - windowHeight) / 2;
-
-        return AtPosition(x, y);
-    }
-
-    /// <summary>
-    /// Sets the window background color.
-    /// </summary>
-    /// <param name="color">The background color for the window content area.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithBackgroundColor(Color color)
-    {
-        _backgroundColor = color;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets the window foreground color used for text rendering.
-    /// </summary>
-    /// <param name="color">The foreground color for the window content area.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithForegroundColor(Color color)
-    {
-        _foregroundColor = color;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets both the foreground and background colors for the window.
-    /// </summary>
-    /// <param name="foregroundColor">The foreground color for text in the window content area.</param>
-    /// <param name="backgroundColor">The background color for the window content area.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithColors(Color foregroundColor, Color backgroundColor)
-    {
-        _foregroundColor = foregroundColor;
-        _backgroundColor = backgroundColor;
-        return this;
-    }
-
-    /// <summary>Use <see cref="AsModal"/> instead.</summary>
-    [Obsolete("Use AsModal() instead.")]
-    public WindowBuilder WithModal(bool isModal = true)
-    {
-        _isModal = isModal;
-        return this;
-    }
-
-    /// <summary>
-    /// Makes the window modal, blocking input to other windows until closed.
-    /// </summary>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder AsModal()
-    {
-        _isModal = true;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets the initial window state (normal, minimized, or maximized).
-    /// </summary>
-    /// <param name="state">The initial window state.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithState(WindowState state)
-    {
-        _state = state;
-        return this;
-    }
-
-    /// <summary>
-    /// Makes the window start in maximized state, filling the available desktop area.
-    /// Equivalent to calling <see cref="WithState"/> with <see cref="WindowState.Maximized"/>.
-    /// </summary>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder Maximized()
-    {
-        _state = WindowState.Maximized;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets whether the window can be resized by the user.
-    /// </summary>
-    /// <param name="resizable">True to allow resizing; false to prevent it. Defaults to true.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder Resizable(bool resizable = true)
-    {
-        _isResizable = resizable;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets per-border movement permissions for resizing. Implies <c>Resizable(true)</c>.
-    /// </summary>
-    public WindowBuilder WithResizeDirections(ResizeBorderDirections directions)
-    {
-        _isResizable = true;
-        _resizeDirections = directions;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets whether the window can be closed by the user (via close button or programmatically).
-    /// </summary>
-    /// <param name="closable">True to allow closing; false to prevent it. Defaults to true.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder Closable(bool closable = true)
-    {
-        _isClosable = closable;
-        return this;
-    }
-
-    /// <summary>
-    /// Hides the close button [X] from the title bar while still allowing programmatic closing.
-    /// Use this when you want Escape key to close but don't want a visible close button.
-    /// </summary>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder HideCloseButton()
-    {
-        _showCloseButton = false;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets whether the close button [X] is shown in the title bar.
-    /// This only affects visual display - use Closable() to prevent closing entirely.
-    /// </summary>
-    /// <param name="show">True to show the close button; false to hide it.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithShowCloseButton(bool show)
-    {
-        _showCloseButton = show;
-        return this;
-    }
-
-    /// <summary>
-    /// Hides all title buttons (close, minimize, maximize) for a clean window appearance.
-    /// Useful for dialogs or panels that should not have window controls.
-    /// </summary>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder HideTitleButtons()
-    {
-        _showCloseButton = false;
-        _isMinimizable = false;
-        _isMaximizable = false;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets whether the window can be moved by dragging the title bar.
-    /// </summary>
-    /// <param name="movable">True to allow moving; false to prevent it. Defaults to true.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder Movable(bool movable = true)
-    {
-        _isMovable = movable;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets whether the window shows a minimize button and can be minimized.
-    /// </summary>
-    /// <param name="minimizable">True to show the minimize button; false to hide it. Defaults to true.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder Minimizable(bool minimizable = true)
-    {
-        _isMinimizable = minimizable;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets whether the window shows a maximize button and can be maximized.
-    /// </summary>
-    /// <param name="maximizable">True to show the maximize button; false to hide it. Defaults to true.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder Maximizable(bool maximizable = true)
-    {
-        _isMaximizable = maximizable;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets the border style for the window.
-    /// </summary>
-    /// <param name="borderStyle">The border style to use.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithBorderStyle(BorderStyle borderStyle)
-    {
-        _borderStyle = borderStyle;
-        return this;
-    }
-
-    /// <summary>
-    /// Creates a borderless window (renders borders as invisible spaces).
-    /// </summary>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder Borderless()
-    {
-        _borderStyle = BorderStyle.None;
-        return this;
-    }
-
-    /// <summary>
-    /// Hides the window title from the title bar.
-    /// Only the border and window buttons will be displayed.
-    /// </summary>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder HideTitle()
-    {
-        _showTitle = false;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets whether the window title is shown in the title bar.
-    /// </summary>
-    /// <param name="show">True to show the title, false to hide it.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithShowTitle(bool show)
-    {
-        _showTitle = show;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets the border foreground color when the window is active.
-    /// </summary>
-    /// <param name="color">The color to use for the active border.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithActiveBorderColor(Color color)
-    {
-        _activeBorderColor = color;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets the border foreground color when the window is inactive.
-    /// </summary>
-    /// <param name="color">The color to use for the inactive border.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithInactiveBorderColor(Color color)
-    {
-        _inactiveBorderColor = color;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets a gradient background for the window, rendered before controls are painted.
-    /// </summary>
-    /// <param name="gradient">The color gradient to apply.</param>
-    /// <param name="direction">The direction of the gradient. Defaults to Horizontal.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithBackgroundGradient(
-        ColorGradient gradient,
-        GradientDirection direction = Configuration.GradientDefaults.DefaultDirection)
-    {
-        _backgroundGradient = new GradientBackground(gradient, direction);
-        return this;
-    }
-
-    /// <summary>
-    /// Sets the transparency brush for compositing behavior when the window has
-    /// a semi-transparent background. Overrides the default true-transparency style.
-    /// </summary>
-    public WindowBuilder WithTransparencyBrush(Rendering.TransparencyBrush brush)
-    {
-        _transparencyBrush = brush;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets the border foreground color for both active and inactive states.
-    /// </summary>
-    /// <param name="color">The color to use for the border.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithBorderColor(Color color)
-    {
-        _activeBorderColor = color;
-        _inactiveBorderColor = color;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets the minimum size constraints for the window when resizing.
-    /// </summary>
-    /// <param name="minWidth">The minimum width in characters.</param>
-    /// <param name="minHeight">The minimum height in characters.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithMinimumSize(int minWidth, int minHeight)
-    {
-        _minWidth = minWidth;
-        _minHeight = minHeight;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets the maximum size constraints for the window when resizing.
-    /// </summary>
-    /// <param name="maxWidth">The maximum width in characters.</param>
-    /// <param name="maxHeight">The maximum height in characters.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithMaximumSize(int maxWidth, int maxHeight)
-    {
-        _maxWidth = maxWidth;
-        _maxHeight = maxHeight;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets the parent window for establishing a parent-child relationship.
-    /// Child windows are typically positioned relative to their parent.
-    /// </summary>
-    /// <param name="parent">The parent window instance.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithParent(Window parent)
-    {
-        _parentWindow = parent;
-        return this;
-    }
-
-    /// <summary>
-    /// Adds a control to the window's control collection.
-    /// </summary>
-    /// <param name="control">The control to add. Null values are ignored.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder AddControl(IWindowControl control)
-    {
-        if (control != null)
-        {
-            _controls.Add(control);
-        }
-        return this;
-    }
-
-    /// <summary>
-    /// Adds multiple controls to the window's control collection.
-    /// </summary>
-    /// <param name="controls">The controls to add. Null values in the array are ignored.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder AddControls(params IWindowControl[] controls)
-    {
-        foreach (var control in controls)
-        {
-            AddControl(control);
-        }
-        return this;
-    }
-
-    /// <summary>
-    /// Adds a control to the window using a configuration action for inline setup.
-    /// </summary>
-    /// <typeparam name="T">The type of control to create. Must have a parameterless constructor.</typeparam>
-    /// <param name="configure">An action to configure the newly created control.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder AddControl<T>(Action<T> configure) where T : class, IWindowControl, new()
-    {
-        var control = new T();
-        configure(control);
-        return AddControl(control);
-    }
-
-    /// <summary>
-    /// Sets an asynchronous window thread method that runs in the background while the window is open.
-    /// </summary>
-    /// <param name="asyncThreadMethod">The async delegate to execute as the window's background thread.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithAsyncWindowThread(Window.WindowThreadDelegateAsync asyncThreadMethod)
-    {
-        _asyncWindowThread = asyncThreadMethod;
-        return this;
-    }
-
-    /// <summary>
-    /// Configures the window to always render on top of normal windows.
-    /// AlwaysOnTop windows are rendered after all normal windows regardless of ZIndex.
-    /// </summary>
-    /// <param name="alwaysOnTop">True to make the window always on top; false otherwise. Default is true.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithAlwaysOnTop(bool alwaysOnTop = true)
-    {
-        _alwaysOnTop = alwaysOnTop;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets whether this window appears in the taskbar and window lists.
-    /// Defaults to true. Set to false for transient UI like start menus and popups.
-    /// </summary>
-    /// <param name="show">True to show in taskbar; false to hide.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder ShowInTaskbar(bool show = true)
-    {
-        _showInTaskbar = show;
-        return this;
-    }
-
-    /// <summary>
-    /// Sets whether this window automatically closes when deactivated.
-    /// Used for transient UI like start menus and popup panels.
-    /// </summary>
-    /// <param name="close">True to close on deactivate; false otherwise.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithCloseOnDeactivate(bool close = true)
-    {
-        _closeOnDeactivate = close;
-        return this;
-    }
-
-    /// <summary>
-    /// Makes child portals (dropdowns, submenus) render as desktop-level portals
-    /// instead of being clipped to the window bounds.
-    /// </summary>
-    /// <param name="use">True to use desktop portals; false for window-internal portals.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithDesktopPortals(bool use = true)
-    {
-        _useDesktopPortals = use;
-        return this;
-    }
-
-    /// <summary>
-    /// Subscribes a handler to the window's Activated event, which is raised when the window becomes the active window.
-    /// </summary>
-    /// <param name="handler">The event handler to invoke when the window is activated.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder OnActivated(EventHandler handler)
-    {
-        _activatedHandler = handler;
-        return this;
-    }
-
-    /// <summary>
-    /// Subscribes a handler to the window's Deactivated event, which is raised when the window loses focus to another window.
-    /// </summary>
-    /// <param name="handler">The event handler to invoke when the window is deactivated.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder OnDeactivated(EventHandler handler)
-    {
-        _deactivatedHandler = handler;
-        return this;
-    }
-
-    /// <summary>
-    /// Subscribes a handler to the window's KeyPressed event, which is raised when a key is pressed while the window has focus.
-    /// </summary>
-    /// <param name="handler">The event handler to invoke when a key is pressed.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder OnKeyPressed(EventHandler<KeyPressedEventArgs> handler)
-    {
-        _keyPressedHandler = handler;
-        return this;
-    }
-
-    /// <summary>
-    /// Subscribes a handler to the window's OnClosed event, which is raised after the window has been closed.
-    /// </summary>
-    /// <param name="handler">The event handler to invoke when the window is closed.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder OnClosed(EventHandler handler)
-    {
-        _closedHandler = handler;
-        return this;
-    }
-
-    /// <summary>
-    /// Subscribes a handler to the window's OnClosing event, which is raised when the window is about to close and can be cancelled.
-    /// </summary>
-    /// <param name="handler">The event handler to invoke when the window is closing.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder OnClosing(EventHandler<ClosingEventArgs> handler)
-    {
-        _closingHandler = handler;
-        return this;
-    }
-
-    /// <summary>
-    /// Subscribes a handler to the window's OnResize event, which is raised when the window size changes.
-    /// </summary>
-    /// <param name="handler">The event handler to invoke when the window is resized.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder OnResize(EventHandler handler)
-    {
-        _resizeHandler = handler;
-        return this;
-    }
-
-    /// <summary>
-    /// Subscribes a handler to the window's OnShown event, which is raised when the window is first displayed.
-    /// </summary>
-    /// <param name="handler">The event handler to invoke when the window is shown.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder OnShown(EventHandler handler)
-    {
-        _shownHandler = handler;
-        return this;
-    }
-
-    /// <summary>
-    /// Subscribes a handler to the window's StateChanged event, which is raised when the window state changes (normal, minimized, maximized).
-    /// </summary>
-    /// <param name="handler">The event handler to invoke when the window state changes.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder OnStateChanged(EventHandler<Window.WindowStateChangedEventArgs> handler)
-    {
-        _stateChangedHandler = handler;
-        return this;
-    }
-
-    /// <summary>
-    /// Enables DOM-based layout for this window.
-    /// DOM layout is now always enabled and is the only rendering path.
-    /// </summary>
-    /// <param name="enabled">This parameter is ignored. DOM layout is always enabled.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    [Obsolete("DOM layout is now always enabled. This method will be removed.")]
-    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-    public WindowBuilder WithDOMLayout(bool enabled = true)
-    {
-        // DOM layout is always enabled - this method is kept for backward compatibility
-        return this;
-    }
-
-    /// <summary>
-    /// Builds and returns the window with all configured settings applied.
-    /// The window is created but not added to the window system.
-    /// </summary>
-    /// <returns>A new <see cref="Window"/> instance with the configured settings.</returns>
-    public Window Build()
-    {
-        Window window;
-
-        // Create window based on configured thread method
-        if (_asyncWindowThread != null)
-        {
-            window = new Window(_windowSystem, _asyncWindowThread, _parentWindow);
-        }
-        else
-        {
-            window = new Window(_windowSystem, _parentWindow);
-        }
-
-        // Apply configuration
-        if (_title != null)
-            window.Title = _title;
-
-        if (_name != null)
-            window.Name = _name;
-
-        if (_bounds != null)
-        {
-            window.Left = _bounds.X;
-            window.Top = _bounds.Y;
-            window.Width = _bounds.Width;
-            window.Height = _bounds.Height;
-        }
-
-        if (_backgroundColor.HasValue)
-            window.BackgroundColor = _backgroundColor.Value;
-
-        if (_foregroundColor.HasValue)
-            window.ForegroundColor = _foregroundColor.Value;
-
-        window.IsModal = _isModal;
-        window.State = _state;
-        window.IsResizable = _isResizable;
-        window.AllowedResizeDirections = _resizeDirections;
-        window.IsClosable = _isClosable;
-        window.IsMovable = _isMovable;
-        window.IsMinimizable = _isMinimizable;
-        window.IsMaximizable = _isMaximizable;
-        window.AlwaysOnTop = _alwaysOnTop;
-        window.ShowInTaskbar = _showInTaskbar;
-        window.CloseOnDeactivate = _closeOnDeactivate;
-        window.UseDesktopPortals = _useDesktopPortals;
-        window.BorderStyle = _borderStyle;
-        window.ShowTitle = _showTitle;
-        window.ShowCloseButton = _showCloseButton;
-
-        if (_activeBorderColor.HasValue)
-            window.ActiveBorderForegroundColor = _activeBorderColor.Value;
-
-        if (_inactiveBorderColor.HasValue)
-            window.InactiveBorderForegroundColor = _inactiveBorderColor.Value;
-
-        if (_backgroundGradient != null)
-            window.BackgroundGradient = _backgroundGradient;
-
-        if (_transparencyBrush != null)
-            window.TransparencyBrush = _transparencyBrush;
-
-        // DOM layout is now always enabled - no need to set
-
-        // Note: MinimumWidth, MinimumHeight, MaximumWidth, MaximumHeight are private fields in Window
-        // and cannot be set from the builder. These properties would need to be exposed publicly
-        // in the Window class if needed.
-
-        // Add controls
-        foreach (var control in _controls)
-        {
-            window.AddControl(control);
-        }
-
-        // Subscribe event handlers
-        if (_activatedHandler != null)
-            window.Activated += _activatedHandler;
-
-        if (_deactivatedHandler != null)
-            window.Deactivated += _deactivatedHandler;
-
-        if (_keyPressedHandler != null)
-            window.KeyPressed += _keyPressedHandler;
-
-        if (_closedHandler != null)
-            window.OnClosed += _closedHandler;
-
-        if (_closingHandler != null)
-            window.OnClosing += _closingHandler;
-
-        if (_resizeHandler != null)
-            window.OnResize += _resizeHandler;
-
-        if (_shownHandler != null)
-            window.OnShown += _shownHandler;
-
-        if (_stateChangedHandler != null)
-            window.StateChanged += _stateChangedHandler;
-
-        return window;
-    }
-
-    /// <summary>
-    /// Builds the window with all configured settings and immediately adds it to the window system.
-    /// </summary>
-    /// <param name="activate">True to activate (bring to front and focus) the window after creation; false to add it inactive. Defaults to true.</param>
-    /// <returns>The created and displayed <see cref="Window"/> instance.</returns>
-    public Window BuildAndShow(bool activate = true)
-    {
-        var window = Build();
-        _windowSystem.AddWindow(window, activate);
-        return window;
-    }
-
-    /// <summary>
-    /// Applies a theme to set the window's background and foreground colors.
-    /// </summary>
-    /// <param name="theme">The theme to apply. If null, no changes are made.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithTheme(ITheme theme)
-    {
-        if (theme == null)
-            return this;
-
-        return WithColors(theme.WindowForegroundColor, theme.WindowBackgroundColor);
-    }
-
-    /// <summary>
-    /// Applies a preconfigured window template to set multiple properties at once.
-    /// Templates encapsulate common window configurations for reuse.
-    /// </summary>
-    /// <param name="template">The window template to apply.</param>
-    /// <returns>The current builder instance for method chaining.</returns>
-    public WindowBuilder WithTemplate(WindowTemplate template)
-    {
-        return template.Configure(this);
-    }
+	private readonly ConsoleWindowSystem _windowSystem;
+
+	private string? _title;
+	private string? _name;
+	private WindowBounds? _bounds;
+	private Color? _backgroundColor;
+	private Color? _foregroundColor;
+	private bool _isModal = false;
+	private WindowState _state = WindowState.Normal;
+	private bool _isResizable = true;
+	private ResizeBorderDirections _resizeDirections = ResizeBorderDirections.All;
+	private bool _isClosable = true;
+	private bool _isMovable = true;
+	private bool _isMinimizable = true;
+	private bool _isMaximizable = true;
+	private int? _minWidth;
+	private int? _minHeight;
+	private int? _maxWidth;
+	private int? _maxHeight;
+	private Window? _parentWindow;
+	private readonly List<IWindowControl> _controls = new();
+	private Window.WindowThreadDelegateAsync? _asyncWindowThread;
+	private bool _alwaysOnTop = false;
+	private bool _showInTaskbar = true;
+	private bool _closeOnDeactivate = false;
+	private bool _useDesktopPortals = false;
+	private EventHandler? _activatedHandler;
+	private EventHandler? _deactivatedHandler;
+	private EventHandler<KeyPressedEventArgs>? _keyPressedHandler;
+	private EventHandler? _closedHandler;
+	private EventHandler<ClosingEventArgs>? _closingHandler;
+	private EventHandler? _resizeHandler;
+	private EventHandler? _shownHandler;
+	private EventHandler<Window.WindowStateChangedEventArgs>? _stateChangedHandler;
+	private BorderStyle _borderStyle = BorderStyle.DoubleLine;
+	private bool _showTitle = true;
+	private bool _showCloseButton = true;
+	private Color? _activeBorderColor;
+	private Color? _inactiveBorderColor;
+	private GradientBackground? _backgroundGradient;
+	private Rendering.TransparencyBrush? _transparencyBrush;
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="WindowBuilder"/> class.
+	/// </summary>
+	/// <param name="windowSystem">The console window system that will manage the created window.</param>
+	/// <exception cref="ArgumentNullException">Thrown when <paramref name="windowSystem"/> is null.</exception>
+	public WindowBuilder(ConsoleWindowSystem windowSystem)
+	{
+		_windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
+	}
+
+	/// <summary>
+	/// Sets the window title displayed in the title bar.
+	/// </summary>
+	/// <param name="title">The title text to display.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithTitle(string title)
+	{
+		_title = title;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the window name for singleton window patterns.
+	/// Windows can be found and activated by name.
+	/// </summary>
+	/// <param name="name">The unique window name used for identification.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithName(string name)
+	{
+		_name = name;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the window bounds including position and size.
+	/// </summary>
+	/// <param name="x">The X coordinate of the window's left edge.</param>
+	/// <param name="y">The Y coordinate of the window's top edge.</param>
+	/// <param name="width">The width of the window in characters.</param>
+	/// <param name="height">The height of the window in characters.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithBounds(int x, int y, int width, int height)
+	{
+		_bounds = new WindowBounds(x, y, width, height);
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the window bounds using a <see cref="WindowBounds"/> instance.
+	/// </summary>
+	/// <param name="bounds">The bounds defining position and size of the window.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithBounds(WindowBounds bounds)
+	{
+		_bounds = bounds;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the window position without changing its size.
+	/// If no size has been set, defaults to 80x25 characters.
+	/// </summary>
+	/// <param name="x">The X coordinate of the window's left edge.</param>
+	/// <param name="y">The Y coordinate of the window's top edge.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder AtPosition(int x, int y)
+	{
+		_bounds = _bounds?.WithPosition(x, y) ?? new WindowBounds(x, y, 80, 25);
+		return this;
+	}
+
+	/// <summary>Use <see cref="AtPosition"/> instead.</summary>
+	[Obsolete("Use AtPosition() instead.")]
+	public WindowBuilder WithPosition(int x, int y) => AtPosition(x, y);
+
+	/// <summary>
+	/// Sets the window size without changing its position.
+	/// If no position has been set, defaults to position (0, 0).
+	/// </summary>
+	/// <param name="width">The width of the window in characters.</param>
+	/// <param name="height">The height of the window in characters.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithSize(int width, int height)
+	{
+		_bounds = _bounds?.WithSize(width, height) ?? new WindowBounds(0, 0, width, height);
+		return this;
+	}
+
+	/// <summary>
+	/// Centers the window on the screen based on the current desktop dimensions.
+	/// Should be called after <see cref="WithSize"/> to ensure correct centering.
+	/// </summary>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder Centered()
+	{
+		var screenWidth = _windowSystem.DesktopDimensions.Width;
+		var screenHeight = _windowSystem.DesktopDimensions.Height;
+		var windowWidth = _bounds?.Width ?? 80;
+		var windowHeight = _bounds?.Height ?? 25;
+
+		var x = (screenWidth - windowWidth) / 2;
+		var y = (screenHeight - windowHeight) / 2;
+
+		return AtPosition(x, y);
+	}
+
+	/// <summary>
+	/// Sets the window background color.
+	/// </summary>
+	/// <param name="color">The background color for the window content area.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithBackgroundColor(Color color)
+	{
+		_backgroundColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the window foreground color used for text rendering.
+	/// </summary>
+	/// <param name="color">The foreground color for the window content area.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithForegroundColor(Color color)
+	{
+		_foregroundColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets both the foreground and background colors for the window.
+	/// </summary>
+	/// <param name="foregroundColor">The foreground color for text in the window content area.</param>
+	/// <param name="backgroundColor">The background color for the window content area.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithColors(Color foregroundColor, Color backgroundColor)
+	{
+		_foregroundColor = foregroundColor;
+		_backgroundColor = backgroundColor;
+		return this;
+	}
+
+	/// <summary>Use <see cref="AsModal"/> instead.</summary>
+	[Obsolete("Use AsModal() instead.")]
+	public WindowBuilder WithModal(bool isModal = true)
+	{
+		_isModal = isModal;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the window modal, blocking input to other windows until closed.
+	/// </summary>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder AsModal()
+	{
+		_isModal = true;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the initial window state (normal, minimized, or maximized).
+	/// </summary>
+	/// <param name="state">The initial window state.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithState(WindowState state)
+	{
+		_state = state;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the window start in maximized state, filling the available desktop area.
+	/// Equivalent to calling <see cref="WithState"/> with <see cref="WindowState.Maximized"/>.
+	/// </summary>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder Maximized()
+	{
+		_state = WindowState.Maximized;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets whether the window can be resized by the user.
+	/// </summary>
+	/// <param name="resizable">True to allow resizing; false to prevent it. Defaults to true.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder Resizable(bool resizable = true)
+	{
+		_isResizable = resizable;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets per-border movement permissions for resizing. Implies <c>Resizable(true)</c>.
+	/// </summary>
+	public WindowBuilder WithResizeDirections(ResizeBorderDirections directions)
+	{
+		_isResizable = true;
+		_resizeDirections = directions;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets whether the window can be closed by the user (via close button or programmatically).
+	/// </summary>
+	/// <param name="closable">True to allow closing; false to prevent it. Defaults to true.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder Closable(bool closable = true)
+	{
+		_isClosable = closable;
+		return this;
+	}
+
+	/// <summary>
+	/// Hides the close button [X] from the title bar while still allowing programmatic closing.
+	/// Use this when you want Escape key to close but don't want a visible close button.
+	/// </summary>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder HideCloseButton()
+	{
+		_showCloseButton = false;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets whether the close button [X] is shown in the title bar.
+	/// This only affects visual display - use Closable() to prevent closing entirely.
+	/// </summary>
+	/// <param name="show">True to show the close button; false to hide it.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithShowCloseButton(bool show)
+	{
+		_showCloseButton = show;
+		return this;
+	}
+
+	/// <summary>
+	/// Hides all title buttons (close, minimize, maximize) for a clean window appearance.
+	/// Useful for dialogs or panels that should not have window controls.
+	/// </summary>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder HideTitleButtons()
+	{
+		_showCloseButton = false;
+		_isMinimizable = false;
+		_isMaximizable = false;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets whether the window can be moved by dragging the title bar.
+	/// </summary>
+	/// <param name="movable">True to allow moving; false to prevent it. Defaults to true.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder Movable(bool movable = true)
+	{
+		_isMovable = movable;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets whether the window shows a minimize button and can be minimized.
+	/// </summary>
+	/// <param name="minimizable">True to show the minimize button; false to hide it. Defaults to true.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder Minimizable(bool minimizable = true)
+	{
+		_isMinimizable = minimizable;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets whether the window shows a maximize button and can be maximized.
+	/// </summary>
+	/// <param name="maximizable">True to show the maximize button; false to hide it. Defaults to true.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder Maximizable(bool maximizable = true)
+	{
+		_isMaximizable = maximizable;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the border style for the window.
+	/// </summary>
+	/// <param name="borderStyle">The border style to use.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithBorderStyle(BorderStyle borderStyle)
+	{
+		_borderStyle = borderStyle;
+		return this;
+	}
+
+	/// <summary>
+	/// Creates a borderless window (renders borders as invisible spaces).
+	/// </summary>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder Borderless()
+	{
+		_borderStyle = BorderStyle.None;
+		return this;
+	}
+
+	/// <summary>
+	/// Hides the window title from the title bar.
+	/// Only the border and window buttons will be displayed.
+	/// </summary>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder HideTitle()
+	{
+		_showTitle = false;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets whether the window title is shown in the title bar.
+	/// </summary>
+	/// <param name="show">True to show the title, false to hide it.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithShowTitle(bool show)
+	{
+		_showTitle = show;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the border foreground color when the window is active.
+	/// </summary>
+	/// <param name="color">The color to use for the active border.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithActiveBorderColor(Color color)
+	{
+		_activeBorderColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the border foreground color when the window is inactive.
+	/// </summary>
+	/// <param name="color">The color to use for the inactive border.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithInactiveBorderColor(Color color)
+	{
+		_inactiveBorderColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets a gradient background for the window, rendered before controls are painted.
+	/// </summary>
+	/// <param name="gradient">The color gradient to apply.</param>
+	/// <param name="direction">The direction of the gradient. Defaults to Horizontal.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithBackgroundGradient(
+		ColorGradient gradient,
+		GradientDirection direction = Configuration.GradientDefaults.DefaultDirection)
+	{
+		_backgroundGradient = new GradientBackground(gradient, direction);
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the transparency brush for compositing behavior when the window has
+	/// a semi-transparent background. Overrides the default true-transparency style.
+	/// </summary>
+	public WindowBuilder WithTransparencyBrush(Rendering.TransparencyBrush brush)
+	{
+		_transparencyBrush = brush;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the border foreground color for both active and inactive states.
+	/// </summary>
+	/// <param name="color">The color to use for the border.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithBorderColor(Color color)
+	{
+		_activeBorderColor = color;
+		_inactiveBorderColor = color;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the minimum size constraints for the window when resizing.
+	/// </summary>
+	/// <param name="minWidth">The minimum width in characters.</param>
+	/// <param name="minHeight">The minimum height in characters.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithMinimumSize(int minWidth, int minHeight)
+	{
+		_minWidth = minWidth;
+		_minHeight = minHeight;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the maximum size constraints for the window when resizing.
+	/// </summary>
+	/// <param name="maxWidth">The maximum width in characters.</param>
+	/// <param name="maxHeight">The maximum height in characters.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithMaximumSize(int maxWidth, int maxHeight)
+	{
+		_maxWidth = maxWidth;
+		_maxHeight = maxHeight;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the parent window for establishing a parent-child relationship.
+	/// Child windows are typically positioned relative to their parent.
+	/// </summary>
+	/// <param name="parent">The parent window instance.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithParent(Window parent)
+	{
+		_parentWindow = parent;
+		return this;
+	}
+
+	/// <summary>
+	/// Adds a control to the window's control collection.
+	/// </summary>
+	/// <param name="control">The control to add. Null values are ignored.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder AddControl(IWindowControl control)
+	{
+		if (control != null)
+		{
+			_controls.Add(control);
+		}
+		return this;
+	}
+
+	/// <summary>
+	/// Adds multiple controls to the window's control collection.
+	/// </summary>
+	/// <param name="controls">The controls to add. Null values in the array are ignored.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder AddControls(params IWindowControl[] controls)
+	{
+		foreach (var control in controls)
+		{
+			AddControl(control);
+		}
+		return this;
+	}
+
+	/// <summary>
+	/// Adds a control to the window using a configuration action for inline setup.
+	/// </summary>
+	/// <typeparam name="T">The type of control to create. Must have a parameterless constructor.</typeparam>
+	/// <param name="configure">An action to configure the newly created control.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder AddControl<T>(Action<T> configure) where T : class, IWindowControl, new()
+	{
+		var control = new T();
+		configure(control);
+		return AddControl(control);
+	}
+
+	/// <summary>
+	/// Sets an asynchronous window thread method that runs in the background while the window is open.
+	/// </summary>
+	/// <param name="asyncThreadMethod">The async delegate to execute as the window's background thread.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithAsyncWindowThread(Window.WindowThreadDelegateAsync asyncThreadMethod)
+	{
+		_asyncWindowThread = asyncThreadMethod;
+		return this;
+	}
+
+	/// <summary>
+	/// Configures the window to always render on top of normal windows.
+	/// AlwaysOnTop windows are rendered after all normal windows regardless of ZIndex.
+	/// </summary>
+	/// <param name="alwaysOnTop">True to make the window always on top; false otherwise. Default is true.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithAlwaysOnTop(bool alwaysOnTop = true)
+	{
+		_alwaysOnTop = alwaysOnTop;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets whether this window appears in the taskbar and window lists.
+	/// Defaults to true. Set to false for transient UI like start menus and popups.
+	/// </summary>
+	/// <param name="show">True to show in taskbar; false to hide.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder ShowInTaskbar(bool show = true)
+	{
+		_showInTaskbar = show;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets whether this window automatically closes when deactivated.
+	/// Used for transient UI like start menus and popup panels.
+	/// </summary>
+	/// <param name="close">True to close on deactivate; false otherwise.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithCloseOnDeactivate(bool close = true)
+	{
+		_closeOnDeactivate = close;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes child portals (dropdowns, submenus) render as desktop-level portals
+	/// instead of being clipped to the window bounds.
+	/// </summary>
+	/// <param name="use">True to use desktop portals; false for window-internal portals.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithDesktopPortals(bool use = true)
+	{
+		_useDesktopPortals = use;
+		return this;
+	}
+
+	/// <summary>
+	/// Subscribes a handler to the window's Activated event, which is raised when the window becomes the active window.
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the window is activated.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder OnActivated(EventHandler handler)
+	{
+		_activatedHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Subscribes a handler to the window's Deactivated event, which is raised when the window loses focus to another window.
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the window is deactivated.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder OnDeactivated(EventHandler handler)
+	{
+		_deactivatedHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Subscribes a handler to the window's KeyPressed event, which is raised when a key is pressed while the window has focus.
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when a key is pressed.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder OnKeyPressed(EventHandler<KeyPressedEventArgs> handler)
+	{
+		_keyPressedHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Subscribes a handler to the window's OnClosed event, which is raised after the window has been closed.
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the window is closed.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder OnClosed(EventHandler handler)
+	{
+		_closedHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Subscribes a handler to the window's OnClosing event, which is raised when the window is about to close and can be cancelled.
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the window is closing.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder OnClosing(EventHandler<ClosingEventArgs> handler)
+	{
+		_closingHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Subscribes a handler to the window's OnResize event, which is raised when the window size changes.
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the window is resized.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder OnResize(EventHandler handler)
+	{
+		_resizeHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Subscribes a handler to the window's OnShown event, which is raised when the window is first displayed.
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the window is shown.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder OnShown(EventHandler handler)
+	{
+		_shownHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Subscribes a handler to the window's StateChanged event, which is raised when the window state changes (normal, minimized, maximized).
+	/// </summary>
+	/// <param name="handler">The event handler to invoke when the window state changes.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder OnStateChanged(EventHandler<Window.WindowStateChangedEventArgs> handler)
+	{
+		_stateChangedHandler = handler;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables DOM-based layout for this window.
+	/// DOM layout is now always enabled and is the only rendering path.
+	/// </summary>
+	/// <param name="enabled">This parameter is ignored. DOM layout is always enabled.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	[Obsolete("DOM layout is now always enabled. This method will be removed.")]
+	[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+	public WindowBuilder WithDOMLayout(bool enabled = true)
+	{
+		// DOM layout is always enabled - this method is kept for backward compatibility
+		return this;
+	}
+
+	/// <summary>
+	/// Builds and returns the window with all configured settings applied.
+	/// The window is created but not added to the window system.
+	/// </summary>
+	/// <returns>A new <see cref="Window"/> instance with the configured settings.</returns>
+	public Window Build()
+	{
+		Window window;
+
+		// Create window based on configured thread method
+		if (_asyncWindowThread != null)
+		{
+			window = new Window(_windowSystem, _asyncWindowThread, _parentWindow);
+		}
+		else
+		{
+			window = new Window(_windowSystem, _parentWindow);
+		}
+
+		// Apply configuration
+		if (_title != null)
+			window.Title = _title;
+
+		if (_name != null)
+			window.Name = _name;
+
+		if (_bounds != null)
+		{
+			window.Left = _bounds.X;
+			window.Top = _bounds.Y;
+			window.Width = _bounds.Width;
+			window.Height = _bounds.Height;
+		}
+
+		if (_backgroundColor.HasValue)
+			window.BackgroundColor = _backgroundColor.Value;
+
+		if (_foregroundColor.HasValue)
+			window.ForegroundColor = _foregroundColor.Value;
+
+		window.IsModal = _isModal;
+		window.State = _state;
+		window.IsResizable = _isResizable;
+		window.AllowedResizeDirections = _resizeDirections;
+		window.IsClosable = _isClosable;
+		window.IsMovable = _isMovable;
+		window.IsMinimizable = _isMinimizable;
+		window.IsMaximizable = _isMaximizable;
+		window.AlwaysOnTop = _alwaysOnTop;
+		window.ShowInTaskbar = _showInTaskbar;
+		window.CloseOnDeactivate = _closeOnDeactivate;
+		window.UseDesktopPortals = _useDesktopPortals;
+		window.BorderStyle = _borderStyle;
+		window.ShowTitle = _showTitle;
+		window.ShowCloseButton = _showCloseButton;
+
+		if (_activeBorderColor.HasValue)
+			window.ActiveBorderForegroundColor = _activeBorderColor.Value;
+
+		if (_inactiveBorderColor.HasValue)
+			window.InactiveBorderForegroundColor = _inactiveBorderColor.Value;
+
+		if (_backgroundGradient != null)
+			window.BackgroundGradient = _backgroundGradient;
+
+		if (_transparencyBrush != null)
+			window.TransparencyBrush = _transparencyBrush;
+
+		// DOM layout is now always enabled - no need to set
+
+		// Note: MinimumWidth, MinimumHeight, MaximumWidth, MaximumHeight are private fields in Window
+		// and cannot be set from the builder. These properties would need to be exposed publicly
+		// in the Window class if needed.
+
+		// Add controls
+		foreach (var control in _controls)
+		{
+			window.AddControl(control);
+		}
+
+		// Subscribe event handlers
+		if (_activatedHandler != null)
+			window.Activated += _activatedHandler;
+
+		if (_deactivatedHandler != null)
+			window.Deactivated += _deactivatedHandler;
+
+		if (_keyPressedHandler != null)
+			window.KeyPressed += _keyPressedHandler;
+
+		if (_closedHandler != null)
+			window.OnClosed += _closedHandler;
+
+		if (_closingHandler != null)
+			window.OnClosing += _closingHandler;
+
+		if (_resizeHandler != null)
+			window.OnResize += _resizeHandler;
+
+		if (_shownHandler != null)
+			window.OnShown += _shownHandler;
+
+		if (_stateChangedHandler != null)
+			window.StateChanged += _stateChangedHandler;
+
+		return window;
+	}
+
+	/// <summary>
+	/// Builds the window with all configured settings and immediately adds it to the window system.
+	/// </summary>
+	/// <param name="activate">True to activate (bring to front and focus) the window after creation; false to add it inactive. Defaults to true.</param>
+	/// <returns>The created and displayed <see cref="Window"/> instance.</returns>
+	public Window BuildAndShow(bool activate = true)
+	{
+		var window = Build();
+		_windowSystem.AddWindow(window, activate);
+		return window;
+	}
+
+	/// <summary>
+	/// Applies a theme to set the window's background and foreground colors.
+	/// </summary>
+	/// <param name="theme">The theme to apply. If null, no changes are made.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithTheme(ITheme theme)
+	{
+		if (theme == null)
+			return this;
+
+		return WithColors(theme.WindowForegroundColor, theme.WindowBackgroundColor);
+	}
+
+	/// <summary>
+	/// Applies a preconfigured window template to set multiple properties at once.
+	/// Templates encapsulate common window configurations for reuse.
+	/// </summary>
+	/// <param name="template">The window template to apply.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithTemplate(WindowTemplate template)
+	{
+		return template.Configure(this);
+	}
 }
 
 /// <summary>
@@ -846,12 +846,12 @@ public sealed class WindowBuilder
 /// </summary>
 public abstract class WindowTemplate
 {
-    /// <summary>
-    /// Configures the window builder with the settings defined by this template.
-    /// </summary>
-    /// <param name="builder">The window builder to configure.</param>
-    /// <returns>The configured builder instance for continued method chaining.</returns>
-    public abstract WindowBuilder Configure(WindowBuilder builder);
+	/// <summary>
+	/// Configures the window builder with the settings defined by this template.
+	/// </summary>
+	/// <param name="builder">The window builder to configure.</param>
+	/// <returns>The configured builder instance for continued method chaining.</returns>
+	public abstract WindowBuilder Configure(WindowBuilder builder);
 }
 
 /// <summary>
@@ -860,39 +860,39 @@ public abstract class WindowTemplate
 /// </summary>
 public sealed class DialogTemplate : WindowTemplate
 {
-    private readonly string _title;
-    private readonly int _width;
-    private readonly int _height;
+	private readonly string _title;
+	private readonly int _width;
+	private readonly int _height;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="DialogTemplate"/> class.
-    /// </summary>
-    /// <param name="title">The title text to display in the dialog's title bar.</param>
-    /// <param name="width">The width of the dialog in characters. Defaults to 50.</param>
-    /// <param name="height">The height of the dialog in characters. Defaults to 15.</param>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="title"/> is null.</exception>
-    public DialogTemplate(string title, int width = 50, int height = 15)
-    {
-        _title = title ?? throw new ArgumentNullException(nameof(title));
-        _width = width;
-        _height = height;
-    }
+	/// <summary>
+	/// Initializes a new instance of the <see cref="DialogTemplate"/> class.
+	/// </summary>
+	/// <param name="title">The title text to display in the dialog's title bar.</param>
+	/// <param name="width">The width of the dialog in characters. Defaults to 50.</param>
+	/// <param name="height">The height of the dialog in characters. Defaults to 15.</param>
+	/// <exception cref="ArgumentNullException">Thrown when <paramref name="title"/> is null.</exception>
+	public DialogTemplate(string title, int width = 50, int height = 15)
+	{
+		_title = title ?? throw new ArgumentNullException(nameof(title));
+		_width = width;
+		_height = height;
+	}
 
-    /// <summary>
-    /// Configures the window builder with dialog-specific settings including
-    /// modal mode, centered position, and disabled resizing.
-    /// </summary>
-    /// <param name="builder">The window builder to configure.</param>
-    /// <returns>The configured builder instance for continued method chaining.</returns>
-    public override WindowBuilder Configure(WindowBuilder builder)
-    {
-        return builder
-            .WithTitle(_title)
-            .WithSize(_width, _height)
-            .Centered()
-            .AsModal()
-            .Resizable(false);
-    }
+	/// <summary>
+	/// Configures the window builder with dialog-specific settings including
+	/// modal mode, centered position, and disabled resizing.
+	/// </summary>
+	/// <param name="builder">The window builder to configure.</param>
+	/// <returns>The configured builder instance for continued method chaining.</returns>
+	public override WindowBuilder Configure(WindowBuilder builder)
+	{
+		return builder
+			.WithTitle(_title)
+			.WithSize(_width, _height)
+			.Centered()
+			.AsModal()
+			.Resizable(false);
+	}
 }
 
 /// <summary>
@@ -901,37 +901,37 @@ public sealed class DialogTemplate : WindowTemplate
 /// </summary>
 public sealed class ToolWindowTemplate : WindowTemplate
 {
-    private readonly string _title;
-    private readonly Point _position;
-    private readonly DrawingSize _size;
+	private readonly string _title;
+	private readonly Point _position;
+	private readonly DrawingSize _size;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ToolWindowTemplate"/> class.
-    /// </summary>
-    /// <param name="title">The title text to display in the tool window's title bar.</param>
-    /// <param name="position">The initial position of the tool window.</param>
-    /// <param name="size">The initial size of the tool window.</param>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="title"/> is null.</exception>
-    public ToolWindowTemplate(string title, Point position, DrawingSize size)
-    {
-        _title = title ?? throw new ArgumentNullException(nameof(title));
-        _position = position;
-        _size = size;
-    }
+	/// <summary>
+	/// Initializes a new instance of the <see cref="ToolWindowTemplate"/> class.
+	/// </summary>
+	/// <param name="title">The title text to display in the tool window's title bar.</param>
+	/// <param name="position">The initial position of the tool window.</param>
+	/// <param name="size">The initial size of the tool window.</param>
+	/// <exception cref="ArgumentNullException">Thrown when <paramref name="title"/> is null.</exception>
+	public ToolWindowTemplate(string title, Point position, DrawingSize size)
+	{
+		_title = title ?? throw new ArgumentNullException(nameof(title));
+		_position = position;
+		_size = size;
+	}
 
-    /// <summary>
-    /// Configures the window builder with tool window-specific settings including
-    /// the specified position and size, with resizing and moving enabled.
-    /// </summary>
-    /// <param name="builder">The window builder to configure.</param>
-    /// <returns>The configured builder instance for continued method chaining.</returns>
-    public override WindowBuilder Configure(WindowBuilder builder)
-    {
-        return builder
-            .WithTitle(_title)
-            .AtPosition(_position.X, _position.Y)
-            .WithSize(_size.Width, _size.Height)
-            .Resizable(true)
-            .Movable(true);
-    }
+	/// <summary>
+	/// Configures the window builder with tool window-specific settings including
+	/// the specified position and size, with resizing and moving enabled.
+	/// </summary>
+	/// <param name="builder">The window builder to configure.</param>
+	/// <returns>The configured builder instance for continued method chaining.</returns>
+	public override WindowBuilder Configure(WindowBuilder builder)
+	{
+		return builder
+			.WithTitle(_title)
+			.AtPosition(_position.X, _position.Y)
+			.WithSize(_size.Width, _size.Height)
+			.Resizable(true)
+			.Movable(true);
+	}
 }

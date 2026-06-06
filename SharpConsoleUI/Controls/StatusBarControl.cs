@@ -11,8 +11,8 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
-using Size = System.Drawing.Size;
 using Point = System.Drawing.Point;
+using Size = System.Drawing.Size;
 
 namespace SharpConsoleUI.Controls;
 
@@ -294,7 +294,7 @@ public class StatusBarControl : BaseControl, IMouseAwareControl
 	/// <inheritdoc/>
 	public event EventHandler<MouseEventArgs>? MouseClick;
 
-	#pragma warning disable CS0067
+#pragma warning disable CS0067
 	/// <inheritdoc/>
 	public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 	/// <inheritdoc/>
@@ -305,7 +305,7 @@ public class StatusBarControl : BaseControl, IMouseAwareControl
 	public event EventHandler<MouseEventArgs>? MouseLeave;
 	/// <inheritdoc/>
 	public event EventHandler<MouseEventArgs>? MouseMove;
-	#pragma warning restore CS0067
+#pragma warning restore CS0067
 
 	#endregion
 

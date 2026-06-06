@@ -1,17 +1,25 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
 namespace SharpConsoleUI.Video
 {
-    /// <summary>
-    /// Represents the current state of video playback.
-    /// </summary>
-    public enum VideoPlaybackState
-    {
-        /// <summary>No video loaded or playback stopped.</summary>
-        Stopped,
+	/// <summary>
+	/// Represents the current state of video playback.
+	/// </summary>
+	public enum VideoPlaybackState
+	{
+		/// <summary>No video loaded or playback stopped.</summary>
+		Stopped,
 
-        /// <summary>Video is actively playing frames.</summary>
-        Playing,
+		/// <summary>Video is actively playing frames.</summary>
+		Playing,
 
-        /// <summary>Video is paused at the current frame.</summary>
-        Paused
-    }
+		/// <summary>Video is paused at the current frame.</summary>
+		Paused
+	}
 }

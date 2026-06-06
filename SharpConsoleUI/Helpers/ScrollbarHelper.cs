@@ -6,8 +6,8 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Layout;
 using System.Drawing;
+using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Helpers
 {

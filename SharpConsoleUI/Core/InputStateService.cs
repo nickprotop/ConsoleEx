@@ -385,9 +385,9 @@ namespace SharpConsoleUI.Core
 		public string GetDebugInfo()
 		{
 			return $"Input: Pending={PendingInputCount}, " +
-			       $"Idle={IsIdle}, " +
-			       $"LastMods={LastModifiers}, " +
-			       $"TimeSinceLast={TimeSinceLastKey.TotalMilliseconds:F0}ms";
+				   $"Idle={IsIdle}, " +
+				   $"LastMods={LastModifiers}, " +
+				   $"TimeSinceLast={TimeSinceLastKey.TotalMilliseconds:F0}ms";
 		}
 
 		#endregion

@@ -6,8 +6,8 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Diagnostics.Snapshots;
 using System.Text.RegularExpressions;
+using SharpConsoleUI.Diagnostics.Snapshots;
 
 namespace SharpConsoleUI.Diagnostics.Analysis;
 

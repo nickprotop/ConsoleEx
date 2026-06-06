@@ -92,7 +92,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>Async counterpart of <see cref="SelectedDateChanged"/>.</summary>
 		public event Core.AsyncEventHandler<DateTime?>? SelectedDateChangedAsync;
-		#pragma warning disable CS0067, CS0414
+#pragma warning disable CS0067, CS0414
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 		/// <inheritdoc/>
@@ -105,7 +105,7 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<MouseEventArgs>? MouseLeave;
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
-		#pragma warning restore CS0067, CS0414
+#pragma warning restore CS0067, CS0414
 
 		#endregion
 
@@ -250,7 +250,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-				public bool HasFocus
+		public bool HasFocus
 		{
 			get => ComputeHasFocus();
 		}

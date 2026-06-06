@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -6,14 +6,14 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Helpers;
-using SharpConsoleUI.Layout;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 using Size = SharpConsoleUI.Helpers.Size;
 
 namespace SharpConsoleUI.Drivers

@@ -98,7 +98,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<ScrollEventArgs>? Scrolled;
 
-		#pragma warning disable CS0067  // Event never raised (interface requirement)
+#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <summary>
 		/// Event fired when the control is clicked.
 		/// </summary>
@@ -128,7 +128,7 @@ namespace SharpConsoleUI.Controls
 		/// Event fired when the mouse moves over the control.
 		/// </summary>
 		public event EventHandler<MouseEventArgs>? MouseMove;
-		#pragma warning restore CS0067
+#pragma warning restore CS0067
 
 		#endregion
 

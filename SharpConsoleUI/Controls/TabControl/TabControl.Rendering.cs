@@ -6,11 +6,11 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Linq;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
-using System.Linq;
-using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {
@@ -51,14 +51,14 @@ namespace SharpConsoleUI.Controls
 			var bgColor = ColorResolver.ResolveBackground(_backgroundColor, Container);
 
 			// Resolve per-state header colors once per paint.
-			var activeFocFg    = ColorResolver.ResolveTabHeaderActiveFocusedForeground(_activeFocusedForeground, Container);
-			var activeFocBg    = ColorResolver.ResolveTabHeaderActiveFocusedBackground(_activeFocusedBackground, Container);
-			var activeUnfocFg  = ColorResolver.ResolveTabHeaderActiveForeground(_activeUnfocusedForeground, Container);
-			var activeUnfocBg  = ColorResolver.ResolveTabHeaderActiveBackground(_activeUnfocusedBackground, Container);
-			var inactFocFg     = ColorResolver.ResolveTabHeaderFocusedForeground(_inactiveFocusedForeground, Container);
-			var inactFocBg     = ColorResolver.ResolveTabHeaderFocusedBackground(_inactiveFocusedBackground, Container);
-			var inactUnfocFg   = ColorResolver.ResolveTabHeaderForeground(_inactiveUnfocusedForeground, Container);
-			var inactUnfocBg   = ColorResolver.ResolveTabHeaderBackground(_inactiveUnfocusedBackground, Container);
+			var activeFocFg = ColorResolver.ResolveTabHeaderActiveFocusedForeground(_activeFocusedForeground, Container);
+			var activeFocBg = ColorResolver.ResolveTabHeaderActiveFocusedBackground(_activeFocusedBackground, Container);
+			var activeUnfocFg = ColorResolver.ResolveTabHeaderActiveForeground(_activeUnfocusedForeground, Container);
+			var activeUnfocBg = ColorResolver.ResolveTabHeaderActiveBackground(_activeUnfocusedBackground, Container);
+			var inactFocFg = ColorResolver.ResolveTabHeaderFocusedForeground(_inactiveFocusedForeground, Container);
+			var inactFocBg = ColorResolver.ResolveTabHeaderFocusedBackground(_inactiveFocusedBackground, Container);
+			var inactUnfocFg = ColorResolver.ResolveTabHeaderForeground(_inactiveUnfocusedForeground, Container);
+			var inactUnfocBg = ColorResolver.ResolveTabHeaderBackground(_inactiveUnfocusedBackground, Container);
 
 			int headerLeft = bounds.X + Margin.Left;
 			int headerRight = bounds.X + bounds.Width - Margin.Right;
@@ -114,7 +114,7 @@ namespace SharpConsoleUI.Controls
 
 			const string navHint = " ← → ";
 			bool showHint = HasFocus && snapshot.Count > 1;
-				int navHintDisplayWidth = UnicodeWidth.GetStringWidth(navHint);
+			int navHintDisplayWidth = UnicodeWidth.GetStringWidth(navHint);
 			int hintStartX = headerRight - navHintDisplayWidth;
 			int tabsEndX = x; // capture before fill loops modify x
 

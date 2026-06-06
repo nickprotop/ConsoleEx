@@ -234,7 +234,7 @@ internal static class DrivePlaces
 		if (path.Length >= 2 && path[1] == ':')
 			return (path.Substring(0, 2), path.Substring(2));
 
-		if (!path.StartsWith("/", StringComparison.Ordinal))
+		if (!path.StartsWith('/'))
 			return ("", path);
 
 		// Linux: treat /media/<x> and /mnt/<x> as a two-segment mount chip.

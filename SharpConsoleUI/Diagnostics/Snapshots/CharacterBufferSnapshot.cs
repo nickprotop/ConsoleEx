@@ -6,8 +6,8 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Layout;
 using System.Text;
+using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Diagnostics.Snapshots;
 

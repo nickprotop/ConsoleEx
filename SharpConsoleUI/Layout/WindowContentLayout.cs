@@ -398,7 +398,7 @@ namespace SharpConsoleUI.Layout
 						Math.Max(0, parentClipRect.Bottom - bottomStartY));
 
 				default: // None - scrollable
-					// Scrollable controls can only paint in the scrollable region (between sticky areas)
+						 // Scrollable controls can only paint in the scrollable region (between sticky areas)
 					int scrollableStartY = Math.Max(parentClipRect.Y, ScrollableTop);
 					int scrollableEndY = Math.Min(parentClipRect.Bottom, ScrollableBottom);
 					return new LayoutRect(

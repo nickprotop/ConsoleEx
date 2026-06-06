@@ -240,13 +240,13 @@ namespace SharpConsoleUI.Core
 		/// Whether the selection changed
 		/// </summary>
 		public bool SelectionChanged => PreviousState.Selection != NewState.Selection ||
-		                                 PreviousState.HasSelection != NewState.HasSelection;
+										 PreviousState.HasSelection != NewState.HasSelection;
 
 		/// <summary>
 		/// Whether the scroll position changed
 		/// </summary>
 		public bool ScrollChanged => PreviousState.VerticalScrollOffset != NewState.VerticalScrollOffset ||
-		                              PreviousState.HorizontalScrollOffset != NewState.HorizontalScrollOffset;
+									  PreviousState.HorizontalScrollOffset != NewState.HorizontalScrollOffset;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="EditStateChangedEventArgs"/> class.

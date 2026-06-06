@@ -6,10 +6,10 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Layout;
-using System.Drawing;
 
 namespace SharpConsoleUI
 {
@@ -82,12 +82,12 @@ namespace SharpConsoleUI
 			}
 		}
 
-	/// <summary>
-	/// Checks if the window can be closed by firing the OnClosing event.
-	/// Does not modify any state — only queries whether close is allowed.
-	/// To actually close the window, use <see cref="Close"/>.
-	/// </summary>
-	/// <param name="force">If true, bypasses IsClosable check and ignores Allow from OnClosing.
+		/// <summary>
+		/// Checks if the window can be closed by firing the OnClosing event.
+		/// Does not modify any state — only queries whether close is allowed.
+		/// To actually close the window, use <see cref="Close"/>.
+		/// </summary>
+		/// <param name="force">If true, bypasses IsClosable check and ignores Allow from OnClosing.
 		/// The OnClosing event is still fired so handlers can perform pre-close work.</param>
 		/// <returns>True if the window can be closed; false if close was cancelled (only when force=false).</returns>
 		public bool CanClose(bool force = false)
@@ -506,28 +506,28 @@ namespace SharpConsoleUI
 					_windowSystem!.EnqueueOnUIThread(() => Close(force: true));
 				}
 			}
-		InvalidateBorderCache();
+			InvalidateBorderCache();
 
 			// Invalidate window to redraw border with new active/inactive colors
 			Invalidate(false);  // Border-only invalidation (redrawAll=false)
 
-		var currentFocus = FocusManager.FocusedControl;
-		if (value)
-		{
-			if (_savedFocusOnDeactivate != null)
+			var currentFocus = FocusManager.FocusedControl;
+			if (value)
 			{
-				// Re-activate: restore focus to the saved control
-				FocusManager.SetFocus(_savedFocusOnDeactivate, Controls.FocusReason.Programmatic);
-				_savedFocusOnDeactivate = null;
+				if (_savedFocusOnDeactivate != null)
+				{
+					// Re-activate: restore focus to the saved control
+					FocusManager.SetFocus(_savedFocusOnDeactivate, Controls.FocusReason.Programmatic);
+					_savedFocusOnDeactivate = null;
+				}
+			}
+			else if (currentFocus != null)
+			{
+				// Deactivate: save current focus and clear it
+				_savedFocusOnDeactivate = currentFocus;
+				FocusManager.SetFocus(null, Controls.FocusReason.Programmatic);
 			}
 		}
-		else if (currentFocus != null)
-		{
-			// Deactivate: save current focus and clear it
-			_savedFocusOnDeactivate = currentFocus;
-			FocusManager.SetFocus(null, Controls.FocusReason.Programmatic);
-		}
-	}
 
 		/// <summary>
 		/// Sets the position of the window.
@@ -566,7 +566,7 @@ namespace SharpConsoleUI
 				height = (int)_minimumHeight;
 
 			bool changed = _left != position.X || _top != position.Y ||
-			               _width != width || _height != height;
+						   _width != width || _height != height;
 			if (!changed) return;
 
 			// Update all fields together

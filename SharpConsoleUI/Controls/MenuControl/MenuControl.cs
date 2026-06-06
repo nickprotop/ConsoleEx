@@ -1,11 +1,18 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
+using System.Drawing;
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using System.Drawing;
 using Size = System.Drawing.Size;
-
-using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls;
 
 /// <summary>
@@ -14,573 +21,573 @@ namespace SharpConsoleUI.Controls;
 /// </summary>
 public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer
 {
-    #region Fields
-
-    // Configuration
-    private MenuOrientation _orientation = MenuOrientation.Horizontal;
-    private bool _isSticky;
-    private bool _enabled = true;
-
-    // Menu items
-    private readonly MenuItemCollection _items = new();
-    private readonly object _menuLock = new();
-
-    // State tracking
-    private MenuItem? _focusedItem;              // Keyboard focus
-    private MenuItem? _hoveredItem;              // Mouse hover
-    private MenuItem? _pressedItem;              // Mouse pressed (visual feedback)
-    private readonly List<MenuDropdown> _openDropdowns = new();
-    private readonly Dictionary<MenuDropdown, LayoutNode> _dropdownPortals = new();
-    private DateTime _hoverStartTime = DateTime.MinValue;
-    private MenuItem? _pendingSubmenuItem;         // Item awaiting hover delay to open submenu
-    private MenuItem? _pendingSwitchItem;          // Top-level item pending switch
-    private DateTime _switchStartTime;             // When the switch was initiated
-    private MenuDropdown? _pendingCloseDropdown;   // Dropdown awaiting delayed sibling close
-
-
-
-    // Mouse behavior constants (values in Configuration.ControlDefaults)
-    private const int SubmenuHoverDelayMs = Configuration.ControlDefaults.MenuSubmenuHoverDelayMs;
-    private const int MaxDropdownHeight = Configuration.ControlDefaults.MenuMaxDropdownHeight;
-
-    // Cached layout data
-    private LayoutRect _lastBounds;
-
-    // Measurement cache (avoid repeated Parsing.MarkupParser.StripLength calls per frame)
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _measurementCache = new();
-
-    #endregion
-
-    #region Construction
-
-    /// <summary>Creates a MenuControl with an empty observable Items collection.</summary>
-    public MenuControl()
-    {
-        _items.CollectionChanged += OnChildrenChanged;
-    }
-
-    #endregion
-
-    #region Properties
-
-    /// <summary>
-    /// Gets or sets the orientation of the menu (Horizontal for menu bar, Vertical for sidebar).
-    /// </summary>
-    public MenuOrientation Orientation
-    {
-        get => _orientation;
-        set
-        {
-            _orientation = value;
-            OnPropertyChanged();
-            Container?.Invalidate(true);
-        }
-    }
-
-    /// <summary>
-    /// Gets or sets whether the menu keeps focus when a dropdown is open (sticky mode).
-    /// </summary>
-    public bool IsSticky
-    {
-        get => _isSticky;
-        set { _isSticky = value; OnPropertyChanged(); }
-    }
-
-    /// <summary>
-    /// Gets the live, observable collection of top-level menu items. Mutations
-    /// (Add/Remove/Clear) flow through the binding-aware tree management: items added
-    /// have their Owner set; items removed have their Bindings disposed and any open
-    /// dropdown rooted on them closed.
-    /// </summary>
-    public MenuItemCollection Items => _items;
-
-    // Menu bar colors (nullable for theme fallback)
-    private Color? _menuBarBackgroundColor;
-    private Color? _menuBarForegroundColor;
-    private Color? _menuBarHighlightBackgroundColor;
-    private Color? _menuBarHighlightForegroundColor;
-
-    // Dropdown colors (nullable for theme fallback)
-    private Color? _dropdownBackgroundColor;
-    private Color? _dropdownForegroundColor;
-    private Color? _dropdownHighlightBackgroundColor;
-    private Color? _dropdownHighlightForegroundColor;
-
-    /// <summary>
-    /// Gets or sets the background color for the menu bar. Null uses theme default.
-    /// </summary>
-    public Color? MenuBarBackgroundColor
-    {
-        get => _menuBarBackgroundColor;
-        set { _menuBarBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
-    }
-
-    /// <summary>
-    /// Gets or sets the foreground color for the menu bar. Null uses theme default.
-    /// </summary>
-    public Color? MenuBarForegroundColor
-    {
-        get => _menuBarForegroundColor;
-        set { _menuBarForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
-    }
-
-    /// <summary>
-    /// Gets or sets the background color for highlighted menu bar items. Null uses theme default.
-    /// </summary>
-    public Color? MenuBarHighlightBackgroundColor
-    {
-        get => _menuBarHighlightBackgroundColor;
-        set { _menuBarHighlightBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
-    }
-
-    /// <summary>
-    /// Gets or sets the foreground color for highlighted menu bar items. Null uses theme default.
-    /// </summary>
-    public Color? MenuBarHighlightForegroundColor
-    {
-        get => _menuBarHighlightForegroundColor;
-        set { _menuBarHighlightForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
-    }
-
-    /// <summary>
-    /// Gets or sets the background color for dropdowns. Null uses theme default.
-    /// </summary>
-    public Color? DropdownBackgroundColor
-    {
-        get => _dropdownBackgroundColor;
-        set { _dropdownBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
-    }
-
-    /// <summary>
-    /// Gets or sets the foreground color for dropdown items. Null uses theme default.
-    /// </summary>
-    public Color? DropdownForegroundColor
-    {
-        get => _dropdownForegroundColor;
-        set { _dropdownForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
-    }
-
-    /// <summary>
-    /// Gets or sets the background color for highlighted dropdown items. Null uses theme default.
-    /// </summary>
-    public Color? DropdownHighlightBackgroundColor
-    {
-        get => _dropdownHighlightBackgroundColor;
-        set { _dropdownHighlightBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
-    }
-
-    /// <summary>
-    /// Gets or sets the foreground color for highlighted dropdown items. Null uses theme default.
-    /// </summary>
-    public Color? DropdownHighlightForegroundColor
-    {
-        get => _dropdownHighlightForegroundColor;
-        set { _dropdownHighlightForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
-    }
-
-    // Resolved colors with theme fallback
-    private Color ResolvedMenuBarBackground => ColorResolver.ResolveMenuBarBackground(_menuBarBackgroundColor, Container);
-    private Color ResolvedMenuBarForeground => ColorResolver.ResolveMenuBarForeground(_menuBarForegroundColor, Container);
-    private Color ResolvedMenuBarHighlightBackground => ColorResolver.ResolveMenuBarHighlightBackground(_menuBarHighlightBackgroundColor, Container);
-    private Color ResolvedMenuBarHighlightForeground => ColorResolver.ResolveMenuBarHighlightForeground(_menuBarHighlightForegroundColor, Container);
-    private Color ResolvedDropdownBackground => ColorResolver.ResolveDropdownBackground(_dropdownBackgroundColor, Container);
-    private Color ResolvedDropdownForeground => ColorResolver.ResolveDropdownForeground(_dropdownForegroundColor, Container);
-    private Color ResolvedDropdownHighlightBackground => ColorResolver.ResolveDropdownHighlightBackground(_dropdownHighlightBackgroundColor, Container);
-    private Color ResolvedDropdownHighlightForeground => ColorResolver.ResolveDropdownHighlightForeground(_dropdownHighlightForegroundColor, Container);
-
-    // Legacy property aliases for backward compatibility
-    /// <summary>
-    /// Gets or sets the background color for dropdowns. Alias for DropdownBackgroundColor.
-    /// </summary>
-    [Obsolete("Use DropdownBackgroundColor instead")]
-    public Color BackgroundColor
-    {
-        get => ResolvedDropdownBackground;
-        set { _dropdownBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
-    }
-
-    /// <summary>
-    /// Gets or sets the foreground color for dropdown items. Alias for DropdownForegroundColor.
-    /// </summary>
-    [Obsolete("Use DropdownForegroundColor instead")]
-    public Color ForegroundColor
-    {
-        get => ResolvedDropdownForeground;
-        set { _dropdownForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
-    }
-
-    /// <summary>
-    /// Gets or sets the background color for highlighted items. Alias for DropdownHighlightBackgroundColor.
-    /// </summary>
-    [Obsolete("Use DropdownHighlightBackgroundColor instead")]
-    public Color HighlightColor
-    {
-        get => ResolvedDropdownHighlightBackground;
-        set { _dropdownHighlightBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
-    }
-
-    /// <summary>
-    /// Gets or sets the foreground color for highlighted items. Alias for DropdownHighlightForegroundColor.
-    /// </summary>
-    [Obsolete("Use DropdownHighlightForegroundColor instead")]
-    public Color HighlightForeground
-    {
-        get => ResolvedDropdownHighlightForeground;
-        set { _dropdownHighlightForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
-    }
-
-    #endregion
-
-    #region Portal Host Resolution
-
-    /// <summary>
-    /// Gets the portal host for this menu — either the parent Window or a DesktopPortalContainer.
-    /// Used by dropdown management to create/remove portals in both window and desktop portal contexts.
-    /// </summary>
-    private IPortalHost? GetPortalHost()
-    {
-        // Try window first (most common case)
-        var window = this.GetParentWindow();
-        if (window != null) return window;
-
-        // Try desktop portal context
-        if (Container is IPortalHost host) return host;
-        if (Container is Core.DesktopPortalContainer dpc) return dpc;
-        return null;
-    }
-
-    #endregion
-
-    #region Measurement Cache
-
-    private int MeasureText(string text)
-    {
-        return _measurementCache.GetOrAdd(text, t => Parsing.MarkupParser.StripLength(t));
-    }
-
-    internal void InvalidateMeasurementCache()
-    {
-        _measurementCache.Clear();
-    }
-
-    #endregion
-
-    #region IWindowControl Implementation
-
-    /// <inheritdoc/>
-    public bool IsEnabled
-    {
-        get => _enabled;
-        set { _enabled = value; OnPropertyChanged(); Container?.Invalidate(true); }
-    }
-
-    /// <inheritdoc/>
-    public override int? ContentWidth => null;
-
-    /// <inheritdoc/>
-    protected override void OnDisposing()
-    {
-        // Safety unsubscribe in case CloseAllMenus doesn't cover it
-        if (_openDropdowns.Count > 0)
-        {
-            var parentWindow = this.GetParentWindow();
-            if (parentWindow != null)
-            {
-                parentWindow.UnhandledMouseClick -= OnWindowUnhandledMouseClick;
-                parentWindow.Deactivated -= OnWindowDeactivated;
-            }
-        }
-
-        CloseAllMenus();
-        lock (_menuLock) { _items.Clear(); }
-    }
-
-    /// <inheritdoc/>
-    public override Size GetLogicalContentSize()
-    {
-        List<MenuItem> snapshot;
-        lock (_menuLock) { snapshot = _items.ToList(); }
-
-        if (_orientation == MenuOrientation.Horizontal)
-        {
-            int totalWidth = 0;
-            foreach (var item in snapshot)
-            {
-                if (!item.IsSeparator)
-                    totalWidth += MeasureText(item.Text) + Configuration.ControlDefaults.MenuItemHorizontalPadding;
-            }
-            return new Size(totalWidth + Margin.Left + Margin.Right, 1 + Margin.Top + Margin.Bottom);
-        }
-        else
-        {
-            int maxWidth = 0;
-            foreach (var item in snapshot)
-            {
-                if (!item.IsSeparator)
-                    maxWidth = Math.Max(maxWidth, MeasureText(item.Text));
-            }
-            return new Size(maxWidth + Configuration.ControlDefaults.MenuItemHorizontalPadding + Margin.Left + Margin.Right, snapshot.Count + Margin.Top + Margin.Bottom);
-        }
-    }
-
-    #endregion
-
-    #region IFocusableControl Implementation
-
-    /// <inheritdoc/>
-    public bool HasFocus
-    {
-        get => ComputeHasFocus();
-    }
-
-    /// <inheritdoc/>
-    public bool CanReceiveFocus => _enabled;
-
-    #endregion
-
-    #region IContainer Implementation
-
-    Color IContainer.BackgroundColor
-    {
-        get => Container?.BackgroundColor ?? Color.Black;
-        set { /* Menu doesn't support changing background color directly */ }
-    }
-
-    Color IContainer.ForegroundColor
-    {
-        get => Container?.ForegroundColor ?? Color.White;
-        set { /* Menu doesn't support changing foreground color directly */ }
-    }
-
-    ConsoleWindowSystem? IContainer.GetConsoleWindowSystem => Container?.GetConsoleWindowSystem;
-
-    bool IContainer.IsDirty
-    {
-        get => false; // Menu doesn't track dirty state
-        set { /* Menu doesn't track dirty state */ }
-    }
-
-    void IContainer.Invalidate(bool redrawAll, IWindowControl? callerControl)
-    {
-        Container?.Invalidate(redrawAll, callerControl);
-    }
-
-    int? IContainer.GetVisibleHeightForControl(IWindowControl control)
-    {
-        // Menu doesn't host child controls in the traditional sense
-        return null;
-    }
-
-    /// <inheritdoc/>
-    public void Invalidate(bool fullRender)
-    {
-        Container?.Invalidate(fullRender);
-    }
-
-    #endregion
-
-    #region Public Methods - Menu Management
-
-    /// <summary>
-    /// Adds a menu item to the menu. Equivalent to <c>Items.Add(item)</c>.
-    /// </summary>
-    public void AddItem(MenuItem item)
-    {
-        if (item == null)
-            throw new ArgumentNullException(nameof(item));
-
-        lock (_menuLock) { _items.Add(item); }
-    }
-
-    /// <summary>
-    /// Removes a menu item from the menu. Equivalent to <c>Items.Remove(item)</c>.
-    /// </summary>
-    public void RemoveItem(MenuItem item)
-    {
-        lock (_menuLock) { _items.Remove(item); }
-    }
-
-    /// <summary>
-    /// Removes all menu items. Equivalent to <c>Items.Clear()</c>.
-    /// </summary>
-    public void ClearItems()
-    {
-        lock (_menuLock) { _items.Clear(); }
-    }
-
-    /// <summary>
-    /// Finds a menu item by its path (e.g., "File/Recent/File1.txt").
-    /// </summary>
-    public MenuItem? FindItemByPath(string path)
-    {
-        var parts = path.Split('/');
-        MenuItem? current = null;
-        IList<MenuItem> searchList;
-        lock (_menuLock) { searchList = _items.ToList(); }
-
-        foreach (var part in parts)
-        {
-            current = searchList.FirstOrDefault(i =>
-                Parsing.MarkupParser.Remove(i.Text) == part || i.Text == part);
-            if (current == null)
-                return null;
-            searchList = current.Children;
-        }
-
-        return current;
-    }
-
-    /// <summary>
-    /// Sets whether a menu item is enabled by its path. The redraw is triggered by the
-    /// bindable <see cref="MenuItem.IsEnabled"/> setter, not by this method.
-    /// </summary>
-    public void SetItemEnabled(string path, bool enabled)
-    {
-        var item = FindItemByPath(path);
-        if (item != null)
-            item.IsEnabled = enabled;
-    }
-
-    /// <summary>
-    /// Opens the dropdown for a top-level menu item.
-    /// </summary>
-    public void OpenDropdown(string itemText)
-    {
-        MenuItem? item;
-        lock (_menuLock) { item = _items.FirstOrDefault(i => i.Text == itemText); }
-        if (item != null && item.HasChildren)
-        {
-            CloseAllMenus();
-            OpenDropdownInternal(item);
-        }
-    }
-
-    /// <summary>
-    /// Closes all open dropdowns and submenus.
-    /// </summary>
-    public void CloseAllMenus()
-    {
-        var window = this.GetParentWindow();
-        var host = GetPortalHost();
-
-        // Unsubscribe from dismiss events (only when hosted in a window)
-        if (_openDropdowns.Count > 0 && window != null)
-        {
-            window.UnhandledMouseClick -= OnWindowUnhandledMouseClick;
-            window.Deactivated -= OnWindowDeactivated;
-        }
-
-        foreach (var dropdown in _openDropdowns)
-        {
-            if (dropdown.ParentItem != null)
-                dropdown.ParentItem.IsOpen = false;
-
-            // Remove portal if it exists
-            if (_dropdownPortals.TryGetValue(dropdown, out var portalNode) && host != null)
-            {
-                host.RemovePortal(this, portalNode);
-            }
-        }
-
-        _openDropdowns.Clear();
-        _dropdownPortals.Clear();
-
-        // Clear hover state - dropdown items are no longer visible
-        _hoveredItem = null;
-
-        Container?.Invalidate(true);
-    }
-
-    /// <summary>
-    /// Sets focus to the menu control.
-    /// </summary>
-    public void Focus()
-    {
-        if (_focusedItem == null)
-        {
-            lock (_menuLock) { _focusedItem = _items.FirstOrDefault(i => !i.IsSeparator && i.IsEnabled); }
-        }
-        this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Programmatic);
-    }
-
-    #endregion
-
-    #region Public Events
-
-    /// <summary>
-    /// Event fired when a menu item is selected (executed).
-    /// </summary>
-    public event EventHandler<MenuItem>? ItemSelected;
-
-    /// <summary>Async counterpart of <see cref="ItemSelected"/>.</summary>
+	#region Fields
+
+	// Configuration
+	private MenuOrientation _orientation = MenuOrientation.Horizontal;
+	private bool _isSticky;
+	private bool _enabled = true;
+
+	// Menu items
+	private readonly MenuItemCollection _items = new();
+	private readonly object _menuLock = new();
+
+	// State tracking
+	private MenuItem? _focusedItem;              // Keyboard focus
+	private MenuItem? _hoveredItem;              // Mouse hover
+	private MenuItem? _pressedItem;              // Mouse pressed (visual feedback)
+	private readonly List<MenuDropdown> _openDropdowns = new();
+	private readonly Dictionary<MenuDropdown, LayoutNode> _dropdownPortals = new();
+	private DateTime _hoverStartTime = DateTime.MinValue;
+	private MenuItem? _pendingSubmenuItem;         // Item awaiting hover delay to open submenu
+	private MenuItem? _pendingSwitchItem;          // Top-level item pending switch
+	private DateTime _switchStartTime;             // When the switch was initiated
+	private MenuDropdown? _pendingCloseDropdown;   // Dropdown awaiting delayed sibling close
+
+
+
+	// Mouse behavior constants (values in Configuration.ControlDefaults)
+	private const int SubmenuHoverDelayMs = Configuration.ControlDefaults.MenuSubmenuHoverDelayMs;
+	private const int MaxDropdownHeight = Configuration.ControlDefaults.MenuMaxDropdownHeight;
+
+	// Cached layout data
+	private LayoutRect _lastBounds;
+
+	// Measurement cache (avoid repeated Parsing.MarkupParser.StripLength calls per frame)
+	private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _measurementCache = new();
+
+	#endregion
+
+	#region Construction
+
+	/// <summary>Creates a MenuControl with an empty observable Items collection.</summary>
+	public MenuControl()
+	{
+		_items.CollectionChanged += OnChildrenChanged;
+	}
+
+	#endregion
+
+	#region Properties
+
+	/// <summary>
+	/// Gets or sets the orientation of the menu (Horizontal for menu bar, Vertical for sidebar).
+	/// </summary>
+	public MenuOrientation Orientation
+	{
+		get => _orientation;
+		set
+		{
+			_orientation = value;
+			OnPropertyChanged();
+			Container?.Invalidate(true);
+		}
+	}
+
+	/// <summary>
+	/// Gets or sets whether the menu keeps focus when a dropdown is open (sticky mode).
+	/// </summary>
+	public bool IsSticky
+	{
+		get => _isSticky;
+		set { _isSticky = value; OnPropertyChanged(); }
+	}
+
+	/// <summary>
+	/// Gets the live, observable collection of top-level menu items. Mutations
+	/// (Add/Remove/Clear) flow through the binding-aware tree management: items added
+	/// have their Owner set; items removed have their Bindings disposed and any open
+	/// dropdown rooted on them closed.
+	/// </summary>
+	public MenuItemCollection Items => _items;
+
+	// Menu bar colors (nullable for theme fallback)
+	private Color? _menuBarBackgroundColor;
+	private Color? _menuBarForegroundColor;
+	private Color? _menuBarHighlightBackgroundColor;
+	private Color? _menuBarHighlightForegroundColor;
+
+	// Dropdown colors (nullable for theme fallback)
+	private Color? _dropdownBackgroundColor;
+	private Color? _dropdownForegroundColor;
+	private Color? _dropdownHighlightBackgroundColor;
+	private Color? _dropdownHighlightForegroundColor;
+
+	/// <summary>
+	/// Gets or sets the background color for the menu bar. Null uses theme default.
+	/// </summary>
+	public Color? MenuBarBackgroundColor
+	{
+		get => _menuBarBackgroundColor;
+		set { _menuBarBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
+	}
+
+	/// <summary>
+	/// Gets or sets the foreground color for the menu bar. Null uses theme default.
+	/// </summary>
+	public Color? MenuBarForegroundColor
+	{
+		get => _menuBarForegroundColor;
+		set { _menuBarForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
+	}
+
+	/// <summary>
+	/// Gets or sets the background color for highlighted menu bar items. Null uses theme default.
+	/// </summary>
+	public Color? MenuBarHighlightBackgroundColor
+	{
+		get => _menuBarHighlightBackgroundColor;
+		set { _menuBarHighlightBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
+	}
+
+	/// <summary>
+	/// Gets or sets the foreground color for highlighted menu bar items. Null uses theme default.
+	/// </summary>
+	public Color? MenuBarHighlightForegroundColor
+	{
+		get => _menuBarHighlightForegroundColor;
+		set { _menuBarHighlightForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
+	}
+
+	/// <summary>
+	/// Gets or sets the background color for dropdowns. Null uses theme default.
+	/// </summary>
+	public Color? DropdownBackgroundColor
+	{
+		get => _dropdownBackgroundColor;
+		set { _dropdownBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
+	}
+
+	/// <summary>
+	/// Gets or sets the foreground color for dropdown items. Null uses theme default.
+	/// </summary>
+	public Color? DropdownForegroundColor
+	{
+		get => _dropdownForegroundColor;
+		set { _dropdownForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
+	}
+
+	/// <summary>
+	/// Gets or sets the background color for highlighted dropdown items. Null uses theme default.
+	/// </summary>
+	public Color? DropdownHighlightBackgroundColor
+	{
+		get => _dropdownHighlightBackgroundColor;
+		set { _dropdownHighlightBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
+	}
+
+	/// <summary>
+	/// Gets or sets the foreground color for highlighted dropdown items. Null uses theme default.
+	/// </summary>
+	public Color? DropdownHighlightForegroundColor
+	{
+		get => _dropdownHighlightForegroundColor;
+		set { _dropdownHighlightForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
+	}
+
+	// Resolved colors with theme fallback
+	private Color ResolvedMenuBarBackground => ColorResolver.ResolveMenuBarBackground(_menuBarBackgroundColor, Container);
+	private Color ResolvedMenuBarForeground => ColorResolver.ResolveMenuBarForeground(_menuBarForegroundColor, Container);
+	private Color ResolvedMenuBarHighlightBackground => ColorResolver.ResolveMenuBarHighlightBackground(_menuBarHighlightBackgroundColor, Container);
+	private Color ResolvedMenuBarHighlightForeground => ColorResolver.ResolveMenuBarHighlightForeground(_menuBarHighlightForegroundColor, Container);
+	private Color ResolvedDropdownBackground => ColorResolver.ResolveDropdownBackground(_dropdownBackgroundColor, Container);
+	private Color ResolvedDropdownForeground => ColorResolver.ResolveDropdownForeground(_dropdownForegroundColor, Container);
+	private Color ResolvedDropdownHighlightBackground => ColorResolver.ResolveDropdownHighlightBackground(_dropdownHighlightBackgroundColor, Container);
+	private Color ResolvedDropdownHighlightForeground => ColorResolver.ResolveDropdownHighlightForeground(_dropdownHighlightForegroundColor, Container);
+
+	// Legacy property aliases for backward compatibility
+	/// <summary>
+	/// Gets or sets the background color for dropdowns. Alias for DropdownBackgroundColor.
+	/// </summary>
+	[Obsolete("Use DropdownBackgroundColor instead")]
+	public Color BackgroundColor
+	{
+		get => ResolvedDropdownBackground;
+		set { _dropdownBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
+	}
+
+	/// <summary>
+	/// Gets or sets the foreground color for dropdown items. Alias for DropdownForegroundColor.
+	/// </summary>
+	[Obsolete("Use DropdownForegroundColor instead")]
+	public Color ForegroundColor
+	{
+		get => ResolvedDropdownForeground;
+		set { _dropdownForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
+	}
+
+	/// <summary>
+	/// Gets or sets the background color for highlighted items. Alias for DropdownHighlightBackgroundColor.
+	/// </summary>
+	[Obsolete("Use DropdownHighlightBackgroundColor instead")]
+	public Color HighlightColor
+	{
+		get => ResolvedDropdownHighlightBackground;
+		set { _dropdownHighlightBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
+	}
+
+	/// <summary>
+	/// Gets or sets the foreground color for highlighted items. Alias for DropdownHighlightForegroundColor.
+	/// </summary>
+	[Obsolete("Use DropdownHighlightForegroundColor instead")]
+	public Color HighlightForeground
+	{
+		get => ResolvedDropdownHighlightForeground;
+		set { _dropdownHighlightForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
+	}
+
+	#endregion
+
+	#region Portal Host Resolution
+
+	/// <summary>
+	/// Gets the portal host for this menu — either the parent Window or a DesktopPortalContainer.
+	/// Used by dropdown management to create/remove portals in both window and desktop portal contexts.
+	/// </summary>
+	private IPortalHost? GetPortalHost()
+	{
+		// Try window first (most common case)
+		var window = this.GetParentWindow();
+		if (window != null) return window;
+
+		// Try desktop portal context
+		if (Container is IPortalHost host) return host;
+		if (Container is Core.DesktopPortalContainer dpc) return dpc;
+		return null;
+	}
+
+	#endregion
+
+	#region Measurement Cache
+
+	private int MeasureText(string text)
+	{
+		return _measurementCache.GetOrAdd(text, t => Parsing.MarkupParser.StripLength(t));
+	}
+
+	internal void InvalidateMeasurementCache()
+	{
+		_measurementCache.Clear();
+	}
+
+	#endregion
+
+	#region IWindowControl Implementation
+
+	/// <inheritdoc/>
+	public bool IsEnabled
+	{
+		get => _enabled;
+		set { _enabled = value; OnPropertyChanged(); Container?.Invalidate(true); }
+	}
+
+	/// <inheritdoc/>
+	public override int? ContentWidth => null;
+
+	/// <inheritdoc/>
+	protected override void OnDisposing()
+	{
+		// Safety unsubscribe in case CloseAllMenus doesn't cover it
+		if (_openDropdowns.Count > 0)
+		{
+			var parentWindow = this.GetParentWindow();
+			if (parentWindow != null)
+			{
+				parentWindow.UnhandledMouseClick -= OnWindowUnhandledMouseClick;
+				parentWindow.Deactivated -= OnWindowDeactivated;
+			}
+		}
+
+		CloseAllMenus();
+		lock (_menuLock) { _items.Clear(); }
+	}
+
+	/// <inheritdoc/>
+	public override Size GetLogicalContentSize()
+	{
+		List<MenuItem> snapshot;
+		lock (_menuLock) { snapshot = _items.ToList(); }
+
+		if (_orientation == MenuOrientation.Horizontal)
+		{
+			int totalWidth = 0;
+			foreach (var item in snapshot)
+			{
+				if (!item.IsSeparator)
+					totalWidth += MeasureText(item.Text) + Configuration.ControlDefaults.MenuItemHorizontalPadding;
+			}
+			return new Size(totalWidth + Margin.Left + Margin.Right, 1 + Margin.Top + Margin.Bottom);
+		}
+		else
+		{
+			int maxWidth = 0;
+			foreach (var item in snapshot)
+			{
+				if (!item.IsSeparator)
+					maxWidth = Math.Max(maxWidth, MeasureText(item.Text));
+			}
+			return new Size(maxWidth + Configuration.ControlDefaults.MenuItemHorizontalPadding + Margin.Left + Margin.Right, snapshot.Count + Margin.Top + Margin.Bottom);
+		}
+	}
+
+	#endregion
+
+	#region IFocusableControl Implementation
+
+	/// <inheritdoc/>
+	public bool HasFocus
+	{
+		get => ComputeHasFocus();
+	}
+
+	/// <inheritdoc/>
+	public bool CanReceiveFocus => _enabled;
+
+	#endregion
+
+	#region IContainer Implementation
+
+	Color IContainer.BackgroundColor
+	{
+		get => Container?.BackgroundColor ?? Color.Black;
+		set { /* Menu doesn't support changing background color directly */ }
+	}
+
+	Color IContainer.ForegroundColor
+	{
+		get => Container?.ForegroundColor ?? Color.White;
+		set { /* Menu doesn't support changing foreground color directly */ }
+	}
+
+	ConsoleWindowSystem? IContainer.GetConsoleWindowSystem => Container?.GetConsoleWindowSystem;
+
+	bool IContainer.IsDirty
+	{
+		get => false; // Menu doesn't track dirty state
+		set { /* Menu doesn't track dirty state */ }
+	}
+
+	void IContainer.Invalidate(bool redrawAll, IWindowControl? callerControl)
+	{
+		Container?.Invalidate(redrawAll, callerControl);
+	}
+
+	int? IContainer.GetVisibleHeightForControl(IWindowControl control)
+	{
+		// Menu doesn't host child controls in the traditional sense
+		return null;
+	}
+
+	/// <inheritdoc/>
+	public void Invalidate(bool fullRender)
+	{
+		Container?.Invalidate(fullRender);
+	}
+
+	#endregion
+
+	#region Public Methods - Menu Management
+
+	/// <summary>
+	/// Adds a menu item to the menu. Equivalent to <c>Items.Add(item)</c>.
+	/// </summary>
+	public void AddItem(MenuItem item)
+	{
+		if (item == null)
+			throw new ArgumentNullException(nameof(item));
+
+		lock (_menuLock) { _items.Add(item); }
+	}
+
+	/// <summary>
+	/// Removes a menu item from the menu. Equivalent to <c>Items.Remove(item)</c>.
+	/// </summary>
+	public void RemoveItem(MenuItem item)
+	{
+		lock (_menuLock) { _items.Remove(item); }
+	}
+
+	/// <summary>
+	/// Removes all menu items. Equivalent to <c>Items.Clear()</c>.
+	/// </summary>
+	public void ClearItems()
+	{
+		lock (_menuLock) { _items.Clear(); }
+	}
+
+	/// <summary>
+	/// Finds a menu item by its path (e.g., "File/Recent/File1.txt").
+	/// </summary>
+	public MenuItem? FindItemByPath(string path)
+	{
+		var parts = path.Split('/');
+		MenuItem? current = null;
+		IList<MenuItem> searchList;
+		lock (_menuLock) { searchList = _items.ToList(); }
+
+		foreach (var part in parts)
+		{
+			current = searchList.FirstOrDefault(i =>
+				Parsing.MarkupParser.Remove(i.Text) == part || i.Text == part);
+			if (current == null)
+				return null;
+			searchList = current.Children;
+		}
+
+		return current;
+	}
+
+	/// <summary>
+	/// Sets whether a menu item is enabled by its path. The redraw is triggered by the
+	/// bindable <see cref="MenuItem.IsEnabled"/> setter, not by this method.
+	/// </summary>
+	public void SetItemEnabled(string path, bool enabled)
+	{
+		var item = FindItemByPath(path);
+		if (item != null)
+			item.IsEnabled = enabled;
+	}
+
+	/// <summary>
+	/// Opens the dropdown for a top-level menu item.
+	/// </summary>
+	public void OpenDropdown(string itemText)
+	{
+		MenuItem? item;
+		lock (_menuLock) { item = _items.FirstOrDefault(i => i.Text == itemText); }
+		if (item != null && item.HasChildren)
+		{
+			CloseAllMenus();
+			OpenDropdownInternal(item);
+		}
+	}
+
+	/// <summary>
+	/// Closes all open dropdowns and submenus.
+	/// </summary>
+	public void CloseAllMenus()
+	{
+		var window = this.GetParentWindow();
+		var host = GetPortalHost();
+
+		// Unsubscribe from dismiss events (only when hosted in a window)
+		if (_openDropdowns.Count > 0 && window != null)
+		{
+			window.UnhandledMouseClick -= OnWindowUnhandledMouseClick;
+			window.Deactivated -= OnWindowDeactivated;
+		}
+
+		foreach (var dropdown in _openDropdowns)
+		{
+			if (dropdown.ParentItem != null)
+				dropdown.ParentItem.IsOpen = false;
+
+			// Remove portal if it exists
+			if (_dropdownPortals.TryGetValue(dropdown, out var portalNode) && host != null)
+			{
+				host.RemovePortal(this, portalNode);
+			}
+		}
+
+		_openDropdowns.Clear();
+		_dropdownPortals.Clear();
+
+		// Clear hover state - dropdown items are no longer visible
+		_hoveredItem = null;
+
+		Container?.Invalidate(true);
+	}
+
+	/// <summary>
+	/// Sets focus to the menu control.
+	/// </summary>
+	public void Focus()
+	{
+		if (_focusedItem == null)
+		{
+			lock (_menuLock) { _focusedItem = _items.FirstOrDefault(i => !i.IsSeparator && i.IsEnabled); }
+		}
+		this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Programmatic);
+	}
+
+	#endregion
+
+	#region Public Events
+
+	/// <summary>
+	/// Event fired when a menu item is selected (executed).
+	/// </summary>
+	public event EventHandler<MenuItem>? ItemSelected;
+
+	/// <summary>Async counterpart of <see cref="ItemSelected"/>.</summary>
 #pragma warning disable CS0067 // No internal raise site; mirrors the sync ItemSelected event.
-    public event Core.AsyncEventHandler<MenuItem>? ItemSelectedAsync;
+	public event Core.AsyncEventHandler<MenuItem>? ItemSelectedAsync;
 #pragma warning restore CS0067
 
-    /// <summary>
-    /// Event fired when a menu item is hovered.
-    /// </summary>
-    public event EventHandler<MenuItem>? ItemHovered;
+	/// <summary>
+	/// Event fired when a menu item is hovered.
+	/// </summary>
+	public event EventHandler<MenuItem>? ItemHovered;
 
-    #endregion
+	#endregion
 
-    #region Lifecycle (binding-aware tree management)
+	#region Lifecycle (binding-aware tree management)
 
-    private void Attach(MenuItem item)
-    {
-        if (item.Owner != null && item.Owner != this)
-            throw new InvalidOperationException("MenuItem already belongs to a MenuControl.");
-        item.Owner = this;
-        item.InvalidateDepthCache();
-        item.Children.CollectionChanged += OnChildrenChanged;
-        foreach (var child in item.Children)
-        {
-            child.Parent = item;
-            Attach(child);
-        }
-    }
+	private void Attach(MenuItem item)
+	{
+		if (item.Owner != null && item.Owner != this)
+			throw new InvalidOperationException("MenuItem already belongs to a MenuControl.");
+		item.Owner = this;
+		item.InvalidateDepthCache();
+		item.Children.CollectionChanged += OnChildrenChanged;
+		foreach (var child in item.Children)
+		{
+			child.Parent = item;
+			Attach(child);
+		}
+	}
 
-    private void Detach(MenuItem item)
-    {
-        foreach (var child in item.Children)
-            Detach(child);
-        item.Children.CollectionChanged -= OnChildrenChanged;
-        item.Bindings.Dispose();
-        item.Owner = null;
-        item.Parent = null;
+	private void Detach(MenuItem item)
+	{
+		foreach (var child in item.Children)
+			Detach(child);
+		item.Children.CollectionChanged -= OnChildrenChanged;
+		item.Bindings.Dispose();
+		item.Owner = null;
+		item.Parent = null;
 
-        if (_focusedItem == item) _focusedItem = null;
-        if (_hoveredItem == item) _hoveredItem = null;
-        if (_pressedItem == item) _pressedItem = null;
-    }
+		if (_focusedItem == item) _focusedItem = null;
+		if (_hoveredItem == item) _hoveredItem = null;
+		if (_pressedItem == item) _pressedItem = null;
+	}
 
-    private void OnChildrenChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-    {
-        var collection = (MenuItemCollection)sender!;
+	private void OnChildrenChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+	{
+		var collection = (MenuItemCollection)sender!;
 
-        if (e.OldItems != null)
-        {
-            foreach (MenuItem item in e.OldItems)
-                Detach(item);
+		if (e.OldItems != null)
+		{
+			foreach (MenuItem item in e.OldItems)
+				Detach(item);
 
-            if (_openDropdowns.Any(d => d.ParentItem != null && e.OldItems.Contains(d.ParentItem)))
-                CloseAllMenus();
-        }
+			if (_openDropdowns.Any(d => d.ParentItem != null && e.OldItems.Contains(d.ParentItem)))
+				CloseAllMenus();
+		}
 
-        if (e.NewItems != null)
-        {
-            foreach (MenuItem item in e.NewItems)
-            {
-                item.Parent = collection.OwnerItem;
-                Attach(item);
-            }
-        }
+		if (e.NewItems != null)
+		{
+			foreach (MenuItem item in e.NewItems)
+			{
+				item.Parent = collection.OwnerItem;
+				Attach(item);
+			}
+		}
 
-        InvalidateMeasurementCache();
-        Container?.Invalidate(true);
-    }
+		InvalidateMeasurementCache();
+		Container?.Invalidate(true);
+	}
 
-    #endregion
+	#endregion
 }
 
 /// <summary>
@@ -588,13 +595,13 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 /// </summary>
 public enum MenuOrientation
 {
-    /// <summary>
-    /// Horizontal menu bar (File, Edit, View).
-    /// </summary>
-    Horizontal,
+	/// <summary>
+	/// Horizontal menu bar (File, Edit, View).
+	/// </summary>
+	Horizontal,
 
-    /// <summary>
-    /// Vertical sidebar menu.
-    /// </summary>
-    Vertical
+	/// <summary>
+	/// Vertical sidebar menu.
+	/// </summary>
+	Vertical
 }

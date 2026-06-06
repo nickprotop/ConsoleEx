@@ -9,8 +9,8 @@
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
-using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
 
 namespace SharpConsoleUI.Controls
 {
@@ -246,7 +246,7 @@ namespace SharpConsoleUI.Controls
 				int available = _lastLayoutBounds.Height - Margin.Top - Margin.Bottom;
 				if (_showMinMaxLabels)
 					available -= 2; // min and max label rows
-				// Reserve 2 for end-caps (must match rendering calculation)
+									// Reserve 2 for end-caps (must match rendering calculation)
 				return Math.Max(ControlDefaults.SliderMinTrackLength, available - 2);
 			}
 		}

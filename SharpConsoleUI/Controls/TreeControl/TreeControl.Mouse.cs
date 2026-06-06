@@ -10,9 +10,8 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
-using SharpConsoleUI.Helpers;
-
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
 namespace SharpConsoleUI.Controls
 {
 	public partial class TreeControl
@@ -42,12 +41,12 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<MouseEventArgs>? MouseRightClick;
 
-		#pragma warning disable CS0067, CS0414 // Event never raised / assigned but never used (interface requirement)
+#pragma warning disable CS0067, CS0414 // Event never raised / assigned but never used (interface requirement)
 		/// <summary>
 		/// Occurs when the mouse enters the control area.
 		/// </summary>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
-		#pragma warning restore CS0067, CS0414
+#pragma warning restore CS0067, CS0414
 
 		/// <summary>
 		/// Occurs when the mouse leaves the control area.

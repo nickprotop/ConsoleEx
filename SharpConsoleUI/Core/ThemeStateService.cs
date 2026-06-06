@@ -7,8 +7,8 @@
 // -----------------------------------------------------------------------
 
 using System.Collections.Concurrent;
-using SharpConsoleUI.Themes;
 using SharpConsoleUI.Logging;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Core
 {
@@ -365,7 +365,7 @@ namespace SharpConsoleUI.Core
 		{
 			var theme = CurrentTheme;
 			return (theme.PromptInputBackgroundColor, theme.PromptInputForegroundColor,
-			        theme.PromptInputFocusedBackgroundColor, theme.PromptInputFocusedForegroundColor);
+					theme.PromptInputFocusedBackgroundColor, theme.PromptInputFocusedForegroundColor);
 		}
 
 		/// <summary>
@@ -375,8 +375,8 @@ namespace SharpConsoleUI.Core
 		{
 			var theme = CurrentTheme;
 			return (theme.NotificationWindowBackgroundColor, theme.NotificationInfoWindowBackgroundColor,
-			        theme.NotificationSuccessWindowBackgroundColor, theme.NotificationWarningWindowBackgroundColor,
-			        theme.NotificationDangerWindowBackgroundColor);
+					theme.NotificationSuccessWindowBackgroundColor, theme.NotificationWarningWindowBackgroundColor,
+					theme.NotificationDangerWindowBackgroundColor);
 		}
 
 		#endregion
@@ -398,8 +398,8 @@ namespace SharpConsoleUI.Core
 		{
 			var theme = CurrentTheme;
 			return $"Theme: Name={theme.Name}, " +
-			       $"ActiveBorder={theme.ActiveBorderForegroundColor}, " +
-			       $"WindowBg={theme.WindowBackgroundColor}";
+				   $"ActiveBorder={theme.ActiveBorderForegroundColor}, " +
+				   $"WindowBg={theme.WindowBackgroundColor}";
 		}
 
 		#endregion
@@ -425,21 +425,21 @@ namespace SharpConsoleUI.Core
 		#endregion
 
 
-	#region Theme Dialog
+		#region Theme Dialog
 
-	/// <summary>
-	/// Shows the theme selector dialog for interactive theme selection.
-	/// </summary>
-	public void ShowThemeSelector()
-	{
-		var context = _getWindowSystemContext?.Invoke();
-		if (context is ConsoleWindowSystem windowSystem)
+		/// <summary>
+		/// Shows the theme selector dialog for interactive theme selection.
+		/// </summary>
+		public void ShowThemeSelector()
 		{
-			Dialogs.ThemeSelectorDialog.Show(windowSystem);
+			var context = _getWindowSystemContext?.Invoke();
+			if (context is ConsoleWindowSystem windowSystem)
+			{
+				Dialogs.ThemeSelectorDialog.Show(windowSystem);
+			}
 		}
-	}
 
-	#endregion
+		#endregion
 
 		#region IDisposable
 

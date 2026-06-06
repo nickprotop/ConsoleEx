@@ -6,17 +6,16 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
+using System.Text;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using System.Drawing;
-using System.Text;
 using Size = SharpConsoleUI.Helpers.Size;
-
-using SharpConsoleUI.Configuration;
-using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -192,13 +191,13 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<MouseEventArgs>? MouseRightClick;
 
-		#pragma warning disable CS0067  // Event never raised (interface requirement)
+#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseLeave;
-		#pragma warning restore CS0067
+#pragma warning restore CS0067
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
@@ -693,23 +692,23 @@ namespace SharpConsoleUI.Controls
 				OnPropertyChanged();
 
 				lock (_contentLock)
-			{
-				if (value)
 				{
-					_builtInLineNumberRenderer = new LineNumberGutterRenderer();
-					if (_lineNumberColorValue.HasValue)
-						_builtInLineNumberRenderer.LineNumberColor = _lineNumberColorValue.Value;
-					_gutterRenderers.Insert(0, _builtInLineNumberRenderer);
-				}
-				else
-				{
-					if (_builtInLineNumberRenderer != null)
+					if (value)
 					{
-						_gutterRenderers.Remove(_builtInLineNumberRenderer);
-						_builtInLineNumberRenderer = null;
+						_builtInLineNumberRenderer = new LineNumberGutterRenderer();
+						if (_lineNumberColorValue.HasValue)
+							_builtInLineNumberRenderer.LineNumberColor = _lineNumberColorValue.Value;
+						_gutterRenderers.Insert(0, _builtInLineNumberRenderer);
+					}
+					else
+					{
+						if (_builtInLineNumberRenderer != null)
+						{
+							_gutterRenderers.Remove(_builtInLineNumberRenderer);
+							_builtInLineNumberRenderer = null;
+						}
 					}
 				}
-			}
 
 				InvalidateWrappedLinesCache();
 				Container?.Invalidate(true);

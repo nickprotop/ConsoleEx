@@ -5,12 +5,12 @@
 // Email: nikolaos.protopapas@gmail.com
 // License: MIT
 // -----------------------------------------------------------------------
+using System.Drawing;
 using SharpConsoleUI.Animation;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
-using System.Drawing;
 using Size = System.Drawing.Size;
 
 namespace SharpConsoleUI.Controls;

@@ -1,3 +1,11 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 
@@ -11,30 +19,30 @@ namespace SharpConsoleUI.Controls;
 /// </summary>
 public sealed class MenuItemCollection : ObservableCollection<MenuItem>
 {
-    /// <summary>
-    /// The MenuItem whose Children this collection represents, or null when this collection
-    /// is the top-level MenuControl.Items. Used to assign Parent on newly-added items in O(1).
-    /// </summary>
-    public MenuItem? OwnerItem { get; }
+	/// <summary>
+	/// The MenuItem whose Children this collection represents, or null when this collection
+	/// is the top-level MenuControl.Items. Used to assign Parent on newly-added items in O(1).
+	/// </summary>
+	public MenuItem? OwnerItem { get; }
 
-    /// <summary>Creates a top-level collection (no owning MenuItem).</summary>
-    public MenuItemCollection() { }
+	/// <summary>Creates a top-level collection (no owning MenuItem).</summary>
+	public MenuItemCollection() { }
 
-    /// <summary>Creates a Children collection owned by the given MenuItem.</summary>
-    public MenuItemCollection(MenuItem? ownerItem)
-    {
-        OwnerItem = ownerItem;
-    }
+	/// <summary>Creates a Children collection owned by the given MenuItem.</summary>
+	public MenuItemCollection(MenuItem? ownerItem)
+	{
+		OwnerItem = ownerItem;
+	}
 
-    /// <inheritdoc/>
-    protected override void ClearItems()
-    {
-        var removed = this.ToList();
-        base.ClearItems();
-        foreach (var item in removed)
-        {
-            OnCollectionChanged(new NotifyCollectionChangedEventArgs(
-                NotifyCollectionChangedAction.Remove, item, index: -1));
-        }
-    }
+	/// <inheritdoc/>
+	protected override void ClearItems()
+	{
+		var removed = this.ToList();
+		base.ClearItems();
+		foreach (var item in removed)
+		{
+			OnCollectionChanged(new NotifyCollectionChangedEventArgs(
+				NotifyCollectionChangedAction.Remove, item, index: -1));
+		}
+	}
 }

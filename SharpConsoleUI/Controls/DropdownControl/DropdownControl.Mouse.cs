@@ -52,7 +52,7 @@ namespace SharpConsoleUI.Controls
 			// The header may be narrower than the layout allocation (e.g. in a row/toolbar).
 			int contentHeight = (_lastLayoutBounds.Height > 0 ? _lastLayoutBounds.Height : 1);
 			if (args.Position.Y < Margin.Top ||
-			    args.Position.Y >= contentHeight - Margin.Bottom)
+				args.Position.Y >= contentHeight - Margin.Bottom)
 			{
 				return false;
 			}
@@ -161,7 +161,7 @@ namespace SharpConsoleUI.Controls
 			int contentX = args.Position.X;
 
 			// Calculate visible structure for hit testing
-			int effectiveMaxVisibleItems =  _maxVisibleItems;
+			int effectiveMaxVisibleItems = _maxVisibleItems;
 			bool hasScrollIndicator = (_items.Count > effectiveMaxVisibleItems);
 			int visibleItemCount = Math.Min(effectiveMaxVisibleItems, _items.Count - _dropdownScrollOffset);
 			int scrollIndicatorRow = hasScrollIndicator ? visibleItemCount : -1;

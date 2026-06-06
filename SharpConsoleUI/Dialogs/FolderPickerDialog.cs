@@ -9,10 +9,9 @@
 using System.Threading.Tasks;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
 using Ctl = SharpConsoleUI.Builders.Controls;
-
-using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Dialogs;
 
 /// <summary>

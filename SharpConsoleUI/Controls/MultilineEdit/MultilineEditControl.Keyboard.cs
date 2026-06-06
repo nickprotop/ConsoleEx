@@ -6,10 +6,10 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Configuration;
-using SharpConsoleUI.Helpers;
 using System.Text;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
 
 namespace SharpConsoleUI.Controls
 {
@@ -47,7 +47,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_horizontalScrollOffset--;
-											Container?.Invalidate(true);
+							Container?.Invalidate(true);
 							return true;
 						}
 						return false;
@@ -61,7 +61,7 @@ namespace SharpConsoleUI.Controls
 							{
 								_skipUpdateScrollPositionsInRender = true;
 								_horizontalScrollOffset++;
-												Container?.Invalidate(true);
+								Container?.Invalidate(true);
 								return true;
 							}
 						}
@@ -73,7 +73,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset--;
-											Container?.Invalidate(true);
+							Container?.Invalidate(true);
 							return true;
 						}
 						return false;
@@ -85,7 +85,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset++;
-											Container?.Invalidate(true);
+							Container?.Invalidate(true);
 							return true;
 						}
 						return false;
@@ -97,7 +97,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset -= pageUpAmount;
-											Container?.Invalidate(true);
+							Container?.Invalidate(true);
 							return true;
 						}
 						return false;
@@ -111,7 +111,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset += pageDownAmount;
-											Container?.Invalidate(true);
+							Container?.Invalidate(true);
 							return true;
 						}
 						return false;
@@ -135,7 +135,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset = endOffset;
-											Container?.Invalidate(true);
+							Container?.Invalidate(true);
 							return true;
 						}
 						return false;
@@ -168,303 +168,319 @@ namespace SharpConsoleUI.Controls
 			bool selectionChanged;
 			bool keyWasHandled = false;
 
-		  lock (_contentLock)
-		  {
-			BeginUndoAction();
-			oldCursorX = _cursorX;
-			oldCursorY = _cursorY;
-			oldHasSelection = _hasSelection;
-			oldSelEndX = _selectionEndX;
-			oldSelEndY = _selectionEndY;
-
-			// If starting selection with Shift key
-			if (isShiftPressed && !_hasSelection &&
-				(key.Key == ConsoleKey.LeftArrow || key.Key == ConsoleKey.RightArrow ||
-				 key.Key == ConsoleKey.UpArrow || key.Key == ConsoleKey.DownArrow ||
-				 key.Key == ConsoleKey.Home || key.Key == ConsoleKey.End ||
-				 key.Key == ConsoleKey.PageUp || key.Key == ConsoleKey.PageDown))
+			lock (_contentLock)
 			{
-				_hasSelection = true;
-				_selectionStartX = _cursorX;
-				_selectionStartY = _cursorY;
-			}
-			// If continuing selection with Shift key
-			else if (isShiftPressed && _hasSelection)
-			{
-				// Selection continues, update end will happen after cursor movement
-			}
-			// If movement without Shift key, clear selection
-			else if (!isShiftPressed && _hasSelection &&
-					 (key.Key == ConsoleKey.LeftArrow || key.Key == ConsoleKey.RightArrow ||
-					  key.Key == ConsoleKey.UpArrow || key.Key == ConsoleKey.DownArrow ||
-					  key.Key == ConsoleKey.Home || key.Key == ConsoleKey.End ||
-					  key.Key == ConsoleKey.PageUp || key.Key == ConsoleKey.PageDown))
-			{
-				ClearSelection();
-			}
+				BeginUndoAction();
+				oldCursorX = _cursorX;
+				oldCursorY = _cursorY;
+				oldHasSelection = _hasSelection;
+				oldSelEndX = _selectionEndX;
+				oldSelEndY = _selectionEndY;
 
-			switch (key.Key)
-			{
-				case ConsoleKey.LeftArrow:
-					if (isCtrlPressed)
-					{
-						if (_cursorX > 0)
-							_cursorX = WordBoundaryHelper.FindPreviousWordBoundary(_lines[_cursorY], _cursorX);
-						else if (_cursorY > 0)
-						{
-							_cursorY--;
-							_cursorX = _lines[_cursorY].Length;
-						}
-					}
-					else
-					{
-						if (_cursorX > 0)
-						{
-							_cursorX--;
-						}
-						else if (_cursorY > 0)
-						{
-							_cursorY--;
-							_cursorX = _lines[_cursorY].Length;
-						}
-					}
-					break;
+				// If starting selection with Shift key
+				if (isShiftPressed && !_hasSelection &&
+					(key.Key == ConsoleKey.LeftArrow || key.Key == ConsoleKey.RightArrow ||
+					 key.Key == ConsoleKey.UpArrow || key.Key == ConsoleKey.DownArrow ||
+					 key.Key == ConsoleKey.Home || key.Key == ConsoleKey.End ||
+					 key.Key == ConsoleKey.PageUp || key.Key == ConsoleKey.PageDown))
+				{
+					_hasSelection = true;
+					_selectionStartX = _cursorX;
+					_selectionStartY = _cursorY;
+				}
+				// If continuing selection with Shift key
+				else if (isShiftPressed && _hasSelection)
+				{
+					// Selection continues, update end will happen after cursor movement
+				}
+				// If movement without Shift key, clear selection
+				else if (!isShiftPressed && _hasSelection &&
+						 (key.Key == ConsoleKey.LeftArrow || key.Key == ConsoleKey.RightArrow ||
+						  key.Key == ConsoleKey.UpArrow || key.Key == ConsoleKey.DownArrow ||
+						  key.Key == ConsoleKey.Home || key.Key == ConsoleKey.End ||
+						  key.Key == ConsoleKey.PageUp || key.Key == ConsoleKey.PageDown))
+				{
+					ClearSelection();
+				}
 
-				case ConsoleKey.RightArrow:
-					if (isCtrlPressed)
-					{
-						if (_cursorX < _lines[_cursorY].Length)
-							_cursorX = WordBoundaryHelper.FindNextWordBoundary(_lines[_cursorY], _cursorX);
-						else if (_cursorY < _lines.Count - 1)
+				switch (key.Key)
+				{
+					case ConsoleKey.LeftArrow:
+						if (isCtrlPressed)
 						{
-							_cursorY++;
-							_cursorX = 0;
-						}
-					}
-					else
-					{
-						if (_cursorX < _lines[_cursorY].Length)
-						{
-							_cursorX++;
-						}
-						else if (_cursorY < _lines.Count - 1)
-						{
-							_cursorY++;
-							_cursorX = 0;
-						}
-					}
-					break;
-
-				case ConsoleKey.UpArrow:
-					if (key.Modifiers.HasFlag(ConsoleModifiers.Alt) && !_readOnly)
-					{
-						// Alt+Up: Move line(s) up
-						if (_hasSelection)
-						{
-							var (sX, sY, eX, eY) = GetOrderedSelectionBounds();
-							if (sY > 0)
+							if (_cursorX > 0)
+								_cursorX = WordBoundaryHelper.FindPreviousWordBoundary(_lines[_cursorY], _cursorX);
+							else if (_cursorY > 0)
 							{
-								var removed = _lines[sY - 1];
-								_lines.RemoveAt(sY - 1);
-								_lines.Insert(eY - 1, removed);
-								_selectionStartY = _selectionStartY == sY ? sY - 1 : _selectionStartY - 1;
-								_selectionEndY = _selectionEndY == sY ? sY - 1 : _selectionEndY - 1;
 								_cursorY--;
-								InvalidateSyntaxFromLine(sY - 1);
-								contentChanged = true;
+								_cursorX = _lines[_cursorY].Length;
 							}
-						}
-						else if (_cursorY > 0)
-						{
-							(_lines[_cursorY], _lines[_cursorY - 1]) = (_lines[_cursorY - 1], _lines[_cursorY]);
-							_cursorY--;
-							InvalidateSyntaxFromLine(_cursorY);
-							contentChanged = true;
-						}
-					}
-					else if (_wrapMode != WrapMode.NoWrap)
-					{
-						var wrappedLines = GetWrappedLines(SafeEffectiveWidth);
-						int idx = FindWrappedLineForCursor(wrappedLines);
-						if (idx > 0)
-						{
-							// Compute horizontal offset within current wrapped line
-							int visualX = _cursorX - wrappedLines[idx].SourceCharOffset;
-							var prev = wrappedLines[idx - 1];
-							_cursorY = prev.SourceLineIndex;
-							_cursorX = prev.SourceCharOffset + Math.Min(visualX, prev.Length);
-						}
-					}
-					else
-					{
-						if (_cursorY > 0)
-						{
-							_cursorY--;
-							_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
-						}
-					}
-					break;
-
-				case ConsoleKey.DownArrow:
-					if (key.Modifiers.HasFlag(ConsoleModifiers.Alt) && !_readOnly)
-					{
-						// Alt+Down: Move line(s) down
-						if (_hasSelection)
-						{
-							var (sX, sY, eX, eY) = GetOrderedSelectionBounds();
-							if (eY < _lines.Count - 1)
-							{
-								var removed = _lines[eY + 1];
-								_lines.RemoveAt(eY + 1);
-								_lines.Insert(sY, removed);
-								_selectionStartY = _selectionStartY == sY ? sY + 1 : _selectionStartY + 1;
-								_selectionEndY = _selectionEndY == sY ? sY + 1 : _selectionEndY + 1;
-								_cursorY++;
-								InvalidateSyntaxFromLine(sY);
-								contentChanged = true;
-							}
-						}
-						else if (_cursorY < _lines.Count - 1)
-						{
-							(_lines[_cursorY], _lines[_cursorY + 1]) = (_lines[_cursorY + 1], _lines[_cursorY]);
-							_cursorY++;
-							InvalidateSyntaxFromLine(_cursorY - 1);
-							contentChanged = true;
-						}
-					}
-					else if (_wrapMode != WrapMode.NoWrap)
-					{
-						var wrappedLines = GetWrappedLines(SafeEffectiveWidth);
-						int idx = FindWrappedLineForCursor(wrappedLines);
-						if (idx >= 0 && idx < wrappedLines.Count - 1)
-						{
-							int visualX = _cursorX - wrappedLines[idx].SourceCharOffset;
-							var next = wrappedLines[idx + 1];
-							_cursorY = next.SourceLineIndex;
-							_cursorX = next.SourceCharOffset + Math.Min(visualX, next.Length);
-						}
-					}
-					else
-					{
-						if (_cursorY < _lines.Count - 1)
-						{
-							_cursorY++;
-							_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
-						}
-					}
-					break;
-
-				case ConsoleKey.Home:
-					if (key.Modifiers.HasFlag(ConsoleModifiers.Control))
-					{
-						_cursorX = 0;
-						_cursorY = 0;
-					}
-					else
-					{
-						if (_wrapMode != WrapMode.NoWrap)
-						{
-							var wrappedLines = GetWrappedLines(SafeEffectiveWidth);
-							int idx = FindWrappedLineForCursor(wrappedLines);
-							if (idx >= 0)
-								_cursorX = wrappedLines[idx].SourceCharOffset;
-							else
-								_cursorX = 0;
 						}
 						else
 						{
-							_cursorX = 0;
+							if (_cursorX > 0)
+							{
+								_cursorX--;
+							}
+							else if (_cursorY > 0)
+							{
+								_cursorY--;
+								_cursorX = _lines[_cursorY].Length;
+							}
 						}
-					}
-					break;
+						break;
 
-				case ConsoleKey.End:
-					if (key.Modifiers.HasFlag(ConsoleModifiers.Control))
-					{
-						_cursorY = _lines.Count - 1;
-						_cursorX = _lines[_cursorY].Length;
-					}
-					else
-					{
-						if (_wrapMode != WrapMode.NoWrap)
+					case ConsoleKey.RightArrow:
+						if (isCtrlPressed)
+						{
+							if (_cursorX < _lines[_cursorY].Length)
+								_cursorX = WordBoundaryHelper.FindNextWordBoundary(_lines[_cursorY], _cursorX);
+							else if (_cursorY < _lines.Count - 1)
+							{
+								_cursorY++;
+								_cursorX = 0;
+							}
+						}
+						else
+						{
+							if (_cursorX < _lines[_cursorY].Length)
+							{
+								_cursorX++;
+							}
+							else if (_cursorY < _lines.Count - 1)
+							{
+								_cursorY++;
+								_cursorX = 0;
+							}
+						}
+						break;
+
+					case ConsoleKey.UpArrow:
+						if (key.Modifiers.HasFlag(ConsoleModifiers.Alt) && !_readOnly)
+						{
+							// Alt+Up: Move line(s) up
+							if (_hasSelection)
+							{
+								var (sX, sY, eX, eY) = GetOrderedSelectionBounds();
+								if (sY > 0)
+								{
+									var removed = _lines[sY - 1];
+									_lines.RemoveAt(sY - 1);
+									_lines.Insert(eY - 1, removed);
+									_selectionStartY = _selectionStartY == sY ? sY - 1 : _selectionStartY - 1;
+									_selectionEndY = _selectionEndY == sY ? sY - 1 : _selectionEndY - 1;
+									_cursorY--;
+									InvalidateSyntaxFromLine(sY - 1);
+									contentChanged = true;
+								}
+							}
+							else if (_cursorY > 0)
+							{
+								(_lines[_cursorY], _lines[_cursorY - 1]) = (_lines[_cursorY - 1], _lines[_cursorY]);
+								_cursorY--;
+								InvalidateSyntaxFromLine(_cursorY);
+								contentChanged = true;
+							}
+						}
+						else if (_wrapMode != WrapMode.NoWrap)
 						{
 							var wrappedLines = GetWrappedLines(SafeEffectiveWidth);
 							int idx = FindWrappedLineForCursor(wrappedLines);
-							if (idx >= 0)
+							if (idx > 0)
 							{
-								var wl = wrappedLines[idx];
-								_cursorX = wl.SourceCharOffset + wl.Length;
+								// Compute horizontal offset within current wrapped line
+								int visualX = _cursorX - wrappedLines[idx].SourceCharOffset;
+								var prev = wrappedLines[idx - 1];
+								_cursorY = prev.SourceLineIndex;
+								_cursorX = prev.SourceCharOffset + Math.Min(visualX, prev.Length);
+							}
+						}
+						else
+						{
+							if (_cursorY > 0)
+							{
+								_cursorY--;
+								_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
+							}
+						}
+						break;
+
+					case ConsoleKey.DownArrow:
+						if (key.Modifiers.HasFlag(ConsoleModifiers.Alt) && !_readOnly)
+						{
+							// Alt+Down: Move line(s) down
+							if (_hasSelection)
+							{
+								var (sX, sY, eX, eY) = GetOrderedSelectionBounds();
+								if (eY < _lines.Count - 1)
+								{
+									var removed = _lines[eY + 1];
+									_lines.RemoveAt(eY + 1);
+									_lines.Insert(sY, removed);
+									_selectionStartY = _selectionStartY == sY ? sY + 1 : _selectionStartY + 1;
+									_selectionEndY = _selectionEndY == sY ? sY + 1 : _selectionEndY + 1;
+									_cursorY++;
+									InvalidateSyntaxFromLine(sY);
+									contentChanged = true;
+								}
+							}
+							else if (_cursorY < _lines.Count - 1)
+							{
+								(_lines[_cursorY], _lines[_cursorY + 1]) = (_lines[_cursorY + 1], _lines[_cursorY]);
+								_cursorY++;
+								InvalidateSyntaxFromLine(_cursorY - 1);
+								contentChanged = true;
+							}
+						}
+						else if (_wrapMode != WrapMode.NoWrap)
+						{
+							var wrappedLines = GetWrappedLines(SafeEffectiveWidth);
+							int idx = FindWrappedLineForCursor(wrappedLines);
+							if (idx >= 0 && idx < wrappedLines.Count - 1)
+							{
+								int visualX = _cursorX - wrappedLines[idx].SourceCharOffset;
+								var next = wrappedLines[idx + 1];
+								_cursorY = next.SourceLineIndex;
+								_cursorX = next.SourceCharOffset + Math.Min(visualX, next.Length);
+							}
+						}
+						else
+						{
+							if (_cursorY < _lines.Count - 1)
+							{
+								_cursorY++;
+								_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
+							}
+						}
+						break;
+
+					case ConsoleKey.Home:
+						if (key.Modifiers.HasFlag(ConsoleModifiers.Control))
+						{
+							_cursorX = 0;
+							_cursorY = 0;
+						}
+						else
+						{
+							if (_wrapMode != WrapMode.NoWrap)
+							{
+								var wrappedLines = GetWrappedLines(SafeEffectiveWidth);
+								int idx = FindWrappedLineForCursor(wrappedLines);
+								if (idx >= 0)
+									_cursorX = wrappedLines[idx].SourceCharOffset;
+								else
+									_cursorX = 0;
+							}
+							else
+							{
+								_cursorX = 0;
+							}
+						}
+						break;
+
+					case ConsoleKey.End:
+						if (key.Modifiers.HasFlag(ConsoleModifiers.Control))
+						{
+							_cursorY = _lines.Count - 1;
+							_cursorX = _lines[_cursorY].Length;
+						}
+						else
+						{
+							if (_wrapMode != WrapMode.NoWrap)
+							{
+								var wrappedLines = GetWrappedLines(SafeEffectiveWidth);
+								int idx = FindWrappedLineForCursor(wrappedLines);
+								if (idx >= 0)
+								{
+									var wl = wrappedLines[idx];
+									_cursorX = wl.SourceCharOffset + wl.Length;
+								}
+								else
+								{
+									_cursorX = _lines[_cursorY].Length;
+								}
 							}
 							else
 							{
 								_cursorX = _lines[_cursorY].Length;
 							}
 						}
+						break;
+
+					case ConsoleKey.PageUp:
+						if (_wrapMode != WrapMode.NoWrap)
+						{
+							var wrappedLines = GetWrappedLines(SafeEffectiveWidth);
+							int idx = FindWrappedLineForCursor(wrappedLines);
+							if (idx >= 0)
+							{
+								int visualX = _cursorX - wrappedLines[idx].SourceCharOffset;
+								int targetIdx = Math.Max(0, idx - GetEffectiveViewportHeight());
+								var target = wrappedLines[targetIdx];
+								_cursorY = target.SourceLineIndex;
+								_cursorX = target.SourceCharOffset + Math.Min(visualX, target.Length);
+							}
+						}
 						else
 						{
-							_cursorX = _lines[_cursorY].Length;
+							_cursorY = Math.Max(0, _cursorY - GetEffectiveViewportHeight());
+							_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
 						}
-					}
-					break;
+						break;
 
-				case ConsoleKey.PageUp:
-					if (_wrapMode != WrapMode.NoWrap)
-					{
-						var wrappedLines = GetWrappedLines(SafeEffectiveWidth);
-						int idx = FindWrappedLineForCursor(wrappedLines);
-						if (idx >= 0)
+					case ConsoleKey.PageDown:
+						if (_wrapMode != WrapMode.NoWrap)
 						{
-							int visualX = _cursorX - wrappedLines[idx].SourceCharOffset;
-							int targetIdx = Math.Max(0, idx - GetEffectiveViewportHeight());
-							var target = wrappedLines[targetIdx];
-							_cursorY = target.SourceLineIndex;
-							_cursorX = target.SourceCharOffset + Math.Min(visualX, target.Length);
+							var wrappedLines = GetWrappedLines(SafeEffectiveWidth);
+							int idx = FindWrappedLineForCursor(wrappedLines);
+							if (idx >= 0)
+							{
+								int visualX = _cursorX - wrappedLines[idx].SourceCharOffset;
+								int targetIdx = Math.Min(wrappedLines.Count - 1, idx + GetEffectiveViewportHeight());
+								var target = wrappedLines[targetIdx];
+								_cursorY = target.SourceLineIndex;
+								_cursorX = target.SourceCharOffset + Math.Min(visualX, target.Length);
+							}
 						}
-					}
-					else
-					{
-						_cursorY = Math.Max(0, _cursorY - GetEffectiveViewportHeight());
-						_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
-					}
-					break;
-
-				case ConsoleKey.PageDown:
-					if (_wrapMode != WrapMode.NoWrap)
-					{
-						var wrappedLines = GetWrappedLines(SafeEffectiveWidth);
-						int idx = FindWrappedLineForCursor(wrappedLines);
-						if (idx >= 0)
+						else
 						{
-							int visualX = _cursorX - wrappedLines[idx].SourceCharOffset;
-							int targetIdx = Math.Min(wrappedLines.Count - 1, idx + GetEffectiveViewportHeight());
-							var target = wrappedLines[targetIdx];
-							_cursorY = target.SourceLineIndex;
-							_cursorX = target.SourceCharOffset + Math.Min(visualX, target.Length);
+							_cursorY = Math.Min(_lines.Count - 1, _cursorY + GetEffectiveViewportHeight());
+							_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
 						}
-					}
-					else
-					{
-						_cursorY = Math.Min(_lines.Count - 1, _cursorY + GetEffectiveViewportHeight());
-						_cursorX = Math.Min(_cursorX, _lines[_cursorY].Length);
-					}
-					break;
+						break;
 
-				case ConsoleKey.Backspace:
-					if (_readOnly) break;
+					case ConsoleKey.Backspace:
+						if (_readOnly) break;
 
-					if (_hasSelection)
-					{
-						DeleteSelectedText();
-						contentChanged = true;
-					}
-					else if (isCtrlPressed)
-					{
-						// Delete previous word
-						if (_cursorX > 0)
+						if (_hasSelection)
 						{
-							int newPos = WordBoundaryHelper.FindPreviousWordBoundary(_lines[_cursorY], _cursorX);
-							_lines[_cursorY] = _lines[_cursorY].Remove(newPos, _cursorX - newPos);
-							_cursorX = newPos;
+							DeleteSelectedText();
+							contentChanged = true;
+						}
+						else if (isCtrlPressed)
+						{
+							// Delete previous word
+							if (_cursorX > 0)
+							{
+								int newPos = WordBoundaryHelper.FindPreviousWordBoundary(_lines[_cursorY], _cursorX);
+								_lines[_cursorY] = _lines[_cursorY].Remove(newPos, _cursorX - newPos);
+								_cursorX = newPos;
+								contentChanged = true;
+							}
+							else if (_cursorY > 0)
+							{
+								int previousLineLength = _lines[_cursorY - 1].Length;
+								_lines[_cursorY - 1] = _lines[_cursorY - 1] + _lines[_cursorY];
+								_lines.RemoveAt(_cursorY);
+								_cursorY--;
+								_cursorX = previousLineLength;
+								contentChanged = true;
+							}
+						}
+						else if (_cursorX > 0)
+						{
+							_lines[_cursorY] = _lines[_cursorY].Remove(_cursorX - 1, 1);
+							_cursorX--;
 							contentChanged = true;
 						}
 						else if (_cursorY > 0)
@@ -476,39 +492,35 @@ namespace SharpConsoleUI.Controls
 							_cursorX = previousLineLength;
 							contentChanged = true;
 						}
-					}
-					else if (_cursorX > 0)
-					{
-						_lines[_cursorY] = _lines[_cursorY].Remove(_cursorX - 1, 1);
-						_cursorX--;
-						contentChanged = true;
-					}
-					else if (_cursorY > 0)
-					{
-						int previousLineLength = _lines[_cursorY - 1].Length;
-						_lines[_cursorY - 1] = _lines[_cursorY - 1] + _lines[_cursorY];
-						_lines.RemoveAt(_cursorY);
-						_cursorY--;
-						_cursorX = previousLineLength;
-						contentChanged = true;
-					}
-					break;
+						break;
 
-				case ConsoleKey.Delete:
-					if (_readOnly) break;
+					case ConsoleKey.Delete:
+						if (_readOnly) break;
 
-					if (_hasSelection)
-					{
-						DeleteSelectedText();
-						contentChanged = true;
-					}
-					else if (isCtrlPressed)
-					{
-						// Delete next word
-						if (_cursorX < _lines[_cursorY].Length)
+						if (_hasSelection)
 						{
-							int endPos = WordBoundaryHelper.FindNextWordBoundary(_lines[_cursorY], _cursorX);
-							_lines[_cursorY] = _lines[_cursorY].Remove(_cursorX, endPos - _cursorX);
+							DeleteSelectedText();
+							contentChanged = true;
+						}
+						else if (isCtrlPressed)
+						{
+							// Delete next word
+							if (_cursorX < _lines[_cursorY].Length)
+							{
+								int endPos = WordBoundaryHelper.FindNextWordBoundary(_lines[_cursorY], _cursorX);
+								_lines[_cursorY] = _lines[_cursorY].Remove(_cursorX, endPos - _cursorX);
+								contentChanged = true;
+							}
+							else if (_cursorY < _lines.Count - 1)
+							{
+								_lines[_cursorY] = _lines[_cursorY] + _lines[_cursorY + 1];
+								_lines.RemoveAt(_cursorY + 1);
+								contentChanged = true;
+							}
+						}
+						else if (_cursorX < _lines[_cursorY].Length)
+						{
+							_lines[_cursorY] = _lines[_cursorY].Remove(_cursorX, 1);
 							contentChanged = true;
 						}
 						else if (_cursorY < _lines.Count - 1)
@@ -517,352 +529,340 @@ namespace SharpConsoleUI.Controls
 							_lines.RemoveAt(_cursorY + 1);
 							contentChanged = true;
 						}
-					}
-					else if (_cursorX < _lines[_cursorY].Length)
-					{
-						_lines[_cursorY] = _lines[_cursorY].Remove(_cursorX, 1);
-						contentChanged = true;
-					}
-					else if (_cursorY < _lines.Count - 1)
-					{
-						_lines[_cursorY] = _lines[_cursorY] + _lines[_cursorY + 1];
-						_lines.RemoveAt(_cursorY + 1);
-						contentChanged = true;
-					}
-					break;
-
-				case ConsoleKey.Enter:
-					// Any modified Enter key (Ctrl/Alt/Shift) is a command, not text insertion
-					// Let the window/application handle it (e.g., Ctrl+Enter to send, Shift+Enter for special actions)
-					if (isCtrlPressed || isShiftPressed || key.Modifiers.HasFlag(ConsoleModifiers.Alt))
-					{
-						return false;
-					}
-
-					if (_readOnly) break;
-
-					if (_hasSelection)
-					{
-						// Delete selected text first
-						DeleteSelectedText();
-						contentChanged = true;
-					}
-
-					// MaxLength enforcement for newline insertion
-					if (GetRemainingCapacity() < Environment.NewLine.Length)
 						break;
 
-					// Insert line break
-					string currentLine = _lines[_cursorY];
-					string lineBeforeCursor = currentLine.Substring(0, _cursorX);
-					string lineAfterCursor = currentLine.Substring(_cursorX);
-
-					_lines[_cursorY] = lineBeforeCursor;
-					_lines.Insert(_cursorY + 1, lineAfterCursor);
-
-					_cursorY++;
-					_cursorX = 0;
-
-					if (_autoIndent)
-					{
-						int indent = 0;
-						while (indent < lineBeforeCursor.Length && lineBeforeCursor[indent] == ' ')
-							indent++;
-						if (indent > 0)
+					case ConsoleKey.Enter:
+						// Any modified Enter key (Ctrl/Alt/Shift) is a command, not text insertion
+						// Let the window/application handle it (e.g., Ctrl+Enter to send, Shift+Enter for special actions)
+						if (isCtrlPressed || isShiftPressed || key.Modifiers.HasFlag(ConsoleModifiers.Alt))
 						{
-							string indentStr = new string(' ', indent);
-							_lines[_cursorY] = indentStr + _lines[_cursorY];
-							_cursorX = indent;
+							return false;
 						}
-					}
 
-					contentChanged = true;
-					break;
+						if (_readOnly) break;
 
-				case ConsoleKey.Insert:
-					OverwriteMode = !_overwriteMode;
-					return true;
-
-				case ConsoleKey.Escape:
-					if (_hasSelection)
-					{
-						ClearSelection();
-						Container?.Invalidate(true);
-						return true;
-					}
-					if (_isEditing && EscapeExitsEditMode)
-					{
-						IsEditing = false;
-						return true;
-					}
-					// When EscapeExitsEditMode is false, consume ESC to prevent
-					// WindowEventDispatcher from unfocusing this control.
-					if (_isEditing && !EscapeExitsEditMode)
-						return true;
-					return false;
-
-				case ConsoleKey.Tab:
-					if (_readOnly) break;
-					keyWasHandled = true; // Always consume Tab/Shift+Tab in edit mode
-					if (isShiftPressed)
-					{
-						// Shift+Tab: dedent
 						if (_hasSelection)
 						{
-							var (sX, sY, eX, eY) = GetOrderedSelectionBounds();
-							for (int ln = sY; ln <= eY; ln++)
-							{
-								int spaces = 0;
-								while (spaces < _tabSize && spaces < _lines[ln].Length && _lines[ln][spaces] == ' ')
-									spaces++;
-								if (spaces > 0)
-									_lines[ln] = _lines[ln].Substring(spaces);
-							}
-							contentChanged = true;
-						}
-						else
-						{
-							int spaces = 0;
-							while (spaces < _tabSize && spaces < _lines[_cursorY].Length && _lines[_cursorY][spaces] == ' ')
-								spaces++;
-							if (spaces > 0)
-							{
-								_lines[_cursorY] = _lines[_cursorY].Substring(spaces);
-								_cursorX = Math.Max(0, _cursorX - spaces);
-								contentChanged = true;
-							}
-						}
-					}
-					else
-					{
-						// Tab: indent
-						if (_hasSelection)
-						{
-							var (sX, sY, eX, eY) = GetOrderedSelectionBounds();
-							string indent = new string(' ', _tabSize);
-							int totalNeeded = (eY - sY + 1) * _tabSize;
-							if (GetRemainingCapacity() >= totalNeeded)
-							{
-								for (int ln = sY; ln <= eY; ln++)
-									_lines[ln] = indent + _lines[ln];
-								contentChanged = true;
-							}
-						}
-						else
-						{
-							int spacesToInsert = _tabSize - (_cursorX % _tabSize);
-							if (GetRemainingCapacity() >= spacesToInsert)
-							{
-								_lines[_cursorY] = _lines[_cursorY].Insert(_cursorX, new string(' ', spacesToInsert));
-								_cursorX += spacesToInsert;
-								contentChanged = true;
-							}
-						}
-					}
-					break;
-
-				default:
-					// Handle Ctrl key combos
-					if (isCtrlPressed)
-					{
-						switch (key.Key)
-						{
-							case ConsoleKey.A:
-								// Ctrl+A: Select All
-								if (_lines.Count > 0)
-								{
-									_hasSelection = true;
-									_selectionStartX = 0;
-									_selectionStartY = 0;
-									_selectionEndX = _lines[_lines.Count - 1].Length;
-									_selectionEndY = _lines.Count - 1;
-									_cursorX = _selectionEndX;
-									_cursorY = _selectionEndY;
-									Container?.Invalidate(true);
-								}
-								return true;
-
-							// Ctrl+C/X/V/Z/Y: standard clipboard and undo shortcuts
-							// Ctrl+C is safe because TreatControlCAsInput = true in NetConsoleDriver
-							case ConsoleKey.C:
-								if (_hasSelection)
-									ClipboardHelper.SetText(GetSelectedText());
-								return true;
-
-							case ConsoleKey.X:
-								if (!_readOnly && _hasSelection)
-								{
-									ClipboardHelper.SetText(GetSelectedText());
-									DeleteSelectedText();
-									CommitUndoAction();
-									InvalidateWrappedLinesCache();
-									EnsureCursorVisible();
-									Container?.Invalidate(true);
-									Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
-								}
-								return true;
-
-							case ConsoleKey.V:
-								if (!_readOnly)
-								{
-									string clipText = ClipboardHelper.GetText();
-									if (!string.IsNullOrEmpty(clipText))
-									{
-										clipText = SanitizeInputText(clipText);
-										if (_hasSelection) DeleteSelectedText();
-										clipText = TruncateToMaxLength(clipText);
-										if (clipText.Length > 0)
-										{
-											InsertTextAtCursor(clipText);
-											CommitUndoAction();
-											InvalidateWrappedLinesCache();
-											EnsureCursorVisible();
-											Container?.Invalidate(true);
-											Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
-										}
-									}
-								}
-								return true;
-
-							case ConsoleKey.Z:
-								if (_undoStack.Count > 0)
-								{
-									var action = _undoStack.Pop();
-									_redoStack.Push(action);
-									SetContentInternal(action.OldText);
-									_cursorX = action.CursorXBefore;
-									_cursorY = action.CursorYBefore;
-									ClearSelection();
-									_isModified = _savedContent != action.OldText;
-									EnsureCursorVisible();
-									Container?.Invalidate(true);
-									Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
-								}
-								return true;
-
-							case ConsoleKey.D:
-								// Ctrl+D: Duplicate line(s)
-								if (!_readOnly)
-								{
-									if (_hasSelection)
-									{
-										var (sX, sY, eX, eY) = GetOrderedSelectionBounds();
-										int lineCount = eY - sY + 1;
-										// Check MaxLength capacity
-										int neededCapacity = 0;
-										for (int ln = sY; ln <= eY; ln++)
-											neededCapacity += _lines[ln].Length + Environment.NewLine.Length;
-										if (GetRemainingCapacity() >= neededCapacity)
-										{
-											for (int ln = 0; ln < lineCount; ln++)
-												_lines.Insert(eY + 1 + ln, _lines[sY + ln]);
-											InvalidateSyntaxFromLine(eY + 1);
-											contentChanged = true;
-										}
-									}
-									else
-									{
-										int neededCapacity = _lines[_cursorY].Length + Environment.NewLine.Length;
-										if (GetRemainingCapacity() >= neededCapacity)
-										{
-											_lines.Insert(_cursorY + 1, _lines[_cursorY]);
-											_cursorY++;
-											InvalidateSyntaxFromLine(_cursorY);
-											contentChanged = true;
-										}
-									}
-								}
-								return true;
-
-						case ConsoleKey.Y:
-								if (_redoStack.Count > 0)
-								{
-									var action = _redoStack.Pop();
-									_undoStack.Push(action);
-									SetContentInternal(action.NewText);
-									_cursorX = action.CursorXAfter;
-									_cursorY = action.CursorYAfter;
-									ClearSelection();
-									_isModified = _savedContent != action.NewText;
-									EnsureCursorVisible();
-									Container?.Invalidate(true);
-									Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
-								}
-								return true;
-
-							default:
-								break; // Other Ctrl combos bubble up
-						}
-					}
-
-					// Let unhandled Ctrl/Alt combos bubble up
-					if (key.Modifiers.HasFlag(ConsoleModifiers.Control) ||
-					    key.Modifiers.HasFlag(ConsoleModifiers.Alt))
-					{
-						break;
-					}
-
-					if (!_readOnly && !char.IsControl(key.KeyChar))
-					{
-						if (_hasSelection)
-						{
-							// Replace selected text with typed character
+							// Delete selected text first
 							DeleteSelectedText();
 							contentChanged = true;
 						}
 
-						// MaxLength enforcement for single character
-						if (_overwriteMode && _cursorX < _lines[_cursorY].Length)
+						// MaxLength enforcement for newline insertion
+						if (GetRemainingCapacity() < Environment.NewLine.Length)
+							break;
+
+						// Insert line break
+						string currentLine = _lines[_cursorY];
+						string lineBeforeCursor = currentLine.Substring(0, _cursorX);
+						string lineAfterCursor = currentLine.Substring(_cursorX);
+
+						_lines[_cursorY] = lineBeforeCursor;
+						_lines.Insert(_cursorY + 1, lineAfterCursor);
+
+						_cursorY++;
+						_cursorX = 0;
+
+						if (_autoIndent)
 						{
-							// Overwrite: replace character at cursor position
-							var sb = new StringBuilder(_lines[_cursorY]);
-							sb[_cursorX] = key.KeyChar;
-							_lines[_cursorY] = sb.ToString();
-							_cursorX++;
-							contentChanged = true;
+							int indent = 0;
+							while (indent < lineBeforeCursor.Length && lineBeforeCursor[indent] == ' ')
+								indent++;
+							if (indent > 0)
+							{
+								string indentStr = new string(' ', indent);
+								_lines[_cursorY] = indentStr + _lines[_cursorY];
+								_cursorX = indent;
+							}
 						}
-						else if (GetRemainingCapacity() > 0)
+
+						contentChanged = true;
+						break;
+
+					case ConsoleKey.Insert:
+						OverwriteMode = !_overwriteMode;
+						return true;
+
+					case ConsoleKey.Escape:
+						if (_hasSelection)
 						{
-							_lines[_cursorY] = _lines[_cursorY].Insert(_cursorX, key.KeyChar.ToString());
-							_cursorX++;
-							contentChanged = true;
+							ClearSelection();
+							Container?.Invalidate(true);
+							return true;
 						}
-					}
-					break;
-			}
+						if (_isEditing && EscapeExitsEditMode)
+						{
+							IsEditing = false;
+							return true;
+						}
+						// When EscapeExitsEditMode is false, consume ESC to prevent
+						// WindowEventDispatcher from unfocusing this control.
+						if (_isEditing && !EscapeExitsEditMode)
+							return true;
+						return false;
 
-			// Update selection end if we're in selection mode
-			if (isShiftPressed && _hasSelection)
-			{
-				_selectionEndX = _cursorX;
-				_selectionEndY = _cursorY;
-				Container?.Invalidate(true);
-			}
+					case ConsoleKey.Tab:
+						if (_readOnly) break;
+						keyWasHandled = true; // Always consume Tab/Shift+Tab in edit mode
+						if (isShiftPressed)
+						{
+							// Shift+Tab: dedent
+							if (_hasSelection)
+							{
+								var (sX, sY, eX, eY) = GetOrderedSelectionBounds();
+								for (int ln = sY; ln <= eY; ln++)
+								{
+									int spaces = 0;
+									while (spaces < _tabSize && spaces < _lines[ln].Length && _lines[ln][spaces] == ' ')
+										spaces++;
+									if (spaces > 0)
+										_lines[ln] = _lines[ln].Substring(spaces);
+								}
+								contentChanged = true;
+							}
+							else
+							{
+								int spaces = 0;
+								while (spaces < _tabSize && spaces < _lines[_cursorY].Length && _lines[_cursorY][spaces] == ' ')
+									spaces++;
+								if (spaces > 0)
+								{
+									_lines[_cursorY] = _lines[_cursorY].Substring(spaces);
+									_cursorX = Math.Max(0, _cursorX - spaces);
+									contentChanged = true;
+								}
+							}
+						}
+						else
+						{
+							// Tab: indent
+							if (_hasSelection)
+							{
+								var (sX, sY, eX, eY) = GetOrderedSelectionBounds();
+								string indent = new string(' ', _tabSize);
+								int totalNeeded = (eY - sY + 1) * _tabSize;
+								if (GetRemainingCapacity() >= totalNeeded)
+								{
+									for (int ln = sY; ln <= eY; ln++)
+										_lines[ln] = indent + _lines[ln];
+									contentChanged = true;
+								}
+							}
+							else
+							{
+								int spacesToInsert = _tabSize - (_cursorX % _tabSize);
+								if (GetRemainingCapacity() >= spacesToInsert)
+								{
+									_lines[_cursorY] = _lines[_cursorY].Insert(_cursorX, new string(' ', spacesToInsert));
+									_cursorX += spacesToInsert;
+									contentChanged = true;
+								}
+							}
+						}
+						break;
 
-			// If content changed, invalidate caches and commit undo BEFORE ensuring cursor visibility
-			// so EnsureCursorVisible works with fresh wrap data (not stale cached wrapped lines)
-			if (contentChanged)
-			{
-				CommitUndoAction();
-				InvalidateWrappedLinesCache();
-				RefreshSearchMatches();
-			}
+					default:
+						// Handle Ctrl key combos
+						if (isCtrlPressed)
+						{
+							switch (key.Key)
+							{
+								case ConsoleKey.A:
+									// Ctrl+A: Select All
+									if (_lines.Count > 0)
+									{
+										_hasSelection = true;
+										_selectionStartX = 0;
+										_selectionStartY = 0;
+										_selectionEndX = _lines[_lines.Count - 1].Length;
+										_selectionEndY = _lines.Count - 1;
+										_cursorX = _selectionEndX;
+										_cursorY = _selectionEndY;
+										Container?.Invalidate(true);
+									}
+									return true;
 
-			// If cursor position changed, ensure it's visible
-			if (_cursorX != oldCursorX || _cursorY != oldCursorY)
-			{
-				EnsureCursorVisible();
-				Container?.Invalidate(true);
-			}
+								// Ctrl+C/X/V/Z/Y: standard clipboard and undo shortcuts
+								// Ctrl+C is safe because TreatControlCAsInput = true in NetConsoleDriver
+								case ConsoleKey.C:
+									if (_hasSelection)
+										ClipboardHelper.SetText(GetSelectedText());
+									return true;
 
-			// Only consume the key if we actually did something with it
-			// Check if content, cursor position, or selection state changed
-			cursorMoved = (_cursorX != oldCursorX || _cursorY != oldCursorY);
-			selectionChanged = (_hasSelection != oldHasSelection) ||
-				(_hasSelection && (_selectionEndX != oldSelEndX || _selectionEndY != oldSelEndY));
-			keyWasHandled = keyWasHandled || contentChanged || cursorMoved || selectionChanged;
+								case ConsoleKey.X:
+									if (!_readOnly && _hasSelection)
+									{
+										ClipboardHelper.SetText(GetSelectedText());
+										DeleteSelectedText();
+										CommitUndoAction();
+										InvalidateWrappedLinesCache();
+										EnsureCursorVisible();
+										Container?.Invalidate(true);
+										Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
+									}
+									return true;
 
-		  } // end lock (_contentLock)
+								case ConsoleKey.V:
+									if (!_readOnly)
+									{
+										string clipText = ClipboardHelper.GetText();
+										if (!string.IsNullOrEmpty(clipText))
+										{
+											clipText = SanitizeInputText(clipText);
+											if (_hasSelection) DeleteSelectedText();
+											clipText = TruncateToMaxLength(clipText);
+											if (clipText.Length > 0)
+											{
+												InsertTextAtCursor(clipText);
+												CommitUndoAction();
+												InvalidateWrappedLinesCache();
+												EnsureCursorVisible();
+												Container?.Invalidate(true);
+												Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
+											}
+										}
+									}
+									return true;
+
+								case ConsoleKey.Z:
+									if (_undoStack.Count > 0)
+									{
+										var action = _undoStack.Pop();
+										_redoStack.Push(action);
+										SetContentInternal(action.OldText);
+										_cursorX = action.CursorXBefore;
+										_cursorY = action.CursorYBefore;
+										ClearSelection();
+										_isModified = _savedContent != action.OldText;
+										EnsureCursorVisible();
+										Container?.Invalidate(true);
+										Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
+									}
+									return true;
+
+								case ConsoleKey.D:
+									// Ctrl+D: Duplicate line(s)
+									if (!_readOnly)
+									{
+										if (_hasSelection)
+										{
+											var (sX, sY, eX, eY) = GetOrderedSelectionBounds();
+											int lineCount = eY - sY + 1;
+											// Check MaxLength capacity
+											int neededCapacity = 0;
+											for (int ln = sY; ln <= eY; ln++)
+												neededCapacity += _lines[ln].Length + Environment.NewLine.Length;
+											if (GetRemainingCapacity() >= neededCapacity)
+											{
+												for (int ln = 0; ln < lineCount; ln++)
+													_lines.Insert(eY + 1 + ln, _lines[sY + ln]);
+												InvalidateSyntaxFromLine(eY + 1);
+												contentChanged = true;
+											}
+										}
+										else
+										{
+											int neededCapacity = _lines[_cursorY].Length + Environment.NewLine.Length;
+											if (GetRemainingCapacity() >= neededCapacity)
+											{
+												_lines.Insert(_cursorY + 1, _lines[_cursorY]);
+												_cursorY++;
+												InvalidateSyntaxFromLine(_cursorY);
+												contentChanged = true;
+											}
+										}
+									}
+									return true;
+
+								case ConsoleKey.Y:
+									if (_redoStack.Count > 0)
+									{
+										var action = _redoStack.Pop();
+										_undoStack.Push(action);
+										SetContentInternal(action.NewText);
+										_cursorX = action.CursorXAfter;
+										_cursorY = action.CursorYAfter;
+										ClearSelection();
+										_isModified = _savedContent != action.NewText;
+										EnsureCursorVisible();
+										Container?.Invalidate(true);
+										Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
+									}
+									return true;
+
+								default:
+									break; // Other Ctrl combos bubble up
+							}
+						}
+
+						// Let unhandled Ctrl/Alt combos bubble up
+						if (key.Modifiers.HasFlag(ConsoleModifiers.Control) ||
+							key.Modifiers.HasFlag(ConsoleModifiers.Alt))
+						{
+							break;
+						}
+
+						if (!_readOnly && !char.IsControl(key.KeyChar))
+						{
+							if (_hasSelection)
+							{
+								// Replace selected text with typed character
+								DeleteSelectedText();
+								contentChanged = true;
+							}
+
+							// MaxLength enforcement for single character
+							if (_overwriteMode && _cursorX < _lines[_cursorY].Length)
+							{
+								// Overwrite: replace character at cursor position
+								var sb = new StringBuilder(_lines[_cursorY]);
+								sb[_cursorX] = key.KeyChar;
+								_lines[_cursorY] = sb.ToString();
+								_cursorX++;
+								contentChanged = true;
+							}
+							else if (GetRemainingCapacity() > 0)
+							{
+								_lines[_cursorY] = _lines[_cursorY].Insert(_cursorX, key.KeyChar.ToString());
+								_cursorX++;
+								contentChanged = true;
+							}
+						}
+						break;
+				}
+
+				// Update selection end if we're in selection mode
+				if (isShiftPressed && _hasSelection)
+				{
+					_selectionEndX = _cursorX;
+					_selectionEndY = _cursorY;
+					Container?.Invalidate(true);
+				}
+
+				// If content changed, invalidate caches and commit undo BEFORE ensuring cursor visibility
+				// so EnsureCursorVisible works with fresh wrap data (not stale cached wrapped lines)
+				if (contentChanged)
+				{
+					CommitUndoAction();
+					InvalidateWrappedLinesCache();
+					RefreshSearchMatches();
+				}
+
+				// If cursor position changed, ensure it's visible
+				if (_cursorX != oldCursorX || _cursorY != oldCursorY)
+				{
+					EnsureCursorVisible();
+					Container?.Invalidate(true);
+				}
+
+				// Only consume the key if we actually did something with it
+				// Check if content, cursor position, or selection state changed
+				cursorMoved = (_cursorX != oldCursorX || _cursorY != oldCursorY);
+				selectionChanged = (_hasSelection != oldHasSelection) ||
+					(_hasSelection && (_selectionEndX != oldSelEndX || _selectionEndY != oldSelEndY));
+				keyWasHandled = keyWasHandled || contentChanged || cursorMoved || selectionChanged;
+
+			} // end lock (_contentLock)
 
 			// Fire events outside the lock to avoid potential deadlocks
 			if (contentChanged)

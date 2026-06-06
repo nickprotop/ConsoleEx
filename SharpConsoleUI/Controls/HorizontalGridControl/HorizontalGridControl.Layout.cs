@@ -6,8 +6,8 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Layout;
 using System.Drawing;
+using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Controls
 {
@@ -38,7 +38,7 @@ namespace SharpConsoleUI.Controls
 				}
 				return totalWidth;
 			}
-	}
+		}
 
 		/// <summary>
 		/// Gets the children of this container for Tab navigation traversal.
@@ -48,32 +48,32 @@ namespace SharpConsoleUI.Controls
 		{
 			var children = new List<IWindowControl>();
 
-		List<ColumnContainer> columns;
-		List<SplitterControl> splitters;
-		Dictionary<IInteractiveControl, int> splitterControls;
-		lock (_gridLock)
-		{
-			columns = new List<ColumnContainer>(_columns);
-			splitters = new List<SplitterControl>(_splitters);
-			splitterControls = new Dictionary<IInteractiveControl, int>(_splitterControls);
-		}
-
-		for (int i = 0; i < columns.Count; i++)
-		{
-			if (!columns[i].Visible) continue;
-
-			// Add the column
-			children.Add(columns[i]);
-
-			// Add splitter after this column if it exists
-			var splitter = splitters.FirstOrDefault(s => splitterControls[s] == i);
-			if (splitter != null && splitter.Visible)
+			List<ColumnContainer> columns;
+			List<SplitterControl> splitters;
+			Dictionary<IInteractiveControl, int> splitterControls;
+			lock (_gridLock)
 			{
-				children.Add(splitter);
+				columns = new List<ColumnContainer>(_columns);
+				splitters = new List<SplitterControl>(_splitters);
+				splitterControls = new Dictionary<IInteractiveControl, int>(_splitterControls);
 			}
-		}
 
-		return children.AsReadOnly();
+			for (int i = 0; i < columns.Count; i++)
+			{
+				if (!columns[i].Visible) continue;
+
+				// Add the column
+				children.Add(columns[i]);
+
+				// Add splitter after this column if it exists
+				var splitter = splitters.FirstOrDefault(s => splitterControls[s] == i);
+				if (splitter != null && splitter.Visible)
+				{
+					children.Add(splitter);
+				}
+			}
+
+			return children.AsReadOnly();
 		}
 
 		/// <inheritdoc/>

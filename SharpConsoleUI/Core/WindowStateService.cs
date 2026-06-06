@@ -10,8 +10,8 @@ using System.Collections.Concurrent;
 using System.Drawing;
 using SharpConsoleUI.Animation;
 using SharpConsoleUI.Configuration;
-using SharpConsoleUI.Logging;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Logging;
 using SharpConsoleUI.Rendering;
 
 namespace SharpConsoleUI.Core
@@ -72,13 +72,13 @@ namespace SharpConsoleUI.Core
 			_consoleDriver = consoleDriver;
 		}
 
-	/// <summary>
-	/// Sets the renderer for this service. Used for screen redraws during window close.
-	/// </summary>
-	public void SetRenderer(Renderer renderer)
-	{
-		_renderer = renderer;
-	}
+		/// <summary>
+		/// Sets the renderer for this service. Used for screen redraws during window close.
+		/// </summary>
+		public void SetRenderer(Renderer renderer)
+		{
+			_renderer = renderer;
+		}
 
 		#region Properties
 
@@ -747,9 +747,9 @@ namespace SharpConsoleUI.Core
 		{
 			var state = CurrentState;
 			return $"WindowState: Windows={state.WindowCount}, " +
-			       $"Active={state.ActiveWindow?.Title ?? "none"}, " +
-			       $"Dragging={state.Interaction.IsDragging}, " +
-			       $"Resizing={state.Interaction.IsResizing}";
+				   $"Active={state.ActiveWindow?.Title ?? "none"}, " +
+				   $"Dragging={state.Interaction.IsDragging}, " +
+				   $"Resizing={state.Interaction.IsResizing}";
 		}
 
 		#endregion
@@ -773,8 +773,8 @@ namespace SharpConsoleUI.Core
 
 			// Skip if state hasn't meaningfully changed
 			if (previousState.ActiveWindow == newState.ActiveWindow &&
-			    previousState.Interaction == newState.Interaction &&
-			    previousState.WindowCount == newState.WindowCount)
+				previousState.Interaction == newState.Interaction &&
+				previousState.WindowCount == newState.WindowCount)
 			{
 				return;
 			}
@@ -894,545 +894,545 @@ namespace SharpConsoleUI.Core
 
 		#region IDisposable
 
-	#region Window Activation Methods
+		#region Window Activation Methods
 
-	#region Window Lifecycle Methods
+		#region Window Lifecycle Methods
 
-	/// <summary>
-	/// Adds a window to the window system and optionally activates it.
-	/// </summary>
-	/// <param name="window">The window to add.</param>
-	/// <param name="activateWindow">Whether to activate the window after adding. Defaults to true.</param>
-	/// <returns>The added window.</returns>
-	public Window AddWindow(Window window, bool activateWindow = true)
-	{
-		if (_getWindowSystem == null)
-			throw new InvalidOperationException("WindowSystemContext is not set");
-
-		var context = _getWindowSystem();
-
-		_logService?.LogDebug($"Adding window: {window.Title} (GUID: {window.Guid})", "Window");
-
-		// Register window (handles ZIndex assignment and adding to collection)
-		RegisterWindow(window, activate: false);
-
-		// Register modal windows with the modal state service
-		if (window.IsModal && _modalStateService != null)
+		/// <summary>
+		/// Adds a window to the window system and optionally activates it.
+		/// </summary>
+		/// <param name="window">The window to add.</param>
+		/// <param name="activateWindow">Whether to activate the window after adding. Defaults to true.</param>
+		/// <returns>The added window.</returns>
+		public Window AddWindow(Window window, bool activateWindow = true)
 		{
-			_modalStateService.PushModal(window, window.ParentWindow);
-			_logService?.LogDebug($"Modal window pushed: {window.Title}", "Modal");
-		}
+			if (_getWindowSystem == null)
+				throw new InvalidOperationException("WindowSystemContext is not set");
 
-		// Activate the window if needed (through SetActiveWindow for modal logic)
-		if (context.ActiveWindow == null || activateWindow)
-		{
-			context.SetActiveWindow(window);
-		}
+			var context = _getWindowSystem();
 
-		window.WindowIsAdded();
+			_logService?.LogDebug($"Adding window: {window.Title} (GUID: {window.Guid})", "Window");
 
-		_logService?.LogDebug($"Window added successfully: {window.Title}", "Window");
-		return window;
-	}
+			// Register window (handles ZIndex assignment and adding to collection)
+			RegisterWindow(window, activate: false);
 
-	/// <summary>
-	/// Closes a modal window and optionally activates its parent window.
-	/// </summary>
-	/// <param name="modalWindow">The modal window to close. If null or not a modal window, the method returns without action.</param>
-	public void CloseModalWindow(Window? modalWindow)
-	{
-		if (modalWindow == null || !modalWindow.IsModal)
-			return;
-		if (_getWindowSystem == null)
-			throw new InvalidOperationException("WindowSystemContext is not set");
-
-		var context = _getWindowSystem();
-
-		_logService?.LogDebug($"Closing modal window: {modalWindow.Title}", "Modal");
-
-		// Store the parent window before closing
-		Window? parentWindow = modalWindow.ParentWindow;
-
-		// Close the modal window
-		if (CloseWindow(modalWindow))
-		{
-			// If we have a parent window, ensure it becomes active
-			if (parentWindow != null && context.Windows.ContainsKey(parentWindow.Guid))
+			// Register modal windows with the modal state service
+			if (window.IsModal && _modalStateService != null)
 			{
-				context.SetActiveWindow(parentWindow);
+				_modalStateService.PushModal(window, window.ParentWindow);
+				_logService?.LogDebug($"Modal window pushed: {window.Title}", "Modal");
 			}
-		}
-	}
 
-	/// <summary>
-	/// Closes a window and removes it from the window system.
-	/// </summary>
-	/// <param name="window">The window to close. If null or not in the system, returns false.</param>
-	/// <param name="activateParent">Whether to activate the parent window after closing. Defaults to true.</param>
-	/// <param name="force">If true, forces the window to close even if IsClosable is false or OnClosing cancels.</param>
-	/// <returns>True if the window was closed successfully; false otherwise.</returns>
-	public bool CloseWindow(Window? window, bool activateParent = true, bool force = false)
-	{
-		if (window == null) return false;
-		if (_getWindowSystem == null)
-			throw new InvalidOperationException("WindowSystemContext is not set");
-
-		var context = _getWindowSystem();
-		if (!context.Windows.ContainsKey(window.Guid)) return false;
-
-		_logService?.LogDebug($"Closing window: {window.Title} (GUID: {window.Guid}, Force: {force})", "Window");
-
-		// STEP 1: Check if close is allowed BEFORE any state changes
-		// This fires OnClosing and respects IsClosable (unless forced)
-		if (!window.CanClose(force))
-		{
-			_logService?.LogDebug($"Window close cancelled by OnClosing handler: {window.Title}", "Window");
-			return false;
-		}
-
-		// STEP 2: Close is allowed - now safe to remove from system
-		Window? parentWindow = window.ParentWindow;
-		bool wasActive = (window == context.ActiveWindow);
-
-		// Unregister modal window from modal state service
-		if (window.IsModal && _modalStateService != null)
-		{
-			_modalStateService.PopModal(window);
-		}
-
-		// Clear focus state for this window
-
-		// Remove from window collection via service
-		// This prevents race condition where render thread tries to render disposed controls
-		UnregisterWindow(window);
-
-		// Activate the next window (UnregisterWindow updates state but doesn't call SetIsActive)
-		if (wasActive)
-		{
-			Window? targetWindow = null;
-
-			if (activateParent && parentWindow != null && context.Windows.ContainsKey(parentWindow.Guid))
+			// Activate the window if needed (through SetActiveWindow for modal logic)
+			if (context.ActiveWindow == null || activateWindow)
 			{
-				// Let ModalStateService resolve correct target (may redirect to modal child)
-				// This prevents the "black hole" bug when closing a modal that has other modals stacked
-				targetWindow = _modalStateService?.GetEffectiveActivationTarget(parentWindow);
+				context.SetActiveWindow(window);
 			}
-			else if (context.Windows.Count > 0)
-			{
-				// Activate window with highest Z-Index
-				int maxZIndex = context.Windows.Values.Max(w => w.ZIndex);
-				var nextWindow = context.Windows.Values.FirstOrDefault(w => w.ZIndex == maxZIndex);
 
-				if (nextWindow != null && _modalStateService != null)
+			window.WindowIsAdded();
+
+			_logService?.LogDebug($"Window added successfully: {window.Title}", "Window");
+			return window;
+		}
+
+		/// <summary>
+		/// Closes a modal window and optionally activates its parent window.
+		/// </summary>
+		/// <param name="modalWindow">The modal window to close. If null or not a modal window, the method returns without action.</param>
+		public void CloseModalWindow(Window? modalWindow)
+		{
+			if (modalWindow == null || !modalWindow.IsModal)
+				return;
+			if (_getWindowSystem == null)
+				throw new InvalidOperationException("WindowSystemContext is not set");
+
+			var context = _getWindowSystem();
+
+			_logService?.LogDebug($"Closing modal window: {modalWindow.Title}", "Modal");
+
+			// Store the parent window before closing
+			Window? parentWindow = modalWindow.ParentWindow;
+
+			// Close the modal window
+			if (CloseWindow(modalWindow))
+			{
+				// If we have a parent window, ensure it becomes active
+				if (parentWindow != null && context.Windows.ContainsKey(parentWindow.Guid))
 				{
-					// Use GetEffectiveActivationTarget to handle modal redirection
-					targetWindow = _modalStateService.GetEffectiveActivationTarget(nextWindow);
+					context.SetActiveWindow(parentWindow);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Closes a window and removes it from the window system.
+		/// </summary>
+		/// <param name="window">The window to close. If null or not in the system, returns false.</param>
+		/// <param name="activateParent">Whether to activate the parent window after closing. Defaults to true.</param>
+		/// <param name="force">If true, forces the window to close even if IsClosable is false or OnClosing cancels.</param>
+		/// <returns>True if the window was closed successfully; false otherwise.</returns>
+		public bool CloseWindow(Window? window, bool activateParent = true, bool force = false)
+		{
+			if (window == null) return false;
+			if (_getWindowSystem == null)
+				throw new InvalidOperationException("WindowSystemContext is not set");
+
+			var context = _getWindowSystem();
+			if (!context.Windows.ContainsKey(window.Guid)) return false;
+
+			_logService?.LogDebug($"Closing window: {window.Title} (GUID: {window.Guid}, Force: {force})", "Window");
+
+			// STEP 1: Check if close is allowed BEFORE any state changes
+			// This fires OnClosing and respects IsClosable (unless forced)
+			if (!window.CanClose(force))
+			{
+				_logService?.LogDebug($"Window close cancelled by OnClosing handler: {window.Title}", "Window");
+				return false;
+			}
+
+			// STEP 2: Close is allowed - now safe to remove from system
+			Window? parentWindow = window.ParentWindow;
+			bool wasActive = (window == context.ActiveWindow);
+
+			// Unregister modal window from modal state service
+			if (window.IsModal && _modalStateService != null)
+			{
+				_modalStateService.PopModal(window);
+			}
+
+			// Clear focus state for this window
+
+			// Remove from window collection via service
+			// This prevents race condition where render thread tries to render disposed controls
+			UnregisterWindow(window);
+
+			// Activate the next window (UnregisterWindow updates state but doesn't call SetIsActive)
+			if (wasActive)
+			{
+				Window? targetWindow = null;
+
+				if (activateParent && parentWindow != null && context.Windows.ContainsKey(parentWindow.Guid))
+				{
+					// Let ModalStateService resolve correct target (may redirect to modal child)
+					// This prevents the "black hole" bug when closing a modal that has other modals stacked
+					targetWindow = _modalStateService?.GetEffectiveActivationTarget(parentWindow);
+				}
+				else if (context.Windows.Count > 0)
+				{
+					// Activate window with highest Z-Index
+					int maxZIndex = context.Windows.Values.Max(w => w.ZIndex);
+					var nextWindow = context.Windows.Values.FirstOrDefault(w => w.ZIndex == maxZIndex);
+
+					if (nextWindow != null && _modalStateService != null)
+					{
+						// Use GetEffectiveActivationTarget to handle modal redirection
+						targetWindow = _modalStateService.GetEffectiveActivationTarget(nextWindow);
+					}
+				}
+
+				if (targetWindow != null)
+				{
+					context.SetActiveWindow(targetWindow);
 				}
 			}
 
-			if (targetWindow != null)
+			// STEP 3: Complete the close (fire OnClosed, dispose controls)
+			window.CompleteClose();
+
+			// Clear only the closed window's area (not entire screen!)
+			if (_renderer != null && _consoleDriver != null)
 			{
-				context.SetActiveWindow(targetWindow);
+				var theme = context.Theme;
+				// Restore desktop background from cached buffer (supports gradients/patterns)
+				_renderer.BlitDesktopRegion(window.Left, window.Top, window.Width, window.Height, theme);
+
+				// Invalidate remaining windows in case they were partially occluded
+				foreach (var w in context.Windows.Values)
+				{
+					w.Invalidate(true);
+				}
+
+				// BUG FIX: Removed immediate Flush() - let normal render cycle handle it
+				// The next UpdateDisplay() will detect the changes and output clearing
+				// This maintains frame-based rendering consistency
+
+				// CRITICAL: Force next render even if no windows remain
+				// Without this, Run() loop won't call UpdateDisplay() when AnyWindowDirty() returns false
+				context.Render.DesktopNeedsRender = true;
+			}
+
+			return true;
+		}
+
+		/// <summary>
+		/// Flashes a window to draw user attention using a smooth pulse animation effect.
+		/// Uses PostBufferPaint to apply a color overlay without modifying window properties.
+		/// The animation is driven by the AnimationManager in the main Run() loop.
+		/// </summary>
+		/// <param name="window">The window to flash. If null, the method returns without action.</param>
+		/// <param name="flashCount">The number of times to flash. Defaults to 1.</param>
+		/// <param name="flashDuration">The duration of each flash pulse in milliseconds. Defaults to AnimationDefaults.DefaultFlashPulseDurationMs.</param>
+		/// <param name="flashBackgroundColor">The background color to use for flashing. If null, uses the theme's ModalFlashColor.</param>
+		public void FlashWindow(Window? window, int flashCount = 1, int flashDuration = 0, Color? flashBackgroundColor = null)
+		{
+			if (window?.Renderer == null) return;
+			if (_getWindowSystem == null)
+				throw new InvalidOperationException("WindowSystemContext is not set");
+
+			var context = _getWindowSystem();
+
+			var flashColor = flashBackgroundColor ?? context.Theme.ModalFlashColor;
+			int pulseDurationMs = flashDuration > 0 ? flashDuration : AnimationDefaults.DefaultFlashPulseDurationMs;
+
+			var state = new FlashState
+			{
+				FlashColor = flashColor
+			};
+
+			// PostBufferPaint handler that applies the flash overlay
+			void FlashOverlay(Layout.CharacterBuffer buffer, Layout.LayoutRect dirtyRegion, Layout.LayoutRect clipRect)
+			{
+				ApplyFlashOverlay(buffer, flashColor, state.Intensity);
+			}
+
+			state.PaintHandler = FlashOverlay;
+
+			// Cleanup handler if window closes during flash
+			state.CleanupHandler = (s, e) => CleanupFlash(window, state);
+
+			// Prevent multiple concurrent flashes on the same window
+			// Single lock block to avoid TOCTOU race
+			lock (_flashingWindows)
+			{
+				if (_flashingWindows.ContainsKey(window)) return;
+
+				// Subscribe to events
+				window.Renderer.PostBufferPaint += FlashOverlay;
+				window.OnClosing += state.CleanupHandler;
+
+				_flashingWindows[window] = state;
+			}
+
+			// Start the flash animation chain via AnimationManager
+			StartFlashPulse(window, state, context.Animations, pulseDurationMs, flashCount, currentPulse: 0);
+		}
+
+		/// <summary>
+		/// Starts a single flash pulse tween via the AnimationManager.
+		/// Chains to the next pulse on completion, or cleans up when all pulses are done.
+		/// </summary>
+		private void StartFlashPulse(
+			Window window,
+			FlashState state,
+			AnimationManager animationManager,
+			int pulseDurationMs,
+			int totalPulses,
+			int currentPulse)
+		{
+			var pulseDuration = TimeSpan.FromMilliseconds(pulseDurationMs);
+
+			state.Animation = animationManager.Animate(
+				from: 0.0f,
+				to: AnimationDefaults.FlashMaxIntensity,
+				duration: pulseDuration,
+				easing: EasingFunctions.SinePulse,
+				onUpdate: intensity =>
+				{
+					state.Intensity = intensity;
+					window.Invalidate(redrawAll: true);
+				},
+				onComplete: () =>
+				{
+					state.Intensity = 0f;
+					int nextPulse = currentPulse + 1;
+
+					if (nextPulse < totalPulses)
+					{
+						// Chain next pulse after a brief delay tween
+						var delayDuration = TimeSpan.FromMilliseconds(AnimationDefaults.FlashInterPulseDelayMs);
+						state.Animation = animationManager.Animate(
+							from: 0.0f,
+							to: 0.0f,
+							duration: delayDuration,
+							easing: EasingFunctions.Linear,
+							onComplete: () => StartFlashPulse(window, state, animationManager, pulseDurationMs, totalPulses, nextPulse));
+					}
+					else
+					{
+						CleanupFlash(window, state);
+					}
+				});
+		}
+
+		/// <summary>
+		/// Applies a color overlay to the entire buffer for the flash effect.
+		/// Delegates to the shared ColorBlendHelper to avoid code duplication.
+		/// </summary>
+		private void ApplyFlashOverlay(Layout.CharacterBuffer buffer, Color flashColor, float intensity)
+		{
+			Helpers.ColorBlendHelper.ApplyColorOverlay(buffer, flashColor, intensity);
+		}
+
+		/// <summary>
+		/// Cleans up a flash animation by disposing resources and unsubscribing events.
+		/// </summary>
+		/// <param name="window">The window being flashed.</param>
+		/// <param name="state">The flash state to clean up.</param>
+		private void CleanupFlash(Window window, FlashState state)
+		{
+			// Cancel the animation if still running
+			state.Animation?.Cancel();
+			state.Animation = null;
+			state.Intensity = 0f;
+
+			// Unsubscribe from PostBufferPaint
+			if (window.Renderer != null && state.PaintHandler != null)
+			{
+				window.Renderer.PostBufferPaint -= state.PaintHandler;
+			}
+
+			// Unsubscribe from OnClosing
+			if (state.CleanupHandler != null)
+			{
+				window.OnClosing -= state.CleanupHandler;
+			}
+
+			// Remove from tracking
+			lock (_flashingWindows)
+			{
+				_flashingWindows.Remove(window);
+			}
+
+			// Final invalidation to clear any remaining overlay
+			window.Invalidate(redrawAll: true);
+		}
+
+		/// <summary>
+		/// Activates the next non-minimized window after a window is minimized.
+		/// </summary>
+		/// <param name="minimizedWindow">The window that was just minimized.</param>
+		public void ActivateNextNonMinimizedWindow(Window minimizedWindow)
+		{
+			if (minimizedWindow == null) return;
+			if (_getWindowSystem == null)
+				throw new InvalidOperationException("WindowSystemContext is not set");
+
+			var context = _getWindowSystem();
+
+			// Find the next non-minimized window to activate
+			var nextWindow = context.Windows.Values
+				.Where(w => w != minimizedWindow && w.State != WindowState.Minimized)
+				.OrderByDescending(w => w.ZIndex)
+				.FirstOrDefault();
+
+			if (nextWindow != null)
+			{
+				context.SetActiveWindow(nextWindow);
 			}
 		}
 
-		// STEP 3: Complete the close (fire OnClosed, dispose controls)
-		window.CompleteClose();
-
-		// Clear only the closed window's area (not entire screen!)
-		if (_renderer != null && _consoleDriver != null)
+		/// <summary>
+		/// Deactivates the current active window (e.g., when clicking on empty desktop).
+		/// </summary>
+		public void DeactivateCurrentWindow()
 		{
-			var theme = context.Theme;
-			// Restore desktop background from cached buffer (supports gradients/patterns)
-			_renderer.BlitDesktopRegion(window.Left, window.Top, window.Width, window.Height, theme);
+			if (_getWindowSystem == null)
+				throw new InvalidOperationException("WindowSystemContext is not set");
 
-			// Invalidate remaining windows in case they were partially occluded
+			var context = _getWindowSystem();
+
+			if (context.ActiveWindow != null)
+			{
+				context.ActiveWindow.SetIsActive(false);
+				context.ActiveWindow.Invalidate(true);
+
+				// Clear ActiveWindow so clicking the same window again will re-activate it
+				var newState = CreateStateSnapshot() with { ActiveWindow = null };
+				UpdateStateInternal(newState);
+			}
+		}
+
+		#endregion
+
+		#endregion
+
+		/// <summary>
+		/// Sets the specified window as the active window, handling modal window logic and focus.
+		/// </summary>
+		/// <param name="window">The window to activate. If null, the method returns without action.</param>
+		public void SetActiveWindow(Window window)
+		{
+			if (window == null)
+			{
+				return;
+			}
+			if (_getWindowSystem == null)
+				throw new InvalidOperationException("WindowSystemContext is not set");
+
+			var context = _getWindowSystem();
+
+			// Check if window is registered in the system
+			if (!context.Windows.ContainsKey(window.Guid))
+			{
+				_logService?.LogTrace($"Cannot activate unregistered window: {window.Title}", "WindowState");
+				return;
+			}
+
+			// Check if activation is blocked by modal service
+			if (_modalStateService != null && _modalStateService.IsActivationBlocked(window))
+			{
+				_logService?.LogTrace($"Window activation blocked by modal: {window.Title}", "Modal");
+				var blockingModal = _modalStateService.GetBlockingModal(window);
+				if (blockingModal != null && blockingModal != ActiveWindow)
+				{
+					FlashWindow(blockingModal);
+				}
+				else if (ActiveWindow != null)
+				{
+					FlashWindow(ActiveWindow);
+				}
+				return;
+			}
+
+			// Get the effective activation target (handles modal children)
+			Window windowToActivate = _modalStateService?.GetEffectiveActivationTarget(window) ?? window;
+
+			// Restore if minimized (typical windowing system behavior)
+			if (windowToActivate.State == WindowState.Minimized)
+			{
+				windowToActivate.State = WindowState.Normal;
+			}
+
+			// If a different modal should be activated, flash it
+			if (windowToActivate != window && windowToActivate.IsModal)
+			{
+				FlashWindow(windowToActivate);
+			}
+
+			var previousActiveWindow = ActiveWindow;
+
+			// Invalidate previous active window
+			previousActiveWindow?.Invalidate(true);
+
+			// Delegate activation to the service
+			// The service handles: SetIsActive, ZIndex update, and state tracking
+			ActivateWindow(windowToActivate);
+
+
+			// Invalidate new active window
+			windowToActivate.Invalidate(true);
+
+			// Unfocus the currently focused control of other windows
 			foreach (var w in context.Windows.Values)
 			{
-				w.Invalidate(true);
-			}
-
-			// BUG FIX: Removed immediate Flush() - let normal render cycle handle it
-			// The next UpdateDisplay() will detect the changes and output clearing
-			// This maintains frame-based rendering consistency
-
-			// CRITICAL: Force next render even if no windows remain
-			// Without this, Run() loop won't call UpdateDisplay() when AnyWindowDirty() returns false
-			context.Render.DesktopNeedsRender = true;
-		}
-
-		return true;
-	}
-
-	/// <summary>
-	/// Flashes a window to draw user attention using a smooth pulse animation effect.
-	/// Uses PostBufferPaint to apply a color overlay without modifying window properties.
-	/// The animation is driven by the AnimationManager in the main Run() loop.
-	/// </summary>
-	/// <param name="window">The window to flash. If null, the method returns without action.</param>
-	/// <param name="flashCount">The number of times to flash. Defaults to 1.</param>
-	/// <param name="flashDuration">The duration of each flash pulse in milliseconds. Defaults to AnimationDefaults.DefaultFlashPulseDurationMs.</param>
-	/// <param name="flashBackgroundColor">The background color to use for flashing. If null, uses the theme's ModalFlashColor.</param>
-	public void FlashWindow(Window? window, int flashCount = 1, int flashDuration = 0, Color? flashBackgroundColor = null)
-	{
-		if (window?.Renderer == null) return;
-		if (_getWindowSystem == null)
-			throw new InvalidOperationException("WindowSystemContext is not set");
-
-		var context = _getWindowSystem();
-
-		var flashColor = flashBackgroundColor ?? context.Theme.ModalFlashColor;
-		int pulseDurationMs = flashDuration > 0 ? flashDuration : AnimationDefaults.DefaultFlashPulseDurationMs;
-
-		var state = new FlashState
-		{
-			FlashColor = flashColor
-		};
-
-		// PostBufferPaint handler that applies the flash overlay
-		void FlashOverlay(Layout.CharacterBuffer buffer, Layout.LayoutRect dirtyRegion, Layout.LayoutRect clipRect)
-		{
-			ApplyFlashOverlay(buffer, flashColor, state.Intensity);
-		}
-
-		state.PaintHandler = FlashOverlay;
-
-		// Cleanup handler if window closes during flash
-		state.CleanupHandler = (s, e) => CleanupFlash(window, state);
-
-		// Prevent multiple concurrent flashes on the same window
-		// Single lock block to avoid TOCTOU race
-		lock (_flashingWindows)
-		{
-			if (_flashingWindows.ContainsKey(window)) return;
-
-			// Subscribe to events
-			window.Renderer.PostBufferPaint += FlashOverlay;
-			window.OnClosing += state.CleanupHandler;
-
-			_flashingWindows[window] = state;
-		}
-
-		// Start the flash animation chain via AnimationManager
-		StartFlashPulse(window, state, context.Animations, pulseDurationMs, flashCount, currentPulse: 0);
-	}
-
-	/// <summary>
-	/// Starts a single flash pulse tween via the AnimationManager.
-	/// Chains to the next pulse on completion, or cleans up when all pulses are done.
-	/// </summary>
-	private void StartFlashPulse(
-		Window window,
-		FlashState state,
-		AnimationManager animationManager,
-		int pulseDurationMs,
-		int totalPulses,
-		int currentPulse)
-	{
-		var pulseDuration = TimeSpan.FromMilliseconds(pulseDurationMs);
-
-		state.Animation = animationManager.Animate(
-			from: 0.0f,
-			to: AnimationDefaults.FlashMaxIntensity,
-			duration: pulseDuration,
-			easing: EasingFunctions.SinePulse,
-			onUpdate: intensity =>
-			{
-				state.Intensity = intensity;
-				window.Invalidate(redrawAll: true);
-			},
-			onComplete: () =>
-			{
-				state.Intensity = 0f;
-				int nextPulse = currentPulse + 1;
-
-				if (nextPulse < totalPulses)
+				if (w != ActiveWindow)
 				{
-					// Chain next pulse after a brief delay tween
-					var delayDuration = TimeSpan.FromMilliseconds(AnimationDefaults.FlashInterPulseDelayMs);
-					state.Animation = animationManager.Animate(
-						from: 0.0f,
-						to: 0.0f,
-						duration: delayDuration,
-						easing: EasingFunctions.Linear,
-						onComplete: () => StartFlashPulse(window, state, animationManager, pulseDurationMs, totalPulses, nextPulse));
+					w.UnfocusCurrentControl();
 				}
-				else
-				{
-					CleanupFlash(window, state);
-				}
-			});
-	}
-
-	/// <summary>
-	/// Applies a color overlay to the entire buffer for the flash effect.
-	/// Delegates to the shared ColorBlendHelper to avoid code duplication.
-	/// </summary>
-	private void ApplyFlashOverlay(Layout.CharacterBuffer buffer, Color flashColor, float intensity)
-	{
-		Helpers.ColorBlendHelper.ApplyColorOverlay(buffer, flashColor, intensity);
-	}
-
-	/// <summary>
-	/// Cleans up a flash animation by disposing resources and unsubscribing events.
-	/// </summary>
-	/// <param name="window">The window being flashed.</param>
-	/// <param name="state">The flash state to clean up.</param>
-	private void CleanupFlash(Window window, FlashState state)
-	{
-		// Cancel the animation if still running
-		state.Animation?.Cancel();
-		state.Animation = null;
-		state.Intensity = 0f;
-
-		// Unsubscribe from PostBufferPaint
-		if (window.Renderer != null && state.PaintHandler != null)
-		{
-			window.Renderer.PostBufferPaint -= state.PaintHandler;
-		}
-
-		// Unsubscribe from OnClosing
-		if (state.CleanupHandler != null)
-		{
-			window.OnClosing -= state.CleanupHandler;
-		}
-
-		// Remove from tracking
-		lock (_flashingWindows)
-		{
-			_flashingWindows.Remove(window);
-		}
-
-		// Final invalidation to clear any remaining overlay
-		window.Invalidate(redrawAll: true);
-	}
-
-	/// <summary>
-	/// Activates the next non-minimized window after a window is minimized.
-	/// </summary>
-	/// <param name="minimizedWindow">The window that was just minimized.</param>
-	public void ActivateNextNonMinimizedWindow(Window minimizedWindow)
-	{
-		if (minimizedWindow == null) return;
-		if (_getWindowSystem == null)
-			throw new InvalidOperationException("WindowSystemContext is not set");
-
-		var context = _getWindowSystem();
-
-		// Find the next non-minimized window to activate
-		var nextWindow = context.Windows.Values
-			.Where(w => w != minimizedWindow && w.State != WindowState.Minimized)
-			.OrderByDescending(w => w.ZIndex)
-			.FirstOrDefault();
-
-		if (nextWindow != null)
-		{
-			context.SetActiveWindow(nextWindow);
-		}
-	}
-
-	/// <summary>
-	/// Deactivates the current active window (e.g., when clicking on empty desktop).
-	/// </summary>
-	public void DeactivateCurrentWindow()
-	{
-		if (_getWindowSystem == null)
-			throw new InvalidOperationException("WindowSystemContext is not set");
-
-		var context = _getWindowSystem();
-
-		if (context.ActiveWindow != null)
-		{
-			context.ActiveWindow.SetIsActive(false);
-			context.ActiveWindow.Invalidate(true);
-
-			// Clear ActiveWindow so clicking the same window again will re-activate it
-			var newState = CreateStateSnapshot() with { ActiveWindow = null };
-			UpdateStateInternal(newState);
-		}
-	}
-
-	#endregion
-
-	#endregion
-
-	/// <summary>
-	/// Sets the specified window as the active window, handling modal window logic and focus.
-	/// </summary>
-	/// <param name="window">The window to activate. If null, the method returns without action.</param>
-	public void SetActiveWindow(Window window)
-	{
-		if (window == null)
-		{
-			return;
-		}
-		if (_getWindowSystem == null)
-			throw new InvalidOperationException("WindowSystemContext is not set");
-
-		var context = _getWindowSystem();
-
-		// Check if window is registered in the system
-		if (!context.Windows.ContainsKey(window.Guid))
-		{
-			_logService?.LogTrace($"Cannot activate unregistered window: {window.Title}", "WindowState");
-			return;
-		}
-
-		// Check if activation is blocked by modal service
-		if (_modalStateService != null && _modalStateService.IsActivationBlocked(window))
-		{
-			_logService?.LogTrace($"Window activation blocked by modal: {window.Title}", "Modal");
-			var blockingModal = _modalStateService.GetBlockingModal(window);
-			if (blockingModal != null && blockingModal != ActiveWindow)
-			{
-				FlashWindow(blockingModal);
 			}
-			else if (ActiveWindow != null)
+
+			_logService?.LogTrace($"Window activated: {windowToActivate.Title}", "Window");
+		}
+
+		/// <summary>
+		/// Activates an existing window by name, or creates it using the factory if not found.
+		/// </summary>
+		/// <param name="name">The window name to find/create</param>
+		/// <param name="factory">Factory function to create the window if it doesn't exist</param>
+		/// <returns>The activated or newly created window</returns>
+		public Window ActivateOrCreate(string name, Func<Window> factory)
+		{
+			if (string.IsNullOrEmpty(name))
+				throw new ArgumentException("Window name cannot be null or empty", nameof(name));
+			if (factory == null)
+				throw new ArgumentNullException(nameof(factory));
+			if (_getWindowSystem == null)
+				throw new InvalidOperationException("WindowSystemContext is not set");
+
+			var existing = FindWindowByName(name);
+			if (existing != null)
 			{
-				FlashWindow(ActiveWindow);
+				_getWindowSystem().SetActiveWindow(existing);
+				return existing;
 			}
-			return;
+
+			var window = factory();
+			window.Name = name;
+			_getWindowSystem().AddWindow(window);
+			return window;
 		}
 
-		// Get the effective activation target (handles modal children)
-		Window windowToActivate = _modalStateService?.GetEffectiveActivationTarget(window) ?? window;
-
-		// Restore if minimized (typical windowing system behavior)
-		if (windowToActivate.State == WindowState.Minimized)
+		/// <summary>
+		/// Activates an existing window by GUID, or creates it using the factory if not found.
+		/// </summary>
+		/// <param name="guid">The window GUID to find/create</param>
+		/// <param name="factory">Factory function to create the window if it doesn't exist</param>
+		/// <returns>The activated or newly created window</returns>
+		public Window ActivateOrCreateByGuid(string guid, Func<Window> factory)
 		{
-			windowToActivate.State = WindowState.Normal;
-		}
+			if (string.IsNullOrEmpty(guid))
+				throw new ArgumentException("Window GUID cannot be null or empty", nameof(guid));
+			if (factory == null)
+				throw new ArgumentNullException(nameof(factory));
+			if (_getWindowSystem == null)
+				throw new InvalidOperationException("WindowSystemContext is not set");
 
-		// If a different modal should be activated, flash it
-		if (windowToActivate != window && windowToActivate.IsModal)
-		{
-			FlashWindow(windowToActivate);
-		}
-
-		var previousActiveWindow = ActiveWindow;
-
-		// Invalidate previous active window
-		previousActiveWindow?.Invalidate(true);
-
-		// Delegate activation to the service
-		// The service handles: SetIsActive, ZIndex update, and state tracking
-		ActivateWindow(windowToActivate);
-
-
-		// Invalidate new active window
-		windowToActivate.Invalidate(true);
-
-		// Unfocus the currently focused control of other windows
-		foreach (var w in context.Windows.Values)
-		{
-			if (w != ActiveWindow)
+			var existing = GetWindow(guid);
+			if (existing != null)
 			{
-				w.UnfocusCurrentControl();
+				_getWindowSystem().SetActiveWindow(existing);
+				return existing;
 			}
+
+			var window = factory();
+			_getWindowSystem().AddWindow(window);
+			return window;
 		}
 
-		_logService?.LogTrace($"Window activated: {windowToActivate.Title}", "Window");
-	}
-
-	/// <summary>
-	/// Activates an existing window by name, or creates it using the factory if not found.
-	/// </summary>
-	/// <param name="name">The window name to find/create</param>
-	/// <param name="factory">Factory function to create the window if it doesn't exist</param>
-	/// <returns>The activated or newly created window</returns>
-	public Window ActivateOrCreate(string name, Func<Window> factory)
-	{
-		if (string.IsNullOrEmpty(name))
-			throw new ArgumentException("Window name cannot be null or empty", nameof(name));
-		if (factory == null)
-			throw new ArgumentNullException(nameof(factory));
-		if (_getWindowSystem == null)
-			throw new InvalidOperationException("WindowSystemContext is not set");
-
-		var existing = FindWindowByName(name);
-		if (existing != null)
+		/// <summary>
+		/// Activates an existing window by name if found, otherwise returns null.
+		/// </summary>
+		/// <param name="name">The window name to find</param>
+		/// <returns>The activated window, or null if not found</returns>
+		public Window? TryActivate(string name)
 		{
-			_getWindowSystem().SetActiveWindow(existing);
+			if (_getWindowSystem == null)
+				throw new InvalidOperationException("WindowSystemContext is not set");
+
+			var existing = FindWindowByName(name);
+			if (existing != null)
+			{
+				_getWindowSystem().SetActiveWindow(existing);
+			}
 			return existing;
 		}
 
-		var window = factory();
-		window.Name = name;
-		_getWindowSystem().AddWindow(window);
-		return window;
-	}
-
-	/// <summary>
-	/// Activates an existing window by GUID, or creates it using the factory if not found.
-	/// </summary>
-	/// <param name="guid">The window GUID to find/create</param>
-	/// <param name="factory">Factory function to create the window if it doesn't exist</param>
-	/// <returns>The activated or newly created window</returns>
-	public Window ActivateOrCreateByGuid(string guid, Func<Window> factory)
-	{
-		if (string.IsNullOrEmpty(guid))
-			throw new ArgumentException("Window GUID cannot be null or empty", nameof(guid));
-		if (factory == null)
-			throw new ArgumentNullException(nameof(factory));
-		if (_getWindowSystem == null)
-			throw new InvalidOperationException("WindowSystemContext is not set");
-
-		var existing = GetWindow(guid);
-		if (existing != null)
+		/// <summary>
+		/// Activates an existing window by GUID if found, otherwise returns null.
+		/// </summary>
+		/// <param name="guid">The window GUID to find</param>
+		/// <returns>The activated window, or null if not found</returns>
+		public Window? TryActivateByGuid(string guid)
 		{
-			_getWindowSystem().SetActiveWindow(existing);
+			if (_getWindowSystem == null)
+				throw new InvalidOperationException("WindowSystemContext is not set");
+
+			var existing = GetWindow(guid);
+			if (existing != null)
+			{
+				_getWindowSystem().SetActiveWindow(existing);
+			}
 			return existing;
 		}
 
-		var window = factory();
-		_getWindowSystem().AddWindow(window);
-		return window;
-	}
-
-	/// <summary>
-	/// Activates an existing window by name if found, otherwise returns null.
-	/// </summary>
-	/// <param name="name">The window name to find</param>
-	/// <returns>The activated window, or null if not found</returns>
-	public Window? TryActivate(string name)
-	{
-		if (_getWindowSystem == null)
-			throw new InvalidOperationException("WindowSystemContext is not set");
-
-		var existing = FindWindowByName(name);
-		if (existing != null)
+		/// <summary>
+		/// Cycles to the next active window (Ctrl+T handler).
+		/// </summary>
+		public void CycleActiveWindow()
 		{
-			_getWindowSystem().SetActiveWindow(existing);
+			// Delegate to service - it handles window cycling and restoring minimized windows
+			ActivateNextWindow();
 		}
-		return existing;
-	}
-
-	/// <summary>
-	/// Activates an existing window by GUID if found, otherwise returns null.
-	/// </summary>
-	/// <param name="guid">The window GUID to find</param>
-	/// <returns>The activated window, or null if not found</returns>
-	public Window? TryActivateByGuid(string guid)
-	{
-		if (_getWindowSystem == null)
-			throw new InvalidOperationException("WindowSystemContext is not set");
-
-		var existing = GetWindow(guid);
-		if (existing != null)
-		{
-			_getWindowSystem().SetActiveWindow(existing);
-		}
-		return existing;
-	}
-
-	/// <summary>
-	/// Cycles to the next active window (Ctrl+T handler).
-	/// </summary>
-	public void CycleActiveWindow()
-	{
-		// Delegate to service - it handles window cycling and restoring minimized windows
-		ActivateNextWindow();
-	}
 
 
 		/// <inheritdoc/>

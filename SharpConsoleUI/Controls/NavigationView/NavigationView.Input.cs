@@ -6,9 +6,9 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
-using SharpConsoleUI.Drivers;
 
 namespace SharpConsoleUI.Controls
 {
@@ -61,7 +61,7 @@ namespace SharpConsoleUI.Controls
 					FocusNavPane();
 				else
 					FocusContentPanel();
-				}
+			}
 
 			// Delegate to the grid for mouse event handling
 			return _grid.ProcessMouseEvent(args);

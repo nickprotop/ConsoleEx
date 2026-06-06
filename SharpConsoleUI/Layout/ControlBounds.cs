@@ -150,7 +150,7 @@ namespace SharpConsoleUI.Layout
 				ControlContentBounds,
 				new Rectangle(0, 0, ParentWindow.Width - 2, ParentWindow.Height - 2)
 			);
-			
+
 			return intersection;
 		}
 	}
@@ -274,7 +274,7 @@ namespace SharpConsoleUI.Layout
 			{
 				var bounds = kvp.Value;
 				var localPos = bounds.WindowToControl(windowPosition);
-				
+
 				// Check if position is within control bounds
 				if (localPos.X >= 0 && localPos.X < bounds.ViewportSize.Width &&
 					localPos.Y >= 0 && localPos.Y < bounds.ViewportSize.Height)

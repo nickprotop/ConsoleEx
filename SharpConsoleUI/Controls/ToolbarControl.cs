@@ -8,16 +8,15 @@
 
 using System.IO;
 using SharpConsoleUI.Builders;
-using SharpConsoleUI.Drivers;
-using SharpConsoleUI.Events;
-using SharpConsoleUI.Layout;
-using Size = System.Drawing.Size;
-using Point = System.Drawing.Point;
-
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
+using Point = System.Drawing.Point;
+using Size = System.Drawing.Size;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -245,7 +244,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
-		#pragma warning disable CS0067  // Event never raised (interface requirement)
+#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
@@ -262,7 +261,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
-		#pragma warning restore CS0067
+#pragma warning restore CS0067
 
 		/// <summary>
 		/// Adds an item to the toolbar.
@@ -714,7 +713,7 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
-	#region Private Methods
+		#region Private Methods
 
 		/// <summary>
 		/// Computes the effective content area accounting for margins, content padding, and separator lines.

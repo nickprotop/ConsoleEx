@@ -6,11 +6,11 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
 using SharpConsoleUI.Rendering;
-using System.Drawing;
 
 namespace SharpConsoleUI.Windows
 {

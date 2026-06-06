@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -6,8 +6,8 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Drivers;
 using System.Drawing;
+using SharpConsoleUI.Drivers;
 
 // Code from Terminal.Gui - https://github.com/gui-cs/Terminal.Gui
 

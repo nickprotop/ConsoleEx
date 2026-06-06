@@ -81,7 +81,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public event EventHandler<double>? ValueChanged;
 
-		#pragma warning disable CS0067
+#pragma warning disable CS0067
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 		/// <inheritdoc/>
@@ -94,7 +94,7 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<MouseEventArgs>? MouseLeave;
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
-		#pragma warning restore CS0067
+#pragma warning restore CS0067
 
 		#endregion
 
@@ -280,7 +280,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-				public bool HasFocus
+		public bool HasFocus
 		{
 			get => ComputeHasFocus();
 		}

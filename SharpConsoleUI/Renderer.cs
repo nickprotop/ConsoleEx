@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -6,10 +6,10 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Helpers;
-using SharpConsoleUI.Layout;
 using System.Drawing;
 using System.Text;
+using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI
 {
@@ -78,110 +78,110 @@ namespace SharpConsoleUI
 			}
 		}
 
-	/// <summary>
-	/// Clears a rectangular area with the desktop background.
-	/// </summary>
-	/// <param name="left">The left coordinate.</param>
-	/// <param name="top">The top coordinate.</param>
-	/// <param name="width">The width of the area.</param>
-	/// <param name="height">The height of the area.</param>
-	/// <param name="theme">The theme to use for background colors.</param>
-	/// <param name="windows">The collection of windows to invalidate if they overlap.</param>
-	public void ClearArea(int left, int top, int width, int height, Themes.ITheme theme, IReadOnlyDictionary<string, Window> windows)
-	{
-		BlitDesktopRegion(left, top, width, height, theme);
-
-		// Invalidate any windows that overlap with this area to redraw them
-		foreach (var window in windows.Values)
+		/// <summary>
+		/// Clears a rectangular area with the desktop background.
+		/// </summary>
+		/// <param name="left">The left coordinate.</param>
+		/// <param name="top">The top coordinate.</param>
+		/// <param name="width">The width of the area.</param>
+		/// <param name="height">The height of the area.</param>
+		/// <param name="theme">The theme to use for background colors.</param>
+		/// <param name="windows">The collection of windows to invalidate if they overlap.</param>
+		public void ClearArea(int left, int top, int width, int height, Themes.ITheme theme, IReadOnlyDictionary<string, Window> windows)
 		{
-			var windowRect = new Rectangle(window.Left, window.Top, window.Width, window.Height);
-			var clearRect = new Rectangle(left, top, width, height);
-			if (GeometryHelpers.DoesRectangleIntersect(windowRect, clearRect))
+			BlitDesktopRegion(left, top, width, height, theme);
+
+			// Invalidate any windows that overlap with this area to redraw them
+			foreach (var window in windows.Values)
 			{
-				window.Invalidate(true);
+				var windowRect = new Rectangle(window.Left, window.Top, window.Width, window.Height);
+				var clearRect = new Rectangle(left, top, width, height);
+				if (GeometryHelpers.DoesRectangleIntersect(windowRect, clearRect))
+				{
+					window.Invalidate(true);
+				}
 			}
 		}
-	}
 
-	/// <summary>
-	/// Fills the entire desktop area with the theme's background character and colors.
-	/// Used for initializing the desktop background.
-	/// </summary>
-	/// <param name="theme">The theme to use for desktop colors.</param>
-	/// <param name="screenWidth">The width of the screen.</param>
-	/// <param name="screenHeight">The height of the screen.</param>
-	public void FillDesktopBackground(Themes.ITheme theme, int screenWidth, int screenHeight)
-	{
-		var service = _consoleWindowSystem.DesktopBackgroundService;
-		var desktopDims = _consoleWindowSystem.DesktopDimensions;
-		service.Render(screenWidth, desktopDims.Height);
-
-		if (service.HasBuffer)
+		/// <summary>
+		/// Fills the entire desktop area with the theme's background character and colors.
+		/// Used for initializing the desktop background.
+		/// </summary>
+		/// <param name="theme">The theme to use for desktop colors.</param>
+		/// <param name="screenWidth">The width of the screen.</param>
+		/// <param name="screenHeight">The height of the screen.</param>
+		public void FillDesktopBackground(Themes.ITheme theme, int screenWidth, int screenHeight)
 		{
-			var desktopY = _consoleWindowSystem.DesktopUpperLeft.Y;
-			var blitHeight = Math.Min(desktopDims.Height, screenHeight);
-			for (int y = 0; y < blitHeight; y++)
+			var service = _consoleWindowSystem.DesktopBackgroundService;
+			var desktopDims = _consoleWindowSystem.DesktopDimensions;
+			service.Render(screenWidth, desktopDims.Height);
+
+			if (service.HasBuffer)
 			{
-				int effectiveWidth = Math.Min(screenWidth, _consoleWindowSystem.ConsoleDriver.ScreenSize.Width);
-				if (effectiveWidth <= 0) continue;
-				_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
-					0, y + desktopY, service.Buffer!, 0, y, effectiveWidth,
-					theme.DesktopBackgroundColor);
+				var desktopY = _consoleWindowSystem.DesktopUpperLeft.Y;
+				var blitHeight = Math.Min(desktopDims.Height, screenHeight);
+				for (int y = 0; y < blitHeight; y++)
+				{
+					int effectiveWidth = Math.Min(screenWidth, _consoleWindowSystem.ConsoleDriver.ScreenSize.Width);
+					if (effectiveWidth <= 0) continue;
+					_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
+						0, y + desktopY, service.Buffer!, 0, y, effectiveWidth,
+						theme.DesktopBackgroundColor);
+				}
+			}
+			else
+			{
+				FillRect(0, 0, screenWidth, screenHeight,
+					theme.DesktopBackgroundChar, theme.DesktopBackgroundColor, theme.DesktopForegroundColor);
 			}
 		}
-		else
+
+		/// <summary>
+		/// Blits a rectangular desktop region from the cached background buffer to the console driver.
+		/// Falls back to flat fill if the cached buffer is not available.
+		/// Coordinates are in desktop-relative space (same as FillRect).
+		/// </summary>
+		/// <param name="left">Left coordinate in desktop space.</param>
+		/// <param name="top">Top coordinate in desktop space.</param>
+		/// <param name="width">Width of the region.</param>
+		/// <param name="height">Height of the region.</param>
+		/// <param name="theme">Theme for fallback colors.</param>
+		public void BlitDesktopRegion(int left, int top, int width, int height, Themes.ITheme theme)
 		{
-			FillRect(0, 0, screenWidth, screenHeight,
-				theme.DesktopBackgroundChar, theme.DesktopBackgroundColor, theme.DesktopForegroundColor);
-		}
-	}
+			if (width <= 0 || height <= 0)
+				return;
 
-	/// <summary>
-	/// Blits a rectangular desktop region from the cached background buffer to the console driver.
-	/// Falls back to flat fill if the cached buffer is not available.
-	/// Coordinates are in desktop-relative space (same as FillRect).
-	/// </summary>
-	/// <param name="left">Left coordinate in desktop space.</param>
-	/// <param name="top">Top coordinate in desktop space.</param>
-	/// <param name="width">Width of the region.</param>
-	/// <param name="height">Height of the region.</param>
-	/// <param name="theme">Theme for fallback colors.</param>
-	public void BlitDesktopRegion(int left, int top, int width, int height, Themes.ITheme theme)
-	{
-		if (width <= 0 || height <= 0)
-			return;
+			var service = _consoleWindowSystem.DesktopBackgroundService;
 
-		var service = _consoleWindowSystem.DesktopBackgroundService;
-
-		if (service.HasBuffer)
-		{
-			var desktopY = _consoleWindowSystem.DesktopUpperLeft.Y;
-			var desktopHeight = _consoleWindowSystem.DesktopDimensions.Height;
-			var screenWidth = _consoleWindowSystem.ConsoleDriver.ScreenSize.Width;
-
-			for (int y = 0; y < height; y++)
+			if (service.HasBuffer)
 			{
-				if (top + y >= desktopHeight) break;
+				var desktopY = _consoleWindowSystem.DesktopUpperLeft.Y;
+				var desktopHeight = _consoleWindowSystem.DesktopDimensions.Height;
+				var screenWidth = _consoleWindowSystem.ConsoleDriver.ScreenSize.Width;
 
-				int effectiveWidth = Math.Min(width, screenWidth - left);
-				if (effectiveWidth <= 0) continue;
+				for (int y = 0; y < height; y++)
+				{
+					if (top + y >= desktopHeight) break;
 
-				// Clamp source coordinates to buffer bounds
-				if (left < 0 || top + y < 0) continue;
-				if (left >= service.Buffer!.Width || top + y >= service.Buffer.Height) continue;
-				effectiveWidth = Math.Min(effectiveWidth, service.Buffer.Width - left);
+					int effectiveWidth = Math.Min(width, screenWidth - left);
+					if (effectiveWidth <= 0) continue;
 
-				_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
-					left, top + y + desktopY, service.Buffer, left, top + y, effectiveWidth,
-					theme.DesktopBackgroundColor);
+					// Clamp source coordinates to buffer bounds
+					if (left < 0 || top + y < 0) continue;
+					if (left >= service.Buffer!.Width || top + y >= service.Buffer.Height) continue;
+					effectiveWidth = Math.Min(effectiveWidth, service.Buffer.Width - left);
+
+					_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
+						left, top + y + desktopY, service.Buffer, left, top + y, effectiveWidth,
+						theme.DesktopBackgroundColor);
+				}
+			}
+			else
+			{
+				FillRect(left, top, width, height,
+					theme.DesktopBackgroundChar, theme.DesktopBackgroundColor, theme.DesktopForegroundColor);
 			}
 		}
-		else
-		{
-			FillRect(left, top, width, height,
-				theme.DesktopBackgroundChar, theme.DesktopBackgroundColor, theme.DesktopForegroundColor);
-		}
-	}
 
 		/// <summary>
 		/// Gets the rectangular regions where two windows overlap.
@@ -270,26 +270,26 @@ namespace SharpConsoleUI
 			{
 				return;
 			}
-		
-		// Skip screen output if render lock is enabled, but still do internal work
-		if (window.RenderLock)
-		{
-			// Trigger internal work if dirty (keeps CharacterBuffer up-to-date)
-			if (window.IsDirty)
+
+			// Skip screen output if render lock is enabled, but still do internal work
+			if (window.RenderLock)
 			{
-				// Create dummy region covering entire window for internal rendering
-				var fullRegion = new List<Rectangle> 
-				{ 
-					new Rectangle(window.Left, window.Top, window.Width, window.Height) 
+				// Trigger internal work if dirty (keeps CharacterBuffer up-to-date)
+				if (window.IsDirty)
+				{
+					// Create dummy region covering entire window for internal rendering
+					var fullRegion = new List<Rectangle>
+				{
+					new Rectangle(window.Left, window.Top, window.Width, window.Height)
 				};
-				
-				// Trigger internal measure/layout/paint but don't output to screen
-				window.EnsureContentReady(fullRegion);
-				window.IsDirty = false;
+
+					// Trigger internal measure/layout/paint but don't output to screen
+					window.EnsureContentReady(fullRegion);
+					window.IsDirty = false;
+				}
+
+				return;  // Don't output to screen
 			}
-			
-			return;  // Don't output to screen
-		}
 
 			var visibleRegions = new List<Rectangle> { region };
 
@@ -334,26 +334,26 @@ namespace SharpConsoleUI
 			{
 				return;
 			}
-		
-		// Skip screen output if render lock is enabled, but still do internal work
-		if (window.RenderLock)
-		{
-			// Trigger internal work if dirty (keeps CharacterBuffer up-to-date)
-			if (window.IsDirty)
+
+			// Skip screen output if render lock is enabled, but still do internal work
+			if (window.RenderLock)
 			{
-				// Create dummy region covering entire window for internal rendering
-				var fullRegion = new List<Rectangle> 
-				{ 
-					new Rectangle(window.Left, window.Top, window.Width, window.Height) 
+				// Trigger internal work if dirty (keeps CharacterBuffer up-to-date)
+				if (window.IsDirty)
+				{
+					// Create dummy region covering entire window for internal rendering
+					var fullRegion = new List<Rectangle>
+				{
+					new Rectangle(window.Left, window.Top, window.Width, window.Height)
 				};
-				
-				// Trigger internal measure/layout/paint but don't output to screen
-				window.EnsureContentReady(fullRegion);
-				window.IsDirty = false;
+
+					// Trigger internal measure/layout/paint but don't output to screen
+					window.EnsureContentReady(fullRegion);
+					window.IsDirty = false;
+				}
+
+				return;  // Don't output to screen
 			}
-			
-			return;  // Don't output to screen
-		}
 
 
 
@@ -371,9 +371,9 @@ namespace SharpConsoleUI
 			foreach (var w in _consoleWindowSystem.Windows.Values)
 			{
 				if (w != window &&
-				    w.ZIndex > window.ZIndex &&
-				    w.State != WindowState.Minimized &&
-				    IsOverlapping(window, w))
+					w.ZIndex > window.ZIndex &&
+					w.State != WindowState.Minimized &&
+					IsOverlapping(window, w))
 				{
 					_overlappingWindowsPool.Add(w);
 				}
@@ -565,8 +565,8 @@ namespace SharpConsoleUI
 								// terminal-transparent (A=0), skip compositing and pass A=0 through
 								// so FormatCellAnsi emits \x1b[49m.
 								if (effectiveBgBelow.A == 0 &&
-								    _consoleWindowSystem.Options.TerminalTransparencyMode ==
-								    Configuration.TerminalTransparencyMode.PreserveTerminalTransparency)
+									_consoleWindowSystem.Options.TerminalTransparencyMode ==
+									Configuration.TerminalTransparencyMode.PreserveTerminalTransparency)
 								{
 									var passthrough = new Cell(cell.Character, cell.Foreground,
 										Color.Transparent, cell.Decorations);
@@ -757,8 +757,8 @@ namespace SharpConsoleUI
 
 			var spaceRune = new Rune(' ');
 			if (topCell.Character == spaceRune && topCell.Combiners == null &&
-			    cellBelow.Character != spaceRune &&
-			    !IsBlockCharacter(cellBelow.Character))
+				cellBelow.Character != spaceRune &&
+				!IsBlockCharacter(cellBelow.Character))
 			{
 				// Character bubble-up with parabolic fg fade:
 				// fadeAlpha = 1 - (1 - α/255)² — fg fades faster than bg
@@ -790,51 +790,51 @@ namespace SharpConsoleUI
 			switch (brush.Style)
 			{
 				case Rendering.TransparencyStyle.Acrylic:
-				{
-					// Gaussian bg blend (PerceivedCellColor) + character bubble-up + power fade
-					var resolvedBg = Color.Blend(topCell.Background, PerceivedCellColor(cellBelow));
-					var spaceRune = new Rune(' ');
-					if (topCell.Character == spaceRune && topCell.Combiners == null &&
-					    cellBelow.Character != spaceRune &&
-					    !IsBlockCharacter(cellBelow.Character))
 					{
-						byte overlayAlpha = topCell.Background.A;
-						byte fadeAlpha = (byte)(255.0 * Math.Pow(overlayAlpha / 255.0, brush.FadeExponent));
-						var fadeMask = new Color(resolvedBg.R, resolvedBg.G, resolvedBg.B, fadeAlpha);
-						var fadedFg = Color.Blend(fadeMask, cellBelow.Foreground);
-						var result = new Cell(cellBelow.Character, fadedFg, resolvedBg, cellBelow.Decorations);
-						result.IsWideContinuation = cellBelow.IsWideContinuation;
-						result.Combiners = cellBelow.Combiners;
-						return result;
+						// Gaussian bg blend (PerceivedCellColor) + character bubble-up + power fade
+						var resolvedBg = Color.Blend(topCell.Background, PerceivedCellColor(cellBelow));
+						var spaceRune = new Rune(' ');
+						if (topCell.Character == spaceRune && topCell.Combiners == null &&
+							cellBelow.Character != spaceRune &&
+							!IsBlockCharacter(cellBelow.Character))
+						{
+							byte overlayAlpha = topCell.Background.A;
+							byte fadeAlpha = (byte)(255.0 * Math.Pow(overlayAlpha / 255.0, brush.FadeExponent));
+							var fadeMask = new Color(resolvedBg.R, resolvedBg.G, resolvedBg.B, fadeAlpha);
+							var fadedFg = Color.Blend(fadeMask, cellBelow.Foreground);
+							var result = new Cell(cellBelow.Character, fadedFg, resolvedBg, cellBelow.Decorations);
+							result.IsWideContinuation = cellBelow.IsWideContinuation;
+							result.Combiners = cellBelow.Combiners;
+							return result;
+						}
+						var resolvedFg = Color.Blend(topCell.Foreground, resolvedBg);
+						var r = new Cell(topCell.Character, resolvedFg, resolvedBg, topCell.Decorations);
+						r.IsWideContinuation = topCell.IsWideContinuation;
+						r.Combiners = topCell.Combiners;
+						return r;
 					}
-					var resolvedFg = Color.Blend(topCell.Foreground, resolvedBg);
-					var r = new Cell(topCell.Character, resolvedFg, resolvedBg, topCell.Decorations);
-					r.IsWideContinuation = topCell.IsWideContinuation;
-					r.Combiners = topCell.Combiners;
-					return r;
-				}
 
 				case Rendering.TransparencyStyle.Mica:
-				{
-					// Gaussian bg blend, NO character bubble-up
-					var resolvedBg = Color.Blend(topCell.Background, PerceivedCellColor(cellBelow));
-					var resolvedFg = Color.Blend(topCell.Foreground, resolvedBg);
-					var result = new Cell(topCell.Character, resolvedFg, resolvedBg, topCell.Decorations);
-					result.IsWideContinuation = topCell.IsWideContinuation;
-					result.Combiners = topCell.Combiners;
-					return result;
-				}
+					{
+						// Gaussian bg blend, NO character bubble-up
+						var resolvedBg = Color.Blend(topCell.Background, PerceivedCellColor(cellBelow));
+						var resolvedFg = Color.Blend(topCell.Foreground, resolvedBg);
+						var result = new Cell(topCell.Character, resolvedFg, resolvedBg, topCell.Decorations);
+						result.IsWideContinuation = topCell.IsWideContinuation;
+						result.Combiners = topCell.Combiners;
+						return result;
+					}
 
 				case Rendering.TransparencyStyle.Tinted:
-				{
-					// Simple bg-only overlay — no fg influence, no bubble-up, no block guard
-					var resolvedBg = Color.Blend(topCell.Background, cellBelow.Background);
-					var resolvedFg = Color.Blend(topCell.Foreground, resolvedBg);
-					var result = new Cell(topCell.Character, resolvedFg, resolvedBg, topCell.Decorations);
-					result.IsWideContinuation = topCell.IsWideContinuation;
-					result.Combiners = topCell.Combiners;
-					return result;
-				}
+					{
+						// Simple bg-only overlay — no fg influence, no bubble-up, no block guard
+						var resolvedBg = Color.Blend(topCell.Background, cellBelow.Background);
+						var resolvedFg = Color.Blend(topCell.Foreground, resolvedBg);
+						var result = new Cell(topCell.Character, resolvedFg, resolvedBg, topCell.Decorations);
+						result.IsWideContinuation = topCell.IsWideContinuation;
+						result.Combiners = topCell.Combiners;
+						return result;
+					}
 
 				case Rendering.TransparencyStyle.Custom when brush.CompositeFunc != null:
 					return brush.CompositeFunc(topCell, cellBelow, topCell.Background.A);
@@ -857,12 +857,12 @@ namespace SharpConsoleUI
 
 				// Check if screen position falls within this window's full rectangle (including borders)
 				if (screenX < w.Left || screenX >= w.Left + w.Width ||
-				    screenY < w.Top || screenY >= w.Top + w.Height)
+					screenY < w.Top || screenY >= w.Top + w.Height)
 					continue;
 
 				// Determine if this is a border cell or content cell
 				bool isBorderCell = screenX == w.Left || screenX == w.Left + w.Width - 1 ||
-				                    screenY == w.Top || screenY == w.Top + w.Height - 1;
+									screenY == w.Top || screenY == w.Top + w.Height - 1;
 
 				Cell cell;
 				if (isBorderCell)
@@ -913,7 +913,7 @@ namespace SharpConsoleUI
 			{
 				var desktopBuffer = desktopService.Buffer!;
 				if (screenX >= 0 && screenX < desktopBuffer.Width &&
-				    screenY >= 0 && screenY < desktopBuffer.Height)
+					screenY >= 0 && screenY < desktopBuffer.Height)
 				{
 					return desktopBuffer.GetCell(screenX, screenY);
 				}

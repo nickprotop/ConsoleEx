@@ -456,7 +456,7 @@ namespace SharpConsoleUI
 		public Color WithAlpha(byte a) => new(R, G, B, a);
 
 		#region Blending
-	
+
 		/// <summary>
 		/// Composites <paramref name="src"/> over <paramref name="dst"/> using Porter-Duff "over".
 		/// Fast paths: fully opaque src (A=255) returns src; fully transparent src (A=0) returns dst.
@@ -465,10 +465,10 @@ namespace SharpConsoleUI
 		/// </summary>
 		public static Color Blend(Color src, Color dst)
 		{
-			if (dst.IsDefault)  return src;
-			if (src.A == 255)   return src;
-			if (src.A == 0)     return dst;
-	
+			if (dst.IsDefault) return src;
+			if (src.A == 255) return src;
+			if (src.A == 0) return dst;
+
 			// Integer arithmetic with rounding to avoid truncation error
 			int alpha = src.A;
 			int invAlpha = 255 - alpha;
@@ -478,7 +478,7 @@ namespace SharpConsoleUI
 				(byte)((src.B * alpha + dst.B * invAlpha + 127) / 255),
 				255);
 		}
-	
+
 		#endregion
 
 		/// <summary>

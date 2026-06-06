@@ -237,17 +237,17 @@ public partial class TableControl
 					return true;
 
 				case ConsoleKey.V: // paste
-				{
-					var clip = Helpers.ClipboardHelper.GetText();
-					if (!string.IsNullOrEmpty(clip))
 					{
-						clip = clip.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
-						_editBuffer = _editBuffer.Insert(_editCursorPosition, clip);
-						_editCursorPosition += clip.Length;
-						Container?.Invalidate(true);
+						var clip = Helpers.ClipboardHelper.GetText();
+						if (!string.IsNullOrEmpty(clip))
+						{
+							clip = clip.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
+							_editBuffer = _editBuffer.Insert(_editCursorPosition, clip);
+							_editCursorPosition += clip.Length;
+							Container?.Invalidate(true);
+						}
+						return true;
 					}
-					return true;
-				}
 
 				case ConsoleKey.X: // cut (copy + clear)
 					if (!string.IsNullOrEmpty(_editBuffer))

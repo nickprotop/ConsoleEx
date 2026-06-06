@@ -1,4 +1,12 @@
-﻿using System.Text;
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
+using System.Text;
 
 namespace SharpConsoleUI.Helpers
 {

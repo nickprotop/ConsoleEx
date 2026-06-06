@@ -6,11 +6,11 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Rendering;
 using SharpConsoleUI.Themes;
-using System.Drawing;
 
 namespace SharpConsoleUI.Windows
 {
@@ -190,7 +190,7 @@ namespace SharpConsoleUI.Windows
 
 			var context = _getWindowSystem();
 			var newBounds = new Rectangle(movedWindow.Left, movedWindow.Top,
-			                               movedWindow.Width, movedWindow.Height);
+										   movedWindow.Width, movedWindow.Height);
 
 			foreach (var window in context.Windows.Values)
 			{
@@ -203,7 +203,7 @@ namespace SharpConsoleUI.Windows
 				// Check overlap with OLD position (exposed regions that need re-rendering)
 				// AND NEW position (newly covered regions that need refresh when uncovered)
 				if (GeometryHelpers.DoesRectangleOverlapWindow(oldBounds, window) ||
-				    GeometryHelpers.DoesRectangleOverlapWindow(newBounds, window))
+					GeometryHelpers.DoesRectangleOverlapWindow(newBounds, window))
 				{
 					window.Invalidate(true);
 				}

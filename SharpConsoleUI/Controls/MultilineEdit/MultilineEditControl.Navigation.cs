@@ -6,11 +6,11 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
+using System.Text;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
-using System.Drawing;
-using System.Text;
 
 namespace SharpConsoleUI.Controls
 {
@@ -131,8 +131,8 @@ namespace SharpConsoleUI.Controls
 			// Note: callers that already hold _contentLock can call this safely
 			// since this only nulls references (no collection iteration)
 			_wrappedLinesCache = null;
-			_syntaxTokenCache  = null;
-			_lineStateCache    = null;
+			_syntaxTokenCache = null;
+			_lineStateCache = null;
 		}
 
 		/// <summary>
@@ -349,10 +349,10 @@ namespace SharpConsoleUI.Controls
 			lock (_contentLock)
 			{
 				_selectionStartY = Math.Clamp(startLine, 0, _lines.Count - 1);
-				_selectionStartX = Math.Clamp(startCol,  0, _lines[_selectionStartY].Length);
-				_selectionEndY   = Math.Clamp(endLine,   0, _lines.Count - 1);
-				_selectionEndX   = Math.Clamp(endCol,    0, _lines[_selectionEndY].Length);
-				_hasSelection    = true;
+				_selectionStartX = Math.Clamp(startCol, 0, _lines[_selectionStartY].Length);
+				_selectionEndY = Math.Clamp(endLine, 0, _lines.Count - 1);
+				_selectionEndX = Math.Clamp(endCol, 0, _lines[_selectionEndY].Length);
+				_hasSelection = true;
 				_cursorY = _selectionEndY;
 				_cursorX = _selectionEndX;
 			}

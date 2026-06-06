@@ -6,11 +6,11 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using System.Drawing;
-using SharpConsoleUI.Events;
-using SharpConsoleUI.Drivers;
 
 namespace SharpConsoleUI.Controls
 {
@@ -202,9 +202,9 @@ namespace SharpConsoleUI.Controls
 		/// <param name="lines">The lines of text to display, supporting Spectre.Console markup syntax.</param>
 		public void SetContent(List<string> lines)
 		{
-		lock (_contentLock) { _content = lines; }
-		OnPropertyChanged(nameof(Text));
-		Container?.Invalidate(true);
+			lock (_contentLock) { _content = lines; }
+			OnPropertyChanged(nameof(Text));
+			Container?.Invalidate(true);
 		}
 
 		/// <summary>
@@ -214,83 +214,83 @@ namespace SharpConsoleUI.Controls
 		/// <returns>True if the event was handled; otherwise, false.</returns>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
-		if (!WantsMouseEvents || args.Handled)
-		return false;
+			if (!WantsMouseEvents || args.Handled)
+				return false;
 
-		// Handle right-click
-		if (args.HasFlag(MouseFlags.Button3Clicked))
-		{
-		MouseRightClick?.Invoke(this, args);
-		return true;
+			// Handle right-click
+			if (args.HasFlag(MouseFlags.Button3Clicked))
+			{
+				MouseRightClick?.Invoke(this, args);
+				return true;
+			}
+
+			// Handle double-click (driver-level detection - preferred method)
+			if (args.HasFlag(MouseFlags.Button1DoubleClicked) && _doubleClickEnabled)
+			{
+				// Reset tracking state since driver handled the gesture
+				_lastClickTime = DateTime.MinValue;
+				_lastClickPosition = Point.Empty;
+
+				MouseDoubleClick?.Invoke(this, args);
+				return true;
+			}
+
+			// Handle click with manual double-click detection (fallback)
+			if (args.HasFlag(MouseFlags.Button1Clicked))
+			{
+				// Detect double-click
+				var now = DateTime.UtcNow;
+				var timeSince = (now - _lastClickTime).TotalMilliseconds;
+				bool isDoubleClick = _doubleClickEnabled &&
+									 args.Position == _lastClickPosition &&
+									 timeSince <= _doubleClickThresholdMs;
+
+				// Always update tracking state
+				_lastClickTime = now;
+				_lastClickPosition = args.Position;
+
+				// Mutually exclusive: Fire either MouseDoubleClick OR MouseClick
+				// Only consider handled if there are subscribers
+				if (isDoubleClick && MouseDoubleClick != null)
+				{
+					MouseDoubleClick.Invoke(this, args);
+					return true;
+				}
+				else if (!isDoubleClick && MouseClick != null)
+				{
+					MouseClick.Invoke(this, args);
+					return true;
+				}
+
+				// No subscribers - let the event propagate (e.g., to UnhandledMouseClick)
+				return false;
+			}
+
+			// Handle mouse enter
+			if (args.HasFlag(MouseFlags.MouseEnter))
+			{
+				MouseEnter?.Invoke(this, args);
+				return false;  // Don't mark as handled, allow propagation
+			}
+
+			// Handle mouse leave
+			if (args.HasFlag(MouseFlags.MouseLeave))
+			{
+				MouseLeave?.Invoke(this, args);
+				return false;  // Don't mark as handled, allow propagation
+			}
+
+			// Handle mouse move
+			if (args.HasFlag(MouseFlags.ReportMousePosition))
+			{
+				MouseMove?.Invoke(this, args);
+				return false;  // Don't mark as handled, allow propagation
+			}
+
+			return false;
 		}
 
-		// Handle double-click (driver-level detection - preferred method)
-		if (args.HasFlag(MouseFlags.Button1DoubleClicked) && _doubleClickEnabled)
-		{
-		// Reset tracking state since driver handled the gesture
-		_lastClickTime = DateTime.MinValue;
-		_lastClickPosition = Point.Empty;
-
-		MouseDoubleClick?.Invoke(this, args);
-		return true;
-		}
-
-		// Handle click with manual double-click detection (fallback)
-		if (args.HasFlag(MouseFlags.Button1Clicked))
-		{
-		// Detect double-click
-		var now = DateTime.UtcNow;
-		var timeSince = (now - _lastClickTime).TotalMilliseconds;
-		bool isDoubleClick = _doubleClickEnabled &&
-							 args.Position == _lastClickPosition &&
-							 timeSince <= _doubleClickThresholdMs;
-
-		// Always update tracking state
-		_lastClickTime = now;
-		_lastClickPosition = args.Position;
-
-		// Mutually exclusive: Fire either MouseDoubleClick OR MouseClick
-		// Only consider handled if there are subscribers
-		if (isDoubleClick && MouseDoubleClick != null)
-		{
-		MouseDoubleClick.Invoke(this, args);
-		return true;
-		}
-		else if (!isDoubleClick && MouseClick != null)
-		{
-		MouseClick.Invoke(this, args);
-		return true;
-		}
-
-		// No subscribers - let the event propagate (e.g., to UnhandledMouseClick)
-		return false;
-		}
-
-		// Handle mouse enter
-		if (args.HasFlag(MouseFlags.MouseEnter))
-		{
-		MouseEnter?.Invoke(this, args);
-		return false;  // Don't mark as handled, allow propagation
-		}
-
-		// Handle mouse leave
-		if (args.HasFlag(MouseFlags.MouseLeave))
-		{
-		MouseLeave?.Invoke(this, args);
-		return false;  // Don't mark as handled, allow propagation
-		}
-
-		// Handle mouse move
-		if (args.HasFlag(MouseFlags.ReportMousePosition))
-		{
-		MouseMove?.Invoke(this, args);
-		return false;  // Don't mark as handled, allow propagation
-		}
-
-		return false;
-		}
-
-	#region IDOMPaintable Implementation
+		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)

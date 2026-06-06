@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Text;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Dialogs;
 using SharpConsoleUI.Drivers;
@@ -14,7 +15,6 @@ using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
-using System.Text;
 using Size = System.Drawing.Size;
 
 namespace SharpConsoleUI.Plugins.DeveloperTools;
@@ -162,13 +162,13 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 	/// <inheritdoc/>
 	public bool CanReceiveFocus => _enabled && _visible;
 
-	#pragma warning disable CS0067 // Events required by IFocusableControl but not raised by this legacy control
+#pragma warning disable CS0067 // Events required by IFocusableControl but not raised by this legacy control
 	/// <inheritdoc/>
 	public event EventHandler? GotFocus;
 
 	/// <inheritdoc/>
 	public event EventHandler? LostFocus;
-	#pragma warning restore CS0067
+#pragma warning restore CS0067
 
 	/// <inheritdoc/>
 	public bool WantsMouseEvents => true;
@@ -179,7 +179,7 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 	/// <inheritdoc/>
 	public event EventHandler<MouseEventArgs>? MouseClick;
 
-	#pragma warning disable CS0067  // Event never raised (interface requirement)
+#pragma warning disable CS0067  // Event never raised (interface requirement)
 	/// <inheritdoc/>
 	public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
@@ -194,7 +194,7 @@ public class LogExporterControl : IWindowControl, IInteractiveControl, IFocusabl
 
 	/// <inheritdoc/>
 	public event EventHandler<MouseEventArgs>? MouseMove;
-	#pragma warning restore CS0067
+#pragma warning restore CS0067
 
 	/// <summary>
 	/// Raised when logs are successfully exported.

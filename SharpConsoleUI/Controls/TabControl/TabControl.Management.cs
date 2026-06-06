@@ -13,248 +13,248 @@ namespace SharpConsoleUI.Controls
 {
 	public partial class TabControl
 	{
-	#region Tab Management Methods
+		#region Tab Management Methods
 
-	/// <summary>
-	/// Removes a tab at the specified index.
-	/// </summary>
-	/// <param name="index">The index of the tab to remove.</param>
-	public void RemoveTab(int index)
-	{
-		TabPage tabPage;
-		lock (_tabLock)
+		/// <summary>
+		/// Removes a tab at the specified index.
+		/// </summary>
+		/// <param name="index">The index of the tab to remove.</param>
+		public void RemoveTab(int index)
 		{
-			if (index < 0 || index >= _tabPages.Count)
-				return;
-
-			tabPage = _tabPages[index];
-			_tabPages.RemoveAt(index);
-			tabPage.Content.Dispose();
-
-			// Adjust active tab index
-			if (_tabPages.Count == 0)
+			TabPage tabPage;
+			lock (_tabLock)
 			{
-				_activeTabIndex = -1;
-			}
-			else if (index == _activeTabIndex)
-			{
-				// Removing active tab
-				if (_activeTabIndex >= _tabPages.Count)
+				if (index < 0 || index >= _tabPages.Count)
+					return;
+
+				tabPage = _tabPages[index];
+				_tabPages.RemoveAt(index);
+				tabPage.Content.Dispose();
+
+				// Adjust active tab index
+				if (_tabPages.Count == 0)
 				{
-					// Was last tab, go to previous
-					_activeTabIndex = _tabPages.Count - 1;
+					_activeTabIndex = -1;
 				}
-				// else: stay at same index (next tab slides into position)
-				_tabPages[_activeTabIndex].Content.Visible = true;
+				else if (index == _activeTabIndex)
+				{
+					// Removing active tab
+					if (_activeTabIndex >= _tabPages.Count)
+					{
+						// Was last tab, go to previous
+						_activeTabIndex = _tabPages.Count - 1;
+					}
+					// else: stay at same index (next tab slides into position)
+					_tabPages[_activeTabIndex].Content.Visible = true;
+				}
+				else if (index < _activeTabIndex)
+				{
+					// Removing tab before active, decrement index
+					_activeTabIndex--;
+				}
 			}
-			else if (index < _activeTabIndex)
-			{
-				// Removing tab before active, decrement index
-				_activeTabIndex--;
-			}
+
+			Core.AsyncEvent.Raise(TabRemoved, TabRemovedAsync, this, new TabEventArgs(tabPage, index), Container?.GetConsoleWindowSystem?.LogService);
+			this.GetParentWindow()?.ForceRebuildLayout();
+			Invalidate(true);
 		}
 
-		Core.AsyncEvent.Raise(TabRemoved, TabRemovedAsync, this, new TabEventArgs(tabPage, index), Container?.GetConsoleWindowSystem?.LogService);
-		this.GetParentWindow()?.ForceRebuildLayout();
-		Invalidate(true);
-	}
+		/// <summary>
+		/// Removes a tab at the specified index.
+		/// </summary>
+		/// <param name="index">The index of the tab to remove.</param>
+		public void RemoveTabAt(int index) => RemoveTab(index);
 
-	/// <summary>
-	/// Removes a tab at the specified index.
-	/// </summary>
-	/// <param name="index">The index of the tab to remove.</param>
-	public void RemoveTabAt(int index) => RemoveTab(index);
-
-	/// <summary>
-	/// Removes a tab at the specified index without disposing its content.
-	/// Use this to reparent a tab's content to another TabControl.
-	/// </summary>
-	/// <param name="index">The index of the tab to extract.</param>
-	/// <returns>The extracted content control, or null if index is out of range.</returns>
-	public IWindowControl? ExtractTab(int index)
-	{
-		TabPage tabPage;
-		lock (_tabLock)
+		/// <summary>
+		/// Removes a tab at the specified index without disposing its content.
+		/// Use this to reparent a tab's content to another TabControl.
+		/// </summary>
+		/// <param name="index">The index of the tab to extract.</param>
+		/// <returns>The extracted content control, or null if index is out of range.</returns>
+		public IWindowControl? ExtractTab(int index)
 		{
-			if (index < 0 || index >= _tabPages.Count)
-				return null;
+			TabPage tabPage;
+			lock (_tabLock)
+			{
+				if (index < 0 || index >= _tabPages.Count)
+					return null;
 
-			tabPage = _tabPages[index];
-			_tabPages.RemoveAt(index);
+				tabPage = _tabPages[index];
+				_tabPages.RemoveAt(index);
 
-			// Adjust active tab index (same logic as RemoveTab, without dispose)
-			if (_tabPages.Count == 0)
-			{
-				_activeTabIndex = -1;
+				// Adjust active tab index (same logic as RemoveTab, without dispose)
+				if (_tabPages.Count == 0)
+				{
+					_activeTabIndex = -1;
+				}
+				else if (index == _activeTabIndex)
+				{
+					if (_activeTabIndex >= _tabPages.Count)
+						_activeTabIndex = _tabPages.Count - 1;
+					_tabPages[_activeTabIndex].Content.Visible = true;
+				}
+				else if (index < _activeTabIndex)
+				{
+					_activeTabIndex--;
+				}
 			}
-			else if (index == _activeTabIndex)
-			{
-				if (_activeTabIndex >= _tabPages.Count)
-					_activeTabIndex = _tabPages.Count - 1;
-				_tabPages[_activeTabIndex].Content.Visible = true;
-			}
-			else if (index < _activeTabIndex)
-			{
-				_activeTabIndex--;
-			}
+
+			Core.AsyncEvent.Raise(TabRemoved, TabRemovedAsync, this, new TabEventArgs(tabPage, index), Container?.GetConsoleWindowSystem?.LogService);
+			this.GetParentWindow()?.ForceRebuildLayout();
+			Invalidate(true);
+			return tabPage.Content;
 		}
 
-		Core.AsyncEvent.Raise(TabRemoved, TabRemovedAsync, this, new TabEventArgs(tabPage, index), Container?.GetConsoleWindowSystem?.LogService);
-		this.GetParentWindow()?.ForceRebuildLayout();
-		Invalidate(true);
-		return tabPage.Content;
-	}
-
-	/// <summary>
-	/// Removes the first tab with the specified title.
-	/// </summary>
-	/// <param name="title">The title of the tab to remove.</param>
-	/// <returns>True if a tab was removed, false otherwise.</returns>
-	public bool RemoveTab(string title)
-	{
-		int index;
-		lock (_tabLock) { index = _tabPages.FindIndex(t => t.Title == title); }
-		if (index >= 0)
+		/// <summary>
+		/// Removes the first tab with the specified title.
+		/// </summary>
+		/// <param name="title">The title of the tab to remove.</param>
+		/// <returns>True if a tab was removed, false otherwise.</returns>
+		public bool RemoveTab(string title)
 		{
-			RemoveTab(index);
-			return true;
-		}
-		return false;
-	}
-
-	/// <summary>
-	/// Removes all tabs from the control.
-	/// </summary>
-	public void ClearTabs()
-	{
-		while (_tabPages.Count > 0)
-		{
-			RemoveTab(0);
-		}
-	}
-
-	/// <summary>
-	/// Finds a tab by title.
-	/// </summary>
-	/// <param name="title">The title to search for.</param>
-	/// <returns>The tab page, or null if not found.</returns>
-	public TabPage? FindTab(string title)
-	{
-		lock (_tabLock) { return _tabPages.FirstOrDefault(t => t.Title == title); }
-	}
-
-	/// <summary>
-	/// Gets a tab by index.
-	/// </summary>
-	/// <param name="index">The index of the tab.</param>
-	/// <returns>The tab page, or null if index is out of range.</returns>
-	public TabPage? GetTab(int index)
-	{
-		lock (_tabLock) { return index >= 0 && index < _tabPages.Count ? _tabPages[index] : null; }
-	}
-
-	/// <summary>
-	/// Checks if a tab with the specified title exists.
-	/// </summary>
-	/// <param name="title">The title to search for.</param>
-	/// <returns>True if a tab with the title exists, false otherwise.</returns>
-	public bool HasTab(string title)
-	{
-		lock (_tabLock) { return _tabPages.Any(t => t.Title == title); }
-	}
-
-	/// <summary>
-	/// Switches to the next tab (wraps around to first tab).
-	/// </summary>
-	public void NextTab()
-	{
-		lock (_tabLock)
-		{
-			if (_tabPages.Count > 0)
+			int index;
+			lock (_tabLock) { index = _tabPages.FindIndex(t => t.Title == title); }
+			if (index >= 0)
 			{
-				ActiveTabIndex = (_activeTabIndex + 1) % _tabPages.Count;
+				RemoveTab(index);
+				return true;
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// Removes all tabs from the control.
+		/// </summary>
+		public void ClearTabs()
+		{
+			while (_tabPages.Count > 0)
+			{
+				RemoveTab(0);
 			}
 		}
-	}
 
-	/// <summary>
-	/// Switches to the previous tab (wraps around to last tab).
-	/// </summary>
-	public void PreviousTab()
-	{
-		lock (_tabLock)
+		/// <summary>
+		/// Finds a tab by title.
+		/// </summary>
+		/// <param name="title">The title to search for.</param>
+		/// <returns>The tab page, or null if not found.</returns>
+		public TabPage? FindTab(string title)
 		{
-			if (_tabPages.Count > 0)
+			lock (_tabLock) { return _tabPages.FirstOrDefault(t => t.Title == title); }
+		}
+
+		/// <summary>
+		/// Gets a tab by index.
+		/// </summary>
+		/// <param name="index">The index of the tab.</param>
+		/// <returns>The tab page, or null if index is out of range.</returns>
+		public TabPage? GetTab(int index)
+		{
+			lock (_tabLock) { return index >= 0 && index < _tabPages.Count ? _tabPages[index] : null; }
+		}
+
+		/// <summary>
+		/// Checks if a tab with the specified title exists.
+		/// </summary>
+		/// <param name="title">The title to search for.</param>
+		/// <returns>True if a tab with the title exists, false otherwise.</returns>
+		public bool HasTab(string title)
+		{
+			lock (_tabLock) { return _tabPages.Any(t => t.Title == title); }
+		}
+
+		/// <summary>
+		/// Switches to the next tab (wraps around to first tab).
+		/// </summary>
+		public void NextTab()
+		{
+			lock (_tabLock)
 			{
-				ActiveTabIndex = (_activeTabIndex - 1 + _tabPages.Count) % _tabPages.Count;
+				if (_tabPages.Count > 0)
+				{
+					ActiveTabIndex = (_activeTabIndex + 1) % _tabPages.Count;
+				}
 			}
 		}
-	}
 
-	/// <summary>
-	/// Switches to a tab by title.
-	/// </summary>
-	/// <param name="title">The title of the tab to switch to.</param>
-	/// <returns>True if the tab was found and switched to, false otherwise.</returns>
-	public bool SwitchToTab(string title)
-	{
-		int index;
-		lock (_tabLock) { index = _tabPages.FindIndex(t => t.Title == title); }
-		if (index >= 0)
+		/// <summary>
+		/// Switches to the previous tab (wraps around to last tab).
+		/// </summary>
+		public void PreviousTab()
 		{
-			ActiveTabIndex = index;
-			return true;
-		}
-		return false;
-	}
-
-	/// <summary>
-	/// Sets the title of a tab at the specified index.
-	/// </summary>
-	/// <param name="index">The index of the tab.</param>
-	/// <param name="newTitle">The new title.</param>
-	public void SetTabTitle(int index, string newTitle)
-	{
-		lock (_tabLock)
-		{
-			if (index >= 0 && index < _tabPages.Count)
+			lock (_tabLock)
 			{
-				_tabPages[index].Title = newTitle;
-			}
-			else
-			{
-				return;
+				if (_tabPages.Count > 0)
+				{
+					ActiveTabIndex = (_activeTabIndex - 1 + _tabPages.Count) % _tabPages.Count;
+				}
 			}
 		}
-		Invalidate(true);
-	}
 
-	/// <summary>
-	/// Sets the content of a tab at the specified index.
-	/// </summary>
-	/// <param name="index">The index of the tab.</param>
-	/// <param name="newContent">The new content control.</param>
-	public void SetTabContent(int index, IWindowControl newContent)
-	{
-		lock (_tabLock)
+		/// <summary>
+		/// Switches to a tab by title.
+		/// </summary>
+		/// <param name="title">The title of the tab to switch to.</param>
+		/// <returns>True if the tab was found and switched to, false otherwise.</returns>
+		public bool SwitchToTab(string title)
 		{
-			if (index >= 0 && index < _tabPages.Count)
+			int index;
+			lock (_tabLock) { index = _tabPages.FindIndex(t => t.Title == title); }
+			if (index >= 0)
 			{
-				var oldContent = _tabPages[index].Content;
-				oldContent.Dispose();
-				_tabPages[index].Content = newContent;
-				newContent.Container = this;
-				newContent.Visible = index == _activeTabIndex;
+				ActiveTabIndex = index;
+				return true;
 			}
-			else
-			{
-				return;
-			}
+			return false;
 		}
-		this.GetParentWindow()?.ForceRebuildLayout();
-		Invalidate(true);
-	}
 
-	#endregion
+		/// <summary>
+		/// Sets the title of a tab at the specified index.
+		/// </summary>
+		/// <param name="index">The index of the tab.</param>
+		/// <param name="newTitle">The new title.</param>
+		public void SetTabTitle(int index, string newTitle)
+		{
+			lock (_tabLock)
+			{
+				if (index >= 0 && index < _tabPages.Count)
+				{
+					_tabPages[index].Title = newTitle;
+				}
+				else
+				{
+					return;
+				}
+			}
+			Invalidate(true);
+		}
+
+		/// <summary>
+		/// Sets the content of a tab at the specified index.
+		/// </summary>
+		/// <param name="index">The index of the tab.</param>
+		/// <param name="newContent">The new content control.</param>
+		public void SetTabContent(int index, IWindowControl newContent)
+		{
+			lock (_tabLock)
+			{
+				if (index >= 0 && index < _tabPages.Count)
+				{
+					var oldContent = _tabPages[index].Content;
+					oldContent.Dispose();
+					_tabPages[index].Content = newContent;
+					newContent.Container = this;
+					newContent.Visible = index == _activeTabIndex;
+				}
+				else
+				{
+					return;
+				}
+			}
+			this.GetParentWindow()?.ForceRebuildLayout();
+			Invalidate(true);
+		}
+
+		#endregion
 	}
 }

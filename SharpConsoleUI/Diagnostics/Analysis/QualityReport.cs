@@ -62,10 +62,10 @@ public class QualityReport
 			return $"Frame {FrameNumber}: No quality issues detected. Optimization score: {OptimizationScore:P1}";
 
 		return $"Frame {FrameNumber}: {Issues.Count} issues, " +
-		       $"Redundant ANSI: {RedundantAnsiCount}, " +
-		       $"Inefficient cursor moves: {InefficientCursorMoves}, " +
-		       $"Over-invalidation: {OverInvalidationRatio:P1}, " +
-		       $"Score: {OptimizationScore:P1}";
+			   $"Redundant ANSI: {RedundantAnsiCount}, " +
+			   $"Inefficient cursor moves: {InefficientCursorMoves}, " +
+			   $"Over-invalidation: {OverInvalidationRatio:P1}, " +
+			   $"Score: {OptimizationScore:P1}";
 	}
 
 	/// <summary>

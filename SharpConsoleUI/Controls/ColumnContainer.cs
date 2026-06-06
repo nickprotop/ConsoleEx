@@ -6,14 +6,14 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
 using SharpConsoleUI.Controls;
-using SharpConsoleUI.Extensions;
-using SharpConsoleUI.Helpers;
-using SharpConsoleUI.Layout;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
-using System.Drawing;
+using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Controls
 {
@@ -157,22 +157,22 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-	public int? Width
-	{
-		get => _width;
-		set
+		public int? Width
 		{
-			var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
-			if (_width != validatedValue)
+			get => _width;
+			set
 			{
-				_width = validatedValue;
-				Invalidate(true);
+				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+				if (_width != validatedValue)
+				{
+					_width = validatedValue;
+					Invalidate(true);
+				}
 			}
 		}
-	}
 
 		/// <inheritdoc/>
-	public int? Height { get; set; }
+		public int? Height { get; set; }
 
 		/// <summary>
 		/// Gets or sets whether double-click events are enabled for white space clicks.
@@ -495,50 +495,10 @@ namespace SharpConsoleUI.Controls
 			return interactiveContents;
 		}
 
-	private static readonly ThreadLocal<HashSet<ColumnContainer>> _invalidatingContainers = new(() => new HashSet<ColumnContainer>());
+		private static readonly ThreadLocal<HashSet<ColumnContainer>> _invalidatingContainers = new(() => new HashSet<ColumnContainer>());
 
-	/// <inheritdoc/>
-	public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
-	{
-		_isDirty = true;
-
-		// Prevent infinite recursion by tracking if this container is already being invalidated
-		if (_invalidatingContainers.Value!.Contains(this))
-		{
-			return;
-		}
-
-		// Only invalidate parent grid if we're not being called from it
-		// This prevents infinite recursion in invalidation chains
-		if (callerControl != _horizontalGridContent && _horizontalGridContent != null)
-		{
-			_invalidatingContainers.Value!.Add(this);
-			try
-			{
-				_horizontalGridContent.Invalidate();
-			}
-			finally
-			{
-				_invalidatingContainers.Value!.Remove(this);
-			}
-		}
-	}
-
-	/// <inheritdoc/>
-	public int? GetVisibleHeightForControl(IWindowControl control)
-	{
-		// ColumnContainer doesn't clip its children, so delegate to parent
-		// Navigate through HorizontalGridControl to reach the Window
-		// Note: _container may not be set, but _horizontalGridContent.Container should point to Window
-		var parentContainer = _horizontalGridContent?.Container;
-		return parentContainer?.GetVisibleHeightForControl(control);
-	}
-
-	/// <summary>
-	/// Invalidates only the child controls within this column without triggering parent invalidation.
-	/// </summary>
-	/// <param name="callerControl">Optional caller control to exclude from invalidation.</param>
-	public void InvalidateOnlyColumnContents(IWindowControl? callerControl = null)
+		/// <inheritdoc/>
+		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
 		{
 			_isDirty = true;
 
@@ -547,7 +507,47 @@ namespace SharpConsoleUI.Controls
 			{
 				return;
 			}
-			
+
+			// Only invalidate parent grid if we're not being called from it
+			// This prevents infinite recursion in invalidation chains
+			if (callerControl != _horizontalGridContent && _horizontalGridContent != null)
+			{
+				_invalidatingContainers.Value!.Add(this);
+				try
+				{
+					_horizontalGridContent.Invalidate();
+				}
+				finally
+				{
+					_invalidatingContainers.Value!.Remove(this);
+				}
+			}
+		}
+
+		/// <inheritdoc/>
+		public int? GetVisibleHeightForControl(IWindowControl control)
+		{
+			// ColumnContainer doesn't clip its children, so delegate to parent
+			// Navigate through HorizontalGridControl to reach the Window
+			// Note: _container may not be set, but _horizontalGridContent.Container should point to Window
+			var parentContainer = _horizontalGridContent?.Container;
+			return parentContainer?.GetVisibleHeightForControl(control);
+		}
+
+		/// <summary>
+		/// Invalidates only the child controls within this column without triggering parent invalidation.
+		/// </summary>
+		/// <param name="callerControl">Optional caller control to exclude from invalidation.</param>
+		public void InvalidateOnlyColumnContents(IWindowControl? callerControl = null)
+		{
+			_isDirty = true;
+
+			// Prevent infinite recursion by tracking if this container is already being invalidated
+			if (_invalidatingContainers.Value!.Contains(this))
+			{
+				return;
+			}
+
 			_invalidatingContainers.Value!.Add(this);
 			try
 			{
@@ -786,118 +786,118 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-        public LayoutSize MeasureDOM(LayoutConstraints constraints)
-        {
-            int maxWidth = 0;
+		public LayoutSize MeasureDOM(LayoutConstraints constraints)
+		{
+			int maxWidth = 0;
 
-            // FIX: If we have an explicit width (set by splitter), use it to calculate content width
-            // This ensures children measure with the correct width constraints
-            int contentMaxWidth;
-            if (_width.HasValue)
-            {
-                // Use explicit width minus margins for child constraints
-                contentMaxWidth = Math.Max(0, _width.Value - _margin.Left - _margin.Right);
-            }
-            else
-            {
-                // Use constraint width minus margins (original behavior)
-                contentMaxWidth = constraints.MaxWidth - _margin.Left - _margin.Right;
-            }
+			// FIX: If we have an explicit width (set by splitter), use it to calculate content width
+			// This ensures children measure with the correct width constraints
+			int contentMaxWidth;
+			if (_width.HasValue)
+			{
+				// Use explicit width minus margins for child constraints
+				contentMaxWidth = Math.Max(0, _width.Value - _margin.Left - _margin.Right);
+			}
+			else
+			{
+				// Use constraint width minus margins (original behavior)
+				contentMaxWidth = constraints.MaxWidth - _margin.Left - _margin.Right;
+			}
 
-            // Use two-pass measurement like VerticalStackLayout to properly handle Fill children
-            // First pass: measure non-Fill children to determine fixed height
-            int fixedHeight = _margin.Top + _margin.Bottom;
-            int fillCount = 0;
-            var childSizes = new Dictionary<IWindowControl, LayoutSize>();
+			// Use two-pass measurement like VerticalStackLayout to properly handle Fill children
+			// First pass: measure non-Fill children to determine fixed height
+			int fixedHeight = _margin.Top + _margin.Bottom;
+			int fillCount = 0;
+			var childSizes = new Dictionary<IWindowControl, LayoutSize>();
 
-            List<IWindowControl> measureSnapshot;
-            lock (_contentsLock) { measureSnapshot = new List<IWindowControl>(_contents); }
+			List<IWindowControl> measureSnapshot;
+			lock (_contentsLock) { measureSnapshot = new List<IWindowControl>(_contents); }
 
-            foreach (var content in measureSnapshot.Where(c => c.Visible))
-            {
-                if (content.VerticalAlignment == VerticalAlignment.Fill)
-                {
-                    fillCount++;
-                }
-                else
-                {
-                    // Measure non-fill children with remaining available height
-                    if (content is IDOMPaintable paintable)
-                    {
-                        var childConstraints = new LayoutConstraints(
-                            constraints.MinWidth > 0 ? Math.Max(0, constraints.MinWidth - _margin.Left - _margin.Right) : 0,
-                            contentMaxWidth,
-                            0,
-                            Math.Max(0, constraints.MaxHeight - fixedHeight)
-                        );
+			foreach (var content in measureSnapshot.Where(c => c.Visible))
+			{
+				if (content.VerticalAlignment == VerticalAlignment.Fill)
+				{
+					fillCount++;
+				}
+				else
+				{
+					// Measure non-fill children with remaining available height
+					if (content is IDOMPaintable paintable)
+					{
+						var childConstraints = new LayoutConstraints(
+							constraints.MinWidth > 0 ? Math.Max(0, constraints.MinWidth - _margin.Left - _margin.Right) : 0,
+							contentMaxWidth,
+							0,
+							Math.Max(0, constraints.MaxHeight - fixedHeight)
+						);
 
-                        var childSize = paintable.MeasureDOM(childConstraints);
-                        childSizes[content] = childSize;
-                        fixedHeight += childSize.Height;
-                        maxWidth = Math.Max(maxWidth, childSize.Width);
-                    }
-                    else
-                    {
-                        var size = content.GetLogicalContentSize();
-                        var layoutSize = new LayoutSize(size.Width, size.Height);
-                        childSizes[content] = layoutSize;
-                        fixedHeight += layoutSize.Height;
-                        maxWidth = Math.Max(maxWidth, layoutSize.Width);
-                    }
-                }
-            }
+						var childSize = paintable.MeasureDOM(childConstraints);
+						childSizes[content] = childSize;
+						fixedHeight += childSize.Height;
+						maxWidth = Math.Max(maxWidth, childSize.Width);
+					}
+					else
+					{
+						var size = content.GetLogicalContentSize();
+						var layoutSize = new LayoutSize(size.Width, size.Height);
+						childSizes[content] = layoutSize;
+						fixedHeight += layoutSize.Height;
+						maxWidth = Math.Max(maxWidth, layoutSize.Width);
+					}
+				}
+			}
 
-            // Second pass: measure Fill children with remaining space divided among them
-            int remainingHeight = Math.Max(0, constraints.MaxHeight - fixedHeight);
-            int fillHeight = fillCount > 0 ? remainingHeight / fillCount : 0;
+			// Second pass: measure Fill children with remaining space divided among them
+			int remainingHeight = Math.Max(0, constraints.MaxHeight - fixedHeight);
+			int fillHeight = fillCount > 0 ? remainingHeight / fillCount : 0;
 
-            foreach (var content in measureSnapshot.Where(c => c.Visible))
-            {
-                if (content.VerticalAlignment == VerticalAlignment.Fill)
-                {
-                    if (content is IDOMPaintable paintable)
-                    {
-                        var childConstraints = new LayoutConstraints(
-                            constraints.MinWidth > 0 ? Math.Max(0, constraints.MinWidth - _margin.Left - _margin.Right) : 0,
-                            contentMaxWidth,
-                            0,
-                            fillHeight
-                        );
+			foreach (var content in measureSnapshot.Where(c => c.Visible))
+			{
+				if (content.VerticalAlignment == VerticalAlignment.Fill)
+				{
+					if (content is IDOMPaintable paintable)
+					{
+						var childConstraints = new LayoutConstraints(
+							constraints.MinWidth > 0 ? Math.Max(0, constraints.MinWidth - _margin.Left - _margin.Right) : 0,
+							contentMaxWidth,
+							0,
+							fillHeight
+						);
 
-                        var childSize = paintable.MeasureDOM(childConstraints);
-                        childSizes[content] = childSize;
-                        maxWidth = Math.Max(maxWidth, childSize.Width);
-                    }
-                    else
-                    {
-                        var size = content.GetLogicalContentSize();
-                        var layoutSize = new LayoutSize(size.Width, size.Height);
-                        childSizes[content] = layoutSize;
-                        maxWidth = Math.Max(maxWidth, layoutSize.Width);
-                    }
-                }
-            }
+						var childSize = paintable.MeasureDOM(childConstraints);
+						childSizes[content] = childSize;
+						maxWidth = Math.Max(maxWidth, childSize.Width);
+					}
+					else
+					{
+						var size = content.GetLogicalContentSize();
+						var layoutSize = new LayoutSize(size.Width, size.Height);
+						childSizes[content] = layoutSize;
+						maxWidth = Math.Max(maxWidth, layoutSize.Width);
+					}
+				}
+			}
 
-            // Calculate total height
-            int totalHeight = _margin.Top + _margin.Bottom;
-            foreach (var size in childSizes.Values)
-            {
-                totalHeight += size.Height;
-            }
+			// Calculate total height
+			int totalHeight = _margin.Top + _margin.Bottom;
+			foreach (var size in childSizes.Values)
+			{
+				totalHeight += size.Height;
+			}
 
-            int finalWidth = maxWidth + _margin.Left + _margin.Right;
+			int finalWidth = maxWidth + _margin.Left + _margin.Right;
 
-            // If we have an explicit width, use it
-            if (_width.HasValue)
-            {
-                finalWidth = _width.Value;
-            }
+			// If we have an explicit width, use it
+			if (_width.HasValue)
+			{
+				finalWidth = _width.Value;
+			}
 
-            return new LayoutSize(
-                Math.Clamp(finalWidth, constraints.MinWidth, constraints.MaxWidth),
-                Math.Clamp(totalHeight, constraints.MinHeight, constraints.MaxHeight)
-            );
-        }
+			return new LayoutSize(
+				Math.Clamp(finalWidth, constraints.MinWidth, constraints.MaxWidth),
+				Math.Clamp(totalHeight, constraints.MinHeight, constraints.MaxHeight)
+			);
+		}
 
 
 		/// <inheritdoc/>
@@ -942,7 +942,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseRightClick;
 
-		#pragma warning disable CS0067  // Event never raised (interface requirement)
+#pragma warning disable CS0067  // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseEnter;
 
@@ -951,7 +951,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
-		#pragma warning restore CS0067
+#pragma warning restore CS0067
 
 		/// <inheritdoc/>
 		public bool WantsMouseEvents => IsEnabled && Visible;

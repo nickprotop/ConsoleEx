@@ -1,3 +1,11 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
@@ -101,20 +109,20 @@ namespace SharpConsoleUI.Rendering
 					return regionHeight <= 1 ? 0.0 : (double)(y - regionY) / (regionHeight - 1);
 
 				case GradientDirection.DiagonalDown:
-				{
-					int maxDistance = (regionWidth - 1) + (regionHeight - 1);
-					if (maxDistance == 0) return 0.0;
-					int distance = (x - regionX) + (y - regionY);
-					return (double)distance / maxDistance;
-				}
+					{
+						int maxDistance = (regionWidth - 1) + (regionHeight - 1);
+						if (maxDistance == 0) return 0.0;
+						int distance = (x - regionX) + (y - regionY);
+						return (double)distance / maxDistance;
+					}
 
 				case GradientDirection.DiagonalUp:
-				{
-					int maxDistance = (regionWidth - 1) + (regionHeight - 1);
-					if (maxDistance == 0) return 0.0;
-					int distance = (x - regionX) + ((regionHeight - 1) - (y - regionY));
-					return (double)distance / maxDistance;
-				}
+					{
+						int maxDistance = (regionWidth - 1) + (regionHeight - 1);
+						if (maxDistance == 0) return 0.0;
+						int distance = (x - regionX) + ((regionHeight - 1) - (y - regionY));
+						return (double)distance / maxDistance;
+					}
 
 				default:
 					return 0.0;

@@ -11,10 +11,9 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-
-using SharpConsoleUI.Extensions;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -190,7 +189,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-				public bool HasFocus
+		public bool HasFocus
 		{
 			get => ComputeHasFocus();
 		}

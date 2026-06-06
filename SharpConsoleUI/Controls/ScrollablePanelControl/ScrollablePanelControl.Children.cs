@@ -71,7 +71,7 @@ namespace SharpConsoleUI.Controls
 			if (focusedChild != null && focusedChild == control as IInteractiveControl)
 			{
 				var w1 = this.GetParentWindow();
-					if (w1 != null) w1.FocusManager.SetFocus(null, FocusReason.Programmatic);
+				if (w1 != null) w1.FocusManager.SetFocus(null, FocusReason.Programmatic);
 			}
 
 			// Clear remembered child if it's being removed

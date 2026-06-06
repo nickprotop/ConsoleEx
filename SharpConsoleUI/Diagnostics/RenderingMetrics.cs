@@ -125,6 +125,6 @@ public class RenderingMetrics
 	public override string ToString()
 	{
 		return $"Frame {FrameNumber}: {BytesWritten} bytes, {CharactersChanged} chars changed, " +
-		       $"Efficiency: {EfficiencyRatio:P1}, Static: {IsStaticFrame}, Time: {TotalFrameTimeMs:F2}ms";
+			   $"Efficiency: {EfficiencyRatio:P1}, Static: {IsStaticFrame}, Time: {TotalFrameTimeMs:F2}ms";
 	}
 }

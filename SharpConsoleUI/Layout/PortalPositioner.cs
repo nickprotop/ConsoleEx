@@ -205,40 +205,40 @@ namespace SharpConsoleUI.Layout
 			switch (placement)
 			{
 				case PortalPlacement.BelowOrAbove:
-				{
-					int spaceBelow = screen.Bottom - anchor.Bottom;
-					int spaceAbove = anchor.Y - screen.Y;
-					return (contentSize.Height > spaceBelow && spaceAbove > spaceBelow)
-						? PortalPlacement.Above
-						: PortalPlacement.Below;
-				}
+					{
+						int spaceBelow = screen.Bottom - anchor.Bottom;
+						int spaceAbove = anchor.Y - screen.Y;
+						return (contentSize.Height > spaceBelow && spaceAbove > spaceBelow)
+							? PortalPlacement.Above
+							: PortalPlacement.Below;
+					}
 
 				case PortalPlacement.AboveOrBelow:
-				{
-					int spaceAbove = anchor.Y - screen.Y;
-					int spaceBelow = screen.Bottom - anchor.Bottom;
-					return (contentSize.Height > spaceAbove && spaceBelow > spaceAbove)
-						? PortalPlacement.Below
-						: PortalPlacement.Above;
-				}
+					{
+						int spaceAbove = anchor.Y - screen.Y;
+						int spaceBelow = screen.Bottom - anchor.Bottom;
+						return (contentSize.Height > spaceAbove && spaceBelow > spaceAbove)
+							? PortalPlacement.Below
+							: PortalPlacement.Above;
+					}
 
 				case PortalPlacement.RightOrLeft:
-				{
-					int spaceRight = screen.Right - anchor.Right;
-					int spaceLeft = anchor.X - screen.X;
-					return (contentSize.Width > spaceRight && spaceLeft > spaceRight)
-						? PortalPlacement.Left
-						: PortalPlacement.Right;
-				}
+					{
+						int spaceRight = screen.Right - anchor.Right;
+						int spaceLeft = anchor.X - screen.X;
+						return (contentSize.Width > spaceRight && spaceLeft > spaceRight)
+							? PortalPlacement.Left
+							: PortalPlacement.Right;
+					}
 
 				case PortalPlacement.LeftOrRight:
-				{
-					int spaceLeft = anchor.X - screen.X;
-					int spaceRight = screen.Right - anchor.Right;
-					return (contentSize.Width > spaceLeft && spaceRight > spaceLeft)
-						? PortalPlacement.Right
-						: PortalPlacement.Left;
-				}
+					{
+						int spaceLeft = anchor.X - screen.X;
+						int spaceRight = screen.Right - anchor.Right;
+						return (contentSize.Width > spaceLeft && spaceRight > spaceLeft)
+							? PortalPlacement.Right
+							: PortalPlacement.Left;
+					}
 
 				default:
 					return placement;

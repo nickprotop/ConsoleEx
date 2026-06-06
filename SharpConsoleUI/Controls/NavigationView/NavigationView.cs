@@ -8,11 +8,11 @@
 
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Drivers;
-using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls
 {

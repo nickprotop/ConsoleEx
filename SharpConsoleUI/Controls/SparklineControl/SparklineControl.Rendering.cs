@@ -26,8 +26,8 @@ namespace SharpConsoleUI.Controls
 
 			// When title is inline with baseline, don't count title height separately
 			bool titleAndBaselineInline = _inlineTitleWithBaseline &&
-			                              _titlePosition == _baselinePosition &&
-			                              _showBaseline;
+										  _titlePosition == _baselinePosition &&
+										  _showBaseline;
 
 			int titleHeight = !string.IsNullOrEmpty(_title) && !titleAndBaselineInline ? 1 : 0;
 
@@ -81,8 +81,8 @@ namespace SharpConsoleUI.Controls
 
 			// When title is inline with baseline, don't count title height separately
 			bool titleAndBaselineInline = _inlineTitleWithBaseline &&
-			                              _titlePosition == _baselinePosition &&
-			                              _showBaseline;
+										  _titlePosition == _baselinePosition &&
+										  _showBaseline;
 
 			int titleHeight = !string.IsNullOrEmpty(_title) && !titleAndBaselineInline ? 1 : 0;
 

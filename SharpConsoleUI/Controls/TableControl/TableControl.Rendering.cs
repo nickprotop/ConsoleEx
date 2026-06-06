@@ -7,10 +7,10 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Drawing;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
-using SharpConsoleUI.Extensions;
 
 namespace SharpConsoleUI.Controls;
 

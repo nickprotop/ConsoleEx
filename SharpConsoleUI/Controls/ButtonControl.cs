@@ -6,15 +6,14 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Helpers;
-using SharpConsoleUI.Events;
-using SharpConsoleUI.Drivers;
-using SharpConsoleUI.Layout;
 using System;
 using System.Drawing;
-
 using SharpConsoleUI.Drawing;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 #pragma warning disable CS1591
 
 namespace SharpConsoleUI.Controls
@@ -215,9 +214,9 @@ namespace SharpConsoleUI.Controls
 		public event Core.AsyncEventHandler<ButtonControl>? ClickAsync;
 
 		/// <inheritdoc/>
-		#pragma warning disable CS0067  // Event never raised (interface requirement)
+#pragma warning disable CS0067  // Event never raised (interface requirement)
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
-		#pragma warning restore CS0067
+#pragma warning restore CS0067
 
 		/// <summary>
 		/// Occurs when the button is right-clicked with the mouse.

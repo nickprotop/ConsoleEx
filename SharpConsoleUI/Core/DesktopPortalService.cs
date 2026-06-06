@@ -6,9 +6,9 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
-using System.Drawing;
 
 namespace SharpConsoleUI.Core
 {

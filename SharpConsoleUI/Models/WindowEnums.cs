@@ -53,39 +53,39 @@ namespace SharpConsoleUI
 	public enum ResizeBorderDirections
 	{
 		/// <summary>No resize movement is permitted.</summary>
-		None            = 0,
+		None = 0,
 
 		/// <summary>Top border moves up — window grows taller.</summary>
-		TopExpand       = 1 << 0,
+		TopExpand = 1 << 0,
 		/// <summary>Top border moves down — window shrinks from the top.</summary>
-		TopContract     = 1 << 1,
+		TopContract = 1 << 1,
 
 		/// <summary>Bottom border moves down — window grows taller.</summary>
-		BottomExpand    = 1 << 2,
+		BottomExpand = 1 << 2,
 		/// <summary>Bottom border moves up — window shrinks from the bottom.</summary>
-		BottomContract  = 1 << 3,
+		BottomContract = 1 << 3,
 
 		/// <summary>Left border moves left — window grows wider.</summary>
-		LeftExpand      = 1 << 4,
+		LeftExpand = 1 << 4,
 		/// <summary>Left border moves right — window shrinks from the left.</summary>
-		LeftContract    = 1 << 5,
+		LeftContract = 1 << 5,
 
 		/// <summary>Right border moves right — window grows wider.</summary>
-		RightExpand     = 1 << 6,
+		RightExpand = 1 << 6,
 		/// <summary>Right border moves left — window shrinks from the right.</summary>
-		RightContract   = 1 << 7,
+		RightContract = 1 << 7,
 
 		/// <summary>Both expand and contract on the top border.</summary>
-		Top    = TopExpand    | TopContract,
+		Top = TopExpand | TopContract,
 		/// <summary>Both expand and contract on the bottom border.</summary>
 		Bottom = BottomExpand | BottomContract,
 		/// <summary>Both expand and contract on the left border.</summary>
-		Left   = LeftExpand   | LeftContract,
+		Left = LeftExpand | LeftContract,
 		/// <summary>Both expand and contract on the right border.</summary>
-		Right  = RightExpand  | RightContract,
+		Right = RightExpand | RightContract,
 
 		/// <summary>All borders may expand outward only.</summary>
-		ExpandOnly   = TopExpand   | BottomExpand   | LeftExpand   | RightExpand,
+		ExpandOnly = TopExpand | BottomExpand | LeftExpand | RightExpand,
 		/// <summary>All borders may contract inward only.</summary>
 		ContractOnly = TopContract | BottomContract | LeftContract | RightContract,
 

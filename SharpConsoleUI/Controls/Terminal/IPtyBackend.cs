@@ -1,3 +1,11 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
 namespace SharpConsoleUI.Controls.Terminal;
 
 /// <summary>
@@ -6,18 +14,18 @@ namespace SharpConsoleUI.Controls.Terminal;
 /// </summary>
 internal interface IPtyBackend : IDisposable
 {
-    /// <summary>Resize the terminal to the given dimensions.</summary>
-    void Resize(int rows, int cols);
+	/// <summary>Resize the terminal to the given dimensions.</summary>
+	void Resize(int rows, int cols);
 
-    /// <summary>
-    /// Read output bytes from the PTY.
-    /// Returns the number of bytes read, or 0 on EOF / backend closed.
-    /// </summary>
-    int Read(byte[] buf, int count);
+	/// <summary>
+	/// Read output bytes from the PTY.
+	/// Returns the number of bytes read, or 0 on EOF / backend closed.
+	/// </summary>
+	int Read(byte[] buf, int count);
 
-    /// <summary>Write keyboard/mouse bytes to the PTY.</summary>
-    void Write(byte[] buf, int count);
+	/// <summary>Write keyboard/mouse bytes to the PTY.</summary>
+	void Write(byte[] buf, int count);
 
-    /// <summary>The OS process ID of the child process running inside the PTY.</summary>
-    int ChildProcessId { get; }
+	/// <summary>The OS process ID of the child process running inside the PTY.</summary>
+	int ChildProcessId { get; }
 }

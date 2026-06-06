@@ -6,10 +6,10 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Layout;
-using System.Drawing;
 
 namespace SharpConsoleUI.Builders
 {

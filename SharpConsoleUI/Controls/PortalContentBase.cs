@@ -107,7 +107,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public virtual bool CanFocusWithMouse => false;
 
-		#pragma warning disable CS0067 // Event never raised (interface requirement)
+#pragma warning disable CS0067 // Event never raised (interface requirement)
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
@@ -125,7 +125,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
-		#pragma warning restore CS0067
+#pragma warning restore CS0067
 
 		/// <summary>
 		/// Explicit interface implementation that adjusts mouse coordinates for the border

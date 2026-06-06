@@ -70,17 +70,17 @@ namespace SharpConsoleUI.Html
 						// Block images, scripts, fonts — only allow CSS and unknown types
 						var path = request.Address?.Path ?? "";
 						return !path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) &&
-						       !path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) &&
-						       !path.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) &&
-						       !path.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) &&
-						       !path.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) &&
-						       !path.EndsWith(".svg", StringComparison.OrdinalIgnoreCase) &&
-						       !path.EndsWith(".ico", StringComparison.OrdinalIgnoreCase) &&
-						       !path.EndsWith(".js", StringComparison.OrdinalIgnoreCase) &&
-						       !path.EndsWith(".woff", StringComparison.OrdinalIgnoreCase) &&
-						       !path.EndsWith(".woff2", StringComparison.OrdinalIgnoreCase) &&
-						       !path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase) &&
-						       !path.EndsWith(".eot", StringComparison.OrdinalIgnoreCase);
+							   !path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) &&
+							   !path.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) &&
+							   !path.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) &&
+							   !path.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) &&
+							   !path.EndsWith(".svg", StringComparison.OrdinalIgnoreCase) &&
+							   !path.EndsWith(".ico", StringComparison.OrdinalIgnoreCase) &&
+							   !path.EndsWith(".js", StringComparison.OrdinalIgnoreCase) &&
+							   !path.EndsWith(".woff", StringComparison.OrdinalIgnoreCase) &&
+							   !path.EndsWith(".woff2", StringComparison.OrdinalIgnoreCase) &&
+							   !path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase) &&
+							   !path.EndsWith(".eot", StringComparison.OrdinalIgnoreCase);
 					}
 				})
 				.WithRenderDevice(new AngleSharp.Css.DefaultRenderDevice
@@ -259,7 +259,7 @@ namespace SharpConsoleUI.Html
 		{
 			return !url.StartsWith("http", StringComparison.OrdinalIgnoreCase)
 				&& !url.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase)
-				&& !url.StartsWith("#", StringComparison.Ordinal)
+				&& !url.StartsWith('#')
 				&& !url.StartsWith("data:", StringComparison.OrdinalIgnoreCase);
 		}
 	}

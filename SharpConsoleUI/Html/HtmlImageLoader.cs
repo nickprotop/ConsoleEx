@@ -59,7 +59,7 @@ namespace SharpConsoleUI.Html
 				var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
 				// Skip non-image content types (HTML error pages, SVG, etc.)
 				if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ||
-				    contentType.Contains("svg", StringComparison.OrdinalIgnoreCase))
+					contentType.Contains("svg", StringComparison.OrdinalIgnoreCase))
 					return null;
 				const long MaxImageBytes = 10 * 1024 * 1024; // 10 MB
 				if (response.Content.Headers.ContentLength > MaxImageBytes)

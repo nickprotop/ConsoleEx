@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -41,5 +41,5 @@ namespace SharpConsoleUI.Controls
 		/// <returns>The number of visible lines, or null if unknown</returns>
 		int? GetVisibleHeightForControl(IWindowControl control);
 
-}
+	}
 }

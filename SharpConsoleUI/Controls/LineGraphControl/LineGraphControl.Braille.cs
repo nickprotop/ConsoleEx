@@ -55,8 +55,8 @@ namespace SharpConsoleUI.Controls
 		{
 			// Allocate or reuse pixel grid
 			if (_pixelGridCache == null ||
-			    _pixelGridCache.GetLength(0) != pixelHeight ||
-			    _pixelGridCache.GetLength(1) != pixelWidth)
+				_pixelGridCache.GetLength(0) != pixelHeight ||
+				_pixelGridCache.GetLength(1) != pixelWidth)
 			{
 				_pixelGridCache = new bool[pixelHeight, pixelWidth];
 			}
