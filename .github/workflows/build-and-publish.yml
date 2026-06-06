@@ -53,6 +53,26 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore SharpConsoleUI/SharpConsoleUI.csproj
 
+    # Code-quality gate before a release publishes to NuGet — blocks even if publish.sh is
+    # bypassed and a tag is pushed manually. Mirrors the Code Quality workflow's blocking checks.
+    # Release events only: push/PR events are already covered by code-quality.yml, so this skips
+    # them to avoid running the same checks twice.
+    - name: Code quality gate
+      if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+      run: |
+        if ! dotnet format SharpConsoleUI/SharpConsoleUI.csproj --verify-no-changes --verbosity diagnostic; then
+          echo "::error::Code is not formatted (dotnet format would make changes)."
+          exit 1
+        fi
+        missing=0
+        while IFS= read -r f; do
+          head -8 "$f" | grep -q "License: MIT" || { echo "::error file=$f::Missing license-header banner"; missing=$((missing+1)); }
+        done < <(find SharpConsoleUI -name '*.cs' -not -path '*/bin/*' -not -path '*/obj/*')
+        [ "$missing" -eq 0 ] || { echo "::error::$missing file(s) missing the header banner."; exit 1; }
+        count=$(dotnet build SharpConsoleUI/SharpConsoleUI.csproj -c Release --no-restore --no-incremental 2>&1 | grep -cE "warning (CS|CA|IDE)" || true)
+        [ "$count" -eq 0 ] || { echo "::error::Build produced $count code warning(s); release must be warning-clean."; exit 1; }
+        echo "Code-quality gate passed: format clean, headers present, warning-clean build."
+
     - name: Test
       run: dotnet test SharpConsoleUI.Tests/SharpConsoleUI.Tests.csproj --configuration Release --verbosity normal
 

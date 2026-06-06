@@ -12,6 +12,15 @@
 		<!-- Enable XML documentation warnings -->
 		<NoWarn></NoWarn>
 
+		<!-- Code-quality analyzers. The library enforces its OWN targeted rules
+		     (docs/CODE_QUALITY.md) rather than the whole Microsoft CA catalog, so CA rules
+		     default to disabled (AnalysisMode=None) to avoid 900+ advisory warnings that fight
+		     the fluent/control design. Code-style (IDE) rules stay on via EnforceCodeStyleInBuild,
+		     governed by .editorconfig. See docs/CODE_QUALITY_ENFORCEMENT.md. -->
+		<EnableNETAnalyzers>true</EnableNETAnalyzers>
+		<AnalysisMode>None</AnalysisMode>
+		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
 		<!-- SourceLink and deterministic builds -->
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
 		<EmbedUntrackedSources>true</EmbedUntrackedSources>

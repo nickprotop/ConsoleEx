@@ -1,0 +1,117 @@
+name: Code Quality
+
+# Runs on PRs to main/master AND on direct pushes to main/master (this repo commits to main
+# directly, so the gate must cover that path too). Formatting, license headers, and a
+# warning-clean build are BLOCKING. File size is advisory until the oversized files are split
+# — see docs/CODE_QUALITY_ENFORCEMENT.md.
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'SharpConsoleUI/**'
+      - '.editorconfig'
+      - '.github/workflows/code-quality.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'SharpConsoleUI/**'
+      - '.editorconfig'
+      - '.github/workflows/code-quality.yml'
+  workflow_dispatch:
+
+# Cancel an in-progress run when a newer commit is pushed to the same ref.
+concurrency:
+  group: code-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Fast checks (seconds): no build required. Fail early on formatting / headers.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      - name: Formatting (blocking)
+        run: |
+          echo "## Formatting" >> "$GITHUB_STEP_SUMMARY"
+          if dotnet format SharpConsoleUI/SharpConsoleUI.csproj --verify-no-changes --verbosity diagnostic; then
+            echo "✅ Code matches .editorconfig." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "❌ \`dotnet format SharpConsoleUI/SharpConsoleUI.csproj\` would make changes. Run it and commit the result." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: License headers (blocking)
+        run: |
+          echo "## License headers" >> "$GITHUB_STEP_SUMMARY"
+          missing=0
+          while IFS= read -r f; do
+            if ! head -8 "$f" | grep -q "License: MIT"; then
+              echo "::error file=$f::Missing file-header banner (Author / Email / License: MIT)"
+              missing=$((missing+1))
+            fi
+          done < <(find SharpConsoleUI -name '*.cs' -not -path '*/bin/*' -not -path '*/obj/*')
+          if [ "$missing" -eq 0 ]; then
+            echo "✅ All source files carry the header banner." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "❌ $missing file(s) missing the header banner." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: File size (advisory)
+        continue-on-error: true
+        run: |
+          echo "## File size (advisory)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Files over 800 lines — split into partials when practical (see docs/CODE_QUALITY.md):" >> "$GITHUB_STEP_SUMMARY"
+          over=0
+          while IFS= read -r f; do
+            lines=$(wc -l < "$f")
+            if [ "$lines" -gt 800 ]; then
+              echo "::warning file=$f::$lines lines (>800 — consider splitting into partials)"
+              echo "- \`$f\` — $lines lines" >> "$GITHUB_STEP_SUMMARY"
+              over=$((over+1))
+            fi
+          done < <(find SharpConsoleUI -name '*.cs' -not -path '*/bin/*' -not -path '*/obj/*')
+          [ "$over" -eq 0 ] && echo "✅ None." >> "$GITHUB_STEP_SUMMARY"
+          echo "_Advisory only — does not fail the build (yet). See docs/CODE_QUALITY_ENFORCEMENT.md Phase 4._" >> "$GITHUB_STEP_SUMMARY"
+
+  # Slow check: full warning-clean build across all target frameworks.
+  warnings:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+          cache: true
+          cache-dependency-path: SharpConsoleUI/SharpConsoleUI.csproj
+
+      - name: Build warning-clean (blocking)
+        run: |
+          echo "## Analyzer warnings" >> "$GITHUB_STEP_SUMMARY"
+          dotnet restore SharpConsoleUI/SharpConsoleUI.csproj
+          count=$(dotnet build SharpConsoleUI/SharpConsoleUI.csproj -c Release --no-restore --no-incremental 2>&1 \
+            | grep -cE "warning (CS|CA|IDE)" || true)
+          echo "Code warnings (CS/CA/IDE, all TFMs): **$count**" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$count" -ne 0 ]; then
+            echo "❌ Build produced $count code warning(s). The library must build warning-clean." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "✅ Warning-clean." >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,49 @@
+# SharpConsoleUI editorconfig
+# Captures the repository's existing conventions. Analyzers are enabled at warning/
+# suggestion severity (not error) so the current codebase is not broken; see
+# docs/CODE_QUALITY_ENFORCEMENT.md for the plan to tighten these into blocking gates.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.cs]
+indent_style = tab
+indent_size = 4
+tab_width = 4
+
+# Code quality philosophy: SharpConsoleUI enforces its OWN targeted rules (see
+# docs/CODE_QUALITY.md) rather than adopting the whole Microsoft CA catalog. The broad CA
+# performance/style rules are set to suggestion so they inform in the IDE without counting
+# as build warnings or fighting the library's fluent/control design.
+dotnet_analyzer_diagnostic.severity = suggestion
+
+# Public-API events/fields are part of the surface (often required by an interface or the
+# sync/async event-twin pattern) and intentionally not consumed internally — not bugs.
+dotnet_diagnostic.CS0067.severity = none   # unused public event (API contract)
+dotnet_diagnostic.CS0414.severity = none   # assigned-but-unused public event field (API)
+
+# Keep nullable conventions visible but non-blocking.
+dotnet_diagnostic.CS8600.severity = suggestion
+dotnet_diagnostic.CS8602.severity = suggestion
+dotnet_diagnostic.CS8604.severity = suggestion
+
+# Prefer modern C# the codebase already uses.
+csharp_style_namespace_declarations = file_scoped:silent
+csharp_prefer_braces = true:silent
+dotnet_sort_system_directives_first = true
+
+[*.{json,yml,yaml}]
+indent_style = space
+indent_size = 2
+
+[*.{md,csproj,props,targets}]
+indent_style = space
+indent_size = 2
+
+[*.txt]
+trim_trailing_whitespace = false

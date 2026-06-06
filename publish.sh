@@ -85,6 +85,34 @@ fi
 echo -e "${GREEN}✓ Git status is clean and up to date${NC}"
 echo ""
 
+# Code-quality gate — refuse to release if the library isn't clean (mirrors CI; see
+# docs/CODE_QUALITY_ENFORCEMENT.md). Fails fast and locally, before any version bump or tag.
+echo -e "${BLUE}[1.5/5]${NC} Code-quality gate..."
+
+if ! dotnet format SharpConsoleUI/SharpConsoleUI.csproj --verify-no-changes --verbosity quiet >/dev/null 2>&1; then
+    echo -e "${RED}Error: code is not formatted. Run: dotnet format SharpConsoleUI/SharpConsoleUI.csproj${NC}"
+    exit 1
+fi
+
+HEADER_MISSING=0
+while IFS= read -r f; do
+    head -8 "$f" | grep -q "License: MIT" || HEADER_MISSING=$((HEADER_MISSING + 1))
+done < <(find SharpConsoleUI -name '*.cs' -not -path '*/bin/*' -not -path '*/obj/*')
+if [ "$HEADER_MISSING" -ne 0 ]; then
+    echo -e "${RED}Error: $HEADER_MISSING source file(s) missing the license-header banner.${NC}"
+    exit 1
+fi
+
+WARN_COUNT=$(dotnet build SharpConsoleUI/SharpConsoleUI.csproj -c Release --no-incremental 2>&1 \
+    | grep -cE "warning (CS|CA|IDE)" || true)
+if [ "$WARN_COUNT" -ne 0 ]; then
+    echo -e "${RED}Error: build produced $WARN_COUNT code warning(s). The library must build warning-clean before release.${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ Format clean, headers present, build warning-clean${NC}"
+echo ""
+
 # Fetch tags
 echo -e "${BLUE}[2/5]${NC} Fetching tags from remote..."
 git fetch --tags --quiet

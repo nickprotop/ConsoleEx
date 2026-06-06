@@ -18,12 +18,20 @@ Thank you for your interest in contributing to SharpConsoleUI!
 
 ## Code Guidelines
 
-- Follow existing code style and patterns (tabs for indentation, fluent builders, etc.)
-- Never use `Console.WriteLine()` or any console output in library code — it corrupts the UI rendering
-- Use the built-in `LogService` for debug output
-- Keep files under size limits (see CLAUDE.md for details)
-- No magic numbers — use named constants in `Configuration/ControlDefaults.cs`
-- Extract shared logic to helper classes rather than duplicating code
+**Please read [`docs/CODE_QUALITY.md`](docs/CODE_QUALITY.md) before opening a PR** — it is
+the full set of standards your code will be reviewed against. The highlights:
+
+- **No breaking changes.** SharpConsoleUI has real NuGet users — never remove/rename a
+  public API or change an existing member's signature or default behavior. Add overloads
+  instead. This is the most important rule.
+- Follow existing code style and patterns (tabs for indentation, fluent builders, the
+  file-header banner on new source files).
+- Never use `Console.WriteLine()` or any console output in library code — it corrupts the
+  UI rendering. Use the built-in `LogService` for debug output.
+- No magic numbers — use named constants in `Configuration/ControlDefaults.cs`.
+- Extract shared logic to helper classes rather than duplicating code.
+- Keep files under the size limits, render Unicode-correctly, and marshal UI mutations to
+  the UI thread — details and examples in [`docs/CODE_QUALITY.md`](docs/CODE_QUALITY.md).
 
 ## Submitting Changes
 
