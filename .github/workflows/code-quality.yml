@@ -87,13 +87,16 @@ jobs:
         continue-on-error: true
         run: |
           echo "## File size (advisory)" >> "$GITHUB_STEP_SUMMARY"
-          echo "Files over 800 lines — split into partials when practical (see docs/CODE_QUALITY.md):" >> "$GITHUB_STEP_SUMMARY"
+          # Count CODE lines only — exclude blank lines, comment lines, and the license banner —
+          # so well-documented files (XML doc comments) aren't penalized. Threshold is the
+          # documented limit + 100 slack (complex controls 800 -> 900 code lines).
+          echo "Files over 900 code lines — split into collaborators when practical (see docs/CODE_QUALITY.md):" >> "$GITHUB_STEP_SUMMARY"
           over=0
           while IFS= read -r f; do
-            lines=$(wc -l < "$f")
-            if [ "$lines" -gt 800 ]; then
-              echo "::warning file=$f::$lines lines (>800 — consider splitting into partials)"
-              echo "- \`$f\` — $lines lines" >> "$GITHUB_STEP_SUMMARY"
+            code=$(grep -cvE '^\s*$|^\s*//|^\s*/\*|^\s*\*' "$f")
+            if [ "$code" -gt 900 ]; then
+              echo "::warning file=$f::$code code lines (>900 — consider extracting collaborators)"
+              echo "- \`$f\` — $code code lines" >> "$GITHUB_STEP_SUMMARY"
               over=$((over+1))
             fi
           done < <(find SharpConsoleUI -name '*.cs' -not -path '*/bin/*' -not -path '*/obj/*')

@@ -40,10 +40,14 @@ If similar logic appears in 2+ files, extract it to a helper in `Helpers/`.
 
 ## 5. File size limits
 
-- Simple controls: ≤ 500 lines.
-- Complex controls (List, Tree, Table): ≤ 800 lines — split into Model / Renderer /
-  InputHandler partials beyond that.
-- Helper classes: ≤ 300 lines. Service classes: ≤ 600 lines.
+Counted as **code lines** — blank lines, comments, and the license banner don't count, so
+well-documented files aren't penalized. These are targets; the CI gate flags at the
+complex-control limit + 100 slack (≈ 900 code lines) and is advisory, not blocking.
+
+- Simple controls: ≤ 500 code lines.
+- Complex controls (List, Tree, Table): ≤ 800 code lines — extract collaborators (e.g. a
+  sort/filter engine) rather than only adding partials, which spread size without reducing it.
+- Helper classes: ≤ 300 code lines. Service classes: ≤ 600 code lines.
 
 ## 6. Unicode-aware rendering
 
