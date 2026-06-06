@@ -35,7 +35,7 @@ Controls for user input and interaction.
 | Control | Description | Details |
 |---------|-------------|---------|
 | **[ButtonControl](controls/ButtonControl.md)** | Clickable button with text | Click events, keyboard/mouse support |
-| **CheckboxControl** | Toggle checkbox with label | Checked/unchecked state, change events |
+| **[CheckboxControl](controls/CheckboxControl.md)** | Toggle checkbox with label | Checked/unchecked state, change events |
 | **[DatePickerControl](controls/DatePickerControl.md)** | Locale-aware date picker | Segmented editing, calendar popup, min/max dates |
 | **[PromptControl](controls/PromptControl.md)** | Single-line text input | Enter key events, input validation, max length |
 | **[TimePickerControl](controls/TimePickerControl.md)** | Locale-aware time picker | 12h/24h modes, seconds toggle, min/max times |
@@ -51,9 +51,9 @@ Controls for selecting items from lists or hierarchies.
 |---------|-------------|---------|
 | **[ListControl](controls/ListControl.md)** | Scrollable list with selection | Single selection, item activation, keyboard navigation |
 | **[TableControl](controls/TableControl.md)** | Interactive data grid | Virtual data, sorting, filtering (AND/OR), inline editing, multi-select, cell navigation, scrollbars |
-| **TreeControl** | Hierarchical tree view | Expand/collapse nodes, selection, keyboard navigation |
-| **DropdownControl** | Dropdown selection list | Click to expand, keyboard navigation, portal rendering |
-| **MenuControl** | Menu bar with dropdowns | Horizontal/vertical menus, submenus, separators, keyboard shortcuts |
+| **[TreeControl](controls/TreeControl.md)** | Hierarchical tree view | Expand/collapse nodes, selection, keyboard navigation |
+| **[DropdownControl](controls/DropdownControl.md)** | Dropdown selection list | Click to expand, keyboard navigation, portal rendering |
+| **[MenuControl](controls/MenuControl.md)** | Menu bar with dropdowns | Horizontal/vertical menus, submenus, separators, keyboard shortcuts |
 
 ## Display Controls
 
@@ -63,9 +63,9 @@ Controls for displaying formatted content.
 |---------|-------------|---------|
 | **[MarkupControl](controls/MarkupControl.md)** | Rich text with markup | Colors, bold, italic, links using `[markup]` syntax |
 | **[HtmlControl](controls/HtmlControl.md)** | HTML content renderer | Parse & render HTML with images, links, tables, keyboard navigation |
-| **FigletControl** | ASCII art text (Figlet) | Large stylized text, multiple fonts |
-| **LogViewerControl** | Log message viewer | Auto-scroll, filtering, severity colors |
-| **SpectreRenderableControl** | Wrapper for Spectre widgets | Display Tables, Trees, Panels, Charts, etc. |
+| **[FigleControl](controls/FigleControl.md)** | ASCII art text (Figlet) | Large stylized text, multiple fonts |
+| **[LogViewerControl](controls/LogViewerControl.md)** | Log message viewer | Auto-scroll, filtering, severity colors |
+| **[SpectreRenderableControl](controls/SpectreRenderableControl.md)** | Wrapper for Spectre widgets | Display Tables, Trees, Panels, Charts, etc. |
 | **PanelControl** | Bordered content panel | Headers, multiple border styles, padding, mouse support |
 | **RuleControl** | Horizontal rule/separator | Optional title, colors, horizontal line |
 | **SparklineControl** | Time-series sparkline graph | Block, braille, or bidirectional modes; borders; titles |
@@ -90,8 +90,8 @@ Controls for organizing other controls.
 | Control | Description | Details |
 |---------|-------------|---------|
 | **ColumnContainer** | Vertical stack container | Stack controls vertically, padding, alignment |
-| **ScrollablePanelControl** | Scrollable content area | Vertical scrolling, contains multiple controls |
-| **HorizontalGridControl** | Multi-column layout | Variable-width columns, alignment, splitters |
+| **[ScrollablePanelControl](controls/ScrollablePanelControl.md)** | Scrollable content area | Vertical scrolling, contains multiple controls |
+| **[HorizontalGridControl](controls/HorizontalGridControl.md)** | Multi-column layout | Variable-width columns, alignment, splitters |
 | **SplitterControl** | Resizable divider | Drag to resize adjacent columns |
 | **[TabControl](controls/TabControl.md)** | Multi-page tab container | Tab headers, keyboard/mouse switching, state preservation |
 | **[NavigationView](controls/NavigationView.md)** | Sidebar navigation + content area | WinUI-inspired nav pane, responsive display modes (Expanded/Compact/Minimal), content factories, gradient-transparent |

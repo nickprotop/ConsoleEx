@@ -535,7 +535,7 @@ new BarGraphBuilder()
 
 ### TerminalBuilder
 
-> **Platform:** Linux only. Requires `PtyShim.RunIfShim(args)` at the start of `Main` — see [TerminalControl](controls/TerminalControl.md#critical-setup-requirement).
+> **Platform:** Linux only. Requires `PtyShim.RunIfShim(args)` at the start of `Main` — see [TerminalControl](controls/TerminalControl.md#critical-setup-requirement-linux-only).
 
 ```csharp
 // Quick open — auto-sized window
