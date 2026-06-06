@@ -436,9 +436,7 @@ public class ScrollablePanelBorderTests
 		panel.BorderStyle = BorderStyle.Rounded;
 		panel.Padding = new Padding(1, 0, 1, 0);
 
-		bool childClicked = false;
 		var btn = ContainerTestHelpers.CreateButton("Click Me");
-		btn.Click += (_, _) => childClicked = true;
 		panel.AddControl(btn);
 
 		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();

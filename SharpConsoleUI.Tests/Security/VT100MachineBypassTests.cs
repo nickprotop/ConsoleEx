@@ -39,23 +39,10 @@ namespace SharpConsoleUI.Tests.Security
 			var vt = new VT100Machine(40, 5);
 			vt.Process(payload);
 
-			// Check if U+009B ended up in any cell
-			bool foundC1 = false;
-			for (int x = 0; x < 40; x++)
-			{
-				var cell = vt.Screen.GetCell(x, 0);
-				if (cell.Character.Value >= 0x0080 && cell.Character.Value <= 0x009F)
-				{
-					foundC1 = true;
-					break;
-				}
-			}
-
-			// If the VT100Machine consumed the CSI internally (processed it as
-			// a real CSI sequence and applied SGR), then no C1 in cells — the
-			// sequence was handled. If it stored the raw C1 char, that's the vuln.
-			//
-			// Either way, verify no C1 controls reach the host buffer via CopyFrom:
+			// The VT100Machine may consume the CSI internally (processed as a real CSI sequence
+			// and SGR applied) or store the raw C1 char — either is acceptable on the screen
+			// buffer. What matters is the security boundary: verify no C1 controls reach the
+			// host buffer via CopyFrom.
 			var hostBuffer = new CharacterBuffer(40, 5);
 			hostBuffer.CopyFrom(vt.Screen, new LayoutRect(0, 0, 40, 5), 0, 0);
 

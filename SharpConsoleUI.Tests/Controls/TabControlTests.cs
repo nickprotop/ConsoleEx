@@ -1614,8 +1614,9 @@ public class TabControlTests
 		bool closeRequested = false;
 		tab.TabCloseRequested += (_, e) => closeRequested = true;
 
-		// Even if close is requested externally, tab should not be auto-removed
-		// (the event consumer must call RemoveTab)
+		// Adding a closable tab must not spontaneously request a close, and tabs are never
+		// auto-removed — the event consumer is responsible for calling RemoveTab.
+		Assert.False(closeRequested);
 		Assert.Equal(2, tab.TabCount);
 	}
 
