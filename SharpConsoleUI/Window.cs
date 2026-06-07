@@ -162,6 +162,8 @@ namespace SharpConsoleUI
 		private Controls.IFocusableControl? _savedFocusOnDeactivate;
 		/// <summary>Manages focus state for this window. Use to set, query, or move focus.</summary>
 		public FocusManager FocusManager { get; private set; } = null!;
+		/// <summary>Coordinates text selection across selectable controls in this window (single active selection).</summary>
+		public SelectionManager SelectionManager { get; private set; } = null!;
 		internal WindowRootScope RootScope { get; private set; } = null!;
 		private int? _minimumHeight = Configuration.ControlDefaults.DefaultWindowMinimumHeight;
 		private int? _minimumWidth = Configuration.ControlDefaults.DefaultWindowMinimumWidth;
@@ -263,6 +265,7 @@ namespace SharpConsoleUI
 			_eventDispatcher = new Windows.WindowEventDispatcher(this);
 			RootScope = new Core.WindowRootScope(this);
 			FocusManager = new Core.FocusManager(this);
+			SelectionManager = new Core.SelectionManager(this);
 
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();
@@ -329,6 +332,7 @@ namespace SharpConsoleUI
 			_eventDispatcher = new Windows.WindowEventDispatcher(this);
 			RootScope = new Core.WindowRootScope(this);
 			FocusManager = new Core.FocusManager(this);
+			SelectionManager = new Core.SelectionManager(this);
 
 			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();

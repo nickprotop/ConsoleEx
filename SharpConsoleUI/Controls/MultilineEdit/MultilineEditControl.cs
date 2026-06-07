@@ -22,7 +22,7 @@ namespace SharpConsoleUI.Controls
 	/// A multiline text editing control with support for text selection, scrolling, and word wrap.
 	/// Provides full cursor navigation, cut/copy/paste-like operations, and configurable scrollbars.
 	/// </summary>
-	public partial class MultilineEditControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider
+	public partial class MultilineEditControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider, ISelectableControl
 	{
 		#region Fields
 
@@ -170,6 +170,23 @@ namespace SharpConsoleUI.Controls
 		/// Event argument is the currently selected text, or empty string if no selection.
 		/// </summary>
 		public event EventHandler<string>? SelectionChanged;
+
+		/// <summary>
+		/// Gets whether this editor currently has an active text selection.
+		/// Part of <see cref="ISelectableControl"/> participation in the window's selection coordinator.
+		/// </summary>
+		public bool HasSelection => _hasSelection;
+
+		/// <summary>
+		/// Registers this control as the owner of the window's active selection, clearing any
+		/// selection held by another selectable control (single-selection per window).
+		/// Called whenever this editor gains or extends a selection.
+		/// </summary>
+		private void NotifySelectionActive()
+		{
+			if (_hasSelection)
+				this.GetParentWindow()?.SelectionManager.SetActiveSelection(this);
+		}
 
 		/// <summary>
 		/// Occurs when the editing mode changes (entering or leaving edit mode).

@@ -18,7 +18,7 @@ namespace SharpConsoleUI.Controls
 	/// A control that displays rich text content using Spectre.Console markup syntax.
 	/// Supports text alignment, margins, word wrapping, and sticky positioning.
 	/// </summary>
-	public class MarkupControl : BaseControl, IMouseAwareControl
+	public partial class MarkupControl : BaseControl, IMouseAwareControl, ISelectableControl
 	{
 		private List<string> _content;
 		private readonly object _contentLock = new();
@@ -217,6 +217,11 @@ namespace SharpConsoleUI.Controls
 			if (!WantsMouseEvents || args.Handled)
 				return false;
 
+			// Opt-in text selection. When disabled (the default), behavior is unchanged for
+			// existing users — this branch is skipped entirely.
+			if (_enableSelection && TryProcessSelectionMouse(args, out bool selectionHandled))
+				return selectionHandled;
+
 			// Handle right-click
 			if (args.HasFlag(MouseFlags.Button3Clicked))
 			{
@@ -365,12 +370,16 @@ namespace SharpConsoleUI.Controls
 				maxContentWidth = Math.Max(maxContentWidth, length);
 			}
 
-			// Render content lines
+			// Render content lines.
+			// Track each display row's source (logical) line index so selection copy can suppress
+			// soft-wrap newlines (rows from the same logical line are joined without a line break).
 			Color effectiveFg = _foregroundColor ?? fgColor;
 			Color effectiveBg = _backgroundColor ?? Color.Transparent;
 			var renderedCellLines = new List<List<Cell>>();
-			foreach (var line in snapshot)
+			var rowSourceLineIndex = new List<int>();
+			for (int sourceIndex = 0; sourceIndex < snapshot.Count; sourceIndex++)
 			{
+				var line = snapshot[sourceIndex];
 				int renderWidth = (HorizontalAlignment == HorizontalAlignment.Center || HorizontalAlignment == HorizontalAlignment.Right)
 					? Math.Min(maxContentWidth, targetWidth)
 					: targetWidth;
@@ -378,18 +387,30 @@ namespace SharpConsoleUI.Controls
 				if (_wrap)
 				{
 					var wrappedLines = Parsing.MarkupParser.ParseLines(line, renderWidth, effectiveFg, effectiveBg);
-					renderedCellLines.AddRange(wrappedLines);
+					foreach (var wl in wrappedLines)
+					{
+						renderedCellLines.Add(wl);
+						rowSourceLineIndex.Add(sourceIndex);
+					}
 				}
 				else
 				{
 					var cells = Parsing.MarkupParser.Parse(line, effectiveFg, effectiveBg);
 					renderedCellLines.Add(cells);
+					rowSourceLineIndex.Add(sourceIndex);
 				}
 			}
 
 			// Paint with margins
 			int startY = bounds.Y + Margin.Top;
 			int startX = bounds.X + Margin.Left;
+
+			// Cache the laid-out grid + paint origin so mouse hit-testing maps screen coords
+			// to (displayRow, cellIndex) over the exact cells that were painted.
+			// NOTE: mouse coordinates delivered to ProcessMouseEvent are CONTROL-RELATIVE
+			// (content top-left = (0,0)), so the cache stores origins relative to the control
+			// (Margin.Top / Margin.Left + alignOffset), NOT the absolute buffer bounds.
+			UpdateSelectionLayoutCache(renderedCellLines, rowSourceLineIndex, Margin.Left, Margin.Top, targetWidth);
 
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, marginBg);
@@ -431,8 +452,14 @@ namespace SharpConsoleUI.Controls
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, y, alignOffset, 1), fgColor, marginBg);
 				}
 
+				// Record this row's horizontal paint offset (control-relative) for mouse hit-testing.
+				SetRowPaintOffset(i, Margin.Left + alignOffset);
+
+				// Apply selection highlight (only when selection is enabled and this row is selected).
+				var paintLine = ApplySelectionHighlight(i, cellLine);
+
 				// Paint the line content
-				buffer.WriteCellsClipped(startX + alignOffset, y, cellLine, clipRect);
+				buffer.WriteCellsClipped(startX + alignOffset, y, paintLine, clipRect);
 
 				// Fill remaining space (right side)
 				int rightPadStart = startX + alignOffset + lineWidth;

@@ -224,6 +224,16 @@ namespace SharpConsoleUI.Windows
 						DismissOutsideClickPortals(args);
 
 						// === EXISTING: NON-SCROLL EVENTS (clicks, etc.) ===
+						// A fresh left-press clears the active text selection regardless of where it lands
+						// (empty space, a panel, or another control). The control under the cursor — if it
+						// is selectable — re-establishes its own selection as the drag proceeds. We guard on
+						// "no mouse capture in progress" so SGR drag-continuation presses (Button1Pressed sent
+						// during an active drag) don't wipe the selection being extended.
+						if (args.HasFlag(MouseFlags.Button1Pressed) && _mouseCaptureControl == null)
+						{
+							_window.SelectionManager.ClearSelection();
+						}
+
 						// Centralized focus handling on click (left-click and right-click)
 						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked,
 											MouseFlags.Button3Pressed, MouseFlags.Button3Clicked))
@@ -491,6 +501,17 @@ namespace SharpConsoleUI.Windows
 				bool previewHandled = _window.OnPreviewKeyPressed(key);
 				if (previewHandled)
 					return true;
+
+				// Window-level copy: Ctrl+C copies the active text selection (plain text) if any
+				// selectable control owns one. This produces the same clipboard result a focused
+				// control's own Ctrl+C would, so existing controls (e.g. MultilineEdit) are unaffected.
+				if (key.Key == ConsoleKey.C
+					&& key.Modifiers.HasFlag(ConsoleModifiers.Control)
+					&& _window.SelectionManager.HasSelection)
+				{
+					Helpers.ClipboardHelper.SetText(_window.SelectionManager.GetSelectedText() ?? string.Empty);
+					return true;
+				}
 
 				if (HasActiveInteractiveContent(out var activeInteractiveContent))
 				{

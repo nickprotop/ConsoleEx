@@ -877,7 +877,10 @@ namespace SharpConsoleUI.Controls
 
 			// Fire selection changed event
 			if (selectionChanged)
+			{
+				NotifySelectionActive();
 				SelectionChanged?.Invoke(this, _hasSelection ? GetSelectedText() : string.Empty);
+			}
 
 			return keyWasHandled;
 		}

@@ -30,6 +30,9 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	private StickyPosition _stickyPosition = StickyPosition.None;
 	private Color? _backgroundColor;
 	private Color? _foregroundColor;
+	private bool _enableSelection;
+	private Color? _selectionForegroundColor;
+	private Color? _selectionBackgroundColor;
 
 	/// <summary>
 	/// Adds a line of markup text
@@ -284,6 +287,32 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	}
 
 	/// <summary>
+	/// Enables (or disables) mouse text selection and window-level Ctrl+C copy for the control.
+	/// Selection is opt-in; when disabled (the default) the control is display-only.
+	/// </summary>
+	/// <param name="enabled">Whether selection should be enabled. Defaults to true.</param>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder WithSelectionEnabled(bool enabled = true)
+	{
+		_enableSelection = enabled;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the colors used to highlight selected text. Implies <see cref="WithSelectionEnabled"/>.
+	/// </summary>
+	/// <param name="foreground">The selected-text foreground color</param>
+	/// <param name="background">The selected-text background color</param>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder WithSelectionColors(Color foreground, Color background)
+	{
+		_enableSelection = true;
+		_selectionForegroundColor = foreground;
+		_selectionBackgroundColor = background;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the markup control
 	/// </summary>
 	/// <returns>The configured markup control</returns>
@@ -300,7 +329,10 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 			Tag = _tag,
 			StickyPosition = _stickyPosition,
 			BackgroundColor = _backgroundColor,
-			ForegroundColor = _foregroundColor
+			ForegroundColor = _foregroundColor,
+			EnableSelection = _enableSelection,
+			SelectionForegroundColor = _selectionForegroundColor,
+			SelectionBackgroundColor = _selectionBackgroundColor
 		};
 
 		BindingHelper.ApplyDeferredBindings(this, markup);

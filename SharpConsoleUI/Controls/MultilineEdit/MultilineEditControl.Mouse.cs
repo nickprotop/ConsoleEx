@@ -261,7 +261,8 @@ namespace SharpConsoleUI.Controls
 			{
 				if (HasFocus)
 				{
-					IsEditing = true;
+					if (!_readOnly)
+						IsEditing = true;
 					PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
 					lock (_contentLock)
 					{
@@ -272,6 +273,7 @@ namespace SharpConsoleUI.Controls
 						_selectionEndY = _cursorY;
 						_cursorX = _lines[_cursorY].Length;
 					}
+					NotifySelectionActive();
 					Container?.Invalidate(true);
 				}
 				return true;
@@ -282,7 +284,8 @@ namespace SharpConsoleUI.Controls
 			{
 				if (HasFocus)
 				{
-					IsEditing = true;
+					if (!_readOnly)
+						IsEditing = true;
 					PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
 					lock (_contentLock)
 					{
@@ -294,6 +297,7 @@ namespace SharpConsoleUI.Controls
 						_selectionEndY = _cursorY;
 						_cursorX = wordEnd;
 					}
+					NotifySelectionActive();
 					Container?.Invalidate(true);
 				}
 				MouseDoubleClick?.Invoke(this, args);
@@ -309,6 +313,7 @@ namespace SharpConsoleUI.Controls
 				_selectionEndX = _cursorX;
 				_selectionEndY = _cursorY;
 				_hasSelection = (_selectionStartX != _selectionEndX || _selectionStartY != _selectionEndY);
+				NotifySelectionActive();
 				EnsureCursorVisible();
 				Container?.Invalidate(true);
 				return true;
@@ -325,9 +330,12 @@ namespace SharpConsoleUI.Controls
 					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 				}
 
-				if (HasFocus && !_readOnly)
+				// Allow mouse selection even when read-only — selecting/copying text must work for
+				// read-only editors (issue #36). Editing mode is only entered when not read-only.
+				if (HasFocus)
 				{
-					IsEditing = true;
+					if (!_readOnly)
+						IsEditing = true;
 					PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
 					if (_isDragging)
 					{
@@ -347,6 +355,7 @@ namespace SharpConsoleUI.Controls
 						_selectionEndY = _cursorY;
 						_isDragging = true;
 					}
+					NotifySelectionActive();
 					EnsureCursorVisible();
 					Container?.Invalidate(true);
 				}

@@ -11,6 +11,14 @@ MarkupControl displays multi-line text with rich formatting using SharpConsoleUI
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `Lines` | `List<string>` | Empty | List of text lines to display |
+| `Text` | `string` | Empty | Content as a single newline-separated string |
+| `Wrap` | `bool` | `true` | Word-wrap text to the available width |
+| `BackgroundColor` | `Color?` | `null` | Background color (falls back to container) |
+| `ForegroundColor` | `Color?` | `null` | Text color (falls back to container) |
+| `EnableSelection` | `bool` | `false` | Opt-in mouse text selection + Ctrl+C copy (see below) |
+| `SelectionForegroundColor` | `Color?` | `null` | Foreground color for selected text |
+| `SelectionBackgroundColor` | `Color?` | `null` | Background color for selected text |
+| `HasSelection` | `bool` | `false` | (read-only) Whether text is currently selected |
 
 ## Creating Markup
 
@@ -112,6 +120,67 @@ SharpConsoleUI uses its own markup syntax (Spectre-compatible):
 "Use [[double brackets]] to display literal brackets"
 "This shows [red]colored[/] and [[red]] literal markup"
 ```
+
+## Text Selection & Copy
+
+By default `MarkupControl` is display-only — its text cannot be selected or copied. Set
+`EnableSelection = true` (opt-in, off by default, WinUI-style) to make the control
+mouse-selectable. The user can then:
+
+- **Drag** to select a range of text
+- **Double-click** to select a word
+- **Triple-click** to select a line
+- Press **Ctrl+C** to copy the selection to the clipboard
+
+The copied text is always **plain text** — all markup tags are stripped automatically. When a
+selected line is soft-wrapped across multiple display rows, it is copied back as a single line.
+
+Selection is coordinated **per window**: only one control can hold the active selection at a time,
+so starting a selection in one control clears any selection in another. **Ctrl+C** is handled at the
+window level and copies whatever is currently selected. **Left-clicking** empty space clears the
+selection; **right-click** is surfaced to the application (e.g. to show a context menu) and does not
+affect the selection.
+
+Because selection is off by default, existing applications are unaffected.
+
+### Enabling Selection
+
+```csharp
+// Via property
+var markup = new MarkupControl(new List<string> { "[bold]Selectable[/] output" })
+{
+    EnableSelection = true,
+    SelectionForegroundColor = Color.Black,            // optional
+    SelectionBackgroundColor = new Color(95, 175, 255) // optional
+};
+
+// Via fluent builder
+var markup = Controls.Markup("[green]Build succeeded[/] in 3.4s")
+    .WithSelectionEnabled()
+    .WithSelectionColors(Color.Black, new Color(95, 175, 255)) // optional
+    .Build();
+```
+
+### Reading the Selection
+
+```csharp
+if (markup.HasSelection)
+{
+    string plain = markup.GetSelectedText(); // markup-free
+}
+
+markup.SelectionChanged += (sender, selectedText) =>
+{
+    // selectedText is the current plain-text selection ("" when cleared)
+};
+
+markup.ClearSelection();
+```
+
+The control implements `ISelectableControl`, so it participates in the window's
+`SelectionManager` (`window.SelectionManager.ActiveSelection` / `GetSelectedText()`).
+`MultilineEditControl` also implements `ISelectableControl`, so an editor and selectable markup
+controls in the same window share the single-selection behavior.
 
 ## Examples
 

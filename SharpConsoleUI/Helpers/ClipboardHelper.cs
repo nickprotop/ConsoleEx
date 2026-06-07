@@ -132,6 +132,21 @@ namespace SharpConsoleUI.Helpers
 			lock (_lock) { return _internalBuffer; }
 		}
 
+		/// <summary>
+		/// Forces a specific backend, bypassing platform auto-detection. Intended for tests so that
+		/// clipboard round-trips can be made hermetic (use <see cref="ClipboardBackend.InternalFallback"/>
+		/// to route through the in-process buffer and avoid touching the real system clipboard).
+		/// </summary>
+		internal static void ForceBackendForTests(ClipboardBackend backend)
+		{
+			lock (_lock)
+			{
+				_backend = backend;
+				if (backend == ClipboardBackend.InternalFallback)
+					_internalBuffer = string.Empty;
+			}
+		}
+
 		private static void EnsureDetected()
 		{
 			if (_backend != ClipboardBackend.Unknown)

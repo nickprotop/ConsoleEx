@@ -356,6 +356,7 @@ namespace SharpConsoleUI.Controls
 				_cursorY = _selectionEndY;
 				_cursorX = _selectionEndX;
 			}
+			NotifySelectionActive();
 			EnsureCursorVisible();
 			Container?.Invalidate(true);
 		}

@@ -391,6 +391,7 @@ namespace SharpConsoleUI.Controls
 				_selectionEndY = match.Line;
 			}
 
+			NotifySelectionActive();
 			EnsureCursorVisible();
 			CursorPositionChanged?.Invoke(this, (CurrentLine, CurrentColumn));
 		}

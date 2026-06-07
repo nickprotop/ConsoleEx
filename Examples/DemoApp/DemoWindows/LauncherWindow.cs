@@ -45,6 +45,7 @@ public static class LauncherWindow
                 .AddItem("DataGrid", subtitle: "Virtual DataGrid with 10K rows", content: MakeInfoPanel("DataGrid"))
                 .AddItem("Nerd Fonts", subtitle: "NerdFont icon showcase", content: MakeInfoPanel("Nerd Fonts"))
                 .AddItem("Markup Syntax", subtitle: "Rich markup system demo", content: MakeInfoPanel("Markup Syntax"))
+                .AddItem("Selectable Text", subtitle: "Mouse select & Ctrl+C copy (markup stripped)", content: MakeInfoPanel("Selectable Text"))
                 .AddItem("International & Emoji", subtitle: "Unicode & emoji support", content: MakeInfoPanel("International & Emoji"))
                 .AddItem("Data Binding", subtitle: "MVVM data binding", content: MakeInfoPanel("Data Binding"))
                 .AddItem("Date & Time", subtitle: "DatePicker and TimePicker controls", content: MakeInfoPanel("Date & Time"))
@@ -236,6 +237,7 @@ public static class LauncherWindow
             "DataGrid" => DataGridWindow.Create(ws),
             "Nerd Fonts" => NerdFontWindow.Create(ws),
             "Markup Syntax" => MarkupSyntaxWindow.Create(ws),
+            "Selectable Text" => SelectableTextDemoWindow.Create(ws),
             "International & Emoji" => InternationalWindow.Create(ws),
             "Data Binding" => DataBindingWindow.Create(ws),
             "Date & Time" => DateTimeDemo.Create(ws),
@@ -509,6 +511,31 @@ public static class LauncherWindow
                 "[dim]Controls used:[/]",
                 "  - MarkupControl, ScrollablePanelControl",
                 "  - RuleControl",
+            },
+            "Selectable Text" => new List<string>
+            {
+                "[bold cyan]Selectable Text[/]",
+                "",
+                "MarkupControl is display-only by default. Set",
+                "[cyan]EnableSelection = true[/] (opt-in, off by default)",
+                "to make its text mouse-selectable and copyable.",
+                "",
+                "Drag to select, then [bold cyan]Ctrl+C[/] copies the",
+                "selection as plain text — markup tags stripped.",
+                "Selection is coordinated per window: only one",
+                "control holds a selection at a time.",
+                "",
+                "[dim]MarkupControl properties:[/]",
+                "  - EnableSelection",
+                "  - SelectionForegroundColor / SelectionBackgroundColor",
+                "",
+                "[dim]Builder:[/]",
+                "  - .WithSelectionEnabled()",
+                "  - .WithSelectionColors(fg, bg)",
+                "",
+                "[dim]Controls used:[/]",
+                "  - MarkupControl (selectable), MultilineEditControl",
+                "  - ScrollablePanelControl, RuleControl",
             },
             "International & Emoji" => new List<string>
             {
