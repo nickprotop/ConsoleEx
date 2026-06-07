@@ -103,7 +103,7 @@ namespace SharpConsoleUI
 		private Diagnostics.RenderingDiagnostics? _renderingDiagnostics;
 
 		// Global keyboard shortcuts registered by the application
-		private readonly Dictionary<(ConsoleModifiers Modifiers, ConsoleKey Key), Action> _globalShortcuts = new();
+		private readonly Dictionary<(ConsoleModifiers Modifiers, ConsoleKey Key), Func<bool>> _globalShortcuts = new();
 
 		// Main loop watchdog — detects stalled frames and provides emergency Ctrl+Q exit
 		private readonly MainLoopWatchdog _watchdog;
@@ -1409,27 +1409,37 @@ namespace SharpConsoleUI
 
 		/// <summary>
 		/// Registers a global keyboard shortcut that is handled before routing to windows.
+		/// The key is always consumed (it does not continue to the focused window). To let the
+		/// handler decide whether the key is consumed, use the <see cref="Func{TResult}"/> overload.
 		/// </summary>
 		/// <param name="modifiers">The modifier keys (e.g. Control, Alt, Shift).</param>
 		/// <param name="key">The key to bind.</param>
 		/// <param name="action">The action to invoke when the shortcut is pressed.</param>
 		public void RegisterGlobalShortcut(ConsoleModifiers modifiers, ConsoleKey key, Action action)
-		{
-			_globalShortcuts[(modifiers, key)] = action;
-		}
+			=> _globalShortcuts[(modifiers, key)] = () => { action(); return true; };
+
+		/// <summary>
+		/// Registers a global keyboard shortcut whose handler decides whether the key is consumed.
+		/// Return <c>true</c> to consume the key (stop routing); return <c>false</c> to decline,
+		/// letting the key continue down the normal pipeline (window cycle, exit key, active window).
+		/// This enables conditional shortcuts — e.g. a global Ctrl+Q that reaches a focused control
+		/// but acts globally when nothing relevant is focused.
+		/// </summary>
+		/// <param name="modifiers">The modifier keys (e.g. Control, Alt, Shift).</param>
+		/// <param name="key">The key to bind.</param>
+		/// <param name="action">
+		/// The handler to invoke; returns <c>true</c> to consume the key, <c>false</c> to decline.
+		/// </param>
+		public void RegisterGlobalShortcut(ConsoleModifiers modifiers, ConsoleKey key, Func<bool> action)
+			=> _globalShortcuts[(modifiers, key)] = action;
 
 		/// <summary>
 		/// Tries to execute a registered global shortcut for the given key info.
+		/// Returns the handler's result (<c>true</c> = consumed), or <c>false</c> when no shortcut
+		/// is registered for the key or the handler declined.
 		/// </summary>
 		internal bool TryHandleGlobalShortcut(ConsoleKeyInfo keyInfo)
-		{
-			if (_globalShortcuts.TryGetValue((keyInfo.Modifiers, keyInfo.Key), out var action))
-			{
-				action();
-				return true;
-			}
-			return false;
-		}
+			=> _globalShortcuts.TryGetValue((keyInfo.Modifiers, keyInfo.Key), out var action) && action();
 
 		#endregion
 

@@ -390,6 +390,91 @@ public class ShortcutsTests
         Assert.True(window.ScrollOffset > 30);
     }
 
+    [Fact]
+    public void GlobalShortcut_FuncReturningFalse_DeclinesAndKeyReachesFocusedControl()
+    {
+        var system = TestWindowSystemBuilder.CreateTestSystem();
+        var window = new Window(system);
+        var button = new ButtonControl { Text = "Submit" };
+        window.AddControl(button);
+        system.WindowStateService.AddWindow(window);
+        system.WindowStateService.SetActiveWindow(window);
+        window.FocusManager.SetFocus(button, FocusReason.Programmatic);
+
+        bool clicked = false;
+        button.Click += (s, e) => clicked = true;
+
+        // Declining shortcut on Enter: handler runs but returns false → key keeps routing.
+        bool handlerRan = false;
+        system.RegisterGlobalShortcut(ConsoleModifiers.None, ConsoleKey.Enter, () =>
+        {
+            handlerRan = true;
+            return false; // decline
+        });
+
+        var enterKey = new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false);
+        system.InputStateService.EnqueueKey(enterKey);
+        system.Input.ProcessInput();
+
+        Assert.True(handlerRan, "Declining handler should have run");
+        Assert.True(clicked, "Declined key should still reach the focused control");
+    }
+
+    [Fact]
+    public void GlobalShortcut_FuncReturningTrue_ConsumesAndKeyDoesNotReachFocusedControl()
+    {
+        var system = TestWindowSystemBuilder.CreateTestSystem();
+        var window = new Window(system);
+        var button = new ButtonControl { Text = "Submit" };
+        window.AddControl(button);
+        system.WindowStateService.AddWindow(window);
+        system.WindowStateService.SetActiveWindow(window);
+        window.FocusManager.SetFocus(button, FocusReason.Programmatic);
+
+        bool clicked = false;
+        button.Click += (s, e) => clicked = true;
+
+        bool handlerRan = false;
+        system.RegisterGlobalShortcut(ConsoleModifiers.None, ConsoleKey.Enter, () =>
+        {
+            handlerRan = true;
+            return true; // consume
+        });
+
+        var enterKey = new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false);
+        system.InputStateService.EnqueueKey(enterKey);
+        system.Input.ProcessInput();
+
+        Assert.True(handlerRan, "Consuming handler should have run");
+        Assert.False(clicked, "Consumed key must not reach the focused control");
+    }
+
+    [Fact]
+    public void GlobalShortcut_ActionOverload_StillConsumes()
+    {
+        var system = TestWindowSystemBuilder.CreateTestSystem();
+        var window = new Window(system);
+        var button = new ButtonControl { Text = "Submit" };
+        window.AddControl(button);
+        system.WindowStateService.AddWindow(window);
+        system.WindowStateService.SetActiveWindow(window);
+        window.FocusManager.SetFocus(button, FocusReason.Programmatic);
+
+        bool clicked = false;
+        button.Click += (s, e) => clicked = true;
+
+        // Back-compat: the Action overload always consumes (unchanged behavior).
+        bool handlerRan = false;
+        system.RegisterGlobalShortcut(ConsoleModifiers.None, ConsoleKey.Enter, () => { handlerRan = true; });
+
+        var enterKey = new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false);
+        system.InputStateService.EnqueueKey(enterKey);
+        system.Input.ProcessInput();
+
+        Assert.True(handlerRan, "Action handler should have run");
+        Assert.False(clicked, "Action shortcut must consume the key (key does not reach the control)");
+    }
+
     // TODO: MultilineEditControl doesn't have SelectAll() method yet
     //[Fact]
     //public void CtrlC_OnTextBox_CopiesSelection()
