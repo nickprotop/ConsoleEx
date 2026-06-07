@@ -30,6 +30,11 @@ namespace SharpConsoleUI.Controls
 		private Color? _selectionForegroundColor = null;
 		private Color? _selectionBackgroundColor = null;
 
+		// --- Copy shortcut configuration ---
+		private bool _copyEnabled = true;
+		private ConsoleKey _copyKey = ConsoleKey.C;
+		private ConsoleModifiers _copyModifiers = ConsoleModifiers.Control;
+
 		// Default selection colors (used when not explicitly set). Mirrors a typical highlight pair.
 		private static readonly Color DefaultSelectionForeground = Color.Black;
 		private static readonly Color DefaultSelectionBackground = new Color(80, 140, 220);
@@ -80,6 +85,62 @@ namespace SharpConsoleUI.Controls
 			set => SetProperty(ref _selectionBackgroundColor, value);
 		}
 
+		#region ICopyableControl
+
+		/// <summary>
+		/// Gets or sets whether the keyboard copy shortcut (default Ctrl+C) is enabled. Default: <c>true</c>.
+		/// Programmatic copy via <see cref="CopyToClipboard"/> / <see cref="CopySelectionToClipboard"/>
+		/// is unaffected by this setting.
+		/// </summary>
+		public bool CopyEnabled
+		{
+			get => _copyEnabled;
+			set { _copyEnabled = value; OnPropertyChanged(); }
+		}
+
+		/// <summary>Gets or sets the key that triggers a copy. Default: <see cref="ConsoleKey.C"/>.</summary>
+		public ConsoleKey CopyKey
+		{
+			get => _copyKey;
+			set { _copyKey = value; OnPropertyChanged(); }
+		}
+
+		/// <summary>Gets or sets the modifier keys required for the copy shortcut. Default: <see cref="ConsoleModifiers.Control"/>.</summary>
+		public ConsoleModifiers CopyModifiers
+		{
+			get => _copyModifiers;
+			set { _copyModifiers = value; OnPropertyChanged(); }
+		}
+
+		/// <summary>
+		/// Copies the current selection (plain text, markup stripped) to the clipboard.
+		/// Returns <c>true</c> if something was copied.
+		/// </summary>
+		public bool CopySelectionToClipboard()
+		{
+			if (!_hasSelection) return false;
+			var text = GetSelectedText();
+			if (string.IsNullOrEmpty(text)) return false;
+			Helpers.ClipboardHelper.SetText(text);
+			return true;
+		}
+
+		/// <summary>
+		/// Copies the control's entire content (plain text, markup stripped) to the clipboard,
+		/// regardless of the current selection. Returns <c>true</c> if something was copied.
+		/// </summary>
+		public bool CopyToClipboard()
+		{
+			List<string> snapshot;
+			lock (_contentLock) { snapshot = _content.ToList(); }
+			var plain = string.Join("\n", snapshot.Select(line => Parsing.MarkupParser.Remove(line)));
+			if (string.IsNullOrEmpty(plain)) return false;
+			Helpers.ClipboardHelper.SetText(plain);
+			return true;
+		}
+
+		#endregion
+
 		#region ISelectableControl
 
 		/// <summary>Gets whether this control currently has a non-empty text selection.</summary>
@@ -89,6 +150,19 @@ namespace SharpConsoleUI.Controls
 		/// Occurs when the selection changes. Argument is the selected plain text, or empty when cleared.
 		/// </summary>
 		public event EventHandler<string>? SelectionChanged;
+
+		/// <summary>
+		/// Occurs when the selection changes, carrying both the selection state and the selected text.
+		/// Richer companion to <see cref="SelectionChanged"/>; both fire together.
+		/// </summary>
+		public event EventHandler<TextSelectionChangedEventArgs>? TextSelectionChanged;
+
+		/// <summary>Raises both selection-changed events with the current state.</summary>
+		private void RaiseSelectionChanged(string selectedText)
+		{
+			SelectionChanged?.Invoke(this, selectedText);
+			TextSelectionChanged?.Invoke(this, new TextSelectionChangedEventArgs(selectedText.Length > 0, selectedText));
+		}
 
 		/// <summary>
 		/// Gets the selected text as plain text (markup stripped). Rows belonging to the same logical
@@ -150,7 +224,7 @@ namespace SharpConsoleUI.Controls
 			}
 			if (had)
 			{
-				SelectionChanged?.Invoke(this, string.Empty);
+				RaiseSelectionChanged(string.Empty);
 				Container?.Invalidate(true);
 			}
 		}
@@ -165,7 +239,7 @@ namespace SharpConsoleUI.Controls
 		{
 			if (!_hasSelection) return;
 			this.GetParentWindow()?.SelectionManager.SetActiveSelection(this);
-			SelectionChanged?.Invoke(this, GetSelectedText());
+			RaiseSelectionChanged(GetSelectedText());
 		}
 
 		#region Layout cache (populated by PaintDOM)

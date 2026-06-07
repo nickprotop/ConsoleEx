@@ -18,7 +18,7 @@ namespace SharpConsoleUI.Controls
 	/// A control that displays rich text content using Spectre.Console markup syntax.
 	/// Supports text alignment, margins, word wrapping, and sticky positioning.
 	/// </summary>
-	public partial class MarkupControl : BaseControl, IMouseAwareControl, ISelectableControl
+	public partial class MarkupControl : BaseControl, IMouseAwareControl, ISelectableControl, ICopyableControl
 	{
 		private List<string> _content;
 		private readonly object _contentLock = new();
@@ -203,6 +203,54 @@ namespace SharpConsoleUI.Controls
 		public void SetContent(List<string> lines)
 		{
 			lock (_contentLock) { _content = lines; }
+			OnPropertyChanged(nameof(Text));
+			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Appends a single line of markup to the end of the content.
+		/// </summary>
+		/// <param name="line">The line to append, supporting markup syntax.</param>
+		public void AppendLine(string line)
+		{
+			lock (_contentLock) { _content.Add(line ?? string.Empty); }
+			OnContentAppended();
+		}
+
+		/// <summary>
+		/// Appends multiple lines of markup to the end of the content.
+		/// </summary>
+		/// <param name="lines">The lines to append, supporting markup syntax.</param>
+		public void AppendLines(IEnumerable<string> lines)
+		{
+			lock (_contentLock)
+			{
+				foreach (var line in lines)
+					_content.Add(line ?? string.Empty);
+			}
+			OnContentAppended();
+		}
+
+		/// <summary>
+		/// Appends text to the content, splitting on newlines into separate lines.
+		/// </summary>
+		/// <param name="text">The text to append. Embedded <c>\n</c> characters start new lines.</param>
+		public void AppendText(string text)
+		{
+			var parts = (text ?? string.Empty).Split('\n');
+			lock (_contentLock)
+			{
+				foreach (var part in parts)
+					_content.Add(part);
+			}
+			OnContentAppended();
+		}
+
+		/// <summary>Shared post-append bookkeeping: any active selection is now stale, so clear it.</summary>
+		private void OnContentAppended()
+		{
+			if (_enableSelection && _hasSelection)
+				ClearSelection();
 			OnPropertyChanged(nameof(Text));
 			Container?.Invalidate(true);
 		}

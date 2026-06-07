@@ -15,10 +15,34 @@ MarkupControl displays multi-line text with rich formatting using SharpConsoleUI
 | `Wrap` | `bool` | `true` | Word-wrap text to the available width |
 | `BackgroundColor` | `Color?` | `null` | Background color (falls back to container) |
 | `ForegroundColor` | `Color?` | `null` | Text color (falls back to container) |
-| `EnableSelection` | `bool` | `false` | Opt-in mouse text selection + Ctrl+C copy (see below) |
+| `EnableSelection` | `bool` | `false` | Opt-in mouse text selection + copy shortcut (see below) |
 | `SelectionForegroundColor` | `Color?` | `null` | Foreground color for selected text |
 | `SelectionBackgroundColor` | `Color?` | `null` | Background color for selected text |
 | `HasSelection` | `bool` | `false` | (read-only) Whether text is currently selected |
+| `CopyEnabled` | `bool` | `true` | Whether the keyboard copy shortcut is active |
+| `CopyKey` | `ConsoleKey` | `C` | Key that triggers a copy |
+| `CopyModifiers` | `ConsoleModifiers` | `Control` | Modifiers required for the copy shortcut |
+
+## Methods
+
+| Method | Description |
+|--------|-------------|
+| `SetContent(List<string>)` | Replaces all content |
+| `AppendLine(string)` | Appends a single markup line |
+| `AppendLines(IEnumerable<string>)` | Appends multiple markup lines |
+| `AppendText(string)` | Appends text, splitting on `\n` |
+| `GetSelectedText()` | Returns the current selection as plain text (markup stripped) |
+| `ClearSelection()` | Clears the current selection |
+| `CopySelectionToClipboard()` | Copies the selection to the clipboard; returns `true` if anything was copied |
+| `CopyToClipboard()` | Copies the entire content (plain text) to the clipboard |
+
+## Events
+
+| Event | Type | Description |
+|-------|------|-------------|
+| `SelectionChanged` | `EventHandler<string>` | Fires when the selection changes; payload is the selected plain text (empty when cleared) |
+| `TextSelectionChanged` | `EventHandler<TextSelectionChangedEventArgs>` | Richer companion carrying `HasSelection` and `SelectedText`; fires together with `SelectionChanged` |
+| `MouseRightClick` | `EventHandler<MouseEventArgs>` | Fires on right-click (surface for a context menu — see below) |
 
 ## Creating Markup
 
@@ -174,6 +198,12 @@ markup.SelectionChanged += (sender, selectedText) =>
     // selectedText is the current plain-text selection ("" when cleared)
 };
 
+// Richer event carrying both the state and the text:
+markup.TextSelectionChanged += (sender, e) =>
+{
+    // e.HasSelection, e.SelectedText
+};
+
 markup.ClearSelection();
 ```
 
@@ -181,6 +211,121 @@ The control implements `ISelectableControl`, so it participates in the window's
 `SelectionManager` (`window.SelectionManager.ActiveSelection` / `GetSelectedText()`).
 `MultilineEditControl` also implements `ISelectableControl`, so an editor and selectable markup
 controls in the same window share the single-selection behavior.
+
+### Programmatic Copy
+
+```csharp
+// Copy the current selection (plain text). Returns false if nothing is selected.
+markup.CopySelectionToClipboard();
+
+// Copy the control's entire content (plain text), ignoring the selection.
+markup.CopyToClipboard();
+```
+
+### Customizing the Copy Shortcut
+
+The keyboard copy shortcut defaults to **Ctrl+C** and is handled at the window level. It can be
+remapped or disabled per control (programmatic copy is unaffected):
+
+```csharp
+markup.CopyKey = ConsoleKey.Y;                  // copy on Ctrl+Y
+markup.CopyModifiers = ConsoleModifiers.Control;
+markup.CopyEnabled = false;                      // disable the shortcut entirely
+
+// Or via the builder:
+Controls.Markup("...")
+    .WithSelectionEnabled()
+    .WithCopyKey(ConsoleKey.Y)        // Ctrl+Y
+    .WithCopyEnabled(true)
+    .Build();
+```
+
+### Appending Content
+
+```csharp
+markup.AppendLine("[green]New line[/]");
+markup.AppendLines(new[] { "line 2", "line 3" });
+markup.AppendText("multi\nline\ntext");   // splits on \n
+```
+
+### Right-Click Context Menu
+
+Right-click is surfaced via the `MouseRightClick` event — the control does not show a menu itself,
+leaving the app free to present its own (e.g. Copy / Copy All / Clear).
+
+A context menu is typically shown as a **portal** anchored at the click point, hosting a vertical
+`MenuControl`. The pattern below mirrors the **Selectable Text** screen in the DemoApp:
+
+```csharp
+// A small reusable portal hosting a vertical MenuControl.
+internal sealed class ContextMenuPortal : PortalContentContainer
+{
+    private readonly MenuControl _menu;
+    public event EventHandler<MenuItem>? ItemSelected;
+
+    public ContextMenuPortal(IEnumerable<MenuItem> items, int anchorX, int anchorY,
+        int windowWidth, int windowHeight)
+    {
+        _menu = new MenuControl { Orientation = MenuOrientation.Vertical };
+        foreach (var item in items) _menu.AddItem(item);
+        _menu.ItemSelected += (_, mi) => ItemSelected?.Invoke(this, mi);
+
+        DismissOnOutsideClick = true;          // library auto-dismisses on outside click
+        BorderStyle = BoxChars.Rounded;
+        PortalFocusedControl = _menu;
+        AddChild(_menu);
+        SetFocusOnFirstChild();
+
+        int w = 24, h = _menu /* item count */ is var _ ? 6 : 6;
+        // Anchor + bounds are in window CONTENT space (0,0 = first content row); Below opens the
+        // menu one line under the click. Convert window-space click coords with `- 1` (see below).
+        var pos = PortalPositioner.CalculateFromPoint(
+            new Point(anchorX, anchorY), new Size(w, h),
+            new Rectangle(0, 0, windowWidth - 2, windowHeight - 2),
+            PortalPlacement.Below);
+        PortalBounds = pos.Bounds;
+    }
+}
+
+// Wiring it to a selectable MarkupControl:
+var markup = Controls.Markup("[green]Build succeeded[/]").WithSelectionEnabled().Build();
+
+markup.MouseRightClick += (sender, args) =>
+{
+    var items = new[]
+    {
+        new MenuItem { Text = "Copy",  Shortcut = "Ctrl+C", IsEnabled = markup.HasSelection },
+        new MenuItem { Text = "Copy All" },
+        new MenuItem { IsSeparator = true },
+        new MenuItem { Text = "Clear Selection", IsEnabled = markup.HasSelection },
+    };
+
+    // args.WindowPosition is window-space (title/border at 0). Subtract the 1-cell border so the
+    // portal — positioned in content-space — opens exactly one line below the click.
+    var portal = new ContextMenuPortal(items,
+        args.WindowPosition.X - 1, args.WindowPosition.Y - 1,
+        window.Width, window.Height) { Container = window };
+
+    var node = window.CreatePortal(markup, portal);
+
+    portal.ItemSelected += (_, mi) =>
+    {
+        window.RemovePortal(markup, node);
+        switch (mi.Text)
+        {
+            case "Copy":            markup.CopySelectionToClipboard(); break;
+            case "Copy All":        markup.CopyToClipboard();          break;
+            case "Clear Selection": markup.ClearSelection();           break;
+        }
+    };
+    portal.DismissRequested += (_, _) => { /* portal already removed by the library */ };
+};
+```
+
+> **Coordinate note:** the menu is rendered as a portal arranged in window *content* space, while
+> `MouseEventArgs.WindowPosition` is in window space (the title/border occupies row 0). Subtract the
+> 1-cell border (`- 1`) from the click coordinates so `PortalPlacement.Below` places the menu top
+> exactly one row beneath the cursor.
 
 ## Examples
 

@@ -502,15 +502,28 @@ namespace SharpConsoleUI.Windows
 				if (previewHandled)
 					return true;
 
-				// Window-level copy: Ctrl+C copies the active text selection (plain text) if any
-				// selectable control owns one. This produces the same clipboard result a focused
-				// control's own Ctrl+C would, so existing controls (e.g. MultilineEdit) are unaffected.
-				if (key.Key == ConsoleKey.C
-					&& key.Modifiers.HasFlag(ConsoleModifiers.Control)
-					&& _window.SelectionManager.HasSelection)
+				// Window-level copy: the configured shortcut copies the active text selection
+				// (plain text) if any selectable control owns one. Controls implementing
+				// ICopyableControl can customize the key/modifiers or disable the shortcut; other
+				// selectable controls (e.g. MultilineEdit) keep the default Ctrl+C behavior.
+				if (_window.SelectionManager.HasSelection)
 				{
-					Helpers.ClipboardHelper.SetText(_window.SelectionManager.GetSelectedText() ?? string.Empty);
-					return true;
+					var active = _window.SelectionManager.ActiveSelection;
+					if (active is Controls.ICopyableControl copyable)
+					{
+						if (copyable.CopyEnabled
+							&& key.Key == copyable.CopyKey
+							&& key.Modifiers == copyable.CopyModifiers)
+						{
+							copyable.CopySelectionToClipboard();
+							return true;
+						}
+					}
+					else if (key.Key == ConsoleKey.C && key.Modifiers.HasFlag(ConsoleModifiers.Control))
+					{
+						Helpers.ClipboardHelper.SetText(_window.SelectionManager.GetSelectedText() ?? string.Empty);
+						return true;
+					}
 				}
 
 				if (HasActiveInteractiveContent(out var activeInteractiveContent))

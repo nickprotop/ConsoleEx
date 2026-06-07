@@ -33,6 +33,9 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	private bool _enableSelection;
 	private Color? _selectionForegroundColor;
 	private Color? _selectionBackgroundColor;
+	private bool _copyEnabled = true;
+	private ConsoleKey _copyKey = ConsoleKey.C;
+	private ConsoleModifiers _copyModifiers = ConsoleModifiers.Control;
 
 	/// <summary>
 	/// Adds a line of markup text
@@ -313,6 +316,31 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	}
 
 	/// <summary>
+	/// Sets the keyboard copy shortcut for selected text. Implies <see cref="WithSelectionEnabled"/>.
+	/// </summary>
+	/// <param name="key">The key that triggers a copy (default <see cref="ConsoleKey.C"/>).</param>
+	/// <param name="modifiers">The required modifier keys (default <see cref="ConsoleModifiers.Control"/>).</param>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder WithCopyKey(ConsoleKey key, ConsoleModifiers modifiers = ConsoleModifiers.Control)
+	{
+		_enableSelection = true;
+		_copyKey = key;
+		_copyModifiers = modifiers;
+		return this;
+	}
+
+	/// <summary>
+	/// Enables or disables the keyboard copy shortcut. Programmatic copy is unaffected.
+	/// </summary>
+	/// <param name="enabled">Whether the copy shortcut is enabled. Defaults to true.</param>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder WithCopyEnabled(bool enabled = true)
+	{
+		_copyEnabled = enabled;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the markup control
 	/// </summary>
 	/// <returns>The configured markup control</returns>
@@ -332,7 +360,10 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 			ForegroundColor = _foregroundColor,
 			EnableSelection = _enableSelection,
 			SelectionForegroundColor = _selectionForegroundColor,
-			SelectionBackgroundColor = _selectionBackgroundColor
+			SelectionBackgroundColor = _selectionBackgroundColor,
+			CopyEnabled = _copyEnabled,
+			CopyKey = _copyKey,
+			CopyModifiers = _copyModifiers
 		};
 
 		BindingHelper.ApplyDeferredBindings(this, markup);
