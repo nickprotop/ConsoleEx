@@ -100,6 +100,17 @@ namespace SharpConsoleUI.Drivers
 		public void SetCursorShape(Core.CursorShape shape);
 
 		/// <summary>
+		/// Sets the cursor shape/style together with its blink behavior.
+		/// </summary>
+		/// <param name="shape">The desired cursor shape.</param>
+		/// <param name="blink">The desired blink behavior.</param>
+		/// <remarks>
+		/// The default implementation ignores <paramref name="blink"/> and delegates to
+		/// <see cref="SetCursorShape(Core.CursorShape)"/> so existing drivers keep working.
+		/// </remarks>
+		void SetCursorShape(Core.CursorShape shape, Core.CursorBlink blink) => SetCursorShape(shape);
+
+		/// <summary>
 		/// Resets the cursor to the default shape.
 		/// </summary>
 		public void ResetCursorShape();
@@ -120,19 +131,6 @@ namespace SharpConsoleUI.Drivers
 		/// <param name="fg">The foreground color.</param>
 		/// <param name="bg">The background color.</param>
 		public void SetNarrowCell(int x, int y, char character, Color fg, Color bg);
-
-		/// <summary>
-		/// Reads the composited cell at (x,y). Returns false if unavailable/out of bounds.
-		/// </summary>
-		/// <param name="x">The horizontal position (column).</param>
-		/// <param name="y">The vertical position (row).</param>
-		/// <param name="character">The character at the cell, or a space if unavailable.</param>
-		/// <param name="foreground">The foreground color, or <see cref="Color.Default"/> if unavailable.</param>
-		/// <param name="background">The background color, or <see cref="Color.Default"/> if unavailable.</param>
-		bool TryGetCell(int x, int y, out char character, out Color foreground, out Color background)
-		{
-			character = ' '; foreground = Color.Default; background = Color.Default; return false;
-		}
 
 		/// <summary>
 		/// Fills a horizontal run of cells at the specified position with the given character and colors.

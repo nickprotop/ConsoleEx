@@ -26,7 +26,7 @@ namespace SharpConsoleUI.Core
 		private const int MaxHistorySize = 100;
 		private bool _isDisposed;
 
-		private readonly record struct AppliedCursor(bool Visible, System.Drawing.Point Position, CursorShape Shape);
+		private readonly record struct AppliedCursor(bool Visible, System.Drawing.Point Position, CursorShape Shape, CursorBlink Blink);
 		private AppliedCursor? _lastApplied;
 		private bool _physicalCursorDirty = true;
 
@@ -88,12 +88,14 @@ namespace SharpConsoleUI.Core
 		/// <param name="absolutePosition">The absolute screen position</param>
 		/// <param name="ownerControl">The control that owns the cursor (if any)</param>
 		/// <param name="shape">The cursor shape to use</param>
+		/// <param name="blink">The cursor blink behavior to use</param>
 		public void UpdateFromWindowSystem(
 			Window? ownerWindow,
 			Point? logicalPosition,
 			Point? absolutePosition,
 			IWindowControl? ownerControl,
-			CursorShape shape = CursorShape.Block)
+			CursorShape shape = CursorShape.Block,
+			CursorBlink blink = CursorBlink.Blinking)
 		{
 			bool isVisible = absolutePosition.HasValue && ownerWindow != null;
 
@@ -103,7 +105,8 @@ namespace SharpConsoleUI.Core
 				logicalPosition: logicalPosition,
 				ownerControl: ownerControl,
 				ownerWindow: ownerWindow,
-				shape: shape);
+				shape: shape,
+				blink: blink);
 
 			UpdateState(newState);
 		}
@@ -230,7 +233,7 @@ namespace SharpConsoleUI.Core
 		{
 			var state = CurrentState;
 			return $"Cursor: Visible={state.IsVisible}, Pos={state.AbsolutePosition}, " +
-				   $"Shape={state.Shape}, Owner={state.OwnerControl?.GetType().Name ?? "none"}, " +
+				   $"Shape={state.Shape}, Blink={state.Blink}, Owner={state.OwnerControl?.GetType().Name ?? "none"}, " +
 				   $"Window={state.OwnerWindow?.Title ?? "none"}";
 		}
 
@@ -249,7 +252,7 @@ namespace SharpConsoleUI.Core
 				state.AbsolutePosition.X >= 0 && state.AbsolutePosition.X < screenWidth &&
 				state.AbsolutePosition.Y >= 0 && state.AbsolutePosition.Y < screenHeight;
 			bool visible = state.IsVisible && state.Shape != CursorShape.Hidden && inBounds;
-			var target = new AppliedCursor(visible, state.AbsolutePosition, state.Shape);
+			var target = new AppliedCursor(visible, state.AbsolutePosition, state.Shape, state.Blink);
 
 			if (!_physicalCursorDirty && _lastApplied.HasValue && _lastApplied.Value == target)
 				return true;
@@ -264,8 +267,8 @@ namespace SharpConsoleUI.Core
 			}
 			else
 			{
-				if (emitAll || last!.Value.Shape != target.Shape)
-					_driver.SetCursorShape(target.Shape);
+				if (emitAll || last!.Value.Shape != target.Shape || last!.Value.Blink != target.Blink)
+					_driver.SetCursorShape(target.Shape, target.Blink);
 				if (emitAll || last!.Value.Position != target.Position)
 					_driver.SetCursorPosition(target.Position.X, target.Position.Y);
 				if (emitAll || !last!.Value.Visible)

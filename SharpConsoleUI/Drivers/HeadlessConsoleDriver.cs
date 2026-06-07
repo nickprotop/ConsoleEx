@@ -60,7 +60,8 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 	public int SetCursorVisibleCallCount { get; private set; }
 
 	/// <summary>
-	/// Gets the number of times <see cref="SetCursorShape"/> has been called.
+	/// Gets the number of times <see cref="SetCursorShape(CursorShape)"/> has been called
+	/// (the two-arg overload delegates to it, so it counts both).
 	/// </summary>
 	public int SetCursorShapeCallCount { get; private set; }
 
@@ -160,12 +161,26 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 	}
 
 	/// <summary>
+	/// Gets the blink behavior passed to the most recent <see cref="SetCursorShape(CursorShape, CursorBlink)"/> call.
+	/// </summary>
+	public CursorBlink LastCursorBlink { get; private set; } = CursorBlink.Blinking;
+
+	/// <summary>
 	/// Sets the cursor shape (no-op for headless).
 	/// </summary>
 	public void SetCursorShape(CursorShape shape)
 	{
 		SetCursorShapeCallCount++;
 		// No-op for headless driver
+	}
+
+	/// <summary>
+	/// Sets the cursor shape and blink (records the blink for inspection; otherwise a no-op).
+	/// </summary>
+	public void SetCursorShape(CursorShape shape, CursorBlink blink)
+	{
+		LastCursorBlink = blink;
+		SetCursorShape(shape);
 	}
 
 	/// <summary>

@@ -56,12 +56,9 @@ namespace SharpConsoleUI
 		// Managed thread id of the main-loop (UI) thread; set at Run() start. -1 until then.
 		private int _uiThreadId = -1;
 
-		// Software cursor: opt-in caret drawn by the app (blinking) with hardware cursor hidden.
-		// Resolved once at startup from the driver's options.
-		private bool _useSoftwareCursor;
-		private int _cursorBlinkRateMs = 500;
-		private readonly Core.CursorBlinkClock _blinkClock = new();
-		private System.Drawing.Point _lastSoftwareCursorPos = new(-1, -1);
+		// System-wide default hardware-cursor blink behavior, resolved once at startup from the
+		// driver's options. Per-cursor providers (ICursorBlinkProvider) override this per frame.
+		private Core.CursorBlink _defaultCursorBlink = Core.CursorBlink.Blinking;
 
 		// Signal to wake the main loop when input or UI actions arrive
 		private readonly ManualResetEventSlim _wakeSignal = new(false);
@@ -415,12 +412,11 @@ namespace SharpConsoleUI
 			// Initialize panels from config or legacy StatusBarOptions
 			_panelStateService.InitializePanels(_options);
 
-			// Resolve software-cursor settings once from the driver's options (if it exposes them).
-			// Headless/other drivers leave the defaults (false / 500ms).
+			// Resolve the system-wide default cursor-blink behavior once from the driver's options
+			// (if it exposes them). Headless/other drivers leave the default (Blinking).
 			if (_consoleDriver is Drivers.NetConsoleDriver netDriver)
 			{
-				_useSoftwareCursor = netDriver.Options.UseSoftwareCursor;
-				_cursorBlinkRateMs = netDriver.Options.CursorBlinkRate;
+				_defaultCursorBlink = netDriver.Options.CursorBlink;
 			}
 		}
 
@@ -474,10 +470,6 @@ namespace SharpConsoleUI
 		/// Gets the cursor state service for managing cursor visibility and position.
 		/// </summary>
 		internal CursorStateService CursorStateService => _cursorStateService;
-
-		/// <summary>True when a software caret should currently be drawn.</summary>
-		internal bool SoftwareCursorOn =>
-			_useSoftwareCursor && _cursorStateService.CurrentState.IsVisible && _blinkClock.IsOn(_cursorBlinkRateMs);
 
 		/// <summary>
 		/// Gets the window state service for managing window lifecycle and state.
@@ -939,8 +931,6 @@ namespace SharpConsoleUI
 					var now = DateTime.UtcNow;
 					var elapsed = (now - _lastRenderTime).TotalMilliseconds;
 
-					if (_useSoftwareCursor) _blinkClock.Advance(elapsed);
-
 					// Track performance metrics on EVERY iteration (independent of rendering)
 					bool metricsNeedUpdate = false;
 					if (Performance.IsPerformanceMetricsEnabled)
@@ -964,8 +954,7 @@ namespace SharpConsoleUI
 					}
 
 					// Frame pacing: render if windows are dirty OR metrics need update OR desktop needs render OR animations active
-					bool shouldRender = AnyWindowDirty() || metricsNeedUpdate || Render.DesktopNeedsRender || Animations.HasActiveAnimations || Parsing.MarkupSpinnerClock.ShouldKeepRendering(Animations.IsEnabled) || Render.IsStatusBarDirty() || _desktopPortalService.AnyPortalDirty()
-						|| (_useSoftwareCursor && _cursorStateService.CurrentState.IsVisible);
+					bool shouldRender = AnyWindowDirty() || metricsNeedUpdate || Render.DesktopNeedsRender || Animations.HasActiveAnimations || Parsing.MarkupSpinnerClock.ShouldKeepRendering(Animations.IsEnabled) || Render.IsStatusBarDirty() || _desktopPortalService.AnyPortalDirty();
 
 					// Calculate recommended sleep duration once (used in both branches)
 					var recommendedSleep = _inputStateService.GetRecommendedSleepDuration(
@@ -1008,9 +997,6 @@ namespace SharpConsoleUI
 					UpdateCursor();
 					if (_uiActionsPending && _idleTime > Configuration.SystemDefaults.MinSleepDurationMs)
 						_idleTime = Configuration.SystemDefaults.MinSleepDurationMs;
-					// Keep the loop ticking fast enough for smooth caret blinking.
-					if (_useSoftwareCursor && _cursorStateService.CurrentState.IsVisible)
-						_idleTime = Math.Min(_idleTime, _cursorBlinkRateMs);
 					_currentPhase = Core.MainLoopPhase.Idle;
 					try
 					{
@@ -1320,6 +1306,8 @@ namespace SharpConsoleUI
 					// Get the owner control if available
 					IWindowControl? ownerControl = null;
 					CursorShape cursorShape = CursorShape.Block;
+					// Seed blink from the system-wide default; a per-cursor provider may override it below.
+					CursorBlink cursorBlink = _defaultCursorBlink;
 
 					if (ActiveWindow.EventDispatcher != null && ActiveWindow.EventDispatcher.HasActiveInteractiveContent(out var interactiveContent) &&
 						interactiveContent is IWindowControl windowControl)
@@ -1340,6 +1328,18 @@ namespace SharpConsoleUI
 						{
 							cursorShape = shapeProvider.PreferredCursorShape.Value;
 						}
+
+						// Blink resolves the same way: deepest provider first, then top-level control.
+						if (deepestControl is ICursorBlinkProvider deepBlinkProvider &&
+							deepBlinkProvider.PreferredCursorBlink.HasValue)
+						{
+							cursorBlink = deepBlinkProvider.PreferredCursorBlink.Value;
+						}
+						else if (windowControl is ICursorBlinkProvider blinkProvider &&
+							blinkProvider.PreferredCursorBlink.HasValue)
+						{
+							cursorBlink = blinkProvider.PreferredCursorBlink.Value;
+						}
 					}
 
 					// Update cursor state service with new state
@@ -1348,7 +1348,8 @@ namespace SharpConsoleUI
 						logicalPosition: cursorPosition,
 						absolutePosition: new Point(absoluteLeft, absoluteTop),
 						ownerControl: ownerControl,
-						shape: cursorShape);
+						shape: cursorShape,
+						blink: cursorBlink);
 				}
 				else
 				{
@@ -1360,18 +1361,6 @@ namespace SharpConsoleUI
 				_cursorStateService.HideCursor();
 			}
 
-			// Software cursor: reset the blink clock whenever the caret moves so the new
-			// position starts in the "on" phase. CurrentState holds the real (visible) caret.
-			if (_useSoftwareCursor)
-			{
-				var caretPos = _cursorStateService.CurrentState.AbsolutePosition;
-				if (caretPos != _lastSoftwareCursorPos)
-				{
-					_blinkClock.Reset();
-					_lastSoftwareCursorPos = caretPos;
-				}
-			}
-
 			// Apply cursor state to the actual console
 			// CRITICAL: Protect Console I/O with lock to prevent concurrent writes
 			// from corrupting ANSI sequences during InputLoop's mouse parsing
@@ -1380,15 +1369,6 @@ namespace SharpConsoleUI
 				_cursorStateService.ApplyCursorToConsole(
 					_consoleDriver.ScreenSize.Width,
 					_consoleDriver.ScreenSize.Height);
-
-				// Software cursor: keep CurrentState as the real (visible) caret for the overlay,
-				// but force the HARDWARE cursor hidden so only the app-drawn caret is seen.
-				// Only emit when the caret is logically visible (avoids churn; the overlay
-				// redraws every frame while focused — see the keep-alive in the main loop).
-				if (_useSoftwareCursor && _cursorStateService.CurrentState.IsVisible)
-				{
-					_consoleDriver.SetCursorVisible(false);
-				}
 			}
 		}
 

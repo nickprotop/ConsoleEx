@@ -25,6 +25,19 @@ namespace SharpConsoleUI.Core
 	}
 
 	/// <summary>
+	/// Interface for controls that can specify a preferred cursor blink behavior.
+	/// Controls implementing this interface can customize whether the cursor blinks when focused.
+	/// </summary>
+	public interface ICursorBlinkProvider
+	{
+		/// <summary>
+		/// Gets the preferred cursor blink behavior for this control.
+		/// Return null to use the system default blink.
+		/// </summary>
+		CursorBlink? PreferredCursorBlink { get; }
+	}
+
+	/// <summary>
 	/// Represents the shape/style of the cursor
 	/// </summary>
 	public enum CursorShape
@@ -90,6 +103,11 @@ namespace SharpConsoleUI.Core
 		public CursorShape Shape { get; init; }
 
 		/// <summary>
+		/// The blink behavior of the cursor
+		/// </summary>
+		public CursorBlink Blink { get; init; }
+
+		/// <summary>
 		/// Timestamp when this state was created
 		/// </summary>
 		public DateTime UpdateTime { get; init; }
@@ -103,7 +121,8 @@ namespace SharpConsoleUI.Core
 			Point? logicalPosition = null,
 			IWindowControl? ownerControl = null,
 			Window? ownerWindow = null,
-			CursorShape shape = CursorShape.Block)
+			CursorShape shape = CursorShape.Block,
+			CursorBlink blink = CursorBlink.Blinking)
 		{
 			IsVisible = isVisible;
 			AbsolutePosition = absolutePosition ?? Point.Empty;
@@ -111,6 +130,7 @@ namespace SharpConsoleUI.Core
 			OwnerControl = ownerControl;
 			OwnerWindow = ownerWindow;
 			Shape = shape;
+			Blink = blink;
 			UpdateTime = DateTime.UtcNow;
 		}
 

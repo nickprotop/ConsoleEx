@@ -598,8 +598,8 @@ namespace SharpConsoleUI.Drivers
 			bool blinking = blink == Core.CursorBlink.Blinking;
 			return shape switch
 			{
-				Core.CursorShape.Block       => blinking ? 1 : 2,
-				Core.CursorShape.Underline   => blinking ? 3 : 4,
+				Core.CursorShape.Block => blinking ? 1 : 2,
+				Core.CursorShape.Underline => blinking ? 3 : 4,
 				Core.CursorShape.VerticalBar => blinking ? 5 : 6,
 				_ => blinking ? 1 : 2,
 			};
@@ -608,7 +608,13 @@ namespace SharpConsoleUI.Drivers
 		/// <inheritdoc/>
 		public void SetCursorShape(Core.CursorShape shape)
 		{
-			int code = DecscusrCode(shape, Options.CursorBlink);
+			SetCursorShape(shape, Options.CursorBlink);
+		}
+
+		/// <inheritdoc/>
+		public void SetCursorShape(Core.CursorShape shape, Core.CursorBlink blink)
+		{
+			int code = DecscusrCode(shape, blink);
 			WriteOutput($"\x1b[{code} q");
 		}
 
@@ -643,14 +649,6 @@ namespace SharpConsoleUI.Drivers
 					_consoleBuffer?.SetNarrowCell(x, y, character, fg, bg);
 					break;
 			}
-		}
-
-		/// <inheritdoc/>
-		public bool TryGetCell(int x, int y, out char character, out Color foreground, out Color background)
-		{
-			if (RenderMode == RenderMode.Buffer && _consoleBuffer != null)
-				return _consoleBuffer.TryGetCell(x, y, out character, out foreground, out background);
-			character = ' '; foreground = Color.Default; background = Color.Default; return false;
 		}
 
 		/// <inheritdoc/>

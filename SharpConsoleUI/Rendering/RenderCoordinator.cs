@@ -361,20 +361,6 @@ namespace SharpConsoleUI.Rendering
 				// Clear the region update set for next frame
 				_windowsNeedingRegionUpdate.Clear();
 
-				// Software cursor overlay: draw an inverse-video caret at the cursor position when "on".
-				if (_windowSystemContext.SoftwareCursorOn)
-				{
-					var cp = _windowSystemContext.CursorStateService.CurrentState.AbsolutePosition;
-					if (_consoleDriver.TryGetCell(cp.X, cp.Y, out var ch, out var fg, out var bg))
-					{
-						// Resolve Default colors to the active window's colors so the inverse is visible.
-						var aw = _windowSystemContext.ActiveWindow;
-						if (fg.IsDefault && aw != null) fg = aw.ForegroundColor;
-						if (bg.IsDefault && aw != null) bg = aw.BackgroundColor;
-						_consoleDriver.SetNarrowCell(cp.X, cp.Y, ch == '\0' ? ' ' : ch, bg, fg); // swap fg/bg
-					}
-				}
-
 				_consoleDriver.Flush();
 
 				// A rendered frame physically moved the terminal cursor; force the next cursor
