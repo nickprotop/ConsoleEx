@@ -320,6 +320,11 @@ editor.ClearFind();       // Remove all match highlighting
 | Insert | Toggle overwrite mode |
 | Escape | Exit edit mode (if `EscapeExitsEditMode` is true) |
 
+> Copy/paste works locally and over SSH. The editor implements `IPasteTarget`, so `Ctrl+V` and
+> terminal-native (bracketed) paste both insert atomically. See
+> [Clipboard, Copy & Paste](../CLIPBOARD.md) for how copy reaches the local clipboard over SSH
+> (OSC 52) and how to configure it.
+
 ## Mouse Support
 
 | Interaction | Action |

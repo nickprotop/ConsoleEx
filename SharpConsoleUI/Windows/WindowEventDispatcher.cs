@@ -228,8 +228,12 @@ namespace SharpConsoleUI.Windows
 						// (empty space, a panel, or another control). The control under the cursor — if it
 						// is selectable — re-establishes its own selection as the drag proceeds. We guard on
 						// "no mouse capture in progress" so SGR drag-continuation presses (Button1Pressed sent
-						// during an active drag) don't wipe the selection being extended.
-						if (args.HasFlag(MouseFlags.Button1Pressed) && _mouseCaptureControl == null)
+						// during an active drag) don't wipe the selection being extended. We also skip the
+						// clear when the press lands inside an open portal (e.g. a right-click context menu
+						// whose "Copy" item acts on the current selection) — otherwise the selection would be
+						// gone before the menu action runs.
+						if (args.HasFlag(MouseFlags.Button1Pressed) && _mouseCaptureControl == null
+							&& !IsPositionInsideAnyPortal(args))
 						{
 							_window.SelectionManager.ClearSelection();
 						}
@@ -300,6 +304,32 @@ namespace SharpConsoleUI.Windows
 
 				return false; // Event not handled
 			}
+		}
+
+		/// <summary>
+		/// Returns true if the given window position lands inside any open portal's bounds.
+		/// Used so that clicking inside an overlay (e.g. a context menu acting on the current text
+		/// selection) does not trigger the window-level clear-selection-on-press.
+		/// </summary>
+		private bool IsPositionInsideAnyPortal(MouseEventArgs args)
+		{
+			var root = _window.RootLayoutNode;
+			if (root == null) return false;
+
+			var contentPos = GetContentCoordinates(args.WindowPosition);
+			bool inside = false;
+			root.Visit(node =>
+			{
+				foreach (var portal in node.PortalChildren)
+				{
+					if (portal.Control is IHasPortalBounds hasPortalBounds
+						&& hasPortalBounds.GetPortalBounds().Contains(contentPos))
+					{
+						inside = true;
+					}
+				}
+			});
+			return inside;
 		}
 
 		/// <summary>

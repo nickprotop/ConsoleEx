@@ -212,6 +212,9 @@ The control implements `ISelectableControl`, so it participates in the window's
 `MultilineEditControl` also implements `ISelectableControl`, so an editor and selectable markup
 controls in the same window share the single-selection behavior.
 
+> Copy works locally **and over SSH** — see [Clipboard, Copy & Paste](../CLIPBOARD.md) for how OSC 52
+> carries the copy to the local clipboard over a remote session, and how to configure it.
+
 ### Programmatic Copy
 
 ```csharp

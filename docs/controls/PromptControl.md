@@ -90,6 +90,10 @@ prompt.Entered += (sender, text) => ProcessInput(text);
 | `Ctrl+V` | Paste from clipboard |
 | `Ctrl+X` | Cut selection to clipboard |
 
+> Copy/paste works locally and over SSH. The control implements `IPasteTarget` (paste is single-line:
+> newlines are flattened to spaces). See [Clipboard, Copy & Paste](../CLIPBOARD.md) for the OSC 52
+> remote-clipboard behavior and configuration.
+
 ### History & Completion
 
 | Key | Action |
