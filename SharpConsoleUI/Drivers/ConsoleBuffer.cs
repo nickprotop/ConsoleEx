@@ -216,6 +216,81 @@ namespace SharpConsoleUI.Drivers
 		}
 
 		/// <summary>
+		/// Reads the back-buffer cell at (x,y). Returns false if out of bounds.
+		/// </summary>
+		/// <remarks>
+		/// The <see cref="Cell"/> stores colors only as a baked ANSI escape sequence (not as
+		/// discrete <see cref="Color"/> fields), so the foreground/background are parsed back out
+		/// of that sequence. A wide-character continuation cell reports the base character.
+		/// </remarks>
+		public bool TryGetCell(int x, int y, out char character, out Color foreground, out Color background)
+		{
+			if (x < 0 || x >= _width || y < 0 || y >= _height)
+			{
+				character = ' '; foreground = Color.Default; background = Color.Default;
+				return false;
+			}
+
+			ref readonly var cell = ref _backBuffer[x, y];
+
+			// A wide-char continuation cell has no glyph of its own; report the base cell's char.
+			Rune rune = cell.Character;
+			if (cell.IsWideContinuation && x > 0)
+				rune = _backBuffer[x - 1, y].Character;
+
+			// BMP code points map to a single char; anything above U+FFFF (surrogate pair) is
+			// reported via its high-surrogate's first char, which is the best a char-typed API can do.
+			string s = rune.ToString();
+			character = s.Length > 0 ? s[0] : ' ';
+
+			ParseAnsiColors(cell.AnsiEscape, out foreground, out background);
+			return true;
+		}
+
+		/// <summary>
+		/// Parses the foreground/background colors out of an ANSI escape sequence produced by
+		/// <see cref="FormatCellAnsi"/> (e.g. <c>\x1b[0;38;2;R;G;B;48;2;R;G;B...m</c>). The
+		/// <c>39</c>/<c>49</c> default codes map back to <see cref="Color.Default"/>.
+		/// </summary>
+		private static void ParseAnsiColors(string ansi, out Color foreground, out Color background)
+		{
+			foreground = Color.Default;
+			background = Color.Default;
+
+			if (string.IsNullOrEmpty(ansi))
+				return;
+
+			// Strip the leading CSI ("\x1b[") and trailing terminator ("m").
+			int start = ansi.IndexOf('[');
+			int end = ansi.LastIndexOf('m');
+			if (start < 0 || end <= start)
+				return;
+
+			string body = ansi.Substring(start + 1, end - start - 1);
+			string[] parts = body.Split(';');
+
+			for (int i = 0; i < parts.Length; i++)
+			{
+				if (parts[i] == "39") { foreground = Color.Default; continue; }
+				if (parts[i] == "49") { background = Color.Default; continue; }
+
+				// 38;2;R;G;B (foreground) or 48;2;R;G;B (background)
+				if ((parts[i] == "38" || parts[i] == "48") &&
+				    i + 4 < parts.Length && parts[i + 1] == "2")
+				{
+					if (byte.TryParse(parts[i + 2], out byte r) &&
+					    byte.TryParse(parts[i + 3], out byte g) &&
+					    byte.TryParse(parts[i + 4], out byte b))
+					{
+						var color = new Color(r, g, b);
+						if (parts[i] == "38") foreground = color; else background = color;
+						i += 4;
+					}
+				}
+			}
+		}
+
+		/// <summary>
 		/// Fills a horizontal run of cells in the back buffer with the specified character and colors.
 		/// </summary>
 		/// <param name="x">The starting horizontal position (column).</param>

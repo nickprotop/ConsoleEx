@@ -122,6 +122,19 @@ namespace SharpConsoleUI.Drivers
 		public void SetNarrowCell(int x, int y, char character, Color fg, Color bg);
 
 		/// <summary>
+		/// Reads the composited cell at (x,y). Returns false if unavailable/out of bounds.
+		/// </summary>
+		/// <param name="x">The horizontal position (column).</param>
+		/// <param name="y">The vertical position (row).</param>
+		/// <param name="character">The character at the cell, or a space if unavailable.</param>
+		/// <param name="foreground">The foreground color, or <see cref="Color.Default"/> if unavailable.</param>
+		/// <param name="background">The background color, or <see cref="Color.Default"/> if unavailable.</param>
+		bool TryGetCell(int x, int y, out char character, out Color foreground, out Color background)
+		{
+			character = ' '; foreground = Color.Default; background = Color.Default; return false;
+		}
+
+		/// <summary>
 		/// Fills a horizontal run of cells at the specified position with the given character and colors.
 		/// </summary>
 		/// <param name="x">The starting horizontal position (column).</param>

@@ -592,22 +592,24 @@ namespace SharpConsoleUI.Drivers
 				Console.CursorVisible = visible;
 		}
 
+		internal static int DecscusrCode(Core.CursorShape shape, Core.CursorBlink blink)
+		{
+			if (blink == Core.CursorBlink.TerminalDefault) return 0;
+			bool blinking = blink == Core.CursorBlink.Blinking;
+			return shape switch
+			{
+				Core.CursorShape.Block       => blinking ? 1 : 2,
+				Core.CursorShape.Underline   => blinking ? 3 : 4,
+				Core.CursorShape.VerticalBar => blinking ? 5 : 6,
+				_ => blinking ? 1 : 2,
+			};
+		}
+
 		/// <inheritdoc/>
 		public void SetCursorShape(Core.CursorShape shape)
 		{
-			int shapeCode = shape switch
-			{
-				Core.CursorShape.Block => 2,
-				Core.CursorShape.Underline => 4,
-				Core.CursorShape.VerticalBar => 6,
-				Core.CursorShape.Hidden => 0,
-				_ => 2
-			};
-
-			if (shapeCode > 0)
-			{
-				WriteOutput($"\x1b[{shapeCode} q");
-			}
+			int code = DecscusrCode(shape, Options.CursorBlink);
+			WriteOutput($"\x1b[{code} q");
 		}
 
 		/// <inheritdoc/>
@@ -641,6 +643,14 @@ namespace SharpConsoleUI.Drivers
 					_consoleBuffer?.SetNarrowCell(x, y, character, fg, bg);
 					break;
 			}
+		}
+
+		/// <inheritdoc/>
+		public bool TryGetCell(int x, int y, out char character, out Color foreground, out Color background)
+		{
+			if (RenderMode == RenderMode.Buffer && _consoleBuffer != null)
+				return _consoleBuffer.TryGetCell(x, y, out character, out foreground, out background);
+			character = ' '; foreground = Color.Default; background = Color.Default; return false;
 		}
 
 		/// <inheritdoc/>

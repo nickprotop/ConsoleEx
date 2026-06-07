@@ -40,6 +40,20 @@ namespace SharpConsoleUI.Core
 	}
 
 	/// <summary>
+	/// Controls hardware-cursor blinking via DECSCUSR. The terminal owns the blink rate;
+	/// only blinking-vs-steady (and the terminal default) can be selected.
+	/// </summary>
+	public enum CursorBlink
+	{
+		/// <summary>Non-blinking cursor (DECSCUSR even codes).</summary>
+		Steady,
+		/// <summary>Blinking at the terminal's native rate (DECSCUSR odd codes).</summary>
+		Blinking,
+		/// <summary>Terminal default (DECSCUSR 0).</summary>
+		TerminalDefault
+	}
+
+	/// <summary>
 	/// Immutable record representing the current state of the cursor.
 	/// Provides a single source of truth for cursor visibility, position, and ownership.
 	/// </summary>

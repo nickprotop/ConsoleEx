@@ -31,6 +31,17 @@ namespace SharpConsoleUI.Drivers
 		public int CursorBlinkRate { get; set; } = 500;
 
 		/// <summary>
+		/// Hardware cursor blink behavior. Default Blinking preserves conventional behavior.
+		/// </summary>
+		public Core.CursorBlink CursorBlink { get; set; } = Core.CursorBlink.Blinking;
+
+		/// <summary>
+		/// When true, the app draws a software caret (blinking at CursorBlinkRate) and the hardware
+		/// cursor is hidden. Default false (hardware cursor).
+		/// </summary>
+		public bool UseSoftwareCursor { get; set; } = false;
+
+		/// <summary>
 		/// Creates a default options instance with RenderMode.Buffer.
 		/// </summary>
 		public static NetConsoleDriverOptions Default => new()

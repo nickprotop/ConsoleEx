@@ -26,6 +26,16 @@ namespace SharpConsoleUI.Core
 		private const int MaxHistorySize = 100;
 		private bool _isDisposed;
 
+		private readonly record struct AppliedCursor(bool Visible, System.Drawing.Point Position, CursorShape Shape);
+		private AppliedCursor? _lastApplied;
+		private bool _physicalCursorDirty = true;
+
+		/// <summary>
+		/// Marks the physical terminal cursor as moved (e.g. after a frame render writes cells),
+		/// forcing the next ApplyCursorToConsole to reposition it.
+		/// </summary>
+		public void InvalidatePhysicalCursor() => _physicalCursorDirty = true;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="CursorStateService"/> class.
 		/// </summary>
@@ -235,27 +245,36 @@ namespace SharpConsoleUI.Core
 		{
 			var state = CurrentState;
 
-			if (!state.IsVisible || state.Shape == CursorShape.Hidden)
-			{
-				_driver.SetCursorVisible(false);
+			bool inBounds =
+				state.AbsolutePosition.X >= 0 && state.AbsolutePosition.X < screenWidth &&
+				state.AbsolutePosition.Y >= 0 && state.AbsolutePosition.Y < screenHeight;
+			bool visible = state.IsVisible && state.Shape != CursorShape.Hidden && inBounds;
+			var target = new AppliedCursor(visible, state.AbsolutePosition, state.Shape);
+
+			if (!_physicalCursorDirty && _lastApplied.HasValue && _lastApplied.Value == target)
 				return true;
-			}
 
-			var pos = state.AbsolutePosition;
+			bool emitAll = _physicalCursorDirty || !_lastApplied.HasValue;
+			var last = _lastApplied;
 
-			// Bounds check
-			if (pos.X < 0 || pos.X >= screenWidth || pos.Y < 0 || pos.Y >= screenHeight)
+			if (!visible)
 			{
-				_driver.SetCursorVisible(false);
-				return false;
+				if (emitAll || last!.Value.Visible)
+					_driver.SetCursorVisible(false);
+			}
+			else
+			{
+				if (emitAll || last!.Value.Shape != target.Shape)
+					_driver.SetCursorShape(target.Shape);
+				if (emitAll || last!.Value.Position != target.Position)
+					_driver.SetCursorPosition(target.Position.X, target.Position.Y);
+				if (emitAll || !last!.Value.Visible)
+					_driver.SetCursorVisible(true);
 			}
 
-			// Apply cursor shape, position, and make visible
-			_driver.SetCursorShape(state.Shape);
-			_driver.SetCursorPosition(pos.X, pos.Y);
-			_driver.SetCursorVisible(true);
-
-			return true;
+			_lastApplied = target;
+			_physicalCursorDirty = false;
+			return target.Visible;
 		}
 
 		/// <inheritdoc/>

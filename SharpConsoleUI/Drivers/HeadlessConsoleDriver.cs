@@ -50,6 +50,21 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 	public string FullOutput => string.Join("", _outputHistory);
 
 	/// <summary>
+	/// Gets the number of times <see cref="SetCursorPosition"/> has been called.
+	/// </summary>
+	public int SetCursorPositionCallCount { get; private set; }
+
+	/// <summary>
+	/// Gets the number of times <see cref="SetCursorVisible"/> has been called.
+	/// </summary>
+	public int SetCursorVisibleCallCount { get; private set; }
+
+	/// <summary>
+	/// Gets the number of times <see cref="SetCursorShape"/> has been called.
+	/// </summary>
+	public int SetCursorShapeCallCount { get; private set; }
+
+	/// <summary>
 	/// Gets or sets the cursor position.
 	/// </summary>
 	public Point CursorPosition
@@ -131,6 +146,7 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 	/// </summary>
 	public void SetCursorPosition(int x, int y)
 	{
+		SetCursorPositionCallCount++;
 		_cursorPosition = new Point(x, y);
 	}
 
@@ -139,6 +155,7 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 	/// </summary>
 	public void SetCursorVisible(bool visible)
 	{
+		SetCursorVisibleCallCount++;
 		_cursorVisible = visible;
 	}
 
@@ -147,6 +164,7 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 	/// </summary>
 	public void SetCursorShape(CursorShape shape)
 	{
+		SetCursorShapeCallCount++;
 		// No-op for headless driver
 	}
 
