@@ -702,28 +702,6 @@ namespace SharpConsoleUI.Controls
 									}
 									return true;
 
-								case ConsoleKey.V:
-									if (!_readOnly)
-									{
-										string clipText = ClipboardHelper.GetText();
-										if (!string.IsNullOrEmpty(clipText))
-										{
-											clipText = SanitizeInputText(clipText);
-											if (_hasSelection) DeleteSelectedText();
-											clipText = TruncateToMaxLength(clipText);
-											if (clipText.Length > 0)
-											{
-												InsertTextAtCursor(clipText);
-												CommitUndoAction();
-												InvalidateWrappedLinesCache();
-												EnsureCursorVisible();
-												Container?.Invalidate(true);
-												Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
-											}
-										}
-									}
-									return true;
-
 								case ConsoleKey.Z:
 									if (_undoStack.Count > 0)
 									{

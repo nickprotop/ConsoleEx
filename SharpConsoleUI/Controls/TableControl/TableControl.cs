@@ -25,7 +25,7 @@ namespace SharpConsoleUI.Controls;
 /// keyboard navigation, scrolling, sorting, multi-selection, column resizing,
 /// inline editing, draggable scrollbars, and virtual data binding.
 /// </summary>
-public partial class TableControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
+public partial class TableControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IPasteTarget
 {
 	#region Fields
 

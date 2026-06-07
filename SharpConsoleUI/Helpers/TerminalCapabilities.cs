@@ -17,6 +17,10 @@ namespace SharpConsoleUI.Helpers
 		private static bool? _supportsVS16Widening;
 		private static bool? _supportsUnicode16Widths;
 		private static bool? _supportsKittyGraphics;
+		private static bool? _isRemoteSession;
+		private static bool? _isTmux;
+		private static bool? _isScreen;
+		private static bool? _osc52Override; // explicit override; null = auto
 
 		/// <summary>
 		/// Whether the terminal renders emoji+VS16 (U+FE0F) as 2 columns.
@@ -47,6 +51,37 @@ namespace SharpConsoleUI.Helpers
 		{
 			get => _supportsKittyGraphics ?? false;
 		}
+
+		/// <summary>Whether the session looks remote (SSH_TTY or SSH_CONNECTION set).</summary>
+		public static bool IsRemoteSession => _isRemoteSession ?? false;
+
+		/// <summary>Whether running under tmux (TMUX set). OSC 52 must be passthrough-wrapped.</summary>
+		public static bool IsTmux => _isTmux ?? false;
+
+		/// <summary>Whether running under GNU screen (STY set). OSC 52 is unreliable here.</summary>
+		public static bool IsScreen => _isScreen ?? false;
+
+		/// <summary>
+		/// Whether OSC 52 clipboard writes should be attempted. Defaults to true unless under
+		/// screen. An explicit override (see <see cref="SetOsc52Override"/>) wins.
+		/// </summary>
+		public static bool SupportsOsc52 => _osc52Override ?? !IsScreen;
+
+		/// <summary>Forces OSC 52 support on/off, or pass null to restore auto-detection.</summary>
+		public static void SetOsc52Override(bool? value) => _osc52Override = value;
+
+		/// <summary>Reads SSH/tmux/screen environment variables once and caches the result.</summary>
+		internal static void DetectClipboardEnvironment()
+		{
+			_isRemoteSession =
+				!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SSH_TTY")) ||
+				!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SSH_CONNECTION"));
+			_isTmux = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TMUX"));
+			_isScreen = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("STY"));
+		}
+
+		/// <summary>Test hook: re-runs detection (cache reset) so env-var cases are independent.</summary>
+		internal static void DetectClipboardEnvironmentForTests() => DetectClipboardEnvironment();
 
 		/// <summary>
 		/// Probes the terminal to determine rendering capabilities.

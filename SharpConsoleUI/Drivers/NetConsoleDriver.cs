@@ -235,6 +235,9 @@ namespace SharpConsoleUI.Drivers
 		public event EventHandler<ConsoleKeyInfo>? KeyPressed;
 
 		/// <inheritdoc/>
+		public event EventHandler<string>? Paste;
+
+		/// <inheritdoc/>
 		public event IConsoleDriver.MouseEventHandler? MouseEvent;
 
 		/// <inheritdoc/>
@@ -418,11 +421,20 @@ namespace SharpConsoleUI.Drivers
 			// Disable autowrap to prevent terminal scroll when writing to bottom-right corner
 			WriteOutput("\x1b[?7l");
 
+			// Enable bracketed paste so terminal-native paste is delivered as one atomic block
+			// (recognized via ESC[200~ .. ESC[201~) instead of key-by-key.
+			WriteOutput("\x1b[?2004h");
+
 			// Probe terminal VS16 widening support before input loops start.
 			// Uses DSR cursor position query to measure actual emoji width.
 			log?.LogDebug("Probing terminal capabilities (VS16 emoji widening)", "Driver");
 			ProbeTerminalCapabilities();
 			log?.LogDebug("Terminal capability probe complete", "Driver");
+
+			// Detect SSH / tmux / screen for clipboard (OSC 52) decisions, and wire the emitter
+			// so ClipboardHelper can route OSC 52 through this driver's locked output.
+			Helpers.TerminalCapabilities.DetectClipboardEnvironment();
+			Helpers.ClipboardHelper.RegisterOsc52Emitter(WriteClipboardOsc52);
 
 			_lastConsoleWidth = screenSize.Width;
 			_lastConsoleHeight = screenSize.Height;
@@ -446,6 +458,7 @@ namespace SharpConsoleUI.Drivers
 						cts.Token,
 						onKey: key => KeyPressed?.Invoke(this, key),
 						onMouse: (flags, pos) => MouseEvent?.Invoke(this, flags, pos),
+						onPaste: text => Paste?.Invoke(this, text),
 						continuousButtonPressedHandler: (flag, pos) =>
 						{
 							var continuousFlags = new List<MouseFlags> { flag };
@@ -455,7 +468,9 @@ namespace SharpConsoleUI.Drivers
 			}
 			else
 			{
-				// Windows or fallback: use Console.ReadKey-based InputLoop
+				// Windows or fallback: use Console.ReadKey-based InputLoop.
+				// Note: bracketed paste (and thus the Paste event) is produced only by the
+				// Unix raw-mode stdin reader above; this Console.ReadKey path never raises Paste.
 				log?.LogDebug("Starting Console.ReadKey input loop", "Driver");
 				var inputTask = Task.Run(InputLoop);
 			}
@@ -493,6 +508,7 @@ namespace SharpConsoleUI.Drivers
 				TerminalRawMode.WriteStdout("\x1b[?7h");   // Re-enable autowrap
 				TerminalRawMode.WriteStdout("\x1b[0m");    // Reset ANSI attributes
 				TerminalRawMode.WriteStdout("\x1b[?25h");  // Make cursor visible
+				TerminalRawMode.WriteStdout("\x1b[?2004l"); // Disable bracketed paste
 				TerminalRawMode.WriteStdout("\x1b[?1049l"); // Leave alternate screen buffer
 			}
 
@@ -569,6 +585,9 @@ namespace SharpConsoleUI.Drivers
 			SetCursorVisible(true);
 			ResetCursorShape();
 
+			// Unregister the OSC 52 emitter so a stopped driver doesn't keep a dangling delegate.
+			Helpers.ClipboardHelper.RegisterOsc52Emitter(null);
+
 			log?.LogInfo("NetConsoleDriver.Stop() complete", "Driver");
 		}
 
@@ -622,6 +641,16 @@ namespace SharpConsoleUI.Drivers
 		public void ResetCursorShape()
 		{
 			WriteOutput("\x1b[0 q");
+		}
+
+		/// <inheritdoc/>
+		public void WriteClipboardOsc52(string sequence)
+		{
+			if (string.IsNullOrEmpty(sequence)) return;
+			lock (_consoleLock)
+			{
+				WriteOutput(sequence);
+			}
 		}
 
 		/// <inheritdoc/>
@@ -839,6 +868,7 @@ namespace SharpConsoleUI.Drivers
 					{
 						TerminalRawMode.WriteStdout(mouseDisable);
 						TerminalRawMode.WriteStdout("\x1b[?7h\x1b[0m\x1b[?25h");
+						TerminalRawMode.WriteStdout("\x1b[?2004l"); // Disable bracketed paste
 						TerminalRawMode.WriteStdout("\x1b[?1049l"); // Leave alternate screen
 					}
 					catch { }

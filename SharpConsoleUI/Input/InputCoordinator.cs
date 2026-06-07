@@ -75,6 +75,12 @@ namespace SharpConsoleUI.Input
 		/// </summary>
 		public void ProcessInput()
 		{
+			// Drain atomic paste blocks and deliver them to the active window's dispatcher.
+			while (_inputStateService.TryDequeuePaste(out var pasteText))
+			{
+				_context.ActiveWindow?.EventDispatcher?.ProcessPaste(pasteText);
+			}
+
 			ConsoleKeyInfo? key;
 			while ((key = _inputStateService.DequeueKey()) != null)
 			{

@@ -484,6 +484,18 @@ namespace SharpConsoleUI.Windows
 			return _window._renderer?.HitTestDOM(x, y);
 		}
 
+		/// <summary>Delivers an atomic paste block to the focused control if it accepts paste.</summary>
+		public void ProcessPaste(string text)
+		{
+			if (string.IsNullOrEmpty(text)) return;
+			lock (_window._lock)
+			{
+				var focused = _window.FocusManager.FocusedControl;
+				if (focused is Controls.IPasteTarget target)
+					target.Paste(text);
+			}
+		}
+
 		/// <summary>
 		/// Processes keyboard input for the window and its controls.
 		/// </summary>
@@ -522,6 +534,18 @@ namespace SharpConsoleUI.Windows
 					else if (key.Key == ConsoleKey.C && key.Modifiers.HasFlag(ConsoleModifiers.Control))
 					{
 						Helpers.ClipboardHelper.SetText(_window.SelectionManager.GetSelectedText() ?? string.Empty);
+						return true;
+					}
+				}
+
+				// Window-level paste: Ctrl+V routes to the focused control if it accepts paste,
+				// reading the clipboard (local-session source). Bracketed paste uses ProcessPaste
+				// directly. Only intercept when the focused control is an IPasteTarget.
+				if (key.Key == ConsoleKey.V && key.Modifiers.HasFlag(ConsoleModifiers.Control))
+				{
+					if (_window.FocusManager.FocusedControl is Controls.IPasteTarget pasteTarget)
+					{
+						pasteTarget.Paste(Helpers.ClipboardHelper.GetText() ?? string.Empty);
 						return true;
 					}
 				}

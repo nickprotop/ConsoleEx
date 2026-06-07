@@ -21,7 +21,7 @@ namespace SharpConsoleUI.Controls
 	/// A single-line text input control with optional prompt text.
 	/// Supports text editing, cursor navigation, and horizontal scrolling for overflow text.
 	/// </summary>
-	public class PromptControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider
+	public class PromptControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider, IPasteTarget
 	{
 		/// <summary>
 		/// Event fired when Enter is pressed (modern standardized event)
@@ -310,21 +310,6 @@ namespace SharpConsoleUI.Controls
 							ClipboardHelper.SetText(SelectedText!);
 						return true;
 
-					case ConsoleKey.V: // Ctrl+V: paste
-						{
-							var clip = ClipboardHelper.GetText();
-							if (!string.IsNullOrEmpty(clip))
-							{
-								// Sanitize: single-line
-								clip = clip.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
-								DeleteSelection();
-								_input = _input.Insert(_cursorPosition, clip);
-								MoveCursorTo(_cursorPosition + clip.Length);
-								InputChanged?.Invoke(this, _input);
-							}
-							return true;
-						}
-
 					case ConsoleKey.X: // Ctrl+X: cut
 						if (HasSelection)
 						{
@@ -527,6 +512,17 @@ namespace SharpConsoleUI.Controls
 		private void ClearSelection()
 		{
 			_selectionAnchor = -1;
+		}
+
+		/// <summary>Inserts pasted text (IPasteTarget). Single-line: newlines are flattened to spaces.</summary>
+		public void Paste(string text)
+		{
+			if (string.IsNullOrEmpty(text)) return;
+			text = text.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' '); // single-line: flatten
+			DeleteSelection();
+			_input = _input.Insert(_cursorPosition, text);
+			MoveCursorTo(_cursorPosition + text.Length);
+			InputChanged?.Invoke(this, _input);
 		}
 
 		/// <summary>

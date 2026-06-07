@@ -180,6 +180,16 @@ public partial class TableControl
 		Container?.Invalidate(true);
 	}
 
+	/// <summary>Inserts pasted text into the inline cell editor (IPasteTarget). No-op unless editing a cell.</summary>
+	public void Paste(string text)
+	{
+		if (!_isEditing || string.IsNullOrEmpty(text)) return;
+		text = text.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
+		_editBuffer = _editBuffer.Insert(_editCursorPosition, text);
+		_editCursorPosition += text.Length;
+		Container?.Invalidate(true);
+	}
+
 	/// <summary>
 	/// Processes a key while in edit mode.
 	/// </summary>
@@ -235,19 +245,6 @@ public partial class TableControl
 					if (!string.IsNullOrEmpty(_editBuffer))
 						Helpers.ClipboardHelper.SetText(_editBuffer);
 					return true;
-
-				case ConsoleKey.V: // paste
-					{
-						var clip = Helpers.ClipboardHelper.GetText();
-						if (!string.IsNullOrEmpty(clip))
-						{
-							clip = clip.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
-							_editBuffer = _editBuffer.Insert(_editCursorPosition, clip);
-							_editCursorPosition += clip.Length;
-							Container?.Invalidate(true);
-						}
-						return true;
-					}
 
 				case ConsoleKey.X: // cut (copy + clear)
 					if (!string.IsNullOrEmpty(_editBuffer))

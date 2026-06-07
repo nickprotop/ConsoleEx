@@ -18,6 +18,7 @@ using Color = SharpConsoleUI.Color;
 
 namespace SharpConsoleUI.Tests.Controls;
 
+[Collection("EnvSerial")]
 public class MarkupControlCopyTests
 {
 	private static MouseEventArgs Mouse(int x, int y, params MouseFlags[] flags)

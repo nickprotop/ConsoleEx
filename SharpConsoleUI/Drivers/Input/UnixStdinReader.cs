@@ -51,6 +51,7 @@ namespace SharpConsoleUI.Drivers.Input
 			CancellationToken cancellationToken,
 			Action<ConsoleKeyInfo> onKey,
 			Action<List<MouseFlags>, Point> onMouse,
+			Action<string> onPaste,
 			Action<MouseFlags, Point> continuousButtonPressedHandler)
 		{
 			var buffer = new byte[ReadBufferSize];
@@ -115,6 +116,8 @@ namespace SharpConsoleUI.Drivers.Input
 								if (cancellationToken.IsCancellationRequested) break;
 								if (evt is KeyInputEvent keyEvt)
 									onKey(keyEvt.KeyInfo);
+								else if (evt is PasteInputEvent pasteEvt)
+									onPaste(pasteEvt.Text);
 							}
 							events.Clear();
 
@@ -145,6 +148,10 @@ namespace SharpConsoleUI.Drivers.Input
 					{
 						case KeyInputEvent keyEvt:
 							onKey(keyEvt.KeyInfo);
+							break;
+
+						case PasteInputEvent pasteEvt:
+							onPaste(pasteEvt.Text);
 							break;
 
 						case MouseInputEvent mouseEvt:

@@ -33,7 +33,8 @@ namespace SharpConsoleUI.Drivers.Input
 			CsiParam,
 			Ss3,
 			Utf8,
-			X10Mouse // Collecting 3 raw bytes after CSI M (legacy X10 format)
+			X10Mouse, // Collecting 3 raw bytes after CSI M (legacy X10 format)
+			Paste // Accumulating bracketed-paste content between ESC[200~ and ESC[201~
 		}
 
 		private State _state = State.Ground;
@@ -45,6 +46,8 @@ namespace SharpConsoleUI.Drivers.Input
 		private int _utf8Index;
 		private readonly byte[] _x10MouseBuffer = new byte[X10MouseByteCount];
 		private int _x10MouseIndex;
+		private readonly List<byte> _pasteBytes = new();
+		private static readonly byte[] PasteEnd = { 0x1b, (byte)'[', (byte)'2', (byte)'0', (byte)'1', (byte)'~' };
 
 		/// <summary>
 		/// Parses raw bytes from stdin into a list of input events.
@@ -82,6 +85,10 @@ namespace SharpConsoleUI.Drivers.Input
 
 					case State.X10Mouse:
 						ProcessX10Mouse(b, events);
+						break;
+
+					case State.Paste:
+						ProcessPaste(b, events);
 						break;
 				}
 			}
@@ -125,6 +132,14 @@ namespace SharpConsoleUI.Drivers.Input
 				events.Add(new UnknownSequenceEvent(_pending.ToArray()));
 				_pending.Clear();
 				_x10MouseIndex = 0;
+				_state = State.Ground;
+			}
+			else if (_state == State.Paste)
+			{
+				// Unterminated paste (no ESC[201~ before the stream paused/ended) —
+				// flush what we have so input isn't lost and the parser doesn't get stuck.
+				events.Add(new PasteInputEvent(System.Text.Encoding.UTF8.GetString(_pasteBytes.ToArray())));
+				_pasteBytes.Clear();
 				_state = State.Ground;
 			}
 
@@ -287,7 +302,7 @@ namespace SharpConsoleUI.Drivers.Input
 			if (b >= 0x40 && b <= 0x7E)
 			{
 				DispatchCsi((char)b, events);
-				// DispatchCsi may set a new state (e.g. X10Mouse) — don't overwrite it
+				// DispatchCsi may set a new state (e.g. X10Mouse, Paste) — don't overwrite it
 				if (_state == State.CsiParam)
 				{
 					_state = State.Ground;
@@ -438,6 +453,27 @@ namespace SharpConsoleUI.Drivers.Input
 			_state = State.Ground;
 		}
 
+		private void ProcessPaste(byte b, List<InputEvent> events)
+		{
+			_pasteBytes.Add(b);
+			if (EndsWith(_pasteBytes, PasteEnd))
+			{
+				int len = _pasteBytes.Count - PasteEnd.Length;
+				string text = Encoding.UTF8.GetString(_pasteBytes.GetRange(0, len).ToArray());
+				events.Add(new PasteInputEvent(text));
+				_pasteBytes.Clear();
+				_state = State.Ground;
+			}
+		}
+
+		private static bool EndsWith(List<byte> buf, byte[] suffix)
+		{
+			if (buf.Count < suffix.Length) return false;
+			for (int i = 0; i < suffix.Length; i++)
+				if (buf[buf.Count - suffix.Length + i] != suffix[i]) return false;
+			return true;
+		}
+
 		private void DispatchCsi(char finalByte, List<InputEvent> events)
 		{
 			string paramStr = _csiParams.ToString();
@@ -477,6 +513,12 @@ namespace SharpConsoleUI.Drivers.Input
 
 				// Tilde sequences: ESC [ <number> ~
 				case '~':
+					if (numericPart == "200")
+					{
+						_pasteBytes.Clear();
+						_state = State.Paste; // Parse loop must NOT overwrite this (positive-match reset only on CsiParam)
+						break;
+					}
 					DispatchTilde(numericPart, shift, alt, ctrl, events);
 					break;
 

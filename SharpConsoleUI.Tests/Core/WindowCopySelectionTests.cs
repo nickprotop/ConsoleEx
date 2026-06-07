@@ -18,6 +18,7 @@ using Color = SharpConsoleUI.Color;
 
 namespace SharpConsoleUI.Tests.Core;
 
+[Collection("EnvSerial")]
 public class WindowCopySelectionTests
 {
 	private static MouseEventArgs Mouse(int x, int y, params MouseFlags[] flags)

@@ -40,6 +40,9 @@ namespace SharpConsoleUI.Drivers
 		/// </summary>
 		public event EventHandler<ConsoleKeyInfo> KeyPressed;
 
+		/// <summary>Occurs when a bracketed-paste block is received (delivered atomically).</summary>
+		event EventHandler<string>? Paste;
+
 		/// <summary>
 		/// Occurs when a mouse event is detected.
 		/// </summary>
@@ -109,6 +112,13 @@ namespace SharpConsoleUI.Drivers
 		/// <see cref="SetCursorShape(Core.CursorShape)"/> so existing drivers keep working.
 		/// </remarks>
 		void SetCursorShape(Core.CursorShape shape, Core.CursorBlink blink) => SetCursorShape(shape);
+
+		/// <summary>
+		/// Writes a pre-built OSC 52 clipboard escape sequence to the terminal output stream
+		/// (under the driver's output lock). Default no-op for drivers without terminal output.
+		/// </summary>
+		/// <param name="sequence">The full escape sequence (already encoded/wrapped).</param>
+		void WriteClipboardOsc52(string sequence) { }
 
 		/// <summary>
 		/// Resets the cursor to the default shape.

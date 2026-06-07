@@ -301,6 +301,22 @@ namespace SharpConsoleUI.Controls
 			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 		}
 
+		/// <summary>Inserts pasted text as one atomic block (IPasteTarget). No per-line auto-indent.</summary>
+		public void Paste(string text)
+		{
+			if (_readOnly || string.IsNullOrEmpty(text)) return;
+			text = SanitizeInputText(text);
+			if (_hasSelection) DeleteSelectedText();
+			text = TruncateToMaxLength(text);
+			if (text.Length == 0) return;
+			InsertTextAtCursor(text);
+			CommitUndoAction();
+			InvalidateWrappedLinesCache();
+			EnsureCursorVisible();
+			Container?.Invalidate(true);
+			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
+		}
+
 		/// <summary>
 		/// Deletes up to <paramref name="count"/> characters immediately before the cursor on the current line.
 		/// Stops at column 0 (does not merge lines).

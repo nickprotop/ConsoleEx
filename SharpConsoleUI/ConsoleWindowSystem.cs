@@ -76,6 +76,7 @@ namespace SharpConsoleUI
 
 		// Event handlers stored for proper cleanup
 		private EventHandler<ConsoleKeyInfo>? _keyPressedHandler;
+		private EventHandler<string>? _pasteHandler;
 		private EventHandler<Size>? _screenResizedHandler;
 
 		// Logging service - created first so other services can use it
@@ -862,6 +863,9 @@ namespace SharpConsoleUI
 				_inputStateService.EnqueueKey(key);
 			};
 
+			_pasteHandler = (_, text) => _inputStateService.EnqueuePaste(text);
+			_consoleDriver.Paste += _pasteHandler;
+
 			_screenResizedHandler = HandleScreenResize;
 			_consoleDriver.ScreenResized += _screenResizedHandler;
 
@@ -1065,6 +1069,12 @@ namespace SharpConsoleUI
 			{
 				Input.UnregisterEventHandlers(_keyPressedHandler);
 				_keyPressedHandler = null;
+			}
+
+			if (_pasteHandler != null)
+			{
+				_consoleDriver.Paste -= _pasteHandler;
+				_pasteHandler = null;
 			}
 
 			if (_screenResizedHandler != null)

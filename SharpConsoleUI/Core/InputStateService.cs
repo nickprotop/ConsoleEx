@@ -76,6 +76,7 @@ namespace SharpConsoleUI.Core
 	{
 		private readonly object _lock = new();
 		private readonly ConcurrentQueue<ConsoleKeyInfo> _inputQueue = new();
+		private readonly ConcurrentQueue<string> _pasteQueue = new();
 		private readonly ConcurrentQueue<(ConsoleKeyInfo Key, DateTime Time)> _inputHistory = new();
 		private const int MaxHistorySize = 100;
 		private DateTime _lastKeyTime = DateTime.MinValue;
@@ -228,6 +229,20 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
+		/// Enqueues an atomic paste block for processing on the UI thread.
+		/// </summary>
+		public void EnqueuePaste(string text)
+		{
+			_pasteQueue.Enqueue(text);
+			_wakeCallback?.Invoke();
+		}
+
+		/// <summary>
+		/// Dequeues the next pending paste block. Returns false if none.
+		/// </summary>
+		public bool TryDequeuePaste(out string text) => _pasteQueue.TryDequeue(out text!);
+
+		/// <summary>
 		/// Dequeues a key from the queue
 		/// </summary>
 		/// <returns>The key, or null if queue is empty</returns>
@@ -261,6 +276,7 @@ namespace SharpConsoleUI.Core
 		public void ClearQueue()
 		{
 			while (_inputQueue.TryDequeue(out _)) { }
+			while (_pasteQueue.TryDequeue(out _)) { }
 		}
 
 		/// <summary>

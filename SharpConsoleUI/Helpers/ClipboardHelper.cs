@@ -32,6 +32,17 @@ namespace SharpConsoleUI.Helpers
 		InternalFallback
 	}
 
+	/// <summary>Controls whether OSC 52 clipboard escapes are emitted on copy.</summary>
+	public enum Osc52Mode
+	{
+		/// <summary>Emit when the terminal/session is believed to support OSC 52 (default).</summary>
+		Auto,
+		/// <summary>Always emit OSC 52, regardless of detection.</summary>
+		Enabled,
+		/// <summary>Never emit OSC 52 (local tools / internal buffer only).</summary>
+		Disabled
+	}
+
 	/// <summary>
 	/// Cross-platform clipboard helper for console applications.
 	/// On Linux tries wl-clipboard, xclip, xsel.
@@ -45,6 +56,46 @@ namespace SharpConsoleUI.Helpers
 		private static ClipboardBackend _backend = ClipboardBackend.Unknown;
 		private static readonly object _lock = new();
 		private static string _internalBuffer = string.Empty;
+
+		private static volatile Action<string>? _osc52Emitter;
+
+		/// <summary>
+		/// Registers the delegate used to emit an OSC 52 sequence to the terminal. Called by the
+		/// console driver at startup so the static helper can reach the terminal output stream
+		/// without taking a driver dependency. Pass null to unregister (on driver shutdown).
+		/// </summary>
+		internal static void RegisterOsc52Emitter(Action<string>? emitter) => _osc52Emitter = emitter;
+
+		/// <summary>Controls OSC 52 emission on copy. Default <see cref="Osc52Mode.Auto"/>.</summary>
+		public static Osc52Mode Osc52Mode { get; set; } = Osc52Mode.Auto;
+
+		/// <summary>Maximum base64 payload size for OSC 52; larger copies skip OSC 52.</summary>
+		public static int MaxOsc52Bytes { get; set; } = Osc52.DefaultMaxBytes;
+
+		private static void TryEmitOsc52(string text)
+		{
+			var emitter = _osc52Emitter;
+			if (emitter == null) return;
+
+			bool enabled = Osc52Mode switch
+			{
+				Osc52Mode.Enabled => true,
+				Osc52Mode.Disabled => false,
+				_ => TerminalCapabilities.SupportsOsc52
+			};
+			if (!enabled) return;
+
+			try
+			{
+				var seq = Osc52.BuildSequence(text, tmuxWrap: TerminalCapabilities.IsTmux, MaxOsc52Bytes);
+				if (seq != null)
+					emitter(seq);
+			}
+			catch
+			{
+				// Best-effort: OSC 52 failure must never break copy; local path still runs.
+			}
+		}
 
 		/// <summary>
 		/// The clipboard backend currently in use.
@@ -64,6 +115,7 @@ namespace SharpConsoleUI.Helpers
 		/// </summary>
 		public static void SetText(string text)
 		{
+			TryEmitOsc52(text);
 			EnsureDetected();
 			try
 			{

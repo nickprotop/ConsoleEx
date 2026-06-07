@@ -29,4 +29,7 @@ namespace SharpConsoleUI.Drivers.Input
 	/// An unrecognized byte sequence that could not be parsed.
 	/// </summary>
 	internal record UnknownSequenceEvent(byte[] Data) : InputEvent;
+
+	/// <summary>A bracketed-paste block delivered atomically (content between ESC[200~ and ESC[201~).</summary>
+	internal record PasteInputEvent(string Text) : InputEvent;
 }

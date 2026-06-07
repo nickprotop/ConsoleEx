@@ -86,6 +86,8 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 	/// <inheritdoc />
 	public event EventHandler<ConsoleKeyInfo>? KeyPressed;
 	/// <inheritdoc />
+	public event EventHandler<string>? Paste;
+	/// <inheritdoc />
 	public event IConsoleDriver.MouseEventHandler? MouseEvent;
 	/// <inheritdoc />
 	public event EventHandler<Size>? ScreenResized;
