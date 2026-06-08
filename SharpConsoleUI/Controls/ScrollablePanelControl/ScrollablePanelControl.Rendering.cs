@@ -505,44 +505,21 @@ namespace SharpConsoleUI.Controls
 
 		private int MeasureChildrenHeight(int availableWidth, int maxHeight)
 		{
-			int maxH = maxHeight > 0 ? maxHeight : int.MaxValue;
-
 			List<IWindowControl> calcSnapshot;
 			lock (_childrenLock) { calcSnapshot = new List<IWindowControl>(_children); }
 
-			// Two-pass measurement: fixed children first, then Fill children get remaining space.
-			// Pass 1: measure non-Fill children to determine fixed height.
-			int fixedHeight = 0;
-			int fillCount = 0;
+			// Use the shared Fill metrics + per-child height so the panel's own content-height
+			// measurement agrees with how PaintDOM and hit-testing size each child. A Fill child
+			// contributes the height it is actually painted into (its allocated slot), not just
+			// its content size. maxHeight is the height to distribute Fill children across
+			// (the viewport, possibly re-evaluated at a reduced width for the scrollbar).
+			var (_, _, perFillHeight) = ComputeFillMetrics(calcSnapshot, availableWidth, maxHeight);
+
+			int totalHeight = 0;
 			foreach (var child in calcSnapshot)
 			{
 				if (!child.Visible) continue;
-				if (child.VerticalAlignment == VerticalAlignment.Fill)
-				{
-					fillCount++;
-					continue;
-				}
-				var childNode = LayoutNodeFactory.CreateSubtree(child);
-				childNode.IsVisible = true;
-				var constraints = new LayoutConstraints(1, availableWidth, 1, int.MaxValue);
-				childNode.Measure(constraints);
-				fixedHeight += childNode.DesiredSize.Height;
-			}
-
-			// Pass 2: measure Fill children with remaining space.
-			int remainingHeight = (maxH < int.MaxValue) ? Math.Max(0, maxH - fixedHeight) : int.MaxValue;
-			int perFillHeight = (fillCount > 0 && remainingHeight < int.MaxValue)
-				? Math.Max(0, remainingHeight / fillCount) : int.MaxValue;
-
-			int totalHeight = fixedHeight;
-			foreach (var child in calcSnapshot)
-			{
-				if (!child.Visible || child.VerticalAlignment != VerticalAlignment.Fill) continue;
-				var childNode = LayoutNodeFactory.CreateSubtree(child);
-				childNode.IsVisible = true;
-				var constraints = new LayoutConstraints(1, availableWidth, 1, perFillHeight);
-				childNode.Measure(constraints);
-				totalHeight += childNode.DesiredSize.Height;
+				totalHeight += ComputeChildHeight(child, availableWidth, perFillHeight, maxHeight);
 			}
 
 			return totalHeight;

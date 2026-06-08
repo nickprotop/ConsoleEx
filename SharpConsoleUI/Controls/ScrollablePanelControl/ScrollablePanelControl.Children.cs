@@ -170,9 +170,18 @@ namespace SharpConsoleUI.Controls
 		/// single definition of the Fill metrics shared by the paint pass and the hit-test
 		/// layout, so the two can never disagree.
 		/// </summary>
+		/// <param name="snapshot">The children to measure.</param>
+		/// <param name="contentWidth">Width children are measured at.</param>
+		/// <param name="viewportHeight">
+		/// The available height to distribute. Pass a value &gt; 0 to override
+		/// <see cref="_viewportHeight"/> (used by the content-height measure when re-measuring at a
+		/// reduced width for the scrollbar); pass -1 to use the current <see cref="_viewportHeight"/>.
+		/// </param>
 		internal (int fixedHeight, int fillCount, int perFillHeight) ComputeFillMetrics(
-			IReadOnlyList<IWindowControl> snapshot, int contentWidth)
+			IReadOnlyList<IWindowControl> snapshot, int contentWidth, int viewportHeight = -1)
 		{
+			int vh = viewportHeight >= 0 ? viewportHeight : _viewportHeight;
+
 			int fixedHeight = 0;
 			int fillCount = 0;
 			foreach (var child in snapshot)
@@ -183,7 +192,7 @@ namespace SharpConsoleUI.Controls
 					fillCount++;
 					continue;
 				}
-				if (_viewportHeight > 0)
+				if (vh > 0)
 				{
 					var node = LayoutNodeFactory.CreateSubtree(child);
 					node.IsVisible = true;
@@ -192,8 +201,8 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			int perFillHeight = (_viewportHeight > 0 && fillCount > 0)
-				? Math.Max(0, (_viewportHeight - fixedHeight) / fillCount) : _viewportHeight;
+			int perFillHeight = (vh > 0 && fillCount > 0)
+				? Math.Max(0, (vh - fixedHeight) / fillCount) : vh;
 
 			return (fixedHeight, fillCount, perFillHeight);
 		}
@@ -203,9 +212,11 @@ namespace SharpConsoleUI.Controls
 		/// its allocated slot (<paramref name="perFillHeight"/>) even when its content is shorter;
 		/// a content-sized child uses its measured DesiredSize so it can overflow and be scrolled.
 		/// </summary>
-		internal int ComputeChildHeight(IWindowControl child, int contentWidth, int perFillHeight)
+		/// <param name="viewportHeight">Override for <see cref="_viewportHeight"/>; -1 uses the current value.</param>
+		internal int ComputeChildHeight(IWindowControl child, int contentWidth, int perFillHeight, int viewportHeight = -1)
 		{
-			bool isFillChild = _viewportHeight > 0 && child.VerticalAlignment == VerticalAlignment.Fill;
+			int vh = viewportHeight >= 0 ? viewportHeight : _viewportHeight;
+			bool isFillChild = vh > 0 && child.VerticalAlignment == VerticalAlignment.Fill;
 			int maxChildHeight = isFillChild ? perFillHeight : int.MaxValue;
 
 			var node = LayoutNodeFactory.CreateSubtree(child);

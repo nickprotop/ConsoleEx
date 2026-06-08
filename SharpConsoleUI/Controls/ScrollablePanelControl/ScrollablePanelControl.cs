@@ -418,9 +418,13 @@ namespace SharpConsoleUI.Controls
 				var childPos = cursorProvider.GetLogicalCursorPosition();
 				if (childPos.HasValue && focused is IWindowControl wc)
 				{
+					// wc.ActualX/ActualY are the child's painted (screen) bounds, which the paint
+					// pass already shifts by the scroll offset (currentY starts at -scrollOffset).
+					// So we must NOT subtract _verticalScrollOffset again here — doing so
+					// double-counts the scroll and pushes the cursor off-screen.
 					return new System.Drawing.Point(
 						childPos.Value.X + wc.ActualX - ActualX,
-						childPos.Value.Y + wc.ActualY - ActualY - _verticalScrollOffset);
+						childPos.Value.Y + wc.ActualY - ActualY);
 				}
 			}
 			return null;
@@ -432,9 +436,11 @@ namespace SharpConsoleUI.Controls
 			var focused = GetFocusedChildFromCoordinator();
 			if (focused is ILogicalCursorProvider cursorProvider && focused is IWindowControl wc)
 			{
+				// Inverse of GetLogicalCursorPosition: wc.ActualY already includes the scroll
+				// shift, so the scroll offset must NOT be re-applied here.
 				var childPos = new System.Drawing.Point(
 					position.X - wc.ActualX + ActualX,
-					position.Y - wc.ActualY + ActualY + _verticalScrollOffset);
+					position.Y - wc.ActualY + ActualY);
 				cursorProvider.SetLogicalCursorPosition(childPos);
 			}
 		}
