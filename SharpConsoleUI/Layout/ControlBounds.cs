@@ -204,13 +204,59 @@ namespace SharpConsoleUI.Layout
 		}
 
 		/// <summary>
+		/// Finds the nearest ancestor of <paramref name="control"/> that is a self-painting cursor
+		/// provider (e.g. ScrollablePanelControl) — one that has its OWN layout node and reports the
+		/// cursor in its own coordinate space, clipping to its viewport. Such a container is the
+		/// authority for whether/where a nested focused child's cursor shows, because the window-level
+		/// logic is unaware of the container's internal scroll. Returns null when the control is laid
+		/// out directly (its own DOM node is the truth).
+		/// </summary>
+		private Controls.IWindowControl? FindSelfPaintingCursorHost(Controls.IWindowControl control)
+		{
+			// If the control itself has a real (non-placeholder) DOM node, it is laid out directly.
+			var ownNode = _window._renderer?.GetLayoutNode(control);
+			bool controlHasRealNode = ownNode != null && (ownNode.Parent != null || ownNode == _window._renderer?.RootLayoutNode);
+			if (controlHasRealNode)
+				return null;
+
+			var current = control.Container as Controls.IWindowControl;
+			while (current != null)
+			{
+				var node = _window._renderer?.GetLayoutNode(current);
+				bool hostHasRealNode = node != null && (node.Parent != null || node == _window._renderer?.RootLayoutNode);
+				if (hostHasRealNode && current is Controls.ILogicalCursorProvider)
+					return current;
+				current = current.Container as Controls.IWindowControl;
+			}
+			return null;
+		}
+
+		/// <summary>
 		/// Translates a control's logical cursor position to window coordinates
-		/// by walking up the parent container hierarchy and accumulating offsets
+		/// by walking up the parent container hierarchy and accumulating offsets.
 		/// </summary>
 		public Point? TranslateLogicalCursorToWindow(Controls.IWindowControl control)
 		{
 			if (control is not Controls.ILogicalCursorProvider cursorProvider)
 				return null;
+
+			// If the focused control lives inside a self-painting cursor host (e.g. a scroll panel),
+			// that host owns the cursor: it reports the position in its own space (clipped to its
+			// viewport) and returns null when the child is scrolled out of view. Use it as the truth
+			// instead of the child's own — possibly stale/off-viewport — registered bounds.
+			var host = FindSelfPaintingCursorHost(control);
+			if (host is Controls.ILogicalCursorProvider hostCursor)
+			{
+				var hostLogical = hostCursor.GetLogicalCursorPosition();
+				if (hostLogical == null)
+					return null; // child scrolled out of view (or no cursor)
+
+				var hostNode = _window._renderer?.GetLayoutNode(host);
+				if (hostNode == null)
+					return null;
+				var hab = hostNode.AbsoluteBounds;
+				return new Point(hab.X + hostLogical.Value.X + 1, hab.Y + hostLogical.Value.Y + 1);
+			}
 
 			var logicalPosition = cursorProvider.GetLogicalCursorPosition();
 			if (logicalPosition == null)

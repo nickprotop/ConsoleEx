@@ -212,6 +212,9 @@ namespace SharpConsoleUI.Controls
 		/// its allocated slot (<paramref name="perFillHeight"/>) even when its content is shorter;
 		/// a content-sized child uses its measured DesiredSize so it can overflow and be scrolled.
 		/// </summary>
+		/// <param name="child">The child to measure.</param>
+		/// <param name="contentWidth">Width the child is measured at.</param>
+		/// <param name="perFillHeight">The per-Fill-child slot height from <see cref="ComputeFillMetrics"/>.</param>
 		/// <param name="viewportHeight">Override for <see cref="_viewportHeight"/>; -1 uses the current value.</param>
 		internal int ComputeChildHeight(IWindowControl child, int contentWidth, int perFillHeight, int viewportHeight = -1)
 		{

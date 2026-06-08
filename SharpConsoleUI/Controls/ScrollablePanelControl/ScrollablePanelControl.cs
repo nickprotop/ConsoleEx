@@ -409,22 +409,57 @@ namespace SharpConsoleUI.Controls
 			return null;
 		}
 
+		/// <summary>
+		/// The content width children are measured/positioned at, accounting for the scrollbar.
+		/// </summary>
+		private int CursorContentWidth()
+		{
+			int contentWidth = _viewportWidth;
+			if (_showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight)
+				contentWidth -= 2;
+			return contentWidth;
+		}
+
+		/// <summary>
+		/// Locates the focused child's vertical slot via the shared layout. Unlike the child's own
+		/// <c>ActualY</c> — which the paint pass only refreshes for in-viewport children and so goes
+		/// stale once a child scrolls out of view — this is always current. Returns the child's
+		/// content-space top, or null if it is not a visible child.
+		/// </summary>
+		private int? FocusedChildContentTop(IWindowControl child)
+		{
+			foreach (var slot in GetVisibleChildLayout(CursorContentWidth()))
+			{
+				if (slot.Control == child)
+					return slot.Top;
+			}
+			return null;
+		}
+
 		/// <inheritdoc/>
 		public System.Drawing.Point? GetLogicalCursorPosition()
 		{
 			var focused = GetFocusedChildFromCoordinator();
-			if (focused is ILogicalCursorProvider cursorProvider)
+			if (focused is ILogicalCursorProvider cursorProvider && focused is IWindowControl wc)
 			{
 				var childPos = cursorProvider.GetLogicalCursorPosition();
-				if (childPos.HasValue && focused is IWindowControl wc)
+				int? childTop = FocusedChildContentTop(wc);
+				if (childPos.HasValue && childTop.HasValue)
 				{
-					// wc.ActualX/ActualY are the child's painted (screen) bounds, which the paint
-					// pass already shifts by the scroll offset (currentY starts at -scrollOffset).
-					// So we must NOT subtract _verticalScrollOffset again here — doing so
-					// double-counts the scroll and pushes the cursor off-screen.
+					// Panel-relative SCREEN row of the cursor (content-Y minus scroll). Derived from
+					// the shared layout, not the child's ActualY, so it stays correct when the child
+					// is scrolled out of view.
+					int panelRelativeY = childPos.Value.Y + childTop.Value - _verticalScrollOffset;
+
+					// Hide the cursor when its row is outside the panel viewport — the focused child
+					// has been scrolled out of view. (The window-level visibility check is unaware of
+					// the panel's internal scroll, so the panel must report this itself.)
+					if (_viewportHeight > 0 && (panelRelativeY < 0 || panelRelativeY >= _viewportHeight))
+						return null;
+
 					return new System.Drawing.Point(
-						childPos.Value.X + wc.ActualX - ActualX,
-						childPos.Value.Y + wc.ActualY - ActualY);
+						childPos.Value.X + ContentInsetLeft,
+						panelRelativeY + ContentInsetTop);
 				}
 			}
 			return null;
@@ -436,12 +471,15 @@ namespace SharpConsoleUI.Controls
 			var focused = GetFocusedChildFromCoordinator();
 			if (focused is ILogicalCursorProvider cursorProvider && focused is IWindowControl wc)
 			{
-				// Inverse of GetLogicalCursorPosition: wc.ActualY already includes the scroll
-				// shift, so the scroll offset must NOT be re-applied here.
-				var childPos = new System.Drawing.Point(
-					position.X - wc.ActualX + ActualX,
-					position.Y - wc.ActualY + ActualY);
-				cursorProvider.SetLogicalCursorPosition(childPos);
+				int? childTop = FocusedChildContentTop(wc);
+				if (childTop.HasValue)
+				{
+					// Inverse of GetLogicalCursorPosition.
+					var childPos = new System.Drawing.Point(
+						position.X - ContentInsetLeft,
+						position.Y - childTop.Value + _verticalScrollOffset - ContentInsetTop);
+					cursorProvider.SetLogicalCursorPosition(childPos);
+				}
 			}
 		}
 

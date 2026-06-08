@@ -142,8 +142,13 @@ namespace SharpConsoleUI.Controls
 		/// The offset is clamped to valid bounds automatically.
 		/// </summary>
 		/// <param name="chars">Number of characters to scroll (positive = right, negative = left).</param>
+		/// <remarks>No-op when <see cref="HorizontalScrollMode"/> is <see cref="ScrollMode.None"/>,
+		/// consistent with <see cref="ScrollToPosition"/>.</remarks>
 		public void ScrollHorizontalBy(int chars)
 		{
+			if (_horizontalScrollMode != ScrollMode.Scroll)
+				return;
+
 			int oldOffset = _horizontalScrollOffset;
 			_horizontalScrollOffset = Math.Clamp(_horizontalScrollOffset + chars, 0, Math.Max(0, _contentWidth - _viewportWidth));
 
