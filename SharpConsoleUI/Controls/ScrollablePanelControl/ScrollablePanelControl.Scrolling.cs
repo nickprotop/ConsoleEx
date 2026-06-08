@@ -52,7 +52,10 @@ namespace SharpConsoleUI.Controls
 
 			int childHeight = MeasureChildHeight(child, contentWidth);
 
-			// Scroll vertically if child is outside viewport
+			// Scroll vertically if child is outside viewport.
+			// If the child is taller than the viewport (e.g. a long MarkupControl that the
+			// panel scrolls through), aligning its bottom would jump past content the user
+			// hasn't seen yet — fall back to aligning its top instead.
 			if (childContentY < _verticalScrollOffset)
 			{
 				// Child is above viewport - scroll up to show it at top
@@ -61,9 +64,13 @@ namespace SharpConsoleUI.Controls
 			}
 			else if (childContentY + childHeight > _verticalScrollOffset + _viewportHeight)
 			{
-				// Child is below viewport - scroll down to show it at bottom
+				// Child is below viewport - scroll down to show it at bottom (or align top
+				// when the child is taller than the viewport).
 				_autoScroll = false; // Detach: focus-driven scroll overrides autoScroll
-				ScrollVerticalTo(childContentY + childHeight - _viewportHeight);
+				int target = childHeight > _viewportHeight
+					? childContentY
+					: childContentY + childHeight - _viewportHeight;
+				ScrollVerticalTo(target);
 			}
 			// If child is already visible, don't scroll
 

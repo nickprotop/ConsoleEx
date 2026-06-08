@@ -347,6 +347,67 @@ public class ScrollablePanelControlTests
 		Assert.True(panel.CanScrollDown);
 	}
 
+	[Fact]
+	public void Press_OnScrolledChildBelowViewportTop_ReachesChild()
+	{
+		// Regression: a single MarkupControl taller than the viewport, scrolled to the bottom.
+		// Before the fix, ScrollablePanel's hit-test measured the child's height clamped to the
+		// viewport, so a press at any visible row past the top of the viewport fell outside the
+		// child's hit rectangle and never reached MarkupControl — only the top-of-viewport row
+		// could anchor a selection. Drag worked only because mouse capture (set on the top-row
+		// press) bypassed the hit-test on subsequent events.
+		var panel = new ScrollablePanelControl();
+		panel.Height = 12;
+		panel.BorderStyle = BorderStyle.Rounded;
+
+		var lines = new List<string>();
+		for (int i = 1; i <= 50; i++) lines.Add(i.ToString());
+		var markup = new MarkupControl(lines) { EnableSelection = true };
+		panel.AddControl(markup);
+
+		var (system, window) = ContainerTestHelpers.CreateTestEnvironment();
+		window.AddControl(panel);
+		window.RenderAndGetVisibleContent();
+		panel.ScrollToBottom();
+		window.RenderAndGetVisibleContent();
+
+		int scrollOffset = panel.VerticalScrollOffset;
+		Assert.True(scrollOffset > 0, "Panel should be scrolled below the top");
+
+		// Panel-relative coords: content area starts at (Margin.Top + ContentInsetTop, ...).
+		// Border = 1, so content top row inside the panel is y = 1.
+		// Press a few rows below the top of the viewport, then drag down one row to make
+		// a non-empty selection. With the bug, the press never reaches MarkupControl, so
+		// no selection is ever established.
+		int viewportTopY = 1; // after the rounded top border
+		int pressY = viewportTopY + 3;
+		// Press at column 1 (start of the row content, after the left border) and drag down
+		// one row so the selection spans the entire anchor row plus into the next.
+		int pressX = 1;
+		var press = new MouseEventArgs(
+			new List<MouseFlags> { MouseFlags.Button1Pressed },
+			new Point(pressX, pressY), new Point(pressX, pressY), new Point(pressX, pressY));
+		var drag = new MouseEventArgs(
+			new List<MouseFlags> { MouseFlags.Button1Dragged },
+			new Point(pressX, pressY + 1), new Point(pressX, pressY + 1), new Point(pressX, pressY + 1));
+		var release = new MouseEventArgs(
+			new List<MouseFlags> { MouseFlags.Button1Released },
+			new Point(pressX, pressY + 1), new Point(pressX, pressY + 1), new Point(pressX, pressY + 1));
+
+		panel.ProcessMouseEvent(press);
+		panel.ProcessMouseEvent(drag);
+		panel.ProcessMouseEvent(release);
+
+		Assert.True(markup.HasSelection,
+			"Press on a visible row below the top of a scrolled viewport must reach the child");
+
+		// The selection should anchor on the row that was actually clicked (not the top of
+		// the viewport): with scrollOffset of N and a press at viewportTopY+3, the anchor
+		// row is content row (N + 3), labelled (N + 4).
+		string anchorLabel = (scrollOffset + 3 + 1).ToString();
+		Assert.StartsWith(anchorLabel, markup.GetSelectedText());
+	}
+
 	#endregion
 
 	#region Focus / Navigation

@@ -437,12 +437,18 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>
 		/// Measures the height of a child control using the layout pipeline.
+		/// Mirrors the constraints used by <see cref="PaintDOM"/>: non-Fill children measure
+		/// unbounded (so they report their full content height — important when the child is
+		/// taller than the viewport and is being scrolled), Fill children clamp to the viewport.
+		/// Keeping these in sync is required so hit-testing, drag-coordinate translation, and
+		/// scroll-into-view all agree with how the panel actually paints children.
 		/// </summary>
 		private int MeasureChildHeight(IWindowControl child, int availableWidth)
 		{
 			var childNode = LayoutNodeFactory.CreateSubtree(child);
 			childNode.IsVisible = true;
-			int maxH = _viewportHeight > 0 ? _viewportHeight : int.MaxValue;
+			int maxH = (_viewportHeight > 0 && child.VerticalAlignment == VerticalAlignment.Fill)
+				? _viewportHeight : int.MaxValue;
 			var constraints = new LayoutConstraints(1, availableWidth, 1, maxH);
 			childNode.Measure(constraints);
 			return childNode.DesiredSize.Height;
