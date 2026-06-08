@@ -178,27 +178,9 @@ namespace SharpConsoleUI.Controls
 			List<IWindowControl> paintSnapshot;
 			lock (_childrenLock) { paintSnapshot = new List<IWindowControl>(_children); }
 
-			// Two-pass: measure non-Fill children first to determine remaining space for Fill children.
-			int fixedHeight = 0;
-			if (_viewportHeight > 0)
-			{
-				foreach (var child in paintSnapshot)
-				{
-					if (!child.Visible || child.VerticalAlignment == VerticalAlignment.Fill) continue;
-					var node = LayoutNodeFactory.CreateSubtree(child);
-					node.IsVisible = true;
-					node.Measure(new LayoutConstraints(1, contentWidth, 1, int.MaxValue));
-					fixedHeight += node.DesiredSize.Height;
-				}
-			}
-			int fillCount = 0;
-			foreach (var c in paintSnapshot)
-			{
-				if (c.Visible && c.VerticalAlignment == VerticalAlignment.Fill)
-					fillCount++;
-			}
-			int perFillHeight = (_viewportHeight > 0 && fillCount > 0)
-				? Math.Max(0, (_viewportHeight - fixedHeight) / fillCount) : _viewportHeight;
+			// Two-pass Fill layout. The metrics (fixed height, fill count, per-Fill height) are
+			// computed by the shared helper so paint, hit-testing and scroll-into-view agree.
+			var (_, _, perFillHeight) = ComputeFillMetrics(paintSnapshot, contentWidth);
 
 			foreach (var child in paintSnapshot)
 			{

@@ -29,28 +29,27 @@ namespace SharpConsoleUI.Controls
 				return;
 			}
 
-			List<IWindowControl> snapshot;
-			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
-
-			if (!snapshot.Contains(child))
-				return; // Not our child
-
-			// Calculate child's position within our content
-			int childContentY = 0;
 			int contentWidth = _viewportWidth;
 			if (_showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight)
 				contentWidth -= 2;
 
-			// Find child's Y position by measuring all children before it
-			foreach (var c in snapshot.Where(c => c.Visible))
+			// Locate the child via the shared layout so its Y/height agree with paint.
+			int childContentY = 0;
+			int childHeight = 0;
+			bool found = false;
+			foreach (var slot in GetVisibleChildLayout(contentWidth))
 			{
-				if (c == child)
+				if (slot.Control == child)
+				{
+					childContentY = slot.Top;
+					childHeight = slot.Height;
+					found = true;
 					break;
-
-				childContentY += MeasureChildHeight(c, contentWidth);
+				}
 			}
 
-			int childHeight = MeasureChildHeight(child, contentWidth);
+			if (!found)
+				return; // Not our child (or not visible)
 
 			// Scroll vertically if child is outside viewport.
 			// If the child is taller than the viewport (e.g. a long MarkupControl that the

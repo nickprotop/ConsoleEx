@@ -53,17 +53,11 @@ namespace SharpConsoleUI.Controls
 				return null;
 
 			int contentY = mousePosition.Y - Margin.Top - ContentInsetTop + _verticalScrollOffset;
-			int currentY = 0;
 
-			List<IWindowControl> snapshot;
-			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
-
-			foreach (var child in snapshot.Where(c => c.Visible))
+			foreach (var slot in GetVisibleChildLayout(contentWidth))
 			{
-				int childHeight = MeasureChildHeight(child, contentWidth);
-				if (contentY >= currentY && contentY < currentY + childHeight)
-					return child;
-				currentY += childHeight;
+				if (contentY >= slot.Top && contentY < slot.Top + slot.Height)
+					return slot.Control;
 			}
 
 			return null;
@@ -81,19 +75,14 @@ namespace SharpConsoleUI.Controls
 
 			int viewportX = args.Position.X - Margin.Left - ContentInsetLeft;
 			int contentY = args.Position.Y - Margin.Top - ContentInsetTop + _verticalScrollOffset;
-			int currentY = 0;
 
-			List<IWindowControl> snapshot;
-			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
-
-			foreach (var c in snapshot.Where(c => c.Visible))
+			foreach (var slot in GetVisibleChildLayout(contentWidth))
 			{
-				if (c == child)
+				if (slot.Control == child)
 				{
-					var childPosition = new System.Drawing.Point(viewportX, contentY - currentY);
+					var childPosition = new System.Drawing.Point(viewportX, contentY - slot.Top);
 					return args.WithPosition(childPosition);
 				}
-				currentY += MeasureChildHeight(c, contentWidth);
 			}
 
 			return null;
@@ -121,22 +110,17 @@ namespace SharpConsoleUI.Controls
 
 			// New click sequence - perform fresh hit test using current scroll offset
 			int contentY = args.Position.Y - Margin.Top - ContentInsetTop + _verticalScrollOffset;
-			int currentY = 0;
 
-			foreach (var child in snapshot.Where(c => c.Visible))
+			foreach (var slot in GetVisibleChildLayout(contentWidth))
 			{
-				int childHeight = MeasureChildHeight(child, contentWidth);
-
-				if (contentY >= currentY && contentY < currentY + childHeight)
+				if (contentY >= slot.Top && contentY < slot.Top + slot.Height)
 				{
 					// Found the clicked child
-					_lastClickTarget = child;
+					_lastClickTarget = slot.Control;
 					_lastClickTime = DateTime.Now;
 					_lastClickPosition = args.Position;
-					return child;
+					return slot.Control;
 				}
-
-				currentY += childHeight;
 			}
 
 			// No child found at this position
@@ -385,32 +369,16 @@ namespace SharpConsoleUI.Controls
 						// Forward mouse event to child (if it handles mouse events)
 						if (child is IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
 						{
-							// Calculate child-relative Y position
-							// We need to recalculate the child's position in the current scroll state
-							int contentY = args.Position.Y - Margin.Top - ContentInsetTop + _verticalScrollOffset;
-							int currentY = 0;
-							List<IWindowControl> childSnap;
-							lock (_childrenLock) { childSnap = new List<IWindowControl>(_children); }
-							foreach (var c in childSnap.Where(c => c.Visible))
+							// Translate coordinates to child-relative using the shared layout
+							// so this agrees with paint and the hit-test that found the child.
+							var childArgs = CreateChildRelativeArgs(args, child);
+							if (childArgs != null && mouseAware.ProcessMouseEvent(childArgs))
 							{
-								if (c == child)
-								{
-									// Translate coordinates to child-relative
-									var childPosition = new System.Drawing.Point(viewportX, contentY - currentY);
-									var childArgs = args.WithPosition(childPosition);
-
-									// Forward event to child
-									if (mouseAware.ProcessMouseEvent(childArgs))
-									{
-										// Set child capture on press to prevent drag stealing
-										if (args.HasFlag(Drivers.MouseFlags.Button1Pressed))
-											_mouseCaptureChild = child;
-										args.Handled = true;
-										return true;
-									}
-									break;
-								}
-								currentY += MeasureChildHeight(c, contentWidth);
+								// Set child capture on press to prevent drag stealing
+								if (args.HasFlag(Drivers.MouseFlags.Button1Pressed))
+									_mouseCaptureChild = child;
+								args.Handled = true;
+								return true;
 							}
 						}
 					}
@@ -433,25 +401,6 @@ namespace SharpConsoleUI.Controls
 			}
 
 			return false;
-		}
-
-		/// <summary>
-		/// Measures the height of a child control using the layout pipeline.
-		/// Mirrors the constraints used by <see cref="PaintDOM"/>: non-Fill children measure
-		/// unbounded (so they report their full content height — important when the child is
-		/// taller than the viewport and is being scrolled), Fill children clamp to the viewport.
-		/// Keeping these in sync is required so hit-testing, drag-coordinate translation, and
-		/// scroll-into-view all agree with how the panel actually paints children.
-		/// </summary>
-		private int MeasureChildHeight(IWindowControl child, int availableWidth)
-		{
-			var childNode = LayoutNodeFactory.CreateSubtree(child);
-			childNode.IsVisible = true;
-			int maxH = (_viewportHeight > 0 && child.VerticalAlignment == VerticalAlignment.Fill)
-				? _viewportHeight : int.MaxValue;
-			var constraints = new LayoutConstraints(1, availableWidth, 1, maxH);
-			childNode.Measure(constraints);
-			return childNode.DesiredSize.Height;
 		}
 
 		#endregion
