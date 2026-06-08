@@ -184,19 +184,54 @@ Implemented by: Button, List, Tree, Table, Dropdown, Menu, Toolbar, ScrollablePa
 
 ### IContainer
 
-Controls that can contain other controls:
+The container surface used by child controls for rendering — colors, dirty tracking, and invalidation. It is *not* a child-mutation API; for that, see `IControlHost` below.
 
 ```csharp
-public interface IContainer : IWindowControl
+public interface IContainer
 {
-    void AddControl(IWindowControl control);
-    void RemoveControl(IWindowControl control);
-    IReadOnlyList<IWindowControl> GetControls();
-    T? FindControl<T>(string name) where T : IWindowControl;
+    Color BackgroundColor { get; set; }
+    Color ForegroundColor { get; set; }
+    ConsoleWindowSystem? GetConsoleWindowSystem { get; }
+    bool IsDirty { get; set; }
+    void Invalidate(bool redrawAll, IWindowControl? callerControl = null);
+    int? GetVisibleHeightForControl(IWindowControl control);
 }
 ```
 
-Implemented by: ColumnContainer, ScrollablePanelControl, HorizontalGridControl, NavigationView
+Implemented by: ColumnContainer, ScrollablePanelControl, HorizontalGridControl, NavigationView, Window, and other containers.
+
+### IControlHost
+
+Capability interface for containers whose children are a flat list of `IWindowControl`. Lets you add, remove, clear, and enumerate children without binding to a concrete container type.
+
+```csharp
+public interface IControlHost
+{
+    void AddControl(IWindowControl control);
+    void RemoveControl(IWindowControl control);
+    void ClearControls();
+    IReadOnlyList<IWindowControl> Children { get; }
+}
+```
+
+Implemented by: `ScrollablePanelControl`, `ColumnContainer`, `Window`.
+
+Not implemented by `TabControl` (tabs are title-keyed pages), `MenuControl` (children are `MenuItem`, not `IWindowControl`), `ToolbarControl`, or `NavigationView` — their child models are not a flat `IWindowControl` list, so forcing the contract would mean throwing `NotSupportedException`.
+
+```csharp
+// Write once against the capability, reuse anywhere.
+void PopulateForm(IControlHost host)
+{
+    host.AddControl(Controls.Label("Name:"));
+    host.AddControl(Controls.Prompt().Build());
+}
+
+PopulateForm(scrollablePanel);
+PopulateForm(column);
+PopulateForm(window);
+```
+
+`ColumnContainer` and `Window` keep their existing native names (`AddContent`/`Contents` on `ColumnContainer`; `RemoveContent`/`GetControls()` on `Window`); the `IControlHost` members are implemented via explicit interface forwarding so the public APIs are unchanged.
 
 ## Quick Reference
 
