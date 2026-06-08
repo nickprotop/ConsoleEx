@@ -280,6 +280,12 @@ namespace SharpConsoleUI
 			}
 		}
 
+		/// <inheritdoc />
+		IReadOnlyList<Controls.IWindowControl> Controls.IControlHost.Children => GetControls();
+
+		/// <inheritdoc />
+		void Controls.IControlHost.RemoveControl(Controls.IWindowControl control) => RemoveContent(control);
+
 		/// <summary>
 		/// Gets all controls of the specified type.
 		/// </summary>

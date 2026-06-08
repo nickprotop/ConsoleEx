@@ -21,7 +21,7 @@ namespace SharpConsoleUI.Controls
 	/// A container control that holds child controls vertically within a column of a <see cref="HorizontalGridControl"/>.
 	/// Supports layout constraints, focus management, and dynamic content sizing.
 	/// </summary>
-	public class ColumnContainer : IContainer, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILayoutAware, IDOMPaintable, IContainerControl, ILogicalCursorProvider
+	public class ColumnContainer : IContainer, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILayoutAware, IDOMPaintable, IContainerControl, IControlHost, ILogicalCursorProvider
 	{
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Fill;
@@ -394,6 +394,18 @@ namespace SharpConsoleUI.Controls
 		{
 			get { lock (_contentsLock) { return new List<IWindowControl>(_contents); } }
 		}
+
+		/// <inheritdoc />
+		IReadOnlyList<IWindowControl> IControlHost.Children => Contents;
+
+		/// <inheritdoc />
+		void IControlHost.AddControl(IWindowControl control) => AddContent(control);
+
+		/// <inheritdoc />
+		void IControlHost.RemoveControl(IWindowControl control) => RemoveContent(control);
+
+		/// <inheritdoc />
+		void IControlHost.ClearControls() => ClearContents();
 
 		/// <summary>
 		/// Gets the children of this container for Tab navigation traversal.

@@ -18,7 +18,7 @@ namespace SharpConsoleUI.Controls
 	/// A scrollable panel control that can host child controls with automatic scrolling support.
 	/// Supports vertical and horizontal scrolling, mouse wheel, and visual scrollbars.
 	/// </summary>
-	public partial class ScrollablePanelControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IContainerControl, IScrollableContainer, IFocusScope, ILogicalCursorProvider
+	public partial class ScrollablePanelControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IContainerControl, IControlHost, IScrollableContainer, IFocusScope, ILogicalCursorProvider
 	{
 		private readonly List<IWindowControl> _children = new();
 		private readonly object _childrenLock = new();

@@ -134,6 +134,9 @@ namespace SharpConsoleUI.Controls
 			get { lock (_childrenLock) { return new List<IWindowControl>(_children); } }
 		}
 
+		/// <inheritdoc />
+		void IControlHost.ClearControls() => ClearContents();
+
 		#endregion
 
 	}
