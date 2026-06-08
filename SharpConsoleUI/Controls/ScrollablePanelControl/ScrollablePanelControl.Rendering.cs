@@ -211,11 +211,16 @@ namespace SharpConsoleUI.Controls
 				// Measure using full layout pipeline.
 				// Fill-aligned children: get remaining space after fixed children.
 				// Content-sized children: measure unbounded for correct scroll positioning.
-				int maxChildHeight = (_viewportHeight > 0 && child.VerticalAlignment == VerticalAlignment.Fill)
-					? perFillHeight : int.MaxValue;
+				bool isFillChild = _viewportHeight > 0 && child.VerticalAlignment == VerticalAlignment.Fill;
+				int maxChildHeight = isFillChild ? perFillHeight : int.MaxValue;
 				var constraints = new LayoutConstraints(1, contentWidth, 1, maxChildHeight);
 				childNode.Measure(constraints);
-				int childHeight = childNode.DesiredSize.Height;
+				// Fill children occupy their full allocated slot even if their content (DesiredSize)
+				// is smaller — that is what VerticalAlignment.Fill means. Content-sized children use
+				// their DesiredSize so they can overflow the viewport and be scrolled.
+				int childHeight = isFillChild
+					? Math.Max(childNode.DesiredSize.Height, perFillHeight)
+					: childNode.DesiredSize.Height;
 
 				// Respect explicit Width on child controls
 				int childWidth = (child.Width.HasValue && child.Width.Value < contentWidth)

@@ -545,6 +545,18 @@ public partial class TableControl
 
 		height += Margin.Top + Margin.Bottom;
 
+		// VerticalAlignment.Fill: take all offered vertical space (then scroll internally
+		// for any overflow) instead of capping at content size. Only applies when a bounded
+		// height is offered and no explicit Height was set — content-sized tables and tables
+		// with an explicit Height keep their existing behavior.
+		if (VerticalAlignment == VerticalAlignment.Fill
+			&& !_height.HasValue
+			&& constraints.MaxHeight < int.MaxValue
+			&& height < constraints.MaxHeight)
+		{
+			height = constraints.MaxHeight;
+		}
+
 		return new LayoutSize(
 			Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
 			Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
@@ -908,6 +920,21 @@ public partial class TableControl
 				rowSnapshot[dataR].RenderedHeight = 1;
 			}
 
+			currentY++;
+		}
+
+		// Pad with empty rows so the bottom border sits at the bottom of the allocated
+		// bounds when the table has been given more height than its content needs (e.g.
+		// VerticalAlignment.Fill, or an explicit Height larger than the data). Without this
+		// the border would close right after the last data row, leaving blank space below
+		// it inside the table's own slot. Reserve the rows the bottom chrome will consume.
+		int bottomChromeHeight = (_filteringEnabled && !_readOnly && hasBorder ? 2 : 0) + (hasBorder ? 1 : 0);
+		int paddingStopY = maxY - bottomChromeHeight;
+		while (currentY < paddingStopY)
+		{
+			FillSideMargins(currentY);
+			DrawDataRow(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
+				new List<string>(), renderCols, fgColor, bgColor, hasBorder);
 			currentY++;
 		}
 
