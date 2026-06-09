@@ -158,35 +158,58 @@ namespace SharpConsoleUI.Controls
 						}
 						break;
 
+					// PageUp/PageDown/Home/End act on the vertical axis when there is vertical
+					// overflow; otherwise they fall back to the horizontal axis so a horizontally-
+					// overflowing panel (e.g. a wide canvas) can still be paged/jumped by keyboard.
 					case ConsoleKey.PageUp:
-						if (_verticalScrollMode == ScrollMode.Scroll)
+						if (VerticalIsScrollable)
 						{
-							ScrollVerticalBy(-_viewportHeight);
+							ScrollVerticalBy(-VisibleContentHeight);
+							return true;
+						}
+						if (HorizontalIsScrollable)
+						{
+							ScrollHorizontalBy(-VisibleContentWidth);
 							return true;
 						}
 						break;
 
 					case ConsoleKey.PageDown:
-						if (_verticalScrollMode == ScrollMode.Scroll)
+						if (VerticalIsScrollable)
 						{
-							ScrollVerticalBy(_viewportHeight);
+							ScrollVerticalBy(VisibleContentHeight);
+							return true;
+						}
+						if (HorizontalIsScrollable)
+						{
+							ScrollHorizontalBy(VisibleContentWidth);
 							return true;
 						}
 						break;
 
 					case ConsoleKey.Home:
-						if (_verticalScrollMode == ScrollMode.Scroll)
+						if (VerticalIsScrollable)
 						{
 							ScrollVerticalTo(0);
+							return true;
+						}
+						if (HorizontalIsScrollable)
+						{
+							ScrollHorizontalTo(0);
 							return true;
 						}
 						break;
 
 					case ConsoleKey.End:
-						if (_verticalScrollMode == ScrollMode.Scroll)
+						if (VerticalIsScrollable)
 						{
 							_autoScroll = true;  // Explicitly re-attach
-							ScrollVerticalTo(Math.Max(0, _contentHeight - _viewportHeight));
+							ScrollVerticalTo(Math.Max(0, _contentHeight - VisibleContentHeight));
+							return true;
+						}
+						if (HorizontalIsScrollable)
+						{
+							ScrollHorizontalTo(MaxHorizontalScrollOffset);
 							return true;
 						}
 						break;

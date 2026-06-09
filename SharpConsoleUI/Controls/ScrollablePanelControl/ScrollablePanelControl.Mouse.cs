@@ -43,10 +43,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private IWindowControl? GetChildAtContentPosition(System.Drawing.Point mousePosition)
 		{
-			bool needsScrollbar = _showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight;
-			int contentWidth = _viewportWidth;
-			if (needsScrollbar)
-				contentWidth -= 2;
+			int contentWidth = VisibleContentWidth;
 
 			int viewportX = mousePosition.X - Margin.Left - ContentInsetLeft;
 			if (viewportX < 0 || viewportX >= contentWidth || mousePosition.Y < Margin.Top + ContentInsetTop)
@@ -68,19 +65,18 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private MouseEventArgs? CreateChildRelativeArgs(MouseEventArgs args, IWindowControl child)
 		{
-			bool needsScrollbar = _showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight;
-			int contentWidth = _viewportWidth;
-			if (needsScrollbar)
-				contentWidth -= 2;
+			int contentWidth = VisibleContentWidth;
 
-			int viewportX = args.Position.X - Margin.Left - ContentInsetLeft;
+			// Content-space X/Y: undo the panel's scroll offsets so coordinates are child-relative
+			// regardless of how far the panel is scrolled (Bug C — horizontal term).
+			int contentX = args.Position.X - Margin.Left - ContentInsetLeft + _horizontalScrollOffset;
 			int contentY = args.Position.Y - Margin.Top - ContentInsetTop + _verticalScrollOffset;
 
 			foreach (var slot in GetVisibleChildLayout(contentWidth))
 			{
 				if (slot.Control == child)
 				{
-					var childPosition = new System.Drawing.Point(viewportX, contentY - slot.Top);
+					var childPosition = new System.Drawing.Point(contentX, contentY - slot.Top);
 					return args.WithPosition(childPosition);
 				}
 			}
@@ -169,7 +165,7 @@ namespace SharpConsoleUI.Controls
 						}
 						else if (args.HasFlag(Drivers.MouseFlags.WheeledDown))
 						{
-							int maxScroll = Math.Max(0, _contentHeight - _viewportHeight);
+							int maxScroll = Math.Max(0, _contentHeight - VisibleContentHeight);
 							if (_verticalScrollOffset < maxScroll)
 							{
 								ScrollVerticalBy(ControlDefaults.DefaultScrollWheelLines);
@@ -184,21 +180,21 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Handle scrollbar drag-in-progress
+			// Handle vertical scrollbar drag-in-progress
 			// Button1Dragged = real mouse movement; Button1Pressed = synthetic continuous-press repeats
 			if (_isScrollbarDragging && args.HasAnyFlag(Drivers.MouseFlags.Button1Dragged, Drivers.MouseFlags.Button1Pressed))
 			{
-				var (_, sbTop, sbHeight, _, sbThumbHeight) = GetScrollbarGeometry();
-				int deltaY = args.Position.Y - _scrollbarDragStartY;
-				int maxScroll = Math.Max(0, _contentHeight - _viewportHeight);
-				int trackRange = Math.Max(1, sbHeight - sbThumbHeight);
-				int newOffset = _scrollbarDragStartOffset + (int)(deltaY * (double)maxScroll / trackRange);
+				var (_, sbTop, sbHeight, _, _) = GetScrollbarGeometry();
+				// Map the dragged-to track row back to an offset using the SAME geometry the thumb
+				// was drawn with, so the thumb tracks the cursor and round-trips (Bug D).
+				int trackRowFromStart = (_scrollbarDragStartThumbPos + (args.Position.Y - _scrollbarDragStartY));
+				int newOffset = OffsetForThumbPos(sbHeight, sbHeight, _contentHeight, trackRowFromStart);
 				ScrollVerticalTo(newOffset);
 				args.Handled = true;
 				return true;
 			}
 
-			// Handle scrollbar drag end
+			// Handle vertical scrollbar drag end
 			if (args.HasFlag(Drivers.MouseFlags.Button1Released) && _isScrollbarDragging)
 			{
 				_isScrollbarDragging = false;
@@ -206,68 +202,140 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
-			// Handle scrollbar click/press interactions
+			// Handle horizontal scrollbar drag-in-progress
+			if (_isHScrollbarDragging && args.HasAnyFlag(Drivers.MouseFlags.Button1Dragged, Drivers.MouseFlags.Button1Pressed))
 			{
-				bool needsScrollbar = _showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight;
-				if (needsScrollbar)
+				var (_, _, trackWidth, _, _) = GetHScrollbarGeometry();
+				int trackColFromStart = (_hScrollbarDragStartThumbPos + (args.Position.X - _scrollbarDragStartX));
+				int newOffset = OffsetForThumbPos(trackWidth, trackWidth, _contentWidth, trackColFromStart);
+				ScrollHorizontalTo(newOffset);
+				args.Handled = true;
+				return true;
+			}
+
+			// Handle horizontal scrollbar drag end
+			if (args.HasFlag(Drivers.MouseFlags.Button1Released) && _isHScrollbarDragging)
+			{
+				_isHScrollbarDragging = false;
+				args.Handled = true;
+				return true;
+			}
+
+			// Handle vertical scrollbar click/press interactions
+			if (NeedsVerticalScrollbar)
+			{
+				var (sbRelX, sbTop, sbHeight, sbThumbY, sbThumbHeight) = GetScrollbarGeometry();
+				int viewportX = args.Position.X - Margin.Left - ContentInsetLeft;
+				bool isOnScrollbar = viewportX >= VisibleContentWidth;
+				int relY = args.Position.Y - Margin.Top - ContentInsetTop;
+				bool inTrackRows = relY >= 0 && relY < sbHeight;
+
+				// Thumb drag initiation (needs Button1Pressed for responsive dragging)
+				if (isOnScrollbar && inTrackRows && args.HasFlag(Drivers.MouseFlags.Button1Pressed))
 				{
-					var (sbRelX, sbTop, sbHeight, sbThumbY, sbThumbHeight) = GetScrollbarGeometry();
-					int viewportX = args.Position.X - Margin.Left - ContentInsetLeft;
-					int contentWidth = _viewportWidth - 2;
-					bool isOnScrollbar = viewportX >= contentWidth;
-
-					// Thumb drag initiation (needs Button1Pressed for responsive dragging)
-					if (isOnScrollbar && args.HasFlag(Drivers.MouseFlags.Button1Pressed))
+					if (relY >= sbThumbY && relY < sbThumbY + sbThumbHeight)
 					{
-						int relY = args.Position.Y - Margin.Top - ContentInsetTop;
-						if (relY >= sbThumbY && relY < sbThumbY + sbThumbHeight)
-						{
-							_isScrollbarDragging = true;
-							_scrollbarDragStartY = args.Position.Y;
-							_scrollbarDragStartOffset = _verticalScrollOffset;
-							args.Handled = true;
-							return true;
-						}
-					}
-
-					// Arrow and track clicks (Button1Clicked only to avoid double-firing)
-					if (isOnScrollbar && args.HasFlag(Drivers.MouseFlags.Button1Clicked))
-					{
-						int relY = args.Position.Y - Margin.Top - ContentInsetTop;
-						int maxScroll = Math.Max(0, _contentHeight - _viewportHeight);
-
-						if (relY == 0 && _verticalScrollOffset > 0)
-						{
-							// Arrow up
-							ScrollVerticalBy(-ControlDefaults.DefaultScrollWheelLines);
-						}
-						else if (relY == sbHeight - 1 && _verticalScrollOffset < maxScroll)
-						{
-							// Arrow down
-							ScrollVerticalBy(ControlDefaults.DefaultScrollWheelLines);
-						}
-						else if (relY < sbThumbY)
-						{
-							// Track above thumb: page up
-							ScrollVerticalBy(-_viewportHeight);
-						}
-						else if (relY >= sbThumbY + sbThumbHeight)
-						{
-							// Track below thumb: page down
-							ScrollVerticalBy(_viewportHeight);
-						}
+						_isScrollbarDragging = true;
+						_scrollbarDragStartY = args.Position.Y;
+						_scrollbarDragStartThumbPos = sbThumbY;
 						args.Handled = true;
 						return true;
 					}
+				}
 
-					if (isOnScrollbar && args.HasAnyFlag(
-						Drivers.MouseFlags.Button1Released, Drivers.MouseFlags.Button1DoubleClicked,
-						Drivers.MouseFlags.Button1TripleClicked))
+				// Arrow and track clicks (Button1Clicked only to avoid double-firing)
+				if (isOnScrollbar && inTrackRows && args.HasFlag(Drivers.MouseFlags.Button1Clicked))
+				{
+					int maxScroll = Math.Max(0, _contentHeight - VisibleContentHeight);
+
+					if (relY == 0 && _verticalScrollOffset > 0)
 					{
-						// Consume scrollbar events to prevent propagation to children
+						// Arrow up
+						ScrollVerticalBy(-ControlDefaults.DefaultScrollWheelLines);
+					}
+					else if (relY == sbHeight - 1 && _verticalScrollOffset < maxScroll)
+					{
+						// Arrow down
+						ScrollVerticalBy(ControlDefaults.DefaultScrollWheelLines);
+					}
+					else if (relY < sbThumbY)
+					{
+						// Track above thumb: page up
+						ScrollVerticalBy(-VisibleContentHeight);
+					}
+					else if (relY >= sbThumbY + sbThumbHeight)
+					{
+						// Track below thumb: page down
+						ScrollVerticalBy(VisibleContentHeight);
+					}
+					args.Handled = true;
+					return true;
+				}
+
+				if (isOnScrollbar && inTrackRows && args.HasAnyFlag(
+					Drivers.MouseFlags.Button1Released, Drivers.MouseFlags.Button1DoubleClicked,
+					Drivers.MouseFlags.Button1TripleClicked))
+				{
+					// Consume scrollbar events to prevent propagation to children
+					args.Handled = true;
+					return true;
+				}
+			}
+
+			// Handle horizontal scrollbar click/press interactions (mirrors the vertical block).
+			if (NeedsHorizontalScrollbar)
+			{
+				var (hRelX, hRelY, hTrackWidth, hThumbX, hThumbWidth) = GetHScrollbarGeometry();
+				int relY = args.Position.Y - Margin.Top - ContentInsetTop;
+				int relX = args.Position.X - Margin.Left - ContentInsetLeft;
+				bool isOnHScrollbar = relY == (hRelY - Margin.Top - ContentInsetTop) && relX >= 0 && relX < hTrackWidth;
+
+				// Thumb drag initiation
+				if (isOnHScrollbar && args.HasFlag(Drivers.MouseFlags.Button1Pressed))
+				{
+					if (relX >= hThumbX && relX < hThumbX + hThumbWidth)
+					{
+						_isHScrollbarDragging = true;
+						_scrollbarDragStartX = args.Position.X;
+						_hScrollbarDragStartThumbPos = hThumbX;
 						args.Handled = true;
 						return true;
 					}
+				}
+
+				// Arrow and track clicks
+				if (isOnHScrollbar && args.HasFlag(Drivers.MouseFlags.Button1Clicked))
+				{
+					if (relX == 0 && _horizontalScrollOffset > 0)
+					{
+						// Left arrow
+						ScrollHorizontalBy(-ControlDefaults.DefaultScrollWheelLines);
+					}
+					else if (relX == hTrackWidth - 1 && CanScrollRight)
+					{
+						// Right arrow
+						ScrollHorizontalBy(ControlDefaults.DefaultScrollWheelLines);
+					}
+					else if (relX < hThumbX)
+					{
+						// Track left of thumb: page left
+						ScrollHorizontalBy(-VisibleContentWidth);
+					}
+					else if (relX >= hThumbX + hThumbWidth)
+					{
+						// Track right of thumb: page right
+						ScrollHorizontalBy(VisibleContentWidth);
+					}
+					args.Handled = true;
+					return true;
+				}
+
+				if (isOnHScrollbar && args.HasAnyFlag(
+					Drivers.MouseFlags.Button1Released, Drivers.MouseFlags.Button1DoubleClicked,
+					Drivers.MouseFlags.Button1TripleClicked))
+				{
+					args.Handled = true;
+					return true;
 				}
 			}
 
@@ -314,11 +382,8 @@ namespace SharpConsoleUI.Controls
 			{
 				var currentFocused = GetFocusedChildFromCoordinator();
 				log?.LogTrace($"ScrollPanel.ProcessMouseEvent: click pos={args.Position} HasFocus={HasFocus} focusedChild={currentFocused?.GetType().Name ?? "null"}", "Focus");
-				// Calculate content width (accounting for scrollbar)
-				int contentWidth = _viewportWidth;
-				bool needsScrollbar = _showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight;
-				if (needsScrollbar)
-					contentWidth -= 2;
+				// Visible content width (accounting for the vertical scrollbar columns)
+				int contentWidth = VisibleContentWidth;
 
 				// Translate mouse position to viewport coordinates
 				int viewportX = args.Position.X - Margin.Left - ContentInsetLeft;

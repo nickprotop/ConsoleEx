@@ -38,10 +38,14 @@ namespace SharpConsoleUI.Controls
 		private DateTime _lastClickTime;
 		private System.Drawing.Point _lastClickPosition;
 
-		// Scrollbar drag state
+		// Scrollbar drag state (vertical)
 		private bool _isScrollbarDragging = false;
 		private int _scrollbarDragStartY = 0;
-		private int _scrollbarDragStartOffset = 0;
+		private int _scrollbarDragStartThumbPos = 0;
+		// Scrollbar drag state (horizontal)
+		private bool _isHScrollbarDragging = false;
+		private int _scrollbarDragStartX = 0;
+		private int _hScrollbarDragStartThumbPos = 0;
 		// Child mouse capture: prevents drag stealing between sibling controls
 		private IWindowControl? _mouseCaptureChild;
 
@@ -250,9 +254,87 @@ namespace SharpConsoleUI.Controls
 		public bool CanScrollLeft => _horizontalScrollOffset > 0;
 
 		/// <summary>
-		/// Gets whether the content can be scrolled right (more content exists beyond the viewport width).
+		/// Gets whether the content can be scrolled right (more content exists beyond the visible
+		/// content width). The visible width excludes the vertical scrollbar columns, so the last
+		/// columns of content remain reachable even when a vertical scrollbar is present.
 		/// </summary>
-		public bool CanScrollRight => _horizontalScrollOffset < Math.Max(0, _contentWidth - _viewportWidth);
+		public bool CanScrollRight => _horizontalScrollOffset < MaxHorizontalScrollOffset;
+
+		/// <summary>
+		/// Gets whether a vertical scrollbar is currently shown: scrollbars are enabled, the vertical
+		/// scroll mode is <see cref="ScrollMode.Scroll"/>, and content overflows the (horizontal-
+		/// scrollbar-reduced) viewport height.
+		/// </summary>
+		public bool HasVerticalScrollbar => NeedsVerticalScrollbar;
+
+		/// <summary>
+		/// Gets whether a horizontal scrollbar is currently shown: scrollbars are enabled, the
+		/// horizontal scroll mode is <see cref="ScrollMode.Scroll"/>, and content overflows the
+		/// (vertical-scrollbar-reduced) viewport width.
+		/// </summary>
+		public bool HasHorizontalScrollbar => NeedsHorizontalScrollbar;
+
+		#endregion
+
+		#region Scrollbar Reservation (single source of truth)
+
+		// Reserved space: a vertical scrollbar uses 2 columns (1 gap + 1 bar); a horizontal
+		// scrollbar uses 1 row. Centralised so paint, hit-testing, clamping and geometry agree.
+		internal const int VerticalScrollbarColumns = 2;
+		internal const int HorizontalScrollbarRows = 1;
+
+		// The two scrollbars are mutually dependent: a vertical bar steals columns (which can push
+		// content past the width) and a horizontal bar steals a row (which can push content past
+		// the height). We break the cycle with a non-mutual first pass, then resolve once.
+		private bool RawNeedsVerticalScrollbar =>
+			_showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _viewportHeight > 0
+			&& _contentHeight > _viewportHeight;
+
+		private bool RawNeedsHorizontalScrollbar =>
+			_showScrollbar && _horizontalScrollMode == ScrollMode.Scroll && _viewportWidth > 0
+			&& _contentWidth > _viewportWidth;
+
+		private bool NeedsVerticalScrollbar
+		{
+			get
+			{
+				if (!_showScrollbar || _verticalScrollMode != ScrollMode.Scroll || _viewportHeight <= 0)
+					return false;
+				int effHeight = _viewportHeight - (RawNeedsHorizontalScrollbar ? HorizontalScrollbarRows : 0);
+				return _contentHeight > Math.Max(0, effHeight);
+			}
+		}
+
+		private bool NeedsHorizontalScrollbar
+		{
+			get
+			{
+				if (!_showScrollbar || _horizontalScrollMode != ScrollMode.Scroll || _viewportWidth <= 0)
+					return false;
+				int effWidth = _viewportWidth - (RawNeedsVerticalScrollbar ? VerticalScrollbarColumns : 0);
+				return _contentWidth > Math.Max(0, effWidth);
+			}
+		}
+
+		/// <summary>
+		/// The visible content width (viewport minus the vertical scrollbar columns, when shown).
+		/// This is the width children are painted into and the basis for horizontal scroll extent.
+		/// </summary>
+		private int VisibleContentWidth =>
+			Math.Max(1, _viewportWidth - (NeedsVerticalScrollbar ? VerticalScrollbarColumns : 0));
+
+		/// <summary>
+		/// The content viewport height (viewport minus the horizontal scrollbar row, when shown).
+		/// </summary>
+		private int VisibleContentHeight =>
+			Math.Max(1, _viewportHeight - (NeedsHorizontalScrollbar ? HorizontalScrollbarRows : 0));
+
+		/// <summary>
+		/// The maximum horizontal scroll offset: total content width minus the visible content
+		/// width. Computed against <see cref="VisibleContentWidth"/> so the last content column is
+		/// always reachable even when a vertical scrollbar steals columns (Bug A).
+		/// </summary>
+		private int MaxHorizontalScrollOffset => Math.Max(0, _contentWidth - VisibleContentWidth);
 
 		#endregion
 
@@ -422,13 +504,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// The content width children are measured/positioned at, accounting for the scrollbar.
 		/// </summary>
-		private int CursorContentWidth()
-		{
-			int contentWidth = _viewportWidth;
-			if (_showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight)
-				contentWidth -= 2;
-			return contentWidth;
-		}
+		private int CursorContentWidth() => VisibleContentWidth;
 
 		/// <summary>
 		/// Locates the focused child's vertical slot via the shared layout. Unlike the child's own
@@ -464,11 +540,12 @@ namespace SharpConsoleUI.Controls
 					// Hide the cursor when its row is outside the panel viewport — the focused child
 					// has been scrolled out of view. (The window-level visibility check is unaware of
 					// the panel's internal scroll, so the panel must report this itself.)
-					if (_viewportHeight > 0 && (panelRelativeY < 0 || panelRelativeY >= _viewportHeight))
+					if (_viewportHeight > 0 && (panelRelativeY < 0 || panelRelativeY >= VisibleContentHeight))
 						return null;
 
+					// Apply the horizontal scroll offset so the cursor tracks a horizontally-scrolled child.
 					return new System.Drawing.Point(
-						childPos.Value.X + ContentInsetLeft,
+						childPos.Value.X + ContentInsetLeft - _horizontalScrollOffset,
 						panelRelativeY + ContentInsetTop);
 				}
 			}
@@ -486,7 +563,7 @@ namespace SharpConsoleUI.Controls
 				{
 					// Inverse of GetLogicalCursorPosition.
 					var childPos = new System.Drawing.Point(
-						position.X - ContentInsetLeft,
+						position.X - ContentInsetLeft + _horizontalScrollOffset,
 						position.Y - childTop.Value + _verticalScrollOffset - ContentInsetTop);
 					cursorProvider.SetLogicalCursorPosition(childPos);
 				}

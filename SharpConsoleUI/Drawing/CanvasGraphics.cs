@@ -76,8 +76,11 @@ namespace SharpConsoleUI.Drawing
 		/// <param name="bg">The background color to fill with.</param>
 		public void Clear(Color bg)
 		{
-			var rect = new LayoutRect(_offsetX, _offsetY, Width, Height);
-			_buffer.FillRect(rect, ' ', Color.White, bg);
+			// Clip to _clipRect: when the canvas is scrolled, _offsetX/Y are shifted and the full
+			// canvas extent would otherwise paint over sibling controls (e.g. a nav pane).
+			var rect = new LayoutRect(_offsetX, _offsetY, Width, Height).Intersect(_clipRect);
+			if (rect.Width > 0 && rect.Height > 0)
+				_buffer.FillRect(rect, ' ', Color.White, bg);
 		}
 
 		/// <summary>
@@ -88,8 +91,9 @@ namespace SharpConsoleUI.Drawing
 		/// <param name="bg">The background color.</param>
 		public void Clear(char ch, Color fg, Color bg)
 		{
-			var rect = new LayoutRect(_offsetX, _offsetY, Width, Height);
-			_buffer.FillRect(rect, ch, fg, bg);
+			var rect = new LayoutRect(_offsetX, _offsetY, Width, Height).Intersect(_clipRect);
+			if (rect.Width > 0 && rect.Height > 0)
+				_buffer.FillRect(rect, ch, fg, bg);
 		}
 
 		/// <summary>
@@ -103,7 +107,7 @@ namespace SharpConsoleUI.Drawing
 		/// <param name="fg">The foreground color.</param>
 		/// <param name="bg">The background color.</param>
 		public void FillRect(int x, int y, int width, int height, char ch, Color fg, Color bg)
-			=> _buffer.FillRect(new LayoutRect(x + _offsetX, y + _offsetY, width, height), ch, fg, bg);
+			=> FillRectClipped(x, y, width, height, ch, fg, bg);
 
 		/// <summary>
 		/// Fills a rectangle at canvas-local coordinates with spaces and the specified background.
@@ -114,7 +118,17 @@ namespace SharpConsoleUI.Drawing
 		/// <param name="height">The height of the rectangle.</param>
 		/// <param name="bg">The background color.</param>
 		public void FillRect(int x, int y, int width, int height, Color bg)
-			=> _buffer.FillRect(new LayoutRect(x + _offsetX, y + _offsetY, width, height), ' ', Color.White, bg);
+			=> FillRectClipped(x, y, width, height, ' ', Color.White, bg);
+
+		// Clip-respecting fill: routes through SetNarrowCell so it honors _clipRect, unlike the
+		// raw buffer.FillRect which only clips to the physical buffer. Used by the canvas's draw
+		// primitives so content never escapes the panel viewport (e.g. when horizontally scrolled).
+		private void FillRectClipped(int x, int y, int width, int height, char ch, Color fg, Color bg)
+		{
+			for (int dy = 0; dy < height; dy++)
+				for (int dx = 0; dx < width; dx++)
+					SetNarrowCell(x + dx, y + dy, ch, fg, bg);
+		}
 
 		#endregion
 
@@ -217,7 +231,11 @@ namespace SharpConsoleUI.Drawing
 		/// <param name="fg">The foreground color.</param>
 		/// <param name="bg">The background color.</param>
 		public void DrawHorizontalLine(int x, int y, int length, char ch, Color fg, Color bg)
-			=> _buffer.DrawHorizontalLine(x + _offsetX, y + _offsetY, length, ch, fg, bg);
+		{
+			// Route through the clip-respecting SetNarrowCell (the raw buffer overload ignores _clipRect).
+			for (int i = 0; i < length; i++)
+				SetNarrowCell(x + i, y, ch, fg, bg);
+		}
 
 		/// <summary>
 		/// Draws a vertical line starting at the given position.
@@ -229,7 +247,11 @@ namespace SharpConsoleUI.Drawing
 		/// <param name="fg">The foreground color.</param>
 		/// <param name="bg">The background color.</param>
 		public void DrawVerticalLine(int x, int y, int length, char ch, Color fg, Color bg)
-			=> _buffer.DrawVerticalLine(x + _offsetX, y + _offsetY, length, ch, fg, bg);
+		{
+			// Route through the clip-respecting SetNarrowCell (the raw buffer overload ignores _clipRect).
+			for (int i = 0; i < length; i++)
+				SetNarrowCell(x, y + i, ch, fg, bg);
+		}
 
 		/// <summary>
 		/// Draws a box border using the specified box drawing characters.
@@ -242,7 +264,32 @@ namespace SharpConsoleUI.Drawing
 		/// <param name="fg">The foreground color.</param>
 		/// <param name="bg">The background color.</param>
 		public void DrawBox(int x, int y, int width, int height, BoxChars boxChars, Color fg, Color bg)
-			=> _buffer.DrawBox(new LayoutRect(x + _offsetX, y + _offsetY, width, height), boxChars, fg, bg);
+		{
+			if (width < 2 || height < 2) return;
+
+			// Mirror CharacterBuffer.DrawBox, but draw every edge cell through the clip-respecting
+			// SetNarrowCell so a box that is partly scrolled out of the viewport is clipped at the
+			// panel boundary instead of leaking over sibling controls (the raw buffer.DrawBox does
+			// not honor _clipRect).
+			int right = x + width - 1;
+			int bottom = y + height - 1;
+
+			SetNarrowCell(x, y, boxChars.TopLeft, fg, bg);
+			SetNarrowCell(right, y, boxChars.TopRight, fg, bg);
+			SetNarrowCell(x, bottom, boxChars.BottomLeft, fg, bg);
+			SetNarrowCell(right, bottom, boxChars.BottomRight, fg, bg);
+
+			for (int ex = x + 1; ex < right; ex++)
+			{
+				SetNarrowCell(ex, y, boxChars.Horizontal, fg, bg);
+				SetNarrowCell(ex, bottom, boxChars.Horizontal, fg, bg);
+			}
+			for (int ey = y + 1; ey < bottom; ey++)
+			{
+				SetNarrowCell(x, ey, boxChars.Vertical, fg, bg);
+				SetNarrowCell(right, ey, boxChars.Vertical, fg, bg);
+			}
+		}
 
 		#endregion
 

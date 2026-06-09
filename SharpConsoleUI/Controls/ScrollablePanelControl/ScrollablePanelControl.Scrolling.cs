@@ -29,9 +29,7 @@ namespace SharpConsoleUI.Controls
 				return;
 			}
 
-			int contentWidth = _viewportWidth;
-			if (_showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight)
-				contentWidth -= 2;
+			int contentWidth = VisibleContentWidth;
 
 			// Locate the child via the shared layout so its Y/height agree with paint.
 			int childContentY = 0;
@@ -61,14 +59,14 @@ namespace SharpConsoleUI.Controls
 				_autoScroll = false; // Detach: focus-driven scroll overrides autoScroll
 				ScrollVerticalTo(childContentY);
 			}
-			else if (childContentY + childHeight > _verticalScrollOffset + _viewportHeight)
+			else if (childContentY + childHeight > _verticalScrollOffset + VisibleContentHeight)
 			{
 				// Child is below viewport - scroll down to show it at bottom (or align top
 				// when the child is taller than the viewport).
 				_autoScroll = false; // Detach: focus-driven scroll overrides autoScroll
-				int target = childHeight > _viewportHeight
+				int target = childHeight > VisibleContentHeight
 					? childContentY
-					: childContentY + childHeight - _viewportHeight;
+					: childContentY + childHeight - VisibleContentHeight;
 				ScrollVerticalTo(target);
 			}
 			// If child is already visible, don't scroll
@@ -132,7 +130,7 @@ namespace SharpConsoleUI.Controls
 		{
 			if (_viewportWidth <= 0 || _viewportHeight <= 0)
 				return false;
-			_contentHeight = CalculateContentHeight(_viewportWidth, _viewportHeight);
+			_contentHeight = CalculateContentHeight(_viewportWidth, VisibleContentHeight);
 			return true;
 		}
 
@@ -150,7 +148,7 @@ namespace SharpConsoleUI.Controls
 				return;
 
 			int oldOffset = _horizontalScrollOffset;
-			_horizontalScrollOffset = Math.Clamp(_horizontalScrollOffset + chars, 0, Math.Max(0, _contentWidth - _viewportWidth));
+			_horizontalScrollOffset = Math.Clamp(_horizontalScrollOffset + chars, 0, MaxHorizontalScrollOffset);
 
 			if (oldOffset != _horizontalScrollOffset)
 			{
@@ -158,6 +156,33 @@ namespace SharpConsoleUI.Controls
 				Scrolled?.Invoke(this, new ScrollEventArgs(ScrollDirection.Horizontal, _verticalScrollOffset, _horizontalScrollOffset));
 			}
 		}
+
+		/// <summary>
+		/// Scrolls horizontally to an absolute character offset (clamped to valid bounds).
+		/// No-op when <see cref="HorizontalScrollMode"/> is not <see cref="ScrollMode.Scroll"/>.
+		/// </summary>
+		private void ScrollHorizontalTo(int offset)
+		{
+			if (_horizontalScrollMode != ScrollMode.Scroll)
+				return;
+
+			int oldOffset = _horizontalScrollOffset;
+			_horizontalScrollOffset = Math.Clamp(offset, 0, MaxHorizontalScrollOffset);
+
+			if (oldOffset != _horizontalScrollOffset)
+			{
+				Invalidate(true);
+				Scrolled?.Invoke(this, new ScrollEventArgs(ScrollDirection.Horizontal, _verticalScrollOffset, _horizontalScrollOffset));
+			}
+		}
+
+		/// <summary>True when vertical content overflows and vertical scrolling is enabled.</summary>
+		private bool VerticalIsScrollable =>
+			_verticalScrollMode == ScrollMode.Scroll && _contentHeight > VisibleContentHeight;
+
+		/// <summary>True when horizontal content overflows and horizontal scrolling is enabled.</summary>
+		private bool HorizontalIsScrollable =>
+			_horizontalScrollMode == ScrollMode.Scroll && _contentWidth > VisibleContentWidth;
 
 		/// <summary>
 		/// Scrolls to the top of the content.
@@ -181,7 +206,7 @@ namespace SharpConsoleUI.Controls
 				_pendingScrollToBottom = true;
 				return;
 			}
-			ScrollVerticalTo(Math.Max(0, _contentHeight - _viewportHeight));
+			ScrollVerticalTo(Math.Max(0, _contentHeight - VisibleContentHeight));
 		}
 
 		/// <summary>
@@ -192,7 +217,7 @@ namespace SharpConsoleUI.Controls
 			ScrollVerticalTo(vertical);
 			if (_horizontalScrollMode == ScrollMode.Scroll)
 			{
-				_horizontalScrollOffset = Math.Clamp(horizontal, 0, Math.Max(0, _contentWidth - _viewportWidth));
+				_horizontalScrollOffset = Math.Clamp(horizontal, 0, MaxHorizontalScrollOffset);
 				Invalidate(true);
 			}
 		}

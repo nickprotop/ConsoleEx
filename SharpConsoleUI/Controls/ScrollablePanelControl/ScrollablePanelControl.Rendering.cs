@@ -59,18 +59,30 @@ namespace SharpConsoleUI.Controls
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			int targetHeight = bounds.Height - Margin.Top - Margin.Bottom;
 
+			// _viewportHeight / _viewportWidth are the FULL inner content box (border + padding
+			// removed). They are NOT reduced for the scrollbars — the reduced values are
+			// VisibleContentHeight / VisibleContentWidth, derived from the single-source-of-truth
+			// NeedsVerticalScrollbar / NeedsHorizontalScrollbar. This keeps those predicates (which
+			// read _viewport*) self-consistent and avoids the double-subtraction trap.
 			_viewportHeight = targetHeight - BorderHeight - _padding.Top - _padding.Bottom;
 			_viewportWidth = targetWidth - BorderWidth - _padding.Left - _padding.Right;
 
-			// Calculate content dimensions from children
-			_contentHeight = CalculateContentHeight(_viewportWidth, _viewportHeight);
+			// Content width is independent of viewport height; resolve it first so the horizontal
+			// scrollbar decision (which steals a content row) can be made before measuring height.
 			_contentWidth = CalculateContentWidth();
 
-			// Clamp scroll offset to valid bounds after viewport/content recalculation
-			// (viewport may have grown or content may have shrunk since last frame)
-			int maxScrollOffset = Math.Max(0, _contentHeight - _viewportHeight);
+			// Reserve the horizontal scrollbar row BEFORE measuring content height, so Fill children
+			// fill the reduced content area exactly instead of overflowing by the scrollbar row.
+			int contentViewportHeight = VisibleContentHeight;
+			_contentHeight = CalculateContentHeight(_viewportWidth, contentViewportHeight);
+
+			// Clamp scroll offsets to valid bounds after viewport/content recalculation
+			// (viewport may have grown or content may have shrunk since last frame).
+			int maxScrollOffset = Math.Max(0, _contentHeight - contentViewportHeight);
 			if (_verticalScrollOffset > maxScrollOffset)
 				_verticalScrollOffset = maxScrollOffset;
+			if (_horizontalScrollOffset > MaxHorizontalScrollOffset)
+				_horizontalScrollOffset = MaxHorizontalScrollOffset;
 
 			// Deferred scroll-to-focused: triggered when focus was set before viewport was ready
 			if (_pendingScrollToFocused && _viewportWidth > 0 && _viewportHeight > 0)
@@ -86,27 +98,25 @@ namespace SharpConsoleUI.Controls
 			if (_pendingScrollToBottom && _viewportWidth > 0 && _viewportHeight > 0)
 			{
 				_pendingScrollToBottom = false;
-				_verticalScrollOffset = Math.Max(0, _contentHeight - _viewportHeight);
+				_verticalScrollOffset = Math.Max(0, _contentHeight - contentViewportHeight);
 			}
 
 			// AutoScroll: scroll to bottom on any repaint when enabled
 			if (_autoScroll)
 			{
-				int maxOffset = Math.Max(0, _contentHeight - _viewportHeight);
+				int maxOffset = Math.Max(0, _contentHeight - contentViewportHeight);
 				if (_verticalScrollOffset < maxOffset)
 				{
 					_verticalScrollOffset = maxOffset;
 				}
 			}
 
-			// Reserve space for scrollbar(s)
-			int contentWidth = _viewportWidth;
-			bool needsScrollbar = _showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight;
-			if (needsScrollbar)
-			{
-				contentWidth -= 2;  // Reserve 2 columns: 1 for gap, 1 for scrollbar
-			}
-			contentWidth = Math.Max(1, contentWidth);
+			// Reserve space for the vertical scrollbar (single source of truth). contentWidth is the
+			// VISIBLE content width children are painted into; horizontal overflow beyond it is
+			// reached by scrolling, not by widening the paint area.
+			bool needsScrollbar = NeedsVerticalScrollbar;
+			bool needsHScrollbar = NeedsHorizontalScrollbar;
+			int contentWidth = VisibleContentWidth;
 
 			// Draw border if needed
 			bool hasBorder = _borderStyle != BorderStyle.None;
@@ -180,7 +190,15 @@ namespace SharpConsoleUI.Controls
 
 			// Two-pass Fill layout. The metrics (fixed height, fill count, per-Fill height) are
 			// computed by the shared helper so paint, hit-testing and scroll-into-view agree.
-			var (_, _, perFillHeight) = ComputeFillMetrics(paintSnapshot, contentWidth);
+			// Children are measured/distributed against the content viewport (H-scrollbar row
+			// already reserved).
+			var (_, _, perFillHeight) = ComputeFillMetrics(paintSnapshot, contentWidth, contentViewportHeight);
+
+			// When horizontal scrolling is enabled, lay children out at their FULL content width so
+			// the overflow exists to scroll through; the viewport clip below trims it. When off,
+			// children are constrained to the visible width (the original behaviour).
+			bool horizontalScrollEnabled = _horizontalScrollMode == ScrollMode.Scroll;
+			int childLayoutWidth = horizontalScrollEnabled ? Math.Max(contentWidth, _contentWidth) : contentWidth;
 
 			foreach (var child in paintSnapshot)
 			{
@@ -193,9 +211,9 @@ namespace SharpConsoleUI.Controls
 				// Measure using full layout pipeline.
 				// Fill-aligned children: get remaining space after fixed children.
 				// Content-sized children: measure unbounded for correct scroll positioning.
-				bool isFillChild = _viewportHeight > 0 && child.VerticalAlignment == VerticalAlignment.Fill;
+				bool isFillChild = contentViewportHeight > 0 && child.VerticalAlignment == VerticalAlignment.Fill;
 				int maxChildHeight = isFillChild ? perFillHeight : int.MaxValue;
-				var constraints = new LayoutConstraints(1, contentWidth, 1, maxChildHeight);
+				var constraints = new LayoutConstraints(1, childLayoutWidth, 1, maxChildHeight);
 				childNode.Measure(constraints);
 				// Fill children occupy their full allocated slot even if their content (DesiredSize)
 				// is smaller — that is what VerticalAlignment.Fill means. Content-sized children use
@@ -205,23 +223,26 @@ namespace SharpConsoleUI.Controls
 					: childNode.DesiredSize.Height;
 
 				// Respect explicit Width on child controls
-				int childWidth = (child.Width.HasValue && child.Width.Value < contentWidth)
+				int childWidth = (child.Width.HasValue && child.Width.Value < childLayoutWidth)
 					? child.Width.Value
-					: contentWidth;
+					: childLayoutWidth;
+
+				// Horizontal scroll offset shifts children left.
+				int childX = contentOriginX - _horizontalScrollOffset;
 
 				// Register child bounds for cursor position lookups (even if off-viewport)
 				var childBoundsForCursor = new LayoutRect(
-					contentOriginX,
+					childX,
 					contentOriginY + currentY,
 					childWidth,
 					childHeight);
 				renderer?.UpdateChildBounds(child, childBoundsForCursor);
 
-				// Only render if in viewport
-				if (currentY + childHeight > 0 && currentY < _viewportHeight)
+				// Only render if in the content viewport (vertical extent excludes the H-scrollbar row)
+				if (currentY + childHeight > 0 && currentY < contentViewportHeight)
 				{
 					var childBounds = new LayoutRect(
-						contentOriginX,
+						childX,
 						contentOriginY + currentY,
 						childWidth,
 						childHeight);
@@ -229,25 +250,15 @@ namespace SharpConsoleUI.Controls
 					// Arrange in screen coordinates (so AbsoluteBounds are correct)
 					childNode.Arrange(childBounds);
 
-					// Create clipped clipRect for child that excludes scrollbar area and clips to viewport
+					// Clip the child to the visible content area: width excludes the vertical
+					// scrollbar columns, height excludes the horizontal scrollbar row.
 					var viewportRect = new LayoutRect(
 						contentOriginX,
 						contentOriginY,
-						needsScrollbar ? contentWidth + 1 : contentWidth, // +1 for gap if scrollbar visible
-						_viewportHeight);
+						contentWidth,
+						contentViewportHeight);
 
 					var childClipRect = clipRect.Intersect(viewportRect);
-
-					if (needsScrollbar)
-					{
-						// Further restrict to exclude scrollbar columns
-						int maxRight = contentOriginX + contentWidth + 1; // +1 for gap
-						childClipRect = childClipRect.Intersect(new LayoutRect(
-							childClipRect.X,
-							childClipRect.Y,
-							Math.Min(childClipRect.Width, maxRight - childClipRect.X),
-							childClipRect.Height));
-					}
 
 					// Paint through layout pipeline (headers + children properly)
 					childNode.Paint(buffer, childClipRect, fgColor, bgColor);
@@ -256,10 +267,14 @@ namespace SharpConsoleUI.Controls
 				currentY += childHeight;
 			}
 
-			// Draw vertical scrollbar if content exceeds viewport and there's room
-			if (_showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight && _viewportHeight > 0)
+			// Draw the scrollbars (single source of truth for visibility).
+			if (needsScrollbar)
 			{
 				DrawVerticalScrollbar(buffer, bounds, fgColor, bgColor);
+			}
+			if (needsHScrollbar)
+			{
+				DrawHorizontalScrollbar(buffer, bounds, contentWidth, fgColor, bgColor);
 			}
 
 			_isDirty = false;
@@ -269,6 +284,59 @@ namespace SharpConsoleUI.Controls
 
 		#region Scrollbar Rendering
 
+		// Thumb sizing/positioning is shared by both axes and by the drag handlers, so the forward
+		// map (offset → thumb pixel) and the inverse used while dragging round-trip cleanly (Bug D).
+
+		/// <summary>The number of track cells reserved for arrows (2 when the track is long enough).</summary>
+		private static int ArrowSlots(int trackLength) => trackLength >= 3 ? 2 : 0;
+
+		/// <summary>The thumb length for a track, from the viewport/content ratio.</summary>
+		private static int ThumbLength(int trackLength, int viewportExtent, int contentExtent)
+		{
+			int arrowSlots = ArrowSlots(trackLength);
+			int thumbTrack = Math.Max(1, trackLength - arrowSlots);
+			double ratio = (double)viewportExtent / Math.Max(1, contentExtent);
+			return Math.Clamp((int)(thumbTrack * ratio), 1, thumbTrack);
+		}
+
+		/// <summary>
+		/// The thumb's start position within the track (including the leading arrow slot) for a
+		/// given scroll offset. Inverse of <see cref="OffsetForThumbPos"/>.
+		/// </summary>
+		private static int ThumbPosForOffset(int trackLength, int viewportExtent, int contentExtent, int scrollOffset)
+		{
+			int arrowSlots = ArrowSlots(trackLength);
+			int thumbTrack = Math.Max(1, trackLength - arrowSlots);
+			int thumbLen = ThumbLength(trackLength, viewportExtent, contentExtent);
+			int pos = arrowSlots > 0 ? 1 : 0;
+			int maxOffset = Math.Max(0, contentExtent - viewportExtent);
+			if (maxOffset > 0)
+			{
+				double scrollRatio = (double)scrollOffset / maxOffset;
+				int maxThumbPos = thumbTrack - thumbLen;
+				pos += Math.Min((int)Math.Round(maxThumbPos * scrollRatio), maxThumbPos);
+			}
+			return pos;
+		}
+
+		/// <summary>
+		/// The scroll offset that places the thumb start at <paramref name="thumbPos"/> within the
+		/// track. Inverse of <see cref="ThumbPosForOffset"/> — uses the same rounding convention so
+		/// a drag to a thumb pixel maps back to the offset whose forward map returns that pixel.
+		/// </summary>
+		private static int OffsetForThumbPos(int trackLength, int viewportExtent, int contentExtent, int thumbPos)
+		{
+			int arrowSlots = ArrowSlots(trackLength);
+			int thumbTrack = Math.Max(1, trackLength - arrowSlots);
+			int thumbLen = ThumbLength(trackLength, viewportExtent, contentExtent);
+			int maxThumbPos = thumbTrack - thumbLen;
+			int maxOffset = Math.Max(0, contentExtent - viewportExtent);
+			if (maxThumbPos <= 0 || maxOffset <= 0) return 0;
+			int rel = Math.Clamp((arrowSlots > 0 ? thumbPos - 1 : thumbPos), 0, maxThumbPos);
+			double scrollRatio = (double)rel / maxThumbPos;
+			return Math.Min((int)Math.Round(maxOffset * scrollRatio), maxOffset);
+		}
+
 		private (int scrollbarRelX, int scrollbarTop, int scrollbarHeight, int thumbY, int thumbHeight) GetScrollbarGeometry()
 		{
 			// scrollbarRelX is control-relative (offset from bounds.X)
@@ -277,22 +345,27 @@ namespace SharpConsoleUI.Controls
 				? Margin.Left + ContentInsetLeft + _viewportWidth - 1
 				: Margin.Left + ContentInsetLeft;
 			int scrollbarTop = Margin.Top + ContentInsetTop;
-			int scrollbarHeight = _viewportHeight;
+			// The vertical track spans the content height (the H-scrollbar row, when shown, is below it).
+			int scrollbarHeight = VisibleContentHeight;
 
-			// Reserve arrow positions so thumb never overlaps them
-			int arrowSlots = scrollbarHeight >= 3 ? 2 : 0;
-			int thumbTrackHeight = Math.Max(1, scrollbarHeight - arrowSlots);
-			double viewportRatio = (double)_viewportHeight / Math.Max(1, _contentHeight);
-			int thumbHeight = Math.Clamp((int)(thumbTrackHeight * viewportRatio), 1, thumbTrackHeight);
-			int thumbY = arrowSlots > 0 ? 1 : 0;
-			if (_contentHeight > _viewportHeight)
-			{
-				double scrollRatio = (double)_verticalScrollOffset / (_contentHeight - _viewportHeight);
-				int maxThumbPos = thumbTrackHeight - thumbHeight;
-				thumbY += Math.Min((int)Math.Round(maxThumbPos * scrollRatio), maxThumbPos);
-			}
+			int thumbHeight = ThumbLength(scrollbarHeight, scrollbarHeight, _contentHeight);
+			int thumbY = ThumbPosForOffset(scrollbarHeight, scrollbarHeight, _contentHeight, _verticalScrollOffset);
 
 			return (scrollbarRelX, scrollbarTop, scrollbarHeight, thumbY, thumbHeight);
+		}
+
+		// Horizontal scrollbar geometry, mirroring GetScrollbarGeometry. The track sits on the row
+		// directly below the content viewport and spans the visible content width.
+		private (int scrollbarRelX, int scrollbarRelY, int trackWidth, int thumbX, int thumbWidth) GetHScrollbarGeometry()
+		{
+			int trackWidth = VisibleContentWidth;
+			int scrollbarRelX = Margin.Left + ContentInsetLeft;
+			int scrollbarRelY = Margin.Top + ContentInsetTop + VisibleContentHeight;
+
+			int thumbWidth = ThumbLength(trackWidth, trackWidth, _contentWidth);
+			int thumbX = ThumbPosForOffset(trackWidth, trackWidth, _contentWidth, _horizontalScrollOffset);
+
+			return (scrollbarRelX, scrollbarRelY, trackWidth, thumbX, thumbWidth);
 		}
 
 		private void DrawVerticalScrollbar(CharacterBuffer buffer, LayoutRect bounds, Color fgColor, Color bgColor)
@@ -329,6 +402,45 @@ namespace SharpConsoleUI.Controls
 			// Always draw arrows at top/bottom with thumb color
 			buffer.SetNarrowCell(scrollbarX, scrollbarAbsTop, '\u25b2', thumbColor, bgColor);
 			buffer.SetNarrowCell(scrollbarX, scrollbarAbsTop + scrollbarHeight - 1, '\u25bc', thumbColor, bgColor);
+		}
+
+		/// <summary>
+		/// Draws the horizontal scrollbar on the row reserved just below the content viewport.
+		/// Mirrors <see cref="DrawVerticalScrollbar"/>: a left/right arrow at each end and a thumb
+		/// sized/positioned from the shared geometry. <paramref name="trackWidth"/> is the visible
+		/// content width (excludes the vertical scrollbar columns).
+		/// </summary>
+		private void DrawHorizontalScrollbar(CharacterBuffer buffer, LayoutRect bounds, int trackWidth, Color fgColor, Color bgColor)
+		{
+			if (trackWidth <= 0) return;
+
+			var (scrollbarRelX, scrollbarRelY, _, thumbX, thumbWidth) = GetHScrollbarGeometry();
+			int scrollbarX = bounds.X + scrollbarRelX;
+			int scrollbarY = bounds.Y + scrollbarRelY;
+
+			Color thumbColor = HasFocus ? Color.Cyan1 : Color.Grey;
+			Color trackColor = HasFocus ? Color.Grey : Color.Grey23;
+
+			for (int x = 0; x < trackWidth; x++)
+			{
+				char ch;
+				Color color;
+				if (x >= thumbX && x < thumbX + thumbWidth)
+				{
+					color = thumbColor;
+					ch = '\u25ac'; // U+25AC \u2014 matches MultilineEditControl's horizontal thumb (less thick than \u2588)
+				}
+				else
+				{
+					color = trackColor;
+					ch = '\u2500'; // U+2500
+				}
+				buffer.SetNarrowCell(scrollbarX + x, scrollbarY, ch, color, bgColor);
+			}
+
+			// Left/right arrows at the ends (narrow, reliably 1-wide per ControlDefaults guidance).
+			buffer.SetNarrowCell(scrollbarX, scrollbarY, '\u25c4', thumbColor, bgColor);                 // U+25C4
+			buffer.SetNarrowCell(scrollbarX + trackWidth - 1, scrollbarY, '\u25ba', thumbColor, bgColor); // U+25BA
 		}
 
 		#endregion
