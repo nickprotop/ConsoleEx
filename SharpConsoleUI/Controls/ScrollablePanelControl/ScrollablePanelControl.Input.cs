@@ -135,8 +135,10 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// THIRD: Handle scrolling keys (only if panel needs scrolling)
-			if (NeedsScrolling())
+			// THIRD: Handle scrolling keys (only if panel needs scrolling and arrow-key
+			// scrolling is enabled). When disabled, leave these keys unhandled so an owning
+			// control (e.g. NavigationView) can use them for its own navigation.
+			if (ArrowKeyScrolling && NeedsScrolling())
 			{
 				switch (key.Key)
 				{

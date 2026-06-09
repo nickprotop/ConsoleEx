@@ -98,7 +98,10 @@ namespace SharpConsoleUI.Controls
 				BorderStyle = BorderStyle.None,
 				Padding = new Padding(0, 0, 0, 0),
 				VerticalAlignment = VerticalAlignment.Fill,
-				ForceReceiveFocus = true
+				ForceReceiveFocus = true,
+				// Arrow keys move the selected nav item (NavigationView handles them and
+				// auto-scrolls to keep the selection visible) rather than scrolling the viewport.
+				ArrowKeyScrolling = false
 			};
 
 			_contentHeader = new MarkupControl(new List<string>());

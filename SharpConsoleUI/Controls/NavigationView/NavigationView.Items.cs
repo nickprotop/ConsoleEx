@@ -58,10 +58,13 @@ namespace SharpConsoleUI.Controls
 				NavigationItemChangingEventArgs? changingArgs = null;
 				NavigationItemChangedEventArgs? changedArgs = null;
 
-				// Phase 1: Validate and prepare event args under lock
+				// Phase 1: Validate and prepare event args under lock.
+				// Headers carry IsEnabled=false (they are not content targets) but are still a
+				// valid selection stop so they can be expanded/collapsed from the keyboard.
 				lock (_itemsLock)
 				{
-					if (_selectedIndex != value && value >= 0 && value < _items.Count && _items[value].IsEnabled)
+					if (_selectedIndex != value && value >= 0 && value < _items.Count
+						&& (_items[value].IsEnabled || _items[value].ItemType == NavigationItemType.Header))
 					{
 						var oldItem = _selectedIndex >= 0 && _selectedIndex < _items.Count ? _items[_selectedIndex] : null;
 						var newItem = _items[value];
@@ -519,8 +522,11 @@ namespace SharpConsoleUI.Controls
 				_navScrollPanel.ScrollChildIntoView(_itemControls[newIndex]);
 			}
 
-			// Update content header — only Minimal mode gets hamburger prefix
-			if (_showContentHeader && newIndex >= 0 && newIndex < _items.Count)
+			// Update content header — only Minimal mode gets hamburger prefix.
+			// Headers are navigable selection stops but are not content pages, so selecting one
+			// does not overwrite the content header title (it keeps showing the last content item).
+			if (_showContentHeader && newIndex >= 0 && newIndex < _items.Count
+				&& _items[newIndex].ItemType != NavigationItemType.Header)
 			{
 				var item = _items[newIndex];
 				string titleMarkup = _currentDisplayMode == NavigationViewDisplayMode.Minimal

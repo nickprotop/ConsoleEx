@@ -144,6 +144,16 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Gets or sets whether arrow / page / home-end keys scroll the viewport.
+		/// When <c>false</c>, those keys are left unhandled by <see cref="ProcessKey"/> so they
+		/// can bubble to an owning control that wants them for its own navigation (e.g. the
+		/// <see cref="NavigationView"/> nav pane, which moves the selected item on arrows and
+		/// relies on focus-driven auto-scroll to keep it visible). Mouse-wheel scrolling and the
+		/// scrollbar are unaffected. Defaults to <c>true</c>.
+		/// </summary>
+		public bool ArrowKeyScrolling { get; set; } = true;
+
+		/// <summary>
 		/// Gets or sets the position of the scrollbar.
 		/// </summary>
 		public ScrollbarPosition ScrollbarPosition

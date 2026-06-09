@@ -164,6 +164,22 @@ namespace SharpConsoleUI.Controls
 			return false;
 		}
 
+		/// <summary>
+		/// Whether the item at <paramref name="index"/> can be a keyboard-selection stop.
+		/// A visible, enabled <see cref="NavigationItemType.Item"/> qualifies, and so does a
+		/// visible <see cref="NavigationItemType.Header"/> — headers are navigable (so the cursor
+		/// can rest on them to expand/collapse via Enter/Right/Left) even though they carry
+		/// <c>IsEnabled = false</c> (which only marks them as non-content targets). Separators are
+		/// never navigable. Must be called under <see cref="_itemsLock"/>.
+		/// </summary>
+		private bool IsNavigable(int index)
+		{
+			var item = _items[index];
+			if (!IsItemVisible(index)) return false;
+			if (item.ItemType == NavigationItemType.Header) return true;
+			return item.IsEnabled && item.ItemType == NavigationItemType.Item;
+		}
+
 		private bool MoveSelection(int direction)
 		{
 			int target;
@@ -174,17 +190,12 @@ namespace SharpConsoleUI.Controls
 				int candidate = _selectedIndex + direction;
 				while (candidate >= 0 && candidate < _items.Count)
 				{
-					if (_items[candidate].IsEnabled
-						&& _items[candidate].ItemType == NavigationItemType.Item
-						&& IsItemVisible(candidate))
+					if (IsNavigable(candidate))
 						break;
 					candidate += direction;
 				}
 
-				if (candidate < 0 || candidate >= _items.Count
-					|| !_items[candidate].IsEnabled
-					|| _items[candidate].ItemType != NavigationItemType.Item
-					|| !IsItemVisible(candidate))
+				if (candidate < 0 || candidate >= _items.Count || !IsNavigable(candidate))
 					return false;
 
 				target = candidate;
@@ -202,8 +213,7 @@ namespace SharpConsoleUI.Controls
 				target = -1;
 				for (int i = 0; i < _items.Count; i++)
 				{
-					if (_items[i].IsEnabled && _items[i].ItemType == NavigationItemType.Item
-						&& IsItemVisible(i))
+					if (IsNavigable(i))
 					{
 						target = i;
 						break;
@@ -224,8 +234,7 @@ namespace SharpConsoleUI.Controls
 				target = -1;
 				for (int i = _items.Count - 1; i >= 0; i--)
 				{
-					if (_items[i].IsEnabled && _items[i].ItemType == NavigationItemType.Item
-						&& IsItemVisible(i))
+					if (IsNavigable(i))
 					{
 						target = i;
 						break;
@@ -277,54 +286,94 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Left arrow on a sub-item collapses its parent header.
+		/// Left arrow walks the hierarchy toward the root (tree-style):
+		/// an expanded header collapses; a sub-item moves the selection up to its parent header.
+		/// Panel-switching is intentionally NOT done here — Tab/Shift+Tab own focus movement
+		/// between the nav and content panes. Returns false when nothing applies.
 		/// </summary>
 		private bool HandleLeftArrow()
 		{
+			NavigationItem? current = null;
 			NavigationItem? parentHeader = null;
 			lock (_itemsLock)
 			{
 				if (_selectedIndex >= 0 && _selectedIndex < _items.Count)
 				{
-					parentHeader = _items[_selectedIndex].ParentHeader;
+					current = _items[_selectedIndex];
+					parentHeader = current.ParentHeader;
 				}
 			}
 
-			if (parentHeader != null && parentHeader.IsExpanded)
+			if (current == null) return false;
+
+			// Expanded header → collapse in place.
+			if (current.ItemType == NavigationItemType.Header && current.IsExpanded)
 			{
-				ToggleHeaderExpanded(parentHeader);
+				ToggleHeaderExpanded(current);
 				return true;
+			}
+
+			// Sub-item → move selection up to its parent header.
+			if (parentHeader != null)
+			{
+				int headerIndex;
+				lock (_itemsLock) { headerIndex = _items.IndexOf(parentHeader); }
+				if (headerIndex >= 0)
+				{
+					SelectedIndex = headerIndex;
+					return true;
+				}
 			}
 
 			return false;
 		}
 
 		/// <summary>
-		/// Right arrow on a header expands it. Otherwise moves focus to content.
+		/// Right arrow walks the hierarchy away from the root (tree-style):
+		/// a collapsed header expands; an expanded header moves the selection to its first child.
+		/// Panel-switching is intentionally NOT done here — Tab/Shift+Tab own focus movement
+		/// between the nav and content panes. Returns false when nothing applies.
 		/// </summary>
 		private bool HandleRightArrow()
 		{
-			NavigationItem? headerToExpand = null;
+			NavigationItem? current = null;
 			lock (_itemsLock)
 			{
 				if (_selectedIndex >= 0 && _selectedIndex < _items.Count)
+					current = _items[_selectedIndex];
+			}
+
+			if (current == null || current.ItemType != NavigationItemType.Header)
+				return false;
+
+			// Collapsed header → expand it (stays selected on the header).
+			if (!current.IsExpanded)
+			{
+				ToggleHeaderExpanded(current);
+				return true;
+			}
+
+			// Expanded header → descend to its first child item.
+			int firstChildIndex = -1;
+			lock (_itemsLock)
+			{
+				for (int i = 0; i < _items.Count; i++)
 				{
-					var current = _items[_selectedIndex];
-					if (current.ItemType == NavigationItemType.Header && !current.IsExpanded)
+					if (ReferenceEquals(_items[i].ParentHeader, current) && IsNavigable(i))
 					{
-						headerToExpand = current;
+						firstChildIndex = i;
+						break;
 					}
 				}
 			}
 
-			if (headerToExpand != null)
+			if (firstChildIndex >= 0)
 			{
-				ToggleHeaderExpanded(headerToExpand);
+				SelectedIndex = firstChildIndex;
 				return true;
 			}
 
-			FocusContentPanel();
-			return true;
+			return false;
 		}
 
 		private void FireItemInvoked()
