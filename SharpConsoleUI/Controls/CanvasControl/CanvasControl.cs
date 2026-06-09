@@ -66,6 +66,22 @@ namespace SharpConsoleUI.Controls
 		public override int? ContentWidth => _canvasWidth + Margin.Left + Margin.Right;
 
 		/// <summary>
+		/// Reports the canvas's true logical size (buffer dimensions plus margins). The base
+		/// implementation hardcodes height = 1, which makes a container such as
+		/// <see cref="ScrollablePanelControl"/> believe the canvas is a single row tall and so
+		/// suppress vertical scrolling. Reporting the real height lets the scroller compute the
+		/// correct content extent and show scrollbars.
+		/// </summary>
+		/// <remarks>
+		/// When <see cref="AutoSize"/> is enabled, <c>_canvasWidth</c>/<c>_canvasHeight</c> track the
+		/// layout bounds assigned during paint, so the reported logical size follows the assigned
+		/// bounds and does not desync.
+		/// </remarks>
+		public override System.Drawing.Size GetLogicalContentSize() =>
+			new(_canvasWidth + Margin.Left + Margin.Right,
+				_canvasHeight + Margin.Top + Margin.Bottom);
+
+		/// <summary>
 		/// Gets or sets the canvas width in characters. Clamped to <see cref="ControlDefaults.MinCanvasSize"/>.
 		/// Setting this recreates the internal buffer (previous content is lost).
 		/// </summary>
