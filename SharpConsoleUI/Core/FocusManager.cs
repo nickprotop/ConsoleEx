@@ -111,6 +111,24 @@ public class FocusManager
 			return;
 		}
 
+		// When the focused control is itself a scope focused as a scroll/container target
+		// (e.g. ScrollablePanelControl in scroll mode), a forward move must first DESCEND
+		// into its own unvisited focusable children before exiting to the parent scope.
+		// Otherwise FindInnermostScope resolves the PARENT scope and asks it for the next
+		// stop — which, for a NavigationView content panel, wraps straight to the nav pane
+		// and skips the panel's children entirely.
+		// Forward only: backward entry into a scope is handled by the parent's GetNextFocus
+		// (Shift+Tab from a scroll-mode panel exits it, by design).
+		if (!backward && FocusedControl is IFocusScope focusedScope)
+		{
+			var firstChild = focusedScope.GetInitialFocus(backward);
+			if (firstChild != null && !ReferenceEquals(firstChild, FocusedControl))
+			{
+				EnterOrFocus(firstChild, backward);
+				return;
+			}
+		}
+
 		var scope = FindInnermostScope(FocusedControl);
 		MoveWithinScope(scope, FocusedControl, backward);
 	}
