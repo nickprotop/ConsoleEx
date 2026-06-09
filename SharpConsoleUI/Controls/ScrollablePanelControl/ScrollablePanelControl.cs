@@ -254,6 +254,59 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public bool CanScrollRight => _horizontalScrollOffset < Math.Max(0, _contentWidth - _viewportWidth);
 
+		/// <summary>
+		/// Gets whether a vertical scrollbar is currently shown (content exceeds the viewport height,
+		/// the scrollbar is enabled, and the vertical scroll mode is <see cref="ScrollMode.Scroll"/>).
+		/// </summary>
+		public bool HasVerticalScrollbar => NeedsVerticalScrollbar;
+
+		/// <summary>
+		/// Gets whether a horizontal scrollbar is currently shown (content exceeds the viewport width,
+		/// the scrollbar is enabled, and the horizontal scroll mode is <see cref="ScrollMode.Scroll"/>).
+		/// </summary>
+		public bool HasHorizontalScrollbar => NeedsHorizontalScrollbar;
+
+		// Single source of truth for scrollbar visibility. Both axes are mutually dependent:
+		// showing a vertical scrollbar steals a column (which can make content overflow the width)
+		// and showing a horizontal scrollbar steals a row (which can make content overflow the
+		// height). We resolve the fixpoint: start from the full viewport, then expand once.
+		private bool NeedsVerticalScrollbar
+		{
+			get
+			{
+				if (!_showScrollbar || _verticalScrollMode != ScrollMode.Scroll || _viewportHeight <= 0)
+					return false;
+				// If a horizontal scrollbar will steal a row, the effective height shrinks by 1.
+				int effViewportH = _viewportHeight - (RawNeedsHorizontalScrollbar ? HorizontalScrollbarRows : 0);
+				return _contentHeight > Math.Max(0, effViewportH);
+			}
+		}
+
+		private bool NeedsHorizontalScrollbar
+		{
+			get
+			{
+				if (!_showScrollbar || _horizontalScrollMode != ScrollMode.Scroll || _viewportWidth <= 0)
+					return false;
+				// If a vertical scrollbar will steal columns, the effective width shrinks.
+				int effViewportW = _viewportWidth - (RawNeedsVerticalScrollbar ? VerticalScrollbarColumns : 0);
+				return _contentWidth > Math.Max(0, effViewportW);
+			}
+		}
+
+		// First-pass (non-mutual) checks used to break the circular dependency above.
+		private bool RawNeedsVerticalScrollbar =>
+			_showScrollbar && _verticalScrollMode == ScrollMode.Scroll && _viewportHeight > 0
+			&& _contentHeight > _viewportHeight;
+
+		private bool RawNeedsHorizontalScrollbar =>
+			_showScrollbar && _horizontalScrollMode == ScrollMode.Scroll && _viewportWidth > 0
+			&& _contentWidth > _viewportWidth;
+
+		// Reserved space: vertical scrollbar uses 2 columns (1 gap + 1 bar); horizontal uses 1 row.
+		private const int VerticalScrollbarColumns = 2;
+		private const int HorizontalScrollbarRows = 1;
+
 		#endregion
 
 		#region Border & Padding Properties

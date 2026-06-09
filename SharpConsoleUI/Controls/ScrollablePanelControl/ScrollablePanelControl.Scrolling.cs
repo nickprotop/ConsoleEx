@@ -121,6 +121,30 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>Scrolls horizontally to an absolute offset (clamped to valid bounds). No-op when
+		/// horizontal scrolling is disabled.</summary>
+		private void ScrollHorizontalTo(int offset)
+		{
+			if (_horizontalScrollMode != ScrollMode.Scroll) return;
+
+			int oldOffset = _horizontalScrollOffset;
+			_horizontalScrollOffset = Math.Clamp(offset, 0, Math.Max(0, _contentWidth - _viewportWidth));
+
+			if (oldOffset != _horizontalScrollOffset)
+			{
+				Invalidate(true);
+				Scrolled?.Invoke(this, new ScrollEventArgs(ScrollDirection.Horizontal, _verticalScrollOffset, _horizontalScrollOffset));
+			}
+		}
+
+		/// <summary>True when vertical content overflows and vertical scrolling is enabled.</summary>
+		private bool VerticalIsScrollable =>
+			_verticalScrollMode == ScrollMode.Scroll && _contentHeight > _viewportHeight;
+
+		/// <summary>True when horizontal content overflows and horizontal scrolling is enabled.</summary>
+		private bool HorizontalIsScrollable =>
+			_horizontalScrollMode == ScrollMode.Scroll && _contentWidth > _viewportWidth;
+
 		/// <summary>
 		/// Recomputes <see cref="_contentHeight"/> from the current children when the viewport
 		/// is known. The cached height is otherwise only refreshed during <see cref="PaintDOM"/>,
