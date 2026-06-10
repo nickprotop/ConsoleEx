@@ -43,6 +43,21 @@ public static class Controls
 	}
 
 	/// <summary>
+	/// Creates a new markup builder seeded with a Markdown block (rendered via the [markdown] tag).
+	/// </summary>
+	/// <param name="markdown">The initial Markdown content.</param>
+	/// <returns>A new markup builder.</returns>
+	public static MarkupBuilder Markdown(string? markdown = null)
+	{
+		var builder = new MarkupBuilder();
+		if (markdown != null)
+		{
+			builder.AddMarkdown(markdown);
+		}
+		return builder;
+	}
+
+	/// <summary>
 	/// Creates a new rule control
 	/// </summary>
 	/// <param name="title">The rule title</param>

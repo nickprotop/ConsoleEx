@@ -39,7 +39,7 @@ Controls for user input and interaction.
 | **[DatePickerControl](controls/DatePickerControl.md)** | Locale-aware date picker | Segmented editing, calendar popup, min/max dates |
 | **[PromptControl](controls/PromptControl.md)** | Single-line text input | Enter key events, input validation, max length |
 | **[TimePickerControl](controls/TimePickerControl.md)** | Locale-aware time picker | 12h/24h modes, seconds toggle, min/max times |
-| **[MultilineEditControl](controls/MultilineEditControl.md)** | Multi-line text editor | Syntax highlighting, pluggable gutter, find/replace, undo/redo, word wrap |
+| **[MultilineEditControl](controls/MultilineEditControl.md)** | Multi-line text editor | [Syntax highlighting](SYNTAX_HIGHLIGHTING.md) (13 built-in languages via `SyntaxHighlighters.For(...)`), pluggable gutter, find/replace, undo/redo, word wrap |
 | **[SliderControl](controls/SliderControl.md)** | Value slider with thumb | Horizontal/vertical, step/large-step, keyboard/mouse drag |
 | **[RangeSliderControl](controls/RangeSliderControl.md)** | Dual-thumb range slider | MinRange enforcement, tab to switch thumbs, range events |
 
@@ -61,7 +61,7 @@ Controls for displaying formatted content.
 
 | Control | Description | Details |
 |---------|-------------|---------|
-| **[MarkupControl](controls/MarkupControl.md)** | Rich text with markup | Colors, bold, italic, links using `[markup]` syntax |
+| **[MarkupControl](controls/MarkupControl.md)** | Rich text with markup | Colors, bold, italic, links using `[markup]` syntax; renders Markdown via the [`[markdown]` tag](MARKUP_SYNTAX.md#markdown) |
 | **[HtmlControl](controls/HtmlControl.md)** | HTML content renderer | Parse & render HTML with images, links, tables, keyboard navigation |
 | **[FigleControl](controls/FigleControl.md)** | ASCII art text (Figlet) | Large stylized text, multiple fonts |
 | **[LogViewerControl](controls/LogViewerControl.md)** | Log message viewer | Auto-scroll, filtering, severity colors |
@@ -356,6 +356,10 @@ Browse detailed documentation for specific controls:
 - [NavigationView](controls/NavigationView.md) - Sidebar navigation with content area
 - [CanvasControl](controls/CanvasControl.md) - Free-form drawing surface
 - [TerminalControl](controls/TerminalControl.md) - Embedded PTY terminal (Linux)
+
+### Cross-Cutting Features
+- [Syntax Highlighting](SYNTAX_HIGHLIGHTING.md) - 13 built-in highlighters + registry, used by MultilineEditControl and Markdown code blocks
+- [Markup Syntax](MARKUP_SYNTAX.md) - Colors, decorations, spinners, and the `[markdown]` tag
 
 ---
 

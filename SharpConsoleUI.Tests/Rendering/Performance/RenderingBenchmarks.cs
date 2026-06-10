@@ -1,11 +1,11 @@
+using System.Diagnostics;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Diagnostics;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Rendering;
-using SharpConsoleUI.Diagnostics;
 using SharpConsoleUI.Tests.Infrastructure;
-using System.Diagnostics;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -163,7 +163,10 @@ public class RenderingBenchmarks
 		var system = TestWindowSystemBuilder.CreateTestSystem(140, 50);
 		var window = new Window(system)
 		{
-			Left = 2, Top = 2, Width = 130, Height = 42,
+			Left = 2,
+			Top = 2,
+			Width = 130,
+			Height = 42,
 			Title = "Deep Control Tree"
 		};
 
@@ -338,8 +341,10 @@ public class RenderingBenchmarks
 
 		var window = new Window(system)
 		{
-			Left = 5, Top = 3,
-			Width = winW, Height = winH,
+			Left = 5,
+			Top = 3,
+			Width = winW,
+			Height = winH,
 			Title = "Alpha Blending Benchmark"
 		};
 
@@ -409,8 +414,10 @@ public class RenderingBenchmarks
 		var system = TestWindowSystemBuilder.CreateTestSystem(winW + 20, winH + 10);
 		var window = new Window(system)
 		{
-			Left = 5, Top = 3,
-			Width = winW, Height = winH,
+			Left = 5,
+			Top = 3,
+			Width = winW,
+			Height = winH,
 			Title = "Partial Update Benchmark"
 		};
 

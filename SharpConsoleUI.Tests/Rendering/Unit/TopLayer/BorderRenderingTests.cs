@@ -6,12 +6,12 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Text;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
 using Spectre.Console;
 using Xunit;
-using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -406,7 +406,7 @@ public class BorderRenderingTests
 		{
 			var cell = snapshot.GetBack(x, 5);
 			if (cell.Character == new Rune('[') || cell.Character == new Rune('_') ||
-			    cell.Character == new Rune('+') || cell.Character == new Rune('X') || cell.Character == new Rune(']'))
+				cell.Character == new Rune('+') || cell.Character == new Rune('X') || cell.Character == new Rune(']'))
 			{
 				foundButtons = true;
 				break;
@@ -604,12 +604,12 @@ public class BorderRenderingTests
 		// Check overlap region (25, 18) - should now show window1's rounded border
 		var cell = snapshot.GetBack(25, 18);
 		bool isRoundedBorder = cell.Character == new Rune('│') || cell.Character == new Rune('─') ||
-		                       cell.Character == new Rune('╭') || cell.Character == new Rune('╮') ||
-		                       cell.Character == new Rune('╰') || cell.Character == new Rune('╯');
+							   cell.Character == new Rune('╭') || cell.Character == new Rune('╮') ||
+							   cell.Character == new Rune('╰') || cell.Character == new Rune('╯');
 
 		// Should see window1's border or content (not window2's single border)
 		bool notSingleCorner = cell.Character != new Rune('┌') && cell.Character != new Rune('┐') &&
-		                       cell.Character != new Rune('└') && cell.Character != new Rune('┘');
+							   cell.Character != new Rune('└') && cell.Character != new Rune('┘');
 		Assert.True(notSingleCorner, $"Expected window1 (rounded) on top, but got single border char: {cell.Character}");
 	}
 
@@ -742,14 +742,14 @@ public class BorderRenderingTests
 
 			// Should NOT be window1's single border characters
 			bool notSingleBorder = cell.Character != new Rune('┌') && cell.Character != new Rune('┐') &&
-			                       cell.Character != new Rune('└') && cell.Character != new Rune('┘') &&
-			                       cell.Character != new Rune('│') && cell.Character != new Rune('─');
+								   cell.Character != new Rune('└') && cell.Character != new Rune('┘') &&
+								   cell.Character != new Rune('│') && cell.Character != new Rune('─');
 
 			Assert.True(notSingleBorder ||
-			           cell.Character == new Rune('║') || cell.Character == new Rune('═') ||
-			           cell.Character == new Rune('╔') || cell.Character == new Rune('╗') ||
-			           cell.Character == new Rune('╚') || cell.Character == new Rune('╝'),
-			           $"At ({x},{y}): Expected window2 (double border) on top, got: {cell.Character}");
+					   cell.Character == new Rune('║') || cell.Character == new Rune('═') ||
+					   cell.Character == new Rune('╔') || cell.Character == new Rune('╗') ||
+					   cell.Character == new Rune('╚') || cell.Character == new Rune('╝'),
+					   $"At ({x},{y}): Expected window2 (double border) on top, got: {cell.Character}");
 		}
 	}
 

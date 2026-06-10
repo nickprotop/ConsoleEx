@@ -1,8 +1,8 @@
-using Xunit;
+using System.Text;
 using SharpConsoleUI;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
-using System.Text;
+using Xunit;
 
 namespace SharpConsoleUI.Tests.Parsing
 {
@@ -28,6 +28,14 @@ namespace SharpConsoleUI.Tests.Parsing
 		{
 			var result = MarkupParser.Parse("", Fg, Bg);
 			Assert.Empty(result);
+		}
+
+		[Fact]
+		public void FillWidthTag_FlagsLastCell_NoLiteralOutput()
+		{
+			var cells = MarkupParser.Parse("[#FFFFFF on #282828]code[/][fillwidth]", Color.White, Color.Black);
+			Assert.DoesNotContain("fillwidth", string.Concat(cells.Select(c => c.Character.ToString())));
+			Assert.True(cells[^1].FillToWidth);  // last cell flagged
 		}
 
 		[Fact]

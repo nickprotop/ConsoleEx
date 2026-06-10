@@ -1,7 +1,7 @@
+using System.Drawing;
 using SharpConsoleUI;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Tests.Infrastructure;
-using System.Drawing;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.WindowManagement;

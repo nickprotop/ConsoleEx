@@ -7,13 +7,13 @@
 // -----------------------------------------------------------------------
 using System.Drawing;
 using SharpConsoleUI;
-using ControlsFactory = SharpConsoleUI.Builders.Controls;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
+using ControlsFactory = SharpConsoleUI.Builders.Controls;
 
 namespace SharpConsoleUI.Tests.Controls;
 

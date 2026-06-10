@@ -39,7 +39,11 @@ public class NavigationViewBehaviorTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(width, height);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = width, Height = height
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = width,
+			Height = height
 		};
 		nav.VerticalAlignment = VerticalAlignment.Fill;
 		window.AddControl(nav);

@@ -1,6 +1,6 @@
-using Xunit;
-using SharpConsoleUI.Layout;
 using System.Text;
+using SharpConsoleUI.Layout;
+using Xunit;
 
 namespace SharpConsoleUI.Tests.Parsing
 {

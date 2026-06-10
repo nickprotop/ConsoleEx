@@ -6,13 +6,13 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
-using SharpConsoleUI.Events;
-using System.Drawing;
 using HorizontalAlignment = SharpConsoleUI.Layout.HorizontalAlignment;
 using VerticalAlignment = SharpConsoleUI.Layout.VerticalAlignment;
 

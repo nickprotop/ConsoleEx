@@ -145,7 +145,11 @@ public class FocusRegressionTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 20
 		};
 		window.AddControl(panel);
 		system.AddWindow(window);
@@ -197,7 +201,11 @@ public class FocusRegressionTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 20
 		};
 		window.AddControl(panel);
 		system.AddWindow(window);
@@ -246,7 +254,11 @@ public class FocusRegressionTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 20
 		};
 		window.AddControl(panel);
 		system.AddWindow(window);
@@ -291,7 +303,11 @@ public class FocusRegressionTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 20
 		};
 		window.AddControl(panel);
 		system.AddWindow(window);
@@ -342,7 +358,11 @@ public class FocusRegressionTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 20
 		};
 		window.AddControl(panel);
 		system.AddWindow(window);

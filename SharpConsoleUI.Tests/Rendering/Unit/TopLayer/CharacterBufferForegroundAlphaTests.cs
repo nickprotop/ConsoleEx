@@ -1,6 +1,6 @@
+using System.Text;
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Layout;
-using System.Text;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
@@ -131,7 +131,7 @@ public class CharacterBufferForegroundAlphaTests
 	{
 		var buffer = new CharacterBuffer(10, 10);
 		var gradient = new Color(80, 20, 180, 255); // purple gradient
-		// Simulate gradient background already in buffer
+													// Simulate gradient background already in buffer
 		buffer.SetNarrowCell(0, 0, ' ', Color.White, gradient);
 
 		// Draw █ with fully transparent foreground — should look like gradient

@@ -27,6 +27,13 @@ namespace SharpConsoleUI.Layout
 		public string? Combiners;
 
 		/// <summary>
+		/// When true, the painter should fill the trailing background of this cell's row
+		/// out to the available render width using this cell's <see cref="Background"/>.
+		/// Set via the self-closing <c>[fillwidth]</c> markup tag. Default false.
+		/// </summary>
+		public bool FillToWidth;
+
+		/// <summary>
 		/// Creates a new cell with a Rune character.
 		/// </summary>
 		public Cell(Rune character, Color foreground, Color background)
@@ -139,13 +146,14 @@ namespace SharpConsoleUI.Layout
 			Decorations == other.Decorations &&
 			Dirty == other.Dirty &&
 			IsWideContinuation == other.IsWideContinuation &&
+			FillToWidth == other.FillToWidth &&
 			Combiners == other.Combiners;
 
 		/// <summary>Determines whether this cell equals another object.</summary>
 		public override bool Equals(object? obj) => obj is Cell other && Equals(other);
 
 		/// <summary>Gets the hash code for this cell.</summary>
-		public override int GetHashCode() => HashCode.Combine(Character, Foreground, Background, Decorations, Dirty, IsWideContinuation, Combiners);
+		public override int GetHashCode() => HashCode.Combine(Character, Foreground, Background, Decorations, Dirty, IsWideContinuation, FillToWidth, Combiners);
 
 		/// <summary>Equality operator.</summary>
 		public static bool operator ==(Cell left, Cell right) => left.Equals(right);

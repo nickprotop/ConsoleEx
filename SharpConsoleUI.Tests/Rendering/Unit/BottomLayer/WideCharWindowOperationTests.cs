@@ -1,9 +1,9 @@
+using System.Text;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
-using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.BottomLayer;
 
@@ -30,7 +30,11 @@ public class WideCharWindowOperationTests
 		var system = TestWindowSystemBuilder.CreateTestSystem();
 		var window = new Window(system)
 		{
-			Left = 10, Top = 5, Width = 30, Height = 10, Title = "CJK Static"
+			Left = 10,
+			Top = 5,
+			Width = 30,
+			Height = 10,
+			Title = "CJK Static"
 		};
 		window.AddControl(new MarkupControl(new List<string> { "中文字テスト" }));
 		system.WindowStateService.AddWindow(window);
@@ -56,7 +60,11 @@ public class WideCharWindowOperationTests
 		var system = TestWindowSystemBuilder.CreateTestSystem();
 		var window = new Window(system)
 		{
-			Left = 5, Top = 3, Width = 40, Height = 12, Title = "Mixed"
+			Left = 5,
+			Top = 3,
+			Width = 40,
+			Height = 12,
+			Title = "Mixed"
 		};
 		window.AddControl(new MarkupControl(new List<string>
 		{
@@ -86,7 +94,11 @@ public class WideCharWindowOperationTests
 
 		var background = new Window(system)
 		{
-			Left = 0, Top = 0, Width = 60, Height = 20, Title = "BG"
+			Left = 0,
+			Top = 0,
+			Width = 60,
+			Height = 20,
+			Title = "BG"
 		};
 		background.AddControl(new MarkupControl(new List<string>
 		{
@@ -99,7 +111,11 @@ public class WideCharWindowOperationTests
 
 		var window = new Window(system)
 		{
-			Left = 10, Top = 5, Width = 30, Height = 10, Title = "CJK Move"
+			Left = 10,
+			Top = 5,
+			Width = 30,
+			Height = 10,
+			Title = "CJK Move"
 		};
 		window.AddControl(new MarkupControl(new List<string>
 		{
@@ -143,7 +159,11 @@ public class WideCharWindowOperationTests
 
 		var background = new Window(system)
 		{
-			Left = 0, Top = 0, Width = 60, Height = 20, Title = "BG"
+			Left = 0,
+			Top = 0,
+			Width = 60,
+			Height = 20,
+			Title = "BG"
 		};
 		background.AddControl(new MarkupControl(new List<string>
 		{
@@ -154,7 +174,11 @@ public class WideCharWindowOperationTests
 
 		var window = new Window(system)
 		{
-			Left = 20, Top = 5, Width = 30, Height = 10, Title = "CJK"
+			Left = 20,
+			Top = 5,
+			Width = 30,
+			Height = 10,
+			Title = "CJK"
 		};
 		window.AddControl(new MarkupControl(new List<string> { "日本語テスト" }));
 
@@ -181,7 +205,11 @@ public class WideCharWindowOperationTests
 
 		var background = new Window(system)
 		{
-			Left = 0, Top = 0, Width = 80, Height = 25, Title = "BG"
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 25,
+			Title = "BG"
 		};
 		background.AddControl(new MarkupControl(new List<string>
 		{
@@ -193,7 +221,11 @@ public class WideCharWindowOperationTests
 
 		var window = new Window(system)
 		{
-			Left = 10, Top = 5, Width = 30, Height = 10, Title = "Moving CJK"
+			Left = 10,
+			Top = 5,
+			Width = 30,
+			Height = 10,
+			Title = "Moving CJK"
 		};
 		window.AddControl(new MarkupControl(new List<string>
 		{
@@ -231,7 +263,11 @@ public class WideCharWindowOperationTests
 
 		var background = new Window(system)
 		{
-			Left = 0, Top = 0, Width = 60, Height = 20, Title = "BG"
+			Left = 0,
+			Top = 0,
+			Width = 60,
+			Height = 20,
+			Title = "BG"
 		};
 		// Fill enough lines to cover the area where the CJK window will be
 		var bgLines = Enumerable.Range(0, 16).Select(_ => new string('B', 56)).ToList();
@@ -239,7 +275,11 @@ public class WideCharWindowOperationTests
 
 		var window = new Window(system)
 		{
-			Left = 10, Top = 3, Width = 20, Height = 6, Title = "CJK"
+			Left = 10,
+			Top = 3,
+			Width = 20,
+			Height = 6,
+			Title = "CJK"
 		};
 		window.AddControl(new MarkupControl(new List<string> { "中文字" }));
 
@@ -272,7 +312,11 @@ public class WideCharWindowOperationTests
 
 		var window = new Window(system)
 		{
-			Left = 5, Top = 3, Width = 30, Height = 10, Title = "CJK"
+			Left = 5,
+			Top = 3,
+			Width = 30,
+			Height = 10,
+			Title = "CJK"
 		};
 		window.AddControl(new MarkupControl(new List<string> { "ABCD中文EF" }));
 		system.WindowStateService.AddWindow(window);
@@ -313,7 +357,11 @@ public class WideCharWindowOperationTests
 
 		var window = new Window(system)
 		{
-			Left = 5, Top = 3, Width = 30, Height = 10, Title = "CJK Resize"
+			Left = 5,
+			Top = 3,
+			Width = 30,
+			Height = 10,
+			Title = "CJK Resize"
 		};
 		window.AddControl(new MarkupControl(new List<string>
 		{
@@ -345,7 +393,11 @@ public class WideCharWindowOperationTests
 
 		var background = new Window(system)
 		{
-			Left = 0, Top = 0, Width = 60, Height = 20, Title = "BG"
+			Left = 0,
+			Top = 0,
+			Width = 60,
+			Height = 20,
+			Title = "BG"
 		};
 		background.AddControl(new MarkupControl(new List<string>
 		{
@@ -356,7 +408,11 @@ public class WideCharWindowOperationTests
 
 		var window = new Window(system)
 		{
-			Left = 5, Top = 3, Width = 40, Height = 12, Title = "CJK Shrink"
+			Left = 5,
+			Top = 3,
+			Width = 40,
+			Height = 12,
+			Title = "CJK Shrink"
 		};
 		window.AddControl(new MarkupControl(new List<string> { "中文日本語한국어" }));
 
@@ -382,7 +438,11 @@ public class WideCharWindowOperationTests
 
 		var background = new Window(system)
 		{
-			Left = 0, Top = 0, Width = 60, Height = 25, Title = "BG"
+			Left = 0,
+			Top = 0,
+			Width = 60,
+			Height = 25,
+			Title = "BG"
 		};
 		background.AddControl(new MarkupControl(new List<string>
 		{
@@ -396,7 +456,11 @@ public class WideCharWindowOperationTests
 
 		var window = new Window(system)
 		{
-			Left = 5, Top = 3, Width = 30, Height = 15, Title = "CJK"
+			Left = 5,
+			Top = 3,
+			Width = 30,
+			Height = 15,
+			Title = "CJK"
 		};
 		window.AddControl(new MarkupControl(new List<string> { "中文テスト" }));
 
@@ -426,7 +490,11 @@ public class WideCharWindowOperationTests
 
 		var background = new Window(system)
 		{
-			Left = 0, Top = 0, Width = 60, Height = 20, Title = "BG"
+			Left = 0,
+			Top = 0,
+			Width = 60,
+			Height = 20,
+			Title = "BG"
 		};
 		background.AddControl(new MarkupControl(new List<string>
 		{
@@ -439,7 +507,11 @@ public class WideCharWindowOperationTests
 
 		var window = new Window(system)
 		{
-			Left = 10, Top = 5, Width = 30, Height = 10, Title = "CJK Close"
+			Left = 10,
+			Top = 5,
+			Width = 30,
+			Height = 10,
+			Title = "CJK Close"
 		};
 		window.AddControl(new MarkupControl(new List<string>
 		{
@@ -473,7 +545,11 @@ public class WideCharWindowOperationTests
 
 		var background = new Window(system)
 		{
-			Left = 0, Top = 0, Width = 60, Height = 20, Title = "BG"
+			Left = 0,
+			Top = 0,
+			Width = 60,
+			Height = 20,
+			Title = "BG"
 		};
 		// Fill enough lines to cover the CJK window area
 		var bgLines = Enumerable.Range(0, 16).Select(_ => new string('B', 56)).ToList();
@@ -481,7 +557,11 @@ public class WideCharWindowOperationTests
 
 		var window = new Window(system)
 		{
-			Left = 10, Top = 3, Width = 25, Height = 6, Title = "CJK"
+			Left = 10,
+			Top = 3,
+			Width = 25,
+			Height = 6,
+			Title = "CJK"
 		};
 		window.AddControl(new MarkupControl(new List<string> { "中文日本語" }));
 
@@ -517,7 +597,11 @@ public class WideCharWindowOperationTests
 
 		var bottomWindow = new Window(system)
 		{
-			Left = 5, Top = 3, Width = 40, Height = 15, Title = "Bottom CJK"
+			Left = 5,
+			Top = 3,
+			Width = 40,
+			Height = 15,
+			Title = "Bottom CJK"
 		};
 		bottomWindow.AddControl(new MarkupControl(new List<string>
 		{
@@ -527,7 +611,11 @@ public class WideCharWindowOperationTests
 
 		var topWindow = new Window(system)
 		{
-			Left = 15, Top = 6, Width = 25, Height = 8, Title = "Top CJK"
+			Left = 15,
+			Top = 6,
+			Width = 25,
+			Height = 8,
+			Title = "Top CJK"
 		};
 		topWindow.AddControl(new MarkupControl(new List<string>
 		{
@@ -558,7 +646,11 @@ public class WideCharWindowOperationTests
 
 		var bottomWindow = new Window(system)
 		{
-			Left = 5, Top = 3, Width = 40, Height = 15, Title = "Bottom"
+			Left = 5,
+			Top = 3,
+			Width = 40,
+			Height = 15,
+			Title = "Bottom"
 		};
 		bottomWindow.AddControl(new MarkupControl(new List<string>
 		{
@@ -568,7 +660,11 @@ public class WideCharWindowOperationTests
 
 		var topWindow = new Window(system)
 		{
-			Left = 10, Top = 5, Width = 30, Height = 10, Title = "Top"
+			Left = 10,
+			Top = 5,
+			Width = 30,
+			Height = 10,
+			Title = "Top"
 		};
 		topWindow.AddControl(new MarkupControl(new List<string> { "ASCII overlay" }));
 
@@ -598,7 +694,11 @@ public class WideCharWindowOperationTests
 
 		var background = new Window(system)
 		{
-			Left = 0, Top = 0, Width = 60, Height = 20, Title = "BG"
+			Left = 0,
+			Top = 0,
+			Width = 60,
+			Height = 20,
+			Title = "BG"
 		};
 		background.AddControl(new MarkupControl(new List<string>
 		{
@@ -609,7 +709,11 @@ public class WideCharWindowOperationTests
 
 		var window = new Window(system)
 		{
-			Left = 10, Top = 5, Width = 30, Height = 10, Title = "CJK Line"
+			Left = 10,
+			Top = 5,
+			Width = 30,
+			Height = 10,
+			Title = "CJK Line"
 		};
 		window.AddControl(new MarkupControl(new List<string> { "中文字テスト" }));
 
@@ -637,7 +741,11 @@ public class WideCharWindowOperationTests
 		var system = TestWindowSystemBuilder.CreateTestSystem();
 		var window = new Window(system)
 		{
-			Left = 10, Top = 5, Width = 30, Height = 10, Title = "Emoji Static"
+			Left = 10,
+			Top = 5,
+			Width = 30,
+			Height = 10,
+			Title = "Emoji Static"
 		};
 		window.AddControl(new MarkupControl(new List<string> { "Hello \U0001F525\U0001F4A9 World" }));
 		system.WindowStateService.AddWindow(window);
@@ -662,7 +770,11 @@ public class WideCharWindowOperationTests
 
 		var background = new Window(system)
 		{
-			Left = 0, Top = 0, Width = 60, Height = 20, Title = "BG"
+			Left = 0,
+			Top = 0,
+			Width = 60,
+			Height = 20,
+			Title = "BG"
 		};
 		background.AddControl(new MarkupControl(new List<string>
 		{
@@ -675,7 +787,11 @@ public class WideCharWindowOperationTests
 
 		var window = new Window(system)
 		{
-			Left = 10, Top = 5, Width = 30, Height = 10, Title = "Emoji Move"
+			Left = 10,
+			Top = 5,
+			Width = 30,
+			Height = 10,
+			Title = "Emoji Move"
 		};
 		window.AddControl(new MarkupControl(new List<string>
 		{
@@ -711,7 +827,11 @@ public class WideCharWindowOperationTests
 
 		var background = new Window(system)
 		{
-			Left = 0, Top = 0, Width = 60, Height = 20, Title = "BG"
+			Left = 0,
+			Top = 0,
+			Width = 60,
+			Height = 20,
+			Title = "BG"
 		};
 		background.AddControl(new MarkupControl(new List<string>
 		{
@@ -723,7 +843,11 @@ public class WideCharWindowOperationTests
 
 		var window = new Window(system)
 		{
-			Left = 10, Top = 5, Width = 30, Height = 10, Title = "Emoji Close"
+			Left = 10,
+			Top = 5,
+			Width = 30,
+			Height = 10,
+			Title = "Emoji Close"
 		};
 		window.AddControl(new MarkupControl(new List<string>
 		{
@@ -752,7 +876,11 @@ public class WideCharWindowOperationTests
 
 		var background = new Window(system)
 		{
-			Left = 0, Top = 0, Width = 80, Height = 25, Title = "BG"
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 25,
+			Title = "BG"
 		};
 		background.AddControl(new MarkupControl(new List<string>
 		{
@@ -764,7 +892,11 @@ public class WideCharWindowOperationTests
 
 		var window = new Window(system)
 		{
-			Left = 10, Top = 5, Width = 35, Height = 10, Title = "Mixed"
+			Left = 10,
+			Top = 5,
+			Width = 35,
+			Height = 10,
+			Title = "Mixed"
 		};
 		window.AddControl(new MarkupControl(new List<string>
 		{

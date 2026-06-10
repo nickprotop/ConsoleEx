@@ -1,7 +1,7 @@
+using System.Collections.Generic;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
-using System.Collections.Generic;
 using Xunit;
 using Xunit.Abstractions;
 

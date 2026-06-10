@@ -1,6 +1,6 @@
-using Xunit;
 using System.Text;
 using SharpConsoleUI.Helpers;
+using Xunit;
 
 namespace SharpConsoleUI.Tests.Helpers
 {

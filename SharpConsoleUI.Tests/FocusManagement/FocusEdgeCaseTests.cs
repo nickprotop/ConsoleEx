@@ -60,7 +60,11 @@ public class FocusEdgeCaseTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 20
 		};
 		window.AddControl(panel);
 		system.AddWindow(window);
@@ -106,7 +110,11 @@ public class FocusEdgeCaseTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 20
 		};
 		window.AddControl(nav);
 		system.AddWindow(window);
@@ -414,7 +422,11 @@ public class FocusEdgeCaseTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 20
 		};
 		window.AddControl(panel);
 		system.AddWindow(window);
@@ -448,14 +460,22 @@ public class FocusEdgeCaseTests
 
 		var window1 = new Window(system)
 		{
-			Title = "Win1", Left = 0, Top = 0, Width = 40, Height = 20
+			Title = "Win1",
+			Left = 0,
+			Top = 0,
+			Width = 40,
+			Height = 20
 		};
 		var btn1 = new ButtonControl { Text = "Win1Btn" };
 		window1.AddControl(btn1);
 
 		var window2 = new Window(system)
 		{
-			Title = "Win2", Left = 40, Top = 0, Width = 40, Height = 20
+			Title = "Win2",
+			Left = 40,
+			Top = 0,
+			Width = 40,
+			Height = 20
 		};
 		var btn2 = new ButtonControl { Text = "Win2Btn" };
 		window2.AddControl(btn2);
@@ -563,7 +583,11 @@ public class FocusEdgeCaseTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 20
 		};
 		window.AddControl(nav);
 		system.AddWindow(window);

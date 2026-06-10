@@ -6,10 +6,10 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Text;
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Layout;
 using Xunit;
-using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 

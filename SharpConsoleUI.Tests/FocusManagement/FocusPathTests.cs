@@ -6,12 +6,12 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Linq;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Tests.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
-using System.Linq;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.FocusManagement;
@@ -34,7 +34,11 @@ public class FocusPathTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 20
 		};
 		// Add a non-interactive control — no auto-focus should occur
 		var label = new MarkupControl(new List<string> { "Hello" });
@@ -52,7 +56,11 @@ public class FocusPathTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 20
 		};
 		var btn = new ButtonControl { Text = "Btn" };
 		window.AddControl(btn);
@@ -70,7 +78,11 @@ public class FocusPathTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 20
 		};
 		var btn = new ButtonControl { Text = "Btn" };
 		window.AddControl(btn);
@@ -194,7 +206,11 @@ public class FocusPathTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 20
 		};
 		window.AddControl(panel1);
 		window.AddControl(panel2);
@@ -220,7 +236,11 @@ public class FocusPathTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 20
 		};
 		var btn1 = new ButtonControl { Text = "Btn1" };
 		var btn2 = new ButtonControl { Text = "Btn2" };
@@ -250,7 +270,11 @@ public class FocusPathTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 20
 		};
 		var btn1 = new ButtonControl { Text = "Btn1" };
 		var btn2 = new ButtonControl { Text = "Btn2" };
@@ -279,7 +303,11 @@ public class FocusPathTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 20);
 		var window = new Window(system)
 		{
-			Title = "Test", Left = 0, Top = 0, Width = 80, Height = 20
+			Title = "Test",
+			Left = 0,
+			Top = 0,
+			Width = 80,
+			Height = 20
 		};
 		var btn = new ButtonControl { Text = "Btn" };
 		window.AddControl(btn);

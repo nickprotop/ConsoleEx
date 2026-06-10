@@ -1,10 +1,10 @@
+using System.Text;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
 using Spectre.Console;
 using Xunit;
 using Xunit.Abstractions;
-using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.BottomLayer;
 

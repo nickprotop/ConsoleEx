@@ -19,7 +19,7 @@ namespace SharpConsoleUI.Parsing
 	/// bypassing the ANSI roundtrip.  Supports [bold red on blue]text[/] syntax,
 	/// [rgb(r,g,b)], [#RRGGBB], and nested/closing tags.
 	/// </summary>
-	public static class MarkupParser
+	public static partial class MarkupParser
 	{
 		#region Public API
 
@@ -32,11 +32,15 @@ namespace SharpConsoleUI.Parsing
 			if (string.IsNullOrEmpty(markup))
 				return new List<Cell>();
 
+			// Expand any [markdown]…[/] regions into native markup first
+			markup = PreProcessMarkdownTags(markup);
+
 			// Pre-process gradient tags before normal parsing
 			markup = PreProcessGradientTags(markup, defaultFg, defaultBg, out var gradientSpans);
 
 			var cells = new List<Cell>();
 			var styleStack = new Stack<MarkupStyle>();
+			bool fillToWidth = false;
 			var currentFg = defaultFg;
 			var currentBg = defaultBg;
 			var currentDec = TextDecoration.None;
@@ -79,6 +83,15 @@ namespace SharpConsoleUI.Parsing
 					}
 
 					i = tagEnd + 1;
+
+					// Self-closing [fillwidth] marker: emit no cell, just flag this line so the
+					// painter fills the trailing background to the row width. Does not touch the
+					// style stack. The flag is applied to the line's last cell after parsing.
+					if (tagContent == "fillwidth")
+					{
+						fillToWidth = true;
+						continue;
+					}
 
 					// Inline spinner tag: emit the current animated glyph in the active scope color.
 					if (TryParseSpinnerTag(tagContent, out var spinnerStyle, out var spinnerInterval, out var spinnerWidth))
@@ -235,6 +248,15 @@ namespace SharpConsoleUI.Parsing
 			if (gradientSpans != null)
 			{
 				ApplyGradientSpans(cells, gradientSpans);
+			}
+
+			// Apply the [fillwidth] marker (if seen) to the line's last cell so the painter
+			// extends its background to the available render width.
+			if (fillToWidth && cells.Count > 0)
+			{
+				var last = cells[^1];
+				last.FillToWidth = true;
+				cells[^1] = last;
 			}
 
 			return cells;
@@ -503,6 +525,10 @@ namespace SharpConsoleUI.Parsing
 		{
 			if (string.IsNullOrEmpty(markup) || width <= 0)
 				return new List<List<Cell>> { new List<Cell>() };
+
+			// Expand any [markdown]…[/] regions before splitting on newlines,
+			// otherwise a multi-line region would be torn apart by the split.
+			markup = PreProcessMarkdownTags(markup);
 
 			var result = new List<List<Cell>>();
 

@@ -178,6 +178,29 @@ Use `on` to set the background color:
 "[on green] Status OK [/]"
 ```
 
+### Fill Background to End of Line
+
+By default a background only colors the characters it covers, so a short line leaves a ragged
+right edge. The self-closing `[fillwidth]` marker tells the renderer to extend the line's
+trailing background all the way to the available width — turning a per-line tint into a solid
+block (used internally by Markdown fenced code blocks, but available to any markup).
+
+```
+[on grey19] code line [/][fillwidth]
+```
+
+- `[fillwidth]` is **self-closing** — it has no `[/]` and produces no visible character.
+- Place it at the **end of a line**; it flags that line so the renderer fills the remainder of
+  the row with the line's last background color.
+- It only affects layout-aware hosts that paint a full row (e.g. `MarkupControl`); in plain
+  parsing it is simply a no-op that emits nothing.
+- Escape with double brackets — `[[fillwidth]]` renders the literal text `[fillwidth]`.
+
+```csharp
+// A full-width shaded banner, regardless of text length:
+"[on grey19] Build succeeded [/][fillwidth]"
+```
+
 ## Text Decorations
 
 | Decoration | Aliases | Description |
@@ -233,6 +256,152 @@ Embed an animated spinner glyph inline in any markup text. It animates wherever 
 The glyph inherits the surrounding color scope (`[yellow][spinner][/]` is yellow). A spinner reserves a fixed column width per style, so surrounding text never reflows as it animates. Animation requires a running `ConsoleWindowSystem` with animations enabled; when parsed without one (e.g. in tests) it renders a static glyph. Escape with double brackets — `[[spinner]]` renders the literal text `[spinner]`.
 
 For a standalone, placeable spinner control (rather than inline text), see [SpinnerControl](controls/SpinnerControl.md).
+
+## Markdown
+
+The `[markdown]…[/]` tag parses its inner content as **Markdown** (via [Markdig](https://github.com/xoofx/markdig)) and renders it as native markup. Because it is just a markup tag, it works anywhere markup is accepted — labels, status bars, table cells, tree nodes — and can be mixed with ordinary markup in the same string.
+
+```
+[markdown]# Heading
+
+**Bold**, *italic*, `code`, and a list:
+
+- one
+- two
+[/]
+```
+
+### Supported Constructs
+
+| Construct | Notes |
+|-----------|-------|
+| Headings | `#` through `######` (H1–H6) |
+| Emphasis | bold, italic, bold+italic, strikethrough |
+| Inline code | `` `code` `` |
+| Links | `[text](url)` — text is shown, URL is dropped |
+| Lists | bullet, numbered, and nested |
+| Blockquotes | `> quoted` with a vertical bar glyph |
+| Horizontal rules | `---` |
+| Code blocks | fenced (```` ``` ````) and indented |
+| Tables | GitHub-style pipe tables, rendered with box-drawing borders |
+
+**Copied text stays plain.** Markdown is rendered down to native markup, so selecting and copying (`Ctrl+C`) from a `MarkupControl` yields plain text with the markup stripped — exactly as with any other markup.
+
+### Region Behavior
+
+- **Non-nesting:** a `[markdown]` region ends at the *first* `[/]`. It does not nest, so a `[/]` inside the Markdown content closes the region rather than popping an inner tag.
+- **Unclosed:** a `[markdown]` with no matching `[/]` renders everything after the tag, to the end of the string, as Markdown.
+- **Escaped:** `[[markdown]]` (doubled brackets) renders the literal text `[markdown]` instead of opening a region.
+
+### Syntax Highlighting in Code Blocks
+
+Fenced code blocks with a **language hint** are automatically syntax-highlighted using SharpConsoleUI's built-in highlighters. The hint is the text immediately after the opening fence:
+
+````
+```csharp
+var control = Controls.Markdown("# Report").Build();
+```
+````
+
+The following languages (and aliases) ship with the library:
+
+| Language | Aliases |
+|----------|---------|
+| C# | `csharp`, `cs` |
+| Bash | `bash`, `sh`, `shell`, `zsh` |
+| JSON | `json` |
+| JavaScript | `javascript`, `js`, `node`, `mjs`, `cjs` |
+| CSS | `css` |
+| HTML | `html`, `htm` |
+| XML | `xml` |
+| YAML | `yaml`, `yml` |
+| Razor | `razor`, `cshtml` |
+| Dockerfile | `dockerfile`, `docker` |
+| Solution | `sln` |
+| Diff | `diff`, `patch` |
+| Markdown | `markdown`, `md` |
+
+A fenced block with **no language hint** — or one whose hint matches no registered highlighter — falls back to a flat, shaded code block (no token coloring).
+
+> The same highlighters power `MultilineEditControl`. See the [Syntax Highlighting](SYNTAX_HIGHLIGHTING.md) guide for the registry, the full list of built-ins, and how to register your own.
+
+**Custom highlighters.** Register a highlighter **globally** so it applies everywhere Markdown is rendered:
+
+```csharp
+using SharpConsoleUI.Highlighting;
+
+SyntaxHighlighters.Register("toml", new MyTomlHighlighter());
+```
+
+Or override **per style** via `MarkdownStyle.CodeHighlighters` (keyed by language hint), which is consulted before the global registry:
+
+```csharp
+var control = Controls.Markdown(markdown)
+    .WithMarkdownStyle(s => s with
+    {
+        CodeHighlighters = new Dictionary<string, ISyntaxHighlighter>
+        {
+            ["csharp"] = new MyCustomCSharpHighlighter()
+        }
+    })
+    .Build();
+```
+
+**Precedence** for a given language hint: per-style `CodeHighlighters` override → global `SyntaxHighlighters` registry → flat shaded block.
+
+### Styling — `MarkdownStyle`
+
+Markdown is *structural*: emphasis and headings emit colorless tags that inherit the surrounding color scope, so only the "chrome" components (code, quotes, links, table borders) carry colors. Styling is controlled by the `SharpConsoleUI.Configuration.MarkdownStyle` record. This is intentionally **not** part of the global theme — the parser is static and theme-agnostic.
+
+| Property | Purpose |
+|----------|---------|
+| `CodeForeground` / `CodeBackground` | Inline code and code blocks |
+| `QuoteColor` | Blockquote text and the quote bar glyph |
+| `LinkColor` | Link text |
+| `BorderColor` | Table border (box-drawing) characters |
+| `BulletGlyph` | Bullet list marker (default `•`) |
+| `ListIndent` | Spaces of indentation per nested level (default `2`) |
+| `QuoteGlyph` | Blockquote vertical bar (default `│`) |
+| `H1Color` … `H6Color` | Optional per-heading color; `null` = colorless (structural weight only) |
+
+Override **globally** by assigning `MarkdownStyle.Default`:
+
+```csharp
+using SharpConsoleUI.Configuration;
+
+MarkdownStyle.Default = MarkdownStyle.Default with
+{
+    LinkColor = Color.Cyan1,
+    CodeBackground = new Color(20, 20, 30),
+    H1Color = Color.Gold1,
+};
+```
+
+Override **per build** with `.WithMarkdownStyle(...)`:
+
+```csharp
+var control = Controls.Markdown("# Report")
+    .WithMarkdownStyle(s => s with { LinkColor = Color.HotPink })
+    .Build();
+```
+
+### Fluent Helpers
+
+| Helper | Description |
+|--------|-------------|
+| `Controls.Markdown(text)` | Creates a `MarkupBuilder` seeded with a Markdown block |
+| `.AddMarkdown(text)` | Appends a Markdown block to a `MarkupBuilder` |
+| `.WithMarkdown(text)` | Alias for `AddMarkdown` |
+| `.WithMarkdownStyle(s => s with { … })` | Per-build style override |
+| `MarkupControl.SetMarkdown(text)` | Replaces the control's content with rendered Markdown |
+| `MarkupControl.MarkdownStyle` | Per-control style property |
+
+```csharp
+var c = Controls.Markdown(
+    "# Report\n\n**Status:** OK\n\n- item one\n- item two\n\n| A | B |\n|---|---|\n| 1 | 2 |")
+    .Build();
+window.AddControl(c);
+```
 
 ## Combined Styles
 

@@ -6,13 +6,13 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Tests.Infrastructure;
-using SharpConsoleUI.Events;
-using SharpConsoleUI.Drivers;
-using System.Drawing;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Controls;

@@ -36,6 +36,7 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	private bool _copyEnabled = true;
 	private ConsoleKey _copyKey = ConsoleKey.C;
 	private ConsoleModifiers _copyModifiers = ConsoleModifiers.Control;
+	private Func<Configuration.MarkdownStyle, Configuration.MarkdownStyle>? _markdownStyleConfig;
 
 	/// <summary>
 	/// Adds a line of markup text
@@ -45,6 +46,28 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	public MarkupBuilder AddLine(string markup)
 	{
 		_lines.Add(markup ?? string.Empty);
+		return this;
+	}
+
+	/// <summary>Appends a Markdown block, wrapped in a [markdown] region.</summary>
+	/// <param name="markdown">The Markdown content.</param>
+	/// <returns>This builder for chaining.</returns>
+	public MarkupBuilder AddMarkdown(string markdown)
+	{
+		return AddLine($"[markdown]{markdown ?? string.Empty}[/]");
+	}
+
+	/// <summary>Alias for <see cref="AddMarkdown"/>, for fluent readability.</summary>
+	/// <param name="markdown">The Markdown content.</param>
+	/// <returns>This builder for chaining.</returns>
+	public MarkupBuilder WithMarkdown(string markdown) => AddMarkdown(markdown);
+
+	/// <summary>Sets a per-control Markdown style override applied on build.</summary>
+	/// <param name="configure">Receives the current default style; return a modified copy.</param>
+	/// <returns>This builder for chaining.</returns>
+	public MarkupBuilder WithMarkdownStyle(Func<Configuration.MarkdownStyle, Configuration.MarkdownStyle> configure)
+	{
+		_markdownStyleConfig = configure;
 		return this;
 	}
 
@@ -358,6 +381,9 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 			StickyPosition = _stickyPosition,
 			BackgroundColor = _backgroundColor,
 			ForegroundColor = _foregroundColor,
+			MarkdownStyle = _markdownStyleConfig != null
+				? _markdownStyleConfig(Configuration.MarkdownStyle.Default)
+				: null,
 			EnableSelection = _enableSelection,
 			SelectionForegroundColor = _selectionForegroundColor,
 			SelectionBackgroundColor = _selectionBackgroundColor,

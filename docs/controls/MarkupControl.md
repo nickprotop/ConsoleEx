@@ -22,12 +22,14 @@ MarkupControl displays multi-line text with rich formatting using SharpConsoleUI
 | `CopyEnabled` | `bool` | `true` | Whether the keyboard copy shortcut is active |
 | `CopyKey` | `ConsoleKey` | `C` | Key that triggers a copy |
 | `CopyModifiers` | `ConsoleModifiers` | `Control` | Modifiers required for the copy shortcut |
+| `MarkdownStyle` | `MarkdownStyle?` | `null` | Per-control style for `[markdown]` content; `null` uses `MarkdownStyle.Default` (see [Markdown](#markdown)) |
 
 ## Methods
 
 | Method | Description |
 |--------|-------------|
 | `SetContent(List<string>)` | Replaces all content |
+| `SetMarkdown(string)` | Replaces the content with rendered Markdown (see [Markdown](#markdown)) |
 | `AppendLine(string)` | Appends a single markup line |
 | `AppendLines(IEnumerable<string>)` | Appends multiple markup lines |
 | `AppendText(string)` | Appends text, splitting on `\n` |
@@ -664,6 +666,17 @@ var status = Controls.Markup("Loading [yellow][spinner][/] please wait").Build()
 ```
 
 The spinner animates automatically while the window system is running. See [Markup Syntax → Spinner](../MARKUP_SYNTAX.md#spinner-animated) for all styles.
+
+## Markdown
+
+MarkupControl content may contain the `[markdown]…[/]` tag, which parses its inner text as Markdown (headings, lists, emphasis, code blocks, blockquotes, links, tables) and renders it as native markup. Copied text stays plain.
+
+```csharp
+var c = Controls.Markdown("# Report\n\n**Status:** OK\n\n- one\n- two").Build();
+c.SetMarkdown("# Updated\n\nNew content");   // live update
+```
+
+Styling is controlled by `MarkdownStyle` (per-control via `MarkupControl.MarkdownStyle` or builder `.WithMarkdownStyle(...)`, globally via `MarkdownStyle.Default`). See [Markup Syntax → Markdown](../MARKUP_SYNTAX.md#markdown) for the full reference.
 
 ## See Also
 

@@ -6,11 +6,11 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Tests.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
-using System.Drawing;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.FocusManagement;
@@ -61,7 +61,10 @@ public class NestedContainerFocusTests
 		var slider = new SliderControl
 		{
 			Orientation = SliderOrientation.Horizontal,
-			MinValue = 0, MaxValue = 100, Value = 50, Step = 1
+			MinValue = 0,
+			MaxValue = 100,
+			Value = 50,
+			Step = 1
 		};
 		col.AddContent(slider);
 		grid.AddColumn(col);
@@ -183,7 +186,10 @@ public class NestedContainerFocusTests
 		var slider = new SliderControl
 		{
 			Orientation = SliderOrientation.Horizontal,
-			MinValue = 0, MaxValue = 100, Value = 50, Step = 1
+			MinValue = 0,
+			MaxValue = 100,
+			Value = 50,
+			Step = 1
 		};
 		panel.AddControl(slider);
 		col.AddContent(panel);
@@ -251,7 +257,10 @@ public class NestedContainerFocusTests
 		var slider = new SliderControl
 		{
 			Orientation = SliderOrientation.Horizontal,
-			MinValue = 0, MaxValue = 100, Value = 50, Step = 1
+			MinValue = 0,
+			MaxValue = 100,
+			Value = 50,
+			Step = 1
 		};
 		innerPanel.AddControl(slider);
 		col.AddContent(innerPanel);

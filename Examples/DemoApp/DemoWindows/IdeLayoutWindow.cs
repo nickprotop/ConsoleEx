@@ -3,420 +3,489 @@ using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Dialogs;
+using SharpConsoleUI.Highlighting;
 using SharpConsoleUI.Layout;
 
 namespace DemoApp.DemoWindows;
 
 public static class IdeLayoutWindow
 {
-    #region Constants
+	#region Constants
 
-    private const int WindowWidth = 95;
-    private const int WindowHeight = 32;
-    private const int ExplorerColumnWidth = 26;
-    private const int SidePanelColumnWidth = 28;
-    private const int FileStatusColumnWidth = 20;
-    private const int PositionColumnWidth = 15;
-    private const int EncodingColumnWidth = 10;
-    private const int LanguageColumnWidth = 12;
-    private const int TimeColumnWidth = 18;
-    private const int ThreadUpdateIntervalMs = 1000;
-    private const int TreeMargin = 1;
+	private const int WindowWidth = 95;
+	private const int WindowHeight = 32;
+	private const int ExplorerColumnWidth = 26;
+	private const int SidePanelColumnWidth = 28;
+	private const int FileStatusColumnWidth = 20;
+	private const int PositionColumnWidth = 15;
+	private const int EncodingColumnWidth = 10;
+	private const int LanguageColumnWidth = 12;
+	private const int TimeColumnWidth = 18;
+	private const int ThreadUpdateIntervalMs = 1000;
+	private const int TreeMargin = 1;
 
-    #endregion
+	#endregion
 
-    #region Factory
+	#region Factory
 
-    public static Window Create(ConsoleWindowSystem ws)
-    {
-        // Local state - no static mutable fields
-        var currentFile = "Program.cs";
+	public static Window Create(ConsoleWindowSystem ws)
+	{
+		// Local state - no static mutable fields
+		var currentFile = "Program.cs";
 
-        // Status bar controls
-        var fileStatus = Controls.Markup(GetFileStatusDisplay(true, "Program.cs")).Build();
-        var positionStatus = Controls.Markup("Ln 1, Col 1").Build();
-        var languageStatus = Controls.Markup("C#").Build();
-        var timeStatus = Controls.Markup($"{DateTime.Now:HH:mm:ss}")
-            .WithAlignment(HorizontalAlignment.Right)
-            .Build();
+		// Status bar controls
+		var fileStatus = Controls.Markup(GetFileStatusDisplay(true, "Program.cs")).Build();
+		var positionStatus = Controls.Markup("Ln 1, Col 1").Build();
+		var languageStatus = Controls.Markup("C#").Build();
+		var timeStatus = Controls.Markup($"{DateTime.Now:HH:mm:ss}")
+			.WithAlignment(HorizontalAlignment.Right)
+			.Build();
 
-        // Helper closures over local state
-        void UpdateFileStatus(string message) =>
-            fileStatus.SetContent(new List<string> { message });
+		// Helper closures over local state
+		void UpdateFileStatus(string message) =>
+			fileStatus.SetContent(new List<string> { message });
 
-        void HandleNewFile()
-        {
-            currentFile = "Untitled";
-            UpdateFileStatus($"[cyan]*[/] {currentFile}");
-        }
+		void HandleNewFile()
+		{
+			currentFile = "Untitled";
+			UpdateFileStatus($"[cyan]*[/] {currentFile}");
+		}
 
-        void HandleSaveFile()
-        {
-            UpdateFileStatus($"[green]+[/] {currentFile}");
-            ws.NotificationStateService.ShowNotification(
-                "Saved", $"{currentFile} saved successfully", NotificationSeverity.Success);
-        }
+		void HandleSaveFile()
+		{
+			UpdateFileStatus($"[green]+[/] {currentFile}");
+			ws.NotificationStateService.ShowNotification(
+				"Saved", $"{currentFile} saved successfully", NotificationSeverity.Success);
+		}
 
-        // Build editor tab contents
-        var editor1 = Controls.MultilineEdit()
-            .WithContent(GetProgramCsContent())
-            .WithWrapMode(WrapMode.Wrap)
-            .AsReadOnly(false)
-            .WithAlignment(HorizontalAlignment.Left)
-            .WithVerticalAlignment(VerticalAlignment.Fill)
-            .Build();
+		// Build editor tab contents
+		var editor1 = Controls.MultilineEdit()
+			.WithContent(GetProgramCsContent())
+			.WithSyntaxHighlighter(SyntaxHighlighters.For("csharp"))
+			.WithWrapMode(WrapMode.Wrap)
+			.AsReadOnly(false)
+			.WithAlignment(HorizontalAlignment.Left)
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.Build();
 
-        var editor2 = Controls.MultilineEdit()
-            .WithContent(GetUserCsContent())
-            .WithWrapMode(WrapMode.Wrap)
-            .AsReadOnly(false)
-            .WithAlignment(HorizontalAlignment.Left)
-            .WithVerticalAlignment(VerticalAlignment.Fill)
-            .Build();
+		var editor2 = Controls.MultilineEdit()
+			.WithContent(GetUserCsContent())
+			.WithSyntaxHighlighter(SyntaxHighlighters.For("csharp"))
+			.WithWrapMode(WrapMode.Wrap)
+			.AsReadOnly(false)
+			.WithAlignment(HorizontalAlignment.Left)
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.Build();
 
-        var editor3 = Controls.MultilineEdit()
-            .WithContent(GetReadmeContent())
-            .WithWrapMode(WrapMode.Wrap)
-            .AsReadOnly(false)
-            .WithAlignment(HorizontalAlignment.Left)
-            .WithVerticalAlignment(VerticalAlignment.Fill)            
-            .Build();
+		var editor3 = Controls.MultilineEdit()
+			.WithContent(GetReadmeContent())
+			.WithSyntaxHighlighter(SyntaxHighlighters.For("markdown"))
+			.WithWrapMode(WrapMode.Wrap)
+			.AsReadOnly(false)
+			.WithAlignment(HorizontalAlignment.Left)
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.Build();
 
-        var editorTabs = Controls.TabControl()
-            .AddTab("Program.cs", editor1)
-            .AddTab("User.cs", editor2)
-            .AddTab("README.md", editor3)
-            .WithHeaderStyle(TabHeaderStyle.AccentedSeparator)
-            .Fill()
-            .Build();
+		var editor4 = Controls.MultilineEdit()
+			.WithContent(GetDeployShContent())
+			.WithSyntaxHighlighter(SyntaxHighlighters.For("bash"))
+			.WithWrapMode(WrapMode.Wrap)
+			.AsReadOnly(false)
+			.WithAlignment(HorizontalAlignment.Left)
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.Build();
 
-        // Project tree in scrollable panel
-        var treeBuilder = Controls.Tree()
-            .WithGuide(TreeGuide.Line)
-            .WithHighlightColors(Color.White, Color.Blue)
-            .WithMargin(TreeMargin, TreeMargin, TreeMargin, TreeMargin)
-            .WithAlignment(HorizontalAlignment.Left)
-            .WithVerticalAlignment(VerticalAlignment.Fill)
-            .OnSelectedNodeChanged((sender, args) =>
-            {
-                if (args.Node != null)
-                    UpdateFileStatus($"Selected: [yellow]{args.Node.Text}[/]");
-            });
-        BuildProjectStructure(treeBuilder);
-        var projectTree = treeBuilder.Build();
+		var editorTabs = Controls.TabControl()
+			.AddTab("Program.cs", editor1)
+			.AddTab("User.cs", editor2)
+			.AddTab("README.md", editor3)
+			.AddTab("deploy.sh", editor4)
+			.WithHeaderStyle(TabHeaderStyle.AccentedSeparator)
+			.Fill()
+			.Build();
 
-        var explorerPanel = Controls.ScrollablePanel()
-            .AddControl(projectTree)
-            .WithScrollbar(true)
-            .WithAlignment(HorizontalAlignment.Stretch)
-            .WithVerticalAlignment(VerticalAlignment.Fill)
-            .Build();
+		// Project tree in scrollable panel
+		var treeBuilder = Controls.Tree()
+			.WithGuide(TreeGuide.Line)
+			.WithHighlightColors(Color.White, Color.Blue)
+			.WithMargin(TreeMargin, TreeMargin, TreeMargin, TreeMargin)
+			.WithAlignment(HorizontalAlignment.Left)
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.OnSelectedNodeChanged((sender, args) =>
+			{
+				if (args.Node != null)
+					UpdateFileStatus($"Selected: [yellow]{args.Node.Text}[/]");
+			});
+		BuildProjectStructure(treeBuilder);
+		var projectTree = treeBuilder.Build();
 
-        // Side panel content (outline / properties)
-        var outlineTree = Controls.Tree()
-            .WithGuide(TreeGuide.Line)
-            .WithMargin(TreeMargin, TreeMargin, TreeMargin, TreeMargin)
-            .WithAlignment(HorizontalAlignment.Left);
-        BuildOutlineStructure(outlineTree);
+		var explorerPanel = Controls.ScrollablePanel()
+			.AddControl(projectTree)
+			.WithScrollbar(true)
+			.WithAlignment(HorizontalAlignment.Stretch)
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.Build();
 
-        var sidePanelTabs = Controls.TabControl()
-            .AddTab("Outline", outlineTree.Build())
-            .AddTab("Properties", Controls.Markup("[dim]No properties to show[/]").Build())
-            .WithHeaderStyle(TabHeaderStyle.AccentedSeparator)
-            .Fill()
-            .Build();
+		// Side panel content (outline / properties)
+		var outlineTree = Controls.Tree()
+			.WithGuide(TreeGuide.Line)
+			.WithMargin(TreeMargin, TreeMargin, TreeMargin, TreeMargin)
+			.WithAlignment(HorizontalAlignment.Left);
+		BuildOutlineStructure(outlineTree);
 
-        // 3-column layout with splitters (lazydotide pattern)
-        var mainContent = new HorizontalGridControl
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            VerticalAlignment = VerticalAlignment.Fill
-        };
+		var sidePanelTabs = Controls.TabControl()
+			.AddTab("Outline", outlineTree.Build())
+			.AddTab("Properties", Controls.Markup("[dim]No properties to show[/]").Build())
+			.WithHeaderStyle(TabHeaderStyle.AccentedSeparator)
+			.Fill()
+			.Build();
 
-        var explorerCol = new ColumnContainer(mainContent)
-        {
-            Width = ExplorerColumnWidth,
-            VerticalAlignment = VerticalAlignment.Fill
-        };
-        explorerCol.AddContent(explorerPanel);
-        mainContent.AddColumn(explorerCol);
+		// 3-column layout with splitters (lazydotide pattern)
+		var mainContent = new HorizontalGridControl
+		{
+			HorizontalAlignment = HorizontalAlignment.Stretch,
+			VerticalAlignment = VerticalAlignment.Fill
+		};
 
-        var editorCol = new ColumnContainer(mainContent)
-        {
-            VerticalAlignment = VerticalAlignment.Fill
-        };
-        editorCol.AddContent(editorTabs);
-        mainContent.AddColumn(editorCol);
+		var explorerCol = new ColumnContainer(mainContent)
+		{
+			Width = ExplorerColumnWidth,
+			VerticalAlignment = VerticalAlignment.Fill
+		};
+		explorerCol.AddContent(explorerPanel);
+		mainContent.AddColumn(explorerCol);
 
-        var sidePanelCol = new ColumnContainer(mainContent)
-        {
-            Width = SidePanelColumnWidth,
-            VerticalAlignment = VerticalAlignment.Fill,
-            Visible = false
-        };
-        sidePanelCol.AddContent(sidePanelTabs);
-        mainContent.AddColumn(sidePanelCol);
+		var editorCol = new ColumnContainer(mainContent)
+		{
+			VerticalAlignment = VerticalAlignment.Fill
+		};
+		editorCol.AddContent(editorTabs);
+		mainContent.AddColumn(editorCol);
 
-        var explorerSplitter = new SplitterControl();
-        mainContent.AddSplitter(0, explorerSplitter);
+		var sidePanelCol = new ColumnContainer(mainContent)
+		{
+			Width = SidePanelColumnWidth,
+			VerticalAlignment = VerticalAlignment.Fill,
+			Visible = false
+		};
+		sidePanelCol.AddContent(sidePanelTabs);
+		mainContent.AddColumn(sidePanelCol);
 
-        var sidePanelSplitter = new SplitterControl { Visible = false };
-        mainContent.AddSplitter(1, sidePanelSplitter);
+		var explorerSplitter = new SplitterControl();
+		mainContent.AddSplitter(0, explorerSplitter);
 
-        // Side panel toggle
-        var sidePanelVisible = false;
-        void ToggleSidePanel(Window w)
-        {
-            sidePanelVisible = !sidePanelVisible;
-            sidePanelCol.Visible = sidePanelVisible;
-            sidePanelSplitter.Visible = sidePanelVisible;
-            w.ForceRebuildLayout();
-            w.Invalidate(true);
-        }
+		var sidePanelSplitter = new SplitterControl { Visible = false };
+		mainContent.AddSplitter(1, sidePanelSplitter);
 
-        // Status bar
-        var statusBar = Controls.HorizontalGrid()
-            .WithAlignment(HorizontalAlignment.Left)
-            .StickyBottom()
-            .Column(c => c.Width(FileStatusColumnWidth).Add(fileStatus))
-            .Column(c => c.Width(PositionColumnWidth).Add(positionStatus))
-            .Column(c => c.Width(EncodingColumnWidth).Add(Controls.Label("UTF-8")))
-            .Column(c => c.Width(LanguageColumnWidth).Add(languageStatus))
-            .Column(c => c.Add(Controls.Label("")))
-            .Column(c => c.Width(TimeColumnWidth).Add(timeStatus))
-            .Build();
+		// Side panel toggle
+		var sidePanelVisible = false;
+		void ToggleSidePanel(Window w)
+		{
+			sidePanelVisible = !sidePanelVisible;
+			sidePanelCol.Visible = sidePanelVisible;
+			sidePanelSplitter.Visible = sidePanelVisible;
+			w.ForceRebuildLayout();
+			w.Invalidate(true);
+		}
 
-        // Build window
-        Window? window = null;
-        window = new WindowBuilder(ws)
-            .WithTitle("IDE Demo - Complete Application UI")
-            .WithSize(WindowWidth, WindowHeight)
-            .Centered()
-            .WithAsyncWindowThread(async (w, ct) =>
-            {
-                var random = new Random();
-                while (!ct.IsCancellationRequested)
-                {
-                    try
-                    {
-                        int line = random.Next(1, 25);
-                        int col = random.Next(1, 80);
-                        positionStatus.SetContent(new List<string> { $"Ln {line}, Col {col}" });
-                        timeStatus.SetContent(new List<string> { $"{DateTime.Now:HH:mm:ss}" });
-                        await Task.Delay(ThreadUpdateIntervalMs, ct);
-                    }
-                    catch (OperationCanceledException) { break; }
-                }
-            })
-            .OnKeyPressed((sender, e) =>
-            {
-                if (e.KeyInfo.Key == ConsoleKey.Escape)
-                {
-                    ws.CloseWindow(window!);
-                    e.Handled = true;
-                }
-            })
-            .AddControl(BuildMenuBar(ws, () => window!,
-                HandleNewFile: HandleNewFile,
-                HandleSaveFile: HandleSaveFile,
-                UpdateFileStatus: UpdateFileStatus,
-                ToggleSidePanel: () => ToggleSidePanel(window!)))
-            .AddControl(new RuleControl { StickyPosition = StickyPosition.Top })
-            .AddControl(BuildToolbar(
-                HandleNewFile: HandleNewFile,
-                HandleSaveFile: HandleSaveFile,
-                HandleOpen: () => { _ = FileDialogs.ShowFilePickerAsync(ws); },
-                UpdateFileStatus: UpdateFileStatus))
-            .AddControl(new RuleControl { StickyPosition = StickyPosition.Top })
-            .AddControl(mainContent)
-            .AddControl(new RuleControl { StickyPosition = StickyPosition.Bottom })
-            .AddControl(statusBar)
-            .BuildAndShow();
+		// Status bar
+		var statusBar = Controls.HorizontalGrid()
+			.WithAlignment(HorizontalAlignment.Left)
+			.StickyBottom()
+			.Column(c => c.Width(FileStatusColumnWidth).Add(fileStatus))
+			.Column(c => c.Width(PositionColumnWidth).Add(positionStatus))
+			.Column(c => c.Width(EncodingColumnWidth).Add(Controls.Label("UTF-8")))
+			.Column(c => c.Width(LanguageColumnWidth).Add(languageStatus))
+			.Column(c => c.Add(Controls.Label("")))
+			.Column(c => c.Width(TimeColumnWidth).Add(timeStatus))
+			.Build();
 
-        return window;
-    }
+		// Build window
+		Window? window = null;
+		window = new WindowBuilder(ws)
+			.WithTitle("IDE Demo - Complete Application UI")
+			.WithSize(WindowWidth, WindowHeight)
+			.Centered()
+			.WithAsyncWindowThread(async (w, ct) =>
+			{
+				var random = new Random();
+				while (!ct.IsCancellationRequested)
+				{
+					try
+					{
+						int line = random.Next(1, 25);
+						int col = random.Next(1, 80);
+						positionStatus.SetContent(new List<string> { $"Ln {line}, Col {col}" });
+						timeStatus.SetContent(new List<string> { $"{DateTime.Now:HH:mm:ss}" });
+						await Task.Delay(ThreadUpdateIntervalMs, ct);
+					}
+					catch (OperationCanceledException) { break; }
+				}
+			})
+			.OnKeyPressed((sender, e) =>
+			{
+				if (e.KeyInfo.Key == ConsoleKey.Escape)
+				{
+					ws.CloseWindow(window!);
+					e.Handled = true;
+				}
+			})
+			.AddControl(BuildMenuBar(ws, () => window!,
+				HandleNewFile: HandleNewFile,
+				HandleSaveFile: HandleSaveFile,
+				UpdateFileStatus: UpdateFileStatus,
+				ToggleSidePanel: () => ToggleSidePanel(window!)))
+			.AddControl(new RuleControl { StickyPosition = StickyPosition.Top })
+			.AddControl(BuildToolbar(
+				HandleNewFile: HandleNewFile,
+				HandleSaveFile: HandleSaveFile,
+				HandleOpen: () => { _ = FileDialogs.ShowFilePickerAsync(ws); },
+				UpdateFileStatus: UpdateFileStatus))
+			.AddControl(new RuleControl { StickyPosition = StickyPosition.Top })
+			.AddControl(mainContent)
+			.AddControl(new RuleControl { StickyPosition = StickyPosition.Bottom })
+			.AddControl(statusBar)
+			.BuildAndShow();
 
-    #endregion
+		return window;
+	}
 
-    #region Menu Bar
+	#endregion
 
-    private static MenuControl BuildMenuBar(
-        ConsoleWindowSystem ws,
-        Func<Window> getWindow,
-        Action HandleNewFile,
-        Action HandleSaveFile,
-        Action<string> UpdateFileStatus,
-        Action ToggleSidePanel)
-    {
-        MenuControl menuControl = Controls.Menu()
-            .Horizontal()
-            .WithName("mainMenu")
-            .Sticky()
-            .AddItem("File", m => m
-                .AddItem("New", "Ctrl+N", HandleNewFile)
-                .AddItem("Open", "Ctrl+O", () => { _ = FileDialogs.ShowFilePickerAsync(ws); })
-                .AddSeparator()
-                .AddItem("Save", "Ctrl+S", HandleSaveFile)
-                .AddItem("Save As...", "Ctrl+Shift+S", () => { _ = FileDialogs.ShowSaveFileAsync(ws); })
-                .AddSeparator()
-                .AddItem("Exit", "Alt+F4", () => ws.CloseWindow(getWindow())))
-            .AddItem("Edit", m => m
-                .AddItem("Undo", "Ctrl+Z", () => UpdateFileStatus("[blue]<-[/] Undo"))
-                .AddItem("Redo", "Ctrl+Y", () => UpdateFileStatus("[blue]->[/] Redo"))
-                .AddSeparator()
-                .AddItem("Cut", "Ctrl+X", () => UpdateFileStatus("Cut to clipboard"))
-                .AddItem("Copy", "Ctrl+C", () => UpdateFileStatus("Copy to clipboard"))
-                .AddItem("Paste", "Ctrl+V", () => UpdateFileStatus("Paste from clipboard"))
-                .AddSeparator()
-                .AddItem("Find", "Ctrl+F", () => UpdateFileStatus("Find..."))
-                .AddItem("Replace", "Ctrl+H", () => UpdateFileStatus("Replace...")))
-            .AddItem("View", m => m
-                .AddItem("Toggle Side Panel", "Ctrl+B", ToggleSidePanel)
-                .AddSeparator()
-                .AddItem("Zoom In", "Ctrl++", () => UpdateFileStatus("Zoom In"))
-                .AddItem("Zoom Out", "Ctrl+-", () => UpdateFileStatus("Zoom Out")))
-            .AddItem("Tools", m => m
-                .AddItem("Options", () => UpdateFileStatus("Options dialog..."))
-                .AddItem("Preferences", () => UpdateFileStatus("Preferences dialog...")))
-            .AddItem("Help", m => m
-                .AddItem("Documentation", "F1", () => UpdateFileStatus("Documentation..."))
-                .AddItem("About", () => AboutDialog.Show(ws)))
-            .Build();
-            
-       menuControl.StickyPosition = StickyPosition.Top;
-                
-        return menuControl;
-    }
+	#region Menu Bar
 
-    #endregion
+	private static MenuControl BuildMenuBar(
+		ConsoleWindowSystem ws,
+		Func<Window> getWindow,
+		Action HandleNewFile,
+		Action HandleSaveFile,
+		Action<string> UpdateFileStatus,
+		Action ToggleSidePanel)
+	{
+		MenuControl menuControl = Controls.Menu()
+			.Horizontal()
+			.WithName("mainMenu")
+			.Sticky()
+			.AddItem("File", m => m
+				.AddItem("New", "Ctrl+N", HandleNewFile)
+				.AddItem("Open", "Ctrl+O", () => { _ = FileDialogs.ShowFilePickerAsync(ws); })
+				.AddSeparator()
+				.AddItem("Save", "Ctrl+S", HandleSaveFile)
+				.AddItem("Save As...", "Ctrl+Shift+S", () => { _ = FileDialogs.ShowSaveFileAsync(ws); })
+				.AddSeparator()
+				.AddItem("Exit", "Alt+F4", () => ws.CloseWindow(getWindow())))
+			.AddItem("Edit", m => m
+				.AddItem("Undo", "Ctrl+Z", () => UpdateFileStatus("[blue]<-[/] Undo"))
+				.AddItem("Redo", "Ctrl+Y", () => UpdateFileStatus("[blue]->[/] Redo"))
+				.AddSeparator()
+				.AddItem("Cut", "Ctrl+X", () => UpdateFileStatus("Cut to clipboard"))
+				.AddItem("Copy", "Ctrl+C", () => UpdateFileStatus("Copy to clipboard"))
+				.AddItem("Paste", "Ctrl+V", () => UpdateFileStatus("Paste from clipboard"))
+				.AddSeparator()
+				.AddItem("Find", "Ctrl+F", () => UpdateFileStatus("Find..."))
+				.AddItem("Replace", "Ctrl+H", () => UpdateFileStatus("Replace...")))
+			.AddItem("View", m => m
+				.AddItem("Toggle Side Panel", "Ctrl+B", ToggleSidePanel)
+				.AddSeparator()
+				.AddItem("Zoom In", "Ctrl++", () => UpdateFileStatus("Zoom In"))
+				.AddItem("Zoom Out", "Ctrl+-", () => UpdateFileStatus("Zoom Out")))
+			.AddItem("Tools", m => m
+				.AddItem("Options", () => UpdateFileStatus("Options dialog..."))
+				.AddItem("Preferences", () => UpdateFileStatus("Preferences dialog...")))
+			.AddItem("Help", m => m
+				.AddItem("Documentation", "F1", () => UpdateFileStatus("Documentation..."))
+				.AddItem("About", () => AboutDialog.Show(ws)))
+			.Build();
 
-    #region Toolbar
+		menuControl.StickyPosition = StickyPosition.Top;
 
-    private static ToolbarControl BuildToolbar(
-        Action HandleNewFile,
-        Action HandleSaveFile,
-        Action HandleOpen,
-        Action<string> UpdateFileStatus)
-    {
-        return Controls.Toolbar()
-            .StickyTop()
-            .WithAlignment(HorizontalAlignment.Left)
-            .AddButton("New", (s, b) => HandleNewFile())
-            .AddButton("Open", (s, b) => HandleOpen())
-            .AddButton("Save", (s, b) => HandleSaveFile())
-            .AddButton("Undo", (s, b) => UpdateFileStatus("[blue]<-[/] Undo"))
-            .AddButton("Redo", (s, b) => UpdateFileStatus("[blue]->[/] Redo"))
-            .StickyTop()
-            .Build();
-    }
+		return menuControl;
+	}
 
-    #endregion
+	#endregion
 
-    #region Project Tree
+	#region Toolbar
 
-    private static void BuildProjectStructure(TreeControlBuilder builder)
-    {
-        var projectRoot = builder.AddRootNode("MyProject");
-        projectRoot.TextColor = Color.Yellow;
-        projectRoot.IsExpanded = true;
+	private static ToolbarControl BuildToolbar(
+		Action HandleNewFile,
+		Action HandleSaveFile,
+		Action HandleOpen,
+		Action<string> UpdateFileStatus)
+	{
+		return Controls.Toolbar()
+			.StickyTop()
+			.WithAlignment(HorizontalAlignment.Left)
+			.AddButton("New", (s, b) => HandleNewFile())
+			.AddButton("Open", (s, b) => HandleOpen())
+			.AddButton("Save", (s, b) => HandleSaveFile())
+			.AddButton("Undo", (s, b) => UpdateFileStatus("[blue]<-[/] Undo"))
+			.AddButton("Redo", (s, b) => UpdateFileStatus("[blue]->[/] Redo"))
+			.StickyTop()
+			.Build();
+	}
 
-        var srcFolder = projectRoot.AddChild("src");
-        srcFolder.TextColor = Color.Cyan1;
-        srcFolder.IsExpanded = true;
+	#endregion
 
-        srcFolder.AddChild("Program.cs").TextColor = Color.Green;
+	#region Project Tree
 
-        var modelsFolder = srcFolder.AddChild("Models");
-        modelsFolder.TextColor = Color.Cyan1;
-        modelsFolder.AddChild("User.cs").TextColor = Color.Green;
-        modelsFolder.AddChild("Product.cs").TextColor = Color.Green;
+	private static void BuildProjectStructure(TreeControlBuilder builder)
+	{
+		var projectRoot = builder.AddRootNode("MyProject");
+		projectRoot.TextColor = Color.Yellow;
+		projectRoot.IsExpanded = true;
 
-        var servicesFolder = srcFolder.AddChild("Services");
-        servicesFolder.TextColor = Color.Cyan1;
-        servicesFolder.AddChild("UserService.cs").TextColor = Color.Green;
-        servicesFolder.AddChild("ProductService.cs").TextColor = Color.Green;
+		var srcFolder = projectRoot.AddChild("src");
+		srcFolder.TextColor = Color.Cyan1;
+		srcFolder.IsExpanded = true;
 
-        var configFolder = projectRoot.AddChild("config");
-        configFolder.TextColor = Color.Cyan1;
-        configFolder.AddChild("appsettings.json").TextColor = Color.Yellow;
-        configFolder.AddChild("launch.json").TextColor = Color.Yellow;
+		srcFolder.AddChild("Program.cs").TextColor = Color.Green;
 
-        var testsFolder = projectRoot.AddChild("Tests");
-        testsFolder.TextColor = Color.Cyan1;
-        testsFolder.AddChild("UserTests.cs").TextColor = Color.Green;
-        testsFolder.AddChild("ProductTests.cs").TextColor = Color.Green;
+		var modelsFolder = srcFolder.AddChild("Models");
+		modelsFolder.TextColor = Color.Cyan1;
+		modelsFolder.AddChild("User.cs").TextColor = Color.Green;
+		modelsFolder.AddChild("Product.cs").TextColor = Color.Green;
 
-        var docsFolder = projectRoot.AddChild("docs");
-        docsFolder.TextColor = Color.Cyan1;
-        docsFolder.AddChild("README.md").TextColor = Color.Magenta1;
-        docsFolder.AddChild("CHANGELOG.md").TextColor = Color.Magenta1;
-    }
+		var servicesFolder = srcFolder.AddChild("Services");
+		servicesFolder.TextColor = Color.Cyan1;
+		servicesFolder.AddChild("UserService.cs").TextColor = Color.Green;
+		servicesFolder.AddChild("ProductService.cs").TextColor = Color.Green;
 
-    #endregion
+		var configFolder = projectRoot.AddChild("config");
+		configFolder.TextColor = Color.Cyan1;
+		configFolder.AddChild("appsettings.json").TextColor = Color.Yellow;
+		configFolder.AddChild("launch.json").TextColor = Color.Yellow;
 
-    #region Outline Tree
+		var testsFolder = projectRoot.AddChild("Tests");
+		testsFolder.TextColor = Color.Cyan1;
+		testsFolder.AddChild("UserTests.cs").TextColor = Color.Green;
+		testsFolder.AddChild("ProductTests.cs").TextColor = Color.Green;
 
-    private static void BuildOutlineStructure(TreeControlBuilder builder)
-    {
-        var classNode = builder.AddRootNode("Program");
-        classNode.TextColor = Color.Yellow;
-        classNode.IsExpanded = true;
+		var docsFolder = projectRoot.AddChild("docs");
+		docsFolder.TextColor = Color.Cyan1;
+		docsFolder.AddChild("README.md").TextColor = Color.Magenta1;
+		docsFolder.AddChild("CHANGELOG.md").TextColor = Color.Magenta1;
+	}
 
-        classNode.AddChild("Main(string[])").TextColor = Color.Cyan1;
-        classNode.AddChild("ProcessDataAsync()").TextColor = Color.Cyan1;
+	#endregion
 
-        var usingsNode = builder.AddRootNode("Usings");
-        usingsNode.TextColor = Color.Grey;
-        usingsNode.AddChild("System").TextColor = Color.Grey;
-        usingsNode.AddChild("System.Threading.Tasks").TextColor = Color.Grey;
-        usingsNode.AddChild("Microsoft.Extensions.DependencyInjection").TextColor = Color.Grey;
-    }
+	#region Outline Tree
 
-    #endregion
+	private static void BuildOutlineStructure(TreeControlBuilder builder)
+	{
+		var classNode = builder.AddRootNode("Program");
+		classNode.TextColor = Color.Yellow;
+		classNode.IsExpanded = true;
 
-    #region Display Helpers
+		classNode.AddChild("Main(string[])").TextColor = Color.Cyan1;
+		classNode.AddChild("ProcessDataAsync()").TextColor = Color.Cyan1;
 
-    private static string GetFileStatusDisplay(bool hasUnsavedChanges, string currentFile)
-    {
-        var indicator = hasUnsavedChanges ? "[green]*[/]" : "[green] [/]";
-        return $"{indicator} {currentFile}";
-    }
+		var usingsNode = builder.AddRootNode("Usings");
+		usingsNode.TextColor = Color.Grey;
+		usingsNode.AddChild("System").TextColor = Color.Grey;
+		usingsNode.AddChild("System.Threading.Tasks").TextColor = Color.Grey;
+		usingsNode.AddChild("Microsoft.Extensions.DependencyInjection").TextColor = Color.Grey;
+	}
 
-    #endregion
+	#endregion
 
-    #region File Contents
+	#region Display Helpers
 
-    private static string GetProgramCsContent() => @"using System;
+	private static string GetFileStatusDisplay(bool hasUnsavedChanges, string currentFile)
+	{
+		var indicator = hasUnsavedChanges ? "[green]*[/]" : "[green] [/]";
+		return $"{indicator} {currentFile}";
+	}
+
+	#endregion
+
+	#region File Contents
+
+	private static string GetProgramCsContent() => @"using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace MyProject
 {
-    /// <summary>
-    /// Main program entry point demonstrating modern C# patterns
-    /// </summary>
-    class Program
+    /* ------------------------------------------------------------------
+     * OrderService demonstrates a realistic slice of modern C#:
+     * records, LINQ, async/await, interpolated and verbatim strings,
+     * attributes, and both line and block comments.
+     * ------------------------------------------------------------------ */
+
+    /// <summary>Immutable order line item.</summary>
+    public record OrderLine(int ProductId, string Name, decimal Price, int Quantity)
+    {
+        public decimal Total => Price * Quantity;
+    }
+
+    [Serializable]
+    public class OrderService
+    {
+        private readonly ILogger<OrderService> _logger;
+        private const decimal TaxRate = 0.085m;
+
+        public OrderService(ILogger<OrderService> logger)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
+
+        // Compute a discounted, taxed grand total for an order.
+        public async Task<decimal> CalculateTotalAsync(IEnumerable<OrderLine> lines, bool applyDiscount = true)
+        {
+            await Task.Delay(50); // simulate I/O latency
+
+            var subtotal = lines
+                .Where(l => l.Quantity > 0)
+                .Sum(l => l.Total);
+
+            decimal discount = applyDiscount && subtotal > 100m ? subtotal * 0.10m : 0m;
+            var taxed = (subtotal - discount) * (1 + TaxRate);
+
+            _logger.LogInformation(""Subtotal={Subtotal}, Discount={Discount}, Total={Total}"",
+                subtotal, discount, taxed);
+
+            return Math.Round(taxed, 2);
+        }
+
+        public string Describe(OrderLine line) =>
+            $""#{line.ProductId} {line.Name}: {line.Quantity} x {line.Price:C} = {line.Total:C}"";
+    }
+
+    internal static class Program
     {
         static async Task Main(string[] args)
         {
-            Console.WriteLine(""Hello, World!"");
+            var services = new ServiceCollection()
+                .AddLogging(b => b.AddDebug())
+                .AddSingleton<OrderService>()
+                .BuildServiceProvider();
 
-            // Modern async patterns
-            await ProcessDataAsync();
+            var svc = services.GetRequiredService<OrderService>();
 
-            Console.WriteLine(""Application completed successfully."");
-        }
+            // A verbatim path string showing how @-strings are highlighted.
+            var configPath = @""C:\config\orders.json"";
+            Console.WriteLine($""Loading configuration from {configPath}"");
 
-        private static async Task ProcessDataAsync()
-        {
-            // Simulate async work
-            await Task.Delay(100);
-            Console.WriteLine(""Processing complete."");
+            var lines = new List<OrderLine>
+            {
+                new(101, ""Keyboard"", 49.99m, 2),
+                new(102, ""Monitor"", 199.00m, 1),
+                new(103, ""Mouse"", 19.95m, 3),
+            };
+
+            foreach (var line in lines)
+                Console.WriteLine(svc.Describe(line));
+
+            var total = await svc.CalculateTotalAsync(lines);
+            Console.WriteLine($""Grand total: {total:C}"");
         }
     }
 }";
 
-    private static string GetUserCsContent() => @"using System;
+	private static string GetUserCsContent() => @"using System;
 
 namespace MyProject.Models
 {
@@ -434,7 +503,7 @@ namespace MyProject.Models
     }
 }";
 
-    private static string GetReadmeContent() => @"# MyProject
+	private static string GetReadmeContent() => @"# MyProject
 
 A comprehensive example demonstrating modern C# patterns and SharpConsoleUI features.
 
@@ -457,5 +526,46 @@ A comprehensive example demonstrating modern C# patterns and SharpConsoleUI feat
 See the docs folder for detailed documentation.
 ";
 
-    #endregion
+	private static string GetDeployShContent() => @"#!/usr/bin/env bash
+#
+# deploy.sh - build and publish the application to a target host.
+# Usage: ./deploy.sh <environment>
+#
+set -euo pipefail
+
+# Configuration (override via environment).
+VERSION=""${VERSION:-1.0.0}""
+APP_NAME=""myproject""
+ENVIRONMENT=""${1:-staging}""
+ARTIFACT_DIR=""$HOME/builds/$APP_NAME""
+REMOTE_HOST=""deploy@$ENVIRONMENT.example.com""
+
+log() {
+    echo ""[$(date +%H:%M:%S)] $*""
+}
+
+# Validate the requested environment before doing anything destructive.
+if [ ""$ENVIRONMENT"" != ""staging"" ] && [ ""$ENVIRONMENT"" != ""production"" ]; then
+    echo ""Unknown environment: $ENVIRONMENT"" >&2
+    exit 1
+fi
+
+log ""Building $APP_NAME v${VERSION} for $ENVIRONMENT...""
+export DOTNET_CLI_TELEMETRY_OPTOUT=1
+cd ""$ARTIFACT_DIR""
+
+dotnet restore && dotnet publish -c Release -o ./out
+
+# Package every published assembly into a versioned tarball.
+for f in ./out/*.dll; do
+    log ""packaged: $f""
+done
+
+tar -czf ""$APP_NAME-${VERSION}.tar.gz"" ./out | tee build.log
+
+log ""Uploading to $REMOTE_HOST""
+scp ""$APP_NAME-${VERSION}.tar.gz"" ""$REMOTE_HOST:/srv/apps/"" && log ""Deploy complete.""
+";
+
+	#endregion
 }

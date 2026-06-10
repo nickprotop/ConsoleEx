@@ -1,8 +1,8 @@
+using System.Text;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Rendering;
 using Xunit;
-using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 

@@ -109,6 +109,8 @@ dotnet run --project Examples/DemoApp
 - `TableControl` (DataGrid) with 10,000 virtual rows, sorting, filtering, and cell editing
 - `ImageControl` rendering images directly in the terminal
 - Full markup syntax showcase with colors, decorations, and gradients
+- **Markdown** page — the `[markdown]` tag rendering headings, lists, tables, blockquotes, and syntax-highlighted code blocks as native markup
+- **IDE Layout** page — `MultilineEditControl` with built-in syntax highlighting (`SyntaxHighlighters.For("csharp")` / `"markdown"`)
 - Async window threads with `CancellationToken`
 - Theme switching and window taskbar navigation
 
@@ -301,11 +303,13 @@ dotnet run --project Examples/TextEditorExample
 **Key Features:**
 - Multiline edit control with scrolling
 - File browser dialog integration
-- Syntax highlighting support
+- Syntax highlighting via the built-in highlighters (`SyntaxHighlighters.For(...)` — C#, JSON, XML, and more)
 - Save/load functionality
 - Line numbers and cursor position
 
 **Controls:** Ctrl+O to open file, Ctrl+S to save, arrow keys to navigate
+
+> See the [Syntax Highlighting](SYNTAX_HIGHLIGHTING.md) guide for the full list of built-in languages and how to register your own.
 
 ---
 

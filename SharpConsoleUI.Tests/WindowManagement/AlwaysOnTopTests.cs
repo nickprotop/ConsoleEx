@@ -1,6 +1,6 @@
+using System.Linq;
 using SharpConsoleUI;
 using SharpConsoleUI.Tests.Infrastructure;
-using System.Linq;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.WindowManagement;
@@ -210,11 +210,19 @@ public class AlwaysOnTopTests
 
 		var normal = new Window(system)
 		{
-			Title = "Normal", Left = 5, Top = 5, Width = 30, Height = 10
+			Title = "Normal",
+			Left = 5,
+			Top = 5,
+			Width = 30,
+			Height = 10
 		};
 		var onTop = new Window(system)
 		{
-			Title = "OnTop", Left = 5, Top = 5, Width = 30, Height = 10,
+			Title = "OnTop",
+			Left = 5,
+			Top = 5,
+			Width = 30,
+			Height = 10,
 			AlwaysOnTop = true
 		};
 

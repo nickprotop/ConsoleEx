@@ -1,6 +1,6 @@
-using SharpConsoleUI.Helpers;
 using System.Globalization;
 using System.Text;
+using SharpConsoleUI.Helpers;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Helpers
@@ -555,7 +555,7 @@ namespace SharpConsoleUI.Tests.Helpers
 			sb.Append("e\u0301");        // 1 (e + combining)
 			sb.Append("\u0928\u093E");   // 2 (Devanagari + Mc)
 			sb.Append(" ");             // 1
-			// Total: 5 + 4 + 2 + 0 + 1 + 2 + 1 = 15
+										// Total: 5 + 4 + 2 + 0 + 1 + 2 + 1 = 15
 			Assert.Equal(15, UnicodeWidth.GetStringWidth(sb.ToString()));
 		}
 

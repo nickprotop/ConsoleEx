@@ -6,12 +6,12 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
+using System.Text.RegularExpressions;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Tests.Infrastructure;
-using System.Drawing;
-using System.Text.RegularExpressions;
 
 namespace SharpConsoleUI.Tests.Controls;
 

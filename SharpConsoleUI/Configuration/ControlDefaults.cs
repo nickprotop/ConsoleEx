@@ -951,5 +951,13 @@ namespace SharpConsoleUI.Configuration
 
 		/// <summary>How long (ms) the render loop keeps repainting after the last inline [spinner] was parsed.</summary>
 		public const int InlineSpinnerKeepAliveMs = 500;
+
+		// Markdown defaults
+
+		/// <summary>Markdig DelimiterCount for double-delimiter emphasis (bold / strikethrough).</summary>
+		public const int MarkdownDoubleDelimiterCount = 2;
+
+		/// <summary>Width of a rendered Markdown thematic break (---) when actual width is unknown.</summary>
+		public const int MarkdownRuleWidth = 40;
 	}
 }

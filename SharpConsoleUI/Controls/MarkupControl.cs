@@ -25,6 +25,7 @@ namespace SharpConsoleUI.Controls
 		private bool _wrap = true;
 		private Color? _backgroundColor = null;
 		private Color? _foregroundColor = null;
+		private Configuration.MarkdownStyle? _markdownStyle = null;
 
 		// Double-click detection
 		private DateTime _lastClickTime = DateTime.MinValue;
@@ -132,6 +133,16 @@ namespace SharpConsoleUI.Controls
 			set => SetProperty(ref _foregroundColor, value);
 		}
 
+		/// <summary>
+		/// Optional per-control Markdown style for content set via <see cref="SetMarkdown"/> or
+		/// the <c>[markdown]</c> tag. When null, the global <see cref="Configuration.MarkdownStyle.Default"/> is used.
+		/// </summary>
+		public Configuration.MarkdownStyle? MarkdownStyle
+		{
+			get => _markdownStyle;
+			set => SetProperty(ref _markdownStyle, value);
+		}
+
 		#region IMouseAwareControl Implementation
 
 		/// <summary>
@@ -205,6 +216,16 @@ namespace SharpConsoleUI.Controls
 			lock (_contentLock) { _content = lines; }
 			OnPropertyChanged(nameof(Text));
 			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Sets the control's content from Markdown. The content is wrapped in a <c>[markdown]</c>
+		/// region and rendered through the markup pipeline; copied text remains plain.
+		/// </summary>
+		/// <param name="markdown">The Markdown source to render.</param>
+		public void SetMarkdown(string markdown)
+		{
+			SetContent(new List<string> { $"[markdown]{markdown ?? string.Empty}[/]" });
 		}
 
 		/// <summary>
@@ -516,6 +537,15 @@ namespace SharpConsoleUI.Controls
 				{
 					// Use the control's background color if set, otherwise container's
 					var rightFillBg = _backgroundColor == null ? Color.Transparent : _backgroundColor.Value;
+
+					// If this line's last cell requests fill-to-width (via the [fillwidth] marker),
+					// extend that cell's background instead — e.g. a shaded code-block line whose
+					// trailing pad carries the code background should fill solid to the right edge.
+					if (cellLine.Count > 0 && cellLine[^1].FillToWidth)
+					{
+						rightFillBg = cellLine[^1].Background;
+					}
+
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rightPadStart, y, rightPadWidth, 1), fgColor, rightFillBg);
 				}
 

@@ -1,3 +1,4 @@
+using System.Text;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Diagnostics.Snapshots;
@@ -5,7 +6,6 @@ using SharpConsoleUI.Layout;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
-using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.MiddleLayer;
 
@@ -36,8 +36,10 @@ public class DecorationRenderingPipelineTests
 		var system = TestWindowSystemBuilder.CreateTestSystem();
 		var window = new Window(system)
 		{
-			Left = 0, Top = 0,
-			Width = windowWidth, Height = windowHeight,
+			Left = 0,
+			Top = 0,
+			Width = windowWidth,
+			Height = windowHeight,
 			Title = "T"
 		};
 		window.AddControl(new MarkupControl(new List<string> { markup }));
@@ -52,8 +54,10 @@ public class DecorationRenderingPipelineTests
 		var system = TestWindowSystemBuilder.CreateTestSystem();
 		var window = new Window(system)
 		{
-			Left = 0, Top = 0,
-			Width = windowWidth, Height = windowHeight,
+			Left = 0,
+			Top = 0,
+			Width = windowWidth,
+			Height = windowHeight,
 			Title = "T"
 		};
 		window.AddControl(new MarkupControl(lines));
@@ -557,8 +561,10 @@ public class DecorationRenderingPipelineTests
 		var system = TestWindowSystemBuilder.CreateTestSystem();
 		var window = new Window(system)
 		{
-			Left = 0, Top = 0,
-			Width = 50, Height = 8,
+			Left = 0,
+			Top = 0,
+			Width = 50,
+			Height = 8,
 			Title = "S"
 		};
 
@@ -630,8 +636,10 @@ public class DecorationRenderingPipelineTests
 		var system = TestWindowSystemBuilder.CreateTestSystem();
 		var window = new Window(system)
 		{
-			Left = 0, Top = 0,
-			Width = 40, Height = 6,
+			Left = 0,
+			Top = 0,
+			Width = 40,
+			Height = 6,
 			Title = "U"
 		};
 

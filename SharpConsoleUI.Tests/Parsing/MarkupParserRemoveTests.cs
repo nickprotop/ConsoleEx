@@ -1,5 +1,5 @@
-using Xunit;
 using SharpConsoleUI.Parsing;
+using Xunit;
 
 namespace SharpConsoleUI.Tests.Parsing
 {

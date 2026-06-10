@@ -9,9 +9,9 @@
 using System.Collections.Generic;
 using System.Drawing;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
-using SharpConsoleUI.Core;
 using SharpConsoleUI.Tests.Infrastructure;
 using SharpConsoleUI.Windows;
 using Xunit;

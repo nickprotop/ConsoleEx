@@ -1,9 +1,9 @@
+using System.Text;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
-using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.TopLayer;
 
@@ -71,10 +71,10 @@ public class DebugVerticalMove
 		system.WindowStateService.AddWindow(background);
 		system.WindowStateService.AddWindow(moving);
 
-		_output.WriteLine($"Background: Top={background.Top}, ContentTop={background.Top+1}, Height={background.Height}");
-		_output.WriteLine($"  Content rows: y={background.Top+1} to y={background.Top+1+9}");
-		_output.WriteLine($"Moving BEFORE: Top={moving.Top}, ContentTop={moving.Top+1}, Height={moving.Height}");
-		_output.WriteLine($"  Content rows: y={moving.Top+1} to y={moving.Top+1+4}");
+		_output.WriteLine($"Background: Top={background.Top}, ContentTop={background.Top + 1}, Height={background.Height}");
+		_output.WriteLine($"  Content rows: y={background.Top + 1} to y={background.Top + 1 + 9}");
+		_output.WriteLine($"Moving BEFORE: Top={moving.Top}, ContentTop={moving.Top + 1}, Height={moving.Height}");
+		_output.WriteLine($"  Content rows: y={moving.Top + 1} to y={moving.Top + 1 + 4}");
 
 		system.Render.UpdateDisplay();
 
@@ -82,8 +82,8 @@ public class DebugVerticalMove
 
 		// Check position (20, 14) - should be in moving window content
 		_output.WriteLine($"\nBEFORE move - checking (20, 14):");
-		_output.WriteLine($"  Moving covers y={moving.Top} to y={moving.Top+moving.Height-1}");
-		_output.WriteLine($"  y=14 is in moving content (y={moving.Top+1} to y={moving.Top+1+4})? {14 >= moving.Top+1 && 14 <= moving.Top+1+4}");
+		_output.WriteLine($"  Moving covers y={moving.Top} to y={moving.Top + moving.Height - 1}");
+		_output.WriteLine($"  y=14 is in moving content (y={moving.Top + 1} to y={moving.Top + 1 + 4})? {14 >= moving.Top + 1 && 14 <= moving.Top + 1 + 4}");
 		var char1 = snapshot1?.GetBack(20, 14).Character;
 		_output.WriteLine($"  Char at (20,14): '{char1}' (expected 'M')");
 
@@ -91,8 +91,8 @@ public class DebugVerticalMove
 		_output.WriteLine($"\nMoving window from Top={moving.Top} to Top=8...");
 		moving.Top = 8;
 
-		_output.WriteLine($"Moving AFTER: Top={moving.Top}, ContentTop={moving.Top+1}");
-		_output.WriteLine($"  Content rows: y={moving.Top+1} to y={moving.Top+1+4}");
+		_output.WriteLine($"Moving AFTER: Top={moving.Top}, ContentTop={moving.Top + 1}");
+		_output.WriteLine($"  Content rows: y={moving.Top + 1} to y={moving.Top + 1 + 4}");
 		_output.WriteLine($"  Background IsDirty: {background.IsDirty} (should be True before UpdateDisplay)");
 
 		system.Render.UpdateDisplay();
@@ -100,7 +100,7 @@ public class DebugVerticalMove
 		var snapshot2 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 
 		_output.WriteLine($"\nAFTER move - checking boundary areas:");
-		_output.WriteLine($"  Moving now covers y={moving.Top} to y={moving.Top+moving.Height-1}");
+		_output.WriteLine($"  Moving now covers y={moving.Top} to y={moving.Top + moving.Height - 1}");
 		_output.WriteLine($"  Background IsDirty: {background.IsDirty} (should be False after render)");
 
 		// Check multiple y positions in the exposed area at the BOTTOM of old position

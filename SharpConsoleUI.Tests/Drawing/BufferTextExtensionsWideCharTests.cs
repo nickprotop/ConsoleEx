@@ -1,7 +1,7 @@
-using Xunit;
-using SharpConsoleUI.Layout;
-using SharpConsoleUI.Drawing;
 using System.Text;
+using SharpConsoleUI.Drawing;
+using SharpConsoleUI.Layout;
+using Xunit;
 
 namespace SharpConsoleUI.Tests.Drawing
 {

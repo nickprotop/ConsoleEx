@@ -1,8 +1,8 @@
+using System.Text;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
-using System.Text;
 
 namespace SharpConsoleUI.Tests.Rendering.Unit.BottomLayer;
 

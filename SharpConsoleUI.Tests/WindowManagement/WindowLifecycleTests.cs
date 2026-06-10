@@ -1,6 +1,6 @@
+using System.Linq;
 using SharpConsoleUI;
 using SharpConsoleUI.Tests.Infrastructure;
-using System.Linq;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.WindowManagement;

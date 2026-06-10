@@ -305,6 +305,36 @@ Controls.Markup()
     .Build();
 ```
 
+#### Markdown
+
+`MarkupControl` can render Markdown via the `[markdown]` tag. The builder exposes fluent helpers so you don't have to wrap the tag by hand:
+
+```csharp
+// Controls.Markdown(...) seeds a MarkupBuilder with a Markdown block
+Controls.Markdown("# Report\n\n**Status:** OK\n\n- item one\n- item two")
+    .Build();
+
+// Or append Markdown to an existing MarkupBuilder
+Controls.Markup()
+    .AddLine("[bold]Release notes[/]")
+    .AddMarkdown("## Changes\n\n- Fixed a bug\n- Added a feature")   // WithMarkdown(...) is an alias
+    .Build();
+
+// Per-build style override (colorless emphasis/headings; only chrome is colored)
+Controls.Markdown("# Heading\n\n> A quote with `code`")
+    .WithMarkdownStyle(s => s with { LinkColor = Color.HotPink })
+    .Build();
+```
+
+| Helper | Description |
+|--------|-------------|
+| `Controls.Markdown(text)` | Returns a `MarkupBuilder` seeded with a Markdown block |
+| `.AddMarkdown(text)` | Appends a Markdown block to the builder |
+| `.WithMarkdown(text)` | Alias for `AddMarkdown` |
+| `.WithMarkdownStyle(s => s with { … })` | Per-build `MarkdownStyle` override |
+
+See [Markup Syntax → Markdown](MARKUP_SYNTAX.md#markdown) for the supported constructs and the full `MarkdownStyle` reference.
+
 ### TreeControlBuilder
 
 ```csharp
@@ -676,6 +706,7 @@ Controls.Space()                    // Empty space/padding
 // Returns builders for fluent configuration
 Controls.Button(text)               // ButtonBuilder
 Controls.Markup(line)               // MarkupBuilder
+Controls.Markdown(markdown)         // MarkupBuilder seeded with a [markdown] block
 Controls.List()                     // ListBuilder
 Controls.Checkbox(label, checked)   // CheckboxBuilder
 Controls.Dropdown()                 // DropdownBuilder

@@ -8,8 +8,8 @@
 
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
-using SharpConsoleUI.Controls;
 using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;

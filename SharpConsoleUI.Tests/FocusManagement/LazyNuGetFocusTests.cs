@@ -46,7 +46,11 @@ public class LazyNuGetFocusTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(120, 35);
 		var window = new Window(system)
 		{
-			Title = "LazyNuGet", Left = 0, Top = 0, Width = 120, Height = 35
+			Title = "LazyNuGet",
+			Left = 0,
+			Top = 0,
+			Width = 120,
+			Height = 35
 		};
 
 		// Left panel: project list
@@ -392,7 +396,11 @@ public class LazyNuGetFocusTests
 		var system = TestWindowSystemBuilder.CreateTestSystem(120, 35);
 		var window = new Window(system)
 		{
-			Title = "LazyNuGet - Packages", Left = 0, Top = 0, Width = 120, Height = 35
+			Title = "LazyNuGet - Packages",
+			Left = 0,
+			Top = 0,
+			Width = 120,
+			Height = 35
 		};
 
 		// Left panel: package list
@@ -418,7 +426,8 @@ public class LazyNuGetFocusTests
 			"[cyan1 bold]Package: Newtonsoft.Json[/]",
 			"[grey70]Installed: 13.0.3[/]",
 			""
-		}) { Margin = new Margin(1, 1, 0, 0) });
+		})
+		{ Margin = new Margin(1, 1, 0, 0) });
 
 		// Action toolbar
 		var updateBtn = new ButtonControl { Text = "Update" };

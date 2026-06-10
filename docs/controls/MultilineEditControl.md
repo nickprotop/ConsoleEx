@@ -342,7 +342,20 @@ editor.ClearFind();       // Remove all match highlighting
 
 ### Syntax Highlighting
 
-Implement `ISyntaxHighlighter` to provide language-specific colorization:
+The library ships with **12 built-in highlighters** (C#, JSON, JavaScript, CSS, HTML, XML, YAML, Razor, Dockerfile, Solution, Diff, Markdown). Resolve one from the `SyntaxHighlighters` registry instead of writing your own:
+
+```csharp
+using SharpConsoleUI.Highlighting;
+
+var editor = Controls.MultilineEdit()
+    .WithSyntaxHighlighter(SyntaxHighlighters.For("csharp"))  // or "json", "yaml", "diff", ...
+    .WithLineNumbers()
+    .Build();
+```
+
+`SyntaxHighlighters.For(lang)` is case-insensitive and accepts aliases (e.g. `cs`, `js`, `yml`); it returns `null` for an unknown language. You can also `SyntaxHighlighters.Register(...)` a custom highlighter so it is available everywhere — see the [Syntax Highlighting](../SYNTAX_HIGHLIGHTING.md) guide.
+
+To implement `ISyntaxHighlighter` yourself for language-specific colorization:
 
 ```csharp
 public interface ISyntaxHighlighter
@@ -564,6 +577,7 @@ editor.GutterClick += (s, e) =>
 
 ## See Also
 
+- [Syntax Highlighting](../SYNTAX_HIGHLIGHTING.md) - Built-in highlighters, the registry, and custom registration
 - [PromptControl](PromptControl.md) - Single-line text input
 - [ListControl](ListControl.md) - Scrollable item list
 

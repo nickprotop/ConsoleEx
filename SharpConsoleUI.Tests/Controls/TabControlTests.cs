@@ -6,16 +6,16 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
-using SharpConsoleUI.Events;
-using SharpConsoleUI.Drivers;
-using System.Drawing;
-using TabControl = SharpConsoleUI.Controls.TabControl;
 using static SharpConsoleUI.Builders.Controls;
+using TabControl = SharpConsoleUI.Controls.TabControl;
 
 namespace SharpConsoleUI.Tests.Controls;
 
@@ -255,8 +255,8 @@ public class TabControlTests
 
 		// Assert
 		Assert.Contains("Content 2", plainText); // Active tab content visible
-		// Note: Content 1 should not be visible, but we can't easily verify this without
-		// more sophisticated rendering inspection
+												 // Note: Content 1 should not be visible, but we can't easily verify this without
+												 // more sophisticated rendering inspection
 	}
 
 	#endregion
