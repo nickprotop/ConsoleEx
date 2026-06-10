@@ -196,7 +196,7 @@ public class WindowRendererTests
 
 		// Assert - Lines should contain ANSI formatting
 		Assert.All(lines, line => Assert.True(line.Length >= 0)); // Basic validation
-		// First line should have ANSI codes for colors
+																  // First line should have ANSI codes for colors
 		Assert.Contains("\x1b[", string.Join("", lines));
 	}
 

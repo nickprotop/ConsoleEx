@@ -115,7 +115,7 @@ public class SmartModeTests
 
 		_output.WriteLine($"Dirty cells: {metrics.DirtyCellsMarked}");
 		_output.WriteLine($"Cells rendered: {metrics.CellsActuallyRendered}");
-		_output.WriteLine($"Coverage: {150.0/200:P}");
+		_output.WriteLine($"Coverage: {150.0 / 200:P}");
 
 		// 150 cells dirty (75% coverage > 60% threshold), should use LINE mode (200 cells)
 		Assert.Equal(150, metrics.DirtyCellsMarked);
@@ -129,11 +129,11 @@ public class SmartModeTests
 		var system = TestWindowSystemBuilder.CreateTestSystem();
 		// Pattern: "A____B____C____D____E____F____" (6 single chars separated by spaces)
 		var content = "A" + new string(' ', 20) +
-		              "B" + new string(' ', 20) +
-		              "C" + new string(' ', 20) +
-		              "D" + new string(' ', 20) +
-		              "E" + new string(' ', 20) +
-		              "F" + new string(' ', 73);  // Fill to 200
+					  "B" + new string(' ', 20) +
+					  "C" + new string(' ', 20) +
+					  "D" + new string(' ', 20) +
+					  "E" + new string(' ', 20) +
+					  "F" + new string(' ', 73);  // Fill to 200
 		var control = new MarkupControl(new List<string> { content });
 		var window = new Window(system)
 		{
@@ -150,11 +150,11 @@ public class SmartModeTests
 
 		// Act - Change all 6 characters (6 regions > threshold of 5)
 		var newContent = "X" + new string(' ', 20) +
-		                 "X" + new string(' ', 20) +
-		                 "X" + new string(' ', 20) +
-		                 "X" + new string(' ', 20) +
-		                 "X" + new string(' ', 20) +
-		                 "X" + new string(' ', 73);
+						 "X" + new string(' ', 20) +
+						 "X" + new string(' ', 20) +
+						 "X" + new string(' ', 20) +
+						 "X" + new string(' ', 20) +
+						 "X" + new string(' ', 73);
 		control.SetContent(new List<string> { newContent });
 		window.Invalidate(true);
 		system.Render.UpdateDisplay(); // Frame 2
@@ -178,8 +178,8 @@ public class SmartModeTests
 		var system = TestWindowSystemBuilder.CreateTestSystem();
 		// Pattern: "AAAA____BBBB____CCCC" (3 regions, low coverage)
 		var content = "AAAA" + new string(' ', 20) +
-		              "BBBB" + new string(' ', 20) +
-		              "CCCC" + new string(' ', 148);  // Fill to 200
+					  "BBBB" + new string(' ', 20) +
+					  "CCCC" + new string(' ', 148);  // Fill to 200
 		var control = new MarkupControl(new List<string> { content });
 		var window = new Window(system)
 		{
@@ -196,8 +196,8 @@ public class SmartModeTests
 
 		// Act - Change all 3 regions (12 cells total, 6% coverage, 3 regions)
 		var newContent = "XXXX" + new string(' ', 20) +
-		                 "YYYY" + new string(' ', 20) +
-		                 "ZZZZ" + new string(' ', 148);
+						 "YYYY" + new string(' ', 20) +
+						 "ZZZZ" + new string(' ', 148);
 		control.SetContent(new List<string> { newContent });
 		window.Invalidate(true);
 		system.Render.UpdateDisplay(); // Frame 2
@@ -250,7 +250,7 @@ public class SmartModeTests
 
 		_output.WriteLine($"Dirty cells: {metrics.DirtyCellsMarked}");
 		_output.WriteLine($"Cells rendered: {metrics.CellsActuallyRendered}");
-		_output.WriteLine($"Coverage: {120.0/200:P}");
+		_output.WriteLine($"Coverage: {120.0 / 200:P}");
 
 		Assert.Equal(120, metrics.DirtyCellsMarked);
 		// At exactly 60%, uses CELL mode (condition is >0.6, not >=0.6)

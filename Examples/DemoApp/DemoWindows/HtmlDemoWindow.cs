@@ -9,17 +9,17 @@ namespace DemoApp.DemoWindows;
 
 internal static class HtmlDemoWindow
 {
-    private const int WindowWidth = 120;
-    private const int WindowHeight = 38;
-    private const string HomePseudoUrl = "about:home";
+	private const int WindowWidth = 120;
+	private const int WindowHeight = 38;
+	private const string HomePseudoUrl = "about:home";
 
-    /// <summary>
-    /// A beefy showcase page that exercises every rendering feature we've wired up:
-    /// headings, inline markup, nested tables (the recent bugfix), blockquotes,
-    /// ordered/unordered lists with nesting, horizontal rules, preformatted code,
-    /// styled text, and a quick-launch grid of live test sites.
-    /// </summary>
-    private const string HomeHtml = """
+	/// <summary>
+	/// A beefy showcase page that exercises every rendering feature we've wired up:
+	/// headings, inline markup, nested tables (the recent bugfix), blockquotes,
+	/// ordered/unordered lists with nesting, horizontal rules, preformatted code,
+	/// styled text, and a quick-launch grid of live test sites.
+	/// </summary>
+	private const string HomeHtml = """
         <h1>SharpConsoleUI <span style="color: cyan">HTML Control</span></h1>
         <p>A <b>native</b> HTML rendering widget for a .NET TUI compositor.
         Parses real websites with <i>AngleSharp</i>, lays out block/inline/table/grid
@@ -110,329 +110,329 @@ internal static class HtmlDemoWindow
         <p style="color: #ff6b9d">Custom hex color (#ff6b9d).</p>
         """;
 
-    public static Window Create(ConsoleWindowSystem ws)
-    {
-        // Plain BMP Unicode glyphs — no fonts required, supported everywhere SharpConsoleUI
-        // renders (Wcwidth handles width classification).
-        const string iconHome     = "\u2302"; // ⌂ HOUSE
-        const string iconBack     = "\u2190"; // ← LEFTWARDS ARROW
-        const string iconForward  = "\u2192"; // → RIGHTWARDS ARROW
-        const string iconReload   = "\u21BB"; // ↻ CLOCKWISE OPEN CIRCLE ARROW
-        const string iconGlobe    = "\u25C9"; // ◉ FISHEYE (used as address-bar prefix)
-        const string iconSearch   = "\u2315"; // ⌕ TELEPHONE RECORDER
-        const string iconClose    = "\u2715"; // ✕ MULTIPLICATION X
-        const string iconBookmark = "\u2605"; // ★ BLACK STAR
-        const string iconBrowser  = "\u25C9"; // ◉ window-title marker
+	public static Window Create(ConsoleWindowSystem ws)
+	{
+		// Plain BMP Unicode glyphs — no fonts required, supported everywhere SharpConsoleUI
+		// renders (Wcwidth handles width classification).
+		const string iconHome = "\u2302"; // ⌂ HOUSE
+		const string iconBack = "\u2190"; // ← LEFTWARDS ARROW
+		const string iconForward = "\u2192"; // → RIGHTWARDS ARROW
+		const string iconReload = "\u21BB"; // ↻ CLOCKWISE OPEN CIRCLE ARROW
+		const string iconGlobe = "\u25C9"; // ◉ FISHEYE (used as address-bar prefix)
+		const string iconSearch = "\u2315"; // ⌕ TELEPHONE RECORDER
+		const string iconClose = "\u2715"; // ✕ MULTIPLICATION X
+		const string iconBookmark = "\u2605"; // ★ BLACK STAR
+		const string iconBrowser = "\u25C9"; // ◉ window-title marker
 
-        // -------------------------------------------------------------------
-        // Navigation history (local to this window)
-        // -------------------------------------------------------------------
-        var backStack = new Stack<string>();
-        var forwardStack = new Stack<string>();
-        string currentUrl = HomePseudoUrl;
+		// -------------------------------------------------------------------
+		// Navigation history (local to this window)
+		// -------------------------------------------------------------------
+		var backStack = new Stack<string>();
+		var forwardStack = new Stack<string>();
+		string currentUrl = HomePseudoUrl;
 
-        // -------------------------------------------------------------------
-        // HTML view
-        // -------------------------------------------------------------------
-        var htmlView = HtmlBuilder.Create()
-            .WithContent(HomeHtml)
-            .WithShowImages(true)
-            .WithHorizontalAlignment(HorizontalAlignment.Stretch)
-            .WithVerticalAlignment(VerticalAlignment.Fill)
-            .Build();
+		// -------------------------------------------------------------------
+		// HTML view
+		// -------------------------------------------------------------------
+		var htmlView = HtmlBuilder.Create()
+			.WithContent(HomeHtml)
+			.WithShowImages(true)
+			.WithHorizontalAlignment(HorizontalAlignment.Stretch)
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.Build();
 
-        // -------------------------------------------------------------------
-        // Navigation controls
-        // -------------------------------------------------------------------
-        ButtonControl? backButton = null;
-        ButtonControl? forwardButton = null;
-        ButtonControl? homeButton = null;
-        ButtonControl? reloadButton = null;
-        PromptControl? addressBar = null;
-        StatusBarControl? statusBar = null;
-        StatusBarItem? urlItem = null;
-        StatusBarItem? hoverItem = null;
-        StatusBarItem? scrollItem = null;
+		// -------------------------------------------------------------------
+		// Navigation controls
+		// -------------------------------------------------------------------
+		ButtonControl? backButton = null;
+		ButtonControl? forwardButton = null;
+		ButtonControl? homeButton = null;
+		ButtonControl? reloadButton = null;
+		PromptControl? addressBar = null;
+		StatusBarControl? statusBar = null;
+		StatusBarItem? urlItem = null;
+		StatusBarItem? hoverItem = null;
+		StatusBarItem? scrollItem = null;
 
-        void UpdateNavButtonStates()
-        {
-            if (backButton != null) backButton.IsEnabled = backStack.Count > 0;
-            if (forwardButton != null) forwardButton.IsEnabled = forwardStack.Count > 0;
-        }
+		void UpdateNavButtonStates()
+		{
+			if (backButton != null) backButton.IsEnabled = backStack.Count > 0;
+			if (forwardButton != null) forwardButton.IsEnabled = forwardStack.Count > 0;
+		}
 
-        void UpdateAddressBar(string url)
-        {
-            if (addressBar != null)
-                addressBar.Input = url == HomePseudoUrl ? "" : url;
-        }
+		void UpdateAddressBar(string url)
+		{
+			if (addressBar != null)
+				addressBar.Input = url == HomePseudoUrl ? "" : url;
+		}
 
-        void UpdateStatusUrl(string? state, string url)
-        {
-            if (urlItem == null) return;
-            var prefix = state != null ? $"[yellow]{state}[/] " : "";
-            var display = url == HomePseudoUrl ? "[grey]about:home[/]" : $"[cyan]{url}[/]";
-            urlItem.Label = prefix + display;
-        }
+		void UpdateStatusUrl(string? state, string url)
+		{
+			if (urlItem == null) return;
+			var prefix = state != null ? $"[yellow]{state}[/] " : "";
+			var display = url == HomePseudoUrl ? "[grey]about:home[/]" : $"[cyan]{url}[/]";
+			urlItem.Label = prefix + display;
+		}
 
-        void NavigateTo(string url, bool pushHistory)
-        {
-            if (pushHistory && currentUrl != url)
-            {
-                backStack.Push(currentUrl);
-                forwardStack.Clear();
-            }
-            currentUrl = url;
-            UpdateAddressBar(url);
-            UpdateNavButtonStates();
+		void NavigateTo(string url, bool pushHistory)
+		{
+			if (pushHistory && currentUrl != url)
+			{
+				backStack.Push(currentUrl);
+				forwardStack.Clear();
+			}
+			currentUrl = url;
+			UpdateAddressBar(url);
+			UpdateNavButtonStates();
 
-            if (url == HomePseudoUrl)
-            {
-                htmlView.SetContent(HomeHtml);
-                UpdateStatusUrl(null, HomePseudoUrl);
-            }
-            else
-            {
-                UpdateStatusUrl("loading", url);
-                _ = htmlView.LoadUrlAsync(url);
-            }
-        }
+			if (url == HomePseudoUrl)
+			{
+				htmlView.SetContent(HomeHtml);
+				UpdateStatusUrl(null, HomePseudoUrl);
+			}
+			else
+			{
+				UpdateStatusUrl("loading", url);
+				_ = htmlView.LoadUrlAsync(url);
+			}
+		}
 
-        // -------------------------------------------------------------------
-        // HtmlControl event wiring
-        // -------------------------------------------------------------------
-        htmlView.LinkClicked += (_, args) =>
-        {
-            if (string.IsNullOrEmpty(args.Url) || args.Url.StartsWith("#"))
-                return;
+		// -------------------------------------------------------------------
+		// HtmlControl event wiring
+		// -------------------------------------------------------------------
+		htmlView.LinkClicked += (_, args) =>
+		{
+			if (string.IsNullOrEmpty(args.Url) || args.Url.StartsWith("#"))
+				return;
 
-            if (args.Url == HomePseudoUrl || args.Url.StartsWith("about:"))
-            {
-                NavigateTo(HomePseudoUrl, pushHistory: true);
-                return;
-            }
+			if (args.Url == HomePseudoUrl || args.Url.StartsWith("about:"))
+			{
+				NavigateTo(HomePseudoUrl, pushHistory: true);
+				return;
+			}
 
-            NavigateTo(args.Url, pushHistory: true);
-        };
+			NavigateTo(args.Url, pushHistory: true);
+		};
 
-        htmlView.LinkHover += (_, args) =>
-        {
-            if (hoverItem == null) return;
-            hoverItem.Label = args.Url != null
-                ? $"[underline cyan]{args.Url}[/]"
-                : "";
-        };
+		htmlView.LinkHover += (_, args) =>
+		{
+			if (hoverItem == null) return;
+			hoverItem.Label = args.Url != null
+				? $"[underline cyan]{args.Url}[/]"
+				: "";
+		};
 
-        htmlView.ContentLoaded += (_, _) =>
-        {
-            // Text is laid out — the page is readable. Clear the "loading" tag immediately.
-            // Images may still be streaming in the background; the banner at the top of
-            // the HtmlControl covers that, so the status bar stays clean.
-            UpdateStatusUrl(null, currentUrl);
-        };
+		htmlView.ContentLoaded += (_, _) =>
+		{
+			// Text is laid out — the page is readable. Clear the "loading" tag immediately.
+			// Images may still be streaming in the background; the banner at the top of
+			// the HtmlControl covers that, so the status bar stays clean.
+			UpdateStatusUrl(null, currentUrl);
+		};
 
-        htmlView.LoadError += (_, args) =>
-        {
-            UpdateStatusUrl("error", currentUrl);
-        };
+		htmlView.LoadError += (_, args) =>
+		{
+			UpdateStatusUrl("error", currentUrl);
+		};
 
-        htmlView.PropertyChanged += (_, args) =>
-        {
-            if (args.PropertyName == nameof(HtmlControl.ScrollOffset)
-                || args.PropertyName == nameof(HtmlControl.ContentHeight))
-            {
-                UpdateScrollItem();
-            }
-        };
+		htmlView.PropertyChanged += (_, args) =>
+		{
+			if (args.PropertyName == nameof(HtmlControl.ScrollOffset)
+				|| args.PropertyName == nameof(HtmlControl.ContentHeight))
+			{
+				UpdateScrollItem();
+			}
+		};
 
-        void UpdateScrollItem()
-        {
-            if (scrollItem == null) return;
-            int h = htmlView.ContentHeight;
-            int o = htmlView.ScrollOffset;
-            if (h == 0)
-            {
-                scrollItem.Label = "[grey]—[/]";
-                return;
-            }
-            int pct = h > 0 ? Math.Clamp(100 * o / Math.Max(1, h), 0, 100) : 0;
-            scrollItem.Label = $"[grey]{o}/{h}  ({pct}%)[/]";
-        }
+		void UpdateScrollItem()
+		{
+			if (scrollItem == null) return;
+			int h = htmlView.ContentHeight;
+			int o = htmlView.ScrollOffset;
+			if (h == 0)
+			{
+				scrollItem.Label = "[grey]—[/]";
+				return;
+			}
+			int pct = h > 0 ? Math.Clamp(100 * o / Math.Max(1, h), 0, 100) : 0;
+			scrollItem.Label = $"[grey]{o}/{h}  ({pct}%)[/]";
+		}
 
-        // -------------------------------------------------------------------
-        // Toolbar buttons
-        // -------------------------------------------------------------------
-        homeButton = Controls.Button()
-            .WithText($" {iconHome} Home ")
-            .WithBorder(ButtonBorderStyle.Rounded)
-            .OnClick((_, _) => NavigateTo(HomePseudoUrl, pushHistory: true))
-            .Build();
+		// -------------------------------------------------------------------
+		// Toolbar buttons
+		// -------------------------------------------------------------------
+		homeButton = Controls.Button()
+			.WithText($" {iconHome} Home ")
+			.WithBorder(ButtonBorderStyle.Rounded)
+			.OnClick((_, _) => NavigateTo(HomePseudoUrl, pushHistory: true))
+			.Build();
 
-        backButton = Controls.Button()
-            .WithText($" {iconBack} Back ")
-            .WithBorder(ButtonBorderStyle.Rounded)
-            .OnClick((_, _) =>
-            {
-                if (backStack.Count == 0) return;
-                forwardStack.Push(currentUrl);
-                var target = backStack.Pop();
-                NavigateTo(target, pushHistory: false);
-            })
-            .Build();
-        backButton.IsEnabled = false;
+		backButton = Controls.Button()
+			.WithText($" {iconBack} Back ")
+			.WithBorder(ButtonBorderStyle.Rounded)
+			.OnClick((_, _) =>
+			{
+				if (backStack.Count == 0) return;
+				forwardStack.Push(currentUrl);
+				var target = backStack.Pop();
+				NavigateTo(target, pushHistory: false);
+			})
+			.Build();
+		backButton.IsEnabled = false;
 
-        forwardButton = Controls.Button()
-            .WithText($" {iconForward} Forward ")
-            .WithBorder(ButtonBorderStyle.Rounded)
-            .OnClick((_, _) =>
-            {
-                if (forwardStack.Count == 0) return;
-                backStack.Push(currentUrl);
-                var target = forwardStack.Pop();
-                NavigateTo(target, pushHistory: false);
-            })
-            .Build();
-        forwardButton.IsEnabled = false;
+		forwardButton = Controls.Button()
+			.WithText($" {iconForward} Forward ")
+			.WithBorder(ButtonBorderStyle.Rounded)
+			.OnClick((_, _) =>
+			{
+				if (forwardStack.Count == 0) return;
+				backStack.Push(currentUrl);
+				var target = forwardStack.Pop();
+				NavigateTo(target, pushHistory: false);
+			})
+			.Build();
+		forwardButton.IsEnabled = false;
 
-        reloadButton = Controls.Button()
-            .WithText($" {iconReload} Reload ")
-            .WithBorder(ButtonBorderStyle.Rounded)
-            .OnClick((_, _) =>
-            {
-                if (currentUrl == HomePseudoUrl)
-                    htmlView.SetContent(HomeHtml);
-                else
-                    _ = htmlView.LoadUrlAsync(currentUrl);
-            })
-            .Build();
+		reloadButton = Controls.Button()
+			.WithText($" {iconReload} Reload ")
+			.WithBorder(ButtonBorderStyle.Rounded)
+			.OnClick((_, _) =>
+			{
+				if (currentUrl == HomePseudoUrl)
+					htmlView.SetContent(HomeHtml);
+				else
+					_ = htmlView.LoadUrlAsync(currentUrl);
+			})
+			.Build();
 
-        // Address bar — full URL input with Enter to navigate. Lives on its own row below
-        // the button toolbar so it can use HorizontalAlignment.Stretch to fill the width
-        // (ToolbarControl lays children out at their measured width and has no
-        // "fill remaining space" child slot, so putting it inside the toolbar would
-        // collapse it to its minimum ~10-column input field).
-        addressBar = Controls.Prompt($"{iconGlobe}  ")
-            .UnfocusOnEnter(false)
-            .WithMargin(1, 0, 1, 0)
-            .WithAlignment(HorizontalAlignment.Stretch)
-            .OnEntered((_, url) =>
-            {
-                var address = url.Trim();
-                if (string.IsNullOrEmpty(address))
-                {
-                    NavigateTo(HomePseudoUrl, pushHistory: true);
-                    return;
-                }
-                if (!address.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-                    && !address.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
-                    && !address.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
-                {
-                    address = "https://" + address;
-                }
-                NavigateTo(address, pushHistory: true);
-            })
-            .Build();
+		// Address bar — full URL input with Enter to navigate. Lives on its own row below
+		// the button toolbar so it can use HorizontalAlignment.Stretch to fill the width
+		// (ToolbarControl lays children out at their measured width and has no
+		// "fill remaining space" child slot, so putting it inside the toolbar would
+		// collapse it to its minimum ~10-column input field).
+		addressBar = Controls.Prompt($"{iconGlobe}  ")
+			.UnfocusOnEnter(false)
+			.WithMargin(1, 0, 1, 0)
+			.WithAlignment(HorizontalAlignment.Stretch)
+			.OnEntered((_, url) =>
+			{
+				var address = url.Trim();
+				if (string.IsNullOrEmpty(address))
+				{
+					NavigateTo(HomePseudoUrl, pushHistory: true);
+					return;
+				}
+				if (!address.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+					&& !address.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+					&& !address.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
+				{
+					address = "https://" + address;
+				}
+				NavigateTo(address, pushHistory: true);
+			})
+			.Build();
 
-        var navToolbar = Controls.Toolbar()
-            .WithSpacing(1)
-            .WithContentPadding(1, 0, 1, 0)
-            .WithBackgroundColor(Color.Grey11)
-            .Build();
-        navToolbar.AddItem(homeButton);
-        navToolbar.AddItem(backButton);
-        navToolbar.AddItem(forwardButton);
-        navToolbar.AddItem(reloadButton);
+		var navToolbar = Controls.Toolbar()
+			.WithSpacing(1)
+			.WithContentPadding(1, 0, 1, 0)
+			.WithBackgroundColor(Color.Grey11)
+			.Build();
+		navToolbar.AddItem(homeButton);
+		navToolbar.AddItem(backButton);
+		navToolbar.AddItem(forwardButton);
+		navToolbar.AddItem(reloadButton);
 
-        // -------------------------------------------------------------------
-        // Bookmarks bar — quick-launch buttons for stress-testing real sites
-        // -------------------------------------------------------------------
-        ButtonControl BookmarkButton(string label, string url) =>
-            Controls.Button()
-                .WithText($" {label} ")
-                .WithBorder(ButtonBorderStyle.None)
-                .WithColors(Color.Grey70, Color.Grey11)
-                .WithFocusedColors(Color.White, Color.Blue)
-                .OnClick((_, _) => NavigateTo(url, pushHistory: true))
-                .Build();
+		// -------------------------------------------------------------------
+		// Bookmarks bar — quick-launch buttons for stress-testing real sites
+		// -------------------------------------------------------------------
+		ButtonControl BookmarkButton(string label, string url) =>
+			Controls.Button()
+				.WithText($" {label} ")
+				.WithBorder(ButtonBorderStyle.None)
+				.WithColors(Color.Grey70, Color.Grey11)
+				.WithFocusedColors(Color.White, Color.Blue)
+				.OnClick((_, _) => NavigateTo(url, pushHistory: true))
+				.Build();
 
-        var bookmarksToolbar = Controls.Toolbar()
-            .WithSpacing(2)
-            .WithContentPadding(1, 0, 1, 0)
-            .WithBelowLine()
-            .WithBackgroundColor(Color.Grey11)
-            .Build();
-        bookmarksToolbar.AddItem(Controls.Markup().AddLine($"[dim]{iconBookmark}  Bookmarks:[/]").Build());
-        bookmarksToolbar.AddItem(BookmarkButton("Wikipedia Cat", "https://en.wikipedia.org/wiki/Cat"));
-        bookmarksToolbar.AddItem(BookmarkButton("CNN Lite", "https://lite.cnn.com"));
-        bookmarksToolbar.AddItem(BookmarkButton("Hacker News", "https://news.ycombinator.com"));
-        bookmarksToolbar.AddItem(BookmarkButton("info.cern.ch", "https://info.cern.ch"));
-        bookmarksToolbar.AddItem(BookmarkButton("textfiles", "https://textfiles.com"));
+		var bookmarksToolbar = Controls.Toolbar()
+			.WithSpacing(2)
+			.WithContentPadding(1, 0, 1, 0)
+			.WithBelowLine()
+			.WithBackgroundColor(Color.Grey11)
+			.Build();
+		bookmarksToolbar.AddItem(Controls.Markup().AddLine($"[dim]{iconBookmark}  Bookmarks:[/]").Build());
+		bookmarksToolbar.AddItem(BookmarkButton("Wikipedia Cat", "https://en.wikipedia.org/wiki/Cat"));
+		bookmarksToolbar.AddItem(BookmarkButton("CNN Lite", "https://lite.cnn.com"));
+		bookmarksToolbar.AddItem(BookmarkButton("Hacker News", "https://news.ycombinator.com"));
+		bookmarksToolbar.AddItem(BookmarkButton("info.cern.ch", "https://info.cern.ch"));
+		bookmarksToolbar.AddItem(BookmarkButton("textfiles", "https://textfiles.com"));
 
-        // -------------------------------------------------------------------
-        // Sticky bottom status bar
-        // -------------------------------------------------------------------
-        statusBar = Controls.StatusBar()
-            .AddLeft(iconSearch, "Ctrl+L")
-            .AddLeftSeparator()
-            .AddLeftText("[grey]about:home[/]")
-            .AddCenterText("")
-            .AddRight(iconClose, "ESC to close")
-            .AddRightSeparator()
-            .AddRightText("[grey]—[/]")
-            .WithAboveLine()
-            .WithBackgroundColor(Color.Grey15)
-            .WithShortcutForegroundColor(Color.Cyan1)
-            .StickyBottom()
-            .Build();
+		// -------------------------------------------------------------------
+		// Sticky bottom status bar
+		// -------------------------------------------------------------------
+		statusBar = Controls.StatusBar()
+			.AddLeft(iconSearch, "Ctrl+L")
+			.AddLeftSeparator()
+			.AddLeftText("[grey]about:home[/]")
+			.AddCenterText("")
+			.AddRight(iconClose, "ESC to close")
+			.AddRightSeparator()
+			.AddRightText("[grey]—[/]")
+			.WithAboveLine()
+			.WithBackgroundColor(Color.Grey15)
+			.WithShortcutForegroundColor(Color.Cyan1)
+			.StickyBottom()
+			.Build();
 
-        urlItem = statusBar.LeftItems[2];   // the address text
-        hoverItem = statusBar.CenterItems[0];
-        scrollItem = statusBar.RightItems[2];
-        UpdateScrollItem();
+		urlItem = statusBar.LeftItems[2];   // the address text
+		hoverItem = statusBar.CenterItems[0];
+		scrollItem = statusBar.RightItems[2];
+		UpdateScrollItem();
 
-        // -------------------------------------------------------------------
-        // Window
-        // -------------------------------------------------------------------
-        var window = new WindowBuilder(ws)
-            .WithTitle($"{iconBrowser}  HTML Browser")
-            .WithSize(WindowWidth, WindowHeight)
-            .Centered()
-            .WithBackgroundGradient(
-                ColorGradient.FromColors(new Color(10, 20, 45), new Color(5, 5, 15)),
-                GradientDirection.Vertical)
-            .OnKeyPressed((s, e) =>
-            {
-                switch (e.KeyInfo.Key)
-                {
-                    case ConsoleKey.Escape:
-                        ws.CloseWindow((Window)s!);
-                        e.Handled = true;
-                        break;
+		// -------------------------------------------------------------------
+		// Window
+		// -------------------------------------------------------------------
+		var window = new WindowBuilder(ws)
+			.WithTitle($"{iconBrowser}  HTML Browser")
+			.WithSize(WindowWidth, WindowHeight)
+			.Centered()
+			.WithBackgroundGradient(
+				ColorGradient.FromColors(new Color(10, 20, 45), new Color(5, 5, 15)),
+				GradientDirection.Vertical)
+			.OnKeyPressed((s, e) =>
+			{
+				switch (e.KeyInfo.Key)
+				{
+					case ConsoleKey.Escape:
+						ws.CloseWindow((Window)s!);
+						e.Handled = true;
+						break;
 
-                    case ConsoleKey.L when e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control):
-                        // Ctrl+L focuses the address bar (classic browser shortcut)
-                        ((Window)s!).FocusManager.SetFocus(addressBar, FocusReason.Keyboard);
-                        e.Handled = true;
-                        break;
+					case ConsoleKey.L when e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control):
+						// Ctrl+L focuses the address bar (classic browser shortcut)
+						((Window)s!).FocusManager.SetFocus(addressBar, FocusReason.Keyboard);
+						e.Handled = true;
+						break;
 
-                    case ConsoleKey.Backspace when e.KeyInfo.Modifiers == 0
-                        && !(((Window)s!).FocusManager.FocusedControl is PromptControl):
-                        // Backspace (outside the address bar) navigates back
-                        if (backStack.Count > 0)
-                        {
-                            forwardStack.Push(currentUrl);
-                            NavigateTo(backStack.Pop(), pushHistory: false);
-                            e.Handled = true;
-                        }
-                        break;
-                }
-            })
-            .AddControl(navToolbar)
-            .AddControl(addressBar)
-            .AddControl(bookmarksToolbar)
-            .AddControl(htmlView)
-            .AddControl(statusBar)
-            .BuildAndShow();
+					case ConsoleKey.Backspace when e.KeyInfo.Modifiers == 0
+						&& !(((Window)s!).FocusManager.FocusedControl is PromptControl):
+						// Backspace (outside the address bar) navigates back
+						if (backStack.Count > 0)
+						{
+							forwardStack.Push(currentUrl);
+							NavigateTo(backStack.Pop(), pushHistory: false);
+							e.Handled = true;
+						}
+						break;
+				}
+			})
+			.AddControl(navToolbar)
+			.AddControl(addressBar)
+			.AddControl(bookmarksToolbar)
+			.AddControl(htmlView)
+			.AddControl(statusBar)
+			.BuildAndShow();
 
-        return window;
-    }
+		return window;
+	}
 }

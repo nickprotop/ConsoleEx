@@ -8,47 +8,47 @@ namespace SharpConsoleUI.Tests.InputHandling;
 
 public class DiagnosticKeyPropagationTest
 {
-    private readonly ITestOutputHelper _output;
+	private readonly ITestOutputHelper _output;
 
-    public DiagnosticKeyPropagationTest(ITestOutputHelper output)
-    {
-        _output = output;
-    }
+	public DiagnosticKeyPropagationTest(ITestOutputHelper output)
+	{
+		_output = output;
+	}
 
-    [Fact]
-    public void Diagnostic_CheckKeyPropagation()
-    {
-        var system = TestWindowSystemBuilder.CreateTestSystem();
-        var window = new Window(system);
-        var textbox = new MultilineEditControl();
+	[Fact]
+	public void Diagnostic_CheckKeyPropagation()
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system);
+		var textbox = new MultilineEditControl();
 
-        window.AddControl(textbox);
-        system.WindowStateService.AddWindow(window);
-        system.WindowStateService.SetActiveWindow(window);
-        window.FocusManager.SetFocus(textbox, FocusReason.Programmatic);
-        system.Render.UpdateDisplay();
+		window.AddControl(textbox);
+		system.WindowStateService.AddWindow(window);
+		system.WindowStateService.SetActiveWindow(window);
+		window.FocusManager.SetFocus(textbox, FocusReason.Programmatic);
+		system.Render.UpdateDisplay();
 
-        int eventCount = 0;
-        window.KeyPressed += (s, e) =>
-        {
-            eventCount++;
-            _output.WriteLine($"Event #{eventCount}: Key={e.KeyInfo.Key}, Char='{e.KeyInfo.KeyChar}', AlreadyHandled={e.AlreadyHandled}");
-        };
+		int eventCount = 0;
+		window.KeyPressed += (s, e) =>
+		{
+			eventCount++;
+			_output.WriteLine($"Event #{eventCount}: Key={e.KeyInfo.Key}, Char='{e.KeyInfo.KeyChar}', AlreadyHandled={e.AlreadyHandled}");
+		};
 
-        // Press Enter to enter edit mode
-        _output.WriteLine("Pressing Enter...");
-        system.InputStateService.EnqueueKey(new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false));
-        system.Input.ProcessInput();
+		// Press Enter to enter edit mode
+		_output.WriteLine("Pressing Enter...");
+		system.InputStateService.EnqueueKey(new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false));
+		system.Input.ProcessInput();
 
-        _output.WriteLine($"After Enter: textbox.IsEditing={textbox.IsEditing}");
+		_output.WriteLine($"After Enter: textbox.IsEditing={textbox.IsEditing}");
 
-        // Type character
-        _output.WriteLine("Pressing 'T'...");
-        system.InputStateService.EnqueueKey(new ConsoleKeyInfo('T', ConsoleKey.T, false, false, false));
-        system.Input.ProcessInput();
+		// Type character
+		_output.WriteLine("Pressing 'T'...");
+		system.InputStateService.EnqueueKey(new ConsoleKeyInfo('T', ConsoleKey.T, false, false, false));
+		system.Input.ProcessInput();
 
-        _output.WriteLine($"After 'T': textbox.Content='{textbox.Content}'");
+		_output.WriteLine($"After 'T': textbox.Content='{textbox.Content}'");
 
-        Assert.Equal("T", textbox.Content);
-    }
+		Assert.Equal("T", textbox.Content);
+	}
 }

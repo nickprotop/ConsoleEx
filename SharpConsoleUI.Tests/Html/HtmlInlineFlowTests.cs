@@ -142,7 +142,7 @@ namespace SharpConsoleUI.Tests.Html
 			for (int j = 0; j < cells.Length; j++)
 			{
 				if (cells[j].Character == new System.Text.Rune('i') &&
-				    cells[j].Decorations.HasFlag(TextDecoration.Italic))
+					cells[j].Decorations.HasFlag(TextDecoration.Italic))
 				{
 					iIdx = j;
 					break;

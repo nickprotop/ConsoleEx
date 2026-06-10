@@ -8,153 +8,153 @@ namespace SharpConsoleUI.Tests.Rendering.Unit;
 
 public class DesktopBackgroundTests
 {
-    #region Default Config
+	#region Default Config
 
-    [Fact]
-    public void Default_HasNoGradientOrPattern()
-    {
-        var config = DesktopBackgroundConfig.Default;
+	[Fact]
+	public void Default_HasNoGradientOrPattern()
+	{
+		var config = DesktopBackgroundConfig.Default;
 
-        Assert.Null(config.Gradient);
-        Assert.Null(config.Pattern);
-        Assert.Null(config.PaintCallback);
-        Assert.Equal(100, config.AnimationIntervalMs);
-    }
+		Assert.Null(config.Gradient);
+		Assert.Null(config.Pattern);
+		Assert.Null(config.PaintCallback);
+		Assert.Equal(100, config.AnimationIntervalMs);
+	}
 
-    #endregion
+	#endregion
 
-    #region FromGradient Factory
+	#region FromGradient Factory
 
-    [Fact]
-    public void FromGradient_SetsGradientAndDirection()
-    {
-        var gradient = ColorGradient.FromColors(Color.Black, Color.White);
-        var config = DesktopBackgroundConfig.FromGradient(gradient, GradientDirection.Horizontal);
+	[Fact]
+	public void FromGradient_SetsGradientAndDirection()
+	{
+		var gradient = ColorGradient.FromColors(Color.Black, Color.White);
+		var config = DesktopBackgroundConfig.FromGradient(gradient, GradientDirection.Horizontal);
 
-        Assert.NotNull(config.Gradient);
-        Assert.Equal(gradient, config.Gradient.Gradient);
-        Assert.Equal(GradientDirection.Horizontal, config.Gradient.Direction);
-        Assert.Null(config.Pattern);
-    }
+		Assert.NotNull(config.Gradient);
+		Assert.Equal(gradient, config.Gradient.Gradient);
+		Assert.Equal(GradientDirection.Horizontal, config.Gradient.Direction);
+		Assert.Null(config.Pattern);
+	}
 
-    [Fact]
-    public void FromGradient_VerticalDirection_IsPreserved()
-    {
-        var gradient = ColorGradient.FromColors(Color.Red, Color.Blue);
-        var config = DesktopBackgroundConfig.FromGradient(gradient, GradientDirection.Vertical);
+	[Fact]
+	public void FromGradient_VerticalDirection_IsPreserved()
+	{
+		var gradient = ColorGradient.FromColors(Color.Red, Color.Blue);
+		var config = DesktopBackgroundConfig.FromGradient(gradient, GradientDirection.Vertical);
 
-        Assert.Equal(GradientDirection.Vertical, config.Gradient!.Direction);
-    }
+		Assert.Equal(GradientDirection.Vertical, config.Gradient!.Direction);
+	}
 
-    #endregion
+	#endregion
 
-    #region FromPattern Factory
+	#region FromPattern Factory
 
-    [Fact]
-    public void FromPattern_SetsPattern()
-    {
-        var pattern = DesktopPatterns.Checkerboard;
-        var config = DesktopBackgroundConfig.FromPattern(pattern);
+	[Fact]
+	public void FromPattern_SetsPattern()
+	{
+		var pattern = DesktopPatterns.Checkerboard;
+		var config = DesktopBackgroundConfig.FromPattern(pattern);
 
-        Assert.NotNull(config.Pattern);
-        Assert.Same(pattern, config.Pattern);
-        Assert.Null(config.Gradient);
-    }
+		Assert.NotNull(config.Pattern);
+		Assert.Same(pattern, config.Pattern);
+		Assert.Null(config.Gradient);
+	}
 
-    #endregion
+	#endregion
 
-    #region DesktopPattern Construction
+	#region DesktopPattern Construction
 
-    [Fact]
-    public void DesktopPattern_DimensionsMatchCharArray()
-    {
-        // 2 rows, 3 columns → Height=2, Width=3
-        var chars = new char[2, 3]
-        {
-            { 'a', 'b', 'c' },
-            { 'd', 'e', 'f' }
-        };
-        var pattern = new DesktopPattern(chars);
+	[Fact]
+	public void DesktopPattern_DimensionsMatchCharArray()
+	{
+		// 2 rows, 3 columns → Height=2, Width=3
+		var chars = new char[2, 3]
+		{
+			{ 'a', 'b', 'c' },
+			{ 'd', 'e', 'f' }
+		};
+		var pattern = new DesktopPattern(chars);
 
-        Assert.Equal(3, pattern.Width);
-        Assert.Equal(2, pattern.Height);
-    }
+		Assert.Equal(3, pattern.Width);
+		Assert.Equal(2, pattern.Height);
+	}
 
-    [Fact]
-    public void DesktopPattern_EmptyThrows()
-    {
-        var emptyChars = new char[0, 0];
+	[Fact]
+	public void DesktopPattern_EmptyThrows()
+	{
+		var emptyChars = new char[0, 0];
 
-        Assert.Throws<ArgumentException>(() => new DesktopPattern(emptyChars));
-    }
+		Assert.Throws<ArgumentException>(() => new DesktopPattern(emptyChars));
+	}
 
-    [Fact]
-    public void DesktopPattern_ZeroRowsThrows()
-    {
-        var emptyChars = new char[0, 3];
+	[Fact]
+	public void DesktopPattern_ZeroRowsThrows()
+	{
+		var emptyChars = new char[0, 3];
 
-        Assert.Throws<ArgumentException>(() => new DesktopPattern(emptyChars));
-    }
+		Assert.Throws<ArgumentException>(() => new DesktopPattern(emptyChars));
+	}
 
-    [Fact]
-    public void DesktopPattern_ZeroColumnsThrows()
-    {
-        var emptyChars = new char[3, 0];
+	[Fact]
+	public void DesktopPattern_ZeroColumnsThrows()
+	{
+		var emptyChars = new char[3, 0];
 
-        Assert.Throws<ArgumentException>(() => new DesktopPattern(emptyChars));
-    }
+		Assert.Throws<ArgumentException>(() => new DesktopPattern(emptyChars));
+	}
 
-    #endregion
+	#endregion
 
-    #region Gradient and Pattern Combined
+	#region Gradient and Pattern Combined
 
-    [Fact]
-    public void GradientAndPatternCanCombine()
-    {
-        var gradient = ColorGradient.FromColors(Color.Black, Color.White);
-        var pattern = DesktopPatterns.Dots;
+	[Fact]
+	public void GradientAndPatternCanCombine()
+	{
+		var gradient = ColorGradient.FromColors(Color.Black, Color.White);
+		var pattern = DesktopPatterns.Dots;
 
-        var config = new DesktopBackgroundConfig
-        {
-            Gradient = new GradientBackground(gradient, GradientDirection.DiagonalDown),
-            Pattern = pattern
-        };
+		var config = new DesktopBackgroundConfig
+		{
+			Gradient = new GradientBackground(gradient, GradientDirection.DiagonalDown),
+			Pattern = pattern
+		};
 
-        Assert.NotNull(config.Gradient);
-        Assert.NotNull(config.Pattern);
-        Assert.Same(pattern, config.Pattern);
-    }
+		Assert.NotNull(config.Gradient);
+		Assert.NotNull(config.Pattern);
+		Assert.Same(pattern, config.Pattern);
+	}
 
-    #endregion
+	#endregion
 
-    #region Animation Config
+	#region Animation Config
 
-    [Fact]
-    public void AnimationConfig_SetsCallbackAndInterval()
-    {
-        Action<CharacterBuffer, int, int, TimeSpan> callback = (buf, w, h, elapsed) => { };
+	[Fact]
+	public void AnimationConfig_SetsCallbackAndInterval()
+	{
+		Action<CharacterBuffer, int, int, TimeSpan> callback = (buf, w, h, elapsed) => { };
 
-        var config = new DesktopBackgroundConfig
-        {
-            PaintCallback = callback,
-            AnimationIntervalMs = 50
-        };
+		var config = new DesktopBackgroundConfig
+		{
+			PaintCallback = callback,
+			AnimationIntervalMs = 50
+		};
 
-        Assert.NotNull(config.PaintCallback);
-        Assert.Same(callback, config.PaintCallback);
-        Assert.Equal(50, config.AnimationIntervalMs);
-    }
+		Assert.NotNull(config.PaintCallback);
+		Assert.Same(callback, config.PaintCallback);
+		Assert.Equal(50, config.AnimationIntervalMs);
+	}
 
-    [Fact]
-    public void AnimationConfig_DefaultIntervalIs100()
-    {
-        var config = new DesktopBackgroundConfig
-        {
-            PaintCallback = (buf, w, h, elapsed) => { }
-        };
+	[Fact]
+	public void AnimationConfig_DefaultIntervalIs100()
+	{
+		var config = new DesktopBackgroundConfig
+		{
+			PaintCallback = (buf, w, h, elapsed) => { }
+		};
 
-        Assert.Equal(100, config.AnimationIntervalMs);
-    }
+		Assert.Equal(100, config.AnimationIntervalMs);
+	}
 
-    #endregion
+	#endregion
 }

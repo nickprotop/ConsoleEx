@@ -65,7 +65,7 @@ public class DrivePickerDialogTests
 		bool handled = modal.OnPreviewKeyPressed(Esc());
 		Assert.True(handled);
 		Assert.Same(modal, sys.WindowStateService.ActiveWindow); // not closed
-		// Back to normal browsing: '..' parent entry tag is a FolderEntry, not a string.
+																 // Back to normal browsing: '..' parent entry tag is a FolderEntry, not a string.
 		Assert.Contains(folderList.Items, i => i.Tag is not string && i.Tag is not null);
 
 		modal.Close();

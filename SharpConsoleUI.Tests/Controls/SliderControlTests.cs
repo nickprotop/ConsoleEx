@@ -1010,7 +1010,7 @@ public class RangeSliderControlTests
 		slider.HighValueChanged += (s, v) => highReceived = v;
 
 		slider.LowValue = 20; // Already at 20, so re-set triggers push if needed
-		// Better: force a push
+							  // Better: force a push
 		slider = new RangeSliderControl();
 		slider.MinRange = 10;
 		slider.HighValue = 50;

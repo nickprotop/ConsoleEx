@@ -317,7 +317,7 @@ public class TextDecorationRenderingTests
 
 				// Check if this part is a decoration code
 				if (parts[j] == "1" || parts[j] == "2" || parts[j] == "3" ||
-				    parts[j] == "4" || parts[j] == "5" || parts[j] == "7" || parts[j] == "9")
+					parts[j] == "4" || parts[j] == "5" || parts[j] == "7" || parts[j] == "9")
 				{
 					return true;
 				}

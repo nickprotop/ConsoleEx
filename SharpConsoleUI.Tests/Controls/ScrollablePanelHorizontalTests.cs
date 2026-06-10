@@ -177,8 +177,8 @@ public class ScrollablePanelHorizontalTests
 
 		// Click at panel screen X = content origin + 3. With offset 10, that must hit canvas X 13.
 		int screenX = panel.ViewportWidth >= 4 ? 3 : 0; // content-relative; origin handled by panel
-		// Click via the panel's content area. ContentInset is 0 (no border/padding) so screen X
-		// inside the window maps directly. Click a few columns in.
+														// Click via the panel's content area. ContentInset is 0 (no border/padding) so screen X
+														// inside the window maps directly. Click a few columns in.
 		panel.ProcessMouseEvent(Mouse(screenX, 0, MouseFlags.Button1Clicked));
 
 		Assert.True(clickedCanvasX.HasValue, "canvas should have received the click");
@@ -199,7 +199,7 @@ public class ScrollablePanelHorizontalTests
 		// The horizontal scrollbar lives on the last content row (it steals one row from the
 		// viewport). Press on the thumb (near the left, where it sits at offset 0), then drag right.
 		int barRow = panel.ViewportHeight - 1; // bottom content row hosts the H scrollbar
-		// Press on the thumb start (just after the left arrow at content X=1).
+											   // Press on the thumb start (just after the left arrow at content X=1).
 		panel.ProcessMouseEvent(Mouse(1, barRow, MouseFlags.Button1Pressed));
 		// Drag to the far right of the track.
 		panel.ProcessMouseEvent(Mouse(panel.ViewportWidth - 2, barRow, MouseFlags.Button1Dragged));
