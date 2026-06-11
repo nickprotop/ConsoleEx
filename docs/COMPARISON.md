@@ -20,13 +20,15 @@ They're complementary, not always competing. SharpConsoleUI can host Spectre.Con
 | Pretty-print tables, trees, charts | **Best choice** | -- | -- | Via Spectre wrapper |
 | Build a CLI tool with prompts | **Best choice** | -- | Yes (inline mode) | -- |
 | Build a single-screen forms app | -- | **Best choice** | **Best choice** | Works |
-| Build a multi-window app with overlapping windows | No | v2 beta only | No | **Best choice** |
-| Drag, resize, minimize, maximize windows | No | v2 beta only | No | **Built-in** |
-| Embed a working terminal emulator | No | No | No | **Built-in** |
+| Build a multi-window app with overlapping windows | No | Yes (v2 GA) | No | **Best choice** |
+| Drag, resize, minimize, maximize windows | No | Yes (v2 GA: move/resize/overlap) | No | **Built-in** |
+| Embed a working terminal emulator | No | No | No | **Built-in (PTY)** |
 | Run independent async tasks per window | No | No | No | **Built-in** |
 | Apply visual effects (blur, fade, gradients) | No | No | Alpha blending only | **Built-in compositor** |
 | Use Spectre.Console markup in controls | No (output only) | No | No (own markup) | **Yes, everywhere** |
-| Use it in production today on .NET 8+ | Yes (v0.54) | v1 stable, v2 in beta | No (.NET 10 only) | Yes (v2.4) |
+| Render Markdown in controls | No | Yes (Markdown widget) | Yes (MarkdownControl) | **Yes (`[markdown]` tag, every markup control)** |
+| Play video in the terminal | No | No | No | **Yes (VideoControl)** |
+| Use it in production today on .NET 8+ | Yes (v0.56) | Yes (v2.4 GA, .NET 10) | Yes (v3.7, .NET 10) | Yes (v2.4.77, .NET 8/9/10) |
 
 ## Detailed Comparison
 
@@ -102,7 +104,7 @@ Neither Terminal.Gui nor XenoAtom.Terminal.UI offer window-level gradients that 
 | FIGlet text | FigletText | -- | TextFiglet (25 fonts) | **FigleControl (with wrapping)** |
 | Log viewer | -- | -- | LogControl | **LogViewerControl** |
 | Splitter | -- | TileView | HSplitter, VSplitter | SplitterControl |
-| Image rendering | -- | -- | -- | **ImageControl** |
+| Image rendering | -- | -- | Yes (Kitty/Sixel/iTerm2) | **ImageControl (+ Kitty)** |
 | Toolbar | -- | -- | CommandBar | **ToolbarControl** |
 | Date picker | -- | DatePicker, DateEditor | -- | **DatePickerControl, TimePickerControl** |
 | Slider | -- | LinearRange | Slider | **SliderControl, RangeSliderControl** |
@@ -111,11 +113,13 @@ Neither Terminal.Gui nor XenoAtom.Terminal.UI offer window-level gradients that 
 | Color picker | -- | ColorPicker (RGB/HSL) | ColorPicker | -- |
 | Radio button | -- | OptionSelector | RadioButtonList | -- |
 | Accordion | -- | -- | Accordion, Collapsible | -- |
-| Markdown | -- | -- | MarkdownControl (Markdig) | -- |
+| Markdown | -- | Yes (Markdig) | MarkdownControl (Markdig) | **`[markdown]` tag (Markdig, works in every markup control)** |
+| Syntax highlighting | -- | Partial (TextMateSharp) | Yes (TextMateSharp) | **13 built-in (regex) + registry** |
+| Video playback | -- | -- | -- | **VideoControl (half-block + Kitty)** |
 | Wizard / stepper | -- | Wizard | -- | -- |
 | Toast notifications | -- | -- | ToastService | **NotificationSystem** |
 
-**Honest take:** Terminal.Gui has the most mature and widest control library -- battle-tested over years, with specialized widgets like ColorPicker, HexView, and Wizard. XenoAtom.Terminal.UI ships the most controls overall (100+) but is only a few months old. SharpConsoleUI now covers most common control types (DatePicker, TimePicker, Slider, RangeSlider) and its unique strengths are interactive/live controls (TerminalControl, SparklineControl, BarGraphControl, CanvasControl with 30+ drawing primitives), per-cell alpha blending, row-level animations, and the window management + compositor layer.
+**Honest take:** Terminal.Gui (v2 GA) has the most mature and widest control library -- battle-tested over years, with specialized widgets like ColorPicker, HexView, and Wizard. XenoAtom.Terminal.UI is only ~5 months old but evolving fast (v3.7) and already ships a broad control set plus markdown, terminal graphics (Kitty/Sixel/iTerm2), and TextMate-based syntax highlighting. SharpConsoleUI now covers most common control types (DatePicker, TimePicker, Slider, RangeSlider) and its distinctive strengths are interactive/live controls (TerminalControl, SparklineControl, BarGraphControl, VideoControl, CanvasControl with 30+ drawing primitives), per-cell alpha blending, row-level animations, markup-everywhere (including `[markdown]`), and the window management + compositor layer.
 
 ### Window Management
 
@@ -123,10 +127,10 @@ This is SharpConsoleUI's primary differentiator.
 
 | Feature | Spectre.Console | Terminal.Gui v2 | XenoAtom.Terminal.UI | SharpConsoleUI |
 |---|:---:|:---:|:---:|:---:|
-| Multiple overlapping windows | -- | Beta | Popups only (WindowLayer) | **Yes** |
-| Window Z-order management | -- | Basic | Z-stack for overlays | **Multi-pass (Normal/Active/AlwaysOnTop)** |
-| Drag to move | -- | Beta | Popup drag only | **Yes** |
-| Drag to resize (8 directions) | -- | Beta | No | **Yes, configurable per-direction** |
+| Multiple overlapping windows | -- | Yes (v2 GA) | Popups only (WindowLayer) | **Yes** |
+| Window Z-order management | -- | Yes (v2 ViewArrangement) | Z-stack for overlays | **Multi-pass (Normal/Active/AlwaysOnTop)** |
+| Drag to move | -- | Yes (v2 Movable) | Popup drag only | **Yes** |
+| Drag to resize (8 directions) | -- | Yes (v2 Resizable) | No | **Yes, configurable per-direction** |
 | Minimize / Maximize | -- | -- | No | **Yes** |
 | Close button | -- | -- | No | **Yes** |
 | Window state events | -- | -- | No | **Yes (StateChanged, Closing with cancel)** |
@@ -138,6 +142,17 @@ This is SharpConsoleUI's primary differentiator.
 | Taskbar | -- | -- | No | **Yes (Alt+1-9 switching)** |
 
 XenoAtom.Terminal.UI has a `WindowLayer` that supports z-ordered overlays with bring-to-front and click-to-focus, plus `Popup` and `Dialog` controls. But there is no full window manager with title bars, minimize/maximize/close chrome, or arbitrary resizing.
+
+### What's Distinctive About SharpConsoleUI
+
+The through-line is **desktop-GUI capabilities brought to the terminal**. A handful of features set it apart in the .NET TUI space -- claims below describe SharpConsoleUI's own implementation:
+
+- **Markup everywhere, including `[markdown]`.** A single Spectre-compatible markup pipeline parses into cells (no ANSI roundtrip), and a parser-level `[markdown]` tag means every markup-rendering control can show Markdown -- not just one dedicated widget. Fenced code blocks flow into the syntax highlighters.
+- **VideoControl with Kitty true-graphics.** Terminal video playback using half-block rendering everywhere, and the Kitty graphics protocol for true raster output where the terminal supports it. None of the other three libraries do video.
+- **PTY-backed embedded terminal.** `TerminalControl` runs a real PTY-backed terminal emulator inside a window, alongside your other controls -- rare in the .NET TUI ecosystem.
+- **GUI-level threading model.** Each window can own an independent async thread, with UI-thread marshaling (`EnqueueOnUIThread`) much like a desktop dispatcher, so panels update on their own schedule without blocking the UI.
+- **Per-window compositor.** Each window renders into its own `CharacterBuffer`; a compositor merges them with per-cell RGBA alpha blending, occlusion culling, and `PreBufferPaint`/`PostBufferPaint` hooks for backgrounds and effects -- the window-manager model adapted to character cells.
+- **13 built-in syntax highlighters.** C#, Bash, JSON, JS, CSS, HTML, XML, YAML, Razor, Dockerfile, SLN, Diff, and Markdown, behind a `SyntaxHighlighters` registry shared by Markdown code blocks and `MultilineEditControl`. These are regex/lexical highlighters, not grammar-based -- TextMate-driven highlighters (Terminal.Gui, XenoAtom) parse full grammars and will be more precise on edge cases.
 
 ### Rich Text Markup Everywhere
 
@@ -170,6 +185,14 @@ var button = Controls.Button()
 | MarkupControl | Yes (entire content) |
 | Status bars | Yes |
 
+The markup pipeline also renders **Markdown**, via a parser-level `[markdown]` tag (Markdig-based) rather than a dedicated control. Because it lives in the markup parser, every one of the ~25 markup-rendering controls -- buttons, list items, tree nodes, table cells, tab headers, the status bar -- can render Markdown, mixed inline with native markup in the same string. Fenced code blocks pick up the built-in syntax highlighters, and copied text falls back to plain text. Other libraries expose Markdown as a single dedicated control; here it is available anywhere markup is.
+
+```csharp
+var label = Controls.Markup()
+    .WithText("[markdown]## Status\n- **CPU**: `42%`\n- **Mem**: `1.2 GB`[/]")
+    .Build();
+```
+
 **How this compares:**
 
 - **Spectre.Console** has excellent markup -- but only for static output that scrolls away. You can't use it in live, interactive controls.
@@ -201,20 +224,20 @@ XenoAtom.Terminal.UI has the most sophisticated layout system with a proper `Fle
 | **Testing support** | Spectre.Console.Testing | Input injection (v2) | Screenshot/snapshot testing | HeadlessConsoleDriver |
 | **Logging** | N/A | Microsoft.Extensions.Logging | N/A | **Built-in LogService (file-based, never console)** |
 
-### Project Health (March 2026)
+### Project Health (June 2026)
 
 | | Spectre.Console | Terminal.Gui | XenoAtom.Terminal.UI | SharpConsoleUI |
 |---|---|---|---|---|
-| **Stars** | ~11,260 | ~10,830 | ~140 | 114 |
-| **NuGet downloads** | ~9.9M | ~1.6M | New | 6,504 |
-| **Contributors** | ~115 | 199 | 1 | 1 |
-| **Latest stable** | 0.54.0 (pre-1.0) | 1.19.0 (v1 only) | 1.4.0 | 2.4.52 |
-| **v2 / latest** | 0.54.0 | v2 beta.1 (March 2026) | 1.4.0 | 2.4.52 |
-| **.NET version** | .NET Standard 2.0+ | .NET 10 (v2 beta) | .NET 10 only | .NET 8.0+ |
+| **Stars** | ~11,490 | ~11,060 | ~263 | 232 |
+| **NuGet downloads** | ~44.4M | ~1.8M | ~17.8K | ~14,000 |
+| **Contributors** | ~146 | ~130 | ~2 | 1 |
+| **Latest stable** | 0.56.0 (pre-1.0) | 2.4.5 (v2 GA) | 3.7.2 | 2.4.77 |
+| **v2 / latest** | 0.56.0 | 2.4.5 (v2 GA, GA since 2024) | 3.7.2 | 2.4.77 |
+| **.NET version** | net8/9/10 + .NET Standard 2.0 | .NET 10 (v2.4.x) | .NET 10 only | net8/9/10 |
 | **License** | MIT | MIT | BSD-2-Clause | MIT |
-| **Repo age** | ~5 years | ~7 years | ~2 months | ~1 year |
+| **Repo age** | ~6 years | ~8.5 years | ~5 months | ~16 months |
 
-**Honest take:** Terminal.Gui and Spectre.Console have large communities and years of battle-testing. XenoAtom.Terminal.UI is brand new (January 2026) but built by Alexandre Mutel, a highly respected .NET developer (Markdig, SharpDX, Scriban, former .NET Foundation TSG member). SharpConsoleUI is solo-maintained. If you need maximum community support, StackOverflow answers, and long-term maintenance guarantees, the larger libraries are safer bets. SharpConsoleUI and XenoAtom compensate with rapid iteration and features the others don't offer.
+**Honest take:** Terminal.Gui and Spectre.Console have large communities and years of battle-testing, and Terminal.Gui v2 is now GA (not beta). XenoAtom.Terminal.UI is only ~5 months old but evolving rapidly (already at v3.7) and built by Alexandre Mutel, a highly respected .NET developer (Markdig, SharpDX, Scriban, former .NET Foundation TSG member). SharpConsoleUI is solo-maintained at ~232 stars. If you need maximum community support, StackOverflow answers, and long-term maintenance guarantees, the larger libraries are safer bets. SharpConsoleUI and XenoAtom compensate with rapid iteration and features the others don't offer.
 
 ## When NOT to Use SharpConsoleUI
 
@@ -223,7 +246,7 @@ Be honest about the right tool:
 - **Just need pretty CLI output?** Use **Spectre.Console**. It's purpose-built for that and does it better than anything else in .NET.
 - **Building a simple single-screen form?** **Terminal.Gui** has the widest mature control library. **XenoAtom.Terminal.UI** has the most modern architecture with reactive bindings, but requires .NET 10.
 - **Need maximum community and ecosystem?** The bigger libraries have more users, more contributors, more blog posts, and more StackOverflow answers.
-- **Targeting .NET 6 or older?** SharpConsoleUI requires .NET 8+. Spectre.Console and Terminal.Gui v1 support .NET Standard 2.0. XenoAtom requires .NET 10.
+- **Targeting .NET 6 or older?** SharpConsoleUI requires .NET 8+. Spectre.Console supports .NET Standard 2.0 (and net8/9/10). Terminal.Gui v2 targets .NET 10. XenoAtom requires .NET 10.
 - **Need ColorPicker or HexView?** Terminal.Gui has these built-in. XenoAtom has ColorPicker. SharpConsoleUI doesn't (yet).
 - **Need source-generated reactive bindings?** XenoAtom's `[Bindable]` source-generated property system with automatic dependency tracking is more sophisticated than SharpConsoleUI's lambda-based MVVM bindings.
 
@@ -231,11 +254,13 @@ Be honest about the right tool:
 
 SharpConsoleUI is the right choice when you need:
 
-- **Multi-window desktop-style apps** -- overlapping windows with drag, resize, minimize, maximize, taskbar. No other .NET library does this in a stable release.
+- **Multi-window desktop-style apps** -- overlapping windows with drag, resize, minimize, maximize, taskbar, and full title-bar chrome. Terminal.Gui v2 (GA) now offers movable/resizable/overlapping views too; SharpConsoleUI's differentiator is the full window-manager experience plus the compositor underneath it.
 - **Visual effects and compositing** -- per-cell RGBA alpha blending, gradient backgrounds, blur, fade transitions, row animations (flash, highlight, fade-out removal), custom buffer effects via PreBufferPaint/PostBufferPaint. The compositor pipeline is unique in the .NET TUI space.
 - **Dashboard / monitoring tools** -- independent async window threads mean each panel updates on its own schedule without blocking the UI.
 - **IDE-like tools** -- [LazyDotIDE](https://github.com/nickprotop/LazyDotIDE) is a working .NET IDE built entirely on SharpConsoleUI, proving the framework handles complex, multi-window applications.
-- **Embedded terminal + UI** -- TerminalControl gives you a real PTY-backed terminal emulator inside a window, alongside your UI controls. Unique in the .NET ecosystem.
+- **Embedded terminal + UI** -- TerminalControl gives you a real PTY-backed terminal emulator inside a window, alongside your UI controls. Rare in the .NET ecosystem.
+- **Markdown and rich markup in every control** -- the `[markdown]` markup tag renders Markdown (and highlighted code blocks) inside any markup control, not just a single dedicated widget.
+- **Terminal video** -- VideoControl plays video with half-block rendering, and Kitty true-graphics where supported. None of the other .NET TUI libraries do video.
 - **MVVM data binding** -- `Bind()` and `BindTwoWay()` with lambda expressions, type converters, and standard `INotifyPropertyChanged` ViewModels. All controls support property change notification out of the box.
 - **Spectre.Console integration** -- use `[red bold]markup[/]` in every control, and embed any `IRenderable` (Tables, Charts, BarCharts) as a windowed control. Extends Spectre.Console rather than replacing it.
 - **Live data visualization** -- SparklineControl and BarGraphControl update in real-time with configurable styles.
@@ -399,8 +424,8 @@ Different languages have their own established TUI frameworks. Here's how the ma
 |---|---|---|---|---|---|
 | **Language** | C# | Python | Rust | Go | C# |
 | **Architecture** | Compositor | Retained + segment compositor | Immediate-mode | Elm (TEA) | Retained, shared buffer |
-| **Overlapping windows** | Yes | Screens (modal stack) | No | No | v2 beta |
-| **Window management** | Drag, resize, minimize, maximize | No | No | No | v2 beta |
+| **Overlapping windows** | Yes | Screens (modal stack) | No | No | Yes (v2 GA) |
+| **Window management** | Drag, resize, minimize, maximize | No | No | No | Move/resize/overlap (v2 GA) |
 | **Built-in animations** | Frame-coupled tweens + row animations | CSS-like transitions | Via tachyonfx crate | No | No |
 | **Overlay/portal system** | Yes (auto-positioning, auto-dismiss) | Screen stack | Manual | Manual | No |
 | **Responsive controls** | Yes (NavigationView) | CSS-like media queries | No | No | No |
@@ -421,7 +446,7 @@ Different languages have their own established TUI frameworks. Here's how the ma
 
 **Textual** has its own segment-based compositor that merges overlapping widget output. It uses a spatial grid for fast hit-testing and supports CSS-like animations and styling. The most feature-rich Python TUI framework.
 
-**Terminal.Gui** is the most mature .NET TUI library with the widest control set. v2 (beta) adds overlapping window support. Uses a shared buffer with painter's algorithm rendering.
+**Terminal.Gui** is the most mature .NET TUI library with the widest control set. v2 (GA) adds overlapping, movable, and resizable window support. Uses a shared buffer with painter's algorithm rendering.
 
 **SharpConsoleUI** takes the compositor approach further with per-window buffers, occlusion culling via rectangle subtraction, and compositor hooks for visual effects. The animation system and DOM layout pipeline enable features like the responsive NavigationView with animated mode transitions.
 
@@ -429,4 +454,4 @@ Each framework makes different tradeoffs. The compositor approach adds complexit
 
 ---
 
-*Last updated: April 2026*
+*Last updated: June 2026*
