@@ -14,6 +14,7 @@ on:
     paths:
       - 'SharpConsoleUI/**'
       - 'SharpConsoleUI.Tests/**'
+      - 'Examples/AotSmoke/**'
       - '.editorconfig'
       - '.github/workflows/code-quality.yml'
   pull_request:
@@ -21,6 +22,7 @@ on:
     paths:
       - 'SharpConsoleUI/**'
       - 'SharpConsoleUI.Tests/**'
+      - 'Examples/AotSmoke/**'
       - '.editorconfig'
       - '.github/workflows/code-quality.yml'
   workflow_dispatch:
@@ -115,8 +117,10 @@ jobs:
           # reused by the test step via --no-build. Capture library warnings from the output.
           build_log=$(dotnet build SharpConsoleUI.Tests/SharpConsoleUI.Tests.csproj -c Release --no-restore --no-incremental 2>&1)
           echo "$build_log"
-          count=$(echo "$build_log" | grep -E "SharpConsoleUI/.*warning (CS|CA|IDE)" | grep -c "warning" || true)
-          echo "Library code warnings (CS/CA/IDE, all TFMs): **$count**" >> "$GITHUB_STEP_SUMMARY"
+          # IL = trim/AOT analyzer warnings (elevated to warning in .editorconfig) so an
+          # AOT-compat regression in the library's own code fails this fast job too.
+          count=$(echo "$build_log" | grep -E "SharpConsoleUI/.*warning (CS|CA|IDE|IL)" | grep -c "warning" || true)
+          echo "Library code warnings (CS/CA/IDE/IL, all TFMs): **$count**" >> "$GITHUB_STEP_SUMMARY"
           if [ "$count" -ne 0 ]; then
             echo "❌ Build produced $count library code warning(s). The library must build warning-clean." >> "$GITHUB_STEP_SUMMARY"
             exit 1
@@ -128,3 +132,41 @@ jobs:
           echo "## Tests" >> "$GITHUB_STEP_SUMMARY"
           dotnet test SharpConsoleUI.Tests/SharpConsoleUI.Tests.csproj -c Release --no-build --verbosity normal
           echo "✅ Tests passed." >> "$GITHUB_STEP_SUMMARY"
+
+  # Proves the library is NativeAOT-compatible: publishes the AotSmoke sample with
+  # PublishAot=true (the csproj treats trim/AOT IL warnings as errors), then runs the
+  # native binary headlessly. A regression that reintroduces reflection/dynamic code or
+  # roots an AOT-incompatible dependency fails the publish or the run.
+  aot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: Examples/AotSmoke/AotSmoke.csproj
+
+      # NativeAOT links native code on the host, which needs clang + zlib headers.
+      - name: Install AOT toolchain
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Publish NativeAOT (blocking — IL warnings are errors)
+        run: |
+          echo "## NativeAOT publish" >> "$GITHUB_STEP_SUMMARY"
+          dotnet publish Examples/AotSmoke/AotSmoke.csproj -c Release -r linux-x64
+          echo "✅ Published native binary with no trim/AOT warnings." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run native binary (blocking)
+        run: |
+          echo "## NativeAOT smoke run" >> "$GITHUB_STEP_SUMMARY"
+          bin="Examples/AotSmoke/bin/Release/net10.0/linux-x64/native/AotSmoke"
+          out=$("$bin" 2>&1); code=$?
+          echo "$out"
+          if [ "$code" -ne 0 ] || ! echo "$out" | grep -q "AOT SMOKE OK"; then
+            echo "❌ Native smoke binary failed (exit $code)." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "✅ Native binary ran and exited cleanly." >> "$GITHUB_STEP_SUMMARY"

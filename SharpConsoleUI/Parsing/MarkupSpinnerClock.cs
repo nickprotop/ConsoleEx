@@ -24,7 +24,7 @@ public static class MarkupSpinnerClock
 	private static long _lastParsedTick = long.MinValue;
 	private static volatile Func<long> _now = () => Environment.TickCount64;
 
-	private static readonly int[] _reservedWidth = new int[Enum.GetValues(typeof(SpinnerStyle)).Length];
+	private static readonly int[] _reservedWidth = new int[Enum.GetValues<SpinnerStyle>().Length];
 
 	/// <summary>Constant reserved column width for a style = max display width across its frames.</summary>
 	public static int ReservedWidth(SpinnerStyle style)

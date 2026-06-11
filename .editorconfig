@@ -22,6 +22,14 @@ tab_width = 4
 # as build warnings or fighting the library's fluent/control design.
 dotnet_analyzer_diagnostic.severity = suggestion
 
+# NativeAOT: the blanket 'suggestion' above also demotes the trim/AOT/single-file
+# analyzers (IL2xxx/IL3xxx), which would hide AOT-incompatibility and defeat
+# <IsAotCompatible>. Re-elevate those categories to warning so AOT problems are
+# surfaced at build time. See docs/superpowers/specs/2026-06-11-nativeaot-support-design.md
+dotnet_analyzer_diagnostic.category-Trimming.severity = warning
+dotnet_analyzer_diagnostic.category-SingleFile.severity = warning
+dotnet_analyzer_diagnostic.category-AOT.severity = warning
+
 # Public-API events/fields are part of the surface (often required by an interface or the
 # sync/async event-twin pattern) and intentionally not consumed internally — not bugs.
 dotnet_diagnostic.CS0067.severity = none   # unused public event (API contract)

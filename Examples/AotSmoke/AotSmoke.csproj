@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- NativeAOT smoke test: this app publishes with PublishAot and runs headlessly.
+         Trim/AOT warnings are treated as errors so any regression in the library's
+         AOT-compatibility fails the publish. See
+         docs/superpowers/specs/2026-06-11-nativeaot-support-design.md -->
+    <PublishAot>true</PublishAot>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <IlcTreatWarningsAsErrors>true</IlcTreatWarningsAsErrors>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL2046;IL2070;IL2072;IL2075;IL3050;IL3051;IL3056</WarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\SharpConsoleUI\SharpConsoleUI.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -7,6 +7,12 @@
 		<Nullable>enable</Nullable>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+		<!-- NativeAOT: turn on trim/AOT/single-file analyzers so AOT-incompatible code
+		     is flagged at build time. Genuinely incompatible features are quarantined
+		     with [RequiresUnreferencedCode]/[RequiresDynamicCode]. See
+		     docs/superpowers/specs/2026-06-11-nativeaot-support-design.md -->
+		<IsAotCompatible>true</IsAotCompatible>
 		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
 		<WarningsAsErrors />
 		<!-- Enable XML documentation warnings -->

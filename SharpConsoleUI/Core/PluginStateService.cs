@@ -6,8 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using System.Diagnostics.CodeAnalysis;
-using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Logging;
 using SharpConsoleUI.Plugins;
@@ -23,9 +21,7 @@ namespace SharpConsoleUI.Core
 		int RegisteredServiceCount,
 		int RegisteredControlCount,
 		int RegisteredWindowCount,
-		IReadOnlyList<string> PluginNames,
-		bool AutoLoadEnabled,
-		string? PluginsDirectory
+		IReadOnlyList<string> PluginNames
 	);
 
 	/// <summary>
@@ -137,7 +133,6 @@ namespace SharpConsoleUI.Core
 		private readonly ConsoleWindowSystem _windowSystem;
 		private readonly ILogService? _logService;
 		private readonly object _lock = new();
-		private PluginConfiguration _configuration;
 
 		// Plugin storage
 		private readonly List<IPlugin> _loadedPlugins = new();
@@ -154,15 +149,12 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		/// <param name="windowSystem">The console window system instance.</param>
 		/// <param name="logService">Optional log service for diagnostics.</param>
-		/// <param name="configuration">Optional plugin configuration.</param>
 		public PluginStateService(
 			ConsoleWindowSystem windowSystem,
-			ILogService? logService = null,
-			PluginConfiguration? configuration = null)
+			ILogService? logService = null)
 		{
 			_windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
 			_logService = logService;
-			_configuration = configuration ?? PluginConfiguration.Default;
 		}
 
 		/// <summary>
@@ -179,24 +171,8 @@ namespace SharpConsoleUI.Core
 						RegisteredServiceCount: _services.Count,
 						RegisteredControlCount: _controlFactories.Count,
 						RegisteredWindowCount: _windowFactories.Count,
-						PluginNames: _loadedPlugins.Select(p => p.Info.Name).ToList().AsReadOnly(),
-						AutoLoadEnabled: _configuration.AutoLoad,
-						PluginsDirectory: _configuration.PluginsDirectory
+						PluginNames: _loadedPlugins.Select(p => p.Info.Name).ToList().AsReadOnly()
 					);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Gets the plugin configuration.
-		/// </summary>
-		public PluginConfiguration Configuration
-		{
-			get
-			{
-				lock (_lock)
-				{
-					return _configuration;
 				}
 			}
 		}
@@ -326,115 +302,6 @@ namespace SharpConsoleUI.Core
 #pragma warning disable CS0067 // Event is never used (reserved for future plugin unloading support)
 		public event EventHandler<ServiceUnregisteredEventArgs>? ServiceUnregistered;
 #pragma warning restore CS0067
-
-		/// <summary>
-		/// Updates the plugin configuration.
-		/// </summary>
-		/// <param name="configuration">The new configuration.</param>
-		public void UpdateConfiguration(PluginConfiguration configuration)
-		{
-			lock (_lock)
-			{
-				var previousState = CurrentState;
-				_configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-				var newState = CurrentState;
-				StateChanged?.Invoke(this, new PluginStateChangedEventArgs(previousState, newState));
-			}
-		}
-
-		/// <summary>
-		/// Loads plugins from the specified directory.
-		/// If no path is specified, uses the "plugins" subdirectory of the application's base directory.
-		/// </summary>
-		/// <param name="pluginsPath">Optional path to the plugins directory.</param>
-		[RequiresUnreferencedCode("Plugin loading from files uses Assembly.LoadFrom which is not compatible with trimming.")]
-		public void LoadPluginsFromDirectory(string? pluginsPath = null)
-		{
-			pluginsPath ??= Path.Combine(AppContext.BaseDirectory, "plugins");
-			pluginsPath = Path.GetFullPath(pluginsPath);
-			if (!Directory.Exists(pluginsPath))
-			{
-				_logService?.LogDebug($"Plugin directory not found: {pluginsPath}", "Plugins");
-				return;
-			}
-
-			foreach (var dll in Directory.GetFiles(pluginsPath, "*.dll"))
-			{
-				LoadPluginFromFile(dll);
-			}
-		}
-
-		/// <summary>
-		/// Loads a plugin from a specific DLL file path (agnostic loading).
-		/// </summary>
-		/// <param name="dllPath">The path to the plugin DLL file.</param>
-		/// <exception cref="ArgumentNullException">Thrown if dllPath is null or empty.</exception>
-		[RequiresUnreferencedCode("Plugin loading from files uses Assembly.LoadFrom which is not compatible with trimming.")]
-		public void LoadPlugin(string dllPath)
-		{
-			if (string.IsNullOrWhiteSpace(dllPath))
-				throw new ArgumentNullException(nameof(dllPath));
-
-			// Validate plugin path is not a symlink
-			var fileInfo = new FileInfo(dllPath);
-			if ((fileInfo.Attributes & FileAttributes.ReparsePoint) != 0)
-			{
-				_logService?.LogWarning($"Skipping symlinked plugin: {Path.GetFileName(dllPath)}", "Plugins");
-				return;
-			}
-
-			LoadPluginFromFile(dllPath);
-		}
-
-		/// <summary>
-		/// Internal helper method to load plugins from a DLL file using the convention-based entry point.
-		/// The plugin assembly must contain a public static class named "PluginEntry" with a static
-		/// method "CreatePlugins()" returning IEnumerable&lt;IPlugin&gt;.
-		/// </summary>
-		/// <param name="dllPath">The path to the DLL file.</param>
-		[RequiresUnreferencedCode("Plugin loading from files uses Assembly.LoadFrom which is not compatible with trimming.")]
-		private void LoadPluginFromFile(string dllPath)
-		{
-			try
-			{
-				// Validate plugin path is not a symlink and is within expected directory
-				var fileInfo = new FileInfo(dllPath);
-				if ((fileInfo.Attributes & FileAttributes.ReparsePoint) != 0)
-				{
-					_logService?.LogWarning($"Skipping symlinked plugin: {Path.GetFileName(dllPath)}", "Plugins");
-					return;
-				}
-
-				var assembly = System.Reflection.Assembly.LoadFrom(dllPath);
-				var entryType = assembly.GetType(PluginEntryConvention.EntryClassName);
-				if (entryType == null)
-				{
-					_logService?.LogWarning($"No {PluginEntryConvention.EntryClassName} class found in {Path.GetFileName(dllPath)}", "Plugins");
-					return;
-				}
-
-				var method = entryType.GetMethod(PluginEntryConvention.FactoryMethodName,
-					System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-				if (method == null)
-				{
-					_logService?.LogWarning($"{PluginEntryConvention.EntryClassName}.{PluginEntryConvention.FactoryMethodName}() not found in {Path.GetFileName(dllPath)}", "Plugins");
-					return;
-				}
-
-				if (method.Invoke(null, null) is IEnumerable<IPlugin> plugins)
-				{
-					foreach (var plugin in plugins)
-					{
-						LoadPlugin(plugin);
-						_logService?.LogInfo($"Loaded plugin: {plugin.Info.Name} v{plugin.Info.Version} from {Path.GetFileName(dllPath)}", "Plugins");
-					}
-				}
-			}
-			catch (Exception ex)
-			{
-				_logService?.LogError($"Failed to load plugin from {dllPath}: {ex.Message}", ex, "Plugins");
-			}
-		}
 
 		/// <summary>
 		/// Loads a plugin instance and registers its contributions.

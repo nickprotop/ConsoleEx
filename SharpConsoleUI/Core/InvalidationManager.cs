@@ -524,17 +524,8 @@ namespace SharpConsoleUI.Core
 
 		private IContainer? GetParentContainer(IWindowControl control)
 		{
-			// Try to find parent container through common patterns
-			var controlType = control.GetType();
-
-			// Check for Container property
-			var containerProperty = controlType.GetProperty("Container");
-			if (containerProperty != null)
-			{
-				return containerProperty.GetValue(control) as IContainer;
-			}
-
-			return null;
+			// IWindowControl declares Container directly, so no reflection is needed.
+			return control.Container;
 		}
 	}
 }
