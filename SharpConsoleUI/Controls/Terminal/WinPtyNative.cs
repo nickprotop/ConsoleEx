@@ -114,7 +114,7 @@ internal static class WinPtyNative
 		IntPtr lpAttributeList,
 		uint dwFlags,
 		nint Attribute,
-		ref IntPtr lpValue,
+		IntPtr lpValue,
 		nint cbSize,
 		IntPtr lpPreviousValue,
 		IntPtr lpReturnSize);

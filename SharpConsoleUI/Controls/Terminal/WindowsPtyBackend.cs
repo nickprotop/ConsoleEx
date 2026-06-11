@@ -75,13 +75,17 @@ internal sealed class WindowsPtyBackend : IPtyBackend
 				throw new InvalidOperationException(
 					$"InitializeProcThreadAttributeList failed: {Marshal.GetLastWin32Error()}");
 
-			// hPconValue must stay alive (on the stack) until after CreateProcess.
-			// IntPtr is a value type — not moved by the GC — so ref is safe here.
-			IntPtr hPconValue = _hPcon;
+			// The PSEUDOCONSOLE attribute is special: the HPCON handle is passed
+			// BY VALUE as lpValue (the kernel treats lpValue itself as the HPCON),
+			// not by address like most other attributes (e.g. PARENT_PROCESS).
+			// Passing &handle here instead makes the attribute malformed, so the
+			// child never attaches to the ConPTY and spawns its own console window.
+			// Matches the official Win32 EchoCon / managed GUIConsole samples.
+			// _hPcon stays alive (field) until ClosePseudoConsole in Dispose().
 			if (!WinPtyNative.UpdateProcThreadAttribute(
 					attrList, 0,
 					WinPtyNative.PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
-					ref hPconValue,
+					_hPcon,
 					(nint)IntPtr.Size,
 					IntPtr.Zero, IntPtr.Zero))
 				throw new InvalidOperationException(
