@@ -14,7 +14,7 @@ on:
     paths:
       - 'SharpConsoleUI/**'
       - 'SharpConsoleUI.Tests/**'
-      - 'Examples/AotSmoke/**'
+      - 'SharpConsoleUI.Tests/aot.test/**'
       - '.editorconfig'
       - '.github/workflows/code-quality.yml'
   pull_request:
@@ -22,7 +22,7 @@ on:
     paths:
       - 'SharpConsoleUI/**'
       - 'SharpConsoleUI.Tests/**'
-      - 'Examples/AotSmoke/**'
+      - 'SharpConsoleUI.Tests/aot.test/**'
       - '.editorconfig'
       - '.github/workflows/code-quality.yml'
   workflow_dispatch:
@@ -147,7 +147,7 @@ jobs:
         with:
           dotnet-version: 10.0.x
           cache: true
-          cache-dependency-path: Examples/AotSmoke/AotSmoke.csproj
+          cache-dependency-path: SharpConsoleUI.Tests/aot.test/AotSmoke.csproj
 
       # NativeAOT links native code on the host, which needs clang + zlib headers.
       - name: Install AOT toolchain
@@ -156,13 +156,13 @@ jobs:
       - name: Publish NativeAOT (blocking — IL warnings are errors)
         run: |
           echo "## NativeAOT publish" >> "$GITHUB_STEP_SUMMARY"
-          dotnet publish Examples/AotSmoke/AotSmoke.csproj -c Release -r linux-x64
+          dotnet publish SharpConsoleUI.Tests/aot.test/AotSmoke.csproj -c Release -r linux-x64
           echo "✅ Published native binary with no trim/AOT warnings." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run native binary (blocking)
         run: |
           echo "## NativeAOT smoke run" >> "$GITHUB_STEP_SUMMARY"
-          bin="Examples/AotSmoke/bin/Release/net10.0/linux-x64/native/AotSmoke"
+          bin="SharpConsoleUI.Tests/aot.test/bin/Release/net10.0/linux-x64/native/AotSmoke"
           out=$("$bin" 2>&1); code=$?
           echo "$out"
           if [ "$code" -ne 0 ] || ! echo "$out" | grep -q "AOT SMOKE OK"; then

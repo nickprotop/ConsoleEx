@@ -27,6 +27,15 @@
     <ProjectReference Include="..\SharpConsoleUI\SharpConsoleUI.csproj" />
   </ItemGroup>
 
+  <!-- aot.test/ is a separate NativeAOT smoke-test project (its own .csproj), nested here to
+       keep it with the test suite. Exclude its files from this project's default **/*.cs globbing
+       so they are not compiled into the test assembly. -->
+  <ItemGroup>
+    <Compile Remove="aot.test\**\*.cs" />
+    <Content Remove="aot.test\**\*" />
+    <None Remove="aot.test\**\*" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="Html\Fixtures\*.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
