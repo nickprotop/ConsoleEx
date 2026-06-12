@@ -10,6 +10,7 @@
   <a href="https://github.com/nickprotop/ConsoleEx/actions"><img src="https://github.com/nickprotop/ConsoleEx/actions/workflows/build-and-publish.yml/badge.svg" alt="Build"></a>
   <a href="LICENSE.txt"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
   <a href="https://dotnet.microsoft.com"><img src="https://img.shields.io/badge/.NET-8.0%2B-purple" alt=".NET"></a>
+  <a href="docs/AOT.md"><img src="https://img.shields.io/badge/NativeAOT-ready-brightgreen" alt="NativeAOT Ready"></a>
 </p>
 
 <p align="center">
@@ -21,7 +22,8 @@
 A terminal UI framework for .NET with a real compositor engine.
 
 Per-cell alpha blending. Async windows. A portal system for dropdowns and overlays.
-A plugin architecture. A video player.
+A plugin architecture. A video player. NativeAOT-ready — ship a single, self-contained
+native binary with no .NET runtime and fast cold start.
 
 ![SharpConsoleUI Demo](docs/images/examples/consoleex-matrix-background.gif)
 
@@ -48,6 +50,9 @@ don't do: overlapping windows with drag/resize/minimize/maximize, animated
 desktop backgrounds, a PTY-backed terminal emulator, video playback with Kitty
 graphics + cell-based fallbacks, and compositor hooks for blur, fade, and custom
 effects.
+
+It's also [NativeAOT-compatible](docs/AOT.md) — the full control set runs as a
+self-contained native binary, verified on every push by a publish-and-run CI gate.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

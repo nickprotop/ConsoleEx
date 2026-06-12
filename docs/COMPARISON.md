@@ -223,6 +223,9 @@ XenoAtom.Terminal.UI has the most sophisticated layout system with a proper `Fle
 | **Markup syntax** | `[red bold]text[/]` | No markup | Own markup + Brush/Gradient | `[red bold]text[/]` (Spectre-compatible) |
 | **Testing support** | Spectre.Console.Testing | Input injection (v2) | Screenshot/snapshot testing | HeadlessConsoleDriver |
 | **Logging** | N/A | Microsoft.Extensions.Logging | N/A | **Built-in LogService (file-based, never console)** |
+| **NativeAOT** | Yes (since 2024) | In progress (v2 AOT validation) | Yes (AOT-oriented design) | **Yes (`IsAotCompatible`, publish-and-run CI gate over the full control set)** |
+
+**On NativeAOT:** AOT support is common here — Spectre.Console and XenoAtom.Terminal.UI are both AOT-ready, and Terminal.Gui v2 is restoring AOT validation. SharpConsoleUI is AOT-compatible too: a CI job publishes a native binary on every push and runs it to confirm. The one documented caveat is a trim *warning* (not a failure) from `AngleSharp.Css` when you use `HtmlControl` — see [docs/AOT.md](AOT.md).
 
 ### Project Health (June 2026)
 
