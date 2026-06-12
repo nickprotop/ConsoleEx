@@ -36,6 +36,13 @@ public sealed class MailWindow
         _window = new WindowBuilder(_ws)
             .WithTitle("TerminalMail")
             .Maximized()
+            // A single full-screen app owns the whole terminal: lock the window and
+            // hide the minimize/maximize/close chrome (the CXPost pattern).
+            .HideTitleButtons()
+            .Movable(false)
+            .Resizable(false)
+            .Minimizable(false)
+            .Maximizable(false)
             .WithBorderStyle(BorderStyle.Rounded)
             .WithActiveBorderColor(ColorScheme.ActiveBorder)
             .WithBackgroundGradient(ColorScheme.WindowGradient, GradientDirection.Vertical)
