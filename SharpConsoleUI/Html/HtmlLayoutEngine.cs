@@ -14,6 +14,29 @@ using AngleSharp.Dom;
 using AngleSharp.Html.Parser;
 using Spectre.Console;
 
+// -----------------------------------------------------------------------------
+// Scoped NativeAOT trim-warning suppression for AngleSharp.Css's calc() pipeline.
+//
+// SharpConsoleUI reaches AngleSharp.Css's CSS value pipeline transitively from the
+// HtmlLayoutEngine constructor (Configuration.Default.WithCss() + BrowsingContext.New)
+// and LoadCssAsync (_cssContext.OpenAsync). AngleSharp.Css's four
+// CssCalc*Expression.Compute methods each call Activator.CreateInstance(value.GetType(),
+// ...) where the runtime Type lacks DynamicallyAccessedMemberTypes.PublicConstructors,
+// which NativeAOT trim analysis flags as IL2072. ILC attributes the warning to those
+// AngleSharp methods themselves (they contain the reflection call), NOT to SharpConsoleUI's
+// call sites — so a C# [UnconditionalSuppressMessage] on HtmlLayoutEngine cannot clear it,
+// and ILC honors neither cross-assembly Scope/Target suppression attributes nor an embedded
+// ILLink.LinkAttributes.xml that targets another assembly. The genuinely-scoped suppression
+// is therefore applied where the AOT publish happens, via the 'singlewarnassembly' ILC
+// option scoped to AngleSharp.Css ALONE (see SharpConsoleUI.Tests/aot.test/AotSmoke.csproj).
+// SharpConsoleUI's own code still gets full IL2072-as-error analysis — this is NOT a
+// project-wide NoWarn of IL2072.
+//
+// RUNTIME-VERIFIED SAFE: a NativeAOT binary rendering HTML with CSS calc() runs correctly
+// (exit 0, content rendered) — the concrete expression types survive trimming. The IL2072
+// is a trim-analysis warning, not a runtime crash. HtmlControl is otherwise AOT-compatible.
+// -----------------------------------------------------------------------------
+
 namespace SharpConsoleUI.Html
 {
 	/// <summary>

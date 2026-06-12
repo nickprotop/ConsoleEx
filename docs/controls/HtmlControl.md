@@ -233,6 +233,12 @@ var html = Controls.Html()
 - Use `LoadUrlAsync` with cancellation support for user-navigatable content
 - The control consumes Tab key for link navigation — use `Shift+Tab` to move focus away
 
+## NativeAOT
+
+`HtmlControl` works under NativeAOT — a published native binary renders HTML (including CSS `calc()`) correctly, verified by the library's AOT smoke test.
+
+The one caveat: its dependency **AngleSharp.Css** evaluates CSS `calc()` via reflection, so AOT-publishing an app that uses `HtmlControl` surfaces 4 `IL2072` trim **warnings** (from AngleSharp.Css, not SharpConsoleUI). They're an analysis limitation, not a runtime failure. If your build treats trim warnings as errors, see **[NativeAOT Compatibility → HtmlControl caveat](../AOT.md#htmlcontrol-caveat)** for the scoped `.csproj` fix. If you don't use `HtmlControl`, the rest of the library is AOT-clean with no action needed.
+
 ## See Also
 
 - [MarkupControl](MarkupControl.md) — for simple formatted text without HTML parsing

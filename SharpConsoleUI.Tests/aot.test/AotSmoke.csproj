@@ -21,4 +21,54 @@
     <ProjectReference Include="..\..\SharpConsoleUI\SharpConsoleUI.csproj" />
   </ItemGroup>
 
+  <!-- ===========================================================================
+       Scoped NativeAOT trim-warning suppression for the AngleSharp.Css calc() path.
+
+       Exercising HtmlControl pulls AngleSharp.Css's CSS value pipeline into the
+       reachable call graph. Its four CssCalc*Expression types implement
+       ICssValue.Compute(ICssComputeContext) as explicit interface implementations that
+       call Activator.CreateInstance(value.GetType(), ...). The runtime Type from
+       object.GetType() lacks DynamicallyAccessedMemberTypes.PublicConstructors, so trim
+       analysis emits IL2072 — attributed by ILC to those AngleSharp methods themselves,
+       NOT to SharpConsoleUI's call sites.
+
+       RUNTIME-VERIFIED SAFE: a NativeAOT binary rendering HTML with CSS calc() runs
+       correctly (exit 0, content rendered) — the concrete expression types survive
+       trimming. The IL2072 is a trim-analysis warning, not a runtime crash.
+
+       Why this is done here, in MSBuild, and not as a C# [UnconditionalSuppressMessage]:
+       a C# attribute only suppresses warnings attributed to the annotated member, and
+       these are attributed to AngleSharp's own methods. ILC (this version) honors neither
+       cross-assembly Scope/Target [UnconditionalSuppressMessage] attributes nor an
+       embedded ILLink.LinkAttributes.xml that targets another assembly (verified by
+       experiment). The intended, genuinely-scoped ILC primitive is the
+       'singlewarnassembly' option, which collapses one specific dependency's trim warnings
+       into a single IL2104 note; we then stop IL2104 being treated as an error. This is
+       scoped to AngleSharp.Css ALONE: SharpConsoleUI's own code (and every other assembly)
+       still gets full IL2072-as-error analysis. It is NOT a project-wide NoWarn of IL2072.
+       =========================================================================== -->
+  <Target Name="_ScopeAngleSharpCssTrimWarnings"
+          AfterTargets="_ComputeManagedAssemblyForILLink"
+          Condition="'$(NativeCompilationDuringPublish)' == 'true'">
+    <ItemGroup>
+      <!-- Collapse AngleSharp.Css's trim warnings (the 4 IL2072) into one IL2104 note. -->
+      <ManagedAssemblyToLink Condition="'%(Filename)' == 'AngleSharp.Css'">
+        <TrimmerSingleWarn>true</TrimmerSingleWarn>
+      </ManagedAssemblyToLink>
+    </ItemGroup>
+  </Target>
+
+  <!-- Hand ILC the extra args: do not treat the collapsed IL2104 as an error, and silence
+       that single per-assembly note so the publish is 0-warning. IL2104 only fires for the
+       single-warn collapse we just scoped to AngleSharp.Css; it does not affect IL2072
+       analysis of any other assembly. -->
+  <Target Name="_SuppressAngleSharpCssSingleWarn"
+          BeforeTargets="WriteIlcRspFileForCompilation"
+          Condition="'$(NativeCompilationDuringPublish)' == 'true'">
+    <ItemGroup>
+      <IlcArg Include="--nowarnaserr:IL2104" />
+      <IlcArg Include="--nowarn:IL2104" />
+    </ItemGroup>
+  </Target>
+
 </Project>
