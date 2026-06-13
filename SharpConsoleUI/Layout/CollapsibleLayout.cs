@@ -56,12 +56,12 @@ namespace SharpConsoleUI.Layout
 			int bodyH = Math.Min(sumH, cap);
 			if (panel?.AnimatedBodyHeight is int animMeasure)
 				bodyH = Math.Min(bodyH, animMeasure); // honor in-progress height animation
-			// When the panel has no explicit Width, it should occupy the width it is ALLOCATED by
-			// the host rather than shrinking to its (possibly invisible/collapsed) content. In a
-			// bounded-width slot (a flex/Fill grid column, a fixed-width container) MaxWidth is a
-			// real ceiling, so fill it — this keeps the collapsed header full-width and stops the
-			// grid from re-flexing on collapse. In an UNBOUNDED/auto-width host (MaxWidth is
-			// int.MaxValue or 0) there is no allocated width to fill, so fall back to content width.
+													  // When the panel has no explicit Width, it should occupy the width it is ALLOCATED by
+													  // the host rather than shrinking to its (possibly invisible/collapsed) content. In a
+													  // bounded-width slot (a flex/Fill grid column, a fixed-width container) MaxWidth is a
+													  // real ceiling, so fill it — this keeps the collapsed header full-width and stops the
+													  // grid from re-flexing on collapse. In an UNBOUNDED/auto-width host (MaxWidth is
+													  // int.MaxValue or 0) there is no allocated width to fill, so fall back to content width.
 			bool boundedWidth = constraints.MaxWidth > 0 && constraints.MaxWidth != int.MaxValue;
 			int resolvedW = panel?.Width
 				?? (boundedWidth
