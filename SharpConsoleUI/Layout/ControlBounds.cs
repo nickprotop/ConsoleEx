@@ -214,18 +214,72 @@ namespace SharpConsoleUI.Layout
 		private Controls.IWindowControl? FindSelfPaintingCursorHost(Controls.IWindowControl control)
 		{
 			// If the control itself has a real (non-placeholder) DOM node, it is laid out directly.
+			// A control is "laid out directly" only if its layout node is actually part of the live
+			// window DOM tree — i.e. its ancestor chain reaches the renderer's root node. A control
+			// hosted inside a self-painting container (ScrollablePanelControl) still gets a registered
+			// node (so cursor/hit-test lookups resolve), but that node is an ORPHAN subtree: it has a
+			// Parent (its in-panel container) yet that chain never reaches the root and it is never
+			// arranged (empty AbsoluteBounds). Treating such an orphan as "directly laid out" would
+			// skip the self-painting host and place the cursor with stale (0,0) bounds — the bug this
+			// guards against. Reachability-to-root is the correct test, not merely "has a parent".
 			var ownNode = _window._renderer?.GetLayoutNode(control);
-			bool controlHasRealNode = ownNode != null && (ownNode.Parent != null || ownNode == _window._renderer?.RootLayoutNode);
-			if (controlHasRealNode)
+			if (NodeReachesRoot(ownNode))
 				return null;
 
 			var current = control.Container as Controls.IWindowControl;
 			while (current != null)
 			{
 				var node = _window._renderer?.GetLayoutNode(current);
-				bool hostHasRealNode = node != null && (node.Parent != null || node == _window._renderer?.RootLayoutNode);
-				if (hostHasRealNode && current is Controls.ILogicalCursorProvider)
+				if (NodeReachesRoot(node) && current is Controls.ILogicalCursorProvider)
 					return current;
+				current = current.Container as Controls.IWindowControl;
+			}
+			return null;
+		}
+
+		/// <summary>
+		/// Returns true when <paramref name="node"/> is part of the live window DOM tree — its
+		/// ancestor chain reaches the renderer's root layout node. Orphan subtree nodes (e.g. the
+		/// registered-but-unarranged children of a self-painting ScrollablePanelControl) have a
+		/// Parent but never reach the root, so they return false.
+		/// </summary>
+		internal bool NodeReachesRoot(LayoutNode? node)
+		{
+			if (node == null)
+				return false;
+			var root = _window._renderer?.RootLayoutNode;
+			if (root == null)
+				return false;
+			var current = node;
+			while (current != null)
+			{
+				if (ReferenceEquals(current, root))
+					return true;
+				current = current.Parent;
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// Resolves the layout node that actually positions <paramref name="control"/> on screen.
+		/// A control hosted inside a self-painting container (ScrollablePanelControl) gets a
+		/// registered node, but it is an ORPHAN subtree node — never arranged (empty bounds) and not
+		/// reachable from the root. In that case the control's true on-screen position is governed by
+		/// its nearest root-reachable ancestor (the host), so walk up the Container chain to it.
+		/// Returns null when no root-reachable node exists.
+		/// </summary>
+		internal LayoutNode? ResolveLaidOutNode(Controls.IWindowControl control)
+		{
+			var node = _window._renderer?.GetLayoutNode(control);
+			if (NodeReachesRoot(node))
+				return node;
+
+			var current = control.Container as Controls.IWindowControl;
+			while (current != null)
+			{
+				var candidate = _window._renderer?.GetLayoutNode(current);
+				if (NodeReachesRoot(candidate))
+					return candidate;
 				current = current.Container as Controls.IWindowControl;
 			}
 			return null;

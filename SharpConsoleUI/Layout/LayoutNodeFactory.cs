@@ -46,6 +46,10 @@ namespace SharpConsoleUI.Layout
 			{
 				return (new TabLayout(), tabControl.TabPages.Select(tp => tp.Content));
 			}
+			else if (control is CollapsiblePanel collapsible)
+			{
+				return (new CollapsibleLayout(), collapsible.ContentsSnapshot());
+			}
 			else if (control is NavigationView navView)
 			{
 				// NavigationView wraps a single HorizontalGrid

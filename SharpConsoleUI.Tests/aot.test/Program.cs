@@ -222,6 +222,25 @@ try
 			Controls.MultilineEdit("line 1\nline 2\nline 3").Build())
 		is { } e5e) return Fail(e5e);
 
+	// 5e2. CollapsiblePanel — exercise BOTH header styles and BOTH states in the AOT graph.
+	//      Borderless + expanded (custom icons, then toggled), and Bordered + collapsed.
+	var collapsibleExpanded = Controls.CollapsiblePanel("[bold]Reasoning[/]")
+		.WithExpandedIcon("[green]▾[/]")
+		.WithCollapsedIcon("[green]▸[/]")
+		.AddControl(Controls.Label("aot child one"))
+		.AddControl(Controls.Label("aot child two"))
+		.Build();
+	collapsibleExpanded.Toggle();   // exercise the toggle path
+	if (RenderGroup("collapsible",
+			collapsibleExpanded,
+			Controls.CollapsiblePanel("[bold]Details[/]")
+				.WithHeaderStyle(CollapsibleHeaderStyle.Bordered)
+				.Collapsed()
+				.AddControl(Controls.Label("bordered child one"))
+				.AddControl(Controls.Label("bordered child two"))
+				.Build())
+		is { } e5e2) return Fail(e5e2);
+
 	// 5f. Chrome controls — menu / toolbar / status bar.
 	if (RenderGroup("chrome",
 			Controls.Menu()

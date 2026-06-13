@@ -374,6 +374,37 @@ Controls.ScrollablePanel()
     .Build();
 ```
 
+### CollapsiblePanelBuilder
+
+```csharp
+Controls.CollapsiblePanel("Reasoning steps")
+    .Collapsed()
+    .WithHeaderStyle(CollapsibleHeaderStyle.Borderless)
+    .WithIcons("▾", "▸")
+    .WithHeaderSeparator()
+    .WithMaxContentHeight(8)
+    .AddControl(Controls.Markup()
+        .AddLine("[dim]1. Parsed the request[/]")
+        .AddLine("[dim]2. Queried the index[/]")
+        .Build())
+    .OnExpandedChanged((sender, expanded) => { /* react to toggle */ })
+    .Build();
+```
+
+A click-to-expand container whose body hosts any `IWindowControl` (it implements `IControlHost`). See [CollapsiblePanel](controls/CollapsiblePanel.md) for the full reference.
+
+**Key Methods:**
+- `Controls.CollapsiblePanel(title?)` - Create the builder, optionally seeding the title
+- `.Collapsed()` / `.Expanded()` - Initial expanded state
+- `.WithHeaderStyle(CollapsibleHeaderStyle)` - `Borderless` or `Bordered`
+- `.WithIcons(expanded, collapsed)` / `.WithExpandedIcon()` / `.WithCollapsedIcon()` - Indicator icons
+- `.WithHeaderSeparator(bool)` - Separator under a borderless header
+- `.WithMaxContentHeight(int)` - Cap the body height (wrap a `ScrollablePanel` to scroll)
+- `.WithAnimation(mode)` / `.Animated()` - Height tween on toggle
+- `.WithHeaderAlignment()`, `.WithWidth()`, `.WithBorderColor()`, `.WithBackgroundColor()`, `.WithForegroundColor()`
+- `.AddControl(IWindowControl)` - Add a body child
+- `.OnExpandedChanged(EventHandler<bool>)` - Expand/collapse event
+
 ### MenuBuilder
 
 ```csharp
@@ -714,6 +745,7 @@ Controls.Prompt(prompt)             // PromptBuilder
 Controls.Tree()                     // TreeControlBuilder
 Controls.HorizontalGrid()           // HorizontalGridBuilder
 Controls.ScrollablePanel()          // ScrollablePanelBuilder
+Controls.CollapsiblePanel(title?)   // CollapsiblePanelBuilder (click-to-expand container)
 Controls.Menu()                     // MenuBuilder
 Controls.Toolbar()                  // ToolbarBuilder
 Controls.MultilineEdit()            // MultilineEditControlBuilder

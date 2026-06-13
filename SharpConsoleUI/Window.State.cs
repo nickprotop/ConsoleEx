@@ -310,21 +310,14 @@ namespace SharpConsoleUI
 			// Fall back to the DOM node's AbsoluteBounds which tracks all controls including nested ones.
 			if (controlBounds.Width == 0 && controlBounds.Height == 0)
 			{
-				var node = _renderer?.GetLayoutNode(control);
-
-				// If this control has no LayoutNode (lives inside a self-painting container),
-				// walk up through Container to find the nearest ancestor with a LayoutNode.
-				if (node == null)
-				{
-					var current = control.Container as IWindowControl;
-					while (current != null)
-					{
-						node = _renderer?.GetLayoutNode(current);
-						if (node != null) break;
-						current = current.Container as IWindowControl;
-					}
-					if (node == null) return false;
-				}
+				// Resolve the node that actually positions this control on screen. A control inside a
+				// self-painting container (ScrollablePanelControl) has only an ORPHAN registered node
+				// (empty bounds, not reachable from the root); its real position is governed by its
+				// nearest root-reachable ancestor (the host), whose node we use instead. The host has
+				// already validated the cursor against its own viewport, so checking the cursor
+				// against the host bounds here is the correct visibility gate.
+				var node = _layoutManager.ResolveLaidOutNode(control);
+				if (node == null) return false;
 
 				var ab = node.AbsoluteBounds;
 				controlBounds = new Rectangle(ab.X, ab.Y, ab.Width, ab.Height);

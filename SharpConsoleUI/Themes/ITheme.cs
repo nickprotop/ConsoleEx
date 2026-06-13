@@ -451,6 +451,19 @@ public interface ITheme
 	/// Default implementation returns <see cref="TabHeaderForegroundColor"/>.
 	/// </summary>
 	Color TabHeaderFocusedForegroundColor => TabHeaderForegroundColor;
+	/// <summary>
+	/// Foreground color for a CollapsiblePanel header when the panel has keyboard focus.
+	/// Default implementation returns <see cref="ActiveTitleForegroundColor"/> (the active-title
+	/// accent) so existing themes keep working without code changes.
+	/// </summary>
+	Color CollapsibleHeaderFocusedForegroundColor => ActiveTitleForegroundColor;
+
+	/// <summary>
+	/// Background color for a CollapsiblePanel header when the panel has keyboard focus.
+	/// Default implementation returns <see cref="WindowBackgroundColor"/> (the normal window
+	/// background) so existing themes keep working without code changes.
+	/// </summary>
+	Color CollapsibleHeaderFocusedBackgroundColor => WindowBackgroundColor;
 
 	/// <summary>
 	/// Gets the border color for the TabControl content area. Null means use active window border color.

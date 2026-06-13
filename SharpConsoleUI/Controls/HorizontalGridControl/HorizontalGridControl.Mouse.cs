@@ -89,6 +89,10 @@ namespace SharpConsoleUI.Controls
 				return null;
 			}
 			int currentX = Margin.Left;
+			// Children are painted at childY = Margin.Top by HorizontalLayout.ArrangeChildren,
+			// so translate the incoming Y into the grid's content space — exactly mirroring the
+			// Margin.Left handling applied to X via currentX.
+			int relativeY = position.Y - Margin.Top;
 
 			for (int i = 0; i < displayControls.Count; i++)
 			{
@@ -115,7 +119,7 @@ namespace SharpConsoleUI.Controls
 					if (position.X >= currentX && position.X < currentX + columnWidth)
 					{
 						// Find the control within this column at the relative position
-						var relativePosition = new Point(position.X - currentX, position.Y);
+						var relativePosition = new Point(position.X - currentX, relativeY);
 						return column.GetControlAtPosition(relativePosition);
 					}
 					currentX += columnWidth;
@@ -133,6 +137,11 @@ namespace SharpConsoleUI.Controls
 		/// <returns>Position relative to the control</returns>
 		private Point GetControlRelativePosition(IInteractiveControl control, Point gridPosition)
 		{
+			// Children are painted at childY = Margin.Top by HorizontalLayout.ArrangeChildren,
+			// so translate Y into the grid's content space — mirroring the Margin.Left handling
+			// applied to X via columnOffset / currentX.
+			int relativeY = gridPosition.Y - Margin.Top;
+
 			// Find the column that contains this control
 			List<ColumnContainer> columns;
 			lock (_gridLock) { columns = new List<ColumnContainer>(_columns); }
@@ -142,7 +151,7 @@ namespace SharpConsoleUI.Controls
 				{
 					// Calculate the column's offset within the grid
 					var columnOffset = GetColumnOffset(column);
-					var columnRelativePosition = new Point(gridPosition.X - columnOffset, gridPosition.Y);
+					var columnRelativePosition = new Point(gridPosition.X - columnOffset, relativeY);
 
 					// Get the control's position within the column
 					return column.GetControlRelativePosition(control, columnRelativePosition);
@@ -159,7 +168,7 @@ namespace SharpConsoleUI.Controls
 
 				if (isSplitter && displayControl == control)
 				{
-					return new Point(gridPosition.X - currentX, gridPosition.Y);
+					return new Point(gridPosition.X - currentX, relativeY);
 				}
 
 				if (isSplitter)

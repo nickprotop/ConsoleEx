@@ -321,6 +321,26 @@ namespace SharpConsoleUI.Helpers
 			?? Color.Grey;
 
 		/// <summary>
+		/// Resolves the foreground color for a focused CollapsiblePanel header:
+		/// explicit → theme CollapsibleHeaderFocusedForegroundColor → theme ActiveTitleForegroundColor → Color.Cyan1.
+		/// </summary>
+		public static Color ResolveCollapsibleHeaderFocusedForeground(Color? explicitValue, IContainer? container)
+			=> explicitValue
+			?? container?.GetConsoleWindowSystem?.Theme?.CollapsibleHeaderFocusedForegroundColor
+			?? container?.GetConsoleWindowSystem?.Theme?.ActiveTitleForegroundColor
+			?? Color.Cyan1;
+
+		/// <summary>
+		/// Resolves the background color for a focused CollapsiblePanel header:
+		/// explicit → theme CollapsibleHeaderFocusedBackgroundColor → theme WindowBackgroundColor → Color.Transparent.
+		/// </summary>
+		public static Color ResolveCollapsibleHeaderFocusedBackground(Color? explicitValue, IContainer? container)
+			=> Coalesce(explicitValue)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.CollapsibleHeaderFocusedBackgroundColor)
+			?? Coalesce(container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor)
+			?? Color.Transparent;
+
+		/// <summary>
 		/// Resolves disabled tab header background: explicit → theme TabHeaderDisabledBackgroundColor → Color.Transparent.
 		/// </summary>
 		public static Color ResolveTabHeaderDisabledBackground(Color? explicitValue, IContainer? container)

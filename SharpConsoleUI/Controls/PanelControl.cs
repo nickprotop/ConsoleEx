@@ -244,213 +244,6 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Draws the top border line with optional header text embedded.
-		/// </summary>
-		private void DrawTopBorder(CharacterBuffer buffer, int x, int y, int width, LayoutRect clipRect, BoxChars box, Color borderColor, Color bgColor)
-		{
-			if (y < clipRect.Y || y >= clipRect.Bottom) return;
-
-			int innerWidth = width - 2; // minus corners
-
-			// Left corner
-			if (x >= clipRect.X && x < clipRect.Right)
-			{
-				var cellBg = bgColor;
-				buffer.SetNarrowCell(x, y, box.TopLeft, borderColor, cellBg);
-			}
-
-			if (string.IsNullOrEmpty(_header) || innerWidth < 4)
-			{
-				// No header — fill with horizontal chars
-				for (int i = 0; i < innerWidth; i++)
-				{
-					int px = x + 1 + i;
-					if (px >= clipRect.X && px < clipRect.Right)
-					{
-						var cellBg = bgColor;
-						buffer.SetNarrowCell(px, y, box.Horizontal, borderColor, cellBg);
-					}
-				}
-			}
-			else
-			{
-				// Parse header and calculate position
-				var headerCells = MarkupParser.Parse(_header, borderColor, bgColor);
-				int headerLen = headerCells.Count;
-				int headerWithSpaces = headerLen + 2; // space before and after
-
-				if (headerWithSpaces > innerWidth)
-				{
-					// Header too long — just fill with horizontal
-					for (int i = 0; i < innerWidth; i++)
-					{
-						int px = x + 1 + i;
-						if (px >= clipRect.X && px < clipRect.Right)
-						{
-							var cellBg = bgColor;
-							buffer.SetNarrowCell(px, y, box.Horizontal, borderColor, cellBg);
-						}
-					}
-				}
-				else
-				{
-					int dashSpace = innerWidth - headerWithSpaces;
-					int leftDashes, rightDashes;
-
-					switch (_headerAlignment)
-					{
-						case TextJustification.Center:
-							leftDashes = dashSpace / 2;
-							rightDashes = dashSpace - leftDashes;
-							break;
-						case TextJustification.Right:
-							leftDashes = dashSpace - 1;
-							rightDashes = 1;
-							break;
-						default: // Left
-							leftDashes = 1;
-							rightDashes = dashSpace - 1;
-							break;
-					}
-
-					int writeX = x + 1;
-
-					// Left dashes
-					for (int i = 0; i < leftDashes; i++)
-					{
-						if (writeX >= clipRect.X && writeX < clipRect.Right)
-						{
-							var cellBg = bgColor;
-							buffer.SetNarrowCell(writeX, y, box.Horizontal, borderColor, cellBg);
-						}
-						writeX++;
-					}
-
-					// Space + header + space
-					if (writeX >= clipRect.X && writeX < clipRect.Right)
-					{
-						var cellBg = bgColor;
-						buffer.SetNarrowCell(writeX, y, ' ', borderColor, cellBg);
-					}
-					writeX++;
-
-					foreach (var cell in headerCells)
-					{
-						if (writeX >= clipRect.X && writeX < clipRect.Right)
-						{
-							buffer.SetCell(writeX, y, cell);
-						}
-						writeX++;
-					}
-
-					if (writeX >= clipRect.X && writeX < clipRect.Right)
-					{
-						var cellBg = bgColor;
-						buffer.SetNarrowCell(writeX, y, ' ', borderColor, cellBg);
-					}
-					writeX++;
-
-					// Right dashes
-					for (int i = 0; i < rightDashes; i++)
-					{
-						if (writeX >= clipRect.X && writeX < clipRect.Right)
-						{
-							var cellBg = bgColor;
-							buffer.SetNarrowCell(writeX, y, box.Horizontal, borderColor, cellBg);
-						}
-						writeX++;
-					}
-				}
-			}
-
-			// Right corner
-			int rightX = x + width - 1;
-			if (rightX >= clipRect.X && rightX < clipRect.Right)
-			{
-				var cellBg = bgColor;
-				buffer.SetNarrowCell(rightX, y, box.TopRight, borderColor, cellBg);
-			}
-		}
-
-		/// <summary>
-		/// Draws the bottom border line.
-		/// </summary>
-		private void DrawBottomBorder(CharacterBuffer buffer, int x, int y, int width, LayoutRect clipRect, BoxChars box, Color borderColor, Color bgColor)
-		{
-			if (y < clipRect.Y || y >= clipRect.Bottom) return;
-
-			if (x >= clipRect.X && x < clipRect.Right)
-			{
-				var cellBg = bgColor;
-				buffer.SetNarrowCell(x, y, box.BottomLeft, borderColor, cellBg);
-			}
-
-			int innerWidth = width - 2;
-			for (int i = 0; i < innerWidth; i++)
-			{
-				int px = x + 1 + i;
-				if (px >= clipRect.X && px < clipRect.Right)
-				{
-					var cellBg = bgColor;
-					buffer.SetNarrowCell(px, y, box.Horizontal, borderColor, cellBg);
-				}
-			}
-
-			int rightX = x + width - 1;
-			if (rightX >= clipRect.X && rightX < clipRect.Right)
-			{
-				var cellBg = bgColor;
-				buffer.SetNarrowCell(rightX, y, box.BottomRight, borderColor, cellBg);
-			}
-		}
-
-		/// <summary>
-		/// Draws a row with vertical borders and content between them.
-		/// </summary>
-		private void DrawBorderedRow(CharacterBuffer buffer, int x, int y, int width, LayoutRect clipRect, BoxChars box, Color borderColor, Color bgColor, List<Cell>? contentCells = null, int contentOffset = 0)
-		{
-			if (y < clipRect.Y || y >= clipRect.Bottom) return;
-
-			int innerWidth = width - 2;
-
-			// Left border
-			if (x >= clipRect.X && x < clipRect.Right)
-			{
-				var cellBg = bgColor;
-				buffer.SetNarrowCell(x, y, box.Vertical, borderColor, cellBg);
-			}
-
-			// Inner area
-			int innerX = x + 1;
-			for (int i = 0; i < innerWidth; i++)
-			{
-				int px = innerX + i;
-				if (px >= clipRect.X && px < clipRect.Right)
-				{
-					int contentIdx = i - _padding.Left;
-					if (contentCells != null && contentIdx >= 0 && contentIdx < contentCells.Count)
-					{
-						var cell = contentCells[contentIdx];
-						buffer.SetCell(px, y, cell);
-					}
-					else
-					{
-						var cellBg = bgColor;
-						buffer.SetNarrowCell(px, y, ' ', borderColor, cellBg);
-					}
-				}
-			}
-
-			// Right border
-			int rightX = x + width - 1;
-			if (rightX >= clipRect.X && rightX < clipRect.Right)
-			{
-				var cellBg = bgColor;
-				buffer.SetNarrowCell(rightX, y, box.Vertical, borderColor, cellBg);
-			}
-		}
-
-		/// <summary>
 		/// Calculates content lines for the given inner width.
 		/// When WordWrap is true, long lines are word-wrapped.
 		/// When WordWrap is false, long lines are clipped at innerContentWidth.
@@ -729,7 +522,7 @@ namespace SharpConsoleUI.Controls
 					if (Margin.Left > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
 						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), fgColor, effectiveBg);
 
-					DrawTopBorder(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, effectiveBg);
+					PanelBorderRenderer.DrawTopBorder(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, effectiveBg, _header, _headerAlignment);
 
 					// Fill right margin
 					if (Margin.Right > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
@@ -746,7 +539,7 @@ namespace SharpConsoleUI.Controls
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), fgColor, effectiveBg);
 
 				if (hasBorder)
-					DrawBorderedRow(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, effectiveBg);
+					PanelBorderRenderer.DrawBorderedRow(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, effectiveBg);
 				else if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, currentY, targetWidth, 1), fgColor, effectiveBg);
 
@@ -767,7 +560,7 @@ namespace SharpConsoleUI.Controls
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), fgColor, effectiveBg);
 
 				if (hasBorder)
-					DrawBorderedRow(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, effectiveBg, contentLines[i]);
+					PanelBorderRenderer.DrawBorderedRow(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, effectiveBg, contentLines[i], _padding.Left);
 				else
 				{
 					// No border — just draw content with padding
@@ -798,7 +591,7 @@ namespace SharpConsoleUI.Controls
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), fgColor, effectiveBg);
 
 				if (hasBorder)
-					DrawBorderedRow(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, effectiveBg);
+					PanelBorderRenderer.DrawBorderedRow(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, effectiveBg);
 				else if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, currentY, targetWidth, 1), fgColor, effectiveBg);
 
@@ -814,7 +607,7 @@ namespace SharpConsoleUI.Controls
 				if (Margin.Left > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), fgColor, effectiveBg);
 
-				DrawBottomBorder(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, effectiveBg);
+				PanelBorderRenderer.DrawBottomBorder(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, effectiveBg);
 
 				if (Margin.Right > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), fgColor, effectiveBg);

@@ -290,6 +290,14 @@ public static class Controls
 	/// <returns>A new panel builder</returns>
 	public static PanelBuilder Panel() => new PanelBuilder();
 
+	/// <summary>Creates a fluent builder for a CollapsiblePanel, optionally seeding the title.</summary>
+	public static CollapsiblePanelBuilder CollapsiblePanel(string? title = null)
+	{
+		var b = new CollapsiblePanelBuilder();
+		if (title != null) b.WithTitle(title);
+		return b;
+	}
+
 	/// <summary>
 	/// Creates a panel control with text content
 	/// </summary>

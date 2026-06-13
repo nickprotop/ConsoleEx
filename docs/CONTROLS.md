@@ -94,6 +94,7 @@ Controls for organizing other controls.
 | **[HorizontalGridControl](controls/HorizontalGridControl.md)** | Multi-column layout | Variable-width columns, alignment, splitters |
 | **SplitterControl** | Resizable divider | Drag to resize adjacent columns |
 | **[TabControl](controls/TabControl.md)** | Multi-page tab container | Tab headers, keyboard/mouse switching, state preservation |
+| **[CollapsiblePanel](controls/CollapsiblePanel.md)** | Click-to-expand container | Borderless/bordered header, markup title, custom icons, MaxContentHeight, IControlHost |
 | **[NavigationView](controls/NavigationView.md)** | Sidebar navigation + content area | WinUI-inspired nav pane, responsive display modes (Expanded/Compact/Minimal), content factories, gradient-transparent |
 | **[ToolbarControl](controls/ToolbarControl.md)** | Horizontal button toolbar | Auto-height, wrapping, separator lines, content padding, Tab navigation |
 | **[StatusBarControl](controls/StatusBarControl.md)** | Three-zone status bar | Left/center/right zones, clickable items, shortcut hints, above line separator |
@@ -214,7 +215,7 @@ public interface IControlHost
 }
 ```
 
-Implemented by: `ScrollablePanelControl`, `ColumnContainer`, `Window`.
+Implemented by: `ScrollablePanelControl`, `ColumnContainer`, `CollapsiblePanel`, `Window`.
 
 Not implemented by `TabControl` (tabs are title-keyed pages), `MenuControl` (children are `MenuItem`, not `IWindowControl`), `ToolbarControl`, or `NavigationView` — their child models are not a flat `IWindowControl` list, so forcing the contract would mean throwing `NotSupportedException`.
 
@@ -353,6 +354,7 @@ Browse detailed documentation for specific controls:
 ### Advanced Controls
 - [TableControl](controls/TableControl.md) - Interactive data grid with virtual data
 - [TabControl](controls/TabControl.md) - Multi-page tab container
+- [CollapsiblePanel](controls/CollapsiblePanel.md) - Click-to-expand container for progressive disclosure
 - [NavigationView](controls/NavigationView.md) - Sidebar navigation with content area
 - [CanvasControl](controls/CanvasControl.md) - Free-form drawing surface
 - [TerminalControl](controls/TerminalControl.md) - Embedded PTY terminal (Linux)

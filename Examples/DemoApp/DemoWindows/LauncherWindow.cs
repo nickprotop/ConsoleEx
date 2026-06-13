@@ -31,6 +31,7 @@ public static class LauncherWindow
 				.AddItem("IDE Layout", subtitle: "IDE-like application UI", content: MakeInfoPanel("IDE Layout"))
 				.AddItem("File Explorer", subtitle: "Filesystem browser", content: MakeInfoPanel("File Explorer"))
 				.AddItem("Multi-Tab Demo", subtitle: "TabControl with multiple tabs", content: MakeInfoPanel("Multi-Tab Demo"))
+					.AddItem("Collapsible Panel", subtitle: "Click-to-expand sections — FAQ & AI-agent logs", content: MakeInfoPanel("Collapsible Panel"))
 				.AddItem("WinUI Layout", subtitle: "WinUI-inspired settings layout", content: MakeInfoPanel("WinUI Layout"))
 				.AddItem("Horizontal Splitter", subtitle: "Drag-to-resize horizontal bars", content: MakeInfoPanel("Horizontal Splitter"))
 				.AddItem("Status Bar", subtitle: "Clickable status bar with zones", content: MakeInfoPanel("Status Bar"))
@@ -227,6 +228,7 @@ public static class LauncherWindow
 			"IDE Layout" => IdeLayoutWindow.Create(ws),
 			"File Explorer" => FileExplorerWindow.Create(ws),
 			"Multi-Tab Demo" => TabDemoWindow.Create(ws),
+			"Collapsible Panel" => CollapsibleDemoWindow.Create(ws),
 			"WinUI Layout" => WinUIDemoWindow.Create(ws),
 			"Horizontal Splitter" => HorizontalSplitterDemoWindow.Create(ws),
 			"Status Bar" => StatusBarDemoWindow.Create(ws),
@@ -327,6 +329,28 @@ public static class LauncherWindow
 				"[dim]Controls used:[/]",
 				"  - TabControl, MarkupControl",
 				"  - ScrollablePanelControl",
+			},
+			"Collapsible Panel" => new List<string>
+			{
+				"[bold cyan]Collapsible Panel[/]",
+				"",
+				"Click-to-expand sections that show/hide their body.",
+				"Built for FAQ accordions and AI-agent transcripts,",
+				"where each step expands on demand.",
+				"",
+				"[dim]Features:[/]",
+				"  - Markup-capable header titles",
+				"  - Borderless or Bordered header styles",
+				"  - Custom expand/collapse icons",
+				"  - Optional header separator rule",
+				"  - Opt-in height animation (.Animated())",
+				"  - MaxContentHeight cap + scrollable body",
+				"  - Mouse click and Enter/Space activation",
+				"",
+				"[dim]Controls used:[/]",
+				"  - CollapsiblePanel, MarkupControl",
+				"  - TableControl, ScrollablePanelControl",
+				"  - HorizontalGridControl, RuleControl",
 			},
 			"WinUI Layout" => new List<string>
 			{

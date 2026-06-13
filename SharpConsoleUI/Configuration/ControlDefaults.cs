@@ -422,6 +422,25 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int NavigationViewItemOverhead = 4;
 
+		#region CollapsiblePanel
+
+		/// <summary>Default indicator shown on a CollapsiblePanel header when expanded (U+25BE, narrow ▾).</summary>
+		public const string CollapsiblePanelExpandedIcon = "▾";
+
+		/// <summary>Default indicator shown on a CollapsiblePanel header when collapsed (U+25B8, narrow ▸).</summary>
+		public const string CollapsiblePanelCollapsedIcon = "▸";
+
+		/// <summary>Height in rows of a borderless CollapsiblePanel header (excluding optional separator).</summary>
+		public const int CollapsiblePanelBorderlessHeaderHeight = 1;
+
+		/// <summary>Rows added below a borderless header when ShowHeaderSeparator is enabled.</summary>
+		public const int CollapsiblePanelHeaderSeparatorHeight = 1;
+
+		/// <summary>Duration in milliseconds of the CollapsiblePanel height animation when enabled.</summary>
+		public const int CollapsiblePanelAnimationDurationMs = 150;
+
+		#endregion
+
 		// DatePicker defaults
 
 		/// <summary>
