@@ -451,7 +451,7 @@ namespace SharpConsoleUI.Controls
 				if (_headerStyle == CollapsibleHeaderStyle.Bordered)
 					return 1; // top border row; box frames the body below. When the header is
 							  // hidden this row becomes a plain (titleless) top border.
-				// Borderless: a hidden header occupies no rows at all.
+							  // Borderless: a hidden header occupies no rows at all.
 				if (!EffectiveShowHeader)
 					return 0;
 				int h = ControlDefaults.CollapsiblePanelBorderlessHeaderHeight;
