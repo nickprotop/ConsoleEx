@@ -23,6 +23,9 @@ MarkupControl displays multi-line text with rich formatting using SharpConsoleUI
 | `CopyKey` | `ConsoleKey` | `C` | Key that triggers a copy |
 | `CopyModifiers` | `ConsoleModifiers` | `Control` | Modifiers required for the copy shortcut |
 | `MarkdownStyle` | `MarkdownStyle?` | `null` | Per-control style for `[markdown]` content; `null` uses `MarkdownStyle.Default` (see [Markdown](#markdown)) |
+| `IsEnabled` | `bool` | `true` | Whether the control accepts keyboard input (link navigation). A disabled control is never a focus stop |
+| `FocusedLinkForegroundColor` | `Color?` | `null` | Foreground for the keyboard-focused link highlight; `null` uses a high-contrast default (see [Links](#links)) |
+| `FocusedLinkBackgroundColor` | `Color?` | `null` | Background for the keyboard-focused link highlight; `null` uses a high-contrast default |
 
 ## Methods
 
@@ -42,6 +45,7 @@ MarkupControl displays multi-line text with rich formatting using SharpConsoleUI
 
 | Event | Type | Description |
 |-------|------|-------------|
+| `LinkClicked` | `EventHandler<LinkClickedEventArgs>` | Fires when a rendered link is activated by mouse click **or** keyboard (Enter); payload exposes `Url` and `Text` (see [Links](#links)) |
 | `SelectionChanged` | `EventHandler<string>` | Fires when the selection changes; payload is the selected plain text (empty when cleared) |
 | `TextSelectionChanged` | `EventHandler<TextSelectionChangedEventArgs>` | Richer companion carrying `HasSelection` and `SelectedText`; fires together with `SelectionChanged` |
 | `MouseRightClick` | `EventHandler<MouseEventArgs>` | Fires on right-click (surface for a context menu — see below) |
@@ -536,16 +540,19 @@ window.AddControl(
 
 ### Links/References
 
+See [Links](#links) below for clickable, keyboard-navigable links (both hand-written markup
+and links inside `[markdown]` content). A quick example:
+
 ```csharp
-window.AddControl(
-    Controls.Markup()
-        .AddLine("[bold]Documentation:[/]")
-        .AddLine("")
-        .AddLine("  [link]https://github.com/example/docs[/]")
-        .AddLine("  [blue underline]User Guide[/]")
-        .AddLine("  [blue underline]API Reference[/]")
-        .Build()
-);
+var docs = Controls.Markup()
+    .AddLine("[bold]Documentation:[/]")
+    .AddLine("")
+    .AddLine("[link=https://github.com/example/docs]Repository[/]")
+    .AddLine("[link=https://example.com/guide]User Guide[/]")
+    .OnLinkClicked((sender, e) => OpenInBrowser(e.Url))
+    .Build();
+
+window.AddControl(docs);
 ```
 
 ## Helper Methods
@@ -667,9 +674,86 @@ var status = Controls.Markup("Loading [yellow][spinner][/] please wait").Build()
 
 The spinner animates automatically while the window system is running. See [Markup Syntax → Spinner](../MARKUP_SYNTAX.md#spinner-animated) for all styles.
 
+## Links
+
+MarkupControl supports **clickable, keyboard-navigable links**. A link is written with the
+`[link=<url>]…[/]` tag and renders as styled text (by default the Markdown link color, underlined),
+exactly as it looks today — but the URL is now preserved and the link is interactive.
+
+```csharp
+var c = Controls.Markup()
+    .AddLine("See the [link=https://example.com/docs]documentation[/] for details.")
+    .OnLinkClicked((sender, e) => OpenInBrowser(e.Url))   // e.Url, e.Text
+    .Build();
+```
+
+Links also come for free from Markdown — a Markdown `[text](url)` inside a `[markdown]` region (or
+via `SetMarkdown` / `Controls.Markdown(...)`) is translated into a `[link=…]` span by the Markdown
+parser, so rendered Markdown links are clickable too. Bare autolinks (`<https://example.com>`) work
+as well.
+
+### Activating links
+
+- **Mouse:** clicking a link raises `LinkClicked`. (Clicking does **not** move keyboard focus — mouse
+  behavior is unchanged from a display-only control.)
+- **Keyboard:** when a control contains at least one link it becomes a single **Tab stop**. Once
+  focused, **Left/Right arrows** move the highlight between links (in document order), and **Enter**
+  activates the focused link (raising `LinkClicked`). **Tab/Shift+Tab** move focus to the next/previous
+  control; **Up/Down/PageUp/PageDown** are passed through to an enclosing scroll container.
+
+```csharp
+markup.LinkClicked += (sender, e) =>
+{
+    // e.Url  — the link target (already unescaped)
+    // e.Text — the visible link text
+    // e.Mouse — the originating MouseEventArgs, or null for keyboard activation
+    OpenInBrowser(e.Url);
+};
+```
+
+`LinkClickedEventArgs` is the same type used by [HtmlControl](HtmlControl.md), so link handling is
+consistent across both controls.
+
+### Focusability is automatic and content-gated
+
+- A MarkupControl with **no links** is **not focusable** and is skipped by Tab traversal — its
+  behavior is identical to a plain display label. This preserves backward compatibility for existing
+  display-only markup.
+- A MarkupControl that **has links** automatically becomes keyboard-reachable (one Tab stop). No flag
+  to set. If you need to suppress it for a specific control, set `IsEnabled = false` (it then accepts
+  no keyboard input and is not a focus stop) — or hide it (`Visible = false`).
+- When the focused link is scrolled out of view inside a `ScrollablePanelControl` (even several
+  container levels up), arrow-navigating to it scrolls it into view automatically.
+
+### Focus highlight colors
+
+The keyboard-focused link is drawn with a definite high-contrast highlight (a swap of the link's own
+colors would be unreadable over a transparent background). Override per control or via the builder:
+
+```csharp
+var markup = new MarkupControl(new List<string> { "[link=u]link[/]" })
+{
+    FocusedLinkForegroundColor = Color.Black,
+    FocusedLinkBackgroundColor = new Color(235, 175, 60)   // amber (the default)
+};
+
+// Or via the builder:
+Controls.Markup("[link=https://x]click[/]")
+    .WithFocusedLinkColors(Color.Black, new Color(235, 175, 60))
+    .OnLinkClicked((_, e) => OpenInBrowser(e.Url))
+    .Build();
+```
+
+### URL escaping
+
+The URL inside `[link=…]` is percent-escaped so characters like `]`, `[`, space, and `%` cannot break
+the markup parser; this is handled automatically by the Markdown translator and by `LinkUrl.Escape`.
+Hand-written `[link=…]` tags should likewise percent-escape a `]` in the URL as `%5D` (rare in
+practice).
+
 ## Markdown
 
-MarkupControl content may contain the `[markdown]…[/]` tag, which parses its inner text as Markdown (headings, lists, emphasis, code blocks, blockquotes, links, tables) and renders it as native markup. Copied text stays plain.
+MarkupControl content may contain the `[markdown]…[/]` tag, which parses its inner text as Markdown (headings, lists, emphasis, code blocks, blockquotes, links, tables) and renders it as native markup. Markdown links (`[text](url)`) and autolinks become clickable `[link=…]` spans — see [Links](#links). Copied text stays plain.
 
 ```csharp
 var c = Controls.Markdown("# Report\n\n**Status:** OK\n\n- one\n- two").Build();

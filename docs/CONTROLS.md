@@ -61,7 +61,7 @@ Controls for displaying formatted content.
 
 | Control | Description | Details |
 |---------|-------------|---------|
-| **[MarkupControl](controls/MarkupControl.md)** | Rich text with markup | Colors, bold, italic, links using `[markup]` syntax; renders Markdown via the [`[markdown]` tag](MARKUP_SYNTAX.md#markdown) |
+| **[MarkupControl](controls/MarkupControl.md)** | Rich text with markup | Colors, bold, italic, **clickable & keyboard-navigable links** (`[link=url]`); renders Markdown (incl. links) via the [`[markdown]` tag](MARKUP_SYNTAX.md#markdown) |
 | **[HtmlControl](controls/HtmlControl.md)** | HTML content renderer | Parse & render HTML with images, links, tables, keyboard navigation |
 | **[FigleControl](controls/FigleControl.md)** | ASCII art text (Figlet) | Large stylized text, multiple fonts |
 | **[LogViewerControl](controls/LogViewerControl.md)** | Log message viewer | Auto-scroll, filtering, severity colors |

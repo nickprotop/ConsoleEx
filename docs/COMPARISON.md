@@ -112,14 +112,15 @@ Neither Terminal.Gui nor XenoAtom.Terminal.UI offer window-level gradients that 
 | Graph view | -- | GraphView | LineChart, BreakdownChart | -- |
 | Color picker | -- | ColorPicker (RGB/HSL) | ColorPicker | -- |
 | Radio button | -- | OptionSelector | RadioButtonList | -- |
-| Accordion | -- | -- | Accordion, Collapsible | -- |
+| Accordion / collapsible | -- | -- | Accordion, Collapsible | **CollapsiblePanel** |
+| Hyperlinks (clickable) | `[link]` markup (OSC 8, terminal-handled) | `Link` view (clickable, keyboard) | Markdown renders links (click handling unconfirmed) | **`[link=url]` markup + Markdown links, in-app `LinkClicked` event, keyboard-navigable** |
 | Markdown | -- | Yes (Markdig) | MarkdownControl (Markdig) | **`[markdown]` tag (Markdig, works in every markup control)** |
 | Syntax highlighting | -- | Partial (TextMateSharp) | Yes (TextMateSharp) | **13 built-in (regex) + registry** |
 | Video playback | -- | -- | -- | **VideoControl (half-block + Kitty)** |
 | Wizard / stepper | -- | Wizard | -- | -- |
 | Toast notifications | -- | -- | ToastService | **NotificationSystem** |
 
-**Honest take:** Terminal.Gui (v2 GA) has the most mature and widest control library -- battle-tested over years, with specialized widgets like ColorPicker, HexView, and Wizard. XenoAtom.Terminal.UI is only ~5 months old but evolving fast (v3.7) and already ships a broad control set plus markdown, terminal graphics (Kitty/Sixel/iTerm2), and TextMate-based syntax highlighting. SharpConsoleUI now covers most common control types (DatePicker, TimePicker, Slider, RangeSlider) and its distinctive strengths are interactive/live controls (TerminalControl, SparklineControl, BarGraphControl, VideoControl, CanvasControl with 30+ drawing primitives), per-cell alpha blending, row-level animations, markup-everywhere (including `[markdown]`), and the window management + compositor layer.
+**Honest take:** Terminal.Gui (v2 GA) has the most mature and widest control library -- battle-tested over years, with specialized widgets like ColorPicker, HexView, and Wizard. XenoAtom.Terminal.UI is only ~5 months old but evolving fast (v3.7) and already ships a broad control set plus markdown, terminal graphics (Kitty/Sixel/iTerm2), and TextMate-based syntax highlighting. SharpConsoleUI now covers most common control types (DatePicker, TimePicker, Slider, RangeSlider, CollapsiblePanel) and its distinctive strengths are interactive/live controls (TerminalControl, SparklineControl, BarGraphControl, VideoControl, CanvasControl with 30+ drawing primitives), per-cell alpha blending, row-level animations, markup-everywhere (including `[markdown]` and clickable links), and the window management + compositor layer.
 
 ### Window Management
 
@@ -182,7 +183,7 @@ var button = Controls.Button()
 | Tab headers, Dropdowns | Yes |
 | Prompts, Panels, Rules | Yes |
 | Bar graph labels | Yes |
-| MarkupControl | Yes (entire content) |
+| MarkupControl | Yes (entire content, incl. clickable links) |
 | Status bars | Yes |
 
 The markup pipeline also renders **Markdown**, via a parser-level `[markdown]` tag (Markdig-based) rather than a dedicated control. Because it lives in the markup parser, every one of the ~25 markup-rendering controls -- buttons, list items, tree nodes, table cells, tab headers, the status bar -- can render Markdown, mixed inline with native markup in the same string. Fenced code blocks pick up the built-in syntax highlighters, and copied text falls back to plain text. Other libraries expose Markdown as a single dedicated control; here it is available anywhere markup is.
@@ -199,6 +200,17 @@ var label = Controls.Markup()
 - **Terminal.Gui** has no markup system. Styling requires working with `ColorScheme` objects and attribute-based formatting. v2 adds `VisualRole` semantic styling, but no inline markup syntax.
 - **XenoAtom.Terminal.UI** has its own markup and `Brush` system (including gradient brushes for text), but it's a separate syntax incompatible with Spectre.Console. No `IRenderable` bridge.
 - **SharpConsoleUI** parses Spectre-compatible markup directly into cells (no ANSI roundtrip) and supports any Spectre `IRenderable` (Tables, Charts, BarCharts) as a control via `SpectreRenderableControl`. This extends Spectre.Console rather than replacing it.
+
+### Hyperlinks
+
+All four libraries can show links, but they handle the *click* very differently:
+
+- **Spectre.Console** emits **OSC 8** terminal hyperlinks via `[link]` / `[link=url]` markup. The terminal (Windows Terminal, iTerm2, etc.) makes them clickable; on terminals without OSC 8 support they render as plain text. Because Spectre is output-only with no event loop, the **application never learns a link was clicked** — the terminal owns the action.
+- **Terminal.Gui v2** has a dedicated `Link` view: clickable and keyboard-activatable (HotKey / Enter / Space), the framework opens the URL itself (`Process.Start` / `open` / `xdg-open`, with a scheme allow-list) and also emits OSC 8. A solid, self-contained link widget.
+- **XenoAtom.Terminal.UI** renders Markdown links (Markdig) and has OSC 8 *parsing* infrastructure; whether Markdown links are clickable in-app is unconfirmed in its docs.
+- **SharpConsoleUI** takes the **in-app event** approach: a `[link=url]` markup tag (and Markdown `[text](url)` inside `[markdown]` regions) renders styled link text and raises a **`LinkClicked` event** carrying the URL and visible text. The application decides what to do — open a browser, navigate within the app, copy the URL, anything. Links are also **keyboard-navigable**: a markup control with links becomes a Tab stop, Left/Right move between links and Enter activates. Because the link lives in the markup parser, *any* markup-rendering control (and `HtmlControl`) gets clickable links, not just one dedicated widget.
+
+The practical difference: Spectre hands the click to the terminal; Terminal.Gui opens the URL for you; SharpConsoleUI hands the click to *your code* as an event, so an app can do something other than "open in browser" (in-app routing, previews, custom schemes) and stays in control.
 
 ### Layout System
 
