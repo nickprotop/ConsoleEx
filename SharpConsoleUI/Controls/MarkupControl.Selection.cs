@@ -402,8 +402,9 @@ namespace SharpConsoleUI.Controls
 				if (!wasSelecting)
 				{
 					ClearSelection();
-					// Surface a plain click so existing MouseClick subscribers still work.
-					MouseClick?.Invoke(this, args);
+					// Link click takes priority; only surface a plain click if no link was hit.
+					if (!TryRaiseLinkClick(args))
+						MouseClick?.Invoke(this, args);
 				}
 				handled = true;
 				return true;

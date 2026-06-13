@@ -37,6 +37,7 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	private ConsoleKey _copyKey = ConsoleKey.C;
 	private ConsoleModifiers _copyModifiers = ConsoleModifiers.Control;
 	private Func<Configuration.MarkdownStyle, Configuration.MarkdownStyle>? _markdownStyleConfig;
+	private EventHandler<LinkClickedEventArgs>? _linkClickedHandler;
 
 	/// <summary>
 	/// Adds a line of markup text
@@ -364,6 +365,17 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	}
 
 	/// <summary>
+	/// Sets the handler raised when a rendered link is clicked.
+	/// </summary>
+	/// <param name="handler">The LinkClicked event handler.</param>
+	/// <returns>The builder for chaining.</returns>
+	public MarkupBuilder OnLinkClicked(EventHandler<LinkClickedEventArgs> handler)
+	{
+		_linkClickedHandler = handler;
+		return this;
+	}
+
+	/// <summary>
 	/// Builds the markup control
 	/// </summary>
 	/// <returns>The configured markup control</returns>
@@ -391,6 +403,9 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 			CopyKey = _copyKey,
 			CopyModifiers = _copyModifiers
 		};
+
+		if (_linkClickedHandler != null)
+			markup.LinkClicked += _linkClickedHandler;
 
 		BindingHelper.ApplyDeferredBindings(this, markup);
 		return markup;

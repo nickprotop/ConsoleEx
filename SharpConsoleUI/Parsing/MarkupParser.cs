@@ -28,7 +28,18 @@ namespace SharpConsoleUI.Parsing
 		/// Also supports the inline [spinner] / [spinner &lt;style&gt;] tag, which renders an animated spinner glyph.
 		/// </summary>
 		public static List<Cell> Parse(string markup, Color defaultFg, Color defaultBg)
+			=> Parse(markup, defaultFg, defaultBg, out _);
+
+		private const string LinkTagPrefix = "link=";
+
+		/// <summary>
+		/// Parses markup into cells, additionally reporting clickable link spans recorded from
+		/// <c>[link=&lt;escaped-url&gt;]…[/]</c> tags (half-open <c>[StartCol,EndCol)</c> in display columns).
+		/// </summary>
+		public static List<Cell> Parse(string markup, Color defaultFg, Color defaultBg, out List<LinkSpan> links)
 		{
+			links = new List<LinkSpan>();
+
 			if (string.IsNullOrEmpty(markup))
 				return new List<Cell>();
 
@@ -40,6 +51,8 @@ namespace SharpConsoleUI.Parsing
 
 			var cells = new List<Cell>();
 			var styleStack = new Stack<MarkupStyle>();
+			var linkStack = new Stack<(int startCell, string url)>();
+			var frameIsLink = new Stack<bool>(); // one entry per pushed scope ([style tag] OR [link=…])
 			bool fillToWidth = false;
 			var currentFg = defaultFg;
 			var currentBg = defaultBg;
@@ -116,11 +129,33 @@ namespace SharpConsoleUI.Parsing
 						continue;
 					}
 
+					// [link=<escaped-url>] — structural: no cell, no style. Opens a link scope.
+					if (tagContent.StartsWith(LinkTagPrefix, StringComparison.OrdinalIgnoreCase))
+					{
+						string url = LinkUrl.Unescape(tagContent.Substring(LinkTagPrefix.Length));
+						linkStack.Push((cells.Count, url));
+						frameIsLink.Push(true);
+						continue;
+					}
+
 					if (tagContent == "/")
 					{
-						// Close most recent style
-						if (styleStack.Count > 0)
+						if (frameIsLink.Count > 0 && frameIsLink.Peek())
 						{
+							frameIsLink.Pop();
+							var (start, url) = linkStack.Pop();
+							int end = cells.Count;
+							if (end > start)
+							{
+								var sb = new System.Text.StringBuilder();
+								for (int c = start; c < end; c++)
+									if (!cells[c].IsWideContinuation) sb.Append(cells[c].Character.ToString());
+								links.Add(new LinkSpan(start, end, url, sb.ToString()));
+							}
+						}
+						else if (styleStack.Count > 0)
+						{
+							if (frameIsLink.Count > 0) frameIsLink.Pop(); // pops the matching 'false' marker
 							styleStack.Pop();
 							RebuildCurrentStyle(styleStack, defaultFg, defaultBg, out currentFg, out currentBg, out currentDec);
 						}
@@ -173,6 +208,7 @@ namespace SharpConsoleUI.Parsing
 						else
 						{
 							styleStack.Push(style);
+							frameIsLink.Push(false);
 							if (style.Foreground.HasValue) currentFg = style.Foreground.Value;
 							if (style.Background.HasValue) currentBg = style.Background.Value;
 							currentDec |= style.AddedDecorations;
@@ -522,9 +558,29 @@ namespace SharpConsoleUI.Parsing
 		/// <param name="defaultBg">Default background color.</param>
 		/// <returns>List of cell lists, one per wrapped line.</returns>
 		public static List<List<Cell>> ParseLines(string markup, int width, Color defaultFg, Color defaultBg)
+			=> ParseLines(markup, width, defaultFg, defaultBg, out _);
+
+		/// <summary>
+		/// Word-wrapping parse that also reports per-row link spans, re-sliced so a link crossing a
+		/// wrap boundary becomes one span per row (each carrying the same URL/Text).
+		/// </summary>
+		/// <param name="markup">Markup string to parse and wrap.</param>
+		/// <param name="width">Maximum width per line in visible characters.</param>
+		/// <param name="defaultFg">Default foreground color.</param>
+		/// <param name="defaultBg">Default background color.</param>
+		/// <param name="linksPerLine">
+		/// Receives one link-span list per returned row (empty list when a row has no links). Always
+		/// index-aligned with the returned cell rows.
+		/// </param>
+		/// <returns>List of cell lists, one per wrapped line.</returns>
+		public static List<List<Cell>> ParseLines(string markup, int width, Color defaultFg, Color defaultBg, out List<List<LinkSpan>> linksPerLine)
 		{
+			linksPerLine = new List<List<LinkSpan>>();
 			if (string.IsNullOrEmpty(markup) || width <= 0)
+			{
+				linksPerLine.Add(new List<LinkSpan>());
 				return new List<List<Cell>> { new List<Cell>() };
+			}
 
 			// Expand any [markdown]…[/] regions before splitting on newlines,
 			// otherwise a multi-line region would be torn apart by the split.
@@ -536,16 +592,25 @@ namespace SharpConsoleUI.Parsing
 			var explicitLines = markup.Split('\n');
 			foreach (var line in explicitLines)
 			{
-				var cells = Parse(line, defaultFg, defaultBg);
+				var cells = Parse(line, defaultFg, defaultBg, out var lineSpans);
 				if (cells.Count <= width)
 				{
 					result.Add(cells);
+					linksPerLine.Add(lineSpans);
 				}
 				else
 				{
 					// Word-wrap this line
+					int beforeRows = result.Count;
 					WrapCellLine(cells, width, result);
+					SliceSpansAcrossRows(cells, result, beforeRows, lineSpans, linksPerLine);
 				}
+			}
+
+			if (result.Count == 0)
+			{
+				result.Add(new List<Cell>());
+				linksPerLine.Add(new List<LinkSpan>());
 			}
 
 			return result;
@@ -791,6 +856,10 @@ namespace SharpConsoleUI.Parsing
 
 		#region Word Wrapping
 
+		/// <summary>True if the cell is a literal space usable as a wrap break point (not a wide-char continuation).</summary>
+		private static bool IsBreakableSpace(Cell cell)
+			=> cell.Character == new Rune(' ') && !cell.IsWideContinuation;
+
 		private static void WrapCellLine(List<Cell> cells, int width, List<List<Cell>> output)
 		{
 			int start = 0;
@@ -812,10 +881,8 @@ namespace SharpConsoleUI.Parsing
 
 				int wordBreak = breakAt;
 
-				var spaceRune = new Rune(' ');
-
 				// If the character just past the width is a space, break there
-				if (breakAt < cells.Count && cells[breakAt].Character == spaceRune && !cells[breakAt].IsWideContinuation)
+				if (breakAt < cells.Count && IsBreakableSpace(cells[breakAt]))
 				{
 					wordBreak = breakAt;
 				}
@@ -824,7 +891,7 @@ namespace SharpConsoleUI.Parsing
 					// Search backward for a space (skip continuation cells)
 					for (int j = breakAt - 1; j > start; j--)
 					{
-						if (cells[j].Character == spaceRune && !cells[j].IsWideContinuation)
+						if (IsBreakableSpace(cells[j]))
 						{
 							wordBreak = j + 1; // break after space
 							break;
@@ -834,15 +901,54 @@ namespace SharpConsoleUI.Parsing
 
 				int count = wordBreak - start;
 				// Trim trailing spaces from the line (but not continuation cells)
-				while (count > 0 && cells[start + count - 1].Character == spaceRune && !cells[start + count - 1].IsWideContinuation)
+				while (count > 0 && IsBreakableSpace(cells[start + count - 1]))
 					count--;
 
 				output.Add(cells.GetRange(start, count));
 
 				// Skip leading spaces on next line
 				start = wordBreak;
-				while (start < cells.Count && cells[start].Character == spaceRune && !cells[start].IsWideContinuation)
+				while (start < cells.Count && IsBreakableSpace(cells[start]))
 					start++;
+			}
+		}
+
+		/// <summary>
+		/// Distributes the original line's <paramref name="lineSpans"/> onto the wrapped rows
+		/// (indices <paramref name="beforeRows"/>..end of <paramref name="rows"/>). Each row gets the
+		/// portion of every span inside its column window; a span crossing a wrap boundary yields one
+		/// clamped span per row. URL/Text are preserved. Always appends exactly one span-list per row
+		/// so <c>linksPerLine</c> stays index-aligned with <c>rows</c>.
+		/// </summary>
+		private static void SliceSpansAcrossRows(
+			List<Cell> originalCells, List<List<Cell>> rows, int beforeRows,
+			List<LinkSpan> lineSpans, List<List<LinkSpan>> linksPerLine)
+		{
+			int cursor = 0;
+			var rowWindows = new List<(int from, int to)>();
+			for (int r = beforeRows; r < rows.Count; r++)
+			{
+				// Skip leading spaces between rows (WrapCellLine skips them).
+				while (cursor < originalCells.Count && IsBreakableSpace(originalCells[cursor]))
+					cursor++;
+				int from = cursor;
+				int rowLen = rows[r].Count;
+				int to = Math.Min(originalCells.Count, from + rowLen);
+				rowWindows.Add((from, to));
+				cursor = to;
+			}
+
+			foreach (var (from, to) in rowWindows)
+			{
+				var rowSpans = new List<LinkSpan>();
+				foreach (var s in lineSpans)
+				{
+					int a = Math.Max(s.StartCol, from);
+					int b = Math.Min(s.EndCol, to);
+					if (b > a)
+						rowSpans.Add(new LinkSpan(a - from, b - from, s.Url, s.Text));
+				}
+				linksPerLine.Add(rowSpans);
 			}
 		}
 

@@ -312,6 +312,10 @@ namespace SharpConsoleUI.Controls
 			// Handle click with manual double-click detection (fallback)
 			if (args.HasFlag(MouseFlags.Button1Clicked))
 			{
+				// Link click takes priority over plain/double click when a link is under the cursor.
+				if (TryRaiseLinkClick(args))
+					return true;
+
 				// Detect double-click
 				var now = DateTime.UtcNow;
 				var timeSince = (now - _lastClickTime).TotalMilliseconds;
@@ -445,6 +449,7 @@ namespace SharpConsoleUI.Controls
 			Color effectiveFg = _foregroundColor ?? fgColor;
 			Color effectiveBg = _backgroundColor ?? Color.Transparent;
 			var renderedCellLines = new List<List<Cell>>();
+			var renderedLinkLines = new List<List<Parsing.LinkSpan>>();
 			var rowSourceLineIndex = new List<int>();
 			for (int sourceIndex = 0; sourceIndex < snapshot.Count; sourceIndex++)
 			{
@@ -455,17 +460,19 @@ namespace SharpConsoleUI.Controls
 
 				if (_wrap)
 				{
-					var wrappedLines = Parsing.MarkupParser.ParseLines(line, renderWidth, effectiveFg, effectiveBg);
-					foreach (var wl in wrappedLines)
+					var wrappedLines = Parsing.MarkupParser.ParseLines(line, renderWidth, effectiveFg, effectiveBg, out var wrappedLinks);
+					for (int w = 0; w < wrappedLines.Count; w++)
 					{
-						renderedCellLines.Add(wl);
+						renderedCellLines.Add(wrappedLines[w]);
+						renderedLinkLines.Add(w < wrappedLinks.Count ? wrappedLinks[w] : new List<Parsing.LinkSpan>());
 						rowSourceLineIndex.Add(sourceIndex);
 					}
 				}
 				else
 				{
-					var cells = Parsing.MarkupParser.Parse(line, effectiveFg, effectiveBg);
+					var cells = Parsing.MarkupParser.Parse(line, effectiveFg, effectiveBg, out var lineLinks);
 					renderedCellLines.Add(cells);
+					renderedLinkLines.Add(lineLinks);
 					rowSourceLineIndex.Add(sourceIndex);
 				}
 			}
@@ -480,6 +487,7 @@ namespace SharpConsoleUI.Controls
 			// (content top-left = (0,0)), so the cache stores origins relative to the control
 			// (Margin.Top / Margin.Left + alignOffset), NOT the absolute buffer bounds.
 			UpdateSelectionLayoutCache(renderedCellLines, rowSourceLineIndex, Margin.Left, Margin.Top, targetWidth);
+			UpdateLinkLayoutCache(renderedLinkLines);
 
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, marginBg);

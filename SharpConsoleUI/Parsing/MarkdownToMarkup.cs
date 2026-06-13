@@ -32,7 +32,7 @@ namespace SharpConsoleUI.Parsing
 		/// </summary>
 		/// <param name="markdown">The Markdown source.</param>
 		/// <param name="style">Style overrides; defaults to <see cref="MarkdownStyle.Default"/>.</param>
-		/// <returns>A native-markup string suitable for <see cref="MarkupParser.Parse"/>.</returns>
+		/// <returns>A native-markup string suitable for <see cref="MarkupParser.Parse(string, Color, Color)"/>.</returns>
 		public static string Convert(string markdown, MarkdownStyle? style = null)
 		{
 			if (string.IsNullOrEmpty(markdown))
@@ -202,6 +202,20 @@ namespace SharpConsoleUI.Parsing
 				WriteInline(inline, sb, style);
 		}
 
+		/// <summary>Opens a link scope: the structural [link=…] tag wrapping the visible color+underline span.</summary>
+		private static void AppendLinkOpen(StringBuilder sb, string escapedHref, MarkdownStyle style)
+		{
+			sb.Append("[link=").Append(escapedHref).Append(']');
+			sb.Append('[').Append(ColorWord(style.LinkColor)).Append(" underline]");
+		}
+
+		/// <summary>Closes a link scope opened by <see cref="AppendLinkOpen"/> (color/underline, then link).</summary>
+		private static void AppendLinkClose(StringBuilder sb)
+		{
+			sb.Append("[/]"); // close color/underline
+			sb.Append("[/]"); // close link
+		}
+
 		private static void WriteInline(Inline inline, StringBuilder sb, MarkdownStyle style)
 		{
 			switch (inline)
@@ -226,10 +240,17 @@ namespace SharpConsoleUI.Parsing
 					break;
 
 				case LinkInline link:
-					sb.Append('[').Append(ColorWord(style.LinkColor)).Append(" underline]");
+					AppendLinkOpen(sb, LinkUrl.Escape(link.Url ?? string.Empty), style);
 					foreach (var child in link)
 						WriteInline(child, sb, style);
-					sb.Append("[/]");
+					AppendLinkClose(sb);
+					break;
+
+				case AutolinkInline autolink:
+					string rawUrl = autolink.Url ?? string.Empty;   // store once (fixes double-eval)
+					AppendLinkOpen(sb, LinkUrl.Escape(rawUrl), style);
+					sb.Append(MarkupParser.Escape(rawUrl));
+					AppendLinkClose(sb);
 					break;
 
 				case LineBreakInline:
