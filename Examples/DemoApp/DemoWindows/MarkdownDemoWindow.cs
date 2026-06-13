@@ -16,8 +16,21 @@ native markup *anywhere markup is accepted*.
 ## Inline Formatting
 
 Supports **bold**, *italic*, ***bold italic***, ~~strikethrough~~,
-`inline code`, and [links](https://github.com/nickprotop/ConsoleEx)
-(the URL is dropped, the text is shown).
+`inline code`, and [links](https://github.com/nickprotop/ConsoleEx).
+
+## Clickable Links
+
+Markdown links are **clickable** and **keyboard-navigable** — the URL is
+preserved and a `LinkClicked` event fires (this demo shows a notification):
+
+- [SharpConsoleUI on GitHub](https://github.com/nickprotop/ConsoleEx)
+- [LazyDotIDE — a TUI IDE built on it](https://github.com/nickprotop/LazyDotIDE)
+- [Documentation](https://nickprotop.github.io/ConsoleEx/)
+- Autolinks work too: <https://www.nuget.org/packages/SharpConsoleUI>
+
+**Mouse:** click a link. **Keyboard:** Tab to focus this text, then
+**←/→** to move between links and **Enter** to activate. A focused link off
+the bottom of the panel scrolls into view automatically.
 
 ## Lists
 
@@ -84,6 +97,11 @@ echo ""Publishing v$VERSION..."" && dotnet publish -c Release
 				.WithSelectionEnabled()
 				.WithCopyEnabled()
 				.WithMargin(2, 1, 2, 1)
+				.OnLinkClicked((sender, e) =>
+					ws.NotificationStateService.ShowNotification(
+						"Link clicked",
+						$"{e.Text} → {e.Url}",
+						SharpConsoleUI.Core.NotificationSeverity.Info))
 				.Build())
 			.WithVerticalAlignment(SharpConsoleUI.Layout.VerticalAlignment.Fill)
 			.Build();

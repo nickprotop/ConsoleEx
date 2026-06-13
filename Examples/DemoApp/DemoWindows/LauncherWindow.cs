@@ -46,7 +46,7 @@ public static class LauncherWindow
 				.AddItem("DataGrid", subtitle: "Virtual DataGrid with 10K rows", content: MakeInfoPanel("DataGrid"))
 				.AddItem("Nerd Fonts", subtitle: "NerdFont icon showcase", content: MakeInfoPanel("Nerd Fonts"))
 				.AddItem("Markup Syntax", subtitle: "Rich markup system demo", content: MakeInfoPanel("Markup Syntax"))
-				.AddItem("Markdown", subtitle: "[markdown] tag: render Markdown as native markup", content: MakeInfoPanel("Markdown"))
+				.AddItem("Markdown", subtitle: "[markdown] tag + clickable, keyboard-navigable links", content: MakeInfoPanel("Markdown"))
 				.AddItem("Selectable Text", subtitle: "Mouse select & Ctrl+C copy (markup stripped)", content: MakeInfoPanel("Selectable Text"))
 				.AddItem("International & Emoji", subtitle: "Unicode & emoji support", content: MakeInfoPanel("International & Emoji"))
 				.AddItem("Data Binding", subtitle: "MVVM data binding", content: MakeInfoPanel("Data Binding"))
@@ -549,7 +549,7 @@ public static class LauncherWindow
 				"[dim]Supported constructs:[/]",
 				"  - Headings H1-H6",
 				"  - Bold, italic, strikethrough, inline code",
-				"  - Links (text shown, URL dropped)",
+				"  - Clickable, keyboard-navigable links",
 				"  - Bullet, numbered, and nested lists",
 				"  - Blockquotes and horizontal rules",
 				"  - Fenced and indented code blocks",
