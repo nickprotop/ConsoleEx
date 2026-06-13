@@ -393,12 +393,29 @@ Controls.CollapsiblePanel("Reasoning steps")
 
 A click-to-expand container whose body hosts any `IWindowControl` (it implements `IControlHost`). See [CollapsiblePanel](controls/CollapsiblePanel.md) for the full reference.
 
+It can also act as a plain **panel** — set `.NonCollapsible()` (and optionally `.HideHeader()`) to lock it expanded with no toggle affordance. In panel mode the header is not a Tab stop; focus passes straight through to the body children:
+
+```csharp
+// Panel mode: a bordered, headerless container that never collapses
+Controls.CollapsiblePanel()
+    .NonCollapsible()
+    .HideHeader()
+    .WithHeaderStyle(CollapsibleHeaderStyle.Bordered)
+    .AddControl(Controls.Markup("[bold]Status[/]").Build())
+    .AddControl(Controls.Button("Refresh").OnClick((_, _, _) => { }).Build())
+    .Build();
+```
+
+A collapsible panel always shows its header (it is the only toggle affordance), so `Collapsible=true, ShowHeader=false` resolves to "header shown" — no exception is thrown.
+
 **Key Methods:**
 - `Controls.CollapsiblePanel(title?)` - Create the builder, optionally seeding the title
 - `.Collapsed()` / `.Expanded()` - Initial expanded state
 - `.WithHeaderStyle(CollapsibleHeaderStyle)` - `Borderless` or `Bordered`
 - `.WithIcons(expanded, collapsed)` / `.WithExpandedIcon()` / `.WithCollapsedIcon()` - Indicator icons
 - `.WithHeaderSeparator(bool)` - Separator under a borderless header
+- `.Collapsible(bool)` / `.NonCollapsible()` - Lock the panel expanded as a plain panel (no toggle, pass-through focus)
+- `.ShowHeader(bool)` / `.HideHeader()` - Show or suppress the header row
 - `.WithMaxContentHeight(int)` - Cap the body height (wrap a `ScrollablePanel` to scroll)
 - `.WithAnimation(mode)` / `.Animated()` - Height tween on toggle
 - `.WithHeaderAlignment()`, `.WithWidth()`, `.WithBorderColor()`, `.WithBackgroundColor()`, `.WithForegroundColor()`

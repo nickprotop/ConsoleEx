@@ -24,7 +24,7 @@ namespace SharpConsoleUI.Controls
 		/// </remarks>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			if (!_isEnabled || !HasFocus)
+			if (!_isEnabled || !_collapsible || !HasFocus)
 				return false;
 
 			if (key.Key == ConsoleKey.Enter || key.Key == ConsoleKey.Spacebar)

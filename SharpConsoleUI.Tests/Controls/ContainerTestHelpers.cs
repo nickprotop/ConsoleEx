@@ -33,6 +33,15 @@ internal static class ContainerTestHelpers
 		return new MarkupControl(new List<string> { text });
 	}
 
+	public static List<string> RenderToLines(IWindowControl control, int width, int height)
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem(width, height);
+		var window = new Window(system) { Width = width, Height = height };
+		window.AddControl(control);
+		var output = window.RenderAndGetVisibleContent();
+		return StripAnsiCodes(output).Split('\n').ToList();
+	}
+
 	public static ListControl CreateFocusableList(params string[] items)
 	{
 		return new ListControl(items);

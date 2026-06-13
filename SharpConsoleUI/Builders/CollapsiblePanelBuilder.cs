@@ -84,6 +84,34 @@ public sealed class CollapsiblePanelBuilder : IControlBuilder<CollapsiblePanel>
 		return this;
 	}
 
+	/// <summary>Controls whether the panel can be collapsed/expanded by the user (default true).</summary>
+	public CollapsiblePanelBuilder Collapsible(bool collapsible = true)
+	{
+		_panel.Collapsible = collapsible;
+		return this;
+	}
+
+	/// <summary>Makes the panel a plain, non-collapsible container (locked expanded, pass-through focus).</summary>
+	public CollapsiblePanelBuilder NonCollapsible()
+	{
+		_panel.Collapsible = false;
+		return this;
+	}
+
+	/// <summary>Controls whether the header row is drawn (default true).</summary>
+	public CollapsiblePanelBuilder ShowHeader(bool show = true)
+	{
+		_panel.ShowHeader = show;
+		return this;
+	}
+
+	/// <summary>Hides the header row. A collapsible panel always shows its header regardless.</summary>
+	public CollapsiblePanelBuilder HideHeader()
+	{
+		_panel.ShowHeader = false;
+		return this;
+	}
+
 	/// <summary>Caps the visible body height to the specified number of rows.</summary>
 	public CollapsiblePanelBuilder WithMaxContentHeight(int rows)
 	{

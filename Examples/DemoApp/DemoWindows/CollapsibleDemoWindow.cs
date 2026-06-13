@@ -141,6 +141,29 @@ public static class CollapsibleDemoWindow
 			.AddControl(longBody.Build())
 			.Build();
 
+			// Panel mode: non-collapsible + header hidden + bordered = a plain panel.
+			var panelModeIntro = Controls.Markup("[dim]A CollapsiblePanel in panel mode: bordered, no header, never closes - hosts any control.[/]")
+				.WithMargin(1, 1, 1, 0)
+				.Build();
+
+			var panelModePanel = Controls.CollapsiblePanel()
+				.NonCollapsible()
+				.HideHeader()
+				.WithHeaderStyle(CollapsibleHeaderStyle.Bordered)
+				.WithBorderColor(Color.Grey50)
+				.AddControl(Controls.Markup("[bold]Status:[/] [green]all systems nominal[/]")
+					.WithMargin(1, 0, 1, 0)
+					.Build())
+				.AddControl(Controls.Button("Refresh")
+					.WithMargin(1, 0, 1, 0)
+					.OnClick((_, _) =>
+						ws.NotificationStateService.ShowNotification(
+							"Panel mode",
+							"A button inside a non-collapsible panel was clicked.",
+							NotificationSeverity.Info))
+					.Build())
+				.Build();
+
 		// =====================================================================
 		// B) INTERACTIVE BODY: real focusable controls inside a panel body so the
 		//    body-click-to-focus, header-focus-color, and nested-scroll behaviours
@@ -269,6 +292,10 @@ public static class CollapsibleDemoWindow
 			.AddControl(customIcons)
 			.AddControl(separatorPanel)
 			.AddControl(cappedPanel)
+			.AddControl(Controls.Rule(""))
+			.AddControl(Controls.Header("Panel Mode"))
+			.AddControl(panelModeIntro)
+			.AddControl(panelModePanel)
 			.AddControl(Controls.Rule(""))
 			.AddControl(Controls.Header("Interactive Body"))
 			.AddControl(interactivePanel)

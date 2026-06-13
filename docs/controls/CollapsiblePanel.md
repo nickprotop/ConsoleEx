@@ -25,6 +25,8 @@ CollapsiblePanel is ideal for progressive disclosure — hiding secondary conten
 |----------|------|---------|-------------|
 | `Title` | `string?` | `null` | Header title text (supports `[markup]` syntax) |
 | `IsExpanded` | `bool` | `true` | Whether the body is expanded |
+| `Collapsible` | `bool` | `true` | When `false`, the panel is locked expanded with no toggle affordance and is not a Tab stop (see [Panel mode](#panel-mode-non-collapsible)) |
+| `ShowHeader` | `bool` | `true` | When `false`, the header row is suppressed (see [Panel mode](#panel-mode-non-collapsible)) |
 | `HeaderStyle` | `CollapsibleHeaderStyle` | `Borderless` | `Borderless` or `Bordered` header rendering |
 | `HeaderAlignment` | `HorizontalAlignment` | `Left` | Horizontal alignment of the header content |
 | `ExpandedIcon` | `string?` | `▾` | Indicator shown when expanded |
@@ -135,6 +137,59 @@ Controls.CollapsiblePanel("Sub-agent calls")
     .AddControl(Controls.Label("agent: writer"))
     .Build();
 ```
+
+## Panel mode (non-collapsible)
+
+Two opt-in flags let a CollapsiblePanel double as a plain panel — a titled (or titleless) container that hosts any control and never collapses.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Collapsible` | `bool` | `true` | When `false`, the panel is locked expanded, draws **no** ▾/▸ indicator, ignores header clicks and Enter/Space, and is **not** a Tab stop — focus passes straight through to its focusable body children. Setting it to `false` at runtime on a collapsed panel snaps it back to expanded. |
+| `ShowHeader` | `bool` | `true` | When `false`, the header row is suppressed. Borderless → body only; Bordered → a clean titleless box framing the body. |
+
+### Mutual-exclusion rule
+
+A collapsible panel **always** shows its header — the header is the only toggle affordance. The effective header visibility is therefore:
+
+```
+effective header shown = ShowHeader || Collapsible
+```
+
+This means `Collapsible = true, ShowHeader = false` resolves gracefully to "header shown" (collapsibility wins — **no exception is thrown**). A headerless panel is consequently always non-collapsible.
+
+### Pass-through focus
+
+A non-collapsible panel (`Collapsible = false`) is not itself a Tab stop. Tab traversal skips the panel header and lands directly on the panel's focusable body children, exactly as if they were added to a transparent container. This makes panel mode safe to drop into an existing layout without introducing an extra stop.
+
+### Combinations
+
+| Collapsible | ShowHeader | HeaderStyle | Result |
+|---|---|---|---|
+| `true` | `true` | Borderless | Default collapsible panel |
+| `true` | `true` | Bordered | Default bordered collapsible panel |
+| `false` | `true` | Borderless | Static header (title, no indicator), body below; pass-through focus |
+| `false` | `true` | Bordered | Titled bordered box, no collapse; pass-through focus |
+| `false` | `false` | Borderless | Bare container, no header, no frame; pass-through focus |
+| `false` | `false` | Bordered | Clean bordered box, no title — a true "panel" |
+| `true` | `false` | * | Invalid → resolves to header shown (collapsibility wins) |
+
+### Example: a bordered, headerless panel
+
+```csharp
+var panel = Controls.CollapsiblePanel()
+    .NonCollapsible()
+    .HideHeader()
+    .WithHeaderStyle(CollapsibleHeaderStyle.Bordered)
+    .AddControl(Controls.Markup("[bold]Status[/]").Build())
+    .AddControl(Controls.Button("Refresh")
+        .OnClick((_, _, _) => { /* refresh */ })
+        .Build())
+    .Build();
+
+window.AddControl(panel);
+```
+
+The builder methods are `.Collapsible(bool)`, `.NonCollapsible()`, `.ShowHeader(bool)`, and `.HideHeader()` (see the [Builder Reference](#builder-reference)).
 
 ## Custom Icons
 
@@ -311,6 +366,10 @@ window.AddControl(panel);
 | `.WithExpandedIcon(string)` / `.WithCollapsedIcon(string)` | Set indicator icons individually |
 | `.WithIcons(expanded, collapsed)` | Set both indicator icons |
 | `.WithHeaderSeparator(bool = true)` | Draw a separator under a borderless header |
+| `.Collapsible(bool = true)` | Toggle collapsibility; `false` = panel mode (locked expanded, pass-through focus) |
+| `.NonCollapsible()` | Shorthand for `.Collapsible(false)` |
+| `.ShowHeader(bool = true)` | Show or suppress the header row |
+| `.HideHeader()` | Shorthand for `.ShowHeader(false)` |
 | `.WithMaxContentHeight(int)` | Cap the visible body height |
 | `.WithAnimation(CollapsibleAnimationMode)` / `.Animated()` | Configure expand/collapse animation |
 | `.WithWidth(int)` | Set fixed panel width |

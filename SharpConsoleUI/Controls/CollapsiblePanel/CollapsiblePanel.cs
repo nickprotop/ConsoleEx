@@ -43,6 +43,8 @@ namespace SharpConsoleUI.Controls
 		private string _collapsedIcon = ControlDefaults.CollapsiblePanelCollapsedIcon;
 		private bool _showHeaderSeparator = false;
 		private HorizontalAlignment _headerAlignment = HorizontalAlignment.Left;
+		private bool _collapsible = true;
+		private bool _showHeader = true;
 
 		private Color? _backgroundColorValue;
 		private Color? _foregroundColorValue;
@@ -134,6 +136,55 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Gets or sets whether the panel can be collapsed/expanded by the user. Defaults to
+		/// <see langword="true"/> (current behavior). When <see langword="false"/> the panel is
+		/// locked expanded, draws no expand/collapse indicator, ignores header clicks and
+		/// Enter/Space, and is not itself a Tab stop — focus passes through to its body children
+		/// (the panel behaves as a plain container).
+		/// </summary>
+		public bool Collapsible
+		{
+			get => _collapsible;
+			set
+			{
+				if (_collapsible == value)
+					return; // guard: no redundant notification / invalidation (CLAUDE.md rule #5)
+
+				_collapsible = value;
+				OnPropertyChanged();
+
+				// A non-collapsible panel is always expanded. When we force-expand here, SetExpanded
+				// performs the single invalidation (and layout rebuild); otherwise invalidate once.
+				if (!value && !_isExpanded)
+					SetExpanded(true);
+				else
+					Invalidate(true);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether the header row is drawn. Defaults to <see langword="true"/>.
+		/// When <see langword="false"/> and the panel is non-collapsible, the header is fully
+		/// suppressed: a borderless panel shows only its body, and a bordered panel draws a clean
+		/// box (titleless top border) around the body. A collapsible panel always shows its header
+		/// regardless of this flag (see <see cref="Collapsible"/>), since the header is the only
+		/// affordance for toggling it.
+		/// </summary>
+		public bool ShowHeader
+		{
+			get => _showHeader;
+			set => SetProperty(ref _showHeader, value);
+		}
+
+		/// <summary>
+		/// Effective header visibility. A collapsible panel must show its header (it is the only
+		/// toggle affordance), so the header is shown whenever <see cref="ShowHeader"/> is true OR
+		/// the panel is collapsible. This resolves the invalid (Collapsible=true, ShowHeader=false)
+		/// combination gracefully with no exception.
+		/// </summary>
+		private bool EffectiveShowHeader => _showHeader || _collapsible;
+
+		/// <summary>
 		/// Gets or sets the maximum height in rows allotted to the expanded body before it scrolls.
 		/// When <see langword="null"/>, the body is sized to its content. Consumed by the layout
 		/// engine in a later task.
@@ -201,6 +252,10 @@ namespace SharpConsoleUI.Controls
 
 		private void SetExpanded(bool value)
 		{
+			// A non-collapsible panel is permanently expanded; ignore any attempt to collapse it.
+			if (!_collapsible)
+				value = true;
+
 			if (_isExpanded == value)
 				return; // guard: no redundant event / invalidation (CLAUDE.md rule #5)
 
@@ -394,14 +449,21 @@ namespace SharpConsoleUI.Controls
 			get
 			{
 				if (_headerStyle == CollapsibleHeaderStyle.Bordered)
-					return 1; // top border row; box frames the body below when expanded (Task 5)
+					return 1; // top border row; box frames the body below. When the header is
+							  // hidden this row becomes a plain (titleless) top border.
+				// Borderless: a hidden header occupies no rows at all.
+				if (!EffectiveShowHeader)
+					return 0;
 				int h = ControlDefaults.CollapsiblePanelBorderlessHeaderHeight;
 				if (_showHeaderSeparator) h += ControlDefaults.CollapsiblePanelHeaderSeparatorHeight;
 				return h;
 			}
 		}
 
-		private string? CurrentIcon => _isExpanded ? _expandedIcon : _collapsedIcon;
+		/// <summary>Test-only accessor for <see cref="HeaderHeight"/>.</summary>
+		internal int HeaderHeightForTest => HeaderHeight;
+
+		private string? CurrentIcon => !_collapsible ? null : (_isExpanded ? _expandedIcon : _collapsedIcon);
 
 		/// <inheritdoc/>
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
@@ -438,6 +500,9 @@ namespace SharpConsoleUI.Controls
 				PaintBorderedHeader(buffer, bounds, clipRect, fg, bg); // Task 5 implements
 				return;
 			}
+
+			if (!EffectiveShowHeader)
+				return; // borderless headerless panel: body is painted by the layout engine
 
 			int headerY = bounds.Y + Margin.Top;
 			int left = bounds.X + Margin.Left;
@@ -524,9 +589,11 @@ namespace SharpConsoleUI.Controls
 				return;
 			}
 
-			// Expanded: full box. Top border with the title + indicator embedded.
+			// Expanded: full box. Top border carries the title + indicator, unless the header is
+			// hidden (non-collapsible panel mode) in which case the top border is drawn titleless.
+			string? topHeader = EffectiveShowHeader ? ComposeHeaderText() : null;
 			PanelBorderRenderer.DrawTopBorder(buffer, x, top, width, clipRect, box, border, bg,
-				ComposeHeaderText(), MapAlignment(_headerAlignment));
+				topHeader, MapAlignment(_headerAlignment));
 
 			// Frame the body: side rows from top+1 down to the row above the bottom border.
 			int bottom = bounds.Y + bounds.Height - Margin.Bottom - 1;
@@ -542,8 +609,12 @@ namespace SharpConsoleUI.Controls
 		#region IFocusableControl Implementation
 
 		/// <inheritdoc/>
-		/// <remarks>The header row is itself a Tab focus stop so it can be toggled with Enter/Space.</remarks>
-		public bool CanReceiveFocus => _isEnabled;
+		/// <remarks>
+		/// A collapsible panel's header is a Tab focus stop so it can be toggled with Enter/Space.
+		/// A non-collapsible panel is a transparent focus container (like a ColumnContainer): it is
+		/// not itself a stop, so focus passes straight through to its focusable body children.
+		/// </remarks>
+		public bool CanReceiveFocus => _isEnabled && _collapsible;
 
 		/// <inheritdoc/>
 		public bool HasFocus => ComputeHasFocus();

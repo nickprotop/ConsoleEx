@@ -94,7 +94,7 @@ Controls for organizing other controls.
 | **[HorizontalGridControl](controls/HorizontalGridControl.md)** | Multi-column layout | Variable-width columns, alignment, splitters |
 | **SplitterControl** | Resizable divider | Drag to resize adjacent columns |
 | **[TabControl](controls/TabControl.md)** | Multi-page tab container | Tab headers, keyboard/mouse switching, state preservation |
-| **[CollapsiblePanel](controls/CollapsiblePanel.md)** | Click-to-expand container | Borderless/bordered header, markup title, custom icons, MaxContentHeight, IControlHost |
+| **[CollapsiblePanel](controls/CollapsiblePanel.md)** | Click-to-expand container | Borderless/bordered header, markup title, custom icons, MaxContentHeight, IControlHost. Can also serve as a plain, non-collapsible panel hosting any control via `.NonCollapsible()` / `.HideHeader()` |
 | **[NavigationView](controls/NavigationView.md)** | Sidebar navigation + content area | WinUI-inspired nav pane, responsive display modes (Expanded/Compact/Minimal), content factories, gradient-transparent |
 | **[ToolbarControl](controls/ToolbarControl.md)** | Horizontal button toolbar | Auto-height, wrapping, separator lines, content padding, Tab navigation |
 | **[StatusBarControl](controls/StatusBarControl.md)** | Three-zone status bar | Left/center/right zones, clickable items, shortcut hints, above line separator |

@@ -67,7 +67,7 @@ namespace SharpConsoleUI.Controls
 			int headerBottom = headerTop + HeaderHeight; // exclusive
 			bool onHeader = args.Position.Y >= headerTop && args.Position.Y < headerBottom;
 
-			if (onHeader && args.HasFlag(MouseFlags.Button1Clicked))
+			if (_collapsible && onHeader && args.HasFlag(MouseFlags.Button1Clicked))
 			{
 				(this as IWindowControl).GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 				Toggle();
