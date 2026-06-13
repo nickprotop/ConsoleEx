@@ -18,7 +18,7 @@ namespace SharpConsoleUI.Controls
 	/// A control that displays rich text content using Spectre.Console markup syntax.
 	/// Supports text alignment, margins, word wrapping, and sticky positioning.
 	/// </summary>
-	public partial class MarkupControl : BaseControl, IMouseAwareControl, ISelectableControl, ICopyableControl
+	public partial class MarkupControl : BaseControl, IMouseAwareControl, ISelectableControl, ICopyableControl, IFocusableControl, IInteractiveControl
 	{
 		private List<string> _content;
 		private readonly object _contentLock = new();
@@ -40,6 +40,7 @@ namespace SharpConsoleUI.Controls
 		public MarkupControl(List<string> lines)
 		{
 			lock (_contentLock) { _content = lines; }
+			InitKeyboardNav();
 		}
 
 		/// <summary>
@@ -80,6 +81,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				lock (_contentLock) { _content = value.Split('\n').ToList(); }
+				InvalidateLinkCount();
 				OnPropertyChanged();
 				Container?.Invalidate(true);
 			}
@@ -151,8 +153,9 @@ namespace SharpConsoleUI.Controls
 		public bool WantsMouseEvents => true;
 
 		/// <summary>
-		/// Gets whether this control can receive focus via mouse click.
-		/// MarkupControl is display-only, so it doesn't take keyboard focus.
+		/// Gets whether a mouse click on this control grants it focus. Always <c>false</c>: clicking
+		/// does not move focus here. Keyboard focus (via Tab) is instead governed by
+		/// <see cref="CanReceiveFocus"/>, which is true only when the control is enabled and has links.
 		/// </summary>
 		public bool CanFocusWithMouse => false;
 
@@ -214,6 +217,7 @@ namespace SharpConsoleUI.Controls
 		public void SetContent(List<string> lines)
 		{
 			lock (_contentLock) { _content = lines; }
+			InvalidateLinkCount();
 			OnPropertyChanged(nameof(Text));
 			Container?.Invalidate(true);
 		}
@@ -272,6 +276,7 @@ namespace SharpConsoleUI.Controls
 		{
 			if (_enableSelection && _hasSelection)
 				ClearSelection();
+			InvalidateLinkCount();
 			OnPropertyChanged(nameof(Text));
 			Container?.Invalidate(true);
 		}
@@ -488,6 +493,25 @@ namespace SharpConsoleUI.Controls
 			// (Margin.Top / Margin.Left + alignOffset), NOT the absolute buffer bounds.
 			UpdateSelectionLayoutCache(renderedCellLines, rowSourceLineIndex, Margin.Left, Margin.Top, targetWidth);
 			UpdateLinkLayoutCache(renderedLinkLines);
+			UpdateLinkVisibilityCache(renderedCellLines.Count, startY, clipRect.Y, clipRect.Bottom);
+
+			// Resolve the focused link's (row, span) once for this paint so the loop can invert its cells.
+			bool highlightFocus = ComputeHasFocus() && _focusedLinkIndex >= 0;
+			int focusedRow = -1;
+			Parsing.LinkSpan focusedSpan = default;
+			if (highlightFocus)
+			{
+				var flat = FlattenLinks();
+				if (_focusedLinkIndex < flat.Count)
+				{
+					focusedRow = flat[_focusedLinkIndex].row;
+					focusedSpan = flat[_focusedLinkIndex].span;
+				}
+				else
+				{
+					highlightFocus = false;
+				}
+			}
 
 			// Fill top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, marginBg);
@@ -534,6 +558,10 @@ namespace SharpConsoleUI.Controls
 
 				// Apply selection highlight (only when selection is enabled and this row is selected).
 				var paintLine = ApplySelectionHighlight(i, cellLine);
+
+				// Apply focus highlight (keyboard nav): invert the focused link's cells on its row.
+				if (highlightFocus && i == focusedRow)
+					paintLine = ApplyFocusHighlight(paintLine, focusedSpan);
 
 				// Paint the line content
 				buffer.WriteCellsClipped(startX + alignOffset, y, paintLine, clipRect);

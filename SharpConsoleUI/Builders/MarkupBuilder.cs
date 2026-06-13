@@ -38,6 +38,8 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	private ConsoleModifiers _copyModifiers = ConsoleModifiers.Control;
 	private Func<Configuration.MarkdownStyle, Configuration.MarkdownStyle>? _markdownStyleConfig;
 	private EventHandler<LinkClickedEventArgs>? _linkClickedHandler;
+	private Color? _focusedLinkForegroundColor;
+	private Color? _focusedLinkBackgroundColor;
 
 	/// <summary>
 	/// Adds a line of markup text
@@ -340,6 +342,19 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	}
 
 	/// <summary>
+	/// Sets the colors used to highlight the keyboard-focused link.
+	/// </summary>
+	/// <param name="foreground">The focused-link foreground color</param>
+	/// <param name="background">The focused-link background color</param>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder WithFocusedLinkColors(Color foreground, Color background)
+	{
+		_focusedLinkForegroundColor = foreground;
+		_focusedLinkBackgroundColor = background;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the keyboard copy shortcut for selected text. Implies <see cref="WithSelectionEnabled"/>.
 	/// </summary>
 	/// <param name="key">The key that triggers a copy (default <see cref="ConsoleKey.C"/>).</param>
@@ -401,7 +416,9 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 			SelectionBackgroundColor = _selectionBackgroundColor,
 			CopyEnabled = _copyEnabled,
 			CopyKey = _copyKey,
-			CopyModifiers = _copyModifiers
+			CopyModifiers = _copyModifiers,
+			FocusedLinkForegroundColor = _focusedLinkForegroundColor,
+			FocusedLinkBackgroundColor = _focusedLinkBackgroundColor
 		};
 
 		if (_linkClickedHandler != null)

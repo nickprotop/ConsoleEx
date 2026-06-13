@@ -19,59 +19,89 @@ namespace SharpConsoleUI.Controls
 		/// Automatically scrolls to bring a child control into view when it receives focus.
 		/// This is called by the focus system when a child within this panel gains focus.
 		/// </summary>
+		/// <remarks>Horizontal scrolling is not applied for children (children typically fit the width).</remarks>
 		public void ScrollChildIntoView(IWindowControl child)
 		{
-			// Skip if viewport hasn't been laid out yet (no dimensions to scroll within)
+			// Skip if viewport hasn't been laid out yet (no dimensions to scroll within).
+			// Mark as pending — PaintDOM will call ScrollChildIntoView on first valid render.
 			if (_viewportWidth <= 0 || _viewportHeight <= 0)
 			{
-				// Mark as pending — PaintDOM will call ScrollChildIntoView on first valid render
 				_pendingScrollToFocused = true;
 				return;
 			}
 
-			int contentWidth = VisibleContentWidth;
+			if (!TryGetChildSlotBounds(child, out int top, out int height))
+				return; // Not our child (or not visible)
 
-			// Locate the child via the shared layout so its Y/height agree with paint.
-			int childContentY = 0;
-			int childHeight = 0;
-			bool found = false;
-			foreach (var slot in GetVisibleChildLayout(contentWidth))
+			ScrollRangeIntoView(top, height);
+		}
+
+		/// <summary>
+		/// Scrolls so that a sub-region of <paramref name="child"/> is visible. The region is given in the
+		/// child's own content coordinates: <paramref name="childRelativeTop"/> rows from the child's top,
+		/// spanning <paramref name="regionHeight"/> rows. Mirrors <see cref="ScrollChildIntoView"/>'s clamp,
+		/// applied to the region instead of the whole child — used to bring a focused element's row into view
+		/// when the child itself does not scroll.
+		/// </summary>
+		/// <param name="child">The (direct) child whose sub-region should be made visible.</param>
+		/// <param name="childRelativeTop">Row offset of the region from the child's top edge. A negative value is clamped to 0.</param>
+		/// <param name="regionHeight">Height of the region in rows. A value less than 1 is treated as 1.</param>
+		public void ScrollChildRegionIntoView(IWindowControl child, int childRelativeTop, int regionHeight)
+		{
+			// Mirror ScrollChildIntoView's pre-layout guard.
+			if (_viewportWidth <= 0 || _viewportHeight <= 0)
+			{
+				_pendingScrollToFocused = true;
+				return;
+			}
+
+			if (!TryGetChildSlotBounds(child, out int top, out int _))
+				return; // Not our child (or not visible)
+
+			ScrollRangeIntoView(top + Math.Max(0, childRelativeTop), Math.Max(1, regionHeight));
+		}
+
+		/// <summary>
+		/// Finds the content-space top and height of a direct child in the current layout.
+		/// Uses the shared layout so the Y/height agree with paint. Returns false if not present.
+		/// </summary>
+		private bool TryGetChildSlotBounds(IWindowControl child, out int top, out int height)
+		{
+			top = 0;
+			height = 0;
+			foreach (var slot in GetVisibleChildLayout(VisibleContentWidth))
 			{
 				if (slot.Control == child)
 				{
-					childContentY = slot.Top;
-					childHeight = slot.Height;
-					found = true;
-					break;
+					top = slot.Top;
+					height = slot.Height;
+					return true;
 				}
 			}
+			return false;
+		}
 
-			if (!found)
-				return; // Not our child (or not visible)
-
-			// Scroll vertically if child is outside viewport.
-			// If the child is taller than the viewport (e.g. a long MarkupControl that the
-			// panel scrolls through), aligning its bottom would jump past content the user
-			// hasn't seen yet — fall back to aligning its top instead.
-			if (childContentY < _verticalScrollOffset)
+		/// <summary>
+		/// Scrolls vertically so the content-space range [regionTop, regionTop+regionHeight) is visible.
+		/// A region taller than the viewport aligns to its top (aligning its bottom would jump past content
+		/// the user hasn't seen yet). Focus-driven scrolling detaches <see cref="AutoScroll"/>.
+		/// </summary>
+		private void ScrollRangeIntoView(int regionTop, int regionHeight)
+		{
+			if (regionTop < _verticalScrollOffset)
 			{
-				// Child is above viewport - scroll up to show it at top
 				_autoScroll = false; // Detach: focus-driven scroll overrides autoScroll
-				ScrollVerticalTo(childContentY);
+				ScrollVerticalTo(regionTop);
 			}
-			else if (childContentY + childHeight > _verticalScrollOffset + VisibleContentHeight)
+			else if (regionTop + regionHeight > _verticalScrollOffset + VisibleContentHeight)
 			{
-				// Child is below viewport - scroll down to show it at bottom (or align top
-				// when the child is taller than the viewport).
 				_autoScroll = false; // Detach: focus-driven scroll overrides autoScroll
-				int target = childHeight > VisibleContentHeight
-					? childContentY
-					: childContentY + childHeight - VisibleContentHeight;
+				int target = regionHeight > VisibleContentHeight
+					? regionTop
+					: regionTop + regionHeight - VisibleContentHeight;
 				ScrollVerticalTo(target);
 			}
-			// If child is already visible, don't scroll
-
-			// Note: Horizontal scrolling not implemented for children (children typically fit width)
+			// If the range is already visible, don't scroll.
 		}
 
 		#endregion

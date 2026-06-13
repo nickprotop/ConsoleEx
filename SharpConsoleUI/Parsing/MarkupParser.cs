@@ -322,6 +322,71 @@ namespace SharpConsoleUI.Parsing
 		}
 
 		/// <summary>
+		/// Counts the number of clickable links in a markup string without building cells.
+		/// Expands any <c>[markdown]…[/]</c> regions first so that Markdown-style links
+		/// (converted to <c>[link=…]…[/]</c>) are included in the count.
+		/// </summary>
+		/// <param name="markup">The markup string to inspect. May be <c>null</c>.</param>
+		/// <returns>
+		/// The number of <c>[link=…]</c> opening tags found, which equals the number of
+		/// clickable link spans the string would produce if fully parsed.
+		/// Returns 0 for <c>null</c> or empty input.
+		/// </returns>
+		public static int CountLinks(string markup)
+		{
+			if (string.IsNullOrEmpty(markup))
+				return 0;
+
+			markup = PreProcessMarkdownTags(markup);
+
+			int count = 0;
+			int i = 0;
+			int len = markup.Length;
+
+			while (i < len)
+			{
+				if (markup[i] == '[')
+				{
+					// Escaped [[ — not a tag, skip both chars
+					if (i + 1 < len && markup[i + 1] == '[')
+					{
+						i += 2;
+						continue;
+					}
+
+					int tagEnd = markup.IndexOf(']', i + 1);
+					if (tagEnd < 0)
+					{
+						// No closing bracket — treat [ as literal, advance past it
+						i++;
+						continue;
+					}
+
+					// Check whether the tag content starts with "link=" (OrdinalIgnoreCase)
+					int tagContentLen = tagEnd - (i + 1);
+					if (tagContentLen >= LinkTagPrefix.Length &&
+						string.Compare(markup, i + 1, LinkTagPrefix, 0, LinkTagPrefix.Length, StringComparison.OrdinalIgnoreCase) == 0)
+					{
+						count++;
+					}
+
+					i = tagEnd + 1;
+				}
+				else if (markup[i] == ']' && i + 1 < len && markup[i + 1] == ']')
+				{
+					// Escaped ]] — skip both chars
+					i += 2;
+				}
+				else
+				{
+					i++;
+				}
+			}
+
+			return count;
+		}
+
+		/// <summary>
 		/// Truncates a markup string to maxLength visible characters,
 		/// preserving and properly closing all tags.
 		/// </summary>
