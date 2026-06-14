@@ -25,10 +25,13 @@
 //       NOTE + continue (the environment is just missing, the code path is AOT-reachable).
 //   Whatever we start, we Stop/Dispose so no subprocess or read thread is orphaned.
 
+using System.ComponentModel;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Drawing;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Highlighting;
 using SharpConsoleUI.Imaging;
@@ -222,6 +225,17 @@ try
 			Controls.MultilineEdit("line 1\nline 2\nline 3").Build())
 		is { } e5e) return Fail(e5e);
 
+		// 5e1. NavigationView - a pane/content container with a portal-backed nav rail.
+		//      Build() materializes the items and their per-item content panels, so the
+		//      whole NavigationView render path goes into the AOT graph.
+		if (RenderGroup("nav",
+				Controls.NavigationView()
+					.AddItem("Home", icon: "*", content: p => p.AddControl(Controls.Label("home content")))
+					.AddItem("Settings", icon: "#", content: p => p.AddControl(Controls.Label("settings content")))
+					.WithSelectedIndex(0)
+					.Build())
+			is { } e5e1) return Fail(e5e1);
+
 	// 5e2. CollapsiblePanel — exercise BOTH header styles and BOTH states in the AOT graph.
 	//      Borderless + expanded (custom icons, then toggled), and Bordered + collapsed.
 	var collapsibleExpanded = Controls.CollapsiblePanel("[bold]Reasoning[/]")
@@ -327,10 +341,12 @@ try
 	//   Activator.CreateInstance(value.GetType(), ...) which trim analysis flags as IL2072.
 	//   RUNTIME-VERIFIED: a NativeAOT binary rendering HTML with CSS calc() runs correctly
 	//   (exit 0, content rendered — the concrete expression types survive trimming). The
-	//   IL2072 is therefore a trim-analysis warning, not a runtime crash, and is cleared via
-	//   a scoped [UnconditionalSuppressMessage] on the CSS-pipeline methods in
-	//   SharpConsoleUI/Html/HtmlLayoutEngine.cs. HtmlControl is now exercised here, with a
-	//   calc()-using stylesheet, to keep that path under continuous AOT coverage.
+	//   IL2072 is therefore a trim-analysis warning, not a runtime crash. It is attributed to
+	//   AngleSharp.Css's own methods (not to SharpConsoleUI), so a C# [UnconditionalSuppressMessage]
+	//   cannot clear it; the fix is the two scoped MSBuild/ILC-arg targets at the bottom of
+	//   this project's AotSmoke.csproj, which collapse AngleSharp.Css's warnings via the
+	//   'singlewarnassembly' primitive (scoped to that one assembly). HtmlControl is exercised
+	//   here, with a calc()-using stylesheet, to keep that path under continuous AOT coverage.
 	try
 	{
 		var html = new HtmlControl();
@@ -439,6 +455,82 @@ try
 				system.CloseWindow(videoWindow, force: true);
 		}
 	}
+
+	// 11. Data binding (Bind / BindTwoWay) - the expression-tree binding engine.
+	//     BindingExtensions.Bind compiles member-access Expression<Func<>> trees via
+	//     LambdaExpression.Compile(). Under NativeAOT (IsDynamicCodeSupported=false)
+	//     System.Linq.Expressions falls back to its INTERPRETER instead of Reflection.Emit,
+	//     so this path is AOT-reachable and correct. Exercised here to keep it under CI
+	//     coverage (a one-way and a two-way binding, both driven by a PropertyChanged push).
+	try
+	{
+		var vm = new SmokeBindVm();
+		var bar = Controls.BarGraph().WithLabel("bound").WithMaxValue(100).Build();
+		var prompt = Controls.Prompt("val> ").Build();
+		controlCount += 2;
+
+		// One-way: vm.Level -> bar.Value (double -> double).
+		bar.Bind(vm, s => s.Level, t => t.Value);
+		// Two-way: vm.Caption <-> prompt input text (string -> string).
+		prompt.BindTwoWay(vm, s => s.Caption, t => t.Input);
+
+		var bindWindow = new Window(system) { Width = 60, Height = 12, Top = 1, Left = 1, Title = "binding" };
+		bindWindow.AddControl(bar);
+		bindWindow.AddControl(prompt);
+		system.AddWindow(bindWindow);
+
+		// Push a change through the engine and render.
+		vm.Level = 55;
+		vm.Caption = "hello";
+		for (int i = 0; i < 3; i++) system.ProcessOnce();
+
+		// Verify the one-way binding actually applied the compiled/interpreted delegate.
+		if (System.Math.Abs(bar.Value - 55) > 0.0001)
+			return Fail($"data binding did not apply (bar.Value={bar.Value}, expected 55)");
+
+		system.CloseWindow(bindWindow, force: true);
+		Console.Error.WriteLine("AOT SMOKE NOTE: data binding (Bind/BindTwoWay, Expression interpreter) exercised");
+	}
+	catch (Exception ex)
+	{
+		if (IsAotFailure(ex))
+			return Fail($"data binding AOT failure: {ex}");
+		return Fail($"data binding: {ex.GetType().Name}: {ex.Message}");
+	}
+
+	// 12. [gradient=...] markup - the one RENDER-reachable reflection site in the library.
+	//     MarkupParser.Parse -> ColorGradient.Parse -> ParseSpectreColor ->
+	//     typeof(Color).GetProperty(name, ...). Because typeof(Color) is a closed type
+	//     LITERAL (not object.GetType()), trim analysis preserves Color's static color
+	//     properties, so the named-color lookup resolves correctly under NativeAOT.
+	try
+	{
+		var gradientCells = MarkupParser.Parse(
+			"[gradient=red→green→blue]gradient text[/]", Color.White, Color.Black);
+		if (gradientCells == null || gradientCells.Count == 0)
+			return Fail("[gradient=...] markup produced no cells");
+
+		// Resolve a named-color gradient directly and confirm interpolation works at runtime
+		// (proves the reflection-based name lookup found the static Color properties).
+		var grad = ColorGradient.Parse("red→green→blue");
+		if (grad == null)
+			return Fail("ColorGradient.Parse returned null for named-color spec");
+		var mid = grad.Interpolate(0.5);
+		if (mid.G == 0)
+			return Fail($"gradient named-color lookup failed under AOT (mid=({mid.R},{mid.G},{mid.B}))");
+
+		if (RenderGroup("gradient",
+				new MarkupControl(new List<string> { "[gradient=cyan→magenta]bar[/]" }))
+			is { } e12) return Fail(e12);
+		Console.Error.WriteLine("AOT SMOKE NOTE: [gradient=...] markup (typeof(Color).GetProperty) exercised");
+	}
+	catch (Exception ex)
+	{
+		if (IsAotFailure(ex))
+			return Fail($"gradient markup AOT failure: {ex}");
+		return Fail($"gradient markup: {ex.GetType().Name}: {ex.Message}");
+	}
+
 }
 catch (Exception ex)
 {
@@ -453,7 +545,8 @@ foreach (var s in skips)
 	Console.Error.WriteLine($"AOT SMOKE NOTE: {s}");
 
 Console.Error.WriteLine(
-	$"AOT SMOKE OK: {controlCount} controls exercised (incl. TerminalControl + VideoControl actually started); " +
+	$"AOT SMOKE OK: {controlCount} controls exercised (incl. NavigationView, TerminalControl + VideoControl actually started); " +
+	$"data binding (Bind/BindTwoWay via Expression interpreter) + [gradient=...] markup (typeof(Color).GetProperty) exercised; " +
 	$"markdown+highlighters+spectre+image AOT-clean; " +
 	$"HtmlControl exercised (AngleSharp + CSS calc(); IL2072 cleared via scoped suppression); " +
 	$"{driver.ScreenSize.Width}x{driver.ScreenSize.Height} rendered.");
@@ -469,4 +562,26 @@ static TreeNode[] MakeTree()
 	b.AddChild(new TreeNode("Grandchild B1"));
 	root.AddChild(b);
 	return new[] { root };
+}
+
+// Minimal INotifyPropertyChanged view-model for the data-binding section (11). Standard
+// hand-rolled INPC — nothing framework-specific — so the Bind/BindTwoWay engine is the
+// only thing under test.
+sealed class SmokeBindVm : INotifyPropertyChanged
+{
+	public event PropertyChangedEventHandler? PropertyChanged;
+
+	private double _level;
+	public double Level
+	{
+		get => _level;
+		set { if (_level != value) { _level = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Level))); } }
+	}
+
+	private string _caption = string.Empty;
+	public string Caption
+	{
+		get => _caption;
+		set { if (_caption != value) { _caption = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Caption))); } }
+	}
 }

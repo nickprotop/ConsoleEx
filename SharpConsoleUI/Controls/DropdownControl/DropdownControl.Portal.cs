@@ -296,30 +296,5 @@ namespace SharpConsoleUI.Controls
 			// If we didn't find a Window in the hierarchy, return null
 			return null;
 		}
-
-		private void RestoreContainerScrollOffset(Window containerWindow)
-		{
-			// Use reflection to set the private _scrollOffset field in the Window class
-			// since there's no public method to set it directly
-			var scrollOffsetField = typeof(Window).GetField("_scrollOffset",
-				System.Reflection.BindingFlags.NonPublic |
-				System.Reflection.BindingFlags.Instance);
-
-			if (scrollOffsetField != null)
-			{
-				scrollOffsetField.SetValue(containerWindow, _containerScrollOffsetBeforeDrop);
-				containerWindow.Invalidate(true);
-			}
-			else
-			{
-				// Fallback if reflection doesn't work - simulate key presses
-				containerWindow.GoToTop();
-				for (int i = 0; i < _containerScrollOffsetBeforeDrop; i++)
-				{
-					containerWindow.EventDispatcher?.ProcessInput(new ConsoleKeyInfo(
-						'\0', ConsoleKey.DownArrow, false, false, false));
-				}
-			}
-		}
 	}
 }

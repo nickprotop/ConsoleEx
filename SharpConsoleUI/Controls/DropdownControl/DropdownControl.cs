@@ -29,7 +29,6 @@ namespace SharpConsoleUI.Controls
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
 		private bool _autoAdjustWidth = true;
 		private Color? _backgroundColorValue;
-		private int _containerScrollOffsetBeforeDrop = 0;
 		private Color? _focusedBackgroundColorValue;
 		private Color? _focusedForegroundColorValue;
 		private Color? _foregroundColorValue;

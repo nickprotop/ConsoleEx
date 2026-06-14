@@ -32,17 +32,19 @@ If either step fails, CI fails.
 
 ### What the smoke test exercises
 
-The smoke test instantiates and renders the broad control surface under the native binary — ~40 controls (Markup, Button, Checkbox, List, Tree, Table, Tab, Dropdown, ProgressBar, Sparkline, BarGraph, LineGraph, Slider, RangeSlider, Date/Time pickers, Menu, Toolbar, StatusBar, Prompt, MultilineEdit, Figlet, LogViewer, containers, Canvas primitives, …) plus the heavy dependency-backed paths that are the real AOT risk:
+The smoke test instantiates and renders the broad control surface under the native binary — the full control set (Markup, Button, Checkbox, List, Tree, Table, Tab, Dropdown, ProgressBar, Sparkline, BarGraph, LineGraph, Slider, RangeSlider, Date/Time pickers, Menu, Toolbar, StatusBar, Prompt, MultilineEdit, NavigationView, Figlet, LogViewer, containers, Canvas primitives, …) plus the heavy dependency-backed paths that are the real AOT risk:
 
 - the `[markdown]` tag (Markdig) including a syntax-highlighted code block,
 - the built-in syntax highlighters (`SyntaxHighlighters.For(...)`),
 - `SpectreRenderableControl` (Spectre.Console),
 - `ImageControl` decoding an in-memory image (ImageSharp),
-- `HtmlControl` rendering HTML with CSS `calc()` (AngleSharp + AngleSharp.Css).
+- `HtmlControl` rendering HTML with CSS `calc()` (AngleSharp + AngleSharp.Css),
+- the **data-binding engine** — a one-way `Bind` and a two-way `BindTwoWay` driven by `INotifyPropertyChanged`. These compile member-access `Expression<Func<>>` trees via `LambdaExpression.Compile()`; under NativeAOT (`IsDynamicCodeSupported=false`) `System.Linq.Expressions` transparently falls back to its **interpreter** instead of `Reflection.Emit`, so the path is AOT-reachable and correct. The smoke test asserts the bound value is actually applied, so a silent no-op would fail the gate.
+- the **`[gradient=…]` markup tag** — `MarkupParser.Parse` → `ColorGradient.Parse` → `typeof(Color).GetProperty(name, …)`. Because `typeof(Color)` is a closed type *literal* (not `object.GetType()`), trim analysis preserves `Color`'s static color properties and the named-color lookup resolves under NativeAOT (the smoke test verifies the interpolated color is non-default).
 
 Reaching `AOT SMOKE OK` without an exception proves these paths run under NativeAOT.
 
-**Deliberately not started** (they spawn external processes or need external binaries — constructed-only or skipped, with a logged note): `TerminalControl` (PTY-backed shell), `VideoControl` playback (FFmpeg).
+**Subprocess-backed controls are actually started**, not just constructed: `TerminalControl` opens a PTY and spawns a shell (`/bin/sh` on Linux), and `VideoControl.Play()` is invoked (starting its background decode loop). The goal is to prove the native binary can *invoke* those code paths without an AOT/reflection failure — not that a PTY or FFmpeg is present. Each is wrapped in a try/catch that classifies the exception: an AOT/reflection/trim signal fails the gate, while a missing environment (no PTY, FFmpeg absent) is logged as an `environment-skipped` note and the run continues. Whatever is started is stopped/disposed so no subprocess or read thread is orphaned.
 
 ## HtmlControl caveat
 
