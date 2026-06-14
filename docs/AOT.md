@@ -52,6 +52,8 @@ Reaching `AOT SMOKE OK` without an exception proves these paths run under Native
 
 **Why:** `AngleSharp.Css` evaluates CSS `calc()` expressions with `Activator.CreateInstance(value.GetType(), …)`. The trimmer can't statically prove the runtime `Type` keeps its constructors, so it emits **4 `IL2072` warnings** from inside `AngleSharp.Css` (not from SharpConsoleUI). At runtime the relevant expression types survive trimming, so it works — the warnings are an analysis limitation, not a failure.
 
+This applies to **both** runtime-specific publish modes that trim: NativeAOT *and* plain `PublishTrimmed` (a self-contained, trimmed publish without AOT). Both run ILLink over the same assemblies, so both need the AngleSharp.Css scoping below. The smoke fixture's MSBuild targets handle both: the `TrimmerSingleWarn` collapse fires for either mode, and the resulting `IL2104`/`IL2072` is cleared via the ILC args (AOT) or `NoWarn`/`WarningsNotAsErrors` (plain trim). The smoke binary publishes and runs correctly in both modes.
+
 **Upstream status:** `AngleSharp.Css` has no stable 1.x release (the entire `1.0.0` line is beta; the last stable is the old `0.17.0` series), and no recent version has addressed the reflection/trim issue. So there is no "just upgrade" fix today.
 
 **If you AOT-publish an app that uses `HtmlControl`** and your build treats trim warnings as errors, collapse that one dependency's warnings with two scoped MSBuild targets in your `.csproj`. This leaves full `IL2072`-as-error analysis intact for your own code and every other assembly:

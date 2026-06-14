@@ -47,9 +47,12 @@
        scoped to AngleSharp.Css ALONE: SharpConsoleUI's own code (and every other assembly)
        still gets full IL2072-as-error analysis. It is NOT a project-wide NoWarn of IL2072.
        =========================================================================== -->
+  <!-- Fires for BOTH trim modes: NativeAOT (NativeCompilationDuringPublish) and plain
+       PublishTrimmed (a self-contained, trimmed publish without AOT). Both run ILLink over the
+       same ManagedAssemblyToLink items, so the single-warn collapse below works for either. -->
   <Target Name="_ScopeAngleSharpCssTrimWarnings"
           AfterTargets="_ComputeManagedAssemblyForILLink"
-          Condition="'$(NativeCompilationDuringPublish)' == 'true'">
+          Condition="'$(NativeCompilationDuringPublish)' == 'true' or '$(PublishTrimmed)' == 'true'">
     <ItemGroup>
       <!-- Collapse AngleSharp.Css's trim warnings (the 4 IL2072) into one IL2104 note. -->
       <ManagedAssemblyToLink Condition="'%(Filename)' == 'AngleSharp.Css'">
@@ -58,10 +61,9 @@
     </ItemGroup>
   </Target>
 
-  <!-- Hand ILC the extra args: do not treat the collapsed IL2104 as an error, and silence
-       that single per-assembly note so the publish is 0-warning. IL2104 only fires for the
-       single-warn collapse we just scoped to AngleSharp.Css; it does not affect IL2072
-       analysis of any other assembly. -->
+  <!-- NativeAOT path: hand ILC the extra args so the collapsed IL2104 note is neither an error
+       nor emitted. IL2104 only fires for the single-warn collapse scoped to AngleSharp.Css above;
+       it does not affect IL2072 analysis of any other assembly. -->
   <Target Name="_SuppressAngleSharpCssSingleWarn"
           BeforeTargets="WriteIlcRspFileForCompilation"
           Condition="'$(NativeCompilationDuringPublish)' == 'true'">
@@ -70,5 +72,13 @@
       <IlcArg Include="--nowarn:IL2104" />
     </ItemGroup>
   </Target>
+
+  <!-- Plain PublishTrimmed path: the ILLink equivalent of the IlcArg suppression above. Stop the
+       collapsed IL2104 (and the underlying IL2072) from failing the trimmed publish. Scoped to
+       this fixture; SharpConsoleUI's own code keeps full IL2072-as-error analysis. -->
+  <PropertyGroup Condition="'$(NativeCompilationDuringPublish)' != 'true' and '$(PublishTrimmed)' == 'true'">
+    <NoWarn>$(NoWarn);IL2104;IL2072</NoWarn>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);IL2104;IL2072</WarningsNotAsErrors>
+  </PropertyGroup>
 
 </Project>

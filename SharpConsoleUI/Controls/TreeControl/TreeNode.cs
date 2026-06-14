@@ -7,15 +7,30 @@
 // -----------------------------------------------------------------------
 
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
-	/// Represents a tree node in the TreeControl.
+	/// Represents a tree node in the TreeControl. Implements
+	/// <see cref="INotifyPropertyChanged"/> so node properties (expansion, text, color, tag)
+	/// can participate in data binding. Interactive expand/collapse in <c>TreeControl</c>
+	/// assigns through <see cref="IsExpanded"/>, so those changes raise notifications too.
 	/// </summary>
-	public class TreeNode
+	public class TreeNode : INotifyPropertyChanged
 	{
 		private List<TreeNode> _children = new();
+		private bool _isExpanded = true;
+		private object? _tag;
+		private string _text;
+		private Color? _textColor;
+
+		/// <inheritdoc/>
+		public event PropertyChangedEventHandler? PropertyChanged;
+
+		private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+			=> PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
 		/// <summary>
 		/// Creates a new tree node with specified text.
@@ -23,7 +38,7 @@ namespace SharpConsoleUI.Controls
 		/// <param name="text">The text label for the node.</param>
 		public TreeNode(string text)
 		{
-			Text = text;
+			_text = text;
 		}
 
 		/// <summary>
@@ -34,22 +49,58 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets whether this node is expanded.
 		/// </summary>
-		public bool IsExpanded { get; set; } = true;
+		public bool IsExpanded
+		{
+			get => _isExpanded;
+			set
+			{
+				if (_isExpanded == value) return;
+				_isExpanded = value;
+				OnPropertyChanged();
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets a custom object associated with this node.
 		/// </summary>
-		public object? Tag { get; set; }
+		public object? Tag
+		{
+			get => _tag;
+			set
+			{
+				if (Equals(_tag, value)) return;
+				_tag = value;
+				OnPropertyChanged();
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets the text label of this node.
 		/// </summary>
-		public string Text { get; set; }
+		public string Text
+		{
+			get => _text;
+			set
+			{
+				if (_text == value) return;
+				_text = value;
+				OnPropertyChanged();
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets the optional color for this node's text.
 		/// </summary>
-		public Color? TextColor { get; set; }
+		public Color? TextColor
+		{
+			get => _textColor;
+			set
+			{
+				if (Nullable.Equals(_textColor, value)) return;
+				_textColor = value;
+				OnPropertyChanged();
+			}
+		}
 
 		/// <summary>
 		/// Internal cache for node depth calculation. Invalidated when tree structure changes.

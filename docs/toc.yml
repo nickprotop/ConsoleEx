@@ -2,6 +2,8 @@
   items:
     - name: Builder API
       href: BUILDERS.md
+    - name: Data Binding
+      href: binding.md
     - name: Configuration
       href: CONFIGURATION.md
     - name: Examples

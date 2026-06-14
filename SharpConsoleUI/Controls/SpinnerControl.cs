@@ -34,7 +34,7 @@ public class SpinnerControl : BaseControl
 	public SpinnerStyle Style
 	{
 		get => _style;
-		set { if (_style == value) return; _style = value; RestartAnimation(); Container?.Invalidate(true); }
+		set { if (_style == value) return; _style = value; RestartAnimation(); OnPropertyChanged(); Container?.Invalidate(true); }
 	}
 
 	/// <summary>Gets or sets custom frames (overrides <see cref="Style"/> when non-empty). May contain markup.</summary>
@@ -58,14 +58,14 @@ public class SpinnerControl : BaseControl
 	public int IntervalMs
 	{
 		get => _intervalMs ?? DefaultIntervalMs(_style);
-		set { var v = Math.Max(ControlDefaults.AnimationMinIntervalMs, value); if (_intervalMs == v) return; _intervalMs = v; RestartAnimation(); }
+		set { var v = Math.Max(ControlDefaults.AnimationMinIntervalMs, value); if (_intervalMs == v) return; _intervalMs = v; RestartAnimation(); OnPropertyChanged(); }
 	}
 
 	/// <summary>Gets or sets the foreground color for plain (un-marked-up) frames. Theme-resolved when null.</summary>
 	public Color? Color
 	{
 		get => _color;
-		set { _color = value; Container?.Invalidate(true); }
+		set { if (Nullable.Equals(_color, value)) return; _color = value; OnPropertyChanged(); Container?.Invalidate(true); }
 	}
 
 	/// <summary>Gets or sets whether the spinner is animating.</summary>
@@ -77,6 +77,7 @@ public class SpinnerControl : BaseControl
 			if (_isSpinning == value) return;
 			_isSpinning = value;
 			if (_isSpinning) StartAnimation(); else StopAnimation();
+			OnPropertyChanged();
 		}
 	}
 

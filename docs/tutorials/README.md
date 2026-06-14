@@ -20,7 +20,7 @@ Each tutorial is self-contained — you can start any one without completing the
 
 **Ready for advanced patterns?** Try [Tutorial 3: Settings App](03-settings-app.md).
 
-**Want to build a complete app with MVVM?** Work through [Tutorial 4: Terminal Mail Client](04-mail-client.md).
+**Want to build a complete app with MVVM?** Start with the [Data Binding guide](../binding.md), then work through [Tutorial 4: Terminal Mail Client](04-mail-client.md).
 
 **Into rich, animated UI?** Build [Tutorial 5: Terminal Music Player](05-music-player.md).
 

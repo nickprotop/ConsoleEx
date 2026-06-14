@@ -276,7 +276,7 @@ SharpConsoleUI is the right choice when you need:
 - **Embedded terminal + UI** -- TerminalControl gives you a real PTY-backed terminal emulator inside a window, alongside your UI controls. Rare in the .NET ecosystem.
 - **Markdown and rich markup in every control** -- the `[markdown]` markup tag renders Markdown (and highlighted code blocks) inside any markup control, not just a single dedicated widget.
 - **Terminal video** -- VideoControl plays video with half-block rendering, and Kitty true-graphics where supported. None of the other .NET TUI libraries do video.
-- **MVVM data binding** -- `Bind()` and `BindTwoWay()` with lambda expressions, type converters, and standard `INotifyPropertyChanged` ViewModels. All controls support property change notification out of the box.
+- **MVVM data binding** -- `Bind()` and `BindTwoWay()` with lambda expressions, type converters, and standard `INotifyPropertyChanged` ViewModels. All controls support property change notification out of the box.  See the [Data Binding guide](binding.md).
 - **Spectre.Console integration** -- use `[red bold]markup[/]` in every control, and embed any `IRenderable` (Tables, Charts, BarCharts) as a windowed control. Extends Spectre.Console rather than replacing it.
 - **Live data visualization** -- SparklineControl and BarGraphControl update in real-time with configurable styles.
 - **Plugin-based architectures** -- extend the framework with custom themes, controls, windows, and services.

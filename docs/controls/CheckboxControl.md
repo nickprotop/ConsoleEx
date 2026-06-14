@@ -225,7 +225,7 @@ panel.AddControl(Controls.Checkbox("Enable telemetry").Build());
 1. **Use clear labels**: The label should describe the option being toggled ("Enable notifications", not "Notifications?").
 2. **Set the initial state explicitly**: Use `.Checked(true)` for options that should default to on so the UI matches your model.
 3. **Prefer `CheckedChanged` over polling**: React to state changes through the event rather than reading `Checked` on a timer.
-4. **Bind to your model**: Use `BindTwoWay` to keep a view-model property and the checkbox in sync without manual event wiring.
+4. **Bind to your model**: Use `BindTwoWay` to keep a view-model property and the checkbox in sync without manual event wiring. See the [Data Binding guide](../binding.md).
 5. **Name checkboxes you read later**: Use `.WithName(...)` so you can retrieve state with `FindControl<CheckboxControl>(...)`.
 6. **Customize marks for clarity**: Use `WithCheckmark` to match your visual style, but keep characters single-width for clean alignment.
 

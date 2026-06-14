@@ -98,7 +98,7 @@ namespace SharpConsoleUI.Controls
 			RefreshSearchMatches();
 
 			// Notify that content has changed
-			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
+			RaiseContentChanged();
 		}
 
 		/// <summary>
@@ -166,7 +166,7 @@ namespace SharpConsoleUI.Controls
 			RefreshSearchMatches();
 
 			// Notify that content has changed
-			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
+			RaiseContentChanged();
 		}
 
 		/// <summary>
@@ -225,7 +225,7 @@ namespace SharpConsoleUI.Controls
 			_skipUpdateScrollPositionsInRender = false;
 
 			// Notify that content has changed
-			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
+			RaiseContentChanged();
 		}
 
 		/// <summary>
@@ -272,7 +272,7 @@ namespace SharpConsoleUI.Controls
 			_skipUpdateScrollPositionsInRender = false;
 
 			// Notify that content has changed
-			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
+			RaiseContentChanged();
 		}
 
 		/// <summary>
@@ -298,7 +298,7 @@ namespace SharpConsoleUI.Controls
 			EnsureCursorVisible();
 			RefreshSearchMatches();
 			Container?.Invalidate(true);
-			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
+			RaiseContentChanged();
 		}
 
 		/// <summary>Inserts pasted text as one atomic block (IPasteTarget). No per-line auto-indent.</summary>
@@ -314,7 +314,7 @@ namespace SharpConsoleUI.Controls
 			InvalidateWrappedLinesCache();
 			EnsureCursorVisible();
 			Container?.Invalidate(true);
-			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
+			RaiseContentChanged();
 		}
 
 		/// <summary>
@@ -340,7 +340,7 @@ namespace SharpConsoleUI.Controls
 			EnsureCursorVisible();
 			RefreshSearchMatches();
 			Container?.Invalidate(true);
-			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
+			RaiseContentChanged();
 		}
 
 		/// <summary>

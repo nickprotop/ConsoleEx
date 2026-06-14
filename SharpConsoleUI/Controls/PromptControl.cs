@@ -39,6 +39,19 @@ namespace SharpConsoleUI.Controls
 		/// Event fired when input text changes (modern standardized event)
 		/// </summary>
 		public event EventHandler<string>? InputChanged;
+
+		/// <summary>
+		/// Raises change notifications for the current input: the bespoke <see cref="InputChanged"/>
+		/// event and <see cref="System.ComponentModel.INotifyPropertyChanged"/> for
+		/// <see cref="Input"/> (so data binding to <c>Input</c> sees interactive edits, not just
+		/// programmatic setter calls).
+		/// </summary>
+		private void RaiseInputChanged()
+		{
+			OnPropertyChanged(nameof(Input));
+			InputChanged?.Invoke(this, _input);
+		}
+
 		private string _input = string.Empty;
 		private Color? _inputBackgroundColor;
 		private Color? _inputFocusedBackgroundColor;
@@ -315,7 +328,7 @@ namespace SharpConsoleUI.Controls
 						{
 							ClipboardHelper.SetText(SelectedText!);
 							DeleteSelection();
-							InputChanged?.Invoke(this, _input);
+							RaiseInputChanged();
 						}
 						return true;
 
@@ -324,7 +337,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_input = _input.Substring(0, cursorPos);
 							Container?.Invalidate(true);
-							InputChanged?.Invoke(this, _input);
+							RaiseInputChanged();
 						}
 						return true;
 
@@ -333,7 +346,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_input = _input.Substring(cursorPos);
 							MoveCursorTo(0);
-							InputChanged?.Invoke(this, _input);
+							RaiseInputChanged();
 						}
 						return true;
 
@@ -343,7 +356,7 @@ namespace SharpConsoleUI.Controls
 							int wordStart = FindWordBoundaryLeft(cursorPos);
 							_input = _input.Remove(wordStart, cursorPos - wordStart);
 							MoveCursorTo(wordStart);
-							InputChanged?.Invoke(this, _input);
+							RaiseInputChanged();
 						}
 						return true;
 
@@ -381,14 +394,14 @@ namespace SharpConsoleUI.Controls
 				if (HasSelection)
 				{
 					DeleteSelection();
-					InputChanged?.Invoke(this, _input);
+					RaiseInputChanged();
 					return true;
 				}
 				if (cursorPos > 0)
 				{
 					_input = _input.Remove(cursorPos - 1, 1);
 					MoveCursorTo(cursorPos - 1);
-					InputChanged?.Invoke(this, _input);
+					RaiseInputChanged();
 				}
 				return true;
 			}
@@ -397,14 +410,14 @@ namespace SharpConsoleUI.Controls
 				if (HasSelection)
 				{
 					DeleteSelection();
-					InputChanged?.Invoke(this, _input);
+					RaiseInputChanged();
 					return true;
 				}
 				if (cursorPos < _input.Length)
 				{
 					_input = _input.Remove(cursorPos, 1);
 					Container?.Invalidate(true);
-					InputChanged?.Invoke(this, _input);
+					RaiseInputChanged();
 				}
 				return true;
 			}
@@ -441,7 +454,7 @@ namespace SharpConsoleUI.Controls
 				_historyIndex--;
 				_input = _history[_historyIndex];
 				MoveCursorTo(_input.Length);
-				InputChanged?.Invoke(this, _input);
+				RaiseInputChanged();
 				return true;
 			}
 			else if (key.Key == ConsoleKey.DownArrow && _historyEnabled && _historyIndex < _history.Count)
@@ -449,7 +462,7 @@ namespace SharpConsoleUI.Controls
 				_historyIndex++;
 				_input = _historyIndex < _history.Count ? _history[_historyIndex] : string.Empty;
 				MoveCursorTo(_input.Length);
-				InputChanged?.Invoke(this, _input);
+				RaiseInputChanged();
 				return true;
 			}
 			else if (key.Key == ConsoleKey.Tab && _tabCompleter != null)
@@ -464,7 +477,7 @@ namespace SharpConsoleUI.Controls
 						return false; // already complete — let focus leave
 					_input = completions[0];
 					MoveCursorTo(_input.Length);
-					InputChanged?.Invoke(this, _input);
+					RaiseInputChanged();
 					return true;
 				}
 
@@ -474,7 +487,7 @@ namespace SharpConsoleUI.Controls
 				{
 					_input = prefix;
 					MoveCursorTo(_input.Length);
-					InputChanged?.Invoke(this, _input);
+					RaiseInputChanged();
 					return true;
 				}
 
@@ -495,7 +508,7 @@ namespace SharpConsoleUI.Controls
 				_input = _input.Insert(cursorPos, key.KeyChar.ToString());
 				ClearSelection();
 				MoveCursorTo(cursorPos + 1);
-				InputChanged?.Invoke(this, _input);
+				RaiseInputChanged();
 				return true;
 			}
 			return false;
@@ -522,7 +535,7 @@ namespace SharpConsoleUI.Controls
 			DeleteSelection();
 			_input = _input.Insert(_cursorPosition, text);
 			MoveCursorTo(_cursorPosition + text.Length);
-			InputChanged?.Invoke(this, _input);
+			RaiseInputChanged();
 		}
 
 		/// <summary>
@@ -620,7 +633,7 @@ namespace SharpConsoleUI.Controls
 			_horizontalScrollOffset = 0;
 
 			Container?.Invalidate(true);
-			InputChanged?.Invoke(this, _input);
+			RaiseInputChanged();
 		}
 
 		private void SetScrollOffset(int value)

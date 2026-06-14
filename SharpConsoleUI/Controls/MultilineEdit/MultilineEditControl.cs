@@ -160,6 +160,17 @@ namespace SharpConsoleUI.Controls
 		public event Core.AsyncEventHandler<string>? ContentChangedAsync;
 
 		/// <summary>
+		/// Raises content-change notifications: <see cref="System.ComponentModel.INotifyPropertyChanged"/>
+		/// for <see cref="Content"/> (so data binding to <c>Content</c> sees both programmatic and
+		/// interactive edits), then the <see cref="ContentChanged"/> / <see cref="ContentChangedAsync"/> events.
+		/// </summary>
+		private void RaiseContentChanged()
+		{
+			OnPropertyChanged(nameof(Content));
+			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
+		}
+
+		/// <summary>
 		/// Occurs when the cursor position changes.
 		/// Event argument is a tuple of (Line, Column) using 1-based indices.
 		/// </summary>

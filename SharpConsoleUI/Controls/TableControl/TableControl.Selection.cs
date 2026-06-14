@@ -223,6 +223,8 @@ public partial class TableControl
 
 		EnsureSelectedRowVisible();
 
+		// INPC for SelectedRowIndex so data binding sees selection changes (property + key/mouse all route here).
+		OnPropertyChanged(nameof(SelectedRowIndex));
 		Core.AsyncEvent.Raise(SelectedRowChanged, SelectedRowChangedAsync, this, newIndex, Container?.GetConsoleWindowSystem?.LogService);
 
 		if (_dataSource == null)

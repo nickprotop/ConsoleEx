@@ -268,6 +268,8 @@ namespace SharpConsoleUI.Controls
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
 			Invalidate(true);
 
+			// INPC for IsExpanded so data binding sees toggles (property setter + Toggle/Expand/Collapse all route here).
+			OnPropertyChanged(nameof(IsExpanded));
 			ExpandedChanged?.Invoke(this, _isExpanded);
 		}
 
