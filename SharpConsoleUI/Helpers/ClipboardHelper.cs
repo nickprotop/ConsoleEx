@@ -8,6 +8,7 @@
 
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace SharpConsoleUI.Helpers
 {
@@ -113,13 +114,50 @@ namespace SharpConsoleUI.Helpers
 		/// <summary>
 		/// Copies the specified text to the system clipboard.
 		/// </summary>
+		/// <remarks>
+		/// The external-tool backends (clip.exe, pbcopy, xclip, xsel, wl-copy) spawn a process and
+		/// wait on it. That blocking I/O is dispatched to a background thread so a copy never stalls
+		/// the UI/render thread — on Windows, spawning <c>clip.exe</c> per copy was slow enough to
+		/// trip the main-loop "unresponsive" watchdog (issue #42). OSC 52 emission and the in-process
+		/// fallback are cheap and stay synchronous, so callers and tests observe them immediately.
+		/// </remarks>
 		public static void SetText(string text)
 		{
 			TryEmitOsc52(text);
 			EnsureDetected();
+
+			// Mirror the value into the in-process buffer synchronously so GetText() reflects the
+			// copy immediately (and tests stay deterministic) regardless of the external tool's timing.
+			lock (_lock) { _internalBuffer = text; }
+
+			// External tools that block on a child process run off the UI thread.
+			switch (_backend)
+			{
+				case ClipboardBackend.WindowsClip:
+				case ClipboardBackend.Pbcopy:
+				case ClipboardBackend.WlClipboard:
+				case ClipboardBackend.Xclip:
+				case ClipboardBackend.Xsel:
+					var backend = _backend;
+					ThreadPool.QueueUserWorkItem(_ => WriteToExternalTool(backend, text));
+					break;
+				case ClipboardBackend.InternalFallback:
+				default:
+					// Already written to the in-process buffer above.
+					break;
+			}
+		}
+
+		/// <summary>
+		/// Runs the blocking external clipboard tool for <paramref name="backend"/>. Invoked on a
+		/// background thread by <see cref="SetText"/>; failures fall back silently (the value is
+		/// already in the in-process buffer).
+		/// </summary>
+		private static void WriteToExternalTool(ClipboardBackend backend, string text)
+		{
 			try
 			{
-				switch (_backend)
+				switch (backend)
 				{
 					case ClipboardBackend.WindowsClip:
 						// clip.exe does NOT accept UTF-8: it reads stdin as the OEM/ANSI code page,
@@ -140,16 +178,11 @@ namespace SharpConsoleUI.Helpers
 					case ClipboardBackend.Xsel:
 						RunProcessWithInput("xsel", text, "--clipboard", "--input");
 						break;
-					case ClipboardBackend.InternalFallback:
-					default:
-						lock (_lock) { _internalBuffer = text; }
-						break;
 				}
 			}
 			catch
 			{
-				// External tool failed at runtime — store in internal buffer
-				lock (_lock) { _internalBuffer = text; }
+				// External tool failed at runtime — the in-process buffer already holds the value.
 			}
 		}
 
