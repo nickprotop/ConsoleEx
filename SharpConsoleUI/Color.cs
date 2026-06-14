@@ -383,6 +383,16 @@ namespace SharpConsoleUI
 			return rgba != null;
 		}
 
+		/// <summary>
+		/// Attempts to parse a hex color string (#RGB, #RRGGBB, or RRGGBB).
+		/// </summary>
+		public static Color FromHex(string hex)
+		{
+			var rgba = ParseFromHex(hex) ?? throw new ArgumentException("Invalid RGB hex string (format: #RGB, #RRGGBB, or RRGGBB).");
+
+			return new Color(rgba.r, rgba.g, rgba.b, rgba.a);
+		}
+
 		private static (byte r, byte g, byte b, byte a)? ParseFromHex(string hex)
 		{
 			if (string.IsNullOrEmpty(hex)) return null;
