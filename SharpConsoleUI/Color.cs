@@ -53,6 +53,19 @@ namespace SharpConsoleUI
 			IsDefault = isDefault;
 		}
 
+		/// <summary>Creates a color from RGB string (#RGB, #RRGGBB, or RRGGBB).</summary>
+		public Color(string hex)
+		{
+			var rgba = ParseFromHex(hex) ?? throw new ArgumentException("Invalid RGB hex string (format: #RGB, #RRGGBB, or RRGGBB).");
+
+			R = rgba.r;
+			G = rgba.g;
+			B = rgba.b;
+			A = rgba.a;
+			IsDefault = false;
+		}
+
+
 		#region Named Colors — Basic 16
 
 		/// <summary>Sentinel: "no explicit color, inherit from context".</summary>
@@ -358,14 +371,21 @@ namespace SharpConsoleUI
 		{
 			return ColorTable.TryGetByName(name, out color);
 		}
-
 		/// <summary>
 		/// Attempts to parse a hex color string (#RGB, #RRGGBB, or RRGGBB).
 		/// </summary>
 		public static bool TryFromHex(string hex, out Color color)
 		{
-			color = default;
-			if (string.IsNullOrEmpty(hex)) return false;
+			var rgba = ParseFromHex(hex);
+
+			color = (rgba == null) ? default : new Color(rgba.Value.r, rgba.Value.g, rgba.Value.b, rgba.Value.a);
+
+			return rgba != null;
+		}
+
+		private static (byte r, byte g, byte b, byte a)? ParseFromHex(string hex)
+		{
+			if (string.IsNullOrEmpty(hex)) return null;
 
 			ReadOnlySpan<char> span = hex.AsSpan();
 			if (span[0] == '#') span = span[1..];
@@ -376,10 +396,9 @@ namespace SharpConsoleUI
 					TryParseHexNibble(span[1], out byte g) &&
 					TryParseHexNibble(span[2], out byte b))
 				{
-					color = new Color((byte)(r * 17), (byte)(g * 17), (byte)(b * 17));
-					return true;
+					return ((byte)(r * 17), (byte)(g * 17), (byte)(b * 17), (byte)255);
 				}
-				return false;
+				return null;
 			}
 
 			if (span.Length == 8)
@@ -389,10 +408,9 @@ namespace SharpConsoleUI
 					byte.TryParse(span[4..6], System.Globalization.NumberStyles.HexNumber, null, out byte b) &&
 					byte.TryParse(span[6..8], System.Globalization.NumberStyles.HexNumber, null, out byte a))
 				{
-					color = new Color(r, g, b, a);
-					return true;
+					return (r, g, b, a);
 				}
-				return false;
+				return null;
 			}
 
 			if (span.Length == 6)
@@ -401,12 +419,11 @@ namespace SharpConsoleUI
 					byte.TryParse(span[2..4], System.Globalization.NumberStyles.HexNumber, null, out byte g) &&
 					byte.TryParse(span[4..6], System.Globalization.NumberStyles.HexNumber, null, out byte b))
 				{
-					color = new Color(r, g, b);
-					return true;
+					return (r, g, b, 255);
 				}
 			}
 
-			return false;
+			return null;
 		}
 
 		private static bool TryParseHexNibble(char c, out byte value)
