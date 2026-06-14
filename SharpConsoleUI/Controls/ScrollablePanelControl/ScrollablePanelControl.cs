@@ -91,6 +91,8 @@ namespace SharpConsoleUI.Controls
 		// Border and padding
 		private BorderStyle _borderStyle = BorderStyle.None;
 		private Color? _borderColor;
+		private Color? _scrollbarColor;
+		private Color? _scrollbarThumbColor;
 		private Padding _padding = new Padding(0, 0, 0, 0);
 		private string? _header;
 		private TextJustification _headerAlignment = TextJustification.Left;
@@ -589,6 +591,26 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _borderColor;
 			set => SetProperty(ref _borderColor, value);
+		}
+
+		/// <summary>
+		/// Gets or sets the scrollbar track color. When null (the default), the track uses the
+		/// built-in focus-aware default (lighter when focused, darker when not).
+		/// </summary>
+		public Color? ScrollbarColor
+		{
+			get => _scrollbarColor;
+			set => SetProperty(ref _scrollbarColor, value);
+		}
+
+		/// <summary>
+		/// Gets or sets the scrollbar thumb (handle and arrow) color. When null (the default), the
+		/// thumb uses the built-in focus-aware default (cyan when focused, grey when not).
+		/// </summary>
+		public Color? ScrollbarThumbColor
+		{
+			get => _scrollbarThumbColor;
+			set => SetProperty(ref _scrollbarThumbColor, value);
 		}
 
 		/// <summary>

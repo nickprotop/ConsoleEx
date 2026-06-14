@@ -285,6 +285,14 @@ namespace SharpConsoleUI.Controls
 			return (scrollbarRelX, scrollbarRelY, trackWidth, thumbX, thumbWidth);
 		}
 
+		/// <summary>Thumb color: the <see cref="ScrollbarThumbColor"/> override, else the focus-aware default.</summary>
+		private Color ResolveScrollbarThumbColor()
+			=> _scrollbarThumbColor ?? (HasFocus ? Color.Cyan1 : Color.Grey);
+
+		/// <summary>Track color: the <see cref="ScrollbarColor"/> override, else the focus-aware default.</summary>
+		private Color ResolveScrollbarTrackColor()
+			=> _scrollbarColor ?? (HasFocus ? Color.Grey : Color.Grey23);
+
 		private void DrawVerticalScrollbar(CharacterBuffer buffer, LayoutRect bounds, Color fgColor, Color bgColor)
 		{
 			var (scrollbarRelX, scrollbarTop, scrollbarHeight, thumbY, thumbHeight) = GetScrollbarGeometry();
@@ -293,9 +301,10 @@ namespace SharpConsoleUI.Controls
 			int scrollbarX = bounds.X + scrollbarRelX;
 			int scrollbarAbsTop = bounds.Y + scrollbarTop;
 
-			// Colors
-			Color thumbColor = HasFocus ? Color.Cyan1 : Color.Grey;
-			Color trackColor = HasFocus ? Color.Grey : Color.Grey23;
+			// Colors: honor the ScrollbarThumbColor/ScrollbarColor overrides; otherwise fall back to
+			// the focus-aware defaults.
+			Color thumbColor = ResolveScrollbarThumbColor();
+			Color trackColor = ResolveScrollbarTrackColor();
 
 			for (int y = 0; y < scrollbarHeight; y++)
 			{
@@ -335,8 +344,8 @@ namespace SharpConsoleUI.Controls
 			int scrollbarX = bounds.X + scrollbarRelX;
 			int scrollbarY = bounds.Y + scrollbarRelY;
 
-			Color thumbColor = HasFocus ? Color.Cyan1 : Color.Grey;
-			Color trackColor = HasFocus ? Color.Grey : Color.Grey23;
+			Color thumbColor = ResolveScrollbarThumbColor();
+			Color trackColor = ResolveScrollbarTrackColor();
 
 			for (int x = 0; x < trackWidth; x++)
 			{

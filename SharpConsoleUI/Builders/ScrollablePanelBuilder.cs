@@ -24,6 +24,8 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 
 	private bool _showScrollbar = true;
 	private ScrollbarPosition _scrollbarPosition = ScrollbarPosition.Right;
+	private Color? _scrollbarColor;
+	private Color? _scrollbarThumbColor;
 	private ScrollMode _horizontalScrollMode = ScrollMode.None;
 	private ScrollMode _verticalScrollMode = ScrollMode.Scroll;
 	private bool _enableMouseWheel = true;
@@ -87,6 +89,20 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 	public ScrollablePanelBuilder WithScrollbar(bool show = true)
 	{
 		_showScrollbar = show;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the scrollbar track and thumb colors. When not called, the scrollbar uses the built-in
+	/// focus-aware default colors.
+	/// </summary>
+	/// <param name="trackColor">The scrollbar track color.</param>
+	/// <param name="thumbColor">The scrollbar thumb (handle and arrow) color.</param>
+	/// <returns>The builder for chaining</returns>
+	public ScrollablePanelBuilder WithScrollbarColors(Color trackColor, Color thumbColor)
+	{
+		_scrollbarColor = trackColor;
+		_scrollbarThumbColor = thumbColor;
 		return this;
 	}
 
@@ -439,6 +455,8 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 		{
 			ShowScrollbar = _showScrollbar,
 			ScrollbarPosition = _scrollbarPosition,
+			ScrollbarColor = _scrollbarColor,
+			ScrollbarThumbColor = _scrollbarThumbColor,
 			HorizontalScrollMode = _horizontalScrollMode,
 			VerticalScrollMode = _verticalScrollMode,
 			EnableMouseWheel = _enableMouseWheel,
