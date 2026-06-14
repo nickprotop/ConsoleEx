@@ -40,6 +40,9 @@ namespace SharpConsoleUI.Controls
 				else
 					fc.Container?.Invalidate(true);
 			}
+			// SPC is a layout-tree participant: a new child must be built into the DOM tree
+			// (a plain Invalidate only re-measures the existing tree, which would omit it).
+			this.GetParentWindow()?.ForceRebuildLayout();
 			Invalidate(true);
 		}
 
@@ -57,6 +60,7 @@ namespace SharpConsoleUI.Controls
 				_children.Insert(index, control);
 			}
 			control.Container = this;
+			this.GetParentWindow()?.ForceRebuildLayout();
 			Invalidate(true);
 		}
 
@@ -94,6 +98,7 @@ namespace SharpConsoleUI.Controls
 					this.GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Programmatic);
 				}
 
+				this.GetParentWindow()?.ForceRebuildLayout();
 				Invalidate(true);
 			}
 		}
@@ -123,6 +128,7 @@ namespace SharpConsoleUI.Controls
 				child.Dispose();
 			}
 
+			this.GetParentWindow()?.ForceRebuildLayout();
 			Invalidate(true);
 		}
 
@@ -140,6 +146,32 @@ namespace SharpConsoleUI.Controls
 		#endregion
 
 		#region Shared Child Layout
+
+		/// <summary>
+		/// Measures a single child at the given constraints and returns its desired height. Uses the
+		/// persistent layout node (when ScrollLayout has registered a resolver for the current pass)
+		/// so the child's already-built subtree is reused instead of rebuilt from scratch via
+		/// <see cref="LayoutNodeFactory.CreateSubtree"/>. Falls back to building a throwaway subtree
+		/// when no persistent node is available (detached / unit-test direct calls), preserving the
+		/// original behavior of those paths. The measurement (constraints, width re-measure) is
+		/// identical either way — only the subtree-build is avoided.
+		/// </summary>
+		private int MeasureChildHeight(IWindowControl child, LayoutConstraints constraints)
+		{
+			var persistent = _childNodeResolver?.Invoke(child);
+			if (persistent != null)
+			{
+				persistent.IsVisible = true;
+				persistent.Measure(constraints);
+				return persistent.DesiredSize.Height;
+			}
+
+			var node = LayoutNodeFactory.CreateSubtree(child);
+			node.IsVisible = true;
+			node.Measure(constraints);
+			return node.DesiredSize.Height;
+		}
+
 
 		/// <summary>
 		/// A visible child together with its content-space vertical position and the height
@@ -182,22 +214,25 @@ namespace SharpConsoleUI.Controls
 		{
 			int vh = viewportHeight >= 0 ? viewportHeight : _viewportHeight;
 
-			int fixedHeight = 0;
+			// PERF: the per-Fill height is only derived from fixedHeight when there is at least one
+			// Fill child; with zero Fill children perFillHeight == vh and fixedHeight is unused. So
+			// scan for Fill children first (cheap, no measure) and only run the O(children) measuring
+			// loop when it actually contributes. Callers all ignore fixedHeight/fillCount unless a
+			// Fill child exists, so this is byte-identical (fixedHeight reported as 0 when no Fill).
 			int fillCount = 0;
 			foreach (var child in snapshot)
 			{
-				if (!child.Visible) continue;
-				if (child.VerticalAlignment == VerticalAlignment.Fill)
-				{
+				if (child.Visible && child.VerticalAlignment == VerticalAlignment.Fill)
 					fillCount++;
-					continue;
-				}
-				if (vh > 0)
+			}
+
+			int fixedHeight = 0;
+			if (vh > 0 && fillCount > 0)
+			{
+				foreach (var child in snapshot)
 				{
-					var node = LayoutNodeFactory.CreateSubtree(child);
-					node.IsVisible = true;
-					node.Measure(new LayoutConstraints(1, contentWidth, 1, int.MaxValue));
-					fixedHeight += node.DesiredSize.Height;
+					if (!child.Visible || child.VerticalAlignment == VerticalAlignment.Fill) continue;
+					fixedHeight += MeasureChildHeight(child, new LayoutConstraints(1, contentWidth, 1, int.MaxValue));
 				}
 			}
 
@@ -222,13 +257,11 @@ namespace SharpConsoleUI.Controls
 			bool isFillChild = vh > 0 && child.VerticalAlignment == VerticalAlignment.Fill;
 			int maxChildHeight = isFillChild ? perFillHeight : int.MaxValue;
 
-			var node = LayoutNodeFactory.CreateSubtree(child);
-			node.IsVisible = true;
-			node.Measure(new LayoutConstraints(1, contentWidth, 1, maxChildHeight));
+			int measuredHeight = MeasureChildHeight(child, new LayoutConstraints(1, contentWidth, 1, maxChildHeight));
 
 			return isFillChild
-				? Math.Max(node.DesiredSize.Height, perFillHeight)
-				: node.DesiredSize.Height;
+				? Math.Max(measuredHeight, perFillHeight)
+				: measuredHeight;
 		}
 
 		/// <summary>

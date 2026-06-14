@@ -174,98 +174,15 @@ namespace SharpConsoleUI.Controls
 				DrawBottomBorder(buffer, startX, startY + targetHeight - 1, targetWidth, clipRect, box, borderColor, effectiveBg);
 			}
 
-			// Content area origin (inside border + padding)
-			int contentOriginX = startX + ContentInsetLeft;
-			int contentOriginY = startY + ContentInsetTop;
-
-			// Render children with scroll offsets applied
-			int currentY = -_verticalScrollOffset;
-
-			// Get renderer for registering child bounds (needed for cursor position lookups)
-			var parentWindow = this.GetParentWindow();
-			var renderer = parentWindow?.Renderer;
-
-			List<IWindowControl> paintSnapshot;
-			lock (_childrenLock) { paintSnapshot = new List<IWindowControl>(_children); }
-
-			// Two-pass Fill layout. The metrics (fixed height, fill count, per-Fill height) are
-			// computed by the shared helper so paint, hit-testing and scroll-into-view agree.
-			// Children are measured/distributed against the content viewport (H-scrollbar row
-			// already reserved).
-			var (_, _, perFillHeight) = ComputeFillMetrics(paintSnapshot, contentWidth, contentViewportHeight);
-
-			// When horizontal scrolling is enabled, lay children out at their FULL content width so
-			// the overflow exists to scroll through; the viewport clip below trims it. When off,
-			// children are constrained to the visible width (the original behaviour).
-			bool horizontalScrollEnabled = _horizontalScrollMode == ScrollMode.Scroll;
-			int childLayoutWidth = horizontalScrollEnabled ? Math.Max(contentWidth, _contentWidth) : contentWidth;
-
-			foreach (var child in paintSnapshot)
-			{
-				if (!child.Visible) continue;
-
-				// Build layout subtree (handles containers like TabControl, HorizontalGrid)
-				var childNode = LayoutNodeFactory.CreateSubtree(child);
-				childNode.IsVisible = true;
-
-				// Measure using full layout pipeline.
-				// Fill-aligned children: get remaining space after fixed children.
-				// Content-sized children: measure unbounded for correct scroll positioning.
-				bool isFillChild = contentViewportHeight > 0 && child.VerticalAlignment == VerticalAlignment.Fill;
-				int maxChildHeight = isFillChild ? perFillHeight : int.MaxValue;
-				var constraints = new LayoutConstraints(1, childLayoutWidth, 1, maxChildHeight);
-				childNode.Measure(constraints);
-				// Fill children occupy their full allocated slot even if their content (DesiredSize)
-				// is smaller — that is what VerticalAlignment.Fill means. Content-sized children use
-				// their DesiredSize so they can overflow the viewport and be scrolled.
-				int childHeight = isFillChild
-					? Math.Max(childNode.DesiredSize.Height, perFillHeight)
-					: childNode.DesiredSize.Height;
-
-				// Respect explicit Width on child controls
-				int childWidth = (child.Width.HasValue && child.Width.Value < childLayoutWidth)
-					? child.Width.Value
-					: childLayoutWidth;
-
-				// Horizontal scroll offset shifts children left.
-				int childX = contentOriginX - _horizontalScrollOffset;
-
-				// Register child bounds for cursor position lookups (even if off-viewport)
-				var childBoundsForCursor = new LayoutRect(
-					childX,
-					contentOriginY + currentY,
-					childWidth,
-					childHeight);
-				renderer?.UpdateChildBounds(child, childBoundsForCursor);
-
-				// Only render if in the content viewport (vertical extent excludes the H-scrollbar row)
-				if (currentY + childHeight > 0 && currentY < contentViewportHeight)
-				{
-					var childBounds = new LayoutRect(
-						childX,
-						contentOriginY + currentY,
-						childWidth,
-						childHeight);
-
-					// Arrange in screen coordinates (so AbsoluteBounds are correct)
-					childNode.Arrange(childBounds);
-
-					// Clip the child to the visible content area: width excludes the vertical
-					// scrollbar columns, height excludes the horizontal scrollbar row.
-					var viewportRect = new LayoutRect(
-						contentOriginX,
-						contentOriginY,
-						contentWidth,
-						contentViewportHeight);
-
-					var childClipRect = clipRect.Intersect(viewportRect);
-
-					// Paint through layout pipeline (headers + children properly)
-					childNode.Paint(buffer, childClipRect, fgColor, bgColor);
-				}
-
-				currentY += childHeight;
-			}
+			// NOTE: SPC no longer paints its children here. As of the ScrollLayout refactor, the
+			// panel participates in the layout tree (LayoutNodeFactory.ResolveLayout returns a
+			// ScrollLayout + the panel's children), so the engine measures, arranges and paints the
+			// children — applying the scroll offset via AbsoluteBounds and clipping each child to the
+			// content viewport through ScrollLayout.GetPaintClipRect (scrollbar chrome excluded).
+			// PaintDOM is now chrome-only: it computes the viewport/content metrics the scrollbars
+			// need (the prelude above), paints the border, and draws the scrollbars BELOW. Because
+			// LayoutNode.Paint runs PaintControl (this method) BEFORE painting child nodes, the
+			// chrome is drawn first and children — clipped to the viewport — never overdraw it.
 
 			// Draw the scrollbars (single source of truth for visibility).
 			if (needsScrollbar)

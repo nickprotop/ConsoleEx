@@ -57,6 +57,17 @@ public class ScrollablePanelLayoutContractTests
 		return l;
 	}
 
+	/// <summary>
+	/// Renders the window and returns the visible frame as ANSI-stripped lines. Because NewPanel
+	/// uses a borderless, no-margin panel added directly to the window, content row N lands on
+	/// frame line N (verified empirically), so line indices map to content rows.
+	/// </summary>
+	private static string[] RenderFrameLines(Window window)
+	{
+		var raw = window.RenderAndGetVisibleContent();
+		return ContainerTestHelpers.StripAnsiCodes(raw).Split('\n');
+	}
+
 	#endregion
 
 	#region Click routing == paint (the central invariant)
@@ -447,6 +458,180 @@ public class ScrollablePanelLayoutContractTests
 		// Cursor Y is panel-relative (content space minus scroll). The editor was scrolled into
 		// view, so the cursor must be within the viewport rows.
 		Assert.InRange(pos!.Value.Y, 0, panel.ViewportHeight - 1);
+	}
+
+	#endregion
+
+	#region Rendered-output clipping & scroll round-trip (ScrollLayout refactor net)
+
+	/// <summary>
+	/// Partial clip (top): a single tall child scrolled down by N so its first N rows are above
+	/// the viewport. The clipped-away top rows must NOT appear in the rendered frame, while the
+	/// rows that remain in the viewport DO appear — i.e. the child is clipped at the viewport top,
+	/// not fully hidden and not overflowing above row 0.
+	/// </summary>
+	[Fact]
+	public void RenderedOutput_PartialClipTop_HidesScrolledRows_ShowsRemaining()
+	{
+		var (panel, _, window) = NewPanel(6);
+		var big = new MarkupControl(Enumerable.Range(0, 12).Select(i => $"LINE{i}").ToList());
+		panel.AddControl(big);
+		window.RenderAndGetVisibleContent();
+
+		panel.ScrollVerticalBy(3);
+		var lines = RenderFrameLines(window);
+
+		// First 6 content rows (LINE0..LINE5) shift up by 3; LINE0..LINE2 are clipped above the
+		// viewport and the top viewport row now shows LINE3.
+		string frame = string.Join("\n", lines);
+		Assert.DoesNotContain("LINE0", frame);
+		Assert.DoesNotContain("LINE1", frame);
+		Assert.DoesNotContain("LINE2", frame);
+		Assert.Contains("LINE3", lines[0]);                          // partial-clip boundary: first surviving row at viewport top
+		Assert.Contains("LINE5", frame);                            // still visible mid-viewport
+		// The viewport is 6 rows tall (lines 0..5); the row just past the bottom must be empty,
+		// so the child does not overflow the panel's painted area.
+		Assert.Equal(string.Empty, lines[panel.ViewportHeight].TrimEnd());
+	}
+
+	/// <summary>
+	/// Full scroll-out: rows scrolled entirely above the viewport leave no trace in the frame.
+	/// </summary>
+	[Fact]
+	public void RenderedOutput_ChildFullyScrolledAboveViewport_TextAbsent()
+	{
+		var (panel, _, window) = NewPanel(5);
+		var head = new MarkupControl(new List<string> { "HEADER0", "HEADER1", "HEADER2" });
+		var tail = new MarkupControl(Enumerable.Range(0, 12).Select(i => $"BODY{i}").ToList());
+		panel.AddControl(head);
+		panel.AddControl(tail);
+		window.RenderAndGetVisibleContent();
+
+		// Scroll well past the 3-row header so it is entirely above the viewport.
+		panel.ScrollVerticalBy(6);
+		var lines = RenderFrameLines(window);
+		string frame = string.Join("\n", lines);
+
+		Assert.DoesNotContain("HEADER0", frame);
+		Assert.DoesNotContain("HEADER1", frame);
+		Assert.DoesNotContain("HEADER2", frame);
+		// Sanity: something from the body region IS shown (panel not blanked).
+		Assert.Contains("BODY", frame);
+	}
+
+	/// <summary>
+	/// Hit-test after scroll agrees with paint: with two stacked tall children, after scrolling so
+	/// the second child occupies the top of the viewport, a click at viewport row 0 routes to the
+	/// child that is VISUALLY there (the second), not the scrolled-away first child. Mirrors the
+	/// existing ClickRouting_RespectsScrollOffset_WhenContentOverflows pattern but with multi-row
+	/// children so the routed child is the one whose painted slot covers the click row.
+	/// </summary>
+	[Fact]
+	public void HitTest_AfterScroll_RoutesToVisuallyPresentChild()
+	{
+		var (panel, _, window) = NewPanel(5);
+		// first: 4 single-row focusable rows; second: a multi-row focusable list.
+		var first = new ListControl(new[] { "f0", "f1", "f2", "f3" });
+		var second = new ListControl(new[] { "s0", "s1", "s2", "s3", "s4", "s5" });
+		panel.AddControl(first);
+		panel.AddControl(second);
+		window.RenderAndGetVisibleContent();
+
+		// 'first' occupies content rows 0..3, 'second' rows 4..9. Scroll by 4 so 'second' row 0
+		// lands at viewport top; 'first' is fully above the viewport.
+		panel.ScrollVerticalBy(4);
+		window.RenderAndGetVisibleContent();
+
+		panel.ProcessMouseEvent(ContainerTestHelpers.CreateClick(0, 0));
+		Assert.True(second.HasFocus, "Top-of-viewport click after scrolling routes to the visually-present child.");
+		Assert.False(first.HasFocus, "The scrolled-away child must not receive the click.");
+	}
+
+	/// <summary>
+	/// Fill child slot: a fixed header plus a Fill child. The Fill child must be painted into the
+	/// whole remaining viewport — its bottom row of content (or fill area) reaches the last viewport
+	/// row, and nothing is painted past the viewport. Captures the current ComputeFillMetrics result
+	/// as observed in the rendered frame.
+	/// </summary>
+	[Fact]
+	public void RenderedOutput_FillChild_OccupiesRemainingViewportRows()
+	{
+		var (panel, _, window) = NewPanel(8);
+		var header = new MarkupControl(new List<string> { "HEAD" });          // fixed, 1 row at top
+		var fill = new ListControl(new[] { "ITEM" }) { VerticalAlignment = VerticalAlignment.Fill };
+		panel.AddControl(header);
+		panel.AddControl(fill);
+		window.RenderAndGetVisibleContent();
+
+		var lines = RenderFrameLines(window);
+
+		// Header paints at content row 0.
+		Assert.Contains("HEAD", lines[0]);
+		// The Fill child's slot starts right after the header and spans the rest of the viewport.
+		Assert.Equal(header.ActualY + header.ActualHeight, fill.ActualY);
+		Assert.Equal(panel.ViewportHeight - header.ActualHeight, fill.ActualHeight);
+		// Its painted content ("ITEM") falls within the viewport, and nothing paints past it.
+		Assert.Contains("ITEM", string.Join("\n", lines));
+		Assert.Equal(string.Empty, lines[panel.ViewportHeight].TrimEnd());
+	}
+
+	/// <summary>
+	/// Nested SPC (the pathological O(n^2) self-paint case): an SPC whose child is another SPC with
+	/// overflowing content renders without throwing and the inner content is visible. Pins that this
+	/// WORKS today so the refactor can keep it working.
+	/// </summary>
+	[Fact]
+	public void RenderedOutput_NestedScrollablePanel_RendersInnerContent()
+	{
+		var (outer, _, window) = NewPanel(12);
+		var inner = new ScrollablePanelControl { Height = 6 };
+		for (int i = 0; i < 10; i++)
+			inner.AddControl(new MarkupControl(new List<string> { $"INNER{i}" }));
+		outer.AddControl(inner);
+
+		var ex = Record.Exception(() => window.RenderAndGetVisibleContent());
+		Assert.Null(ex);
+
+		var lines = RenderFrameLines(window);
+		string frame = string.Join("\n", lines);
+		// The inner panel's top rows (within its own 6-row viewport) must be painted.
+		Assert.Contains("INNER0", frame);
+		Assert.True(inner.CanScrollDown, "Inner panel overflows its own viewport.");
+	}
+
+	/// <summary>
+	/// Public scroll API round-trip: ScrollVerticalBy moves the top content row; the frame's top
+	/// row reflects the offset, and scrolling past the end clamps to the max without blanking the
+	/// panel (the last page stays visible).
+	/// </summary>
+	[Fact]
+	public void RenderedOutput_ScrollVerticalBy_TopRowReflectsOffset_AndClamps()
+	{
+		var (panel, _, window) = NewPanel(5);
+		var body = new MarkupControl(Enumerable.Range(0, 20).Select(i => $"ROW{i}").ToList());
+		panel.AddControl(body);
+		window.RenderAndGetVisibleContent();
+
+		// At offset 0 the top row is ROW0.
+		var atTop = RenderFrameLines(window);
+		Assert.Contains("ROW0", atTop[0]);
+
+		// Scroll down 4 → top row becomes ROW4.
+		panel.ScrollVerticalBy(4);
+		var scrolled = RenderFrameLines(window);
+		Assert.Contains("ROW4", scrolled[0]);
+		Assert.DoesNotContain("ROW0", string.Join("\n", scrolled));
+
+		// Scroll far past the end → clamps to max; panel still shows the final page (last row
+		// ROW19 visible), not a blank frame.
+		panel.ScrollVerticalBy(9999);
+		int expectedMax = System.Math.Max(0, panel.TotalContentHeight - panel.ViewportHeight);
+		Assert.Equal(expectedMax, panel.VerticalScrollOffset);
+		var atBottom = RenderFrameLines(window);
+		string bottomFrame = string.Join("\n", atBottom);
+		Assert.Contains("ROW19", bottomFrame);
+		// Top row at clamp is ROW(expectedMax) — proves it did not blank or overshoot.
+		Assert.Contains($"ROW{expectedMax}", atBottom[0]);
 	}
 
 	#endregion

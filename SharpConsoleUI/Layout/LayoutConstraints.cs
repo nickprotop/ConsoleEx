@@ -26,6 +26,26 @@ namespace SharpConsoleUI.Layout
 			new(0, int.MaxValue, 0, int.MaxValue);
 
 		/// <summary>
+		/// Threshold above which a Max bound is treated as "effectively unbounded".
+		/// An unbounded constraint starts at <see cref="int.MaxValue"/>, but operations like
+		/// <see cref="SubtractHeight"/>/<see cref="SubtractWidth"/> erode it by a few rows/columns
+		/// (e.g. margins), so an exact <c>== int.MaxValue</c> check is unreliable. No real terminal
+		/// viewport is anywhere near a billion cells, so any Max bound this large means "no real
+		/// upper bound was supplied".
+		/// </summary>
+		public const int UnboundedThreshold = 1_000_000_000;
+
+		/// <summary>
+		/// Gets whether the maximum height is effectively unbounded (no real finite slot supplied).
+		/// </summary>
+		public bool IsHeightEffectivelyUnbounded => MaxHeight >= UnboundedThreshold;
+
+		/// <summary>
+		/// Gets whether the maximum width is effectively unbounded (no real finite slot supplied).
+		/// </summary>
+		public bool IsWidthEffectivelyUnbounded => MaxWidth >= UnboundedThreshold;
+
+		/// <summary>
 		/// Gets zero-size constraints.
 		/// </summary>
 		public static LayoutConstraints Zero =>

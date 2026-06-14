@@ -22,15 +22,18 @@ namespace SharpConsoleUI.Benchmarks;
 [MemoryDiagnoser]
 public class LayoutTreeBenchmarks
 {
-	// NOTE: tree node count is exponential (leaves = Breadth^Depth) AND the layout engine scales
-	// super-linearly with node count (measured: ~27x more nodes from (D5,B3)→(D8,B3) costs ~216x
-	// more time — the per-frame CreateSubtree rebuild + redundant traversals the ScrollLayout
-	// refactor targets). Depth=8 cases run multiple SECONDS and allocate GBs, too heavy for a
-	// routine baseline/CI sweep, so Depth is capped at 6 and Breadth at 3 (worst case D6/B3 ≈ 729
-	// leaves). The (2/4/6)×(2/3) grid still demonstrates the super-linear curve clearly. Raise the
-	// caps for a one-off deep-dive into layout scaling, but keep them modest for the committed
+	// NOTE: the tree is built from NESTED ScrollablePanelControls (see BenchTrees.BuildTree) — each
+	// non-leaf level is an SPC holding Breadth children. Since the ScrollLayout refactor, SPCs are
+	// REAL layout-tree participants (no longer leaf-stopped self-painters), so every level now runs
+	// the full nested-scroll-panel Measure/Arrange/Paint path: each SPC measures its children, which
+	// are themselves SPCs that measure THEIR children, recursively. Combined with the exponential node
+	// count (leaves = Breadth^Depth), deep nesting makes this a pathological synthetic case (worst
+	// case at Depth=6 ran for MINUTES). Depth is therefore capped at 4 and Breadth at 3 (worst case
+	// D4/B3 ≈ 81 leaves) to keep the benchmark tractable for a routine baseline/CI sweep — real UIs do
+	// not nest scroll panels this deeply. The (2/3/4)×(2/3) grid still demonstrates the depth-scaling
+	// curve clearly. Raise the caps for a one-off deep-dive, but keep them modest for the committed
 	// baseline. (Per CLAUDE.md "no silent caps".)
-	[Params(2, 4, 6)]
+	[Params(2, 3, 4)]
 	public int Depth;
 
 	[Params(2, 3)]

@@ -55,10 +55,12 @@ namespace SharpConsoleUI.Layout
 				// NavigationView wraps a single HorizontalGrid
 				return (new VerticalStackLayout(), new IWindowControl[] { navView.InternalGrid });
 			}
-			else if (control is ScrollablePanelControl)
+			else if (control is ScrollablePanelControl spc)
 			{
-				// Self-painting container - do not recurse into children
-				return (null, null);
+				// Tree-participating container: the engine builds the panel's children into the
+				// tree and paints them via ScrollLayout (scroll offset flows into AbsoluteBounds).
+				// The panel paints only its own chrome (border + scrollbars) in PaintDOM.
+				return (new ScrollLayout(), spc.Children);
 			}
 			else if (control is PortalContentContainer)
 			{

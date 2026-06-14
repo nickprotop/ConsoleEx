@@ -130,7 +130,7 @@ jobs:
       - name: Test (blocking)
         run: |
           echo "## Tests" >> "$GITHUB_STEP_SUMMARY"
-          dotnet test SharpConsoleUI.Tests/SharpConsoleUI.Tests.csproj -c Release --no-build --verbosity normal
+          dotnet test SharpConsoleUI.Tests/SharpConsoleUI.Tests.csproj -c Release --no-build --verbosity normal --blame-hang --blame-hang-timeout 120s --blame-hang-dump-type none
           echo "✅ Tests passed." >> "$GITHUB_STEP_SUMMARY"
 
   # Proves the library is NativeAOT-compatible: publishes the AotSmoke sample with

@@ -28,6 +28,37 @@ namespace SharpConsoleUI.Controls
 		private int _contentWidth = 0;
 		private int _viewportHeight = 0;
 		private int _viewportWidth = 0;
+
+		// Per-pass cache for ResolveContentMetrics. ScrollLayout calls ResolveContentMetrics up to
+		// three times within a single Measure->Arrange->Paint pass (MeasureChildren, ArrangeChildren,
+		// and once per child via GetPaintClipRect), each running the O(children) CalculateContentWidth/
+		// CalculateContentHeight traversal (CLAUDE.md rules 3 & 11). When the same outerBounds is passed
+		// again, the metrics are deterministic (same bounds + same children => identical field values),
+		// so we restore the cached field values + clamped offsets and return the cached rect instead of
+		// re-traversing. The cache is keyed on the input bounds; a different bounds (or a content/scroll
+		// change that recomputes the fields via PaintDOM/scrolling) recomputes and refreshes the cache.
+		// NOTE: the scroll OFFSETS are deliberately NOT cached. ResolveContentMetrics only CLAMPS them
+		// (cheap, idempotent), while other paths (AutoScroll in PaintDOM, scroll input) set them
+		// independently without going through Invalidate; caching/restoring them would clobber those
+		// updates. Only the expensive viewport/content measurement and the returned rect are cached.
+		private bool _metricsCacheValid = false;
+		private LayoutRect _metricsCacheBounds;
+		private LayoutRect _metricsCacheResult;
+		private int _metricsCacheViewportHeight;
+		private int _metricsCacheViewportWidth;
+		private int _metricsCacheContentHeight;
+		private int _metricsCacheContentWidth;
+
+		// When ScrollLayout drives the measure, the panel's children ALREADY EXIST as persistent
+		// LayoutNodes in the ScrollLayout node's Children. This resolver maps a child control to its
+		// persistent node so the content-height/Fill math (ComputeChildHeight/ComputeFillMetrics) can
+		// MEASURE that node directly instead of rebuilding a throwaway subtree via
+		// LayoutNodeFactory.CreateSubtree on every call. Rebuilding recursively re-creates the entire
+		// nested subtree per call, which for nested SPCs is multiplicative; measuring the persistent
+		// node reuses the existing subtree. The resolver is set ONLY for the span of ScrollLayout's
+		// measure/arrange and is null otherwise, so detached/unit-test callers (no persistent tree)
+		// transparently fall back to the CreateSubtree path. See CLAUDE.md rules 3 & 11.
+		private Func<IWindowControl, LayoutNode?>? _childNodeResolver;
 		private bool _isEnabled = true;
 		private IInteractiveControl? _lastInternalFocusedChild = null;
 		// When true, GetInitialFocus returns 'this' so SetFocus(panel) enters scroll mode directly.
@@ -338,6 +369,206 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
+		#region Layout Participation Accessors (for ScrollLayout)
+
+		// These internal members expose exactly what ScrollLayout needs to read so it can
+		// MEASURE/ARRANGE the panel's children as a real layout-tree participant. They mirror the
+		// metrics PaintDOM computes; ScrollLayout calls ResolveContentMetrics to derive the content
+		// region for a given outer bounds, then reads ScrollOffset / chrome state from these getters.
+		//
+		// IMPORTANT: as of this task SPC still SELF-PAINTS (LayoutNodeFactory.ResolveLayout returns
+		// (null, null) for it), so these accessors do not change any existing behavior. The fields
+		// they populate (_viewportWidth/_viewportHeight/_contentWidth/_contentHeight) are recomputed
+		// from scratch on every PaintDOM call, so a prior ResolveContentMetrics call cannot leak
+		// stale state into a self-paint.
+
+		/// <summary>The current vertical scroll offset (content rows hidden above the viewport).</summary>
+		internal int VerticalScrollOffsetInternal => _verticalScrollOffset;
+
+		/// <summary>The current horizontal scroll offset (content columns hidden left of the viewport).</summary>
+		internal int HorizontalScrollOffsetInternal => _horizontalScrollOffset;
+
+		/// <summary>
+		/// The visible content width children are arranged into, AFTER reserving the vertical
+		/// scrollbar columns. Valid after <see cref="ResolveContentMetrics"/> has run for the frame.
+		/// </summary>
+		internal int ContentViewportWidth => VisibleContentWidth;
+
+		/// <summary>
+		/// The visible content height (viewport rows), AFTER reserving the horizontal scrollbar row.
+		/// Valid after <see cref="ResolveContentMetrics"/> has run for the frame.
+		/// </summary>
+		internal int ContentViewportHeight => VisibleContentHeight;
+
+		/// <summary>True when a vertical scrollbar is currently reserved/shown.</summary>
+		internal bool VerticalScrollbarActive => NeedsVerticalScrollbar;
+
+		/// <summary>True when a horizontal scrollbar is currently reserved/shown.</summary>
+		internal bool HorizontalScrollbarActive => NeedsHorizontalScrollbar;
+
+		/// <summary>The total measured content height (may exceed the content viewport height).</summary>
+		internal int TotalContentHeightInternal => _contentHeight;
+
+		/// <summary>The total measured content width (may exceed the content viewport width).</summary>
+		internal int TotalContentWidthInternal => _contentWidth;
+
+		/// <summary>Left inset (border + padding) of the content area within the panel's outer box.</summary>
+		internal int ContentInsetLeftInternal => ContentInsetLeft;
+
+		/// <summary>Top inset (border + padding) of the content area within the panel's outer box.</summary>
+		internal int ContentInsetTopInternal => ContentInsetTop;
+
+		/// <summary>True when horizontal scrolling is enabled (children laid out at full content width).</summary>
+		internal bool HorizontalScrollEnabledInternal => _horizontalScrollMode == ScrollMode.Scroll;
+
+		/// <summary>
+		/// The content region (in coordinates relative to the supplied <paramref name="outerBounds"/>)
+		/// that children are arranged into, and populates the viewport/content fields the Fill helpers
+		/// (<see cref="ComputeFillMetrics"/>/<see cref="ComputeChildHeight"/>) and the scrollbar
+		/// predicates read. This is the EXACT prelude PaintDOM runs (border + padding removed, content
+		/// width/height measured, offsets clamped) factored out so ScrollLayout produces a byte-identical
+		/// layout. Returns the content origin + the visible content size (scrollbar chrome reserved).
+		/// </summary>
+		/// <param name="outerBounds">The panel's full arranged bounds.</param>
+		/// <returns>
+		/// A rect whose X/Y are the content origin relative to <paramref name="outerBounds"/> and whose
+		/// Width/Height are the visible content viewport (scrollbar chrome excluded).
+		/// </returns>
+		/// <param name="clampOffsets">
+		/// Whether the persisted scroll offsets (<c>_verticalScrollOffset</c>/<c>_horizontalScrollOffset</c>)
+		/// may be clamped down to the viewport-derived maximum. This MUST be <c>true</c> only when
+		/// <paramref name="outerBounds"/> is the REAL on-screen box (arrange/paint), and <c>false</c> for a
+		/// MEASURE pass driven by an effectively-unbounded constraint — there the panel auto-sizes to its
+		/// content, so the derived viewport equals the content extent and the clamp would collapse the
+		/// offset to 0, silently wiping the user's scroll position on every re-layout.
+		/// </param>
+		internal LayoutRect ResolveContentMetrics(LayoutRect outerBounds, bool clampOffsets = true)
+		{
+			// A genuinely huge box (a near-int.MaxValue measure box) is also unbounded and must never clamp,
+			// regardless of the caller's flag — belt-and-suspenders for direct/legacy callers.
+			bool clampVertical = clampOffsets && outerBounds.Height < LayoutConstraints.UnboundedThreshold;
+			bool clampHorizontal = clampOffsets && outerBounds.Width < LayoutConstraints.UnboundedThreshold;
+
+			// Per-pass cache: if called again with the SAME bounds, restore the previously computed
+			// MEASUREMENT field values (deterministic for identical bounds + children), skipping the
+			// O(children) CalculateContentWidth/CalculateContentHeight traversal. Offsets are re-clamped
+			// below (not cached) so AutoScroll / scroll-input updates are honored.
+			if (_metricsCacheValid && _metricsCacheBounds.Equals(outerBounds))
+			{
+				_viewportHeight = _metricsCacheViewportHeight;
+				_viewportWidth = _metricsCacheViewportWidth;
+				_contentHeight = _metricsCacheContentHeight;
+				_contentWidth = _metricsCacheContentWidth;
+
+				// Only clamp the persisted scroll offset against a REAL, bounded viewport (see clampOffsets).
+				if (clampVertical)
+				{
+					int cachedContentViewportHeight = VisibleContentHeight;
+					int cachedMaxScrollOffset = Math.Max(0, _contentHeight - cachedContentViewportHeight);
+					if (_verticalScrollOffset > cachedMaxScrollOffset)
+						_verticalScrollOffset = cachedMaxScrollOffset;
+				}
+				if (clampHorizontal)
+				{
+					if (_horizontalScrollOffset > MaxHorizontalScrollOffset)
+						_horizontalScrollOffset = MaxHorizontalScrollOffset;
+				}
+
+				return _metricsCacheResult;
+			}
+
+			int targetWidth = outerBounds.Width - Margin.Left - Margin.Right;
+			int targetHeight = outerBounds.Height - Margin.Top - Margin.Bottom;
+
+			// Inner content box (border + padding removed). Mirrors PaintDOM exactly.
+			_viewportHeight = targetHeight - BorderHeight - _padding.Top - _padding.Bottom;
+			_viewportWidth = targetWidth - BorderWidth - _padding.Left - _padding.Right;
+
+			_contentWidth = CalculateContentWidth();
+
+			int contentViewportHeight = VisibleContentHeight;
+			_contentHeight = CalculateContentHeight(_viewportWidth, contentViewportHeight);
+
+			// Clamp scroll offsets to valid bounds (same as PaintDOM) — but ONLY against a REAL, bounded
+			// viewport (see clampOffsets). During a MEASURE pass the outer box is content-sized (auto-size),
+			// so the derived viewport equals the content extent and maxOffset collapses to 0; clamping then
+			// would wipe the user's scroll position. The offset clamp belongs to arrange/paint (true box).
+			if (clampVertical)
+			{
+				int maxScrollOffset = Math.Max(0, _contentHeight - contentViewportHeight);
+				if (_verticalScrollOffset > maxScrollOffset)
+					_verticalScrollOffset = maxScrollOffset;
+			}
+			if (clampHorizontal)
+			{
+				if (_horizontalScrollOffset > MaxHorizontalScrollOffset)
+					_horizontalScrollOffset = MaxHorizontalScrollOffset;
+			}
+
+			// Content origin relative to outerBounds (PaintDOM: startX = bounds.X + Margin.Left,
+			// contentOriginX = startX + ContentInsetLeft; here we return the relative offset).
+			int contentOriginXRel = Margin.Left + ContentInsetLeft;
+			int contentOriginYRel = Margin.Top + ContentInsetTop;
+
+			var result = new LayoutRect(contentOriginXRel, contentOriginYRel, VisibleContentWidth, contentViewportHeight);
+
+			// Refresh the per-pass cache with this bounds + the resulting field state.
+			_metricsCacheValid = true;
+			_metricsCacheBounds = outerBounds;
+			_metricsCacheResult = result;
+			_metricsCacheViewportHeight = _viewportHeight;
+			_metricsCacheViewportWidth = _viewportWidth;
+			_metricsCacheContentHeight = _contentHeight;
+			_metricsCacheContentWidth = _contentWidth;
+
+			return result;
+		}
+
+		/// <summary>
+		/// Re-derives the panel's runtime viewport/content metrics from its ARRANGED layout-node
+		/// bounds (the on-screen box the engine gave it), so scrollability decisions are correct even
+		/// when the panel's last <see cref="ResolveContentMetrics"/> ran during a MEASURE pass (with
+		/// the unbounded full-content bounds) and the subsequent paint was culled — which otherwise
+		/// leaves <c>_viewportHeight</c> equal to the content height and makes the panel wrongly
+		/// believe it cannot scroll. Mouse-wheel handling calls this before deciding whether to scroll.
+		/// </summary>
+		/// <remarks>
+		/// No-op when the panel is not part of a built layout tree (e.g. detached/unit-test direct
+		/// calls), preserving the existing behavior of those paths. The per-pass cache is dropped first
+		/// so the metrics are recomputed from the arranged bounds rather than served from a stale entry.
+		/// </remarks>
+		internal void SyncMetricsFromArrangedBounds()
+		{
+			var node = this.GetParentWindow()?.Renderer?.GetLayoutNode(this);
+			if (node == null)
+				return;
+
+			var arranged = node.AbsoluteBounds;
+			if (arranged.Width <= 0 || arranged.Height <= 0)
+				return;
+
+			// Resolve from a position-independent outer box of the arranged size; ResolveContentMetrics
+			// only uses Width/Height (origins are relative), so X/Y are irrelevant here.
+			_metricsCacheValid = false;
+			ResolveContentMetrics(new LayoutRect(0, 0, arranged.Width, arranged.Height));
+		}
+
+		/// <summary>
+		/// Registers (or clears) the resolver that maps a child control to its persistent layout node
+		/// for the duration of a ScrollLayout-driven measure/arrange pass. While set, the content-height
+		/// and Fill math reuse the already-built child subtrees instead of rebuilding throwaway subtrees
+		/// per call. Pass <c>null</c> to restore the detached fallback. Returns the previously registered
+		/// resolver so callers can restore it (supporting nested SPCs whose passes overlap).
+		/// </summary>
+		internal Func<IWindowControl, LayoutNode?>? SetChildNodeResolver(Func<IWindowControl, LayoutNode?>? resolver)
+		{
+			var previous = _childNodeResolver;
+			_childNodeResolver = resolver;
+			return previous;
+		}
+
+		#endregion
+
 		#region Border & Padding Properties
 
 		/// <summary>
@@ -602,6 +833,9 @@ namespace SharpConsoleUI.Controls
 		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
 		{
 			_isDirty = true;
+			// Any invalidation (content/scroll/structural change) may alter the metrics; drop the
+			// per-pass ResolveContentMetrics cache so the next pass recomputes from scratch.
+			_metricsCacheValid = false;
 			Container?.Invalidate(redrawAll, this);
 		}
 

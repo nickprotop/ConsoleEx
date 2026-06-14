@@ -20,6 +20,7 @@ SharpConsoleUI is actively maintained and driven by real-world usage in producti
 - LineGraphControl — multi-series line graphs with braille (2×4 pixel grid) and ASCII rendering modes, color gradients, Y-axis labels, live data updates
 - SliderControl / RangeSliderControl — horizontal and vertical value sliders with keyboard, mouse drag, step/large-step, min/max labels, and dual-thumb range selection with MinRange enforcement
 - VideoControl — terminal video playback via FFmpeg with half-block, ASCII and braille render modes, overlay status bar, dynamic resize, looping
+- ScrollLayout — `ScrollablePanelControl` is now a real layout-tree participant (`ScrollLayout : ILayoutContainer, IRegionClippingLayout`) instead of a self-painting container; the engine measures/arranges/clips its children once with scroll offset flowing through `AbsoluteBounds`. Eliminates the dual layout engine and the off-viewport stale-`ActualY` cursor/hit-test/content-height desyncs at the source. Behavior-preserving (public API byte-identical), faster than the old self-painter (~4× measure, ~24× fewer allocations on the layout path), and verified live
 
 ## Next
 
@@ -28,7 +29,6 @@ SharpConsoleUI is actively maintained and driven by real-world usage in producti
 
 ## Later
 
-- **ScrollablePanel layout unification (`ScrollLayout : ILayoutContainer`)** — `ScrollablePanelControl` is currently a self-painting container: its children live outside the window's persistent layout tree, so it re-derives each child's measure/arrange/Fill slot in several code paths that must agree but historically drifted (cursor, hit-test, and content-height desyncs). Make its children real `LayoutNode`s via a dedicated `ScrollLayout` so the engine measures/arranges/caches them once, leaving the panel to own only the scroll offset and clip. Eliminates the off-viewport stale-`ActualY` problem at the source. Must stay behavior-preserving (external NuGet users); the existing 210-test SPC suite is the safety net.
 - **Scroll-to-cursor for nested editors** — when a content-sized `MultilineEditControl` (one that does not scroll internally) is taller than its host `ScrollablePanel`, moving the cursor toward the editor's end currently hides the terminal cursor instead of scrolling the panel to follow it. Add panel auto-scroll that tracks a focused nested editor's cursor row.
 - ListControl data virtualization — virtual data source for 100K+ item lists
 - RadioButtonGroup — exclusive selection from a set

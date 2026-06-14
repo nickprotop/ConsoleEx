@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <RunConfiguration>
+    <!--
+      Backstop against a hung test stalling the whole run. TestSessionTimeout caps the ENTIRE
+      session: if the run exceeds this it is aborted with a failure instead of stalling forever.
+      The suite normally completes in ~15s; 600000 ms (10 min) is far above any healthy run, so
+      tripping it means something hung. Per-test hang detection is provided by the CI
+      `--blame-hang --blame-hang-timeout` flags (see .github/workflows/*.yml), which produce a
+      dump and fail the run as soon as a single test exceeds its own timeout.
+    -->
+    <TestSessionTimeout>600000</TestSessionTimeout>
+  </RunConfiguration>
+</RunSettings>

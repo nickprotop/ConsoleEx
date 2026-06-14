@@ -213,15 +213,32 @@ namespace SharpConsoleUI.Layout
 		/// </summary>
 		private Controls.IWindowControl? FindSelfPaintingCursorHost(Controls.IWindowControl control)
 		{
+			// A ScrollablePanelControl owns the cursor for any nested focused child, because it clips
+			// the cursor to its OWN content viewport using its internal scroll offset — a decision the
+			// window-level visibility logic cannot make. Since the ScrollLayout refactor the child's
+			// node IS reachable from the root (it is a real tree participant whose AbsoluteBounds carry
+			// the scroll offset), so the orphan-reachability test below no longer detects the panel.
+			// Check for an enclosing panel FIRST, regardless of node reachability, so the panel stays
+			// the cursor authority (it returns null from GetLogicalCursorPosition when the child has
+			// scrolled out of its viewport — the hide-when-scrolled-away contract).
+			{
+				var ancestor = control.Container as Controls.IWindowControl;
+				while (ancestor != null)
+				{
+					if (ancestor is Controls.ScrollablePanelControl && ancestor is Controls.ILogicalCursorProvider)
+						return ancestor;
+					ancestor = ancestor.Container as Controls.IWindowControl;
+				}
+			}
+
 			// If the control itself has a real (non-placeholder) DOM node, it is laid out directly.
 			// A control is "laid out directly" only if its layout node is actually part of the live
 			// window DOM tree — i.e. its ancestor chain reaches the renderer's root node. A control
-			// hosted inside a self-painting container (ScrollablePanelControl) still gets a registered
-			// node (so cursor/hit-test lookups resolve), but that node is an ORPHAN subtree: it has a
-			// Parent (its in-panel container) yet that chain never reaches the root and it is never
-			// arranged (empty AbsoluteBounds). Treating such an orphan as "directly laid out" would
-			// skip the self-painting host and place the cursor with stale (0,0) bounds — the bug this
-			// guards against. Reachability-to-root is the correct test, not merely "has a parent".
+			// hosted inside another self-painting container still gets a registered node (so cursor/
+			// hit-test lookups resolve), but that node is an ORPHAN subtree: it has a Parent yet that
+			// chain never reaches the root and it is never arranged (empty AbsoluteBounds). Treating
+			// such an orphan as "directly laid out" would skip the self-painting host and place the
+			// cursor with stale (0,0) bounds. Reachability-to-root is the correct test, not "has a parent".
 			var ownNode = _window._renderer?.GetLayoutNode(control);
 			if (NodeReachesRoot(ownNode))
 				return null;

@@ -220,19 +220,12 @@ namespace SharpConsoleUI.Windows
 		/// </summary>
 		private LayoutNode CreateLayoutNode(IWindowControl control)
 		{
-			// Special case: ScrollablePanel children registered but NOT added to DOM tree
-			if (control is Controls.ScrollablePanelControl scrollablePanel)
-			{
-				var node = new LayoutNode(control, null);
-				foreach (var child in scrollablePanel.Children)
-				{
-					var childNode = CreateLayoutNode(child);
-					_controlToNodeMap[child] = childNode;
-				}
-				return node;
-			}
+			// ScrollablePanel now participates in the layout tree like every other container:
+			// LayoutNodeFactory builds a ScrollLayout node with the panel's children, the engine
+			// measures/arranges/paints them (scroll offset flows via AbsoluteBounds), and the panel
+			// paints only its chrome. No special-case needed.
 
-			// Use shared factory for all other control types
+			// Use shared factory for all control types
 			var subtree = LayoutNodeFactory.CreateSubtree(control);
 
 			// Register all nodes in the subtree in our control-to-node map

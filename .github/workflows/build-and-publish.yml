@@ -71,7 +71,7 @@ jobs:
         echo "Code-quality gate passed: format clean, headers present, warning-clean build."
 
     - name: Test
-      run: dotnet test SharpConsoleUI.Tests/SharpConsoleUI.Tests.csproj --configuration Release --verbosity normal
+      run: dotnet test SharpConsoleUI.Tests/SharpConsoleUI.Tests.csproj --configuration Release --verbosity normal --blame-hang --blame-hang-timeout 120s --blame-hang-dump-type none
 
     - name: Build
       run: dotnet build SharpConsoleUI/SharpConsoleUI.csproj --configuration Release --no-restore /p:Version=${{ steps.version.outputs.version }}

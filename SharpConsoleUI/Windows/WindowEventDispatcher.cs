@@ -211,7 +211,8 @@ namespace SharpConsoleUI.Windows
 								var controlArgs = args.WithPosition(controlPosition);
 
 								using var _scrollScope = new Core.UiCallbackScope(_window._windowSystem, _window, control, Core.UiOp.MouseScroll);
-								if (mouseAware.ProcessMouseEvent(controlArgs))
+								bool result = mouseAware.ProcessMouseEvent(controlArgs);
+								if (result)
 								{
 									return true; // Event consumed
 								}

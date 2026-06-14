@@ -138,6 +138,14 @@ namespace SharpConsoleUI.Controls
 				bool isWheel = args.HasFlag(Drivers.MouseFlags.WheeledUp) || args.HasFlag(Drivers.MouseFlags.WheeledDown);
 				if (isWheel)
 				{
+					// Re-sync viewport/content metrics from this panel's ARRANGED node bounds before the
+					// scroll decision. A MEASURE pass resolves metrics against the unbounded full-content
+					// box; when a later paint is culled (e.g. an ancestor clip is empty) the measure-time
+					// values persist, leaving _viewportHeight == content height so the panel wrongly
+					// believes it cannot scroll and bubbles the wheel to an outer container. Resolving from
+					// the arranged bounds here makes the decision use the real on-screen viewport.
+					SyncMetricsFromArrangedBounds();
+
 					// Forward to child under mouse cursor first (e.g. ListControl with internal scroll).
 					// This lets the child handle its own item scrolling before SPC attempts
 					// to scroll the panel viewport. Uses hit-testing by position rather than
@@ -146,7 +154,8 @@ namespace SharpConsoleUI.Controls
 					if (childUnderMouse is IMouseAwareControl childMouse && childMouse.WantsMouseEvents)
 					{
 						var childArgs = CreateChildRelativeArgs(args, childUnderMouse);
-						if (childArgs != null && childMouse.ProcessMouseEvent(childArgs))
+						bool childResult = childArgs != null && childMouse.ProcessMouseEvent(childArgs);
+						if (childResult)
 							return true;
 					}
 
@@ -155,7 +164,8 @@ namespace SharpConsoleUI.Controls
 					{
 						if (args.HasFlag(Drivers.MouseFlags.WheeledUp))
 						{
-							if (_verticalScrollOffset > 0)
+							bool willScroll = _verticalScrollOffset > 0;
+							if (willScroll)
 							{
 								ScrollVerticalBy(-ControlDefaults.DefaultScrollWheelLines);
 								args.Handled = true;
@@ -166,7 +176,8 @@ namespace SharpConsoleUI.Controls
 						else if (args.HasFlag(Drivers.MouseFlags.WheeledDown))
 						{
 							int maxScroll = Math.Max(0, _contentHeight - VisibleContentHeight);
-							if (_verticalScrollOffset < maxScroll)
+							bool willScroll = _verticalScrollOffset < maxScroll;
+							if (willScroll)
 							{
 								ScrollVerticalBy(ControlDefaults.DefaultScrollWheelLines);
 								args.Handled = true;

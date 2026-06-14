@@ -126,6 +126,27 @@ measured region** because the real renderer rebuilds layout subtrees per frame.
 > before-baseline for that work. (Params are capped at depth 6 / breadth 3 for this reason; the
 > growth is exponential in node count and super-linear in time.)
 
+#### ScrollLayout refactor — before / after
+
+The table above is the **pre-refactor baseline** (SPC was a self-painting container; `CreateSubtree`
+stopped at each SPC, so nested SPCs were never recursed into). The ScrollLayout refactor made SPC a
+real layout-tree participant — so this synthetic all-nested-SPC tree now genuinely recurses through
+every level (more work by design). A first cut of the refactor was **10× slower** here; the redundant
+per-pass child re-measure (`ComputeChildHeight` rebuilt each child subtree via `CreateSubtree` on
+every call) was then eliminated by reusing the persistent tree nodes. After that optimization the
+refactored path is **faster than the original self-painter** on the overlapping configs:
+
+| Config (Method)        | Pre-refactor baseline | Refactored + optimized | Δ |
+|------------------------|----------------------:|-----------------------:|---|
+| D2/B2 Measure          |      24.79 μs / 14.9 KB |        ~22 μs / ~16 KB | ≈ parity |
+| D4/B3 Measure          |   1,731 μs / 1,156 KB  |        ~442 μs / ~479 KB | **~4× faster, ~2.4× less alloc** |
+| D4/B3 MeasureArrangePaint | 4,626 μs / 2,878 KB |      ~2,619 μs / ~2,688 KB | **~1.8× faster** |
+
+(The benchmark's `Depth` is now capped at 4 — nested-SPC node count is exponential and depth-6
+all-SPC trees are a pathological synthetic case, not a real-UI shape. Real layouts nest scroll panels
+1–3 deep at most. Re-run `./run-benchmarks.sh --filter '*LayoutTreeBenchmarks*'` to refresh; numbers
+are hardware-specific.)
+
 ### FullFrameRenderBenchmarks (macro — end-to-end)
 
 A representative 120×40 window (header + a 12-row stack in a `ScrollablePanelControl`) rendered

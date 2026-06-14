@@ -859,9 +859,20 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Second pass: measure Fill children with remaining space divided among them
-			int remainingHeight = Math.Max(0, constraints.MaxHeight - fixedHeight);
-			int fillHeight = fillCount > 0 ? remainingHeight / fillCount : 0;
+			// Second pass: measure Fill children with remaining space divided among them.
+			//
+			// CRITICAL (unbounded guard): "Fill" means "expand to fill the remaining height of a
+			// FINITE slot". When the incoming MaxHeight is UNBOUNDED (int.MaxValue — e.g. a Window
+			// content area or a HorizontalGrid measuring a column at loose height), there is no
+			// finite slot to fill: dividing int.MaxValue among the Fill children would hand each one
+			// a height near 2 billion, which then propagates up as this container's measured
+			// DesiredSize and ultimately becomes an arranged bounds.Bottom in the hundreds of
+			// millions — an effective hang in any ancestor row-fill loop. In the unbounded case a
+			// Fill child cannot "fill", so it measures at its NATURAL content height (loose),
+			// identical to how it would size in any auto-sizing parent.
+			bool unboundedHeight = constraints.IsHeightEffectivelyUnbounded;
+			int remainingHeight = unboundedHeight ? int.MaxValue : Math.Max(0, constraints.MaxHeight - fixedHeight);
+			int fillHeight = (!unboundedHeight && fillCount > 0) ? remainingHeight / fillCount : 0;
 
 			foreach (var content in measureSnapshot.Where(c => c.Visible))
 			{
@@ -869,12 +880,16 @@ namespace SharpConsoleUI.Controls
 				{
 					if (content is IDOMPaintable paintable)
 					{
-						var childConstraints = new LayoutConstraints(
-							constraints.MinWidth > 0 ? Math.Max(0, constraints.MinWidth - _margin.Left - _margin.Right) : 0,
-							contentMaxWidth,
-							0,
-							fillHeight
-						);
+						// Bounded slot: constrain the Fill child to its share (fillHeight).
+						// Unbounded slot: measure loose so the child returns its natural height.
+						var childConstraints = unboundedHeight
+							? LayoutConstraints.Loose(contentMaxWidth, int.MaxValue)
+							: new LayoutConstraints(
+								constraints.MinWidth > 0 ? Math.Max(0, constraints.MinWidth - _margin.Left - _margin.Right) : 0,
+								contentMaxWidth,
+								0,
+								fillHeight
+							);
 
 						var childSize = paintable.MeasureDOM(childConstraints);
 						childSizes[content] = childSize;
@@ -928,14 +943,18 @@ namespace SharpConsoleUI.Controls
 			var effectiveBg = _backgroundColorValue ?? Color.Transparent;
 
 			// Fill the entire bounds with background color
-			// This provides the background for the container and any margins
-			for (int y = bounds.Y; y < bounds.Bottom; y++)
+			// This provides the background for the container and any margins.
+			// Bound the loop itself by the clip rect (always the on-screen viewport) so a
+			// pathological bounds.Bottom (e.g. a leaked unbounded measure) can never cause a
+			// multi-million-row loop. The previous in-loop clip check already skipped invisible
+			// rows; clamping the iteration range fills the exact same visible rows without
+			// iterating the invisible ones — behavior-preserving for all normal bounds.
+			int fillTop = Math.Max(bounds.Y, clipRect.Y);
+			int fillBottom = Math.Min(bounds.Bottom, clipRect.Bottom);
+			for (int y = fillTop; y < fillBottom; y++)
 			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
-				{
-					var lineRect = new LayoutRect(bounds.X, y, bounds.Width, 1);
-					buffer.FillRect(lineRect, ' ', fgColor, effectiveBg);
-				}
+				var lineRect = new LayoutRect(bounds.X, y, bounds.Width, 1);
+				buffer.FillRect(lineRect, ' ', fgColor, effectiveBg);
 			}
 
 			_isDirty = false;

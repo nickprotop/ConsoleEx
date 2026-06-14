@@ -116,6 +116,14 @@ namespace SharpConsoleUI.Controls
 		/// <param name="lines">Number of lines to scroll (positive = down, negative = up).</param>
 		public void ScrollVerticalBy(int lines)
 		{
+			// Re-sync viewport/content metrics from this panel's ARRANGED node bounds before the
+			// clamp reads _viewportHeight/_contentHeight. A structural change (AddControl/ClearContents)
+			// triggers a MEASURE pass that resolves metrics against the unbounded full-content box,
+			// leaving _viewportHeight == content height; without this sync a programmatic scroll right
+			// after mutating content would clamp against the stale viewport and reset to ~0. No-op when
+			// the panel has no arranged node (detached/unit-test path).
+			SyncMetricsFromArrangedBounds();
+
 			int oldOffset = _verticalScrollOffset;
 			int maxOffset = Math.Max(0, _contentHeight - _viewportHeight);
 			_verticalScrollOffset = Math.Clamp(_verticalScrollOffset + lines, 0, maxOffset);
@@ -177,6 +185,11 @@ namespace SharpConsoleUI.Controls
 			if (_horizontalScrollMode != ScrollMode.Scroll)
 				return;
 
+			// Re-sync metrics from the arranged bounds before the clamp reads MaxHorizontalScrollOffset
+			// (which derives from _viewportWidth/_contentWidth, also written by a MEASURE-pass
+			// ResolveContentMetrics). No-op when the panel has no arranged node.
+			SyncMetricsFromArrangedBounds();
+
 			int oldOffset = _horizontalScrollOffset;
 			_horizontalScrollOffset = Math.Clamp(_horizontalScrollOffset + chars, 0, MaxHorizontalScrollOffset);
 
@@ -230,6 +243,10 @@ namespace SharpConsoleUI.Controls
 		/// </remarks>
 		public void ScrollToBottom()
 		{
+			// Re-sync metrics from the arranged bounds so VisibleContentHeight reflects the real
+			// on-screen viewport (not a MEASURE-pass content-sized value). No-op when detached.
+			SyncMetricsFromArrangedBounds();
+
 			if (!RefreshContentHeightIfLaidOut())
 			{
 				// Viewport not laid out yet — defer to the first valid paint.
@@ -244,6 +261,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ScrollToPosition(int vertical, int horizontal = 0)
 		{
+			// Re-sync metrics from the arranged bounds before both clamps (vertical via ScrollVerticalTo,
+			// horizontal via MaxHorizontalScrollOffset) read potentially MEASURE-stale metrics. No-op when
+			// detached.
+			SyncMetricsFromArrangedBounds();
+
 			ScrollVerticalTo(vertical);
 			if (_horizontalScrollMode == ScrollMode.Scroll)
 			{
