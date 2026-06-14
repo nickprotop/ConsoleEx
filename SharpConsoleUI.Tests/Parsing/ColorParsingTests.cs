@@ -400,5 +400,70 @@ namespace SharpConsoleUI.Tests.Parsing
 		}
 
 		#endregion
+
+		#region Color(string) ctor & FromHex
+
+		[Theory]
+		[InlineData("#FF0000", 255, 0, 0, 255)]
+		[InlineData("FF0000", 255, 0, 0, 255)]
+		[InlineData("#00FF00", 0, 255, 0, 255)]
+		[InlineData("#F00", 255, 0, 0, 255)]      // 3-digit nibble*17
+		[InlineData("#ff00ff", 255, 0, 255, 255)] // lowercase
+		[InlineData("#FF000080", 255, 0, 0, 128)] // 8-digit RGBA
+		public void Ctor_String_ParsesValidHex(string hex, byte r, byte g, byte b, byte a)
+		{
+			var color = new Color(hex);
+			Assert.Equal(r, color.R);
+			Assert.Equal(g, color.G);
+			Assert.Equal(b, color.B);
+			Assert.Equal(a, color.A);
+			Assert.False(color.IsDefault);
+		}
+
+		[Theory]
+		[InlineData("#GGG")]   // invalid chars
+		[InlineData("#FFFF")]  // wrong length
+		[InlineData("")]       // empty
+		public void Ctor_String_InvalidHex_Throws(string hex)
+		{
+			Assert.Throws<ArgumentException>(() => new Color(hex));
+		}
+
+		[Fact]
+		public void Ctor_String_Null_Throws()
+		{
+			Assert.Throws<ArgumentException>(() => new Color(null!));
+		}
+
+		[Theory]
+		[InlineData("#FF0000", 255, 0, 0, 255)]
+		[InlineData("#F00", 255, 0, 0, 255)]
+		[InlineData("00FF00", 0, 255, 0, 255)]
+		[InlineData("#FF000080", 255, 0, 0, 128)]
+		public void FromHex_ParsesValidHex(string hex, byte r, byte g, byte b, byte a)
+		{
+			var color = Color.FromHex(hex);
+			Assert.Equal(new Color(r, g, b, a), color);
+		}
+
+		[Theory]
+		[InlineData("#GGG")]
+		[InlineData("#FFFF")]
+		[InlineData("")]
+		public void FromHex_InvalidHex_Throws(string hex)
+		{
+			Assert.Throws<ArgumentException>(() => Color.FromHex(hex));
+		}
+
+		[Fact]
+		public void Ctor_String_And_FromHex_And_TryFromHex_AgreeOnValidInput()
+		{
+			// The three entry points share ParseFromHex; assert they produce identical results.
+			Assert.True(Color.TryFromHex("#1A2B3C", out var viaTry));
+			Assert.Equal(viaTry, new Color("#1A2B3C"));
+			Assert.Equal(viaTry, Color.FromHex("#1A2B3C"));
+		}
+
+		#endregion
 	}
 }

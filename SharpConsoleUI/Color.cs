@@ -53,10 +53,11 @@ namespace SharpConsoleUI
 			IsDefault = isDefault;
 		}
 
-		/// <summary>Creates a color from RGB string (#RGB, #RRGGBB, or RRGGBB).</summary>
+		/// <summary>Creates a color from a hex string (#RGB, #RRGGBB, RRGGBB, or #RRGGBBAA).</summary>
+		/// <exception cref="ArgumentException">Thrown when <paramref name="hex"/> is not a valid hex color string.</exception>
 		public Color(string hex)
 		{
-			var rgba = ParseFromHex(hex) ?? throw new ArgumentException("Invalid RGB hex string (format: #RGB, #RRGGBB, or RRGGBB).");
+			var rgba = ParseFromHex(hex) ?? throw new ArgumentException("Invalid RGB hex string (format: #RGB, #RRGGBB, RRGGBB, or #RRGGBBAA).");
 
 			R = rgba.r;
 			G = rgba.g;
@@ -64,7 +65,6 @@ namespace SharpConsoleUI
 			A = rgba.a;
 			IsDefault = false;
 		}
-
 
 		#region Named Colors — Basic 16
 
@@ -371,8 +371,9 @@ namespace SharpConsoleUI
 		{
 			return ColorTable.TryGetByName(name, out color);
 		}
+
 		/// <summary>
-		/// Attempts to parse a hex color string (#RGB, #RRGGBB, or RRGGBB).
+		/// Attempts to parse a hex color string (#RGB, #RRGGBB, RRGGBB, or #RRGGBBAA).
 		/// </summary>
 		public static bool TryFromHex(string hex, out Color color)
 		{
@@ -384,11 +385,12 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Attempts to parse a hex color string (#RGB, #RRGGBB, or RRGGBB).
+		/// Parses a hex color string (#RGB, #RRGGBB, RRGGBB, or #RRGGBBAA).
 		/// </summary>
+		/// <exception cref="ArgumentException">Thrown when <paramref name="hex"/> is not a valid hex color string.</exception>
 		public static Color FromHex(string hex)
 		{
-			var rgba = ParseFromHex(hex) ?? throw new ArgumentException("Invalid RGB hex string (format: #RGB, #RRGGBB, or RRGGBB).");
+			var rgba = ParseFromHex(hex) ?? throw new ArgumentException("Invalid RGB hex string (format: #RGB, #RRGGBB, RRGGBB, or #RRGGBBAA).");
 
 			return new Color(rgba.r, rgba.g, rgba.b, rgba.a);
 		}
