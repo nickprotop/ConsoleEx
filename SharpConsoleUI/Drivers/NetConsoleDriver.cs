@@ -81,6 +81,10 @@ namespace SharpConsoleUI.Drivers
 	{
 		private const uint DISABLE_NEWLINE_AUTO_RETURN = 8;
 		private const int DoubleClickTime = 500;
+
+		/// <summary>Safety cap on bracketed-paste payload chars on the Windows ReadKey path, so a
+		/// missing ESC[201~ end marker can never hang the input loop. ~1 MiB of text.</summary>
+		private const int MaxBracketedPasteChars = 1_048_576;
 		private const uint ENABLE_ECHO_INPUT = 4;
 		private const uint ENABLE_EXTENDED_FLAGS = 128;
 		private const uint ENABLE_INSERT_MODE = 32;
@@ -143,6 +147,11 @@ namespace SharpConsoleUI.Drivers
 			{
 				// Windows: safe to use Console.* APIs
 				Console.OutputEncoding = Encoding.UTF8;
+				// Force UTF-8 on input too: without this, Console.ReadKey decodes pasted/typed
+				// non-ASCII via the legacy console input code page, garbling Cyrillic/CJK (issue
+				// #42). Wrapped in try/catch because some hosts (redirected stdin, certain
+				// terminals) reject setting InputEncoding — copy/paste of ASCII must still work.
+				try { Console.InputEncoding = Encoding.UTF8; } catch { /* best-effort */ }
 				Console.TreatControlCAsInput = true;
 			}
 			else
@@ -653,6 +662,61 @@ namespace SharpConsoleUI.Drivers
 			}
 		}
 
+		/// <summary>
+		/// Drains the Windows <see cref="Console.ReadKey(bool)"/> queue after an <c>ESC[200~</c>
+		/// start marker, accumulating the pasted characters until the <c>ESC[201~</c> end marker,
+		/// and returns the payload (markers stripped). Bounded by <see cref="MaxBracketedPasteChars"/>
+		/// so a missing end marker cannot hang the loop. ReadKey blocks for the in-flight payload, so
+		/// this does not gate on <see cref="Console.KeyAvailable"/> (which can briefly read false mid-paste).
+		/// </summary>
+		private static string ReadBracketedPastePayload()
+		{
+			var sb = new StringBuilder();
+			while (sb.Length < MaxBracketedPasteChars)
+			{
+				var k = Console.ReadKey(true);
+				sb.Append(k.KeyChar);
+				if (TryExtractBracketedPaste(sb, out string payload))
+					return payload;
+			}
+			// Cap hit without an end marker: return whatever we have, stripping a trailing partial marker.
+			return StripPasteEndMarker(sb.ToString());
+		}
+
+		/// <summary>
+		/// Pure helper: if <paramref name="buffer"/> ends with the bracketed-paste end marker
+		/// <c>ESC[201~</c>, sets <paramref name="payload"/> to the content before it and returns true.
+		/// Kept static/parameterized so the marker logic is unit-testable without a live console.
+		/// </summary>
+		internal static bool TryExtractBracketedPaste(StringBuilder buffer, out string payload)
+		{
+			const string end = "\x1b[201~";
+			if (buffer.Length >= end.Length)
+			{
+				bool match = true;
+				for (int i = 0; i < end.Length; i++)
+				{
+					if (buffer[buffer.Length - end.Length + i] != end[i]) { match = false; break; }
+				}
+				if (match)
+				{
+					payload = buffer.ToString(0, buffer.Length - end.Length);
+					return true;
+				}
+			}
+			payload = string.Empty;
+			return false;
+		}
+
+		/// <summary>Removes a trailing (possibly partial) <c>ESC[201~</c> end marker from a paste payload.</summary>
+		internal static string StripPasteEndMarker(string text)
+		{
+			int esc = text.LastIndexOf('\x1b');
+			if (esc >= 0 && "\x1b[201~".StartsWith(text.Substring(esc), StringComparison.Ordinal))
+				return text.Substring(0, esc);
+			return text;
+		}
+
 		/// <inheritdoc/>
 		public void SetNarrowCell(int x, int y, char character, Color fg, Color bg)
 		{
@@ -1095,6 +1159,20 @@ namespace SharpConsoleUI.Drivers
 											break;
 										}
 										ansiSequence.Append(ansiKey.KeyChar);
+									}
+
+									// Bracketed paste: terminal sent ESC[200~ as the start marker. Collect the
+									// payload (decoded by Console.ReadKey under the UTF-8 input encoding) until
+									// the ESC[201~ end marker, then raise Paste as one atomic block — mirroring
+									// the Unix AnsiInputParser State.Paste path. Without this, VS Code's
+									// bracketed paste leaks through the ESC-sequence parser char-by-char and
+									// garbles (issue #42).
+									if (ansiSequence.ToString() == "200~")
+									{
+										string pasted = ReadBracketedPastePayload();
+										if (pasted.Length > 0)
+											Paste?.Invoke(this, pasted);
+										continue;
 									}
 
 									// Check if this is a SGR mouse sequence (format: ESC[<button;x;y M/m)
