@@ -44,11 +44,12 @@ the text to your machine.
 > OSC 52 is only emitted when running inside a live `ConsoleWindowSystem` (the console driver
 > registers the emitter at startup). In tests or non-driver contexts no escape is written.
 
-> Both paths transmit text as **UTF-8**. OSC 52 base64-encodes the UTF-8 bytes; the local clipboard
-> tool receives UTF-8 on its standard input regardless of the OS console's default code page. This
-> means non-ASCII content — CJK, accented Latin, Cyrillic, emoji — copies without corruption even on
-> Windows, where the console default would otherwise be a legacy code page that cannot represent
-> those characters.
+> Both paths transmit text in a Unicode-correct encoding regardless of the OS console's default
+> code page, so non-ASCII content — CJK, accented Latin, Cyrillic, emoji — copies without
+> corruption. OSC 52 base64-encodes **UTF-8** bytes. The local clipboard tool gets the encoding it
+> expects: the POSIX tools (`xclip`/`wl-copy`/`pbcopy`/`xsel`) receive **UTF-8** on stdin, while
+> Windows `clip.exe` receives **UTF-16LE with a BOM** — `clip.exe` reads BOM-less stdin as the
+> legacy OEM/ANSI code page, so forcing UTF-8 into it would garble non-Latin-1 text.
 
 ### OSC 52: the remote-clipboard escape
 

@@ -122,7 +122,11 @@ namespace SharpConsoleUI.Helpers
 				switch (_backend)
 				{
 					case ClipboardBackend.WindowsClip:
-						RunProcessWithInput("clip", text);
+						// clip.exe does NOT accept UTF-8: it reads stdin as the OEM/ANSI code page,
+						// so forcing UTF-8 garbles non-Latin-1 text (Cyrillic, CJK). Instead write
+						// UTF-16LE with a leading BOM (FF FE) — the strongest signal clip.exe's
+						// IsTextUnicode detection honors — so all scripts round-trip correctly.
+						RunProcessWithUtf16BomInput("clip", text);
 						break;
 					case ClipboardBackend.Pbcopy:
 						RunProcessWithInput("pbcopy", text);
@@ -272,6 +276,48 @@ namespace SharpConsoleUI.Helpers
 			p.StandardInput.Write(input);
 			p.StandardInput.Close();
 			p.WaitForExit(ProcessTimeoutMs);
+		}
+
+		/// <summary>
+		/// Writes <paramref name="input"/> to the process stdin as UTF-16LE with a leading BOM
+		/// (FF FE) and no implicit transcoding. Used for Windows <c>clip.exe</c>, which reads its
+		/// stdin as the OEM/ANSI code page unless a UTF-16 BOM marks the stream as Unicode.
+		/// </summary>
+		private static void RunProcessWithUtf16BomInput(string cmd, string input)
+		{
+			var psi = new ProcessStartInfo(cmd)
+			{
+				RedirectStandardInput = true,
+				UseShellExecute = false,
+				CreateNoWindow = true
+			};
+			using var p = Process.Start(psi);
+			if (p == null) return;
+			// Write the raw bytes ourselves: BOM + UTF-16LE. Going through the BaseStream avoids
+			// the StreamWriter re-encoding to the console code page.
+			byte[] payload = BuildUtf16BomBytes(input);
+			using (var stdin = p.StandardInput.BaseStream)
+			{
+				stdin.Write(payload, 0, payload.Length);
+				stdin.Flush();
+			}
+			p.WaitForExit(ProcessTimeoutMs);
+		}
+
+		/// <summary>
+		/// Builds the byte payload written to <c>clip.exe</c>: a UTF-16LE byte-order mark (FF FE)
+		/// followed by the text in UTF-16LE. Pure byte logic with no I/O, so the encoding decision
+		/// is unit-testable on any platform (the actual <c>clip.exe</c> pipe is Windows-only).
+		/// </summary>
+		/// <param name="text">The text to encode; null is treated as empty.</param>
+		internal static byte[] BuildUtf16BomBytes(string? text)
+		{
+			byte[] body = System.Text.Encoding.Unicode.GetBytes(text ?? string.Empty);
+			byte[] payload = new byte[2 + body.Length];
+			payload[0] = 0xFF;
+			payload[1] = 0xFE;
+			Buffer.BlockCopy(body, 0, payload, 2, body.Length);
+			return payload;
 		}
 
 		private static string RunProcessRead(string cmd, params string[] args)
