@@ -7,8 +7,10 @@
 // -----------------------------------------------------------------------
 
 using System.Drawing;
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 
@@ -153,11 +155,12 @@ namespace SharpConsoleUI.Controls
 		public bool WantsMouseEvents => true;
 
 		/// <summary>
-		/// Gets whether a mouse click on this control grants it focus. Always <c>false</c>: clicking
-		/// does not move focus here. Keyboard focus (via Tab) is instead governed by
-		/// <see cref="CanReceiveFocus"/>, which is true only when the control is enabled and has links.
+		/// Gets whether a mouse click on this control grants it focus. True only when the control is
+		/// focusable for the same reason it is Tab-focusable — visible, enabled, and containing at
+		/// least one link (see <see cref="CanReceiveFocus"/>). A plain MarkupControl with no links is
+		/// not a focus target and clicking it does not steal focus.
 		/// </summary>
-		public bool CanFocusWithMouse => false;
+		public bool CanFocusWithMouse => CanReceiveFocus;
 
 		/// <summary>
 		/// Occurs when the control is clicked.
@@ -317,6 +320,13 @@ namespace SharpConsoleUI.Controls
 			// Handle click with manual double-click detection (fallback)
 			if (args.HasFlag(MouseFlags.Button1Clicked))
 			{
+				// Focus on click when this control is a focus target (i.e. it has links). This applies
+				// to clicks ANYWHERE on the control, not just on a link, so a user can click the body
+				// and then arrow between links. A linkless MarkupControl has CanFocusWithMouse == false
+				// and is left unfocused.
+				if (!HasFocus && CanFocusWithMouse)
+					((IWindowControl)this).GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+
 				// Link click takes priority over plain/double click when a link is under the cursor.
 				if (TryRaiseLinkClick(args))
 					return true;
