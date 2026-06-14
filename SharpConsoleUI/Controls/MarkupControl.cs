@@ -485,10 +485,18 @@ namespace SharpConsoleUI.Controls
 				}
 				else
 				{
-					var cells = Parsing.MarkupParser.Parse(line, effectiveFg, effectiveBg, out var lineLinks);
-					renderedCellLines.Add(cells);
-					renderedLinkLines.Add(lineLinks);
-					rowSourceLineIndex.Add(sourceIndex);
+					// Split on explicit newlines so a logical line containing embedded "\n" renders as
+					// multiple rows. MarkupParser.Parse treats "\n" as an unsafe control char and would
+					// otherwise emit a U+FFFD replacement glyph (issue #45). The wrap path (ParseLines)
+					// already splits; this keeps the non-wrap path symmetric, and matches how
+					// GetLogicalContentSize counts rows.
+					foreach (var subLine in line.Split('\n'))
+					{
+						var cells = Parsing.MarkupParser.Parse(subLine, effectiveFg, effectiveBg, out var lineLinks);
+						renderedCellLines.Add(cells);
+						renderedLinkLines.Add(lineLinks);
+						rowSourceLineIndex.Add(sourceIndex);
+					}
 				}
 			}
 
