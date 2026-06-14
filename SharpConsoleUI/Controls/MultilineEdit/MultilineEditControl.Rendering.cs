@@ -287,16 +287,39 @@ namespace SharpConsoleUI.Controls
 						string line = wl.DisplayText;
 						string visibleLine = line;
 
+						// hSliceChar is the char index where the visible slice begins. It is used
+						// (not _horizontalScrollOffset directly) when mapping rendered columns back to
+						// source char positions, because _horizontalScrollOffset is a DISPLAY COLUMN
+						// and the slice begins at a char boundary that may not equal that column.
+						int hSliceChar = 0;
+
 						// Apply horizontal scrolling (only in NoWrap mode)
 						if (_wrapMode == WrapMode.NoWrap && _horizontalScrollOffset > 0)
 						{
-							if (_horizontalScrollOffset < line.Length)
-								visibleLine = line.Substring(_horizontalScrollOffset);
+							// _horizontalScrollOffset is a display column. Convert to a char index.
+							// ColumnToCharOffset returns the char at/before the column; if the offset
+							// lands inside a wide char (its leading column scrolled off, trailing column
+							// would be the first visible column) it returns that wide char's START.
+							// Rendering it there would shift content right by one column, so we advance
+							// past the straddled wide char to keep columns aligned. The half-clipped wide
+							// char is simply dropped; the first visible column is the next char's start.
+							int hStartChar = UnicodeWidth.ColumnToCharOffset(line, _horizontalScrollOffset);
+							int startCol = UnicodeWidth.CharOffsetToColumn(line, hStartChar);
+							if (startCol < _horizontalScrollOffset && hStartChar < line.Length)
+							{
+								// Straddled wide char: skip it so the slice starts on a column boundary.
+								var (nextChar, _) = UnicodeWidth.TakeColumns(line, hStartChar, 1);
+								hStartChar = nextChar;
+							}
+
+							hSliceChar = hStartChar;
+							if (hStartChar < line.Length)
+								visibleLine = line.Substring(hStartChar);
 							else
 								visibleLine = string.Empty;
 						}
 
-						int hScrollForCalc = (_wrapMode == WrapMode.NoWrap) ? _horizontalScrollOffset : 0;
+						int hScrollForCalc = (_wrapMode == WrapMode.NoWrap) ? hSliceChar : 0;
 
 						// Determine current line highlight (custom line highlights take precedence)
 						bool isCurrentLine = _highlightCurrentLine && _isEditing && wl.SourceLineIndex == _cursorY;

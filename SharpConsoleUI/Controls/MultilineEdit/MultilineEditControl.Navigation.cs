@@ -59,10 +59,13 @@ namespace SharpConsoleUI.Controls
 						}
 						else
 						{
-							for (int j = 0; j < line.Length; j += safeWidth)
+							int j = 0;
+							while (j < line.Length)
 							{
-								int len = Math.Min(safeWidth, line.Length - j);
+								var (endChar, _) = UnicodeWidth.TakeColumns(line, j, safeWidth);
+								int len = endChar - j;
 								result.Add(new WrappedLineInfo(i, j, len, line.Substring(j, len)));
+								j = endChar;
 							}
 						}
 					}
@@ -92,16 +95,21 @@ namespace SharpConsoleUI.Controls
 			int pos = 0;
 			while (pos < line.Length)
 			{
-				int remaining = line.Length - pos;
-				if (remaining <= width)
+				// Compute how many whole runes fit within 'width' DISPLAY columns from pos.
+				// fitEnd is always > pos (TakeColumns advances at least one rune) and <= line.Length,
+				// so all indexing/substring below is in-bounds and the loop always advances.
+				var (fitEnd, _) = UnicodeWidth.TakeColumns(line, pos, width);
+
+				if (fitEnd >= line.Length)
 				{
-					result.Add(new WrappedLineInfo(sourceIndex, pos, remaining, line.Substring(pos, remaining)));
+					int rem = line.Length - pos;
+					result.Add(new WrappedLineInfo(sourceIndex, pos, rem, line.Substring(pos, rem)));
 					break;
 				}
 
-				// Find the last space within [pos, pos+width) to break at
+				// Find the last space within the column-fitting char range [pos, fitEnd) to break at
 				int breakAt = -1;
-				for (int j = pos + width - 1; j > pos; j--)
+				for (int j = fitEnd - 1; j > pos; j--)
 				{
 					if (line[j] == ' ')
 					{
@@ -119,12 +127,59 @@ namespace SharpConsoleUI.Controls
 				}
 				else
 				{
-					// No space found - force break at width (long word)
-					result.Add(new WrappedLineInfo(sourceIndex, pos, width, line.Substring(pos, width)));
-					pos += width;
+					// No space found - force break at the column-fit boundary (long word)
+					int len = fitEnd - pos;
+					result.Add(new WrappedLineInfo(sourceIndex, pos, len, line.Substring(pos, len)));
+					pos += len;
 				}
 			}
 		}
+
+		/// <summary>
+		/// Test-only accessor exposing the wrapped segments (source index, char offset, char length,
+		/// display text) for the given effective width. Used by unit tests to assert wrap correctness
+		/// without exposing the private <see cref="WrappedLineInfo"/> type. Not part of the public API.
+		/// </summary>
+		internal IReadOnlyList<(int SourceLineIndex, int SourceCharOffset, int Length, string Text)> GetWrappedSegmentsForTest(int effectiveWidth)
+		{
+			return GetWrappedLines(effectiveWidth)
+				.Select(wl => (wl.SourceLineIndex, wl.SourceCharOffset, wl.Length, wl.DisplayText))
+				.ToList();
+		}
+
+		/// <summary>
+		/// Test-only accessor exposing the maximum line length in DISPLAY columns (terminal cells),
+		/// as used for horizontal-scroll clamping and scrollbar sizing. Not part of the public API.
+		/// </summary>
+		internal int GetMaxLineLengthForTest() => GetMaxLineLength();
+
+		/// <summary>
+		/// Test-only setter for the horizontal scroll offset (a DISPLAY COLUMN value). Lets tests
+		/// drive the NoWrap horizontal-scroll slice without simulating keystrokes. Not public API.
+		/// </summary>
+		internal void SetHorizontalScrollOffsetForTest(int columnOffset) => _horizontalScrollOffset = columnOffset;
+
+		/// <summary>
+		/// Test-only accessor reading the current horizontal scroll offset (a DISPLAY COLUMN value).
+		/// </summary>
+		internal int GetHorizontalScrollOffsetForTest() => _horizontalScrollOffset;
+
+		/// <summary>
+		/// Test-only setter for the logical cursor position (char indices) without triggering the
+		/// Container-gated EnsureCursorVisible. Used together with <see cref="EnsureCursorVisibleForTest"/>.
+		/// </summary>
+		internal void SetCursorForTest(int charX, int lineY)
+		{
+			_cursorX = charX;
+			_cursorY = lineY;
+		}
+
+		/// <summary>
+		/// Test-only entry point that runs the PRODUCTION NoWrap horizontal cursor-follow scroll logic
+		/// (<see cref="EnsureCursorColumnVisible"/>) with an explicit effective width, bypassing the
+		/// Container null-guard in <see cref="EnsureCursorVisible"/>. Exercises the real code path.
+		/// </summary>
+		internal void EnsureCursorVisibleForTest(int effectiveWidth) => EnsureCursorColumnVisible(effectiveWidth);
 
 		private void InvalidateWrappedLinesCache()
 		{
@@ -222,17 +277,31 @@ namespace SharpConsoleUI.Controls
 					_verticalScrollOffset = _cursorY - evh + 1;
 				}
 
-				// Standard horizontal scrolling for non-wrapped text
-				if (_cursorX < _horizontalScrollOffset)
-				{
-					_horizontalScrollOffset = _cursorX;
-				}
-				else if (_cursorX >= _horizontalScrollOffset + effectiveWidth)
-				{
-					_horizontalScrollOffset = _cursorX - effectiveWidth + 1;
-				}
+				// Standard horizontal scrolling for non-wrapped text.
+				EnsureCursorColumnVisible(effectiveWidth);
 			}
 
+		}
+
+		/// <summary>
+		/// Adjusts <see cref="_horizontalScrollOffset"/> (a DISPLAY COLUMN value) so the cursor's
+		/// display column is within the visible viewport. <see cref="_cursorX"/> is a CHAR index but
+		/// the offset and <paramref name="effectiveWidth"/> are columns, so the cursor must be
+		/// converted to its column first — otherwise cursor-follow scrolling is wrong with wide
+		/// (CJK) characters and a char index would be assigned into a column-valued field.
+		/// </summary>
+		private void EnsureCursorColumnVisible(int effectiveWidth)
+		{
+			string cursorLine = (_cursorY >= 0 && _cursorY < _lines.Count) ? _lines[_cursorY] : string.Empty;
+			int cursorColumn = SharpConsoleUI.Helpers.UnicodeWidth.CharOffsetToColumn(cursorLine, _cursorX);
+			if (cursorColumn < _horizontalScrollOffset)
+			{
+				_horizontalScrollOffset = cursorColumn;
+			}
+			else if (cursorColumn >= _horizontalScrollOffset + effectiveWidth)
+			{
+				_horizontalScrollOffset = cursorColumn - effectiveWidth + 1;
+			}
 		}
 
 		/// <summary>

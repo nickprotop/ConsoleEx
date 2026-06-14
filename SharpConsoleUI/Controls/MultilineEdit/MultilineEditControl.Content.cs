@@ -472,17 +472,22 @@ namespace SharpConsoleUI.Controls
 			return sb.ToString();
 		}
 
+		// Returns the maximum line DISPLAY WIDTH (terminal columns), not char count.
+		// All call sites compare this against contentWidth/effectiveWidth (columns) or use
+		// it for horizontal scrollbar thumb sizing and arrow-scroll clamping, all of which
+		// are column-based — so this must measure display width, not string.Length.
 		private int GetMaxLineLength()
 		{
 			List<string> linesSnapshot;
 			lock (_contentLock) { linesSnapshot = _lines.ToList(); }
-			int maxLength = 0;
+			int maxWidth = 0;
 			foreach (var line in linesSnapshot)
 			{
-				if (line.Length > maxLength)
-					maxLength = line.Length;
+				int w = SharpConsoleUI.Helpers.UnicodeWidth.GetStringWidth(line);
+				if (w > maxWidth)
+					maxWidth = w;
 			}
-			return maxLength;
+			return maxWidth;
 		}
 
 		/// <summary>

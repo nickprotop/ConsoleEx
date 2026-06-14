@@ -182,4 +182,80 @@ public class MarkupControlCopyTests
 		Assert.False(last!.HasSelection);
 		Assert.Equal(string.Empty, last.SelectedText);
 	}
+
+	// --- @YotPhiligan report: are SelectionChanged event args garbled for CJK/Cyrillic? ---
+	// Expected: PASS. The args carry the exact in-memory string (RaiseSelectionChanged(GetSelectedText()),
+	// Cell.Character is a Rune). If this passes, any garble the reporter saw is at their
+	// display/console-output boundary, not in the library's event args.
+
+	[Theory]
+	[InlineData("中文测试")]            // CJK (wide cells)
+	[InlineData("Привет")]              // Cyrillic (narrow cells)
+	[InlineData("中文Привет")]          // mixed wide + narrow
+	public void SelectionChangedArgs_CarryExactUnicodeText(string text)
+	{
+		var c = new MarkupControl(new List<string> { text }) { EnableSelection = true };
+		Paint(c);
+
+		string? selectionChangedArg = null;
+		TextSelectionChangedEventArgs? textSelectionArg = null;
+		c.SelectionChanged += (_, s) => selectionChangedArg = s;
+		c.TextSelectionChanged += (_, e) => textSelectionArg = e;
+
+		// Drag well past the end of the line so the whole logical line is selected
+		// (GetSelectedText clamps the end column to the row's cell count).
+		c.ProcessMouseEvent(Mouse(0, 0, MouseFlags.Button1Pressed));
+		c.ProcessMouseEvent(Mouse(40, 0, MouseFlags.Button1Dragged));
+
+		Assert.True(c.HasSelection);
+		Assert.Equal(text, c.GetSelectedText());
+		Assert.Equal(text, selectionChangedArg);
+		Assert.NotNull(textSelectionArg);
+		Assert.True(textSelectionArg!.HasSelection);
+		Assert.Equal(text, textSelectionArg.SelectedText);
+	}
+
+	// --- Selection round-trip adjacent to a wide char: must not split or include a half/extra glyph ---
+
+	[Fact]
+	public void Selection_EndingRightBeforeWideChar_ReturnsNarrowRunOnly()
+	{
+		// "ab中cd": columns a=0, b=1, 中=2..3 (wide), c=4, d=5.
+		// Drag cols 0..2: selection ends exactly at the wide char's start → "ab" only,
+		// no half of 中, no extra char.
+		var c = new MarkupControl(new List<string> { "ab中cd" }) { EnableSelection = true };
+		Paint(c);
+		c.ProcessMouseEvent(Mouse(0, 0, MouseFlags.Button1Pressed));
+		c.ProcessMouseEvent(Mouse(2, 0, MouseFlags.Button1Dragged));
+
+		Assert.True(c.HasSelection);
+		Assert.Equal("ab", c.GetSelectedText());
+	}
+
+	[Fact]
+	public void Selection_StartingRightAfterWideChar_ReturnsTailRunOnly()
+	{
+		// "ab中cd": the wide char 中 ends at column 4. Drag cols 4..6 selects "cd"
+		// (the run starting immediately after the wide char) — no half of 中.
+		var c = new MarkupControl(new List<string> { "ab中cd" }) { EnableSelection = true };
+		Paint(c);
+		c.ProcessMouseEvent(Mouse(4, 0, MouseFlags.Button1Pressed));
+		c.ProcessMouseEvent(Mouse(6, 0, MouseFlags.Button1Dragged));
+
+		Assert.True(c.HasSelection);
+		Assert.Equal("cd", c.GetSelectedText());
+	}
+
+	[Fact]
+	public void Selection_SpanningWideChar_ReturnsWholeGlyph()
+	{
+		// Drag cols 1..4 spans b, the whole wide 中, up to (not incl.) c → "b中".
+		var c = new MarkupControl(new List<string> { "ab中cd" }) { EnableSelection = true };
+		Paint(c);
+		c.ProcessMouseEvent(Mouse(1, 0, MouseFlags.Button1Pressed));
+		c.ProcessMouseEvent(Mouse(4, 0, MouseFlags.Button1Dragged));
+
+		Assert.True(c.HasSelection);
+		Assert.Equal("b中", c.GetSelectedText());
+	}
 }

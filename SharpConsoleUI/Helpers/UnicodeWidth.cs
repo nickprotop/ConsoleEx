@@ -118,5 +118,112 @@ namespace SharpConsoleUI.Helpers
 			}
 			return w;
 		}
+
+		/// <summary>
+		/// Returns the character index (UTF-16 offset) at or before the given display column.
+		/// A column that lands inside a wide char resolves to that char's start. Clamps to s.Length.
+		/// Mirrors <see cref="GetStringWidth"/> so the two never disagree.
+		/// </summary>
+		public static int ColumnToCharOffset(string s, int column)
+		{
+			if (string.IsNullOrEmpty(s) || column <= 0) return 0;
+			int col = 0;
+			int charIndex = 0;
+			Rune? lastMeasured = null;
+			foreach (var rune in s.EnumerateRunes())
+			{
+				int rw;
+				if (IsVS16(rune) && lastMeasured != null && IsVs16Widened(lastMeasured.Value))
+				{
+					rw = 1; lastMeasured = null;
+				}
+				else
+				{
+					rw = GetRuneWidth(rune);
+					if (rw > 0) lastMeasured = rune;
+				}
+				if (col + rw > column) return charIndex; // adding this rune would pass the target column
+				col += rw;
+				charIndex += rune.Utf16SequenceLength;
+			}
+			return charIndex; // column at/after end → end of string
+		}
+
+		/// <summary>
+		/// Returns the display column at the given character index (UTF-16 offset).
+		/// Equivalent to GetStringWidth(s.Substring(0, charOffset)) but without allocating.
+		/// </summary>
+		public static int CharOffsetToColumn(string s, int charOffset)
+		{
+			if (string.IsNullOrEmpty(s) || charOffset <= 0) return 0;
+			if (charOffset >= s.Length) return GetStringWidth(s);
+			int col = 0;
+			int idx = 0;
+			Rune? lastMeasured = null;
+			foreach (var rune in s.EnumerateRunes())
+			{
+				// Stop before a rune that starts at/after the target, or that straddles it
+				// (a charOffset landing mid-surrogate is not a rune boundary — exclude the partial rune).
+				if (idx + rune.Utf16SequenceLength > charOffset) break;
+				if (IsVS16(rune) && lastMeasured != null && IsVs16Widened(lastMeasured.Value))
+				{
+					col += 1; lastMeasured = null;
+				}
+				else
+				{
+					int rw = GetRuneWidth(rune);
+					if (rw > 0) lastMeasured = rune;
+					col += rw;
+				}
+				idx += rune.Utf16SequenceLength;
+			}
+			return col;
+		}
+
+		/// <summary>
+		/// Width-aware slice primitive for wrapping: starting at character index <paramref name="startChar"/>,
+		/// consumes whole runes while the total stays within <paramref name="maxColumns"/>. Returns the END
+		/// character index and the display columns actually consumed. Guarantees forward progress: a single
+		/// rune wider than maxColumns is still taken whole (so wrap loops can never stall).
+		/// </summary>
+		public static (int endChar, int width) TakeColumns(string s, int startChar, int maxColumns)
+		{
+			if (string.IsNullOrEmpty(s) || startChar >= s.Length) return (s?.Length ?? 0, 0);
+			int col = 0;
+			int idx = startChar;
+			Rune? lastMeasured = null;
+			bool tookAny = false;
+			while (idx < s.Length)
+			{
+				int rw;
+				int advance;
+				if (Rune.TryGetRuneAt(s, idx, out var rune))
+				{
+					if (IsVS16(rune) && lastMeasured != null && IsVs16Widened(lastMeasured.Value))
+					{
+						rw = 1; lastMeasured = null;
+					}
+					else
+					{
+						rw = GetRuneWidth(rune);
+						if (rw > 0) lastMeasured = rune;
+					}
+					advance = rune.Utf16SequenceLength;
+				}
+				else
+				{
+					// Lone/unpaired UTF-16 surrogate (e.g. transient state while typing an
+					// emoji): treat it as a width-1 replacement glyph and advance one code
+					// unit so the loop always makes forward progress and never throws.
+					rw = 1; advance = 1; lastMeasured = null;
+				}
+				if (tookAny && col + rw > maxColumns) break; // would overflow - stop (but always take >= 1 rune)
+				col += rw;
+				idx += advance;
+				tookAny = true;
+				if (col >= maxColumns) break;
+			}
+			return (idx, col);
+		}
 	}
 }

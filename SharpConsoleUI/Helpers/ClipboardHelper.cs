@@ -134,7 +134,7 @@ namespace SharpConsoleUI.Helpers
 						RunProcessWithInput("xclip", text, "-selection", "clipboard");
 						break;
 					case ClipboardBackend.Xsel:
-						RunProcessWithInput("xsel", "--clipboard", "--input");
+						RunProcessWithInput("xsel", text, "--clipboard", "--input");
 						break;
 					case ClipboardBackend.InternalFallback:
 					default:
@@ -261,6 +261,7 @@ namespace SharpConsoleUI.Helpers
 			var psi = new ProcessStartInfo(cmd)
 			{
 				RedirectStandardInput = true,
+				StandardInputEncoding = System.Text.Encoding.UTF8,
 				UseShellExecute = false,
 				CreateNoWindow = true
 			};
@@ -278,6 +279,7 @@ namespace SharpConsoleUI.Helpers
 			var psi = new ProcessStartInfo(cmd)
 			{
 				RedirectStandardOutput = true,
+				StandardOutputEncoding = System.Text.Encoding.UTF8,
 				UseShellExecute = false,
 				CreateNoWindow = true
 			};

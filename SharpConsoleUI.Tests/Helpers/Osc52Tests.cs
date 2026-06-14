@@ -69,4 +69,29 @@ public class Osc52Tests
 		var seq = Osc52.BuildSequence("", tmuxWrap: false, maxBytes: 0);
 		Assert.Equal("\x1b]52;c;\x07", seq);
 	}
+
+	private static string DecodeOsc52Payload(string seq)
+	{
+		const string prefix = "\x1b]52;c;";
+		int i = seq.IndexOf(prefix, System.StringComparison.Ordinal);
+		Assert.True(i >= 0, "OSC52 sequence missing 52;c; prefix");
+		int start = i + prefix.Length;
+		int end = seq.IndexOf('\x07', start);
+		Assert.True(end > start, "OSC52 sequence missing BEL terminator");
+		string b64 = seq.Substring(start, end - start);
+		return System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String(b64));
+	}
+
+	[Theory]
+	[InlineData("中文测试")]            // CJK (wide, 3-byte UTF-8)
+	[InlineData("Привет мир")]          // Cyrillic (1-wide, 2-byte UTF-8) — the @YotPhiligan case
+	[InlineData("📦🚀 emoji")]          // astral (4-byte UTF-8 / surrogate pair)
+	[InlineData("café résumé")]         // Latin-1 accents
+	[InlineData("abc 123 ascii")]       // ASCII regression
+	public void Osc52Emit_RoundTripsExactBytes(string text)
+	{
+		string seq = SharpConsoleUI.Helpers.Osc52.BuildSequence(text, tmuxWrap: false, maxBytes: 100_000)!;
+		Assert.NotNull(seq);
+		Assert.Equal(text, DecodeOsc52Payload(seq));
+	}
 }

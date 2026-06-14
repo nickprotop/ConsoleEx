@@ -575,6 +575,23 @@ editor.GutterClick += (s, e) =>
 
 7. **Use `MarkAsSaved()` and `IsModified`** to track unsaved changes and prompt before closing.
 
+## Unicode & wide characters
+
+The editor is display-width aware. Word wrap (`WrapWords()`), character wrap (`WrapCharacters()`),
+horizontal scrolling, and the horizontal scrollbar all measure in **terminal columns**, not UTF-16
+code units — so wide glyphs are handled correctly:
+
+- **CJK** (Chinese / Japanese / Korean) characters occupy **2 columns** each; wrap and scroll break
+  on column boundaries, never mid-glyph.
+- **Emoji** (surrogate pairs such as 📦) and **VS16-widened** symbols (⚙️) count as 2 columns.
+- **Combining marks** (e.g. `a` + U+0301) add 0 columns to the base character.
+- Typing an emoji is safe even between its two surrogate code units (the transient lone-surrogate
+  state is treated as a width-1 placeholder and never throws).
+
+The horizontal scrollbar appears when a line's **display width** exceeds the viewport, even if its
+character count would fit. Copying a selection that spans wide characters returns exactly the
+selected glyphs.
+
 ## See Also
 
 - [Syntax Highlighting](../SYNTAX_HIGHLIGHTING.md) - Built-in highlighters, the registry, and custom registration
