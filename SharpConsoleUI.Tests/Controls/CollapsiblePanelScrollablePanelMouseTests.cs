@@ -518,83 +518,83 @@ public class CollapsiblePanelScrollablePanelMouseTests
 	public void RealDispatch_WheelOverOnScreenCappedBody_AlwaysScrollsInnerNotRoot()
 	{
 		foreach (int windowHeight in new[] { 12, 14, 16, 18, 20, 24, 28 })
-		foreach (int aboveCount in new[] { 0, 3, 6, 10 })
-		{
-			var longBodyB = ControlsFactory.ScrollablePanel();
-			for (int i = 1; i <= 20; i++)
-				longBodyB.AddControl(ControlsFactory.Markup($"[grey]line {i:00}[/]").Build());
-			var longBody = longBodyB.Build();
-
-			var cappedPanel = ControlsFactory.CollapsiblePanel("Capped")
-				.Expanded().WithMaxContentHeight(6).AddControl(longBody).Build();
-
-			var rootB = ControlsFactory.ScrollablePanel().WithVerticalAlignment(VerticalAlignment.Fill);
-			var sideA = ControlsFactory.CollapsiblePanel("A").Expanded()
-				.AddControl(ControlsFactory.Markup("[dim]left body[/]").Build()).Build();
-			var sideB = ControlsFactory.CollapsiblePanel("B").Expanded()
-				.AddControl(ControlsFactory.Markup("[dim]right body[/]").Build()).Build();
-			var grid = ControlsFactory.HorizontalGrid()
-				.Column(c => c.Flex().Add(sideA))
-				.Column(c => c.Flex().Add(sideB))
-				.Build();
-			for (int i = 1; i <= aboveCount; i++)
-				rootB.AddControl(ControlsFactory.Markup($"[grey]above {i:00}[/]").Build());
-			rootB.AddControl(grid);
-			rootB.AddControl(cappedPanel);
-			for (int i = 1; i <= 12; i++)
-				rootB.AddControl(ControlsFactory.Markup($"[grey]below {i:00}[/]").Build());
-			var root = rootB.Build();
-
-			var system = TestWindowSystemBuilder.CreateTestSystem(84, windowHeight);
-			var window = new Window(system) { Left = 0, Top = 0, Width = 84, Height = windowHeight };
-			window.AddControl(root);
-			system.AddWindow(window);
-			system.Render.UpdateDisplay();
-			system.Render.UpdateDisplay();
-
-			var renderer = window.GetType()
-				.GetField("_renderer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-				?.GetValue(window);
-			var getNode = renderer?.GetType().GetMethod("GetLayoutNode");
-
-			for (int rootScroll = 0; rootScroll <= 12; rootScroll++)
+			foreach (int aboveCount in new[] { 0, 3, 6, 10 })
 			{
-				root.ScrollToTop();
-				root.ScrollVerticalBy(rootScroll);
+				var longBodyB = ControlsFactory.ScrollablePanel();
+				for (int i = 1; i <= 20; i++)
+					longBodyB.AddControl(ControlsFactory.Markup($"[grey]line {i:00}[/]").Build());
+				var longBody = longBodyB.Build();
+
+				var cappedPanel = ControlsFactory.CollapsiblePanel("Capped")
+					.Expanded().WithMaxContentHeight(6).AddControl(longBody).Build();
+
+				var rootB = ControlsFactory.ScrollablePanel().WithVerticalAlignment(VerticalAlignment.Fill);
+				var sideA = ControlsFactory.CollapsiblePanel("A").Expanded()
+					.AddControl(ControlsFactory.Markup("[dim]left body[/]").Build()).Build();
+				var sideB = ControlsFactory.CollapsiblePanel("B").Expanded()
+					.AddControl(ControlsFactory.Markup("[dim]right body[/]").Build()).Build();
+				var grid = ControlsFactory.HorizontalGrid()
+					.Column(c => c.Flex().Add(sideA))
+					.Column(c => c.Flex().Add(sideB))
+					.Build();
+				for (int i = 1; i <= aboveCount; i++)
+					rootB.AddControl(ControlsFactory.Markup($"[grey]above {i:00}[/]").Build());
+				rootB.AddControl(grid);
+				rootB.AddControl(cappedPanel);
+				for (int i = 1; i <= 12; i++)
+					rootB.AddControl(ControlsFactory.Markup($"[grey]below {i:00}[/]").Build());
+				var root = rootB.Build();
+
+				var system = TestWindowSystemBuilder.CreateTestSystem(84, windowHeight);
+				var window = new Window(system) { Left = 0, Top = 0, Width = 84, Height = windowHeight };
+				window.AddControl(root);
+				system.AddWindow(window);
 				system.Render.UpdateDisplay();
 				system.Render.UpdateDisplay();
 
-				var innerNode = getNode?.Invoke(renderer, new object[] { longBody }) as LayoutNode;
-				if (innerNode == null) continue;
-				var nb = innerNode.AbsoluteBounds;
-				int winContentH = windowHeight - 2;
-				int visTop = System.Math.Max(0, nb.Y);
-				int visBottom = System.Math.Min(winContentH, nb.Y + nb.Height);
-				if (visBottom - visTop <= 0) continue; // node entirely off-screen — can't wheel over it
+				var renderer = window.GetType()
+					.GetField("_renderer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+					?.GetValue(window);
+				var getNode = renderer?.GetType().GetMethod("GetLayoutNode");
 
-				// Probe the top, middle and bottom visible rows of the node (covers partial-clip edges)
-				// without re-rendering per row, keeping the sweep fast.
-				var probeRows = new System.Collections.Generic.SortedSet<int> { visTop, (visTop + visBottom - 1) / 2, visBottom - 1 };
-				foreach (int cy in probeRows)
+				for (int rootScroll = 0; rootScroll <= 12; rootScroll++)
 				{
-					longBody.ScrollToTop();
+					root.ScrollToTop();
+					root.ScrollVerticalBy(rootScroll);
+					system.Render.UpdateDisplay();
+					system.Render.UpdateDisplay();
 
-					int innerBefore = longBody.VerticalScrollOffset;
-					int rootBefore = root.VerticalScrollOffset;
-					int wheelX = window.Left + 1 + nb.X + 1;
-					int wheelY = window.Top + 1 + cy;
-					DispatchWheelDown(system, wheelX, wheelY);
+					var innerNode = getNode?.Invoke(renderer, new object[] { longBody }) as LayoutNode;
+					if (innerNode == null) continue;
+					var nb = innerNode.AbsoluteBounds;
+					int winContentH = windowHeight - 2;
+					int visTop = System.Math.Max(0, nb.Y);
+					int visBottom = System.Math.Min(winContentH, nb.Y + nb.Height);
+					if (visBottom - visTop <= 0) continue; // node entirely off-screen — can't wheel over it
 
-					string ctx = $"h={windowHeight} above={aboveCount} rootScroll={rootScroll} node={nb} cy={cy} " +
-						$"innerVP={longBody.ViewportHeight} innerContent={longBody.TotalContentHeight}";
+					// Probe the top, middle and bottom visible rows of the node (covers partial-clip edges)
+					// without re-rendering per row, keeping the sweep fast.
+					var probeRows = new System.Collections.Generic.SortedSet<int> { visTop, (visTop + visBottom - 1) / 2, visBottom - 1 };
+					foreach (int cy in probeRows)
+					{
+						longBody.ScrollToTop();
 
-					Assert.True(longBody.ViewportHeight < longBody.TotalContentHeight,
-						$"inner SPC viewport metric corrupted (>= content) so it would decline the wheel: {ctx}");
-					Assert.True(longBody.VerticalScrollOffset > innerBefore,
-						$"wheel over the on-screen inner capped SPC must scroll the INNER SPC: {ctx}");
-					Assert.Equal(rootBefore, root.VerticalScrollOffset);
+						int innerBefore = longBody.VerticalScrollOffset;
+						int rootBefore = root.VerticalScrollOffset;
+						int wheelX = window.Left + 1 + nb.X + 1;
+						int wheelY = window.Top + 1 + cy;
+						DispatchWheelDown(system, wheelX, wheelY);
+
+						string ctx = $"h={windowHeight} above={aboveCount} rootScroll={rootScroll} node={nb} cy={cy} " +
+							$"innerVP={longBody.ViewportHeight} innerContent={longBody.TotalContentHeight}";
+
+						Assert.True(longBody.ViewportHeight < longBody.TotalContentHeight,
+							$"inner SPC viewport metric corrupted (>= content) so it would decline the wheel: {ctx}");
+						Assert.True(longBody.VerticalScrollOffset > innerBefore,
+							$"wheel over the on-screen inner capped SPC must scroll the INNER SPC: {ctx}");
+						Assert.Equal(rootBefore, root.VerticalScrollOffset);
+					}
 				}
 			}
-		}
 	}
 }

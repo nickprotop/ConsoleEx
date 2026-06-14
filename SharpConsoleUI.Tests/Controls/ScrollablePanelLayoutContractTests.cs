@@ -489,8 +489,8 @@ public class ScrollablePanelLayoutContractTests
 		Assert.DoesNotContain("LINE2", frame);
 		Assert.Contains("LINE3", lines[0]);                          // partial-clip boundary: first surviving row at viewport top
 		Assert.Contains("LINE5", frame);                            // still visible mid-viewport
-		// The viewport is 6 rows tall (lines 0..5); the row just past the bottom must be empty,
-		// so the child does not overflow the panel's painted area.
+																	// The viewport is 6 rows tall (lines 0..5); the row just past the bottom must be empty,
+																	// so the child does not overflow the panel's painted area.
 		Assert.Equal(string.Empty, lines[panel.ViewportHeight].TrimEnd());
 	}
 
