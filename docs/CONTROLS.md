@@ -1,6 +1,6 @@
 # Controls Reference
 
-SharpConsoleUI provides 30+ built-in UI controls for building rich console applications.
+SharpConsoleUI provides 39 built-in UI controls for building rich console applications.
 
 > **New to SharpConsoleUI?** Start with the [Tutorials](tutorials/README.md) — step-by-step guides that build real apps from scratch.
 

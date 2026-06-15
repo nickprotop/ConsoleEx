@@ -455,6 +455,8 @@ These examples demonstrate specific features without full screenshots.
 
 | Example | What it shows | Run command |
 |---------|--------------|-------------|
+| **BenchmarkApp** | Render/throughput benchmark — runs a fixed frame budget and reports timing/FPS | `dotnet run --project Examples/BenchmarkApp` |
+| **ClinicFlow** | Patient-management dashboard: sidebar list + per-patient detail panel, async data updates | `dotnet run --project Examples/ClinicFlow` |
 | **FrameRateDemo** | Adjustable FPS (15-144), frame rate limiting, performance metrics | `dotnet run --project Examples/FrameRateDemo` |
 | **FullScreenExample** | Kiosk-style maximized window, hidden taskbar, disabled chrome | `dotnet run --project Examples/FullScreenExample` |
 | **StartMenuDemo** | Windows-like Start menu, plugin integration, categorized items | `dotnet run --project Examples/StartMenuDemo` |
