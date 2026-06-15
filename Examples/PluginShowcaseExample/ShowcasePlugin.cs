@@ -33,7 +33,7 @@ public sealed class ShowcasePlugin : PluginBase
 
 	/// <inheritdoc/>
 	public override PluginInfo Info => new(
-		Name: "DeveloperTools",
+		Name: "ShowcasePlugin",
 		Version: "1.0.0",
 		Author: "PluginShowcaseExample",
 		Description: "Example developer-tools plugin: DevDark theme, LogExporter control, DebugConsole window, and a Diagnostics service.");

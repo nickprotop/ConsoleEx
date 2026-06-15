@@ -1,9 +1,9 @@
 // -----------------------------------------------------------------------
-// PluginShowcaseExample - Demonstrates the DeveloperTools plugin usage
+// PluginShowcaseExample - Authoring and using a plugin (ShowcasePlugin)
 //
 // This example shows how to:
-// - Load the built-in DeveloperTools plugin
-// - Switch to the DevDark theme
+// - Author a plugin in your own project (see ShowcasePlugin.cs) and load it
+// - Switch to a theme the plugin provides (DevDark)
 // - Create the Debug Console window from the plugin
 // - Use the LogExporter control from the plugin
 // - Access the Diagnostics service from the plugin (using IPluginService - agnostic pattern)
@@ -14,13 +14,13 @@
 // loaded from an external DLL without shared interfaces.
 // -----------------------------------------------------------------------
 
+using PluginShowcaseExample; // The example's self-contained showcase plugin (in production you'd load an external DLL by path)
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
-using PluginShowcaseExample; // The example's self-contained showcase plugin (in production you'd load an external DLL by path)
 
 // Create window system (testing without status bars to verify bug fix)
 var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
@@ -28,7 +28,7 @@ var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffe
 // Enable all log levels for the demo (default is Warning)
 windowSystem.LogService.MinimumLevel = LogLevel.Trace;
 
-// Load the built-in developer tools plugin
+// Load the example-authored plugin (defined in ShowcasePlugin.cs)
 windowSystem.PluginStateService.LoadPlugin<ShowcasePlugin>();
 
 // Switch to DevDark theme (provided by the plugin)
@@ -43,12 +43,12 @@ var mainWindow = new WindowBuilder(windowSystem)
 	.Build();
 
 // Add header
-mainWindow.AddControl(Controls.Header("DeveloperTools Plugin Demo", "green"));
+mainWindow.AddControl(Controls.Header("Plugin Showcase Demo", "green"));
 mainWindow.AddControl(Controls.Separator());
 
 // Add description
 mainWindow.AddControl(Controls.Markup()
-	.AddLine("This example demonstrates the built-in [green]DeveloperTools[/] plugin.")
+	.AddLine("This example demonstrates an example-authored [green]ShowcasePlugin[/].")
 	.AddLine("")
 	.AddLine("The plugin provides:")
 	.AddLine("  [cyan1]•[/] [yellow]DevDark[/] theme (currently active)")
@@ -309,7 +309,7 @@ OpenLogExporter();
 // Log some initial messages
 windowSystem.LogService?.LogInfo("Plugin Showcase started", "App");
 windowSystem.LogService?.LogDebug("DevDark theme applied", "Theme");
-windowSystem.LogService?.LogInfo("DeveloperTools plugin loaded successfully", "Plugin");
+windowSystem.LogService?.LogInfo("ShowcasePlugin loaded successfully", "Plugin");
 
 // Run the application
 windowSystem.Run();

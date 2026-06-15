@@ -7,9 +7,9 @@ using SharpConsoleUI.Layout;
 using SharpConsoleUI.Panel;
 
 var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer),
-    options: new ConsoleWindowSystemOptions(
-        TopPanelConfig: panel => panel.Left(Elements.StatusText(""))
-    ));
+	options: new ConsoleWindowSystemOptions(
+		TopPanelConfig: panel => panel.Left(Elements.StatusText(""))
+	));
 windowSystem.PanelStateService.TopStatus = "TableControl Demo - Press F1-F2 to switch themes";
 windowSystem.PanelStateService.BottomStatus = "Read-only table display | F1=ModernGray, F2=Classic | ESC: Close";
 
