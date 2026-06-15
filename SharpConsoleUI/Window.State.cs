@@ -218,7 +218,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		public void GoToBottom()
 		{
-			_scrollOffset = Math.Max(0, ContentLineCount - (Height - 2));
+			_scrollOffset = Math.Max(0, ContentLineCount - ContentHeight);
 			Invalidate(true);
 		}
 
@@ -255,14 +255,13 @@ namespace SharpConsoleUI
 				int contentHeight = controlBounds.Height;
 				int contentBottom = contentTop + contentHeight;
 
-				int windowHeight = Height;
 				int currentScrollOffset = ScrollOffset;
 
 				// IMPORTANT: Control bounds Y values are RELATIVE to scrollOffset, not absolute!
 				// When scrollOffset=0, widget at absolute Y=50 has relative Y=50
 				// When scrollOffset=50, same widget has relative Y=0
 				int visibleTop = 0;
-				int visibleBottom = windowHeight - 2;  // -2 for window borders
+				int visibleBottom = ContentHeight;  // window height minus the frame on top and bottom
 
 				// Check if widget is not fully visible
 				bool topCutOff = contentTop < visibleTop;
@@ -325,7 +324,7 @@ namespace SharpConsoleUI
 			// Convert cursor position from window coordinates to window content coordinates
 			// Window coordinates have border at (0,0), content starts at (1,1)
 			// Window content coordinates (used by ControlContentBounds) have content at (0,0)
-			var cursorInContentCoords = new Point(cursorPosition.X - 1, cursorPosition.Y - 1);
+			var cursorInContentCoords = new Point(cursorPosition.X - FrameInset, cursorPosition.Y - FrameInset);
 
 			// Check if cursor is within the control's actual content bounds
 			if (cursorInContentCoords.X < controlBounds.X ||
@@ -342,15 +341,15 @@ namespace SharpConsoleUI
 			if (control.StickyPosition == StickyPosition.Top || control.StickyPosition == StickyPosition.Bottom)
 			{
 				// Sticky controls are always visible if within window bounds
-				var result = cursorPosition.X >= 1 && cursorPosition.X < Width - 1 &&
-							 cursorPosition.Y >= 1 && cursorPosition.Y < Height - 1;
+				var result = cursorPosition.X >= FrameInset && cursorPosition.X < Width - FrameInset &&
+							 cursorPosition.Y >= FrameInset && cursorPosition.Y < Height - FrameInset;
 				return result;
 			}
 			else
 			{
 				// For scrollable (non-sticky) controls, check if cursor is within window viewport
-				var scrollableAreaTop = 1;
-				var scrollableAreaBottom = Height - 1;
+				var scrollableAreaTop = FrameInset;
+				var scrollableAreaBottom = Height - FrameInset;
 
 
 				// Check if cursor Y is within the scrollable area bounds
@@ -571,7 +570,7 @@ namespace SharpConsoleUI
 			InvalidateBorderCache();
 			Invalidate(true);
 
-			if (_scrollOffset > ContentLineCount - (Height - 2))
+			if (_scrollOffset > ContentLineCount - ContentHeight)
 			{
 				GoToBottom();
 			}
@@ -608,7 +607,7 @@ namespace SharpConsoleUI
 
 			// Layout will be updated lazily on next event
 
-			if (_scrollOffset > ContentLineCount - (Height - 2))
+			if (_scrollOffset > ContentLineCount - ContentHeight)
 			{
 				GoToBottom();
 			}

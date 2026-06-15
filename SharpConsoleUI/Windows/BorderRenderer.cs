@@ -85,7 +85,7 @@ namespace SharpConsoleUI.Windows
 
 			var scrollbarChar = '░';
 			var contentHeight = _window.TotalLines;
-			var visibleHeight = _window.Height - 2;
+			var visibleHeight = _window.ContentHeight;
 
 			if (_window.IsScrollable && contentHeight > visibleHeight)
 			{
@@ -266,7 +266,7 @@ namespace SharpConsoleUI.Windows
 			}
 
 			var contentHeight = _window.TotalLines;
-			var visibleHeight = _window.Height - 2;
+			var visibleHeight = _window.ContentHeight;
 			var scrollbarVisible = _window.IsScrollable && contentHeight > visibleHeight;
 			var cachedTop = _cachedTopBorder;
 			var cachedBottom = _cachedBottomBorder;
@@ -401,7 +401,7 @@ namespace SharpConsoleUI.Windows
 						{
 							// Check if scrollbar should be visible
 							var contentHeight = _window.TotalLines;
-							var visibleHeight = _window.Height - 2;
+							var visibleHeight = _window.ContentHeight;
 							var scrollbarVisible = _window.IsScrollable && contentHeight > visibleHeight;
 
 							if (scrollbarVisible)

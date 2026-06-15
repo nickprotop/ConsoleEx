@@ -384,8 +384,8 @@ namespace SharpConsoleUI.Windows
 		{
 			// Window content starts at (1,1) to account for borders
 			// Title bar is at Y=0, so content starts at Y=1
-			return windowPosition.X >= 1 && windowPosition.X < _window.Width - 1 &&
-				   windowPosition.Y >= 1 && windowPosition.Y < _window.Height - 1;
+			return windowPosition.X >= _window.FrameInset && windowPosition.X < _window.Width - _window.FrameInset &&
+				   windowPosition.Y >= _window.FrameInset && windowPosition.Y < _window.Height - _window.FrameInset;
 		}
 
 		/// <summary>
@@ -394,7 +394,7 @@ namespace SharpConsoleUI.Windows
 		private Point GetContentCoordinates(Point windowPosition)
 		{
 			// Subtract border offset only - DOM layout handles scroll offset in absolute bounds
-			return new Point(windowPosition.X - 1, windowPosition.Y - 1);
+			return new Point(windowPosition.X - _window.FrameInset, windowPosition.Y - _window.FrameInset);
 		}
 
 		/// <summary>
@@ -439,8 +439,8 @@ namespace SharpConsoleUI.Windows
 		{
 			lock (_window._lock)
 			{
-				var availableWidth = _window.Width - 2; // Account for borders
-				var availableHeight = _window.Height - 2; // Account for borders
+				var availableWidth = _window.ContentWidth; // Account for borders
+				var availableHeight = _window.ContentHeight; // Account for borders
 
 				// Ensure DOM tree is built
 				if (_window._renderer?.RootLayoutNode == null)
@@ -494,12 +494,12 @@ namespace SharpConsoleUI.Windows
 
 				// Convert window coords to content coords (subtract border offset)
 				// Title bar is at window Y=0, content starts at Y=1
-				var contentX = windowPoint.X - 1;
-				var contentY = windowPoint.Y - 1;
+				var contentX = windowPoint.X - _window.FrameInset;
+				var contentY = windowPoint.Y - _window.FrameInset;
 
 				// Return null if outside content area (title bar, borders)
 				if (contentX < 0 || contentY < 0 ||
-					contentX >= _window.Width - 2 || contentY >= _window.Height - 2)
+					contentX >= _window.ContentWidth || contentY >= _window.ContentHeight)
 					return null;
 
 				// Use DOM tree hit-testing for correct nested control detection
@@ -681,7 +681,7 @@ namespace SharpConsoleUI.Windows
 								}
 								else
 								{
-									_window._scrollOffset = Math.Min(_window.ContentLineCount - (_window.Height - 2 - _window._topStickyHeight), _window._scrollOffset + 1);
+									_window._scrollOffset = Math.Min(_window.ContentLineCount - (_window.ContentHeight - _window._topStickyHeight), _window._scrollOffset + 1);
 								}
 								_window.IsDirty = true;
 								windowHandled = true;
@@ -854,7 +854,7 @@ namespace SharpConsoleUI.Windows
 				{
 					// Calculate the visible region boundaries
 					int visibleTop = _window._scrollOffset + _window._topStickyHeight;
-					int visibleBottom = _window._scrollOffset + (_window.Height - 2 - _window._bottomStickyHeight);
+					int visibleBottom = _window._scrollOffset + (_window.ContentHeight - _window._bottomStickyHeight);
 
 					if (contentTop < visibleTop)
 					{
@@ -864,10 +864,10 @@ namespace SharpConsoleUI.Windows
 					else if (contentBottom > visibleBottom)
 					{
 						// Calculate how much we need to scroll to show the bottom of the content
-						int newOffset = contentBottom - (_window.Height - 2 - _window._bottomStickyHeight);
+						int newOffset = contentBottom - (_window.ContentHeight - _window._bottomStickyHeight);
 
 						// Ensure we don't scroll beyond the maximum available content
-						int maxOffset = Math.Max(0, _window.ContentLineCount - (_window.Height - 2 - _window._topStickyHeight));
+						int maxOffset = Math.Max(0, _window.ContentLineCount - (_window.ContentHeight - _window._topStickyHeight));
 						_window._scrollOffset = Math.Min(newOffset, maxOffset);
 					}
 				}

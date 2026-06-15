@@ -402,8 +402,8 @@ namespace SharpConsoleUI.Windows
 			// Screen coords: absolute positions on console
 			// Window coords: relative to window content area (0,0 = top-left of content, excluding border)
 
-			int windowContentLeft = windowLeft + 1;  // +1 for left border
-			int windowContentTop = windowTop + 1;  // +1 for border (title is inline with border)
+			int windowContentLeft = windowLeft + _window.FrameInset;  // inset for left border
+			int windowContentTop = windowTop + _window.FrameInset;  // inset for border (title is inline with border)
 
 			// Find bounding box of all visible regions in window space
 			int minX = int.MaxValue;
@@ -411,8 +411,8 @@ namespace SharpConsoleUI.Windows
 			int maxX = int.MinValue;
 			int maxY = int.MinValue;
 
-			int contentWidth = windowWidth - 2;  // Available content width
-			int contentHeight = windowHeight - 2;  // Available content height
+			int contentWidth = windowWidth - 2 * _window.FrameInset;  // Available content width
+			int contentHeight = windowHeight - 2 * _window.FrameInset;  // Available content height
 
 			foreach (var region in visibleRegions)
 			{
@@ -609,8 +609,8 @@ namespace SharpConsoleUI.Windows
 			portalNode.IsVisible = true; // Ensure portal is visible
 
 			// Measure the portal to get its size
-			var contentWidth = _window.Width - 2;
-			var contentHeight = _window.Height - 2;
+			var contentWidth = _window.ContentWidth;
+			var contentHeight = _window.ContentHeight;
 			var constraints = LayoutConstraints.Loose(contentWidth, contentHeight);
 			portalNode.Measure(constraints);
 

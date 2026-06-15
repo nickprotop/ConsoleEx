@@ -881,6 +881,33 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Gets the thickness, in cells, of the reserved window frame on each side (the border/title
+		/// ring). Content is inset by this amount on all four sides.
+		/// </summary>
+		/// <remarks>
+		/// This is the single source of truth for the frame inset. It is currently always
+		/// <c>1</c> — every window reserves a 1-cell frame regardless of <see cref="BorderStyle"/> or
+		/// <see cref="ShowTitle"/> (a borderless window blanks the frame rather than reclaiming it).
+		/// The reserved frame is also where the window-management affordances live (title bar at row 0,
+		/// title buttons, resize grip, edge drag/resize), so it is load-bearing, not merely visual.
+		/// Centralizing it here lets all content/coordinate math derive from one definition; a future
+		/// opt-in "zero-inset" mode (for fully chrome-less windows) would make this conditional.
+		/// </remarks>
+		internal int FrameInset => 1;
+
+		/// <summary>Gets the usable content width (window width minus the frame on both sides).</summary>
+		internal int ContentWidth => Width - 2 * FrameInset;
+
+		/// <summary>Gets the usable content height (window height minus the frame on top and bottom).</summary>
+		internal int ContentHeight => Height - 2 * FrameInset;
+
+		/// <summary>
+		/// Gets the screen-space origin of the content area (the window's top-left, offset inward by the
+		/// frame inset).
+		/// </summary>
+		internal System.Drawing.Point ContentOrigin => new System.Drawing.Point(Left + FrameInset, Top + FrameInset);
+
+		/// <summary>
 		/// Gets or sets the Z-order index for layering windows.
 		/// </summary>
 		public int ZIndex { get; set; }

@@ -93,10 +93,10 @@ namespace SharpConsoleUI
 			// in window-content-relative coordinates. To make those coordinates valid in the
 			// desktop portal buffer, we use a buffer that covers the full window content area
 			// with BufferOrigin at the window's screen content origin.
-			int contentOriginX = Left + 1; // +1 for border
-			int contentOriginY = Top + 1;
-			int contentWidth = Width - 2;
-			int contentHeight = Height - 2;
+			int contentOriginX = ContentOrigin.X;
+			int contentOriginY = ContentOrigin.Y;
+			int contentWidth = ContentWidth;
+			int contentHeight = ContentHeight;
 
 			// Screen-absolute bounds of the portal content
 			int screenX = contentOriginX + portalBounds.X;
@@ -198,8 +198,8 @@ namespace SharpConsoleUI
 		/// </summary>
 		internal void RebuildDOMTree()
 		{
-			var contentWidth = Width - 2;
-			var contentHeight = Height - 2;
+			var contentWidth = ContentWidth;
+			var contentHeight = ContentHeight;
 			_renderer?.RebuildDOMTree(_controls, contentWidth, contentHeight);
 		}
 
@@ -209,8 +209,8 @@ namespace SharpConsoleUI
 		/// </summary>
 		private void PerformDOMLayout()
 		{
-			var contentWidth = Width - 2;
-			var contentHeight = Height - 2;
+			var contentWidth = ContentWidth;
+			var contentHeight = ContentHeight;
 			_renderer?.PerformDOMLayout(contentWidth, contentHeight);
 		}
 

@@ -466,19 +466,19 @@ namespace SharpConsoleUI
 
 				foreach (var region in visibleRegions)
 				{
-					if (window.Top + y + 1 >= region.Top && window.Top + y + 1 < region.Top + region.Height)
+					if (window.Top + y + window.FrameInset >= region.Top && window.Top + y + window.FrameInset < region.Top + region.Height)
 					{
-						int contentLeft = Math.Max(windowLeft + 1, region.Left);
-						int contentRight = Math.Min(windowLeft + windowWidth - 1, region.Left + region.Width);
+						int contentLeft = Math.Max(windowLeft + window.FrameInset, region.Left);
+						int contentRight = Math.Min(windowLeft + windowWidth - window.FrameInset, region.Left + region.Width);
 						int contentWidth = contentRight - contentLeft;
 
 						if (contentWidth <= 0) continue;
 
-						int startOffset = Math.Max(0, contentLeft - (windowLeft + 1));
+						int startOffset = Math.Max(0, contentLeft - (windowLeft + window.FrameInset));
 
 						_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
 							contentLeft,
-							windowTop + desktopUpperLeftY + y + 1,
+							windowTop + desktopUpperLeftY + y + window.FrameInset,
 							buffer,
 							startOffset,
 							y,
@@ -522,15 +522,15 @@ namespace SharpConsoleUI
 
 				foreach (var region in visibleRegions)
 				{
-					if (window.Top + y + 1 >= region.Top && window.Top + y + 1 < region.Top + region.Height)
+					if (window.Top + y + window.FrameInset >= region.Top && window.Top + y + window.FrameInset < region.Top + region.Height)
 					{
-						int contentLeft = Math.Max(windowLeft + 1, region.Left);
-						int contentRight = Math.Min(windowLeft + windowWidth - 1, region.Left + region.Width);
+						int contentLeft = Math.Max(windowLeft + window.FrameInset, region.Left);
+						int contentRight = Math.Min(windowLeft + windowWidth - window.FrameInset, region.Left + region.Width);
 						int contentWidth = contentRight - contentLeft;
 
 						if (contentWidth <= 0) continue;
 
-						int startOffset = Math.Max(0, contentLeft - (windowLeft + 1));
+						int startOffset = Math.Max(0, contentLeft - (windowLeft + window.FrameInset));
 
 						// Resize scratch buffer if needed (width might have changed)
 						if (_scratchBuffer.Width < contentWidth)
@@ -544,7 +544,7 @@ namespace SharpConsoleUI
 							int bufX = startOffset + i;
 							var cell = buffer.GetCell(bufX, y);
 							int screenX = contentLeft + i;
-							int screenY = window.Top + y + 1;
+							int screenY = window.Top + y + window.FrameInset;
 
 							if (cell.Background.A == 255)
 							{
@@ -595,7 +595,7 @@ namespace SharpConsoleUI
 						// Write the composited row to the driver
 						_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
 							contentLeft,
-							windowTop + desktopUpperLeftY + y + 1,
+							windowTop + desktopUpperLeftY + y + window.FrameInset,
 							_scratchBuffer,
 							0,
 							0,
@@ -719,7 +719,7 @@ namespace SharpConsoleUI
 							// BorderRenderer already wrote the correct character; we just need to re-write with composited colors.
 							// Unfortunately we can't read back from the driver easily, so we replicate the char logic.
 							var contentHeight = window.TotalLines;
-							var visibleHeight = window.Height - 2;
+							var visibleHeight = window.ContentHeight;
 							var scrollbarVisible = window.IsScrollable && contentHeight > visibleHeight;
 
 							char borderChar;
@@ -883,8 +883,8 @@ namespace SharpConsoleUI
 								_consoleWindowSystem.Theme.DesktopBackgroundColor).Background));
 					}
 
-					int bufX = screenX - (w.Left + 1);
-					int bufY = screenY - (w.Top + 1);
+					int bufX = screenX - (w.Left + w.FrameInset);
+					int bufY = screenY - (w.Top + w.FrameInset);
 
 					if (bufX < 0 || bufX >= contentBuffer.Width || bufY < 0 || bufY >= contentBuffer.Height)
 					{

@@ -102,8 +102,8 @@ namespace SharpConsoleUI.Layout
 		{
 			var windowContentPos = ControlToWindowContent(controlPosition);
 			return new Point(
-				windowContentPos.X + 1, // Add window border
-				windowContentPos.Y + 1  // Add window border
+				windowContentPos.X + ParentWindow.FrameInset, // Add window border
+				windowContentPos.Y + ParentWindow.FrameInset  // Add window border
 			);
 		}
 
@@ -113,8 +113,8 @@ namespace SharpConsoleUI.Layout
 		public Point WindowToControl(Point windowPosition)
 		{
 			var contentPos = new Point(
-				windowPosition.X - 1, // Remove window border
-				windowPosition.Y - 1  // Remove window border
+				windowPosition.X - ParentWindow.FrameInset, // Remove window border
+				windowPosition.Y - ParentWindow.FrameInset  // Remove window border
 			);
 			return WindowContentToControl(contentPos);
 		}
@@ -148,7 +148,7 @@ namespace SharpConsoleUI.Layout
 		{
 			var intersection = Rectangle.Intersect(
 				ControlContentBounds,
-				new Rectangle(0, 0, ParentWindow.Width - 2, ParentWindow.Height - 2)
+				new Rectangle(0, 0, ParentWindow.ContentWidth, ParentWindow.ContentHeight)
 			);
 
 			return intersection;
@@ -326,7 +326,7 @@ namespace SharpConsoleUI.Layout
 				if (hostNode == null)
 					return null;
 				var hab = hostNode.AbsoluteBounds;
-				return new Point(hab.X + hostLogical.Value.X + 1, hab.Y + hostLogical.Value.Y + 1);
+				return new Point(hab.X + hostLogical.Value.X + _window.FrameInset, hab.Y + hostLogical.Value.Y + _window.FrameInset);
 			}
 
 			var logicalPosition = cursorProvider.GetLogicalCursorPosition();
@@ -376,8 +376,8 @@ namespace SharpConsoleUI.Layout
 				contentBounds.Y + logicalPosition.Value.Y
 			);
 
-			// Add window border offset (+1, +1)
-			var finalPosition = new Point(windowContentPosition.X + 1, windowContentPosition.Y + 1);
+			// Add window border offset (the frame inset)
+			var finalPosition = new Point(windowContentPosition.X + _window.FrameInset, windowContentPosition.Y + _window.FrameInset);
 
 			return finalPosition;
 		}

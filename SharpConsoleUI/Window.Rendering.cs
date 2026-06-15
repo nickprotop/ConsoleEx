@@ -30,8 +30,8 @@ namespace SharpConsoleUI
 			{
 				if (_invalidated)
 				{
-					var availableWidth = Width - 2;
-					var availableHeight = Height - 2;
+					var availableWidth = ContentWidth;
+					var availableHeight = ContentHeight;
 					RebuildContentBufferOnly(availableWidth, availableHeight, visibleRegions);
 
 					bool isInRenderingPipeline = visibleRegions != null && visibleRegions.Count > 0;
@@ -63,7 +63,7 @@ namespace SharpConsoleUI
 			if (buffer == null)
 				return new List<string>();
 
-			var availableHeight = Height - 2;
+			var availableHeight = ContentHeight;
 			var lines = buffer.ToLines(ForegroundColor, BackgroundColor);
 			var result = lines.Take(availableHeight).ToList();
 			while (result.Count < availableHeight)
@@ -114,7 +114,7 @@ namespace SharpConsoleUI
 					return bounds?.ControlContentBounds.Height;
 				}
 
-				var availableHeight = Height - 2;
+				var availableHeight = ContentHeight;
 				var scrollableAreaHeight = availableHeight - _topStickyHeight - _bottomStickyHeight;
 
 				// Try to find position for direct children
@@ -194,7 +194,7 @@ namespace SharpConsoleUI
 			// Fallback to MeasureDOM
 			if (control is IDOMPaintable paintable)
 			{
-				var size = paintable.MeasureDOM(new LayoutConstraints(0, Width - 2, 0, Height - 2));
+				var size = paintable.MeasureDOM(new LayoutConstraints(0, ContentWidth, 0, ContentHeight));
 				return size.Height;
 			}
 
