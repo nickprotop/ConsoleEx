@@ -12,14 +12,14 @@ SharpConsoleUI includes a powerful theme system that allows runtime theme switch
 
 ## Built-in Themes
 
-SharpConsoleUI includes three built-in themes:
+SharpConsoleUI includes two built-in themes:
 
 ### Classic Theme
 
 Traditional navy blue windows with classic styling.
 
 ```csharp
-windowSystem.ThemeRegistry.SetTheme("Classic");
+windowSystem.ThemeStateService.SwitchTheme("Classic");
 ```
 
 **Color Scheme:**
@@ -37,7 +37,7 @@ windowSystem.ThemeRegistry.SetTheme("Classic");
 Modern dark theme with gray color scheme.
 
 ```csharp
-windowSystem.ThemeRegistry.SetTheme("ModernGray");
+windowSystem.ThemeStateService.SwitchTheme("ModernGray");
 ```
 
 **Color Scheme:**
@@ -49,28 +49,6 @@ windowSystem.ThemeRegistry.SetTheme("ModernGray");
 - Inactive Title: Grey50
 - Desktop Background: Grey7
 - Desktop Foreground: Grey70
-
-### DevDark Theme
-
-Dark developer theme with green terminal-inspired accents. Requires the DeveloperTools plugin.
-
-```csharp
-// Load plugin first
-windowSystem.LoadPlugin<DeveloperToolsPlugin>();
-
-// Then switch to DevDark theme
-windowSystem.ThemeRegistry.SetTheme("DevDark");
-```
-
-**Color Scheme:**
-- Window Background: Black
-- Window Foreground: Green
-- Active Border: Lime
-- Inactive Border: DarkGreen
-- Active Title: Yellow
-- Inactive Title: DarkOliveGreen1
-- Desktop Background: Grey3
-- Desktop Foreground: Green
 
 ## Using Themes
 
@@ -100,11 +78,11 @@ var windowSystem = new ConsoleWindowSystem(
 ### Changing Theme at Runtime
 
 ```csharp
-// Using ThemeRegistry
-windowSystem.ThemeRegistry.SetTheme("Classic");
+// Switch by registered name
+windowSystem.ThemeStateService.SwitchTheme("Classic");
 
-// Direct assignment
-windowSystem.Theme = new ModernGrayTheme();
+// Set a theme instance directly
+windowSystem.ThemeStateService.SetTheme(new ModernGrayTheme());
 
 // Using built-in theme selector dialog
 windowSystem.ShowThemeSelectorDialog();
@@ -151,10 +129,10 @@ public class MyCustomTheme : ITheme
 
 ```csharp
 // Register a custom theme
-windowSystem.ThemeRegistry.RegisterTheme("MyCustomTheme", new MyCustomTheme());
+windowSystem.ThemeRegistryService.RegisterTheme("MyCustomTheme", "MyCustomTheme theme", () => new MyCustomTheme());
 
 // Now you can switch to it
-windowSystem.ThemeRegistry.SetTheme("MyCustomTheme");
+windowSystem.ThemeStateService.SwitchTheme("MyCustomTheme");
 ```
 
 ### Complete Custom Theme Example
@@ -181,43 +159,46 @@ public class SolarizedDarkTheme : ITheme
 
 // Usage
 var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
-windowSystem.ThemeRegistry.RegisterTheme("SolarizedDark", new SolarizedDarkTheme());
-windowSystem.ThemeRegistry.SetTheme("SolarizedDark");
+windowSystem.ThemeRegistryService.RegisterTheme("SolarizedDark", "SolarizedDark theme", () => new SolarizedDarkTheme());
+windowSystem.ThemeStateService.SwitchTheme("SolarizedDark");
 ```
 
 ## Theme Registry
 
-The `ThemeRegistry` manages theme registration and switching.
+Each `ConsoleWindowSystem` has its own theme registry, `windowSystem.ThemeRegistryService`, which
+manages theme registration and lookup. Themes registered here — including those contributed by a
+loaded plugin — are scoped to that window system and do not leak to other instances. To *switch*
+the active theme, use `windowSystem.ThemeStateService.SwitchTheme(name)`.
 
 ### Available Methods
 
 ```csharp
 // Register a new theme
-windowSystem.ThemeRegistry.RegisterTheme("MyTheme", new MyCustomTheme());
+windowSystem.ThemeRegistryService.RegisterTheme("MyTheme", "MyTheme theme", () => new MyCustomTheme());
 
 // Set active theme by name
-windowSystem.ThemeRegistry.SetTheme("MyTheme");
+windowSystem.ThemeStateService.SwitchTheme("MyTheme");
 
 // Get a theme by name
-ITheme? theme = windowSystem.ThemeRegistry.GetTheme("Classic");
+ITheme? theme = windowSystem.ThemeRegistryService.GetTheme("Classic");
 
 // Get all registered theme names
-IEnumerable<string> themes = windowSystem.ThemeRegistry.GetRegisteredThemes();
+IEnumerable<string> themes = windowSystem.ThemeRegistryService.GetAvailableThemeNames();
 
 // Check if theme exists
-bool exists = windowSystem.ThemeRegistry.HasTheme("MyTheme");
+bool exists = windowSystem.ThemeRegistryService.IsThemeRegistered("MyTheme");
 
 // Get default theme
-ITheme defaultTheme = ThemeRegistry.GetDefaultTheme();
+ITheme defaultTheme = windowSystem.ThemeRegistryService.GetDefaultTheme();
 
 // Get theme or fallback to default
-ITheme theme = ThemeRegistry.GetThemeOrDefault("NonExistent", new ClassicTheme());
+ITheme theme = windowSystem.ThemeRegistryService.GetThemeOrDefault("NonExistent", new ClassicTheme());
 ```
 
 ### List All Available Themes
 
 ```csharp
-var themes = windowSystem.ThemeRegistry.GetRegisteredThemes();
+var themes = windowSystem.ThemeRegistryService.GetAvailableThemeNames();
 foreach (var themeName in themes)
 {
     Console.WriteLine($"- {themeName}");
@@ -244,13 +225,13 @@ mainWindow.AddControl(
     Controls.Button("Switch to Classic")
         .OnClick((sender, e, window) =>
         {
-            windowSystem.ThemeRegistry.SetTheme("Classic");
+            windowSystem.ThemeStateService.SwitchTheme("Classic");
         })
         .Build()
 );
 
 // Cycle through themes
-var themes = windowSystem.ThemeRegistry.GetRegisteredThemes().ToList();
+var themes = windowSystem.ThemeRegistryService.GetAvailableThemeNames().ToList();
 int currentIndex = 0;
 
 mainWindow.AddControl(
@@ -258,7 +239,7 @@ mainWindow.AddControl(
         .OnClick((sender, e, window) =>
         {
             currentIndex = (currentIndex + 1) % themes.Count;
-            windowSystem.ThemeRegistry.SetTheme(themes[currentIndex]);
+            windowSystem.ThemeStateService.SwitchTheme(themes[currentIndex]);
 
             windowSystem.NotificationStateService.ShowNotification(
                 "Theme Changed",
@@ -340,8 +321,8 @@ using SharpConsoleUI.Drivers;
 var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 
 // Register custom themes
-windowSystem.ThemeRegistry.RegisterTheme("SolarizedDark", new SolarizedDarkTheme());
-windowSystem.ThemeRegistry.RegisterTheme("Dracula", new DraculaTheme());
+windowSystem.ThemeRegistryService.RegisterTheme("SolarizedDark", "SolarizedDark theme", () => new SolarizedDarkTheme());
+windowSystem.ThemeRegistryService.RegisterTheme("Dracula", "Dracula theme", () => new DraculaTheme());
 
 var mainWindow = new WindowBuilder(windowSystem)
     .WithTitle("Theme Manager")
@@ -357,13 +338,13 @@ mainWindow.AddControl(new MarkupControl(new List<string>
 }));
 
 // Create buttons for each theme
-foreach (var themeName in windowSystem.ThemeRegistry.GetRegisteredThemes())
+foreach (var themeName in windowSystem.ThemeRegistryService.GetAvailableThemeNames())
 {
     mainWindow.AddControl(
         Controls.Button($"Switch to {themeName}")
             .OnClick((sender, e, window) =>
             {
-                windowSystem.ThemeRegistry.SetTheme(themeName);
+                windowSystem.ThemeStateService.SwitchTheme(themeName);
                 windowSystem.NotificationStateService.ShowNotification(
                     "Theme Changed",
                     $"Active theme: {themeName}",

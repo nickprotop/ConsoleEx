@@ -26,7 +26,7 @@ public static class ThemeSelectorDialog
 	/// <param name="parentWindow">Optional parent window. If specified, the dialog will be modal to this window only.</param>
 	public static void Show(ConsoleWindowSystem windowSystem, Window? parentWindow = null)
 	{
-		var themes = ThemeRegistry.GetAvailableThemes();
+		var themes = windowSystem.ThemeRegistryService.GetAvailableThemes();
 		var currentThemeName = windowSystem.Theme.Name;
 		var logService = windowSystem.LogService;
 

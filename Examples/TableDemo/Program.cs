@@ -60,7 +60,7 @@ window.KeyPressed += (s, e) =>
 			break;
 
 		case ConsoleKey.F3:
-			windowSystem.ThemeStateService.SetTheme(SharpConsoleUI.Themes.ThemeRegistry.GetDefaultTheme());
+			windowSystem.ThemeStateService.SetTheme(windowSystem.ThemeRegistryService.GetDefaultTheme());
 			break;
 	}
 };

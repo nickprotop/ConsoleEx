@@ -184,7 +184,7 @@ namespace SharpConsoleUI.Core
 		/// <summary>
 		/// Creates a new theme state service with the default theme
 		/// </summary>
-		public ThemeStateService() : this(ThemeRegistry.GetDefaultTheme())
+		public ThemeStateService() : this(new ThemeRegistryStateService().GetDefaultTheme())
 		{
 		}
 
@@ -283,7 +283,9 @@ namespace SharpConsoleUI.Core
 		/// <returns>True if theme was found and applied, false otherwise.</returns>
 		public bool SwitchTheme(string themeName)
 		{
-			var newTheme = ThemeRegistry.GetTheme(themeName);
+			// Resolve the name through the owning window system's per-instance theme registry.
+			var registry = _getWindowSystemContext?.Invoke()?.ThemeRegistryService;
+			var newTheme = registry?.GetTheme(themeName);
 			if (newTheme == null)
 			{
 				_logService?.LogWarning($"Theme '{themeName}' not found in registry", "Theme");

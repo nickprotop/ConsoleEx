@@ -10,7 +10,7 @@ SharpConsoleUI provides an extensible plugin architecture that allows you to add
 - [Loading Plugins](#loading-plugins)
 - [PluginStateService](#pluginstateservice)
 - [Using Plugin Content](#using-plugin-content)
-- [DeveloperTools Plugin](#developertools-plugin)
+- [Example: authoring a plugin (PluginShowcase)](#example-authoring-a-plugin-pluginshowcase)
 - [Best Practices](#best-practices)
 
 ## Plugin Architecture
@@ -33,7 +33,7 @@ All plugins implement the `IPlugin` interface or inherit from the `PluginBase` a
 4. Plugin.GetThemes() called - themes registered
 5. Plugin.GetControls() called - control factories registered
 6. Plugin.GetWindows() called - window factories registered
-7. Plugin.GetServices() called - services registered
+7. Plugin.GetServicePlugins() called - services registered
 8. Plugin ready for use
 9. windowSystem.Dispose() - Plugin.Dispose() called
 ```
@@ -78,10 +78,10 @@ public class MyPlugin : PluginBase
         return Array.Empty<PluginWindow>();
     }
 
-    public override IReadOnlyList<PluginService> GetServices()
+    public override IReadOnlyList<IPluginService> GetServicePlugins()
     {
-        // Return services
-        return Array.Empty<PluginService>();
+        // Return services (agnostic IPluginService pattern)
+        return Array.Empty<IPluginService>();
     }
 
     public override void Dispose()
@@ -104,7 +104,7 @@ public class MyPlugin : IPlugin
     public IReadOnlyList<PluginTheme> GetThemes() => Array.Empty<PluginTheme>();
     public IReadOnlyList<PluginControl> GetControls() => Array.Empty<PluginControl>();
     public IReadOnlyList<PluginWindow> GetWindows() => Array.Empty<PluginWindow>();
-    public IReadOnlyList<PluginService> GetServices() => Array.Empty<PluginService>();
+    public IReadOnlyList<IPluginService> GetServicePlugins() => Array.Empty<IPluginService>();
     public void Dispose() { }
 }
 ```
@@ -332,12 +332,10 @@ public class MyPlugin : PluginBase
 ```csharp
 using SharpConsoleUI;
 using SharpConsoleUI.Drivers;
-using SharpConsoleUI.Plugins.DeveloperTools;
 
 var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
 
-// Load plugin
-windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
+// Load your plugin (defined in your own project)
 windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
 
 // Plugin content is now available
@@ -416,7 +414,7 @@ IReadOnlyList<IPlugin> plugins = windowSystem.PluginStateService.LoadedPlugins;
 IPlugin? myPlugin = windowSystem.PluginStateService.GetPlugin("MyPlugin");
 
 // Check if a plugin is loaded
-bool isLoaded = windowSystem.PluginStateService.IsPluginLoaded("DeveloperTools");
+bool isLoaded = windowSystem.PluginStateService.IsPluginLoaded("ShowcasePlugin");
 
 // Get registered service/control/window names
 var serviceNames = windowSystem.PluginStateService.RegisteredServiceNames;
@@ -486,7 +484,7 @@ windowSystem.PluginStateService.UpdateConfiguration(newConfig);
 windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
 
 // Switch to plugin theme
-windowSystem.ThemeRegistry.SetTheme("MyAwesomeTheme");
+windowSystem.ThemeStateService.SwitchTheme("MyAwesomeTheme");
 
 // Or use theme selector dialog
 windowSystem.ShowThemeSelectorDialog();
@@ -541,19 +539,23 @@ if (myService != null)
 }
 ```
 
-## DeveloperTools Plugin
+## Example: authoring a plugin (PluginShowcase)
 
-SharpConsoleUI includes a built-in DeveloperTools plugin that provides development and debugging tools.
+The `Examples/PluginShowcaseExample` project authors a complete plugin
+(`ShowcasePlugin`) in its own code and loads it — the recommended way to see the
+plugin system end-to-end. It is an *example*, not a built-in library plugin: you
+write `ShowcasePlugin.cs` in your own project and reference it directly (or load
+a compiled plugin assembly by path).
 
-### Loading DeveloperTools
+### Loading the example plugin
 
 ```csharp
-using SharpConsoleUI.Plugins.DeveloperTools;
+using PluginShowcaseExample; // your own project's namespace
 
-windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
+windowSystem.PluginStateService.LoadPlugin<ShowcasePlugin>();
 ```
 
-### DeveloperTools Content
+### What ShowcasePlugin exposes
 
 **Themes:**
 - **DevDark** - Dark developer theme with green terminal-inspired accents
@@ -567,20 +569,20 @@ windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
 **Services:**
 - **Diagnostics** - System diagnostics and performance metrics (agnostic IPluginService)
 
-### Using DeveloperTools
+### Using the plugin's contributions
 
 ```csharp
-// Load plugin
-windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
+// Load your plugin
+windowSystem.PluginStateService.LoadPlugin<ShowcasePlugin>();
 
-// Switch to DevDark theme
-windowSystem.ThemeRegistry.SetTheme("DevDark");
+// Switch to the DevDark theme the plugin provides
+windowSystem.ThemeStateService.SwitchTheme("DevDark");
 
-// Create debug console window
+// Create the debug console window the plugin registered
 var debugWindow = windowSystem.PluginStateService.CreateWindow("DebugConsole");
 windowSystem.AddWindow(debugWindow);
 
-// Get diagnostics service (agnostic - no type knowledge required!)
+// Get the diagnostics service (agnostic - no type knowledge required!)
 var diagnostics = windowSystem.PluginStateService.GetService("Diagnostics");
 if (diagnostics != null)
 {
@@ -597,10 +599,14 @@ if (diagnostics != null)
     })!;
 }
 
-// Add log exporter control to a window
+// Add the log exporter control the plugin registered to a window
 var logExporter = windowSystem.PluginStateService.CreateControl("LogExporter");
 window.AddControl(logExporter);
 ```
+
+> See `Examples/PluginShowcaseExample/ShowcasePlugin.cs` for the full, self-contained
+> implementation using only the public plugin SDK (`PluginBase`, `PluginServiceBase`,
+> `PluginTheme`/`PluginControl`/`PluginWindow`, `ServiceOperation`).
 
 ## Complete Plugin Example
 
@@ -787,7 +793,7 @@ class Program
         windowSystem.PluginStateService.LoadPlugin<CorporatePlugin>();
 
         // Use plugin theme
-        windowSystem.ThemeRegistry.SetTheme("Corporate");
+        windowSystem.ThemeStateService.SwitchTheme("Corporate");
 
         // Create window
         var mainWindow = new WindowBuilder(windowSystem)

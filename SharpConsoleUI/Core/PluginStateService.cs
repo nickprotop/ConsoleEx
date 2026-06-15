@@ -319,10 +319,11 @@ namespace SharpConsoleUI.Core
 				// Initialize the plugin
 				plugin.Initialize(_windowSystem);
 
-				// Register themes to ThemeRegistry
+				// Register themes into THIS window system's instance registry, so plugin themes are
+				// scoped to the system the plugin was loaded into rather than leaking globally.
 				foreach (var theme in plugin.GetThemes())
 				{
-					ThemeRegistry.RegisterTheme(theme.Name, theme.Description, () => theme.Theme);
+					_windowSystem.ThemeRegistryService.RegisterTheme(theme.Name, theme.Description, () => theme.Theme);
 					_logService?.LogDebug($"Registered theme: {theme.Name}", "Plugins");
 				}
 

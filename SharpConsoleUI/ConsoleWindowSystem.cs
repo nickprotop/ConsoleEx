@@ -87,6 +87,7 @@ namespace SharpConsoleUI
 		private readonly WindowStateService _windowStateService;
 		private readonly ModalStateService _modalStateService;
 		private readonly ThemeStateService _themeStateService;
+		private readonly Core.ThemeRegistryStateService _themeRegistryStateService;
 		private readonly InputStateService _inputStateService;
 		private readonly NotificationStateService _notificationStateService;
 		private readonly PanelStateService _panelStateService;
@@ -307,7 +308,7 @@ namespace SharpConsoleUI
 		/// <param name="options">Optional configuration options for system behavior.</param>
 		/// <param name="registryConfiguration">Optional registry configuration for persistent key-value storage.</param>
 		public ConsoleWindowSystem(IConsoleDriver driver, ConsoleWindowSystemOptions? options = null, RegistryConfiguration? registryConfiguration = null)
-			: this(driver, ThemeRegistry.GetDefaultTheme(), options, registryConfiguration)
+			: this(driver, new Core.ThemeRegistryStateService().GetDefaultTheme(), options, registryConfiguration)
 		{
 		}
 
@@ -319,7 +320,7 @@ namespace SharpConsoleUI
 		/// <param name="options">Optional configuration options for system behavior.</param>
 		/// <param name="registryConfiguration">Optional registry configuration for persistent key-value storage.</param>
 		public ConsoleWindowSystem(IConsoleDriver driver, string themeName, ConsoleWindowSystemOptions? options = null, RegistryConfiguration? registryConfiguration = null)
-			: this(driver, ThemeRegistry.GetThemeOrDefault(themeName, new ModernGrayTheme()), options, registryConfiguration)
+			: this(driver, new Core.ThemeRegistryStateService().GetThemeOrDefault(themeName, new ModernGrayTheme()), options, registryConfiguration)
 		{
 		}
 
@@ -354,6 +355,7 @@ namespace SharpConsoleUI
 			// Initialize state services BEFORE driver.Initialize() call
 			_cursorStateService = new CursorStateService(_consoleDriver);
 			_modalStateService = new ModalStateService(_logService);
+			_themeRegistryStateService = new Core.ThemeRegistryStateService();
 			_themeStateService = new ThemeStateService(_theme, _logService);
 			_inputStateService = new InputStateService();
 			_inputStateService.WakeCallback = () => _wakeSignal.Set();
@@ -524,6 +526,13 @@ namespace SharpConsoleUI
 		/// Gets the theme state service for managing theme application.
 		/// </summary>
 		public ThemeStateService ThemeStateService => _themeStateService;
+
+		/// <summary>
+		/// Gets the per-instance theme registry (catalog of available themes by name). Themes
+		/// registered here — including those contributed by loaded plugins — are scoped to this
+		/// window system and do not leak to other instances.
+		/// </summary>
+		public Core.ThemeRegistryStateService ThemeRegistryService => _themeRegistryStateService;
 
 		/// <summary>
 		/// Gets the input state service for managing input queue and idle state.

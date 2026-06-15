@@ -31,7 +31,7 @@ internal static class ThemePage
 
 		panel.AddControl(Ctl.Markup()
 			.AddLine($"[bold]Active:[/] [cyan1]{currentTheme}[/]")
-			.AddLine($"[bold]Available:[/] {ThemeRegistry.Count}")
+			.AddLine($"[bold]Available:[/] {windowSystem.ThemeRegistryService.Count}")
 			.AddEmptyLine()
 			.Build());
 

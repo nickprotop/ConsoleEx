@@ -395,7 +395,7 @@ mainWindow.Resized += (s, e) =>
 // User preferences
 var prefs = registry.OpenSection("app/preferences");
 string theme = prefs.GetString("theme", "ModernGray");
-windowSystem.ThemeRegistry.SetTheme(theme);
+windowSystem.ThemeStateService.SwitchTheme(theme);
 
 windowSystem.ThemeStateService.ThemeChanged += (s, e) =>
 {
