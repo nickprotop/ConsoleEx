@@ -24,10 +24,15 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public abstract class BaseControl : IWindowControl, IDOMPaintable, INotifyPropertyChanged
 	{
-		private int _actualX;
-		private int _actualY;
-		private int _actualWidth;
-		private int _actualHeight;
+		// Laid-out bounds. Written on the UI thread (SetActualBounds) but read from background threads
+		// by controls that drive work off-thread (e.g. VideoControl's decode loop reads ActualWidth/
+		// ActualHeight). volatile establishes the publication (happens-before) edge so an off-thread
+		// read sees a recent value after a resize rather than a hoisted/stale one. Cheap: written once
+		// per layout, and volatile int reads are near-free on the hot path.
+		private volatile int _actualX;
+		private volatile int _actualY;
+		private volatile int _actualWidth;
+		private volatile int _actualHeight;
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private Margin _margin = new Margin(0, 0, 0, 0);

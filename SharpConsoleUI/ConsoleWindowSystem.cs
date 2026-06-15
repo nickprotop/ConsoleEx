@@ -394,9 +394,6 @@ namespace SharpConsoleUI
 				_logService,
 				this);
 
-			// Provide log service to InvalidationManager for error logging
-			InvalidationManager.Instance.LogService = _logService;
-
 			// Initialize the visible regions
 			_visibleRegions = new VisibleRegions(this);
 

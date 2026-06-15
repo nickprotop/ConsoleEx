@@ -70,9 +70,6 @@ namespace SharpConsoleUI.Windows
 				interactiveControls.Add(interactiveControl);
 			}
 
-			// Register the control with the InvalidationManager for proper coordination
-			InvalidationManager.Instance.RegisterControl(control);
-
 			// Notify that layout needs to be rebuilt
 			_invalidateLayoutCallback();
 
@@ -103,7 +100,6 @@ namespace SharpConsoleUI.Windows
 				interactiveControls.Add(interactiveControl);
 			}
 
-			InvalidationManager.Instance.RegisterControl(control);
 			_invalidateLayoutCallback();
 			_invalidateCallback();
 		}
@@ -131,9 +127,6 @@ namespace SharpConsoleUI.Windows
 				{
 					interactiveControls.Remove(interactiveControl);
 				}
-
-				// Unregister from InvalidationManager
-				InvalidationManager.Instance.UnregisterControl(control);
 
 				// Notify that layout needs to be rebuilt
 				_invalidateLayoutCallback();
@@ -166,9 +159,6 @@ namespace SharpConsoleUI.Windows
 				{
 					interactiveControls.Remove(interactiveControl);
 				}
-
-				// Unregister from InvalidationManager
-				InvalidationManager.Instance.UnregisterControl(control);
 			}
 
 			// Notify that layout needs to be rebuilt

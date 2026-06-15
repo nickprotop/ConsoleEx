@@ -192,7 +192,6 @@ namespace SharpConsoleUI
 
 			foreach (var content in _controls.ToList())
 			{
-				InvalidationManager.Instance.UnregisterControl(content as IWindowControl);
 				(content as IWindowControl)?.Dispose();
 			}
 		}
