@@ -434,7 +434,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color ScrollbarColor
 		{
-			get => _scrollbarColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.InactiveBorderForegroundColor ?? Color.Grey;
+			get => _scrollbarColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ScrollbarTrackColor ?? Color.Grey23;
 			set
 			{
 				_scrollbarColorValue = value;
@@ -448,7 +448,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color ScrollbarThumbColor
 		{
-			get => _scrollbarThumbColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonBackgroundColor ?? Color.White;
+			get => _scrollbarThumbColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ScrollbarThumbColor ?? Color.Cyan1;
 			set
 			{
 				_scrollbarThumbColorValue = value;
