@@ -22,7 +22,7 @@ namespace SharpConsoleUI.Controls
 	/// A multiline text editing control with support for text selection, scrolling, and word wrap.
 	/// Provides full cursor navigation, cut/copy/paste-like operations, and configurable scrollbars.
 	/// </summary>
-	public partial class MultilineEditControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider, ISelectableControl, IPasteTarget
+	public partial class MultilineEditControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider, ISelectableControl, IPasteTarget, IDragAutoScrollTarget
 	{
 		#region Fields
 
@@ -62,6 +62,7 @@ namespace SharpConsoleUI.Controls
 		private int _viewportHeight;
 		private WrapMode _wrapMode = WrapMode.Wrap;
 		private bool _isDragging = false;
+		private int _lastDragRelativeY = 0;
 		private bool _gutterPressed = false;
 
 		// Scrollbar drag state
@@ -907,6 +908,47 @@ namespace SharpConsoleUI.Controls
 		protected override void OnDisposing()
 		{
 			// No additional cleanup needed; base clears Container.
+		}
+
+		#endregion
+
+		#region IDragAutoScrollTarget
+
+		/// <inheritdoc/>
+		bool IDragAutoScrollTarget.IsDragSelecting => _isDragging;
+
+		/// <inheritdoc/>
+		bool IDragAutoScrollTarget.IsViewportReady => GetEffectiveViewportHeight() > 0;
+
+		/// <inheritdoc/>
+		int IDragAutoScrollTarget.LastDragRelativeY => _lastDragRelativeY;
+
+		/// <inheritdoc/>
+		int IDragAutoScrollTarget.ViewportHeightRows => GetEffectiveViewportHeight();
+
+		/// <inheritdoc/>
+		void IDragAutoScrollTarget.AutoScrollStep(int rows)
+		{
+			if (rows == 0) return;
+			int max = Math.Max(0, GetTotalWrappedLineCount() - GetEffectiveViewportHeight());
+			_verticalScrollOffset = Math.Clamp(_verticalScrollOffset + rows, 0, max);
+			Container?.Invalidate(true);
+		}
+
+		/// <inheritdoc/>
+		void IDragAutoScrollTarget.ExtendSelectionToRevealedEdge(int direction)
+		{
+			int evh = GetEffectiveViewportHeight();
+			int revealed = direction < 0 ? _verticalScrollOffset : _verticalScrollOffset + evh - 1;
+			lock (_contentLock)
+			{
+				int maxLine = Math.Max(0, _lines.Count - 1);
+				revealed = Math.Clamp(revealed, 0, maxLine);
+				_selectionEndY = revealed;
+				_selectionEndX = _lines[revealed].Length;
+				_hasSelection = (_selectionStartX != _selectionEndX || _selectionStartY != _selectionEndY);
+			}
+			Container?.Invalidate(true);
 		}
 
 		#endregion

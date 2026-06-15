@@ -220,6 +220,53 @@ namespace SharpConsoleUI
 		/// </summary>
 		public AnimationManager Animations { get; } = new();
 
+		// --- Drag-select autoscroll registry (at most one active drag, enforced by mouse capture) ---
+		private Controls.IDragAutoScrollTarget? _dragAutoScrollTarget;
+		private double _dragAutoScrollCarry;
+
+		/// <summary>
+		/// Registers the control whose active drag-select should drive continuous autoscroll. The main
+		/// loop advances it each frame while the cursor is held past the viewport edge. Pass the same
+		/// target again to refresh; call <see cref="UnregisterDragAutoScroll"/> when the drag ends.
+		/// </summary>
+		public void RegisterDragAutoScroll(Controls.IDragAutoScrollTarget target)
+		{
+			_dragAutoScrollTarget = target;
+			_dragAutoScrollCarry = 0;
+		}
+
+		/// <summary>Stops drag-select autoscroll. Safe to call when nothing is registered.</summary>
+		public void UnregisterDragAutoScroll(Controls.IDragAutoScrollTarget target)
+		{
+			if (ReferenceEquals(_dragAutoScrollTarget, target))
+			{
+				_dragAutoScrollTarget = null;
+				_dragAutoScrollCarry = 0;
+			}
+		}
+
+		/// <summary>True while a drag-select autoscroll is registered (keeps the loop at fast cadence).</summary>
+		private bool DragAutoScrollActive => _dragAutoScrollTarget != null;
+
+		/// <summary>Advances drag-select autoscroll one frame. Independent of the animation subsystem.</summary>
+		private void StepDragAutoScroll(double elapsedMs)
+		{
+			var target = _dragAutoScrollTarget;
+			if (target == null || !target.IsDragSelecting || !target.IsViewportReady)
+				return;
+
+			int step = Helpers.DragAutoScroll.ComputeStep(
+				target.LastDragRelativeY, target.ViewportHeightRows, elapsedMs, ref _dragAutoScrollCarry);
+			if (step == 0)
+				return;
+
+			target.AutoScrollStep(step);
+			target.ExtendSelectionToRevealedEdge(Math.Sign(step));
+		}
+
+		/// <summary>Test-only: advances drag autoscroll one frame. Mirrors the main-loop call.</summary>
+		internal void StepDragAutoScrollForTest(double elapsedMs) => StepDragAutoScroll(elapsedMs);
+
 		// Region invalidation helper
 
 		private ITheme _theme = null!; // Initialized in constructor - kept for backward compatibility in internal code
@@ -950,8 +997,14 @@ namespace SharpConsoleUI
 						Animations.Update(TimeSpan.FromMilliseconds(elapsed));
 					}
 
+					// Advance drag-select autoscroll (independent of EnableAnimations).
+					if (DragAutoScrollActive)
+					{
+						StepDragAutoScroll(elapsed);
+					}
+
 					// Frame pacing: render if windows are dirty OR metrics need update OR desktop needs render OR animations active
-					bool shouldRender = AnyWindowDirty() || metricsNeedUpdate || Render.DesktopNeedsRender || Animations.HasActiveAnimations || Parsing.MarkupSpinnerClock.ShouldKeepRendering(Animations.IsEnabled) || Render.IsStatusBarDirty() || _desktopPortalService.AnyPortalDirty();
+					bool shouldRender = AnyWindowDirty() || metricsNeedUpdate || Render.DesktopNeedsRender || Animations.HasActiveAnimations || Parsing.MarkupSpinnerClock.ShouldKeepRendering(Animations.IsEnabled) || Render.IsStatusBarDirty() || _desktopPortalService.AnyPortalDirty() || DragAutoScrollActive;
 
 					// Calculate recommended sleep duration once (used in both branches)
 					var recommendedSleep = _inputStateService.GetRecommendedSleepDuration(

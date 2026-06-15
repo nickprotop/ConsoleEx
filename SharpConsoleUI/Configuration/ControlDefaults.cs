@@ -978,5 +978,19 @@ namespace SharpConsoleUI.Configuration
 
 		/// <summary>Width of a rendered Markdown thematic break (---) when actual width is unknown.</summary>
 		public const int MarkdownRuleWidth = 40;
+
+		// --- Drag-select autoscroll ---
+
+		/// <summary>Rows just past the viewport edge that do not yet trigger autoscroll (dead-zone).</summary>
+		public const int DragAutoScrollDeadZoneRows = 0;
+
+		/// <summary>Base autoscroll speed in rows/second the instant the cursor crosses the edge.</summary>
+		public const double DragAutoScrollBaseRowsPerSec = 8.0;
+
+		/// <summary>Added rows/second per row of overshoot past the edge (distance acceleration).</summary>
+		public const double DragAutoScrollAccelRowsPerSecPerRow = 6.0;
+
+		/// <summary>Maximum autoscroll speed in rows/second (caps runaway far-overshoot speed).</summary>
+		public const double DragAutoScrollMaxRowsPerSec = 60.0;
 	}
 }

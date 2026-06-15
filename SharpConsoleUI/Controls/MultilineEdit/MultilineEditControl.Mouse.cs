@@ -215,6 +215,7 @@ namespace SharpConsoleUI.Controls
 					// First press in gutter — fire GutterClick immediately
 					_gutterPressed = true;
 					_isDragging = false;
+					Container?.GetConsoleWindowSystem?.UnregisterDragAutoScroll(this);
 
 					int sourceLineIndex = -1;
 					int clickRow = args.Position.Y - Margin.Top + _verticalScrollOffset;
@@ -238,6 +239,7 @@ namespace SharpConsoleUI.Controls
 					if (args.HasAnyFlag(MouseFlags.Button1Released, MouseFlags.Button1Clicked))
 						_gutterPressed = false;
 					_isDragging = false;
+					Container?.GetConsoleWindowSystem?.UnregisterDragAutoScroll(this);
 					return true;
 				}
 			}
@@ -309,6 +311,7 @@ namespace SharpConsoleUI.Controls
 			// together for every motion-while-button-held event.
 			if (args.HasFlag(MouseFlags.Button1Dragged) && _isDragging)
 			{
+				_lastDragRelativeY = args.Position.Y;
 				PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
 				_selectionEndX = _cursorX;
 				_selectionEndY = _cursorY;
@@ -337,6 +340,7 @@ namespace SharpConsoleUI.Controls
 					if (!_readOnly)
 						IsEditing = true;
 					PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
+					_lastDragRelativeY = args.Position.Y;
 					if (_isDragging)
 					{
 						// SGR drag continuation — extend selection end
@@ -354,6 +358,7 @@ namespace SharpConsoleUI.Controls
 						_selectionEndX = _cursorX;
 						_selectionEndY = _cursorY;
 						_isDragging = true;
+						Container?.GetConsoleWindowSystem?.RegisterDragAutoScroll(this);
 					}
 					NotifySelectionActive();
 					EnsureCursorVisible();
@@ -385,6 +390,7 @@ namespace SharpConsoleUI.Controls
 					}
 				}
 				_isDragging = false;
+				Container?.GetConsoleWindowSystem?.UnregisterDragAutoScroll(this);
 				MouseClick?.Invoke(this, args);
 				return true;
 			}
@@ -394,6 +400,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_isDragging = false;
 				_gutterPressed = false;
+				Container?.GetConsoleWindowSystem?.UnregisterDragAutoScroll(this);
 				return true;
 			}
 

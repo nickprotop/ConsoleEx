@@ -756,6 +756,25 @@ namespace SharpConsoleUI
 
 
 		/// <summary>
+		/// Scrolls the window content vertically by <paramref name="delta"/> rows (negative = up),
+		/// clamped to the valid scroll range. No-op if the window is not scrollable or not yet
+		/// rendered. Used by drag-select autoscroll.
+		/// </summary>
+		/// <param name="delta">Rows to scroll; positive scrolls down, negative scrolls up.</param>
+		public void ScrollBy(int delta)
+		{
+			if (!IsScrollable || _renderer == null || delta == 0)
+				return;
+			int max = _renderer.MaxScrollOffset;
+			int next = Math.Max(0, Math.Min(ScrollOffset + delta, max));
+			if (next != ScrollOffset)
+			{
+				ScrollOffset = next;
+				Invalidate(true);
+			}
+		}
+
+		/// <summary>
 		/// Gets or sets an arbitrary object value that can be attached to this window.
 		/// </summary>
 		public object? Tag { get => _tag; set => _tag = value; }

@@ -8,6 +8,7 @@
 
 using System.Drawing;
 using System.Text;
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
@@ -212,6 +213,79 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		#region IDragAutoScrollTarget
+
+		private int _lastDragRelativeY = 0;
+
+		/// <inheritdoc/>
+		public bool IsDragSelecting => _isDragging;
+
+		/// <inheritdoc/>
+		public bool IsViewportReady
+		{
+			get { lock (_selectionLock) { return _lastClipRectValid; } }
+		}
+
+		/// <inheritdoc/>
+		public int LastDragRelativeY => _lastDragRelativeY;
+
+		/// <inheritdoc/>
+		public int ViewportHeightRows
+		{
+			get { lock (_selectionLock) { return _lastClipRectValid ? _lastClipRectBottom - _lastClipRectY : 0; } }
+		}
+
+		/// <inheritdoc/>
+		public void AutoScrollStep(int rows)
+		{
+			if (rows == 0) return;
+
+			// Resolve the nearest scrollable ancestor AND the direct child of that scroller on our
+			// path (same idiom as MarkupControl.Keyboard.cs). The SPC scrolls by its DIRECT child,
+			// which may differ from `this` when nested in a transparent container.
+			IWindowControl? current = this;
+			IScrollableContainer? scroller = null;
+			IWindowControl? directChild = null;
+			while (current != null)
+			{
+				var parent = FocusManager.ResolveParentWindowControl(current);
+				if (parent == null) break;
+				if (parent is IScrollableContainer sc)
+				{
+					scroller = sc;
+					directChild = current;
+					break;
+				}
+				current = parent;
+			}
+
+			if (scroller != null && directChild != null)
+			{
+				int revealRow = Math.Max(0, _selEndRow + rows);
+				scroller.ScrollChildRegionIntoView(directChild, revealRow, 1);
+				return;
+			}
+
+			(this as IWindowControl)?.GetParentWindow()?.ScrollBy(rows);
+		}
+
+		/// <inheritdoc/>
+		public void ExtendSelectionToRevealedEdge(int direction)
+		{
+			lock (_selectionLock)
+			{
+				if (_cachedRows.Count == 0) return;
+				int next = Math.Clamp(_selEndRow + direction, 0, _cachedRows.Count - 1);
+				_selEndRow = next;
+				_selEndCol = _cachedRows[next].Count;
+				_hasSelection = true;
+			}
+			NotifySelectionActive();
+			Container?.Invalidate(true);
+		}
+
+		#endregion
+
 		/// <summary>Clears the current selection. Does not notify the window manager (re-entrancy guard).</summary>
 		public void ClearSelection()
 		{
@@ -222,6 +296,7 @@ namespace SharpConsoleUI.Controls
 				_hasSelection = false;
 				_isDragging = false;
 			}
+			Container?.GetConsoleWindowSystem?.UnregisterDragAutoScroll(this);
 			if (had)
 			{
 				RaiseSelectionChanged(string.Empty);
@@ -335,6 +410,7 @@ namespace SharpConsoleUI.Controls
 						_hasSelection = count > 0;
 						_isDragging = false;
 					}
+					Container?.GetConsoleWindowSystem?.UnregisterDragAutoScroll(this);
 					NotifySelectionActive();
 					Container?.Invalidate(true);
 				}
@@ -348,6 +424,7 @@ namespace SharpConsoleUI.Controls
 				if (TryHitTest(args.Position.X, args.Position.Y, out int row, out int col))
 				{
 					SelectWordAt(row, col);
+					Container?.GetConsoleWindowSystem?.UnregisterDragAutoScroll(this);
 					NotifySelectionActive();
 					Container?.Invalidate(true);
 				}
@@ -360,6 +437,17 @@ namespace SharpConsoleUI.Controls
 			// emits Button1Pressed|Button1Dragged together for motion-while-held.
 			if (args.HasFlag(MouseFlags.Button1Dragged) && _isDragging)
 			{
+				// Store the drag Y in CLIP-RELATIVE rows (relative to the visible viewport top), so
+				// autoscroll edge detection is host-agnostic. args.Position.Y is control-relative in
+				// content space; for a control hosted directly in a SCROLLED window the control's
+				// AbsoluteBounds.Y (ActualY) is shifted by -ScrollOffset, so the raw value is offset by
+				// the scroll amount. Converting to absolute (+ActualY +Margin.Top) then subtracting the
+				// cached clip top (_lastClipRectY) yields a value measured from the visible viewport
+				// top. For SPC-hosted controls ActualY == clip top, so this is a no-op there. (#45-adjacent)
+				lock (_selectionLock)
+				{
+					_lastDragRelativeY = args.Position.Y + ActualY + Margin.Top - _lastClipRectY;
+				}
 				ExtendSelectionTo(args.Position.X, args.Position.Y);
 				NotifySelectionActive();
 				Container?.Invalidate(true);
@@ -383,6 +471,7 @@ namespace SharpConsoleUI.Controls
 						_hasSelection = false; // not a selection until the drag moves
 						_isDragging = true;
 					}
+					Container?.GetConsoleWindowSystem?.RegisterDragAutoScroll(this);
 				}
 				NotifySelectionActive();
 				Container?.Invalidate(true);
@@ -399,6 +488,7 @@ namespace SharpConsoleUI.Controls
 					wasSelecting = _hasSelection;
 					_isDragging = false;
 				}
+				Container?.GetConsoleWindowSystem?.UnregisterDragAutoScroll(this);
 				if (!wasSelecting)
 				{
 					ClearSelection();
