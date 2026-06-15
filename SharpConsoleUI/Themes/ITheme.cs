@@ -137,6 +137,28 @@ public interface ITheme
 	Color InactiveBorderForegroundColor { get; }
 
 	/// <summary>
+	/// General scrollbar thumb color when the scrollable control is focused.
+	/// Default follows the active border so the scrollbar matches the control's border.
+	/// Controls fall back to this unless they expose a per-control theme color or an instance override.
+	/// </summary>
+	Color ScrollbarThumbColor => ActiveBorderForegroundColor;
+
+	/// <summary>
+	/// General scrollbar thumb color when the control is NOT focused. Defaults to the inactive border.
+	/// </summary>
+	Color ScrollbarThumbUnfocusedColor => InactiveBorderForegroundColor;
+
+	/// <summary>
+	/// General scrollbar track color when focused. Defaults to a dim grey so the thumb stays visible.
+	/// </summary>
+	Color ScrollbarTrackColor => Color.Grey23;
+
+	/// <summary>
+	/// General scrollbar track color when not focused. Defaults to the same dim grey.
+	/// </summary>
+	Color ScrollbarTrackUnfocusedColor => Color.Grey23;
+
+	/// <summary>
 	/// Gets the foreground color for the title text of inactive (unfocused) windows.
 	/// </summary>
 	Color InactiveTitleForegroundColor { get; }
