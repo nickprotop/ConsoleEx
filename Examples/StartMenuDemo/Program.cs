@@ -6,7 +6,6 @@ using SharpConsoleUI.Layout;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Panel;
-using SharpConsoleUI.Plugins.DeveloperTools;
 using SharpConsoleUI.Rendering;
 
 namespace StartMenuDemo;
@@ -45,16 +44,6 @@ class Program
 				e.Cancel = true;
 				windowSystem?.Shutdown(0);
 			};
-
-			// Load DeveloperTools plugin (provides windows and actions)
-			try
-			{
-				windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
-			}
-			catch (Exception ex)
-			{
-				Console.WriteLine($"\x1b[33mNote: DeveloperTools plugin not available: {ex.Message}\x1b[0m");
-			}
 
 			// Get the start menu element to register actions on it
 			var startMenu = windowSystem.BottomPanel!.FindElement<StartMenuElement>("startmenu")!;
@@ -169,9 +158,6 @@ class Program
 				"  • About dialog",
 				"  • Performance toggles (metrics, frame rate limiting, FPS)",
 				"",
-				"[cyan]Plugin Integration:[/]",
-				"  • DeveloperTools plugin windows (Debug Console, Log Exporter)",
-				"  • Plugin actions (Clear Logs, Export Diagnostics, Toggle Performance Overlay)",
 				"",
 				"[cyan]User-Defined Actions:[/]",
 				"  • File menu (New Document, Open File, Save File)",

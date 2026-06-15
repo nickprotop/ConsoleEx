@@ -10,8 +10,8 @@ var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffe
     options: new ConsoleWindowSystemOptions(
         TopPanelConfig: panel => panel.Left(Elements.StatusText(""))
     ));
-windowSystem.PanelStateService.TopStatus = "TableControl Demo - Press F1-F3 to switch themes";
-windowSystem.PanelStateService.BottomStatus = "Read-only table display | F1=ModernGray, F2=Classic, F3=DevDark | ESC: Close";
+windowSystem.PanelStateService.TopStatus = "TableControl Demo - Press F1-F2 to switch themes";
+windowSystem.PanelStateService.BottomStatus = "Read-only table display | F1=ModernGray, F2=Classic | ESC: Close";
 
 // Create table with sample data
 var table = TableControl.Create()
@@ -39,7 +39,7 @@ var window = new WindowBuilder(windowSystem)
 		.AddLine("")
 		.AddLine("This control wraps Spectre.Console's Table widget with theme support.")
 		.AddLine("")
-		.AddLine("[yellow]Themes:[/] F1=ModernGray (cyan), F2=Classic (blue/yellow), F3=DevDark (green)")
+		.AddLine("[yellow]Themes:[/] F1=ModernGray (cyan), F2=Classic (blue/yellow)")
 		.AddLine("")
 		.WithMargin(1, 1, 1, 0)
 		.Build())
@@ -60,11 +60,7 @@ window.KeyPressed += (s, e) =>
 			break;
 
 		case ConsoleKey.F3:
-			var devDarkType = Type.GetType("SharpConsoleUI.Plugins.DeveloperTools.DevDarkTheme, SharpConsoleUI");
-			if (devDarkType != null && Activator.CreateInstance(devDarkType) is SharpConsoleUI.Themes.ITheme theme)
-			{
-				windowSystem.ThemeStateService.SetTheme(theme);
-			}
+			windowSystem.ThemeStateService.SetTheme(SharpConsoleUI.Themes.ThemeRegistry.GetDefaultTheme());
 			break;
 	}
 };

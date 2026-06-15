@@ -707,14 +707,6 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Internal setter for Left that bypasses invalidation logic (used by WindowPositioningManager).
-		/// </summary>
-		internal void SetLeftDirect(int value)
-		{
-			_left = value;
-		}
-
-		/// <summary>
 		/// Gets or sets whether this window is modal (blocks input to other windows).
 		/// </summary>
 		public bool IsModal
@@ -844,14 +836,6 @@ namespace SharpConsoleUI
 					_top = value;
 				}
 			}
-		}
-
-		/// <summary>
-		/// Internal setter for Top that bypasses invalidation logic (used by WindowPositioningManager).
-		/// </summary>
-		internal void SetTopDirect(int value)
-		{
-			_top = value;
 		}
 
 		/// <summary>

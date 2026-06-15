@@ -52,7 +52,6 @@ namespace SharpConsoleUI.Helpers
 
 		private static bool _isButtonDoubleClicked;
 
-		//private static MouseFlags? lastMouseButtonReleased;
 		// QUESTION: What's the difference between isButtonClicked and isButtonPressed?
 		// Some clarity or comments would be handy, here.
 		// It also seems like some enforcement of valid states might be a good idea.
@@ -300,26 +299,6 @@ namespace SharpConsoleUI.Helpers
 							break;
 
 						case 35:
-						//// Needed for Windows OS
-						//if (isButtonPressed && c == 'm'
-						//	&& (lastMouseEvent.ButtonState == MouseFlags.Button1Pressed
-						//	|| lastMouseEvent.ButtonState == MouseFlags.Button2Pressed
-						//	|| lastMouseEvent.ButtonState == MouseFlags.Button3Pressed)) {
-						//	switch (lastMouseEvent.ButtonState) {
-						//	case MouseFlags.Button1Pressed:
-						//		buttonState = MouseFlags.Button1Released;
-						//		break;
-						//	case MouseFlags.Button2Pressed:
-						//		buttonState = MouseFlags.Button2Released;
-						//		break;
-						//	case MouseFlags.Button3Pressed:
-						//		buttonState = MouseFlags.Button3Released;
-						//		break;
-						//	}
-						//} else {
-						//	buttonState = MouseFlags.ReportMousePosition;
-						//}
-						//break;
 						case 39:
 						case 43:
 						case 47:
@@ -532,17 +511,6 @@ namespace SharpConsoleUI.Helpers
 				Task.Run(async () => await ProcessButtonDoubleClickedAsync());
 			}
 
-			//else if (isButtonReleased && !isButtonClicked && buttonState == MouseFlags.ReportMousePosition) {
-			//	mouseFlag [0] = GetButtonClicked ((MouseFlags)lastMouseButtonReleased);
-			//	lastMouseButtonReleased = null;
-			//	isButtonReleased = false;
-			//	isButtonClicked = true;
-			//	Application.MainLoop.AddIdle (() => {
-			//		Task.Run (async () => await ProcessButtonClickedAsync ());
-			//		return false;
-			//	});
-
-			//}
 			else if (!_isButtonClicked
 					 && !_isButtonDoubleClicked
 					 && (buttonState == MouseFlags.Button1Released
@@ -572,14 +540,6 @@ namespace SharpConsoleUI.Helpers
 
 				_point = pos;
 
-				//if ((lastMouseButtonPressed & MouseFlags.ReportMousePosition) == 0) {
-				//	lastMouseButtonReleased = buttonState;
-				//	isButtonPressed = false;
-				//	isButtonReleased = true;
-				//} else {
-				//	lastMouseButtonPressed = null;
-				//	isButtonPressed = false;
-				//}
 			}
 			else if (buttonState == MouseFlags.WheeledUp)
 			{

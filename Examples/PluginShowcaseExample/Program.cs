@@ -20,7 +20,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
-using SharpConsoleUI.Plugins.DeveloperTools; // Only needed for LoadPlugin<T>() - in production would load by path
+using PluginShowcaseExample; // The example's self-contained showcase plugin (in production you'd load an external DLL by path)
 
 // Create window system (testing without status bars to verify bug fix)
 var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
@@ -29,7 +29,7 @@ var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffe
 windowSystem.LogService.MinimumLevel = LogLevel.Trace;
 
 // Load the built-in developer tools plugin
-windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
+windowSystem.PluginStateService.LoadPlugin<ShowcasePlugin>();
 
 // Switch to DevDark theme (provided by the plugin)
 windowSystem.ThemeStateService.SwitchTheme("DevDark");
