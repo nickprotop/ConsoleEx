@@ -398,6 +398,24 @@ namespace SharpConsoleUI.Themes
 		/// </summary>
 		public Color TableScrollbarTrackColor { get; set; } = Color.Grey23;
 
+		/// <summary>Gets or sets the general scrollbar thumb color when the control is focused.</summary>
+		public Color ScrollbarThumbColor { get; set; } = Color.Cyan1;
+
+		/// <summary>Gets or sets the general scrollbar thumb color when the control is unfocused.</summary>
+		public Color ScrollbarThumbUnfocusedColor { get; set; } = Color.Grey50;
+
+		/// <summary>Gets or sets the general scrollbar track color when the control is focused.</summary>
+		public Color ScrollbarTrackColor { get; set; } = Color.Grey23;
+
+		/// <summary>Gets or sets the general scrollbar track color when the control is unfocused.</summary>
+		public Color ScrollbarTrackUnfocusedColor { get; set; } = Color.Grey23;
+
+		/// <summary>Gets or sets the collapsible-panel header foreground color when focused.</summary>
+		public Color CollapsibleHeaderFocusedForegroundColor { get; set; } = Color.Cyan1;
+
+		/// <summary>Gets or sets the collapsible-panel header background color when focused.</summary>
+		public Color CollapsibleHeaderFocusedBackgroundColor { get; set; } = Color.Grey15;
+
 		/// <summary>
 		/// Gets or sets the background color for the active (selected) tab header.
 		/// </summary>

@@ -6,7 +6,8 @@ SharpConsoleUI includes a powerful theme system that allows runtime theme switch
 
 - [Built-in Themes](#built-in-themes)
 - [Using Themes](#using-themes)
-- [Creating Custom Themes](#creating-custom-themes)
+- [Deriving a Theme from Another (Recommended)](#deriving-a-theme-from-another-recommended)
+- [Creating Custom Themes from Scratch](#creating-custom-themes-from-scratch)
 - [Theme Registry](#theme-registry)
 - [Runtime Theme Switching](#runtime-theme-switching)
 
@@ -88,9 +89,56 @@ windowSystem.ThemeStateService.SetTheme(new ModernGrayTheme());
 windowSystem.ShowThemeSelectorDialog();
 ```
 
-## Creating Custom Themes
+## Deriving a Theme from Another (Recommended)
 
-Implement the `ITheme` interface to create custom themes:
+Most of the time you don't want a theme from scratch — you want an existing theme with a few
+colors changed. `Theme.From(...)` copies **every** member of a base theme into a new mutable theme,
+then lets you override only what you care about with `.With(...)`:
+
+```csharp
+using SharpConsoleUI;
+using SharpConsoleUI.Themes;
+
+var myDark = Theme.From(new ModernGrayTheme())   // copy all members from any ITheme
+    .WithName("MyDark")
+    .WithDescription("My dark variant")
+    .With(t =>
+    {
+        t.ButtonBackgroundColor = Color.DarkRed;
+        t.ActiveBorderForegroundColor = Color.Orange1;
+        t.ScrollbarThumbColor = Color.Orange1;
+    })
+    .Build();                                      // returns the (mutable) theme
+
+windowSystem.ThemeRegistryService.RegisterTheme("MyDark", "My dark variant", () => myDark);
+windowSystem.ThemeStateService.SwitchTheme("MyDark");
+```
+
+- **`.With(Action<MutableTheme>)`** covers every theme member with full IntelliSense and
+  compile-time safety — there are no per-property builder methods to memorize, and new theme
+  members are automatically reachable. Call it multiple times to accumulate overrides.
+- **The result is mutable by design.** `Build()` returns the working `MutableTheme` itself (no
+  freeze, no copy). It's a single shared instance, so you can keep tweaking it after registration
+  and the change flows through to the live theme.
+- The derived theme is a normal registered theme: it appears in the theme selector dialog and is
+  switchable by name like any built-in theme.
+
+### Themes are mutable — set colors directly
+
+Every theme color (including the built-in `ModernGrayTheme`/`ClassicTheme`) is a settable
+property, so you can also mutate the live theme directly without the builder:
+
+```csharp
+windowSystem.Theme.ScrollbarThumbColor = Color.Red;   // takes effect on the next repaint
+```
+
+`Theme.From(...).With(...)` is just the convenient, named-and-registered way to do this in bulk
+starting from a known base.
+
+## Creating Custom Themes from Scratch
+
+If you need a fully independent theme, implement the `ITheme` interface directly. (Most members
+have sensible interface defaults, so you only implement what differs.)
 
 ```csharp
 using SharpConsoleUI;
