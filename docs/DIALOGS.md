@@ -165,7 +165,6 @@ The theme selector dialog displays all registered themes and allows the user to 
 **Available Built-in Themes:**
 - **Classic** - Navy blue windows with traditional styling
 - **ModernGray** - Modern dark theme with gray color scheme
-- **DevDark** - Dark developer theme (requires DeveloperTools plugin)
 
 **Navigation:**
 - Arrow keys to select theme

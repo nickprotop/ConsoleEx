@@ -213,7 +213,7 @@ public class CharacterBuffer
     public int Height { get; }
 
     // Core operations
-    public void SetCell(int x, int y, char ch, Color fg, Color bg);
+    public void SetNarrowCell(int x, int y, char character, Color fg, Color bg);
     public void FillRect(LayoutRect rect, char ch, Color fg, Color bg);
     public void WriteString(int x, int y, string text, Color fg, Color bg);
     public void WriteCells(int x, int y, IEnumerable<Cell> cells);

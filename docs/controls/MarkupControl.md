@@ -10,8 +10,7 @@ MarkupControl displays multi-line text with rich formatting using SharpConsoleUI
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `Lines` | `List<string>` | Empty | List of text lines to display |
-| `Text` | `string` | Empty | Content as a single newline-separated string |
+| `Text` | `string` | Empty | Content as a single newline-separated string (get/set). Set content via `SetContent(List<string>)` or `AppendLine`/`AppendLines`. |
 | `Wrap` | `bool` | `true` | Word-wrap text to the available width |
 | `BackgroundColor` | `Color?` | `null` | Background color (falls back to container) |
 | `ForegroundColor` | `Color?` | `null` | Text color (falls back to container) |
@@ -466,7 +465,7 @@ void AddLog(string level, string message)
     };
 
     var timestamp = DateTime.Now.ToString("HH:mm:ss");
-    var lines = logs.Lines.ToList();
+    var lines = logs.Text.Split('\n').ToList();
     lines.Add($"[dim]{timestamp}[/] [{color}]{level}[/] {message}");
 
     // Keep only last 20 lines
@@ -587,7 +586,7 @@ if (markup != null)
 var markup = window.FindControl<MarkupControl>("myMarkup");
 if (markup != null)
 {
-    var lines = markup.Lines.ToList();
+    var lines = markup.Text.Split('\n').ToList();
     lines.Add("[green]New line appended[/]");
     markup.SetContent(lines);
 }

@@ -312,13 +312,11 @@ Plugins can provide their own actions and windows in the Start Menu.
 #### Plugin-Provided Actions
 
 ```csharp
-// Load DeveloperTools plugin
-windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
+// Load your plugin
+windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
 
-// Plugin actions appear automatically in the Start Menu:
-// Debug > Clear Logs
-// Debug > Export Diagnostics
-// Debug > Toggle Performance Overlay
+// Plugin actions appear automatically in the Start Menu
+// based on the actions registered by the plugin
 ```
 
 #### Creating Action Providers
@@ -467,7 +465,7 @@ var windowSystem = new ConsoleWindowSystem(
     options: options);
 
 // Load plugins
-windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
+windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
 
 // Register custom actions
 var startMenu = windowSystem.BottomPanel!.FindElement<StartMenuElement>("startmenu")!;

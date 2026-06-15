@@ -107,8 +107,6 @@ Special-purpose controls.
 
 | Control | Description | Details |
 |---------|-------------|---------|
-| **RuleControl** | Titled horizontal rule | Section dividers with optional title |
-| **SeparatorControl** | Plain horizontal line | Visual spacing |
 | **[TerminalControl](controls/TerminalControl.md)** | PTY-backed terminal emulator | Full xterm-256color, keyboard/mouse passthrough, auto-resize. **Linux only.** |
 
 ## Interfaces

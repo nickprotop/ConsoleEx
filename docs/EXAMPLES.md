@@ -592,8 +592,8 @@ window.Renderer.PostBufferPaint += (buffer, dirty, clip) => {
 
 ### Plugin Services
 ```csharp
-// Load plugin
-windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
+// Load plugin (example uses ShowcasePlugin from Examples/PluginShowcaseExample)
+windowSystem.PluginStateService.LoadPlugin<ShowcasePlugin>();
 
 // Create window from plugin
 var window = windowSystem.PluginStateService.CreateWindow("DebugConsole");

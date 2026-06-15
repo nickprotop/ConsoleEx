@@ -13,7 +13,7 @@ ListControl displays a scrollable list of items with selection support. Users ca
 | `Items` | `ObservableCollection<ListItem>` | Empty | List of items to display |
 | `SelectedIndex` | `int` | `-1` | Index of selected item (-1 = none) |
 | `SelectedItem` | `ListItem?` | `null` | Currently selected item |
-| `ViewportHeight` | `int` | `10` | Number of visible items |
+| `MaxVisibleItems` | `int` | `10` | Number of visible items |
 | `IsEnabled` | `bool` | `true` | Enable/disable list |
 | `BackgroundColor` | `Color?` | `null` | Background color (uses theme if null) |
 | `ForegroundColor` | `Color?` | `null` | Text color (uses theme if null) |
@@ -69,7 +69,7 @@ window.AddControl(list);
 ```csharp
 var list = new ListControl
 {
-    ViewportHeight = 10,
+    MaxVisibleItems = 10,
     BackgroundColor = Color.Grey15,
     ForegroundColor = Color.White
 };
@@ -161,7 +161,7 @@ var people = new[]
     new Person { Name = "Charlie", Age = 35 }
 };
 
-var list = new ListControl { ViewportHeight = 10 };
+var list = new ListControl { MaxVisibleItems = 10 };
 
 foreach (var person in people)
 {

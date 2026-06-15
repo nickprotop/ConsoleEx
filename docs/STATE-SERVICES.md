@@ -651,7 +651,7 @@ event EventHandler<ServiceRegisteredEventArgs>? ServiceRegistered;
 
 ```csharp
 // Load a plugin
-windowSystem.PluginStateService.LoadPlugin<DeveloperToolsPlugin>();
+windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
 
 // Get current state
 var state = windowSystem.PluginStateService.CurrentState;
@@ -676,16 +676,16 @@ windowSystem.PluginStateService.StateChanged += (sender, e) =>
 };
 
 // Check if a plugin is loaded
-if (windowSystem.PluginStateService.IsPluginLoaded("DeveloperTools"))
+if (windowSystem.PluginStateService.IsPluginLoaded("MyPlugin"))
 {
-    Console.WriteLine("DeveloperTools plugin is available");
+    Console.WriteLine("MyPlugin is available");
 }
 
 // Get a plugin by name
-var devTools = windowSystem.PluginStateService.GetPlugin("DeveloperTools");
-if (devTools != null)
+var myPlugin = windowSystem.PluginStateService.GetPlugin("MyPlugin");
+if (myPlugin != null)
 {
-    Console.WriteLine($"Found plugin: {devTools.Info.Description}");
+    Console.WriteLine($"Found plugin: {myPlugin.Info.Description}");
 }
 
 // Create plugin control

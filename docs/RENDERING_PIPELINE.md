@@ -2013,7 +2013,7 @@ public class ListControl : IWindowControl
 **Optimization:**
 - Batch updates: Modify multiple items, then call `Invalidate()` once
 - Use `Container?.Invalidate(false)` for minor changes (no border redraw)
-- Consider `InvalidationManager` for coalescing multiple invalidations
+- To coalesce multiple invalidations, batch all state changes first and call `Container?.Invalidate(true)` once at the end
 
 ### Pattern 4: Modal Windows
 
