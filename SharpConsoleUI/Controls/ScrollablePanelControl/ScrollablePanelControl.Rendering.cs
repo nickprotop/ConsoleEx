@@ -285,13 +285,25 @@ namespace SharpConsoleUI.Controls
 			return (scrollbarRelX, scrollbarRelY, trackWidth, thumbX, thumbWidth);
 		}
 
-		/// <summary>Thumb color: the <see cref="ScrollbarThumbColor"/> override, else the focus-aware default.</summary>
+		/// <summary>Thumb color: the <see cref="ScrollbarThumbColor"/> override, else the theme's scrollbar thumb (focus-aware), else a hardcoded fallback.</summary>
 		private Color ResolveScrollbarThumbColor()
-			=> _scrollbarThumbColor ?? (HasFocus ? Color.Cyan1 : Color.Grey);
+		{
+			if (_scrollbarThumbColor.HasValue) return _scrollbarThumbColor.Value;
+			var theme = GetConsoleWindowSystem?.Theme;
+			if (theme != null)
+				return HasFocus ? theme.ScrollbarThumbColor : theme.ScrollbarThumbUnfocusedColor;
+			return HasFocus ? Color.Cyan1 : Color.Grey;
+		}
 
-		/// <summary>Track color: the <see cref="ScrollbarColor"/> override, else the focus-aware default.</summary>
+		/// <summary>Track color: the <see cref="ScrollbarColor"/> override, else the theme's scrollbar track (focus-aware), else a hardcoded fallback.</summary>
 		private Color ResolveScrollbarTrackColor()
-			=> _scrollbarColor ?? (HasFocus ? Color.Grey : Color.Grey23);
+		{
+			if (_scrollbarColor.HasValue) return _scrollbarColor.Value;
+			var theme = GetConsoleWindowSystem?.Theme;
+			if (theme != null)
+				return HasFocus ? theme.ScrollbarTrackColor : theme.ScrollbarTrackUnfocusedColor;
+			return HasFocus ? Color.Grey : Color.Grey23;
+		}
 
 		private void DrawVerticalScrollbar(CharacterBuffer buffer, LayoutRect bounds, Color fgColor, Color bgColor)
 		{
