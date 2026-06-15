@@ -189,10 +189,17 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Focus-aware scrollbar colors (matching ScrollablePanelControl)
+			// Scrollbar colors: instance override (ScrollbarThumbColor/ScrollbarColor) → theme general
+			// (focus-aware) → hardcoded fallback. The 13 downstream uses of activeThumbColor/
+			// activeTrackColor are unchanged.
 			Color scrollbarBg = bgColor;
-			Color activeThumbColor = HasFocus ? Color.Cyan1 : Color.Grey;
-			Color activeTrackColor = HasFocus ? Color.Grey : Color.Grey23;
+			var sbTheme = Container?.GetConsoleWindowSystem?.Theme;
+			Color activeThumbColor = _scrollbarThumbColorValue
+				?? (sbTheme != null ? (HasFocus ? sbTheme.ScrollbarThumbColor : sbTheme.ScrollbarThumbUnfocusedColor)
+									 : (HasFocus ? Color.Cyan1 : Color.Grey));
+			Color activeTrackColor = _scrollbarColorValue
+				?? (sbTheme != null ? (HasFocus ? sbTheme.ScrollbarTrackColor : sbTheme.ScrollbarTrackUnfocusedColor)
+									 : (HasFocus ? Color.Grey : Color.Grey23));
 
 			int contentStartX = startX + gutterWidth;
 
