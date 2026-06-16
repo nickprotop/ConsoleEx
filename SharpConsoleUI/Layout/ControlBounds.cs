@@ -102,8 +102,8 @@ namespace SharpConsoleUI.Layout
 		{
 			var windowContentPos = ControlToWindowContent(controlPosition);
 			return new Point(
-				windowContentPos.X + ParentWindow.FrameInset, // Add window border
-				windowContentPos.Y + ParentWindow.FrameInset  // Add window border
+				windowContentPos.X + ParentWindow.InsetLeft, // Add window border
+				windowContentPos.Y + ParentWindow.InsetTop  // Add window border
 			);
 		}
 
@@ -113,8 +113,8 @@ namespace SharpConsoleUI.Layout
 		public Point WindowToControl(Point windowPosition)
 		{
 			var contentPos = new Point(
-				windowPosition.X - ParentWindow.FrameInset, // Remove window border
-				windowPosition.Y - ParentWindow.FrameInset  // Remove window border
+				windowPosition.X - ParentWindow.InsetLeft, // Remove window border
+				windowPosition.Y - ParentWindow.InsetTop  // Remove window border
 			);
 			return WindowContentToControl(contentPos);
 		}
@@ -326,7 +326,7 @@ namespace SharpConsoleUI.Layout
 				if (hostNode == null)
 					return null;
 				var hab = hostNode.AbsoluteBounds;
-				return new Point(hab.X + hostLogical.Value.X + _window.FrameInset, hab.Y + hostLogical.Value.Y + _window.FrameInset);
+				return new Point(hab.X + hostLogical.Value.X + _window.InsetLeft, hab.Y + hostLogical.Value.Y + _window.InsetTop);
 			}
 
 			var logicalPosition = cursorProvider.GetLogicalCursorPosition();
@@ -377,7 +377,7 @@ namespace SharpConsoleUI.Layout
 			);
 
 			// Add window border offset (the frame inset)
-			var finalPosition = new Point(windowContentPosition.X + _window.FrameInset, windowContentPosition.Y + _window.FrameInset);
+			var finalPosition = new Point(windowContentPosition.X + _window.InsetLeft, windowContentPosition.Y + _window.InsetTop);
 
 			return finalPosition;
 		}

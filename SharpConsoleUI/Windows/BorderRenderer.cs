@@ -66,6 +66,12 @@ namespace SharpConsoleUI.Windows
 		/// </summary>
 		public void RenderBorders(List<Rectangle> visibleRegions)
 		{
+			if (_window.BorderStyle == BorderStyle.Frameless)
+			{
+				DrawFramelessScrollbar();
+				return;
+			}
+
 			if (_window.BorderStyle == BorderStyle.None)
 			{
 				DrawInvisibleBorders(visibleRegions);
@@ -73,6 +79,43 @@ namespace SharpConsoleUI.Windows
 			}
 
 			DrawVisibleBorders(visibleRegions);
+		}
+
+		/// <summary>
+		/// Draws the vertical scrollbar for a frameless window over the reserved last content column.
+		/// No-op unless the window is scrollable and content overflows (decision is width-stable; see
+		/// <see cref="Window.FramelessScrollbarReserved"/>).
+		/// </summary>
+		private void DrawFramelessScrollbar()
+		{
+			var totalLines = _window.TotalLines;
+			if (!_window.FramelessScrollbarReserved(totalLines))
+				return;
+
+			int visibleHeight = _window.ContentHeight;
+			if (visibleHeight <= 0)
+				return;
+
+			var driver = _getDriver();
+			var desktopUpperLeft = _getDesktopUpperLeft();
+			var bg = _window.BackgroundColor;
+			var fg = _window.ForegroundColor;
+
+			int scrollbarX = _window.Left + _window.InsetLeft + _window.ContentWidth - 1;
+			int topY = _window.Top + _window.InsetTop;
+
+			int thumbRow = -1;
+			if (visibleHeight > 1)
+			{
+				var scrollPosition = (float)_window.ScrollOffset / Math.Max(1, totalLines - visibleHeight);
+				thumbRow = (int)(scrollPosition * (visibleHeight - 1));
+			}
+
+			for (int i = 0; i < visibleHeight; i++)
+			{
+				char glyph = (i == thumbRow) ? '█' : '░';
+				driver.SetNarrowCell(scrollbarX, topY + desktopUpperLeft.Y + i, glyph, fg, bg);
+			}
 		}
 
 		/// <summary>

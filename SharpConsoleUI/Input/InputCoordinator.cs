@@ -449,8 +449,8 @@ namespace SharpConsoleUI.Input
 		/// </summary>
 		private ResizeDirection GetResizeDirection(Window window, Point point)
 		{
-			// Borderless windows cannot be resized from borders
-			if (window.BorderStyle == BorderStyle.None)
+			// Borderless (None) and frameless windows cannot be resized from borders.
+			if (window.BorderStyle == BorderStyle.None || !window.HasInteractiveFrame)
 			{
 				return ResizeDirection.None;
 			}
@@ -546,7 +546,7 @@ namespace SharpConsoleUI.Input
 		/// </summary>
 		private bool IsInTitleBar(Window window, Point point)
 		{
-			if (window.BorderStyle == BorderStyle.None)
+			if (window.BorderStyle == BorderStyle.None || !window.HasInteractiveFrame)
 			{
 				return false;
 			}
@@ -583,6 +583,9 @@ namespace SharpConsoleUI.Input
 		/// </summary>
 		private bool IsOnCloseButton(Window window, Point point)
 		{
+			if (!window.HasInteractiveFrame)
+				return false;
+
 			if (!window.IsClosable)
 				return false;
 
@@ -602,6 +605,9 @@ namespace SharpConsoleUI.Input
 		/// </summary>
 		private bool IsOnMaximizeButton(Window window, Point point)
 		{
+			if (!window.HasInteractiveFrame)
+				return false;
+
 			if (!window.IsMaximizable)
 				return false;
 
@@ -624,6 +630,9 @@ namespace SharpConsoleUI.Input
 		/// </summary>
 		private bool IsOnMinimizeButton(Window window, Point point)
 		{
+			if (!window.HasInteractiveFrame)
+				return false;
+
 			if (!window.IsMinimizable)
 				return false;
 
@@ -647,6 +656,9 @@ namespace SharpConsoleUI.Input
 		/// </summary>
 		private bool IsOnResizeGrip(Window window, Point point)
 		{
+			if (!window.HasInteractiveFrame)
+				return false;
+
 			if (!window.IsResizable)
 				return false;
 

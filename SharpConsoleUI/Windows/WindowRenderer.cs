@@ -402,8 +402,8 @@ namespace SharpConsoleUI.Windows
 			// Screen coords: absolute positions on console
 			// Window coords: relative to window content area (0,0 = top-left of content, excluding border)
 
-			int windowContentLeft = windowLeft + _window.FrameInset;  // inset for left border
-			int windowContentTop = windowTop + _window.FrameInset;  // inset for border (title is inline with border)
+			int windowContentLeft = windowLeft + _window.InsetLeft;  // inset for left border
+			int windowContentTop = windowTop + _window.InsetTop;  // inset for border (title is inline with border)
 
 			// Find bounding box of all visible regions in window space
 			int minX = int.MaxValue;
@@ -411,8 +411,8 @@ namespace SharpConsoleUI.Windows
 			int maxX = int.MinValue;
 			int maxY = int.MinValue;
 
-			int contentWidth = windowWidth - 2 * _window.FrameInset;  // Available content width
-			int contentHeight = windowHeight - 2 * _window.FrameInset;  // Available content height
+			int contentWidth = windowWidth - _window.InsetLeft - _window.InsetRight;  // Available content width
+			int contentHeight = windowHeight - _window.InsetTop - _window.InsetBottom;  // Available content height
 
 			foreach (var region in visibleRegions)
 			{
@@ -499,8 +499,11 @@ namespace SharpConsoleUI.Windows
 					visibleRegions,
 					windowLeft,
 					windowTop,
-					availableWidth + 2, // Convert back to window width (content + borders)
-					availableHeight + 2,
+					// Convert content size back to window size by adding the per-side insets (frame +
+					// padding). Was hardcoded "+2" (1-cell border each side); that is wrong once a window
+					// has non-default Padding or is frameless, so derive it from the actual insets.
+					availableWidth + _window.InsetLeft + _window.InsetRight,
+					availableHeight + _window.InsetTop + _window.InsetBottom,
 					showTitle);
 
 				// If no visible area, skip painting entirely

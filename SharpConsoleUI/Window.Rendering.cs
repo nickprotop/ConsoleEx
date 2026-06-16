@@ -30,7 +30,10 @@ namespace SharpConsoleUI
 			{
 				if (_invalidated)
 				{
-					var availableWidth = ContentWidth;
+					// FramelessLayoutWidth reserves the scrollbar column ONLY for an overflowing frameless
+					// window; the reservation is derived from TotalLines (measured at full width on the prior
+					// build), so it is width-stable and cannot oscillate. Non-frameless windows are unaffected.
+					var availableWidth = FramelessLayoutWidth(TotalLines);
 					var availableHeight = ContentHeight;
 					RebuildContentBufferOnly(availableWidth, availableHeight, visibleRegions);
 

@@ -198,7 +198,10 @@ namespace SharpConsoleUI
 		/// </summary>
 		internal void RebuildDOMTree()
 		{
-			var contentWidth = ContentWidth;
+			// FramelessLayoutWidth reserves the scrollbar column ONLY for an overflowing frameless
+			// window; the reservation is derived from TotalLines (measured at full width on the prior
+			// build), so it is width-stable and cannot oscillate. Non-frameless windows are unaffected.
+			var contentWidth = FramelessLayoutWidth(TotalLines);
 			var contentHeight = ContentHeight;
 			_renderer?.RebuildDOMTree(_controls, contentWidth, contentHeight);
 		}
@@ -209,7 +212,10 @@ namespace SharpConsoleUI
 		/// </summary>
 		private void PerformDOMLayout()
 		{
-			var contentWidth = ContentWidth;
+			// FramelessLayoutWidth reserves the scrollbar column ONLY for an overflowing frameless
+			// window; the reservation is derived from TotalLines (measured at full width on the prior
+			// build), so it is width-stable and cannot oscillate. Non-frameless windows are unaffected.
+			var contentWidth = FramelessLayoutWidth(TotalLines);
 			var contentHeight = ContentHeight;
 			_renderer?.PerformDOMLayout(contentWidth, contentHeight);
 		}

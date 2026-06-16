@@ -384,8 +384,8 @@ namespace SharpConsoleUI.Windows
 		{
 			// Window content starts at (1,1) to account for borders
 			// Title bar is at Y=0, so content starts at Y=1
-			return windowPosition.X >= _window.FrameInset && windowPosition.X < _window.Width - _window.FrameInset &&
-				   windowPosition.Y >= _window.FrameInset && windowPosition.Y < _window.Height - _window.FrameInset;
+			return windowPosition.X >= _window.InsetLeft && windowPosition.X < _window.Width - _window.InsetRight &&
+				   windowPosition.Y >= _window.InsetTop && windowPosition.Y < _window.Height - _window.InsetBottom;
 		}
 
 		/// <summary>
@@ -394,7 +394,7 @@ namespace SharpConsoleUI.Windows
 		private Point GetContentCoordinates(Point windowPosition)
 		{
 			// Subtract border offset only - DOM layout handles scroll offset in absolute bounds
-			return new Point(windowPosition.X - _window.FrameInset, windowPosition.Y - _window.FrameInset);
+			return new Point(windowPosition.X - _window.InsetLeft, windowPosition.Y - _window.InsetTop);
 		}
 
 		/// <summary>
@@ -494,8 +494,8 @@ namespace SharpConsoleUI.Windows
 
 				// Convert window coords to content coords (subtract border offset)
 				// Title bar is at window Y=0, content starts at Y=1
-				var contentX = windowPoint.X - _window.FrameInset;
-				var contentY = windowPoint.Y - _window.FrameInset;
+				var contentX = windowPoint.X - _window.InsetLeft;
+				var contentY = windowPoint.Y - _window.InsetTop;
 
 				// Return null if outside content area (title bar, borders)
 				if (contentX < 0 || contentY < 0 ||

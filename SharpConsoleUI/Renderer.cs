@@ -466,19 +466,25 @@ namespace SharpConsoleUI
 
 				foreach (var region in visibleRegions)
 				{
-					if (window.Top + y + window.FrameInset >= region.Top && window.Top + y + window.FrameInset < region.Top + region.Height)
+					if (window.Top + y + window.InsetTop >= region.Top && window.Top + y + window.InsetTop < region.Top + region.Height)
 					{
-						int contentLeft = Math.Max(windowLeft + window.FrameInset, region.Left);
-						int contentRight = Math.Min(windowLeft + windowWidth - window.FrameInset, region.Left + region.Width);
+						int contentLeft = Math.Max(windowLeft + window.InsetLeft, region.Left);
+						// Right edge is bounded by the ACTUAL painted content width (buffer.Width), not
+						// just InsetRight. For a frameless window that reserves its last column for a
+						// scrollbar, the buffer is one column narrower than ContentWidth, so this stops the
+						// blit before the scrollbar column. For all other windows buffer.Width equals the
+						// content width, so this is unchanged.
+						int contentRightEdge = windowLeft + window.InsetLeft + buffer.Width;
+						int contentRight = Math.Min(Math.Min(windowLeft + windowWidth - window.InsetRight, contentRightEdge), region.Left + region.Width);
 						int contentWidth = contentRight - contentLeft;
 
 						if (contentWidth <= 0) continue;
 
-						int startOffset = Math.Max(0, contentLeft - (windowLeft + window.FrameInset));
+						int startOffset = Math.Max(0, contentLeft - (windowLeft + window.InsetLeft));
 
 						_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
 							contentLeft,
-							windowTop + desktopUpperLeftY + y + window.FrameInset,
+							windowTop + desktopUpperLeftY + y + window.InsetTop,
 							buffer,
 							startOffset,
 							y,
@@ -522,15 +528,19 @@ namespace SharpConsoleUI
 
 				foreach (var region in visibleRegions)
 				{
-					if (window.Top + y + window.FrameInset >= region.Top && window.Top + y + window.FrameInset < region.Top + region.Height)
+					if (window.Top + y + window.InsetTop >= region.Top && window.Top + y + window.InsetTop < region.Top + region.Height)
 					{
-						int contentLeft = Math.Max(windowLeft + window.FrameInset, region.Left);
-						int contentRight = Math.Min(windowLeft + windowWidth - window.FrameInset, region.Left + region.Width);
+						int contentLeft = Math.Max(windowLeft + window.InsetLeft, region.Left);
+						// Bound the right edge by the actual painted content width (buffer.Width) so a
+						// frameless window's reserved scrollbar column is not overwritten by the content
+						// blit. Unchanged for other windows (buffer.Width == content width).
+						int contentRightEdge = windowLeft + window.InsetLeft + buffer.Width;
+						int contentRight = Math.Min(Math.Min(windowLeft + windowWidth - window.InsetRight, contentRightEdge), region.Left + region.Width);
 						int contentWidth = contentRight - contentLeft;
 
 						if (contentWidth <= 0) continue;
 
-						int startOffset = Math.Max(0, contentLeft - (windowLeft + window.FrameInset));
+						int startOffset = Math.Max(0, contentLeft - (windowLeft + window.InsetLeft));
 
 						// Resize scratch buffer if needed (width might have changed)
 						if (_scratchBuffer.Width < contentWidth)
@@ -544,7 +554,7 @@ namespace SharpConsoleUI
 							int bufX = startOffset + i;
 							var cell = buffer.GetCell(bufX, y);
 							int screenX = contentLeft + i;
-							int screenY = window.Top + y + window.FrameInset;
+							int screenY = window.Top + y + window.InsetTop;
 
 							if (cell.Background.A == 255)
 							{
@@ -595,7 +605,7 @@ namespace SharpConsoleUI
 						// Write the composited row to the driver
 						_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
 							contentLeft,
-							windowTop + desktopUpperLeftY + y + window.FrameInset,
+							windowTop + desktopUpperLeftY + y + window.InsetTop,
 							_scratchBuffer,
 							0,
 							0,
@@ -883,8 +893,8 @@ namespace SharpConsoleUI
 								_consoleWindowSystem.Theme.DesktopBackgroundColor).Background));
 					}
 
-					int bufX = screenX - (w.Left + w.FrameInset);
-					int bufY = screenY - (w.Top + w.FrameInset);
+					int bufX = screenX - (w.Left + w.InsetLeft);
+					int bufY = screenY - (w.Top + w.InsetTop);
 
 					if (bufX < 0 || bufX >= contentBuffer.Width || bufY < 0 || bufY >= contentBuffer.Height)
 					{

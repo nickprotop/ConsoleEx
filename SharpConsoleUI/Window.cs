@@ -61,7 +61,16 @@ namespace SharpConsoleUI
 		/// No visible border. Border areas render as spaces with window background color.
 		/// Layout dimensions unchanged - border space still exists but is invisible.
 		/// </summary>
-		None
+		None,
+
+		/// <summary>
+		/// No frame at all. Content fills the entire window rect (no reserved border/title row or
+		/// column). The window has no interactive frame — no title bar, drag-to-move handle, resize
+		/// edges, resize grip, or title buttons — so frame areas cannot be clicked; all mouse events go
+		/// to content. Move/resize remain possible programmatically (SetPosition/SetSize) or via
+		/// keyboard. Distinct from None, which keeps a 1-cell invisible frame.
+		/// </summary>
+		Frameless
 	}
 
 	/// <summary>
@@ -881,31 +890,86 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Gets the thickness, in cells, of the reserved window frame on each side (the border/title
-		/// ring). Content is inset by this amount on all four sides.
+		/// Gets or sets the padding (space inside the window between the frame and the content), per
+		/// side. Defaults to <see cref="Padding.None"/>. Applies to every window: for a frameless
+		/// window it is the only inset; for a bordered window it adds inner space on top of the border.
 		/// </summary>
-		/// <remarks>
-		/// This is the single source of truth for the frame inset. It is currently always
-		/// <c>1</c> — every window reserves a 1-cell frame regardless of <see cref="BorderStyle"/> or
-		/// <see cref="ShowTitle"/> (a borderless window blanks the frame rather than reclaiming it).
-		/// The reserved frame is also where the window-management affordances live (title bar at row 0,
-		/// title buttons, resize grip, edge drag/resize), so it is load-bearing, not merely visual.
-		/// Centralizing it here lets all content/coordinate math derive from one definition; a future
-		/// opt-in "zero-inset" mode (for fully chrome-less windows) would make this conditional.
-		/// </remarks>
-		internal int FrameInset => 1;
+		public Padding Padding
+		{
+			get => _padding;
+			set
+			{
+				if (!_padding.Equals(value))
+				{
+					_padding = value;
+					InvalidateBorderCache();
+					Invalidate(true);
+				}
+			}
+		}
+		private Padding _padding = Padding.None;
 
-		/// <summary>Gets the usable content width (window width minus the frame on both sides).</summary>
-		internal int ContentWidth => Width - 2 * FrameInset;
+		/// <summary>
+		/// Gets the symmetric frame thickness, in cells, of the reserved border/title ring on each side.
+		/// <c>1</c> for bordered styles (including <see cref="BorderStyle.None"/>'s invisible frame),
+		/// <c>0</c> for <see cref="BorderStyle.Frameless"/> (no reserved frame).
+		/// </summary>
+		internal int FrameThickness => BorderStyle == BorderStyle.Frameless ? 0 : 1;
 
-		/// <summary>Gets the usable content height (window height minus the frame on top and bottom).</summary>
-		internal int ContentHeight => Height - 2 * FrameInset;
+		/// <summary>
+		/// Gets whether this window has an interactive frame (title bar, resize edges, resize grip,
+		/// title buttons). <c>false</c> for <see cref="BorderStyle.Frameless"/> — there is no frame
+		/// surface to host those affordances, so frame mouse-zones are suppressed and all clicks reach
+		/// content. Move/resize capability via SetPosition/SetSize is unaffected.
+		/// </summary>
+		internal bool HasInteractiveFrame => BorderStyle != BorderStyle.Frameless;
+
+		/// <summary>Gets the content inset on the left side (frame + left padding).</summary>
+		internal int InsetLeft => FrameThickness + Padding.Left;
+
+		/// <summary>Gets the content inset on the top side (frame + top padding).</summary>
+		internal int InsetTop => FrameThickness + Padding.Top;
+
+		/// <summary>Gets the content inset on the right side (frame + right padding).</summary>
+		internal int InsetRight => FrameThickness + Padding.Right;
+
+		/// <summary>Gets the content inset on the bottom side (frame + bottom padding).</summary>
+		internal int InsetBottom => FrameThickness + Padding.Bottom;
+
+		/// <summary>
+		/// Back-compat alias for the symmetric frame thickness. Border-draw geometry (which is inherently
+		/// symmetric) uses this; content/coordinate math uses the per-side <c>Inset*</c> accessors.
+		/// </summary>
+		internal int FrameInset => FrameThickness;
+
+		/// <summary>Gets the usable content width (window width minus the per-side insets). Clamped &gt;= 0.</summary>
+		internal int ContentWidth => Math.Max(0, Width - InsetLeft - InsetRight);
+
+		/// <summary>Gets the usable content height (window height minus the per-side insets). Clamped &gt;= 0.</summary>
+		internal int ContentHeight => Math.Max(0, Height - InsetTop - InsetBottom);
 
 		/// <summary>
 		/// Gets the screen-space origin of the content area (the window's top-left, offset inward by the
-		/// frame inset).
+		/// per-side top/left insets).
 		/// </summary>
-		internal System.Drawing.Point ContentOrigin => new System.Drawing.Point(Left + FrameInset, Top + FrameInset);
+		internal System.Drawing.Point ContentOrigin => new System.Drawing.Point(Left + InsetLeft, Top + InsetTop);
+
+		/// <summary>
+		/// For a frameless window, whether a vertical scrollbar should be shown (and its column
+		/// reserved). The decision is computed from the caller-supplied full-width line count so it is
+		/// width-stable: it never depends on the reserved column, breaking the wrap-vs-overflow loop.
+		/// </summary>
+		/// <param name="totalLines">Content line count measured at full content width.</param>
+		internal bool FramelessScrollbarReserved(int totalLines) =>
+			BorderStyle == BorderStyle.Frameless && IsScrollable && totalLines > ContentHeight;
+
+		/// <summary>
+		/// The layout/clip width for a frameless window's content: <see cref="ContentWidth"/>, minus one
+		/// column when a scrollbar is reserved (see <see cref="FramelessScrollbarReserved"/>).
+		/// </summary>
+		/// <param name="totalLines">Content line count measured at full content width.</param>
+		internal int FramelessLayoutWidth(int totalLines) =>
+			Math.Max(0, ContentWidth - (FramelessScrollbarReserved(totalLines) ? 1 : 0));
 
 		/// <summary>
 		/// Gets or sets the Z-order index for layering windows.

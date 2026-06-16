@@ -9,6 +9,7 @@
 using System.Drawing;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 using SharpConsoleUI.Rendering;
 using SharpConsoleUI.Themes;
 using DrawingSize = System.Drawing.Size;
@@ -65,6 +66,7 @@ public sealed class WindowBuilder
 	private EventHandler? _shownHandler;
 	private EventHandler<Window.WindowStateChangedEventArgs>? _stateChangedHandler;
 	private BorderStyle _borderStyle = BorderStyle.DoubleLine;
+	private Padding _padding = Padding.None;
 	private bool _showTitle = true;
 	private bool _showCloseButton = true;
 	private Color? _activeBorderColor;
@@ -374,6 +376,39 @@ public sealed class WindowBuilder
 		_borderStyle = BorderStyle.None;
 		return this;
 	}
+
+	/// <summary>
+	/// Creates a frameless window: content fills the entire window rect (no reserved border/title
+	/// frame), and the window has no interactive chrome (no title bar, drag, resize, or buttons).
+	/// Use <see cref="WithPadding(Padding)"/> to add space around the content. Move/resize remain
+	/// possible programmatically via SetPosition/SetSize.
+	/// </summary>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder Frameless()
+	{
+		_borderStyle = BorderStyle.Frameless;
+		return this;
+	}
+
+	/// <summary>Sets per-side padding (space inside the window around the content).</summary>
+	/// <param name="padding">The padding to apply.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithPadding(Padding padding)
+	{
+		_padding = padding;
+		return this;
+	}
+
+	/// <summary>Sets uniform padding on all four sides.</summary>
+	/// <param name="all">Padding applied to every side.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithPadding(int all) => WithPadding(new Padding(all));
+
+	/// <summary>Sets horizontal (left/right) and vertical (top/bottom) padding.</summary>
+	/// <param name="horizontal">Left and right padding.</param>
+	/// <param name="vertical">Top and bottom padding.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithPadding(int horizontal, int vertical) => WithPadding(new Padding(horizontal, vertical));
 
 	/// <summary>
 	/// Hides the window title from the title bar.
@@ -748,6 +783,7 @@ public sealed class WindowBuilder
 		window.CloseOnDeactivate = _closeOnDeactivate;
 		window.UseDesktopPortals = _useDesktopPortals;
 		window.BorderStyle = _borderStyle;
+		window.Padding = _padding;
 		window.ShowTitle = _showTitle;
 		window.ShowCloseButton = _showCloseButton;
 

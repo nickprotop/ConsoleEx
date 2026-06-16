@@ -324,7 +324,7 @@ namespace SharpConsoleUI
 			// Convert cursor position from window coordinates to window content coordinates
 			// Window coordinates have border at (0,0), content starts at (1,1)
 			// Window content coordinates (used by ControlContentBounds) have content at (0,0)
-			var cursorInContentCoords = new Point(cursorPosition.X - FrameInset, cursorPosition.Y - FrameInset);
+			var cursorInContentCoords = new Point(cursorPosition.X - InsetLeft, cursorPosition.Y - InsetTop);
 
 			// Check if cursor is within the control's actual content bounds
 			if (cursorInContentCoords.X < controlBounds.X ||
@@ -341,15 +341,15 @@ namespace SharpConsoleUI
 			if (control.StickyPosition == StickyPosition.Top || control.StickyPosition == StickyPosition.Bottom)
 			{
 				// Sticky controls are always visible if within window bounds
-				var result = cursorPosition.X >= FrameInset && cursorPosition.X < Width - FrameInset &&
-							 cursorPosition.Y >= FrameInset && cursorPosition.Y < Height - FrameInset;
+				var result = cursorPosition.X >= InsetLeft && cursorPosition.X < Width - InsetRight &&
+							 cursorPosition.Y >= InsetTop && cursorPosition.Y < Height - InsetBottom;
 				return result;
 			}
 			else
 			{
 				// For scrollable (non-sticky) controls, check if cursor is within window viewport
-				var scrollableAreaTop = FrameInset;
-				var scrollableAreaBottom = Height - FrameInset;
+				var scrollableAreaTop = InsetTop;
+				var scrollableAreaBottom = Height - InsetBottom;
 
 
 				// Check if cursor Y is within the scrollable area bounds

@@ -44,8 +44,39 @@ var window = new WindowBuilder(windowSystem)
 ```csharp
 .WithTitle(title)                                // Set window title
 .WithColors(foreground, background)              // Set colors
-.Borderless()                                    // Remove border
+.Borderless()                                    // Invisible border (keeps the 1-cell frame; blanks it)
+.Frameless()                                     // Truly borderless: content fills the rect, no chrome
+.WithPadding(2)                                  // Uniform padding around content (any window)
+.WithPadding(horizontal, vertical)              // Horizontal/vertical padding
+.WithPadding(new Padding(l, t, r, b))            // Per-side padding
 ```
+
+##### Frameless windows
+
+`.Frameless()` (sets `BorderStyle.Frameless`) is a **truly borderless** window: it reclaims the
+1-cell border/title frame so content fills the entire window rect. It is **fully chrome-less and
+non-interactive** — no title bar, no drag-to-move handle, no resize edges/grip, and no title buttons.
+Mouse clicks anywhere go to the content. You can still move/resize it programmatically with
+`SetPosition`/`SetSize` (or your own keyboard handlers); `IsMovable`/`IsResizable` keep their values
+but the (now non-existent) frame can't be grabbed.
+
+This differs from `.Borderless()`/`BorderStyle.None`, which keeps the reserved 1-cell frame and simply
+renders it as blanks (so content still starts one row/column in).
+
+Use `.WithPadding(...)` to add space around the content (it applies to any window, but is most useful
+with `.Frameless()`). The common single-window-app pattern fills the terminal:
+
+```csharp
+new WindowBuilder(windowSystem)
+    .Frameless()
+    .Maximized()              // fills the desktop; content fills it edge-to-edge
+    .WithPadding(1)           // optional breathing room
+    .AddControl(myContent)
+    .BuildAndShow();
+```
+
+A scrollable frameless window reserves its last content column for the scrollbar when content
+overflows (so the bar never overlaps content); otherwise content uses the full width.
 
 #### Behavior
 

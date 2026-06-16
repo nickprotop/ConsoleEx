@@ -7,7 +7,7 @@ namespace DemoApp.DemoWindows;
 internal static class BorderStyleWindow
 {
 	private const int WindowWidth = 62;
-	private const int WindowHeight = 28;
+	private const int WindowHeight = 30;
 	private const int SpawnedWidth = 44;
 	private const int SpawnedHeight = 12;
 	private const int ButtonWidth = 25;
@@ -16,7 +16,7 @@ internal static class BorderStyleWindow
 	private const int SectionTopMargin = 1;
 
 	private static readonly BorderStyle[] AllStyles =
-		{ BorderStyle.DoubleLine, BorderStyle.Single, BorderStyle.Rounded, BorderStyle.None };
+		{ BorderStyle.DoubleLine, BorderStyle.Single, BorderStyle.Rounded, BorderStyle.None, BorderStyle.Frameless };
 
 	public static Window Create(ConsoleWindowSystem ws)
 	{
@@ -55,6 +55,12 @@ internal static class BorderStyleWindow
 			.OnClick((_, _) => SpawnStyleWindow(ws, BorderStyle.None))
 			.Build();
 		noneBtn.Margin = new Margin { Left = ButtonLeftMargin };
+
+		var framelessBtn = Controls.Button("Frameless (fills rect)")
+			.WithWidth(ButtonWidth)
+			.OnClick((_, _) => SpawnStyleWindow(ws, BorderStyle.Frameless))
+			.Build();
+		framelessBtn.Margin = new Margin { Left = ButtonLeftMargin };
 
 		// --- Interactive toggle section ---
 
@@ -99,13 +105,14 @@ internal static class BorderStyleWindow
 			.AddControl(singleBtn)
 			.AddControl(roundedBtn)
 			.AddControl(noneBtn)
+			.AddControl(framelessBtn)
 			.AddControl(toggleSectionLabel)
 			.AddControl(cycleLabel)
 			.AddControl(cycleBtn)
 			.AddControl(Controls.Markup()
 				.AddEmptyLine()
 				.AddLine("[dim]  Cycle changes this window's border between[/]")
-				.AddLine("[dim]  DoubleLine → Single → Rounded → None[/]")
+				.AddLine("[dim]  DoubleLine → Single → Rounded → None → Frameless[/]")
 				.Build())
 			.BuildAndShow();
 
@@ -146,7 +153,8 @@ internal static class BorderStyleWindow
 		BorderStyle.DoubleLine => "Active: ╔═╗║╚╝  Inactive: ┌─┐│└┘",
 		BorderStyle.Single => "Consistent single-line: ┌─┐│└┘",
 		BorderStyle.Rounded => "Rounded corners: ╭─╮│╰╯",
-		BorderStyle.None => "No visible border, title, or buttons",
+		BorderStyle.None => "No visible border, title, or buttons (1-cell frame still reserved)",
+		BorderStyle.Frameless => "Content fills the whole rect — no frame, no chrome, not draggable/resizable (ESC to close)",
 		_ => ""
 	};
 }
