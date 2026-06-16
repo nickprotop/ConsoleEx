@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System.Drawing;
+using System.Text;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
@@ -265,14 +266,52 @@ namespace SharpConsoleUI.Controls
 		/// <param name="text">The text to append. Embedded <c>\n</c> characters start new lines.</param>
 		public void AppendText(string text)
 		{
-			var parts = (text ?? string.Empty).Split('\n');
+			// arg check
+			if (text == null || string.Empty.Equals(text)) return;
+
 			lock (_contentLock)
 			{
-				foreach (var part in parts)
-					_content.Add(part);
+				AppendCore(text);
 			}
+
 			OnContentAppended();
 		}
+
+		private void AppendCore(string text)
+		{
+			// defensive check
+			if (text == null || string.Empty.Equals(text)) return;
+
+			// Ensure at least one line exists as the current line.
+			if (_content.Count == 0)
+				_content.Add(string.Empty);
+
+			StringBuilder charPool = new StringBuilder();
+
+			foreach (char c in text)
+			{
+				if (c == '\n')
+				{
+					// Append all previously accumulated characters to the current line.
+					_content[^1] += charPool.ToString();
+
+					// Clear the accumulated characters.
+					charPool.Clear();
+
+					// new line
+					_content.Add(string.Empty);
+				}
+				else
+				{
+					charPool.Append(c);
+				}
+			}
+
+			// Append the last segment of characters to the current line.
+			if (charPool.Length > 0)
+				_content[^1] += charPool.ToString();
+		}
+
 
 		/// <summary>Shared post-append bookkeeping: any active selection is now stale, so clear it.</summary>
 		private void OnContentAppended()
