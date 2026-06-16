@@ -112,7 +112,7 @@ namespace SharpConsoleUI.Core
 			{
 				return new ButtonColorSet
 				{
-					BackgroundColor = theme.ButtonDisabledBackgroundColor,
+					BackgroundColor = theme.ButtonDisabledBackgroundColor ?? Color.Transparent,
 					ForegroundColor = theme.ButtonDisabledForegroundColor,
 					IsFocused = false,
 					IsEnabled = false
@@ -123,7 +123,7 @@ namespace SharpConsoleUI.Core
 			{
 				return new ButtonColorSet
 				{
-					BackgroundColor = theme.ButtonFocusedBackgroundColor,
+					BackgroundColor = theme.ButtonFocusedBackgroundColor ?? Color.Transparent,
 					ForegroundColor = theme.ButtonFocusedForegroundColor,
 					IsFocused = true,
 					IsEnabled = true
@@ -132,7 +132,7 @@ namespace SharpConsoleUI.Core
 
 			return new ButtonColorSet
 			{
-				BackgroundColor = theme.ButtonBackgroundColor,
+				BackgroundColor = theme.ButtonBackgroundColor ?? Color.Transparent,
 				ForegroundColor = theme.ButtonForegroundColor,
 				IsFocused = false,
 				IsEnabled = true
@@ -366,8 +366,8 @@ namespace SharpConsoleUI.Core
 		public (Color Background, Color Foreground, Color FocusedBackground, Color FocusedForeground) GetInputColors()
 		{
 			var theme = CurrentTheme;
-			return (theme.PromptInputBackgroundColor, theme.PromptInputForegroundColor,
-					theme.PromptInputFocusedBackgroundColor, theme.PromptInputFocusedForegroundColor);
+			return (theme.PromptInputBackgroundColor ?? Color.Transparent, theme.PromptInputForegroundColor,
+					theme.PromptInputFocusedBackgroundColor ?? Color.Transparent, theme.PromptInputFocusedForegroundColor);
 		}
 
 		/// <summary>

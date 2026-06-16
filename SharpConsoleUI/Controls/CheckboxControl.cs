@@ -153,7 +153,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color CheckmarkColor
 		{
-			get => _checkmarkColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedForegroundColor ?? Color.Cyan1;
+			get => _checkmarkColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.CheckboxCheckmarkColor ?? Color.Cyan1;
 			set => SetProperty(ref _checkmarkColorValue, (Color?)value);
 		}
 
@@ -171,7 +171,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color DisabledForegroundColor
 		{
-			get => _disabledForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledForegroundColor ?? Color.DarkSlateGray1;
+			get => _disabledForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.CheckboxDisabledForegroundColor ?? Color.DarkSlateGray1;
 			set => SetProperty(ref _disabledForegroundColorValue, (Color?)value);
 		}
 
@@ -189,7 +189,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color FocusedForegroundColor
 		{
-			get => _focusedForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedForegroundColor ?? Color.White;
+			get => _focusedForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.CheckboxFocusedForegroundColor ?? Color.White;
 			set => SetProperty(ref _focusedForegroundColorValue, (Color?)value);
 		}
 
@@ -198,7 +198,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color ForegroundColor
 		{
-			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonForegroundColor ?? Color.White;
+			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.CheckboxForegroundColor ?? Color.White;
 			set => SetProperty(ref _foregroundColorValue, (Color?)value);
 		}
 

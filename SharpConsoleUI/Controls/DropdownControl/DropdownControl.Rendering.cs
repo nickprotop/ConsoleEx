@@ -52,8 +52,8 @@ namespace SharpConsoleUI.Controls
 
 			if (!_isEnabled)
 			{
-				backgroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor ?? Color.Grey;
-				foregroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledForegroundColor ?? Color.DarkSlateGray1;
+				backgroundColor = Container?.GetConsoleWindowSystem?.Theme?.DropdownDisabledBackgroundColor ?? Color.Grey;
+				foregroundColor = Container?.GetConsoleWindowSystem?.Theme?.DropdownDisabledForegroundColor ?? Color.DarkSlateGray1;
 			}
 			else if (HasFocus)
 			{

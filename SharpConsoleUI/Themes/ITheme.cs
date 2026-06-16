@@ -28,6 +28,13 @@ public interface ITheme
 	string Description { get; }
 
 	/// <summary>
+	/// Gets the theme's declared light/dark mode. This is a label of the theme's identity (set by its
+	/// author), not a computed value. Defaults to <see cref="ThemeMode.Dark"/> (the library's built-in
+	/// default themes are dark). Third-party themes that do not override this report Dark.
+	/// </summary>
+	ThemeMode Mode => ThemeMode.Dark;
+
+	/// <summary>
 	/// Gets the foreground color for the border of active (focused) windows.
 	/// </summary>
 	Color ActiveBorderForegroundColor { get; }
@@ -50,12 +57,12 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for buttons in their default (unfocused, unselected) state.
 	/// </summary>
-	Color ButtonBackgroundColor { get; }
+	Color? ButtonBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the background color for buttons when they are disabled and cannot be interacted with.
 	/// </summary>
-	Color ButtonDisabledBackgroundColor { get; }
+	Color? ButtonDisabledBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for button text when the button is disabled.
@@ -65,7 +72,7 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for buttons when they have keyboard focus.
 	/// </summary>
-	Color ButtonFocusedBackgroundColor { get; }
+	Color? ButtonFocusedBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for button text when the button has keyboard focus.
@@ -80,7 +87,7 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for buttons when they are selected or pressed.
 	/// </summary>
-	Color ButtonSelectedBackgroundColor { get; }
+	Color? ButtonSelectedBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for button text when the button is selected or pressed.
@@ -90,7 +97,7 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for list items when highlighted but the control is unfocused.
 	/// </summary>
-	Color ListUnfocusedHighlightBackgroundColor { get; }
+	Color? ListUnfocusedHighlightBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for list items when highlighted but the control is unfocused.
@@ -206,12 +213,12 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for prompt input fields in their default state.
 	/// </summary>
-	Color PromptInputBackgroundColor { get; }
+	Color? PromptInputBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the background color for prompt input fields when they have keyboard focus.
 	/// </summary>
-	Color PromptInputFocusedBackgroundColor { get; }
+	Color? PromptInputFocusedBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for text in prompt input fields when focused.
@@ -286,7 +293,7 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for highlighted menu bar items.
 	/// </summary>
-	Color MenuBarHighlightBackgroundColor { get; }
+	Color? MenuBarHighlightBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for highlighted menu bar items.
@@ -296,7 +303,7 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for menu dropdowns.
 	/// </summary>
-	Color MenuDropdownBackgroundColor { get; }
+	Color? MenuDropdownBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for menu dropdown items.
@@ -306,7 +313,7 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for highlighted menu dropdown items.
 	/// </summary>
-	Color MenuDropdownHighlightBackgroundColor { get; }
+	Color? MenuDropdownHighlightBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for highlighted menu dropdown items.
@@ -316,7 +323,7 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for dropdown control lists.
 	/// </summary>
-	Color DropdownBackgroundColor { get; }
+	Color? DropdownBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for dropdown control list items.
@@ -326,12 +333,24 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for highlighted/selected dropdown items.
 	/// </summary>
-	Color DropdownHighlightBackgroundColor { get; }
+	Color? DropdownHighlightBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for highlighted/selected dropdown items.
 	/// </summary>
 	Color DropdownHighlightForegroundColor { get; }
+
+	/// <summary>Gets the foreground color for a dropdown when it has keyboard focus.</summary>
+	Color DropdownFocusedForegroundColor { get; }
+
+	/// <summary>Gets the background color for a dropdown when it has keyboard focus (null = inherit/transparent).</summary>
+	Color? DropdownFocusedBackgroundColor { get; }
+
+	/// <summary>Gets the foreground color for a dropdown when it is disabled.</summary>
+	Color DropdownDisabledForegroundColor { get; }
+
+	/// <summary>Gets the background color for a dropdown when it is disabled (null = inherit/transparent).</summary>
+	Color? DropdownDisabledBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the background color used when flashing modal windows to draw user attention.
@@ -356,7 +375,7 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for table controls.
 	/// </summary>
-	Color TableBackgroundColor { get; }
+	Color? TableBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for table controls.
@@ -372,7 +391,7 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for table headers.
 	/// </summary>
-	Color TableHeaderBackgroundColor { get; }
+	Color? TableHeaderBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for table headers.
@@ -382,7 +401,7 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for selected rows in the table when focused.
 	/// </summary>
-	Color TableSelectionBackgroundColor { get; }
+	Color? TableSelectionBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for selected rows in the table when focused.
@@ -392,7 +411,7 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for hovered rows in the table.
 	/// </summary>
-	Color TableHoverBackgroundColor { get; }
+	Color? TableHoverBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for hovered rows in the table.
@@ -402,7 +421,7 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for selected rows in the table when unfocused.
 	/// </summary>
-	Color TableUnfocusedSelectionBackgroundColor { get; }
+	Color? TableUnfocusedSelectionBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for selected rows in the table when unfocused.
@@ -422,7 +441,7 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for the active (selected) tab header.
 	/// </summary>
-	Color TabHeaderActiveBackgroundColor { get; }
+	Color? TabHeaderActiveBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for the active (selected) tab header.
@@ -432,7 +451,7 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for inactive tab headers.
 	/// </summary>
-	Color TabHeaderBackgroundColor { get; }
+	Color? TabHeaderBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the foreground color for inactive tab headers.
@@ -447,14 +466,14 @@ public interface ITheme
 	/// <summary>
 	/// Gets the background color for disabled tab headers.
 	/// </summary>
-	Color TabHeaderDisabledBackgroundColor { get; }
+	Color? TabHeaderDisabledBackgroundColor { get; }
 
 	/// <summary>
 	/// Background for the active tab header when the tab strip has keyboard focus.
 	/// Default implementation returns <see cref="TabHeaderActiveBackgroundColor"/>
 	/// (so existing themes keep working without code changes).
 	/// </summary>
-	Color TabHeaderActiveFocusedBackgroundColor => TabHeaderActiveBackgroundColor;
+	Color? TabHeaderActiveFocusedBackgroundColor => TabHeaderActiveBackgroundColor;
 
 	/// <summary>
 	/// Foreground for the active tab header when the tab strip has keyboard focus.
@@ -466,7 +485,7 @@ public interface ITheme
 	/// Background for inactive tab headers when the tab strip has keyboard focus.
 	/// Default implementation returns <see cref="TabHeaderBackgroundColor"/>.
 	/// </summary>
-	Color TabHeaderFocusedBackgroundColor => TabHeaderBackgroundColor;
+	Color? TabHeaderFocusedBackgroundColor => TabHeaderBackgroundColor;
 
 	/// <summary>
 	/// Foreground for inactive tab headers when the tab strip has keyboard focus.
@@ -485,7 +504,7 @@ public interface ITheme
 	/// Default implementation returns <see cref="WindowBackgroundColor"/> (the normal window
 	/// background) so existing themes keep working without code changes.
 	/// </summary>
-	Color CollapsibleHeaderFocusedBackgroundColor => WindowBackgroundColor;
+	Color? CollapsibleHeaderFocusedBackgroundColor => WindowBackgroundColor;
 
 	/// <summary>
 	/// Gets the border color for the TabControl content area. Null means use active window border color.
@@ -533,6 +552,9 @@ public interface ITheme
 	/// Gets the foreground color for disabled date segments.
 	/// </summary>
 	Color? DatePickerDisabledForegroundColor { get; }
+
+	/// <summary>Gets the background color for a disabled date picker (null = inherit/transparent).</summary>
+	Color? DatePickerDisabledBackgroundColor { get; }
 
 	/// <summary>
 	/// Gets the highlight color for today's date in the calendar popup.
@@ -646,12 +668,42 @@ public interface ITheme
 	/// </summary>
 	Color? CheckboxDisabledBackgroundColor { get; }
 
+	/// <summary>Gets the foreground color for checkbox text/glyph in the default (unfocused) state.</summary>
+	Color CheckboxForegroundColor { get; }
+
+	/// <summary>Gets the foreground color for checkbox text/glyph when the checkbox has keyboard focus.</summary>
+	Color CheckboxFocusedForegroundColor { get; }
+
+	/// <summary>Gets the foreground color for checkbox text/glyph when the checkbox is disabled.</summary>
+	Color CheckboxDisabledForegroundColor { get; }
+
+	/// <summary>Gets the color used for the checkbox checkmark glyph.</summary>
+	Color CheckboxCheckmarkColor { get; }
+
 	// List background color
 
 	/// <summary>
 	/// Gets the background color for list controls. Null means transparent.
 	/// </summary>
 	Color? ListBackgroundColor { get; }
+
+	/// <summary>Gets the foreground color for list items in their default (unfocused, unselected) state.</summary>
+	Color ListForegroundColor { get; }
+
+	/// <summary>Gets the foreground color for list items when the control has keyboard focus.</summary>
+	Color ListFocusedForegroundColor { get; }
+
+	/// <summary>Gets the foreground color for the selected list item.</summary>
+	Color ListSelectedForegroundColor { get; }
+
+	/// <summary>Gets the background color for the selected list item (null = inherit/transparent).</summary>
+	Color? ListSelectedBackgroundColor { get; }
+
+	/// <summary>Gets the foreground color for list items when the control is disabled.</summary>
+	Color ListDisabledForegroundColor { get; }
+
+	/// <summary>Gets the background color for list items when the control is disabled (null = inherit/transparent).</summary>
+	Color? ListDisabledBackgroundColor { get; }
 
 	// Tree background colors
 
@@ -686,6 +738,9 @@ public interface ITheme
 	/// Gets the background color for sparkline controls. Null means transparent.
 	/// </summary>
 	Color? SparklineBackgroundColor { get; }
+
+	/// <summary>Gets the default foreground color for HTML control text.</summary>
+	Color HtmlForegroundColor { get; }
 
 	// Start menu theming
 

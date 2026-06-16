@@ -420,8 +420,8 @@ namespace SharpConsoleUI.Controls
 
 						if (!IsEnabled)
 						{
-							itemBg = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor ?? Color.Grey;
-							itemFg = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledForegroundColor ?? Color.DarkSlateGray1;
+							itemBg = Container?.GetConsoleWindowSystem?.Theme?.ListDisabledBackgroundColor ?? Color.Grey;
+							itemFg = Container?.GetConsoleWindowSystem?.Theme?.ListDisabledForegroundColor ?? Color.DarkSlateGray1;
 						}
 						else if (isHovered && _hoverHighlightsItems && HasFocus)
 						{

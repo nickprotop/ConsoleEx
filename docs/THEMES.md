@@ -135,6 +135,64 @@ windowSystem.Theme.ScrollbarThumbColor = Color.Red;   // takes effect on the nex
 `Theme.From(...).With(...)` is just the convenient, named-and-registered way to do this in bulk
 starting from a known base.
 
+## Generating a Theme from a Palette
+
+When you don't want to pick dozens of colors by hand, give the generator a small **palette** (often
+just a primary accent and a background) and it derives a complete, contrast-checked theme. Every
+foreground is chosen to read against the surface it actually lands on, so generated themes never
+produce invisible text:
+
+```csharp
+using SharpConsoleUI;
+using SharpConsoleUI.Themes;
+
+var ocean = Theme.FromPalette(new Palette
+{
+    Primary    = Color.FromHex("#2DD4BF"),  // accent (borders, highlights, focus)
+    Background  = Color.FromHex("#0B1F2A"),  // window/desktop surface
+});
+
+windowSystem.ThemeRegistryService.RegisterTheme("Ocean", "Teal on deep dark", () => ocean);
+windowSystem.ThemeStateService.SwitchTheme("Ocean");
+```
+
+`Palette` is a record; every member is optional and anything you omit is derived from what you
+provide:
+
+| Member | Role |
+|--------|------|
+| `Primary` | Main accent — borders, focus, highlights, progress fills |
+| `Secondary`, `Tertiary` | Optional extra accents |
+| `Background` | The base surface; control/desktop/modal surfaces are tinted/shaded from it |
+| `Foreground` | Optional override for the default text color (otherwise derived for contrast) |
+| `Success`, `Warning`, `Danger`, `Info` | Optional status colors (sensible defaults otherwise) |
+| `Mode` | Optional `ThemeMode.Light`/`Dark` override (see below) |
+
+### Light vs. dark detection
+
+The generator infers light/dark from the `Background` luminance and flips text accordingly — a light
+background gets dark text automatically. Set `Mode` explicitly only when you want to override that
+inference:
+
+```csharp
+var daylight = Theme.FromPalette(new Palette
+{
+    Primary    = Color.FromHex("#2563EB"),
+    Background  = Color.FromHex("#F8FAFC"),  // light surface → dark text, automatically
+    Mode        = ThemeMode.Light,            // optional: pin the identity
+});
+```
+
+`ThemeMode` is also surfaced on every theme via `ITheme.Mode`, so apps can read
+`windowSystem.Theme.Mode` to adapt their own content (e.g. choose a light or dark logo).
+
+### Built-in seed themes
+
+The library registers a handful of palette-generated themes out of the box, so every app gets a
+ready-made selection in the theme selector without any setup: **Ocean**, **Amber**, **Forest**,
+**Crimson**, **Slate** (dark) and **Daylight** (light). `ModernGray` remains the default. These are
+just normal registered themes — switch to them by name like any other.
+
 ## Creating Custom Themes from Scratch
 
 If you need a fully independent theme, implement the `ITheme` interface directly. (Most members
@@ -157,6 +215,29 @@ public class MyCustomTheme : ITheme
     public char DesktopBackroundChar => '░';
 }
 ```
+
+> **Tip:** Prefer deriving from `ThemeBase` instead of implementing `ITheme` by hand. `ThemeBase`
+> provides settable `{ get; set; }` defaults for **all** members (blank/transparent where a value
+> isn't meaningful), so you `override` only the handful you care about and stay forward-compatible
+> when new members are added. The built-in `ModernGrayTheme`/`ClassicTheme` derive from it.
+
+```csharp
+public class MyCustomTheme : ThemeBase
+{
+    public override string Name { get; set; } = "MyCustom";
+    public override Color WindowBackgroundColor { get; set; } = Color.DarkSlateGray;
+    public override Color ActiveBorderForegroundColor { get; set; } = Color.Cyan;
+    // ...override only what differs; everything else falls back to ThemeBase defaults
+}
+```
+
+### Per-control colors and transparency
+
+Controls (Dropdown, List, Checkbox, DatePicker, Html, …) have their **own** theme members rather
+than borrowing the button's colors, so you can style each control independently. Control
+**background** members are nullable (`Color?`): leave one `null` (or `Color.Default`) to let the
+control inherit the window background and composite transparently, instead of painting an opaque
+block. Generated themes use this so a control sits naturally on its window surface.
 
 ### Theme Properties
 

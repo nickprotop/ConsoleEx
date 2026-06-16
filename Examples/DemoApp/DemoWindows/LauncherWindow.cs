@@ -11,20 +11,12 @@ public static class LauncherWindow
 {
 	public static Window Create(ConsoleWindowSystem ws)
 	{
-		var darkGradient = new GradientBackground(
-			ColorGradient.FromColors(new Color(15, 25, 60), new Color(5, 5, 15)),
-			GradientDirection.Vertical);
-
-		var lightGradient = new GradientBackground(
-			ColorGradient.FromColors(new Color(180, 200, 230), new Color(220, 225, 240)),
-			GradientDirection.Vertical);
-
 		var nav = Controls.NavigationView()
 			.WithNavWidth(30)
 			.WithPaneHeader("[bold white]  SharpConsoleUI[/]")
 			.WithContentBorder(BorderStyle.Rounded)
-			.WithContentBorderColor(Color.Grey37)
-			.WithContentBackground(new Color(30, 30, 40))
+			// Content border/background left unset so they follow the active theme (the theme switcher
+			// recolors them).
 			.WithContentPadding(1, 0, 1, 0)
 			.AddHeader("Layout & Windows", Color.Cyan1, header => header
 				.AddItem("Border Styles", subtitle: "Explore window border styles", content: MakeInfoPanel("Border Styles"))
@@ -97,27 +89,33 @@ public static class LauncherWindow
 				LaunchDemo(ws, args.NewItem.Text);
 		};
 
-		// Theme switcher dropdown in content toolbar
-		var themeDropdown = new DropdownControl("Theme:", new[] { "Dark", "Light" });
-		themeDropdown.SelectedIndex = 0;
+		// Theme switcher dropdown in content toolbar — enumerates registered themes, applies on select.
+		var themeNames = ws.ThemeRegistryService.GetAvailableThemeNames();
+		var themeDropdown = new DropdownControl("Theme:", themeNames);
+		var currentName = ws.ThemeStateService.CurrentTheme.Name;
+		int currentIdx = 0;
+		for (int i = 0; i < themeNames.Count; i++)
+		{
+			if (themeNames[i] == currentName) { currentIdx = i; break; }
+		}
+		themeDropdown.SelectedIndex = currentIdx;
 		nav.AddContentToolbarItem(themeDropdown);
 
-		Window? win = null;
 		themeDropdown.SelectedIndexChanged += (_, idx) =>
 		{
-			if (win != null)
-				win.BackgroundGradient = idx == 0 ? darkGradient : lightGradient;
+			if (idx >= 0 && idx < themeNames.Count)
+				ws.ThemeStateService.SwitchTheme(themeNames[idx]);
 		};
 
 		var window = new WindowBuilder(ws)
 			.WithTitle("SharpConsoleUI Demo")
 			.WithSize(90, 30)
 			.AtPosition(0, 0)
-			.WithBackgroundGradient(darkGradient.Gradient, darkGradient.Direction)
+			// No explicit background — the window tracks the active theme, so the theme switcher
+			// recolors the whole launcher (not just the border).
 			.AddControl(nav)
 			.BuildAndShow();
 
-		win = window;
 		return window;
 	}
 

@@ -16,7 +16,8 @@ public class ThemeRegistryStateServiceTests
 		var reg = new ThemeRegistryStateService();
 		Assert.True(reg.IsThemeRegistered("Classic"));
 		Assert.True(reg.IsThemeRegistered("ModernGray"));
-		Assert.Equal(2, reg.Count);
+		// 2 built-in (Classic, ModernGray) + seed palette catalog.
+		Assert.True(reg.Count >= 2);
 	}
 
 	[Fact]

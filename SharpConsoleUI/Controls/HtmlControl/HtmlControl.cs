@@ -105,7 +105,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color ForegroundColor
 		{
-			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonForegroundColor ?? Color.White;
+			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.HtmlForegroundColor ?? Color.White;
 			set => SetProperty(ref _foregroundColorValue, (Color?)value);
 		}
 

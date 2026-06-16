@@ -37,6 +37,21 @@ namespace SharpConsoleUI.Core
 				"ModernGray",
 				"Professional dark theme with grayscale foundation and cyan accents, inspired by modern developer tools",
 				() => new ModernGrayTheme());
+
+			// Seed catalog: palette-generated themes available to every app (cheap to add).
+			// Do NOT change DefaultThemeName — ModernGray stays the default.
+			RegisterTheme("Ocean", "Teal accent on a deep dark surface",
+				() => Themes.Theme.FromPalette(new Themes.Palette { Primary = Color.FromHex("#2DD4BF"), Background = Color.FromHex("#0B1F2A") }));
+			RegisterTheme("Amber", "Warm amber accent, dark",
+				() => Themes.Theme.FromPalette(new Themes.Palette { Primary = Color.FromHex("#F59E0B"), Background = Color.FromHex("#1C1917") }));
+			RegisterTheme("Forest", "Green accent, dark",
+				() => Themes.Theme.FromPalette(new Themes.Palette { Primary = Color.FromHex("#22C55E"), Background = Color.FromHex("#0F1A12") }));
+			RegisterTheme("Crimson", "Red accent, dark",
+				() => Themes.Theme.FromPalette(new Themes.Palette { Primary = Color.FromHex("#EF4444"), Background = Color.FromHex("#1A0F12") }));
+			RegisterTheme("Slate", "Cool blue-grey accent, dark",
+				() => Themes.Theme.FromPalette(new Themes.Palette { Primary = Color.FromHex("#64748B"), Background = Color.FromHex("#0F172A") }));
+			RegisterTheme("Daylight", "Blue accent on a light surface",
+				() => Themes.Theme.FromPalette(new Themes.Palette { Primary = Color.FromHex("#2563EB"), Background = Color.FromHex("#F8FAFC") }));
 		}
 
 		/// <summary>

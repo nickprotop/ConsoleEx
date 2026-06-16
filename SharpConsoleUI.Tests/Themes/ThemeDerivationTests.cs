@@ -158,4 +158,14 @@ public class ThemeDerivationTests
 		Assert.Equal("MyDark", system.Theme.Name);
 		Assert.Equal(Color.DarkRed, system.Theme.ButtonBackgroundColor);
 	}
+
+	[Fact]
+	public void BareMutableTheme_HasBlankNeutralDefaults_NotModernGray()
+	{
+		var t = new MutableTheme();
+		// Blank canvas: window bg is transparent/default, NOT ModernGray's Grey15 — proves decoupling.
+		Assert.NotEqual(new ModernGrayTheme().WindowBackgroundColor, t.WindowBackgroundColor);
+		Assert.True(t.WindowBackgroundColor.A == 0 || t.WindowBackgroundColor.IsDefault,
+			"bare MutableTheme window background should be transparent/default");
+	}
 }

@@ -16,29 +16,21 @@ namespace SharpConsoleUI.Themes
 	/// theme can override any subset of colors after copying a base theme via <see cref="CopyFrom"/>.
 	/// </summary>
 	/// <remarks>
-	/// Inherits every settable theme member + its defaults from <see cref="ModernGrayTheme"/>, so a
-	/// bare <c>new MutableTheme()</c> is already a valid theme (ModernGray's values). It only adds
-	/// settable <c>Name</c>/<c>Description</c> (which the base exposes as get-only) via
-	/// <see cref="NameValue"/>/<see cref="DescriptionValue"/>.
+	/// Derives from <see cref="ThemeBase"/>, so a bare <c>new MutableTheme()</c> is a blank canvas
+	/// (transparent/default member values) rather than inheriting any concrete theme's values. This
+	/// makes a member that <see cref="CopyFrom"/> forgets to copy visibly wrong instead of silently
+	/// adopting some base theme's value. It exposes settable <c>Name</c>/<c>Description</c> via
+	/// <see cref="NameValue"/>/<see cref="DescriptionValue"/> for the builder/generator.
 	/// </remarks>
-	public sealed class MutableTheme : ModernGrayTheme
+	public sealed class MutableTheme : ThemeBase
 	{
-		private string _name = "Custom";
-		private string _description = "Custom theme";
+		/// <summary>Sets the theme name (alias of <see cref="ITheme.Name"/> for the builder/generator).</summary>
+		public string NameValue { get => Name; set => Name = value ?? "Custom"; }
 
-		/// <inheritdoc/>
-		public override string Name => _name;
+		/// <summary>Sets the theme description (alias of <see cref="ITheme.Description"/>).</summary>
+		public string DescriptionValue { get => Description; set => Description = value ?? string.Empty; }
 
-		/// <inheritdoc/>
-		public override string Description => _description;
-
-		/// <summary>Sets the theme name.</summary>
-		public string NameValue { get => _name; set => _name = value ?? "Custom"; }
-
-		/// <summary>Sets the theme description.</summary>
-		public string DescriptionValue { get => _description; set => _description = value ?? string.Empty; }
-
-		/// <summary>Creates a mutable theme pre-populated with ModernGray's values.</summary>
+		/// <summary>Creates a blank mutable theme (transparent/default member values).</summary>
 		public MutableTheme()
 		{
 		}
@@ -55,8 +47,9 @@ namespace SharpConsoleUI.Themes
 			if (source == null) throw new ArgumentNullException(nameof(source));
 
 			// Identity
-			_name = source.Name;
-			_description = source.Description;
+			Name = source.Name;
+			Description = source.Description;
+			Mode = source.Mode;
 
 			// Window / borders / titles
 			WindowBackgroundColor = source.WindowBackgroundColor;
@@ -124,6 +117,10 @@ namespace SharpConsoleUI.Themes
 			DropdownForegroundColor = source.DropdownForegroundColor;
 			DropdownHighlightBackgroundColor = source.DropdownHighlightBackgroundColor;
 			DropdownHighlightForegroundColor = source.DropdownHighlightForegroundColor;
+			DropdownFocusedForegroundColor = source.DropdownFocusedForegroundColor;
+			DropdownFocusedBackgroundColor = source.DropdownFocusedBackgroundColor;
+			DropdownDisabledForegroundColor = source.DropdownDisabledForegroundColor;
+			DropdownDisabledBackgroundColor = source.DropdownDisabledBackgroundColor;
 
 			// Menu bar / dropdown
 			MenuBarHighlightBackgroundColor = source.MenuBarHighlightBackgroundColor;
@@ -170,6 +167,12 @@ namespace SharpConsoleUI.Themes
 			ListHoverBackgroundColor = source.ListHoverBackgroundColor;
 			ListHoverForegroundColor = source.ListHoverForegroundColor;
 			ListBackgroundColor = source.ListBackgroundColor;
+			ListForegroundColor = source.ListForegroundColor;
+			ListFocusedForegroundColor = source.ListFocusedForegroundColor;
+			ListSelectedForegroundColor = source.ListSelectedForegroundColor;
+			ListSelectedBackgroundColor = source.ListSelectedBackgroundColor;
+			ListDisabledForegroundColor = source.ListDisabledForegroundColor;
+			ListDisabledBackgroundColor = source.ListDisabledBackgroundColor;
 			ToolbarBackgroundColor = source.ToolbarBackgroundColor;
 			ToolbarForegroundColor = source.ToolbarForegroundColor;
 			SeparatorForegroundColor = source.SeparatorForegroundColor;
@@ -189,6 +192,7 @@ namespace SharpConsoleUI.Themes
 			DatePickerSegmentBackgroundColor = source.DatePickerSegmentBackgroundColor;
 			DatePickerSegmentForegroundColor = source.DatePickerSegmentForegroundColor;
 			DatePickerDisabledForegroundColor = source.DatePickerDisabledForegroundColor;
+			DatePickerDisabledBackgroundColor = source.DatePickerDisabledBackgroundColor;
 			DatePickerCalendarTodayColor = source.DatePickerCalendarTodayColor;
 			DatePickerCalendarSelectedColor = source.DatePickerCalendarSelectedColor;
 			DatePickerCalendarHeaderColor = source.DatePickerCalendarHeaderColor;
@@ -217,6 +221,10 @@ namespace SharpConsoleUI.Themes
 			CheckboxBackgroundColor = source.CheckboxBackgroundColor;
 			CheckboxFocusedBackgroundColor = source.CheckboxFocusedBackgroundColor;
 			CheckboxDisabledBackgroundColor = source.CheckboxDisabledBackgroundColor;
+			CheckboxForegroundColor = source.CheckboxForegroundColor;
+			CheckboxFocusedForegroundColor = source.CheckboxFocusedForegroundColor;
+			CheckboxDisabledForegroundColor = source.CheckboxDisabledForegroundColor;
+			CheckboxCheckmarkColor = source.CheckboxCheckmarkColor;
 
 			// Tree (nullable)
 			TreeBackgroundColor = source.TreeBackgroundColor;
@@ -227,6 +235,9 @@ namespace SharpConsoleUI.Themes
 			LineGraphBackgroundColor = source.LineGraphBackgroundColor;
 			BarGraphBackgroundColor = source.BarGraphBackgroundColor;
 			SparklineBackgroundColor = source.SparklineBackgroundColor;
+
+			// Html
+			HtmlForegroundColor = source.HtmlForegroundColor;
 
 			// Start menu (nullable)
 			StartMenuHeaderBackgroundColor = source.StartMenuHeaderBackgroundColor;

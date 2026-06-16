@@ -46,7 +46,7 @@ namespace SharpConsoleUI.Controls
 
 			if (!_isEnabled)
 			{
-				backgroundColor = Container?.GetConsoleWindowSystem?.Theme?.ButtonDisabledBackgroundColor ?? Color.Grey;
+				backgroundColor = Container?.GetConsoleWindowSystem?.Theme?.DatePickerDisabledBackgroundColor ?? Color.Grey;
 				foregroundColor = Container?.GetConsoleWindowSystem?.Theme?.DatePickerDisabledForegroundColor ?? Color.DarkSlateGray1;
 			}
 			else if (HasFocus)

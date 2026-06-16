@@ -190,6 +190,10 @@ namespace SharpConsoleUI.Rendering
 			InvalidateStatusCache();
 			foreach (var w in _windowSystemContext.Windows.Values)
 			{
+				// Clear the cached top/bottom border buffers too: a theme change updates the window's
+				// border/title colors, but the border cache key is (width, active-state) only, so without
+				// this the cached top border keeps the OLD theme's colors after a SwitchTheme.
+				w.InvalidateBorderCache();
 				w.Invalidate(true);
 			}
 		}

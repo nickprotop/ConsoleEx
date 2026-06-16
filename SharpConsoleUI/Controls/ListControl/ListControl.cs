@@ -313,7 +313,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color FocusedForegroundColor
 		{
-			get => _focusedForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonFocusedForegroundColor ?? Color.White;
+			get => _focusedForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ListFocusedForegroundColor ?? Color.White;
 			set => SetProperty(ref _focusedForegroundColorValue, (Color?)value);
 		}
 
@@ -322,7 +322,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color ForegroundColor
 		{
-			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonForegroundColor ?? Color.White;
+			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ListForegroundColor ?? Color.White;
 			set => SetProperty(ref _foregroundColorValue, (Color?)value);
 		}
 
@@ -337,7 +337,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color HighlightBackgroundColor
 		{
-			get => _highlightBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonSelectedBackgroundColor ?? Color.DarkBlue;
+			get => _highlightBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ListSelectedBackgroundColor ?? Color.DarkBlue;
 			set => SetProperty(ref _highlightBackgroundColorValue, (Color?)value);
 		}
 
@@ -346,7 +346,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color HighlightForegroundColor
 		{
-			get => _highlightForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ButtonSelectedForegroundColor ?? Color.White;
+			get => _highlightForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ListSelectedForegroundColor ?? Color.White;
 			set => SetProperty(ref _highlightForegroundColorValue, (Color?)value);
 		}
 

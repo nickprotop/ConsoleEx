@@ -38,6 +38,20 @@ namespace SharpConsoleUI.Themes
 			if (baseTheme == null) throw new ArgumentNullException(nameof(baseTheme));
 			return new ThemeBuilder(new MutableTheme().CopyFrom(baseTheme));
 		}
+
+		/// <summary>
+		/// Generates a complete theme from a small <see cref="Palette"/> of seed colors. Everything not
+		/// supplied is derived (see <see cref="Palette"/>). Returns a mutable theme you can register and
+		/// switch to like any other.
+		/// </summary>
+		/// <param name="palette">The seed colors.</param>
+		/// <returns>The generated (mutable) theme.</returns>
+		/// <exception cref="System.ArgumentNullException"><paramref name="palette"/> is null.</exception>
+		public static MutableTheme FromPalette(Palette palette)
+		{
+			if (palette == null) throw new System.ArgumentNullException(nameof(palette));
+			return PaletteThemeGenerator.Generate(palette);
+		}
 	}
 
 	/// <summary>
