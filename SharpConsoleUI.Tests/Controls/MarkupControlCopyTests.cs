@@ -67,6 +67,76 @@ public class MarkupControlCopyTests
 	}
 
 	[Fact]
+	public void AppendText_DefaultInlineIsFalse_StartsNewLine()
+	{
+		// Explicit default arg must match the implicit default (line-per-call).
+		var c = new MarkupControl(new List<string> { "x" });
+		c.AppendText("y\nz", inline: false);
+		Assert.Equal("x\ny\nz", c.Text);
+	}
+
+	[Fact]
+	public void AppendText_Inline_JoinsFirstSegmentOntoCurrentLine()
+	{
+		var c = new MarkupControl(new List<string> { "x" });
+		c.AppendText("y\nz", inline: true);
+		Assert.Equal("xy\nz", c.Text);
+	}
+
+	[Fact]
+	public void AppendText_Inline_LeadingNewlineStartsNewLine()
+	{
+		var c = new MarkupControl(new List<string> { "x" });
+		c.AppendText("\ny", inline: true);
+		Assert.Equal("x\ny", c.Text);
+	}
+
+	[Fact]
+	public void AppendText_Inline_MultipleLeadingNewlines_InsertBlankLines()
+	{
+		// "\n\ny" -> first (empty) segment joins "x" (no-op), then a blank line, then "y".
+		var c = new MarkupControl(new List<string> { "x" });
+		c.AppendText("\n\ny", inline: true);
+		Assert.Equal("x\n\ny", c.Text);
+	}
+
+	[Fact]
+	public void AppendInline_StringIsOnlyNewlines_AddsBlankLines()
+	{
+		// Inline-appending pure newlines just opens new (blank) lines below the current one.
+		var c = new MarkupControl(new List<string> { "x" });
+		c.AppendInline("\n\n");
+		Assert.Equal("x\n\n", c.Text);
+	}
+
+	[Fact]
+	public void AppendInline_JoinsFirstSegmentOntoCurrentLine()
+	{
+		var c = new MarkupControl(new List<string> { "x" });
+		c.AppendInline("y\nz");
+		Assert.Equal("xy\nz", c.Text);
+	}
+
+	[Fact]
+	public void AppendInline_OnEmptyContent_AddsAsFirstLine()
+	{
+		var c = new MarkupControl(new List<string>());
+		c.AppendInline("hello");
+		Assert.Equal("hello", c.Text);
+	}
+
+	[Theory]
+	[InlineData(null)]
+	[InlineData("")]
+	public void AppendText_NullOrEmpty_IsNoOp(string? text)
+	{
+		var c = new MarkupControl(new List<string> { "x" });
+		c.AppendText(text!);
+		c.AppendText(text!, inline: true);
+		Assert.Equal("x", c.Text);
+	}
+
+	[Fact]
 	public void Append_ClearsStaleSelection()
 	{
 		var c = new MarkupControl(new List<string> { "hello world" }) { EnableSelection = true };

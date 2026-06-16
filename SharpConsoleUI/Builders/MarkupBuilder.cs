@@ -6,7 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using System.Text;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
@@ -54,43 +53,26 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	}
 
 	/// <summary>
-	/// Adds string of markup text
+	/// Appends markup text to the current last line (<c>Console.Write</c>-style): the first segment is
+	/// joined onto the line added so far, and a new line begins only at each embedded <c>\n</c>. Use
+	/// <see cref="AddLine"/> when you want each call to start on its own line.
 	/// </summary>
 	/// <param name="markup">The markup text</param>
 	/// <returns>The builder for chaining</returns>
 	public MarkupBuilder AddText(string markup)
 	{
-		// arg check
-		if (markup == null || string.Empty.Equals(markup)) return this;
+		if (string.IsNullOrEmpty(markup)) return this;
 
-		// Ensure at least one line exists as the current line.
+		var parts = markup.Split('\n');
+
+		// Ensure at least one line exists, then join the first segment onto the current last line.
 		if (_lines.Count == 0)
 			_lines.Add(string.Empty);
+		_lines[^1] += parts[0];
 
-		StringBuilder charPool = new StringBuilder();
-
-		foreach (char c in markup)
-		{
-			if (c == '\n')
-			{
-				// Append all previously accumulated characters to the current line.
-				_lines[^1] += charPool.ToString();
-
-				// Clear the accumulated characters.
-				charPool.Clear();
-
-				// new line
-				_lines.Add(string.Empty);
-			}
-			else
-			{
-				charPool.Append(c);
-			}
-		}
-
-		// Append the last segment of characters to the current line.
-		if (charPool.Length > 0)
-			_lines[^1] += charPool.ToString();
+		// Remaining segments each start a new line.
+		for (int i = 1; i < parts.Length; i++)
+			_lines.Add(parts[i]);
 
 		return this;
 	}

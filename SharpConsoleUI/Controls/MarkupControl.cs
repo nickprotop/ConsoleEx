@@ -7,7 +7,6 @@
 // -----------------------------------------------------------------------
 
 using System.Drawing;
-using System.Text;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
@@ -264,53 +263,40 @@ namespace SharpConsoleUI.Controls
 		/// Appends text to the content, splitting on newlines into separate lines.
 		/// </summary>
 		/// <param name="text">The text to append. Embedded <c>\n</c> characters start new lines.</param>
-		public void AppendText(string text)
+		/// <param name="inline">
+		/// When <c>false</c> (the default), the appended text starts on a new line — each segment between
+		/// <c>\n</c> characters becomes its own content line. When <c>true</c>, the first segment is joined
+		/// onto the current last line (<c>Console.Write</c>-style), and a new line begins only at each
+		/// embedded <c>\n</c>.
+		/// </param>
+		public void AppendText(string text, bool inline = false)
 		{
-			// arg check
-			if (text == null || string.Empty.Equals(text)) return;
+			if (string.IsNullOrEmpty(text)) return;
 
+			var parts = text.Split('\n');
 			lock (_contentLock)
 			{
-				AppendCore(text);
-			}
+				int startIndex = 0;
+				if (inline && _content.Count > 0)
+				{
+					// Join the first segment onto the current last line; remaining segments are new lines.
+					_content[^1] += parts[0];
+					startIndex = 1;
+				}
 
+				for (int i = startIndex; i < parts.Length; i++)
+					_content.Add(parts[i]);
+			}
 			OnContentAppended();
 		}
 
-		private void AppendCore(string text)
-		{
-			// defensive check
-			if (text == null || string.Empty.Equals(text)) return;
-
-			// Ensure at least one line exists as the current line.
-			if (_content.Count == 0)
-				_content.Add(string.Empty);
-
-			StringBuilder charPool = new StringBuilder();
-
-			foreach (char c in text)
-			{
-				if (c == '\n')
-				{
-					// Append all previously accumulated characters to the current line.
-					_content[^1] += charPool.ToString();
-
-					// Clear the accumulated characters.
-					charPool.Clear();
-
-					// new line
-					_content.Add(string.Empty);
-				}
-				else
-				{
-					charPool.Append(c);
-				}
-			}
-
-			// Append the last segment of characters to the current line.
-			if (charPool.Length > 0)
-				_content[^1] += charPool.ToString();
-		}
+		/// <summary>
+		/// Appends text to the current last line (<c>Console.Write</c>-style), starting new lines only at
+		/// embedded <c>\n</c> characters. Equivalent to <see cref="AppendText(string, bool)"/> with
+		/// <c>inline: true</c>.
+		/// </summary>
+		/// <param name="text">The text to append. Embedded <c>\n</c> characters start new lines.</param>
+		public void AppendInline(string text) => AppendText(text, inline: true);
 
 
 		/// <summary>Shared post-append bookkeeping: any active selection is now stale, so clear it.</summary>
