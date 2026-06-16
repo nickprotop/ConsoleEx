@@ -440,6 +440,32 @@ Use doubled brackets to display literal `[` and `]` characters:
 
 ## Programmatic API
 
+### Updating MarkupControl Content
+
+A `MarkupControl` can be updated live. The append API follows the .NET convention you already
+know from `StringBuilder` / `Console`:
+
+| Method | Behavior |
+|--------|----------|
+| `Append(text)` | Inline append — joins onto the current last line, like `StringBuilder.Append` / `Console.Write`. A new line begins only at each embedded `\n`. |
+| `AppendLine(text)` | Appends `text` as its own new line, like `Console.WriteLine`. |
+| `AppendLines(lines)` | Appends each item as its own line. |
+| `SetContent(lines)` | Replaces all content. |
+
+```csharp
+var c = new MarkupControl(new List<string>());
+c.Append("[green]●[/] ");      // inline
+c.Append("all healthy");        // -> "● all healthy"  (same line)
+c.AppendLine("[grey]done[/]");  // -> next line
+```
+
+`Append`/`AppendLine` are the recommended pair. The earlier `AppendText(text, bool inline = false)`
+(line-per-call by default; `inline: true` for the same behavior as `Append`) and `AppendInline(text)`
+remain as aliases. On the builder, `Controls.Markup().Append(...)` mirrors the same inline behavior,
+alongside `.AddLine(...)`.
+
+### Parsing API
+
 The `MarkupParser` class in `SharpConsoleUI.Parsing` provides the full parsing API:
 
 ### MarkupParser.Parse()
