@@ -263,16 +263,41 @@ namespace SharpConsoleUI.Controls
 		/// Appends text to the content, splitting on newlines into separate lines.
 		/// </summary>
 		/// <param name="text">The text to append. Embedded <c>\n</c> characters start new lines.</param>
-		public void AppendText(string text)
+		/// <param name="inline">
+		/// When <c>false</c> (the default), the appended text starts on a new line — each segment between
+		/// <c>\n</c> characters becomes its own content line. When <c>true</c>, the first segment is joined
+		/// onto the current last line (<c>Console.Write</c>-style), and a new line begins only at each
+		/// embedded <c>\n</c>.
+		/// </param>
+		public void AppendText(string text, bool inline = false)
 		{
-			var parts = (text ?? string.Empty).Split('\n');
+			if (string.IsNullOrEmpty(text)) return;
+
+			var parts = text.Split('\n');
 			lock (_contentLock)
 			{
-				foreach (var part in parts)
-					_content.Add(part);
+				int startIndex = 0;
+				if (inline && _content.Count > 0)
+				{
+					// Join the first segment onto the current last line; remaining segments are new lines.
+					_content[^1] += parts[0];
+					startIndex = 1;
+				}
+
+				for (int i = startIndex; i < parts.Length; i++)
+					_content.Add(parts[i]);
 			}
 			OnContentAppended();
 		}
+
+		/// <summary>
+		/// Appends text to the current last line (<c>Console.Write</c>-style), starting new lines only at
+		/// embedded <c>\n</c> characters. Equivalent to <see cref="AppendText(string, bool)"/> with
+		/// <c>inline: true</c>.
+		/// </summary>
+		/// <param name="text">The text to append. Embedded <c>\n</c> characters start new lines.</param>
+		public void AppendInline(string text) => AppendText(text, inline: true);
+
 
 		/// <summary>Shared post-append bookkeeping: any active selection is now stale, so clear it.</summary>
 		private void OnContentAppended()

@@ -52,6 +52,31 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 		return this;
 	}
 
+	/// <summary>
+	/// Appends markup text to the current last line (<c>Console.Write</c>-style): the first segment is
+	/// joined onto the line added so far, and a new line begins only at each embedded <c>\n</c>. Use
+	/// <see cref="AddLine"/> when you want each call to start on its own line.
+	/// </summary>
+	/// <param name="markup">The markup text</param>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder AddText(string markup)
+	{
+		if (string.IsNullOrEmpty(markup)) return this;
+
+		var parts = markup.Split('\n');
+
+		// Ensure at least one line exists, then join the first segment onto the current last line.
+		if (_lines.Count == 0)
+			_lines.Add(string.Empty);
+		_lines[^1] += parts[0];
+
+		// Remaining segments each start a new line.
+		for (int i = 1; i < parts.Length; i++)
+			_lines.Add(parts[i]);
+
+		return this;
+	}
+
 	/// <summary>Appends a Markdown block, wrapped in a [markdown] region.</summary>
 	/// <param name="markdown">The Markdown content.</param>
 	/// <returns>This builder for chaining.</returns>
