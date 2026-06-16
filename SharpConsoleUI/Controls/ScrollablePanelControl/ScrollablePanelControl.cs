@@ -101,7 +101,9 @@ namespace SharpConsoleUI.Controls
 
 		// IContainer properties
 		private Color? _backgroundColorValue;
-		private Color _foregroundColor = Color.White;
+		// Null = follow the theme's WindowForegroundColor (so a theme switch recolors text);
+		// an explicit set pins the value. The public getter always returns a resolved Color.
+		private Color? _foregroundColor;
 		private bool _isDirty = true;
 
 		// Set when ScrollChildIntoView is called before viewport is ready;
@@ -837,7 +839,9 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public Color ForegroundColor
 		{
-			get => _foregroundColor;
+			// Unset → resolve from the theme's window foreground so a theme switch recolors text
+			// (mirrors how BackgroundColor follows the theme). An explicit set pins the value.
+			get => ColorResolver.ResolveForeground(_foregroundColor, Container);
 			set { _foregroundColor = value; OnPropertyChanged(); Invalidate(true); }
 		}
 

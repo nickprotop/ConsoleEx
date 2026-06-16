@@ -41,14 +41,18 @@ namespace SharpConsoleUI.Controls
 			return FormatNavItemCompact(item, selected);
 		}
 
+		private static string Rgb(Color c) => $"rgb({c.R},{c.G},{c.B})";
+
 		private string FormatNavHeader(NavigationItem item)
 		{
 			var indicator = item.IsExpanded
 				? ControlDefaults.NavigationViewExpandedIndicator
 				: ControlDefaults.NavigationViewCollapsedIndicator;
+			// Explicit HeaderColor wins; otherwise follow the theme foreground (not a hardcoded white,
+			// which is invisible on light themes).
 			var colorTag = item.HeaderColor.HasValue
-				? $"rgb({item.HeaderColor.Value.R},{item.HeaderColor.Value.G},{item.HeaderColor.Value.B})"
-				: "white";
+				? Rgb(item.HeaderColor.Value)
+				: Rgb(ItemForeground);
 			return $"[bold {colorTag}]  {indicator} {item.Text}[/]";
 		}
 
@@ -73,11 +77,15 @@ namespace SharpConsoleUI.Controls
 			if (selected)
 			{
 				var bg = _selectedItemBackground;
-				return $"[bold white on rgb({bg.R},{bg.G},{bg.B})]  {indentSpaces}{_selectionIndicator} {paddedText}[/]";
+				// Readable selected-item fg from the theme (not hardcoded white, which is invisible
+				// when a light theme produces a light selection background).
+				return $"[bold {Rgb(SelectedItemForeground)} on {Rgb(bg)}]  {indentSpaces}{_selectionIndicator} {paddedText}[/]";
 			}
 			else
 			{
-				return $"[dim]    {indentSpaces}{paddedText}[/]";
+				// Theme foreground (not the bare [dim] tag, which dims toward the surface and
+				// vanishes on light themes).
+				return $"[{Rgb(ItemForeground)}]    {indentSpaces}{paddedText}[/]";
 			}
 		}
 
@@ -110,11 +118,11 @@ namespace SharpConsoleUI.Controls
 			if (selected)
 			{
 				var bg = _selectedItemBackground;
-				return $"[bold white on rgb({bg.R},{bg.G},{bg.B})]{padded}[/]";
+				return $"[bold {Rgb(SelectedItemForeground)} on {Rgb(bg)}]{padded}[/]";
 			}
 			else
 			{
-				return $"[dim]{padded}[/]";
+				return $"[{Rgb(ItemForeground)}]{padded}[/]";
 			}
 		}
 

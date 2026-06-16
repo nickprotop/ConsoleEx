@@ -52,7 +52,9 @@ namespace SharpConsoleUI.Controls
 			SetActualBounds(bounds);
 
 			var bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			var fgColor = _foregroundColor;
+			// Unset foreground follows the theme (so a theme switch recolors panel text), falling
+			// back to the painter-supplied default; an explicit ForegroundColor still pins it.
+			var fgColor = ColorResolver.ResolveForeground(_foregroundColor, Container, defaultFg);
 
 			int startX = bounds.X + Margin.Left;
 			int startY = bounds.Y + Margin.Top;

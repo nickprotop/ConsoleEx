@@ -55,6 +55,17 @@ namespace SharpConsoleUI.Controls
 			// If mode changes here, we invalidate to trigger re-layout on the next frame.
 			CheckAndApplyDisplayMode(targetWidth);
 
+			// Item markup is formatted at add-time (cached on each item's MarkupControl) and bakes in the
+			// resolved foreground. At add-time the control often isn't attached yet (no theme reachable),
+			// and a later theme switch changes the resolved colors. Re-format when the resolved item
+			// foreground actually changes — covers first attach AND runtime theme switches, cheaply.
+			var resolvedItemFg = ItemForeground;
+			if (resolvedItemFg != _lastFormattedItemForeground)
+			{
+				_lastFormattedItemForeground = resolvedItemFg;
+				RefreshAllItemMarkup();
+			}
+
 			// Background fill — preserve gradient if no explicit background
 			var bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
 			var fgColor = ColorResolver.ResolveForeground(_foregroundColor, Container, defaultFg);

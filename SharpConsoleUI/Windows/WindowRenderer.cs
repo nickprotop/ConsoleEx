@@ -339,8 +339,11 @@ namespace SharpConsoleUI.Windows
 		{
 			if (_rootNode == null || _buffer == null) return;
 
-			// Paint the tree with the provided clip rect
-			_rootNode.Paint(_buffer, clipRect);
+			// Paint the tree with the provided clip rect. Seed the default fg/bg from the window's
+			// theme-resolved colors (NOT a hardcoded White/Black) so controls that don't set their
+			// own foreground follow the active theme — e.g. switching to a light theme recolors text
+			// to dark instead of leaving it stale-white-on-light (invisible).
+			_rootNode.Paint(_buffer, clipRect, _window.ForegroundColor, _window.BackgroundColor);
 
 			// Diagnostics: Capture CharacterBuffer snapshot after painting
 			var diagnostics = _window._windowSystem?.RenderingDiagnostics;

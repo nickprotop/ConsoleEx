@@ -54,8 +54,15 @@ namespace SharpConsoleUI.Controls
 			ControlDefaults.NavigationViewSelectedBgR,
 			ControlDefaults.NavigationViewSelectedBgG,
 			ControlDefaults.NavigationViewSelectedBgB);
-		private Color _selectedItemForeground = Color.White;
-		private Color _itemForeground = Color.Grey;
+		// Null = follow the active theme (menu foreground / highlight foreground), so light themes get
+		// readable dark text instead of a hardcoded white/grey that vanishes on a light surface.
+		// An explicit set pins the value.
+		private Color? _selectedItemForeground;
+		private Color? _itemForeground;
+
+		// The resolved item foreground last baked into the cached item markup; when the live resolved
+		// value differs (first attach, or a theme switch), the render pass re-formats the items.
+		private Color? _lastFormattedItemForeground;
 		private char _selectionIndicator = '▸';
 		private BorderStyle _contentBorderStyle = BorderStyle.Rounded;
 		private Color? _contentBorderColor;
@@ -75,7 +82,9 @@ namespace SharpConsoleUI.Controls
 
 		// IContainer properties
 		private Color? _backgroundColorValue;
-		private Color _foregroundColor = Color.White;
+		// Null = follow the theme's WindowForegroundColor so a light theme gets dark text;
+		// an explicit set pins the value. The public getter always returns a resolved Color.
+		private Color? _foregroundColor;
 		private bool _isDirty = true;
 
 		/// <summary>
@@ -290,7 +299,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color SelectedItemForeground
 		{
-			get => _selectedItemForeground;
+			// Unset → theme highlight foreground (readable on the selection bg); explicit set pins it.
+			get => _selectedItemForeground
+				?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownHighlightForegroundColor
+				?? PaletteColors.ReadableOn(_selectedItemBackground);
 			set { if (SetProperty(ref _selectedItemForeground, value)) RefreshAllItemMarkup(); }
 		}
 
@@ -299,7 +311,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color ItemForeground
 		{
-			get => _itemForeground;
+			// Unset → theme menu foreground so a light theme yields dark, readable text; explicit set pins it.
+			get => _itemForeground
+				?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownForegroundColor
+				?? ForegroundColor;
 			set { if (SetProperty(ref _itemForeground, value)) RefreshAllItemMarkup(); }
 		}
 
@@ -490,7 +505,9 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public Color ForegroundColor
 		{
-			get => _foregroundColor;
+			// Unset → resolve from the theme's window foreground so a theme switch (e.g. to a light
+			// theme) recolors the nav text instead of leaving it stale-white. An explicit set pins it.
+			get => ColorResolver.ResolveForeground(_foregroundColor, Container);
 			set { _foregroundColor = value; OnPropertyChanged(); Invalidate(true); }
 		}
 
