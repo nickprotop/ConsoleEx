@@ -18,6 +18,37 @@ namespace SharpConsoleUI.Tests.Controls;
 public class MarkupBuilderAddTextTests
 {
 	[Fact]
+	public void Append_JoinsOntoPrevious_ConsoleWriteStyle()
+	{
+		// .NET-convention name on the builder: Append (StringBuilder.Append / Console.Write).
+		var control = MarkupControl.Create()
+			.Append("Hello, ")
+			.Append("world")
+			.Build();
+
+		Assert.Equal("Hello, world", control.Text);
+	}
+
+	[Fact]
+	public void Append_NewlineStartsNewLine()
+	{
+		var control = MarkupControl.Create()
+			.Append("a\nb")
+			.Build();
+
+		Assert.Equal("a\nb", control.Text);
+	}
+
+	[Fact]
+	public void AddText_IsAliasOfAppend()
+	{
+		var viaAppend = MarkupControl.Create().AddLine("x").Append(" tail").Build();
+		var viaAddText = MarkupControl.Create().AddLine("x").AddText(" tail").Build();
+		Assert.Equal(viaAppend.Text, viaAddText.Text);
+		Assert.Equal("x tail", viaAppend.Text);
+	}
+
+	[Fact]
 	public void AddText_JoinsOntoPreviousAddText()
 	{
 		var control = MarkupControl.Create()

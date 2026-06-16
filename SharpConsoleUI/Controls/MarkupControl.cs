@@ -236,6 +236,15 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Appends markup to the end of the content without starting a new line, in the style of
+		/// <see cref="System.Text.StringBuilder.Append(string)"/> / <c>Console.Write</c>: the text is
+		/// joined onto the current last line, and a new line begins only at each embedded <c>\n</c>.
+		/// Pairs with <see cref="AppendLine(string)"/>.
+		/// </summary>
+		/// <param name="text">The text to append, supporting markup syntax. Embedded <c>\n</c> characters start new lines.</param>
+		public void Append(string text) => AppendText(text, inline: true);
+
+		/// <summary>
 		/// Appends a single line of markup to the end of the content.
 		/// </summary>
 		/// <param name="line">The line to append, supporting markup syntax.</param>

@@ -125,6 +125,33 @@ public class MarkupControlCopyTests
 		Assert.Equal("hello", c.Text);
 	}
 
+	[Fact]
+	public void Append_JoinsOntoCurrentLine_ConsoleWriteStyle()
+	{
+		// .NET-convention name: Append == StringBuilder.Append / Console.Write (inline).
+		var c = new MarkupControl(new List<string> { "Hello, " });
+		c.Append("world");
+		Assert.Equal("Hello, world", c.Text);
+	}
+
+	[Fact]
+	public void Append_NewlineStartsNewLine()
+	{
+		var c = new MarkupControl(new List<string> { "x" });
+		c.Append("y\nz");
+		Assert.Equal("xy\nz", c.Text);
+	}
+
+	[Fact]
+	public void Append_ThenAppendLine_FormConventionPair()
+	{
+		var c = new MarkupControl(new List<string>());
+		c.Append("Hello, ");
+		c.Append("world");
+		c.AppendLine("!");
+		Assert.Equal("Hello, world\n!", c.Text);
+	}
+
 	[Theory]
 	[InlineData(null)]
 	[InlineData("")]

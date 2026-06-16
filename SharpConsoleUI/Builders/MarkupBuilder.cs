@@ -53,13 +53,14 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	}
 
 	/// <summary>
-	/// Appends markup text to the current last line (<c>Console.Write</c>-style): the first segment is
+	/// Appends markup to the current last line without starting a new line, in the style of
+	/// <see cref="System.Text.StringBuilder.Append(string)"/> / <c>Console.Write</c>: the first segment is
 	/// joined onto the line added so far, and a new line begins only at each embedded <c>\n</c>. Use
 	/// <see cref="AddLine"/> when you want each call to start on its own line.
 	/// </summary>
 	/// <param name="markup">The markup text</param>
 	/// <returns>The builder for chaining</returns>
-	public MarkupBuilder AddText(string markup)
+	public MarkupBuilder Append(string markup)
 	{
 		if (string.IsNullOrEmpty(markup)) return this;
 
@@ -76,6 +77,14 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 
 		return this;
 	}
+
+	/// <summary>
+	/// Alias for <see cref="Append(string)"/>, retained for compatibility. Prefer <see cref="Append"/>
+	/// (matches the .NET <c>StringBuilder.Append</c> / <c>Console.Write</c> convention).
+	/// </summary>
+	/// <param name="markup">The markup text</param>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder AddText(string markup) => Append(markup);
 
 	/// <summary>Appends a Markdown block, wrapped in a [markdown] region.</summary>
 	/// <param name="markdown">The Markdown content.</param>
