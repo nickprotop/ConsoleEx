@@ -27,7 +27,7 @@ public static class DialogsWindow
 
 		#region File Dialog Buttons
 
-		var fileSectionLabel = Controls.Label("[bold cyan]File Dialogs[/]");
+		var fileSectionLabel = Controls.Label("[bold]File Dialogs[/]");
 		fileSectionLabel.Margin = new Margin { Left = SectionLabelLeftMargin, Top = SectionTopMargin };
 
 		var openFileBtn = Controls.Button("Open File...")
@@ -88,7 +88,7 @@ public static class DialogsWindow
 
 		#region System Dialog Buttons
 
-		var systemSectionLabel = Controls.Label("[bold cyan]System Dialogs[/]");
+		var systemSectionLabel = Controls.Label("[bold]System Dialogs[/]");
 		systemSectionLabel.Margin = new Margin { Left = SectionLabelLeftMargin, Top = SectionTopMargin };
 
 		var aboutBtn = Controls.Button("About")

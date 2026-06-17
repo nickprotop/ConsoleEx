@@ -1,3 +1,4 @@
+using DemoApp.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -14,21 +15,15 @@ internal static class WinUIDemoWindow
 
 	public static Window Create(ConsoleWindowSystem ws)
 	{
-		var gradient = ColorGradient.FromColors(
-			new Color(15, 25, 60),
-			new Color(5, 5, 15));
-
 		var nav = Controls.NavigationView()
 			.WithNavWidth(26)
-			.WithPaneHeader("[bold white]  ⚙  Settings[/]")
+			.WithPaneHeader("[bold]  ⚙  Settings[/]")
 			.WithContentBorder(BorderStyle.Rounded)
-			.WithContentBorderColor(Color.Grey37)
-			.WithContentBackground(new Color(30, 30, 40))
 			.WithContentPadding(1, 0, 1, 0)
 			.AddItem("Home", subtitle: "Configure your preferences", content: panel =>
 			{
 				panel.AddControl(Controls.Markup()
-					.AddLine("[bold cyan]Welcome[/]")
+					.AddLine("[bold]Welcome[/]")
 					.AddEmptyLine()
 					.AddLine("This demo showcases a WinUI-inspired layout")
 					.AddLine("using SharpConsoleUI controls.")
@@ -45,7 +40,7 @@ internal static class WinUIDemoWindow
 			.AddItem("Settings", subtitle: "General application settings", content: panel =>
 			{
 				panel.AddControl(Controls.Markup()
-					.AddLine("[bold cyan]General Settings[/]")
+					.AddLine("[bold]General Settings[/]")
 					.AddEmptyLine()
 					.Build());
 				panel.AddControl(Controls.Checkbox("Enable notifications")
@@ -60,7 +55,7 @@ internal static class WinUIDemoWindow
 					.Build());
 				panel.AddControl(Controls.Markup()
 					.AddEmptyLine()
-					.AddLine("[bold cyan]Advanced[/]")
+					.AddLine("[bold]Advanced[/]")
 					.AddEmptyLine()
 					.Build());
 				panel.AddControl(Controls.Checkbox("Developer mode")
@@ -73,15 +68,15 @@ internal static class WinUIDemoWindow
 			.AddItem("Appearance", subtitle: "Customize the look and feel", content: panel =>
 			{
 				panel.AddControl(Controls.Markup()
-					.AddLine("[bold cyan]Theme[/]")
+					.AddLine("[bold]Theme[/]")
 					.AddEmptyLine()
 					.AddLine("[dim]Current theme:[/] [bold]Dark[/]")
 					.AddEmptyLine()
-					.AddLine("[bold cyan]Colors[/]")
+					.AddLine("[bold]Colors[/]")
 					.AddEmptyLine()
 					.AddLine($"  [on rgb(60,60,180)]  Accent  [/]  [on rgb(40,120,40)]  Success [/]  [on rgb(180,60,60)]  Danger  [/]")
 					.AddEmptyLine()
-					.AddLine("[bold cyan]Font Size[/]")
+					.AddLine("[bold]Font Size[/]")
 					.AddEmptyLine()
 					.Build());
 				panel.AddControl(Controls.ProgressBar()
@@ -100,7 +95,7 @@ internal static class WinUIDemoWindow
 			.AddItem("Privacy", subtitle: "Manage your privacy options", content: panel =>
 			{
 				panel.AddControl(Controls.Markup()
-					.AddLine("[bold cyan]Privacy Settings[/]")
+					.AddLine("[bold]Privacy Settings[/]")
 					.AddEmptyLine()
 					.Build());
 				panel.AddControl(Controls.Checkbox("Share usage data")
@@ -112,7 +107,7 @@ internal static class WinUIDemoWindow
 					.Build());
 				panel.AddControl(Controls.Markup()
 					.AddEmptyLine()
-					.AddLine("[bold cyan]Data Management[/]")
+					.AddLine("[bold]Data Management[/]")
 					.AddEmptyLine()
 					.AddLine("[dim]Clear browsing data, cookies, and cache.[/]")
 					.AddEmptyLine()
@@ -124,7 +119,7 @@ internal static class WinUIDemoWindow
 			.AddItem("About", subtitle: "Application information", content: panel =>
 			{
 				panel.AddControl(Controls.Markup()
-					.AddLine("[bold cyan]About[/]")
+					.AddLine("[bold]About[/]")
 					.AddEmptyLine()
 					.AddLine("[bold]SharpConsoleUI[/]")
 					.AddLine("[dim]Version 1.0.0[/]")
@@ -135,7 +130,7 @@ internal static class WinUIDemoWindow
 					.AddLine("[dim]License:[/] MIT")
 					.AddLine("[dim]Author:[/]  Nikolaos Protopapas")
 					.AddEmptyLine()
-					.AddLine("[bold cyan]System[/]")
+					.AddLine("[bold]System[/]")
 					.AddEmptyLine()
 					.AddLine($"[dim]Runtime:[/]  {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}")
 					.AddLine($"[dim]OS:[/]       {System.Runtime.InteropServices.RuntimeInformation.OSDescription}")
@@ -150,8 +145,6 @@ internal static class WinUIDemoWindow
 			.WithTitle("WinUI Layout")
 			.WithSize(WindowWidth, WindowHeight)
 			.Centered()
-			.WithBackgroundGradient(gradient, GradientDirection.Vertical)
-			.WithColors(Color.White, Color.Black)
 			.OnKeyPressed((sender, e) =>
 			{
 				if (e.KeyInfo.Key == ConsoleKey.Escape)
@@ -163,6 +156,7 @@ internal static class WinUIDemoWindow
 			.AddControl(nav)
 			.BuildAndShow();
 
+		DemoTheme.ApplyThemeGradient(window, ws);
 		return window;
 	}
 }

@@ -50,10 +50,10 @@ namespace SharpConsoleUI.Controls
 		// Configuration
 		private int _navPaneWidth = ControlDefaults.DefaultNavigationViewPaneWidth;
 		private string? _paneHeaderText;
-		private Color _selectedItemBackground = new Color(
-			ControlDefaults.NavigationViewSelectedBgR,
-			ControlDefaults.NavigationViewSelectedBgG,
-			ControlDefaults.NavigationViewSelectedBgB);
+		// Null = follow the active theme's menu-highlight background, so the selected row stays a
+		// theme-consistent pair with SelectedItemForeground (which reads against this same surface).
+		// An explicit set pins the value.
+		private Color? _selectedItemBackground;
 		// Null = follow the active theme (menu foreground / highlight foreground), so light themes get
 		// readable dark text instead of a hardcoded white/grey that vanishes on a light surface.
 		// An explicit set pins the value.
@@ -290,7 +290,13 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color SelectedItemBackground
 		{
-			get => _selectedItemBackground;
+			// Unset → theme menu-highlight background so the selection follows the theme; explicit set pins it.
+			get => _selectedItemBackground
+				?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownHighlightBackgroundColor
+				?? new Color(
+					ControlDefaults.NavigationViewSelectedBgR,
+					ControlDefaults.NavigationViewSelectedBgG,
+					ControlDefaults.NavigationViewSelectedBgB);
 			set { if (SetProperty(ref _selectedItemBackground, value)) RefreshAllItemMarkup(); }
 		}
 
@@ -299,10 +305,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color SelectedItemForeground
 		{
-			// Unset → theme highlight foreground (readable on the selection bg); explicit set pins it.
+			// Unset → theme highlight foreground, or a color guaranteed readable on the RESOLVED
+			// selection background (so the bg/fg pair always has contrast). Explicit set pins it.
 			get => _selectedItemForeground
 				?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownHighlightForegroundColor
-				?? PaletteColors.ReadableOn(_selectedItemBackground);
+				?? PaletteColors.ReadableOn(SelectedItemBackground);
 			set { if (SetProperty(ref _selectedItemForeground, value)) RefreshAllItemMarkup(); }
 		}
 

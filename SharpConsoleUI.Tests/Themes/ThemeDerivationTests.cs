@@ -16,12 +16,13 @@ public class ThemeDerivationTests
 	/// The tripwire: every readable <see cref="ITheme"/> member of a derived theme must equal the base
 	/// theme's value. If someone adds an <see cref="ITheme"/> member and forgets to copy it in
 	/// <see cref="MutableTheme.CopyFrom"/>, this fails (the derived value falls to MutableTheme's
-	/// ModernGray default instead of the ClassicTheme source value).
+	/// bare default instead of the fully-populated built-in source value). The specific base theme
+	/// doesn't matter — only that it is a fully-populated built-in.
 	/// </summary>
 	[Fact]
 	public void CopyFrom_CopiesEveryIThemeMember()
 	{
-		var baseTheme = new ClassicTheme();
+		var baseTheme = new ModernGrayTheme();
 		var derived = Theme.From(baseTheme).Build();
 
 		var properties = typeof(ITheme).GetProperties(BindingFlags.Public | BindingFlags.Instance);

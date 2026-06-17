@@ -18,7 +18,7 @@ internal static class TransparentWindowDemoWindow
 			.AddLine("semi-transparent windows placed on top.")
 			.AddEmptyLine()
 			.AddLine("[bold yellow]████████████████████████████████[/]")
-			.AddLine("[bold cyan]████████████████████████████████[/]")
+			.AddLine("[bold]████████████████████████████████[/]")
 			.AddLine("[bold magenta]████████████████████████████████[/]")
 			.AddLine("[bold red]████████████████████████████████[/]")
 			.AddEmptyLine()

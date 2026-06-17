@@ -163,8 +163,9 @@ ThemeSelectorDialog.Show(windowSystem, parentWindow);
 The theme selector dialog displays all registered themes and allows the user to switch between them. The selected theme is applied immediately to all windows.
 
 **Available Built-in Themes:**
-- **Classic** - Navy blue windows with traditional styling
-- **ModernGray** - Modern dark theme with gray color scheme
+- **ModernGray** - Modern dark theme with gray color scheme (default)
+- **Daylight** - Light theme with a blue accent
+- Plus palette-generated seed themes: Ocean, Amber, Forest, Crimson, Slate
 
 **Navigation:**
 - Arrow keys to select theme

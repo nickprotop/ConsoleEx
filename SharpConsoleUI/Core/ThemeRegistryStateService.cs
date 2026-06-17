@@ -15,7 +15,7 @@ namespace SharpConsoleUI.Core
 	/// Per-<see cref="ConsoleWindowSystem"/> registry of available themes. Registration, lookup, and
 	/// enumeration are scoped to the owning window system, so themes registered (including those
 	/// contributed by a loaded plugin) never leak across instances. Pre-seeded with the built-in
-	/// <c>Classic</c> and <c>ModernGray</c> themes. Thread-safe.
+	/// <c>ModernGray</c> theme plus the palette-generated seed catalog. Thread-safe.
 	/// </summary>
 	public class ThemeRegistryStateService
 	{
@@ -24,15 +24,10 @@ namespace SharpConsoleUI.Core
 		private string _defaultThemeName = "ModernGray";
 
 		/// <summary>
-		/// Creates a registry pre-seeded with the built-in themes (<c>Classic</c>, <c>ModernGray</c>).
+		/// Creates a registry pre-seeded with the built-in <c>ModernGray</c> theme and the seed catalog.
 		/// </summary>
 		public ThemeRegistryStateService()
 		{
-			RegisterTheme(
-				"Classic",
-				"Classic Windows-style theme with bright blue and green accents",
-				() => new ClassicTheme());
-
 			RegisterTheme(
 				"ModernGray",
 				"Professional dark theme with grayscale foundation and cyan accents, inspired by modern developer tools",
@@ -51,7 +46,7 @@ namespace SharpConsoleUI.Core
 			RegisterTheme("Slate", "Cool blue-grey accent, dark",
 				() => Themes.Theme.FromPalette(new Themes.Palette { Primary = Color.FromHex("#64748B"), Background = Color.FromHex("#0F172A") }));
 			RegisterTheme("Daylight", "Blue accent on a light surface",
-				() => Themes.Theme.FromPalette(new Themes.Palette { Primary = Color.FromHex("#2563EB"), Background = Color.FromHex("#F8FAFC") }));
+				() => Themes.Theme.FromPalette(new Themes.Palette { Primary = Color.FromHex("#2563EB"), Background = Color.FromHex("#DFE3E9") }));
 		}
 
 		/// <summary>

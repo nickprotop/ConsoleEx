@@ -13,25 +13,10 @@ SharpConsoleUI includes a powerful theme system that allows runtime theme switch
 
 ## Built-in Themes
 
-SharpConsoleUI includes two built-in themes:
-
-### Classic Theme
-
-Traditional navy blue windows with classic styling.
-
-```csharp
-windowSystem.ThemeStateService.SwitchTheme("Classic");
-```
-
-**Color Scheme:**
-- Window Background: Navy (DarkBlue)
-- Window Foreground: White
-- Active Border: Yellow
-- Inactive Border: Gray
-- Active Title: Yellow
-- Inactive Title: Gray
-- Desktop Background: Blue
-- Desktop Foreground: White
+`ModernGray` is the default theme. On top of it, the library registers a catalog of
+palette-generated **seed themes** out of the box — **Ocean**, **Amber**, **Forest**, **Crimson**,
+**Slate** (dark) and **Daylight** (light) — so every app gets a ready-made selection without any
+setup. See [Built-in seed themes](#built-in-seed-themes) for details.
 
 ### ModernGray Theme (Default)
 
@@ -66,7 +51,7 @@ var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffe
 // Option 2: Specify theme by name
 var windowSystem = new ConsoleWindowSystem(
     new NetConsoleDriver(RenderMode.Buffer),
-    themeName: "Classic"
+    themeName: "Ocean"
 );
 
 // Option 3: Provide theme instance
@@ -80,7 +65,7 @@ var windowSystem = new ConsoleWindowSystem(
 
 ```csharp
 // Switch by registered name
-windowSystem.ThemeStateService.SwitchTheme("Classic");
+windowSystem.ThemeStateService.SwitchTheme("Ocean");
 
 // Set a theme instance directly
 windowSystem.ThemeStateService.SetTheme(new ModernGrayTheme());
@@ -125,7 +110,7 @@ windowSystem.ThemeStateService.SwitchTheme("MyDark");
 
 ### Themes are mutable — set colors directly
 
-Every theme color (including the built-in `ModernGrayTheme`/`ClassicTheme`) is a settable
+Every theme color (including the built-in `ModernGrayTheme`) is a settable
 property, so you can also mutate the live theme directly without the builder:
 
 ```csharp
@@ -219,7 +204,7 @@ public class MyCustomTheme : ITheme
 > **Tip:** Prefer deriving from `ThemeBase` instead of implementing `ITheme` by hand. `ThemeBase`
 > provides settable `{ get; set; }` defaults for **all** members (blank/transparent where a value
 > isn't meaningful), so you `override` only the handful you care about and stay forward-compatible
-> when new members are added. The built-in `ModernGrayTheme`/`ClassicTheme` derive from it.
+> when new members are added. The built-in `ModernGrayTheme` derives from it.
 
 ```csharp
 public class MyCustomTheme : ThemeBase
@@ -309,7 +294,7 @@ windowSystem.ThemeRegistryService.RegisterTheme("MyTheme", "MyTheme theme", () =
 windowSystem.ThemeStateService.SwitchTheme("MyTheme");
 
 // Get a theme by name
-ITheme? theme = windowSystem.ThemeRegistryService.GetTheme("Classic");
+ITheme? theme = windowSystem.ThemeRegistryService.GetTheme("Ocean");
 
 // Get all registered theme names
 IEnumerable<string> themes = windowSystem.ThemeRegistryService.GetAvailableThemeNames();
@@ -321,7 +306,7 @@ bool exists = windowSystem.ThemeRegistryService.IsThemeRegistered("MyTheme");
 ITheme defaultTheme = windowSystem.ThemeRegistryService.GetDefaultTheme();
 
 // Get theme or fallback to default
-ITheme theme = windowSystem.ThemeRegistryService.GetThemeOrDefault("NonExistent", new ClassicTheme());
+ITheme theme = windowSystem.ThemeRegistryService.GetThemeOrDefault("NonExistent", new ModernGrayTheme());
 ```
 
 ### List All Available Themes
@@ -351,10 +336,10 @@ windowSystem.ShowThemeSelectorDialog();
 ```csharp
 // Add a button to switch themes
 mainWindow.AddControl(
-    Controls.Button("Switch to Classic")
+    Controls.Button("Switch to Daylight")
         .OnClick((sender, e, window) =>
         {
-            windowSystem.ThemeStateService.SwitchTheme("Classic");
+            windowSystem.ThemeStateService.SwitchTheme("Daylight");
         })
         .Build()
 );

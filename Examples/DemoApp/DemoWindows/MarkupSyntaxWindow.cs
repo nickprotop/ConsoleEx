@@ -1,3 +1,4 @@
+using DemoApp.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -115,16 +116,10 @@ internal static class MarkupSyntaxWindow
 			.WithVerticalAlignment(SharpConsoleUI.Layout.VerticalAlignment.Fill)
 			.Build();
 
-		var gradient = ColorGradient.FromColors(
-			new Color(45, 15, 70),
-			new Color(15, 50, 80),
-			new Color(60, 20, 75));
-
-		return new WindowBuilder(ws)
+		var window = new WindowBuilder(ws)
 			.WithTitle("Markup Syntax")
 			.WithSize(85, 35)
 			.Centered()
-			.WithBackgroundGradient(gradient, GradientDirection.Vertical)
 			.AddControl(content)
 			.OnKeyPressed((s, e) =>
 			{
@@ -135,6 +130,8 @@ internal static class MarkupSyntaxWindow
 				}
 			})
 			.BuildAndShow();
+		DemoTheme.ApplyThemeGradient(window, ws);
+		return window;
 	}
 
 	private static string BuildGradientLine()

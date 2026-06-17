@@ -30,13 +30,19 @@ namespace SharpConsoleUI.Parsing
 		public static List<Cell> Parse(string markup, Color defaultFg, Color defaultBg)
 			=> Parse(markup, defaultFg, defaultBg, out _);
 
+		/// <summary>
+		/// Parses markup into cells using a specific Markdown style for any <c>[markdown]</c> regions.
+		/// </summary>
+		public static List<Cell> Parse(string markup, Color defaultFg, Color defaultBg, Configuration.MarkdownStyle? markdownStyle)
+			=> Parse(markup, defaultFg, defaultBg, out _, markdownStyle);
+
 		private const string LinkTagPrefix = "link=";
 
 		/// <summary>
 		/// Parses markup into cells, additionally reporting clickable link spans recorded from
 		/// <c>[link=&lt;escaped-url&gt;]…[/]</c> tags (half-open <c>[StartCol,EndCol)</c> in display columns).
 		/// </summary>
-		public static List<Cell> Parse(string markup, Color defaultFg, Color defaultBg, out List<LinkSpan> links)
+		public static List<Cell> Parse(string markup, Color defaultFg, Color defaultBg, out List<LinkSpan> links, Configuration.MarkdownStyle? markdownStyle = null)
 		{
 			links = new List<LinkSpan>();
 
@@ -44,7 +50,7 @@ namespace SharpConsoleUI.Parsing
 				return new List<Cell>();
 
 			// Expand any [markdown]…[/] regions into native markup first
-			markup = PreProcessMarkdownTags(markup);
+			markup = PreProcessMarkdownTags(markup, markdownStyle);
 
 			// Pre-process gradient tags before normal parsing
 			markup = PreProcessGradientTags(markup, defaultFg, defaultBg, out var gradientSpans);
@@ -626,6 +632,12 @@ namespace SharpConsoleUI.Parsing
 			=> ParseLines(markup, width, defaultFg, defaultBg, out _);
 
 		/// <summary>
+		/// Word-wrapping parse using a specific Markdown style for any <c>[markdown]</c> regions.
+		/// </summary>
+		public static List<List<Cell>> ParseLines(string markup, int width, Color defaultFg, Color defaultBg, Configuration.MarkdownStyle? markdownStyle)
+			=> ParseLines(markup, width, defaultFg, defaultBg, out _, markdownStyle);
+
+		/// <summary>
 		/// Word-wrapping parse that also reports per-row link spans, re-sliced so a link crossing a
 		/// wrap boundary becomes one span per row (each carrying the same URL/Text).
 		/// </summary>
@@ -637,8 +649,9 @@ namespace SharpConsoleUI.Parsing
 		/// Receives one link-span list per returned row (empty list when a row has no links). Always
 		/// index-aligned with the returned cell rows.
 		/// </param>
+		/// <param name="markdownStyle">Style for any <c>[markdown]</c> regions; <c>null</c> uses the default.</param>
 		/// <returns>List of cell lists, one per wrapped line.</returns>
-		public static List<List<Cell>> ParseLines(string markup, int width, Color defaultFg, Color defaultBg, out List<List<LinkSpan>> linksPerLine)
+		public static List<List<Cell>> ParseLines(string markup, int width, Color defaultFg, Color defaultBg, out List<List<LinkSpan>> linksPerLine, Configuration.MarkdownStyle? markdownStyle = null)
 		{
 			linksPerLine = new List<List<LinkSpan>>();
 			if (string.IsNullOrEmpty(markup) || width <= 0)
@@ -649,7 +662,7 @@ namespace SharpConsoleUI.Parsing
 
 			// Expand any [markdown]…[/] regions before splitting on newlines,
 			// otherwise a multi-line region would be torn apart by the split.
-			markup = PreProcessMarkdownTags(markup);
+			markup = PreProcessMarkdownTags(markup, markdownStyle);
 
 			var result = new List<List<Cell>>();
 

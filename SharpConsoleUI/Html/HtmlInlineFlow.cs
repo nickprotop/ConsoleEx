@@ -9,6 +9,7 @@
 #pragma warning disable CS1591
 
 using AngleSharp.Dom;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
 
@@ -115,7 +116,11 @@ namespace SharpConsoleUI.Html
 							break;
 
 						case "code":
-							childBg = HtmlConstants.DefaultCodeBackground;
+							// Derive the code background from the page background so it's a subtle surface
+							// on BOTH light and dark themes (a hardcoded dark grey was a black band on light).
+							childBg = ctx.DefaultBg.IsDark()
+								? ctx.DefaultBg.Tint(0.10)
+								: ctx.DefaultBg.Shade(0.08);
 							break;
 
 						case "img":

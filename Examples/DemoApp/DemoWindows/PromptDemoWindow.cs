@@ -54,19 +54,16 @@ internal static class PromptDemoWindow
 				commands.Where(c => c.StartsWith(input, StringComparison.OrdinalIgnoreCase)))
 			.OnEntered((sender, text) =>
 			{
-				AppendOutput(outputLog, $"[cyan]Command:[/] {Esc(text)}");
+				AppendOutput(outputLog, $"[bold]Command:[/] {Esc(text)}");
 				((PromptControl)sender!).SetInput("");
 			})
 			.UnfocusOnEnter(false)
 			.Build();
 
 		// 4. Styled prompt with custom colors
-		var styledPrompt = Controls.Prompt("[bold cyan]λ[/] ")
+		var styledPrompt = Controls.Prompt("[bold]λ[/] ")
 			.WithInputWidth(25)
-			.WithInputFocusedBackgroundColor(new Color(30, 40, 60))
 			.WithInputFocusedForegroundColor(Color.Cyan1)
-			.WithInputBackgroundColor(new Color(20, 25, 35))
-			.WithInputForegroundColor(new Color(180, 180, 180))
 			.WithHistory()
 			.OnEntered((sender, text) =>
 			{

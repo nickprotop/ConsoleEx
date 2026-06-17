@@ -29,7 +29,7 @@ internal static class BorderStyleWindow
 
 		// --- Show style buttons ---
 
-		var showSectionLabel = Controls.Label("[bold cyan]Show Border Style[/]");
+		var showSectionLabel = Controls.Label("[bold]Show Border Style[/]");
 		showSectionLabel.Margin = new Margin { Left = SectionLeftMargin, Top = SectionTopMargin };
 
 		var doubleLineBtn = Controls.Button("DoubleLine (Default)")
@@ -64,7 +64,7 @@ internal static class BorderStyleWindow
 
 		// --- Interactive toggle section ---
 
-		var toggleSectionLabel = Controls.Label("[bold cyan]Interactive Toggle[/]");
+		var toggleSectionLabel = Controls.Label("[bold]Interactive Toggle[/]");
 		toggleSectionLabel.Margin = new Margin { Left = SectionLeftMargin, Top = SectionTopMargin };
 
 		Window? window = null;
@@ -129,7 +129,7 @@ internal static class BorderStyleWindow
 			.WithBorderStyle(style)
 			.Centered()
 			.AddControl(Controls.Markup()
-				.AddLine($"[bold cyan]BorderStyle.{style}[/]")
+				.AddLine($"[bold]BorderStyle.{style}[/]")
 				.AddEmptyLine()
 				.AddLine(GetStyleDescription(style))
 				.AddEmptyLine()

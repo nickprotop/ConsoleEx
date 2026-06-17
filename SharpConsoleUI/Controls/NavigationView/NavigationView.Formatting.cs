@@ -62,6 +62,23 @@ namespace SharpConsoleUI.Controls
 			return $"[dim]{new string('─', lineWidth)}[/]";
 		}
 
+		/// <summary>
+		/// Builds the content-header lines (title + optional subtitle) for the selected item, in the
+		/// theme foreground (not a hardcoded white, which is invisible on light themes). Shared by the
+		/// selection-changed and display-mode update paths so they stay consistent.
+		/// </summary>
+		private List<string> FormatContentHeader(NavigationItem item)
+		{
+			string title = _currentDisplayMode == NavigationViewDisplayMode.Minimal
+				? $"{ControlDefaults.NavigationViewHamburgerChar} {item.Text}"
+				: item.Text;
+
+			var lines = new List<string> { $"[bold {Rgb(ItemForeground)}]{title}[/]" };
+			if (item.Subtitle != null)
+				lines.Add($"[dim]{item.Subtitle}[/]");
+			return lines;
+		}
+
 		private string FormatNavItem(NavigationItem item, bool selected)
 		{
 			var icon = item.Icon != null ? $"{item.Icon} " : "";
@@ -76,7 +93,7 @@ namespace SharpConsoleUI.Controls
 
 			if (selected)
 			{
-				var bg = _selectedItemBackground;
+				var bg = SelectedItemBackground;
 				// Readable selected-item fg from the theme (not hardcoded white, which is invisible
 				// when a light theme produces a light selection background).
 				return $"[bold {Rgb(SelectedItemForeground)} on {Rgb(bg)}]  {indentSpaces}{_selectionIndicator} {paddedText}[/]";
@@ -117,7 +134,7 @@ namespace SharpConsoleUI.Controls
 
 			if (selected)
 			{
-				var bg = _selectedItemBackground;
+				var bg = SelectedItemBackground;
 				return $"[bold {Rgb(SelectedItemForeground)} on {Rgb(bg)}]{padded}[/]";
 			}
 			else

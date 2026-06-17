@@ -42,7 +42,7 @@ public static class CollapsibleDemoWindow
 			.WithName("agent-reasoning")
 			.AddControl(Controls.Markup()
 				.AddLine("[green]1.[/] User asked to summarize the failing test output.")
-				.AddLine("[green]2.[/] The stack trace points at [cyan]ConsoleBuffer.cs[/] line 412.")
+				.AddLine("[green]2.[/] The stack trace points at [bold]ConsoleBuffer.cs[/] line 412.")
 				.AddLine("[green]3.[/] Need to read the file before proposing a fix.")
 				.WithMargin(1, 0, 1, 0)
 				.Build())
@@ -62,14 +62,14 @@ public static class CollapsibleDemoWindow
 				.Build())
 			.Build();
 
-		var subAgent = Controls.CollapsiblePanel("[cyan]Sub-agent:[/] explorer")
+		var subAgent = Controls.CollapsiblePanel("[bold]Sub-agent:[/] explorer")
 			.Collapsed()
 			.Animated()
 			.WithName("agent-subagent")
 			.AddControl(Controls.Markup()
-				.AddLine("[grey]›[/] Spawned [cyan]explorer[/] to locate the render loop.")
-				.AddLine("[grey]›[/] Searched [white]Math.Min(_height[/] across 6 files.")
-				.AddLine("[grey]›[/] Found 8 matching render loops in [cyan]ConsoleBuffer.cs[/].")
+				.AddLine("[grey]›[/] Spawned [bold]explorer[/] to locate the render loop.")
+				.AddLine("[grey]›[/] Searched [bold]Math.Min(_height[/] across 6 files.")
+				.AddLine("[grey]›[/] Found 8 matching render loops in [bold]ConsoleBuffer.cs[/].")
 				.AddLine("[grey]›[/] [green]Returned[/] line numbers to the parent agent.")
 				.WithMargin(1, 0, 1, 0)
 				.Build())
@@ -80,7 +80,7 @@ public static class CollapsibleDemoWindow
 		// =====================================================================
 
 		// Borderless vs Bordered, side by side.
-		var borderlessPanel = Controls.CollapsiblePanel("[white]Borderless[/]")
+		var borderlessPanel = Controls.CollapsiblePanel("[bold]Borderless[/]")
 			.Expanded()
 			.WithHeaderStyle(CollapsibleHeaderStyle.Borderless)
 			.AddControl(Controls.Markup()
@@ -90,7 +90,7 @@ public static class CollapsibleDemoWindow
 				.Build())
 			.Build();
 
-		var borderedPanel = Controls.CollapsiblePanel("[white]Bordered[/]")
+		var borderedPanel = Controls.CollapsiblePanel("[bold]Bordered[/]")
 			.Expanded()
 			.WithHeaderStyle(CollapsibleHeaderStyle.Bordered)
 			.WithBorderColor(Color.Grey50)
@@ -223,7 +223,7 @@ public static class CollapsibleDemoWindow
 			.WithMargin(0, 0, 0, 0)
 			.Build();
 
-		var prompt = Controls.Prompt("[cyan]search >[/] ")
+		var prompt = Controls.Prompt("[bold]search >[/] ")
 			.WithInputWidth(28)
 			.UnfocusOnEnter()
 			.WithMargin(1, 1, 1, 0)

@@ -18,7 +18,6 @@ public static class StatusBarDemoWindow
 			.AddRightText("[yellow]3 outdated[/]")
 			.AddRight("Ctrl+S", "Search")
 			.WithAboveLine()
-			.WithBackgroundColor(Color.Grey15)
 			.WithShortcutForegroundColor(Color.Cyan1)
 			.StickyBottom()
 			.Build();
@@ -27,7 +26,7 @@ public static class StatusBarDemoWindow
 		int counter = 3;
 
 		var markup = Controls.Markup()
-			.AddLine("[bold cyan]StatusBarControl Demo[/]")
+			.AddLine("[bold]StatusBarControl Demo[/]")
 			.AddLine("")
 			.AddLine("This window shows a dedicated StatusBarControl at the bottom.")
 			.AddLine("It supports three alignment zones (left, center, right),")
@@ -61,7 +60,6 @@ public static class StatusBarDemoWindow
 		var buttonToolbar = Controls.Toolbar()
 			.WithSpacing(1)
 			.WithWrap()
-			.WithBackgroundColor(Color.Grey11)
 			.WithAboveLine()
 			.WithBelowLine()
 			.WithContentPadding(1, 0, 1, 0)

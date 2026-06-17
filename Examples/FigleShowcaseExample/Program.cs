@@ -12,7 +12,7 @@ class Program
 	{
 		var windowSystem = new ConsoleWindowSystem(
 			new SharpConsoleUI.Drivers.NetConsoleDriver(SharpConsoleUI.Drivers.RenderMode.Buffer),
-			new ClassicTheme());
+			new SharpConsoleUI.Themes.ModernGrayTheme());
 
 		// Create main menu window
 		var mainWindow = new Window(windowSystem)

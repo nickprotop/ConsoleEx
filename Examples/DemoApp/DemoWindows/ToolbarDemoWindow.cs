@@ -20,7 +20,6 @@ public static class ToolbarDemoWindow
 			.AddButton("Open", (_, btn) => log.SetContent(new List<string> { "[green]Open[/] clicked" }))
 			.AddButton("Save", (_, btn) => log.SetContent(new List<string> { "[green]Save[/] clicked" }))
 			.WithSpacing(1)
-			.WithBackgroundColor(Color.Grey11)
 			.WithBelowLine()
 			.StickyTop()
 			.Build();
@@ -30,17 +29,16 @@ public static class ToolbarDemoWindow
 			.AddButton(Controls.Button()
 				.WithText("  Compile  ")
 				.WithBorder(ButtonBorderStyle.Rounded)
-				.OnClick((_, btn) => log.SetContent(new List<string> { "[cyan]Compile[/] triggered" })))
+				.OnClick((_, btn) => log.SetContent(new List<string> { "[bold]Compile[/] triggered" })))
 			.AddButton(Controls.Button()
 				.WithText("  Run  ")
 				.WithBorder(ButtonBorderStyle.Rounded)
-				.OnClick((_, btn) => log.SetContent(new List<string> { "[cyan]Run[/] triggered" })))
+				.OnClick((_, btn) => log.SetContent(new List<string> { "[bold]Run[/] triggered" })))
 			.AddButton(Controls.Button()
 				.WithText("  Debug  ")
 				.WithBorder(ButtonBorderStyle.Rounded)
-				.OnClick((_, btn) => log.SetContent(new List<string> { "[cyan]Debug[/] triggered" })))
+				.OnClick((_, btn) => log.SetContent(new List<string> { "[bold]Debug[/] triggered" })))
 			.WithSpacing(1)
-			.WithBackgroundColor(Color.Grey15)
 			.WithAboveLine()
 			.WithBelowLine()
 			.WithContentPadding(1, 0, 1, 0)
@@ -49,7 +47,6 @@ public static class ToolbarDemoWindow
 		// Mixed toolbar: bordered button + plain controls with vertical centering
 		var mixedToolbar = Controls.Toolbar()
 			.WithSpacing(1)
-			.WithBackgroundColor(Color.Grey19)
 			.WithAboveLine()
 			.WithBelowLine()
 			.Build();
@@ -76,7 +73,7 @@ public static class ToolbarDemoWindow
 		mixedToolbar.AddItem(mixedPlainBtn);
 
 		var header = Controls.Markup()
-			.AddLine("[bold cyan]Toolbar Demo[/]")
+			.AddLine("[bold]Toolbar Demo[/]")
 			.AddLine("")
 			.AddLine("Demonstrates ToolbarControl with auto-height support.")
 			.AddLine("Toolbars automatically size to fit their tallest item.")
@@ -113,7 +110,6 @@ public static class ToolbarDemoWindow
 			.AddButton("Settings", (_, btn) => log.SetContent(new List<string> { "[magenta]Settings[/] clicked" }))
 			.AddButton("About", (_, btn) => log.SetContent(new List<string> { "[magenta]About[/] clicked" }))
 			.WithSpacing(1)
-			.WithBackgroundColor(Color.Grey11)
 			.WithAboveLine()
 			.WithBelowLine()
 			.WithWrap()

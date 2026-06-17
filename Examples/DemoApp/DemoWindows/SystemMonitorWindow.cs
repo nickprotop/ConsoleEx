@@ -1,3 +1,4 @@
+using DemoApp.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -39,7 +40,7 @@ internal static class SystemMonitorWindow
 			.Column(col => col
 				.Width(38)
 				// Resources section
-				.Add(Controls.Markup("[bold cyan]Resources[/]")
+				.Add(Controls.Markup("[bold]Resources[/]")
 					.WithMargin(0, 0, 0, 0).Build())
 				.Add(Controls.RuleBuilder().WithColor(Color.Grey27).Build())
 				.Add(MakeBar("cpuBar", "CPU", 25, Color.Green, Color.Yellow, Color.Red))
@@ -47,7 +48,7 @@ internal static class SystemMonitorWindow
 				.Add(MakeBar("diskBar", "Disk", 30, Color.Blue, Color.Cyan1, Color.Green))
 				.Add(MakeBar("netBar", "Net", 15, Color.DodgerBlue1, Color.Magenta1, Color.Red))
 				// Status section
-				.Add(Controls.Markup("[bold white]Status[/]")
+				.Add(Controls.Markup("[bold]Status[/]")
 					.WithMargin(0, 1, 0, 0).Build())
 				.Add(Controls.RuleBuilder().WithColor(Color.Grey27).Build())
 				.Add(PanelControl.Create()
@@ -71,7 +72,7 @@ internal static class SystemMonitorWindow
 			// Right column: Sparklines
 			.Column(col => col
 				// CPU sparkline
-				.Add(Controls.Markup("[bold cyan]CPU[/]")
+				.Add(Controls.Markup("[bold]CPU[/]")
 					.WithMargin(1, 0, 0, 0).Build())
 				.Add(Controls.RuleBuilder().WithColor(Color.Grey27).WithMargin(1, 0, 0, 0).Build())
 				.Add(new SparklineBuilder()
@@ -145,15 +146,10 @@ internal static class SystemMonitorWindow
 			.StickyBottom()
 			.Build();
 
-		var gradient = ColorGradient.FromColors(
-			new Color(30, 45, 80),
-			new Color(5, 5, 12));
-
-		return new WindowBuilder(ws)
+		var window = new WindowBuilder(ws)
 			.WithTitle("System Monitor")
 			.WithSize(WindowWidth, WindowHeight)
 			.Centered()
-			.WithBackgroundGradient(gradient, GradientDirection.Vertical)
 			.AddControls(mainGrid, bottomRule, footer)
 			.WithAsyncWindowThread(UpdateLoopAsync)
 			.OnKeyPressed((s, e) =>
@@ -165,6 +161,8 @@ internal static class SystemMonitorWindow
 				}
 			})
 			.BuildAndShow();
+		DemoTheme.ApplyThemeGradient(window, ws);
+		return window;
 	}
 
 	private static BarGraphControl MakeBar(string name, string label, double value,
@@ -278,10 +276,10 @@ internal static class SystemMonitorWindow
 						var memStatus = mem > 75 ? "[yellow]High[/]" : "[green]Normal[/]";
 
 						statusPanel.SetContent(
-							$"[white]CPU[/]     {cpu,5:F1}%  {cpuStatus}\n" +
-							$"[white]Memory[/]  {mem,5:F1}%  {memStatus}\n" +
-							$"[white]Disk[/]    [cyan]R {diskR,4:F0}[/] [magenta1]W {diskW,4:F0}[/] MB/s\n" +
-							$"[white]Network[/] [green]▲{netUp,4:F0}[/] [red]▼{netDown,4:F0}[/] Mbps");
+							$"[bold]CPU[/]     {cpu,5:F1}%  {cpuStatus}\n" +
+							$"[bold]Memory[/]  {mem,5:F1}%  {memStatus}\n" +
+							$"[bold]Disk[/]    [cyan]R {diskR,4:F0}[/] [magenta1]W {diskW,4:F0}[/] MB/s\n" +
+							$"[bold]Network[/] [green]▲{netUp,4:F0}[/] [red]▼{netDown,4:F0}[/] Mbps");
 					}
 				}
 

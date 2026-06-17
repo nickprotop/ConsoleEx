@@ -48,7 +48,7 @@ public static class IdeLayoutWindow
 		void HandleNewFile()
 		{
 			currentFile = "Untitled";
-			UpdateFileStatus($"[cyan]*[/] {currentFile}");
+			UpdateFileStatus($"[bold]*[/] {currentFile}");
 		}
 
 		void HandleSaveFile()

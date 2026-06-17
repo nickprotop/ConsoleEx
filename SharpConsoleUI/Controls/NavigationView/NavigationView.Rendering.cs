@@ -64,6 +64,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_lastFormattedItemForeground = resolvedItemFg;
 				RefreshAllItemMarkup();
+				UpdateContentHeaderForMode(); // content-header title is cached too; re-color it on theme change
 			}
 
 			// Background fill — preserve gradient if no explicit background

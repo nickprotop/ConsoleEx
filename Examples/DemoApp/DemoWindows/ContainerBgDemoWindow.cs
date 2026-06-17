@@ -30,7 +30,7 @@ internal static class ContainerBgDemoWindow
 			.WithMargin(1, 0, 1, 0)
 			// LEFT: Simple container cases
 			.Column(col => col
-				.Add(SectionHeader("[bold cyan]Direct Children[/]  [dim](Grid has no bg)[/]"))
+				.Add(SectionHeader("[bold]Direct Children[/]  [dim](Grid has no bg)[/]"))
 
 				// Case 1: Markup with no bg → gradient shows through
 				.Add(CaseLabel("1. Markup, no bg → [green]gradient preserved[/]"))
@@ -163,10 +163,10 @@ internal static class ContainerBgDemoWindow
 			.AddControl(Controls.HorizontalGrid()
 				.WithAlignment(HorizontalAlignment.Stretch)
 				.Column(col => col
-					.Add(Controls.Markup("[cyan]Left col[/]").Build())
+					.Add(Controls.Markup("[bold]Left col[/]").Build())
 				)
 				.Column(col => col
-					.Add(Controls.Markup("[cyan]Right col[/]").Build())
+					.Add(Controls.Markup("[bold]Right col[/]").Build())
 				)
 				.Build())
 			.Build();

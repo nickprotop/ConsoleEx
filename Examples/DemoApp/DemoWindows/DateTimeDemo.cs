@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System.Globalization;
+using DemoApp.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -25,7 +26,7 @@ public static class DateTimeDemo
 	public static Window Create(ConsoleWindowSystem ws)
 	{
 		var statusMarkup = Controls.Markup()
-			.AddLines("[bold cyan]Status[/]", "", "[dim]Select a date or time to see values here[/]")
+			.AddLines("[bold]Status[/]", "", "[dim]Select a date or time to see values here[/]")
 			.WithMargin(1, 1, 1, 1)
 			.Build();
 
@@ -137,7 +138,7 @@ public static class DateTimeDemo
 
 			statusMarkup.SetContent(new List<string>
 			{
-				"[bold cyan]Current Values[/]",
+				"[bold]Current Values[/]",
 				"",
 				"[bold]Date Pickers[/]",
 				$"  [dim]ISO:[/]   {FormatDate(dateIso)}",
@@ -227,15 +228,10 @@ public static class DateTimeDemo
 			.StickyBottom()
 			.Build();
 
-		var gradient = ColorGradient.FromColors(
-			new Color(20, 30, 60),
-			new Color(10, 10, 25));
-
-		return new WindowBuilder(ws)
+		var window = new WindowBuilder(ws)
 			.WithTitle("Date & Time")
 			.WithSize(WindowWidth, WindowHeight)
 			.Centered()
-			.WithBackgroundGradient(gradient, GradientDirection.Vertical)
 			.AddControls(header, grid, statusBar)
 			.OnKeyPressed((sender, e) =>
 			{
@@ -246,5 +242,7 @@ public static class DateTimeDemo
 				}
 			})
 			.BuildAndShow();
+		DemoTheme.ApplyThemeGradient(window, ws);
+		return window;
 	}
 }

@@ -192,7 +192,8 @@ namespace SharpConsoleUI.Controls
 					var padded = new string(' ', leftPad)
 						+ ControlDefaults.NavigationViewHamburgerChar
 						+ new string(' ', rightPad);
-					_paneHeader.SetContent(new List<string> { $"[bold white]{padded}[/]" });
+					// Theme foreground (not a hardcoded white, which is invisible on light themes).
+					_paneHeader.SetContent(new List<string> { $"[bold {Rgb(ItemForeground)}]{padded}[/]" });
 					_paneHeader.Margin = new Margin(0, 1, 0, 1);
 					break;
 
@@ -221,14 +222,7 @@ namespace SharpConsoleUI.Controls
 				if (_selectedIndex >= 0 && _selectedIndex < _items.Count)
 				{
 					var item = _items[_selectedIndex];
-					string titleMarkup = _currentDisplayMode == NavigationViewDisplayMode.Minimal
-						? $"[bold white]{ControlDefaults.NavigationViewHamburgerChar} {item.Text}[/]"
-						: $"[bold white]{item.Text}[/]";
-
-					var headerLines = new List<string> { titleMarkup };
-					if (item.Subtitle != null)
-						headerLines.Add($"[dim]{item.Subtitle}[/]");
-					_contentHeader.SetContent(headerLines);
+					_contentHeader.SetContent(FormatContentHeader(item));
 				}
 			}
 		}

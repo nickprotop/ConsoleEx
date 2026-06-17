@@ -147,6 +147,22 @@ namespace SharpConsoleUI.Controls
 			set => SetProperty(ref _markdownStyle, value);
 		}
 
+		/// <summary>
+		/// Resolves the Markdown style for this control's content: explicit per-control style →
+		/// explicit global <see cref="Configuration.MarkdownStyle.Default"/> → theme-derived
+		/// (<see cref="Configuration.MarkdownStyle.FromTheme"/>) → built-in default. So Markdown
+		/// follows the active theme by default, while any explicitly-set style remains the user's choice.
+		/// </summary>
+		private Configuration.MarkdownStyle? ResolveMarkdownStyle()
+		{
+			if (_markdownStyle != null)
+				return _markdownStyle;
+			if (Configuration.MarkdownStyle.DefaultExplicitlySet)
+				return Configuration.MarkdownStyle.Default;
+			var theme = Container?.GetConsoleWindowSystem?.Theme;
+			return theme != null ? Configuration.MarkdownStyle.FromTheme(theme) : null;
+		}
+
 		#region IMouseAwareControl Implementation
 
 		/// <summary>
@@ -497,6 +513,7 @@ namespace SharpConsoleUI.Controls
 			// soft-wrap newlines (rows from the same logical line are joined without a line break).
 			Color effectiveFg = _foregroundColor ?? fgColor;
 			Color effectiveBg = _backgroundColor ?? Color.Transparent;
+			var mdStyle = ResolveMarkdownStyle();
 			var renderedCellLines = new List<List<Cell>>();
 			var renderedLinkLines = new List<List<Parsing.LinkSpan>>();
 			var rowSourceLineIndex = new List<int>();
@@ -509,7 +526,7 @@ namespace SharpConsoleUI.Controls
 
 				if (_wrap)
 				{
-					var wrappedLines = Parsing.MarkupParser.ParseLines(line, renderWidth, effectiveFg, effectiveBg, out var wrappedLinks);
+					var wrappedLines = Parsing.MarkupParser.ParseLines(line, renderWidth, effectiveFg, effectiveBg, out var wrappedLinks, mdStyle);
 					for (int w = 0; w < wrappedLines.Count; w++)
 					{
 						renderedCellLines.Add(wrappedLines[w]);
@@ -526,7 +543,7 @@ namespace SharpConsoleUI.Controls
 					// GetLogicalContentSize counts rows.
 					foreach (var subLine in line.Split('\n'))
 					{
-						var cells = Parsing.MarkupParser.Parse(subLine, effectiveFg, effectiveBg, out var lineLinks);
+						var cells = Parsing.MarkupParser.Parse(subLine, effectiveFg, effectiveBg, out var lineLinks, mdStyle);
 						renderedCellLines.Add(cells);
 						renderedLinkLines.Add(lineLinks);
 						rowSourceLineIndex.Add(sourceIndex);

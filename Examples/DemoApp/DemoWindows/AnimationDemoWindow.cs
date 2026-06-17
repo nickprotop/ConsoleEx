@@ -46,7 +46,7 @@ internal static class AnimationDemoWindow
 
 		#region Slide Buttons
 
-		var slideSectionLabel = Controls.Label("[bold cyan]Slide Animations[/]");
+		var slideSectionLabel = Controls.Label("[bold]Slide Animations[/]");
 		slideSectionLabel.Margin = new Margin { Left = SectionLabelLeftMargin, Top = SectionTopMargin };
 
 		var slideLeftBtn = Controls.Button("Slide In (Left)")
@@ -93,7 +93,7 @@ internal static class AnimationDemoWindow
 
 		#region Fade Buttons
 
-		var fadeSectionLabel = Controls.Label("[bold cyan]Fade Animations[/]");
+		var fadeSectionLabel = Controls.Label("[bold]Fade Animations[/]");
 		fadeSectionLabel.Margin = new Margin { Left = SectionLabelLeftMargin, Top = SectionTopMargin };
 
 		var fadeInBtn = Controls.Button("Fade In")
@@ -121,7 +121,7 @@ internal static class AnimationDemoWindow
 
 		#region Easing Selector
 
-		var easingSectionLabel = Controls.Label("[bold cyan]Easing Function[/]");
+		var easingSectionLabel = Controls.Label("[bold]Easing Function[/]");
 		easingSectionLabel.Margin = new Margin { Left = SectionLabelLeftMargin, Top = SectionTopMargin };
 
 		var cycleEasingBtn = Controls.Button("Cycle Easing")

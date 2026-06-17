@@ -10,7 +10,7 @@ public static class FileHelpers
 		".csproj" or ".sln" => "[blue]P[/]",
 		".json" => "[yellow]{}[/]",
 		".xml" => "[cyan]<>[/]",
-		".md" or ".txt" => "[white]T[/]",
+		".md" or ".txt" => "[grey]T[/]",
 		".yml" or ".yaml" => "[magenta]Y[/]",
 		".html" or ".htm" => "[red]H[/]",
 		".css" => "[blue]S[/]",

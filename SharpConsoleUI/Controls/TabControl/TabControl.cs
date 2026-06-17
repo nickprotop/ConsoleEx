@@ -45,8 +45,9 @@ namespace SharpConsoleUI.Controls
 		private bool _selectOnRightClick = false;
 
 		// IContainer properties
-		private Color _backgroundColor = Color.Black;
-		private Color _foregroundColor = Color.White;
+		// Null = follow the active theme (no hardcoded black/white that overrides the theme).
+		private Color? _backgroundColor;
+		private Color? _foregroundColor;
 		private bool _isDirty = true;
 
 		/// <summary>
@@ -470,14 +471,14 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public Color BackgroundColor
 		{
-			get => _backgroundColor;
+			get => Helpers.ColorResolver.ResolveBackground(_backgroundColor, Container);
 			set { _backgroundColor = value; OnPropertyChanged(); Invalidate(true); }
 		}
 
 		/// <inheritdoc/>
 		public Color ForegroundColor
 		{
-			get => _foregroundColor;
+			get => Helpers.ColorResolver.ResolveForeground(_foregroundColor, Container);
 			set { _foregroundColor = value; OnPropertyChanged(); Invalidate(true); }
 		}
 

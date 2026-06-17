@@ -9,10 +9,10 @@ class Program
 {
 	static void Main(string[] args)
 	{
-		// Use ClassicTheme for blue modals matching window colors
+		// Use ModernGray theme for modals matching window colors
 		var windowSystem = new ConsoleWindowSystem(
 			new SharpConsoleUI.Drivers.NetConsoleDriver(SharpConsoleUI.Drivers.RenderMode.Buffer),
-			new ClassicTheme());
+			new SharpConsoleUI.Themes.ModernGrayTheme());
 
 		// Create main menu window
 		var mainWindow = new Window(windowSystem)

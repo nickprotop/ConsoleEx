@@ -14,9 +14,9 @@ public class ThemeRegistryStateServiceTests
 	public void NewRegistry_HasBuiltInThemes()
 	{
 		var reg = new ThemeRegistryStateService();
-		Assert.True(reg.IsThemeRegistered("Classic"));
+		Assert.True(reg.IsThemeRegistered("Ocean"));
 		Assert.True(reg.IsThemeRegistered("ModernGray"));
-		// 2 built-in (Classic, ModernGray) + seed palette catalog.
+		// ModernGray built-in + seed palette catalog.
 		Assert.True(reg.Count >= 2);
 	}
 
@@ -31,9 +31,9 @@ public class ThemeRegistryStateServiceTests
 	public void RegisterTheme_AddsAndResolves()
 	{
 		var reg = new ThemeRegistryStateService();
-		reg.RegisterTheme("Custom", "desc", () => new ClassicTheme());
+		reg.RegisterTheme("Custom", "desc", () => new ModernGrayTheme());
 		Assert.True(reg.IsThemeRegistered("Custom"));
-		Assert.IsType<ClassicTheme>(reg.GetTheme("Custom"));
+		Assert.IsType<ModernGrayTheme>(reg.GetTheme("Custom"));
 	}
 
 	[Fact]
@@ -43,7 +43,7 @@ public class ThemeRegistryStateServiceTests
 		var a = new ThemeRegistryStateService();
 		var b = new ThemeRegistryStateService();
 
-		a.RegisterTheme("OnlyInA", "desc", () => new ClassicTheme());
+		a.RegisterTheme("OnlyInA", "desc", () => new ModernGrayTheme());
 
 		Assert.True(a.IsThemeRegistered("OnlyInA"));
 		Assert.False(b.IsThemeRegistered("OnlyInA"));
@@ -55,8 +55,8 @@ public class ThemeRegistryStateServiceTests
 	{
 		var a = new ThemeRegistryStateService();
 		var b = new ThemeRegistryStateService();
-		a.DefaultThemeName = "Classic";
-		Assert.Equal("Classic", a.DefaultThemeName);
+		a.DefaultThemeName = "Ocean";
+		Assert.Equal("Ocean", a.DefaultThemeName);
 		Assert.Equal("ModernGray", b.DefaultThemeName); // unaffected
 	}
 
@@ -65,7 +65,7 @@ public class ThemeRegistryStateServiceTests
 	{
 		var reg = new ThemeRegistryStateService();
 		Assert.Null(reg.GetTheme("Nope"));
-		var fallback = new ClassicTheme();
+		var fallback = new ModernGrayTheme();
 		Assert.Same(fallback, reg.GetThemeOrDefault("Nope", fallback));
 	}
 
@@ -73,8 +73,8 @@ public class ThemeRegistryStateServiceTests
 	public void Unregister_Works()
 	{
 		var reg = new ThemeRegistryStateService();
-		Assert.True(reg.UnregisterTheme("Classic"));
-		Assert.False(reg.IsThemeRegistered("Classic"));
-		Assert.False(reg.UnregisterTheme("Classic")); // already gone
+		Assert.True(reg.UnregisterTheme("Ocean"));
+		Assert.False(reg.IsThemeRegistered("Ocean"));
+		Assert.False(reg.UnregisterTheme("Ocean")); // already gone
 	}
 }

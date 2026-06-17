@@ -16,9 +16,9 @@ internal static class SelectableTextDemoWindow
 	public static Window Create(ConsoleWindowSystem ws)
 	{
 		var consoleOutput = Controls.Markup()
-			.AddLine("[bold cyan]$ build --release[/]")
+			.AddLine("[bold]$ build --release[/]")
 			.AddLine("[grey]Restoring packages...[/] [green]done[/]")
-			.AddLine("[bold green]SUCCESS:[/] Built [cyan]v2.1.0[/] in [yellow]3.4s[/]")
+			.AddLine("[bold green]SUCCESS:[/] Built [bold]v2.1.0[/] in [yellow]3.4s[/]")
 			.AddLine("[bold red]ERROR:[/] 0   [bold yellow]WARN:[/] 2")
 			.WithSelectionEnabled()
 			.WithSelectionColors(Color.Black, new Color(95, 175, 255))
@@ -26,7 +26,7 @@ internal static class SelectableTextDemoWindow
 
 		var paragraph = Controls.Markup()
 			.AddLine("[bold]Drag to select[/] any of this [underline]markup[/] text with your mouse,")
-			.AddLine("then press [bold cyan]Ctrl+C[/] to copy it. The copied text is [italic]plain[/]")
+			.AddLine("then press [bold]Ctrl+C[/] to copy it. The copied text is [italic]plain[/]")
 			.AddLine("— all [red]markup[/] [green]tags[/] are stripped automatically.")
 			.WithSelectionEnabled()
 			.Build();
@@ -39,7 +39,7 @@ internal static class SelectableTextDemoWindow
 		};
 
 		var content = Controls.ScrollablePanel()
-			.AddControl(Controls.Markup("[bold underline cyan]Selectable Text (issue #36)[/]").Centered().Build())
+			.AddControl(Controls.Markup("[bold underline]Selectable Text (issue #36)[/]").Centered().Build())
 			.AddControl(Controls.Rule("Console output — selectable & copyable"))
 			.AddControl(consoleOutput)
 			.AddControl(Controls.Rule("Explanation"))

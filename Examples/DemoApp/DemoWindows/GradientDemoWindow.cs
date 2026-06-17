@@ -81,7 +81,7 @@ internal static class GradientDemoWindow
 		// --- Decorative gradient bars ---
 		string barBlock = new string('\u2588', GradientBarLength);
 		var bars = Controls.Markup()
-			.AddLine("[bold cyan]Decorative Gradient Bars[/]")
+			.AddLine("[bold]Decorative Gradient Bars[/]")
 			.AddLine($"[gradient=spectrum]{barBlock}[/]")
 			.AddLine($"[gradient=warm]{barBlock}[/]")
 			.AddLine($"[gradient=cool]{barBlock}[/]")

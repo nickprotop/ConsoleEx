@@ -407,7 +407,7 @@ namespace SharpConsoleUI.Controls
 				if (innerWidth > 0)
 				{
 					Color bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-					Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? Color.White;
+					Color fgColor = ColorResolver.ResolveForeground(_foregroundColorValue, Container);
 					contentLineCount = GetContentLines(innerWidth, fgColor, bgColor).Count;
 				}
 			}
@@ -433,7 +433,7 @@ namespace SharpConsoleUI.Controls
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			Color bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? Color.White;
+			Color fgColor = ColorResolver.ResolveForeground(_foregroundColorValue, Container);
 
 			bool hasBorder = _borderStyle != BorderStyle.None;
 			int borderWidth = hasBorder ? 2 : 0;

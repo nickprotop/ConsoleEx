@@ -174,10 +174,15 @@ public class StartMenuElement : PanelElement
 	/// <inheritdoc/>
 	public override void Render(CharacterBuffer buffer, int x, int y, int width, Color fg, Color bg)
 	{
-		var effectiveFg = ButtonForeground ?? fg;
+		// Follow the resolved foreground (ButtonForeground if set, else the panel fg / theme), instead of
+		// a hardcoded cyan that ignored the theme and could wash out on a light status bar.
+		var effectiveFg = ButtonForeground
+			?? WindowSystem?.Theme?.StatusBarShortcutForegroundColor
+			?? fg;
 		var effectiveBg = ButtonBackground ?? bg;
 
-		string markup = $"[bold cyan]{_text}[/] ";
+		// [bold] only — colorless, so it inherits effectiveFg (which already encodes the theme accent).
+		string markup = $"[bold]{_text}[/] ";
 		var cells = MarkupParser.Parse(markup, effectiveFg, effectiveBg);
 		var clipRect = new LayoutRect(x, y, width, 1);
 		buffer.WriteCellsClipped(x, y, cells, clipRect);

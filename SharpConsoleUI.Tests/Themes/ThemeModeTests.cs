@@ -21,9 +21,9 @@ public class ThemeModeTests
 	}
 
 	[Fact]
-	public void Classic_IsLight()
+	public void PaletteLightTheme_IsLight()
 	{
-		Assert.Equal(ThemeMode.Light, new ClassicTheme().Mode);
+		Assert.Equal(ThemeMode.Light, Theme.FromPalette(new Palette { Background = Color.FromHex("#F0F0F0"), Mode = ThemeMode.Light }).Mode);
 	}
 
 	[Fact]

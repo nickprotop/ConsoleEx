@@ -27,8 +27,9 @@ public sealed class TabControlBuilder : IControlBuilder<TabControl>
 	private string? _name;
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
-	private Color _backgroundColor = Color.Black;
-	private Color _foregroundColor = Color.White;
+	// Null = follow the active theme (do NOT force black/white, which overrode the theme on light themes).
+	private Color? _backgroundColor;
+	private Color? _foregroundColor;
 
 	/// <summary>
 	/// Adds a new tab to the control
@@ -322,8 +323,9 @@ public sealed class TabControlBuilder : IControlBuilder<TabControl>
 		_control.Name = _name;
 		_control.Tag = _tag;
 		_control.StickyPosition = _stickyPosition;
-		_control.BackgroundColor = _backgroundColor;
-		_control.ForegroundColor = _foregroundColor;
+		// Only pin colors the caller explicitly set; otherwise the control follows the active theme.
+		if (_backgroundColor.HasValue) _control.BackgroundColor = _backgroundColor.Value;
+		if (_foregroundColor.HasValue) _control.ForegroundColor = _foregroundColor.Value;
 
 		// Set initial active tab
 		if (_initialActiveTab >= 0 && _initialActiveTab < _control.TabPages.Count)

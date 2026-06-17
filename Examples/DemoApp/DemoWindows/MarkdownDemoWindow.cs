@@ -1,3 +1,4 @@
+using DemoApp.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -106,16 +107,10 @@ echo ""Publishing v$VERSION..."" && dotnet publish -c Release
 			.WithVerticalAlignment(SharpConsoleUI.Layout.VerticalAlignment.Fill)
 			.Build();
 
-		var gradient = ColorGradient.FromColors(
-			new Color(20, 30, 45),
-			new Color(15, 25, 40),
-			new Color(25, 20, 45));
-
-		return new WindowBuilder(ws)
+		var window = new WindowBuilder(ws)
 			.WithTitle("Markdown Rendering")
 			.WithSize(80, 32)
 			.Centered()
-			.WithBackgroundGradient(gradient, GradientDirection.Vertical)
 			.AddControl(content)
 			.OnKeyPressed((s, e) =>
 			{
@@ -126,5 +121,7 @@ echo ""Publishing v$VERSION..."" && dotnet publish -c Release
 				}
 			})
 			.BuildAndShow();
+		DemoTheme.ApplyThemeGradient(window, ws);
+		return window;
 	}
 }

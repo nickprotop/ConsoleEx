@@ -89,8 +89,17 @@ namespace SharpConsoleUI.Controls
 		{
 			SetActualBounds(bounds);
 
-			var bg = Container?.BackgroundColor ?? defaultBackground;
+			var bg = BackgroundColor;
 			var fg = ForegroundColor;
+
+			// The layout bakes theme colors into every cell. If the active theme changed since the last
+			// layout (resolved bg/fg/link differ), the cached layout is stale — re-run it so a live theme
+			// switch recolors the page (without this, only a reload fixed it).
+			if (_rawHtml != null && _lastLayoutWidth > 0 &&
+				(_lastLayoutBg != bg || _lastLayoutFg != fg || _lastLayoutLinkColor != LinkColor))
+			{
+				lock (_contentLock) { RunLayout(_lastLayoutWidth); }
+			}
 
 			int contentWidth = bounds.Width - Margin.Left - Margin.Right;
 			if (contentWidth < 1) return;
@@ -194,8 +203,14 @@ namespace SharpConsoleUI.Controls
 			if (needsScrollbar)
 			{
 				int scrollbarX = contentAreaX + contentWidth - 1;
-				var thumbColor = HasFocus ? Color.Cyan1 : Color.Grey;
-				var trackColor = HasFocus ? Color.Grey : Color.Grey23;
+				// Theme scrollbar colors (focus-aware) instead of hardcoded cyan/grey that washed out on light.
+				var theme = Container?.GetConsoleWindowSystem?.Theme;
+				var thumbColor = HasFocus
+					? (theme?.ScrollbarThumbColor ?? Color.Cyan1)
+					: (theme?.ScrollbarThumbUnfocusedColor ?? Color.Grey);
+				var trackColor = HasFocus
+					? (theme?.ScrollbarTrackColor ?? Color.Grey)
+					: (theme?.ScrollbarTrackUnfocusedColor ?? Color.Grey23);
 
 				ScrollbarHelper.DrawVerticalScrollbar(
 					buffer, scrollbarX, contentAreaY, viewportHeight,

@@ -1,3 +1,4 @@
+using DemoApp.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -228,15 +229,10 @@ internal static class InternationalWindow
 			.WithVerticalAlignment(SharpConsoleUI.Layout.VerticalAlignment.Fill)
 			.Build();
 
-		var gradient = ColorGradient.FromColors(
-			new Color(25, 10, 60),
-			new Color(10, 45, 55));
-
-		return new WindowBuilder(ws)
+		var window = new WindowBuilder(ws)
 			.WithTitle("International & Emoji")
 			.WithSize(90, 38)
 			.Centered()
-			.WithBackgroundGradient(gradient, GradientDirection.Vertical)
 			.AddControl(content)
 			.OnKeyPressed((s, e) =>
 			{
@@ -247,5 +243,7 @@ internal static class InternationalWindow
 				}
 			})
 			.BuildAndShow();
+		DemoTheme.ApplyThemeGradient(window, ws);
+		return window;
 	}
 }

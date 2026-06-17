@@ -95,11 +95,14 @@ namespace SharpConsoleUI.Themes
 			t.MenuDropdownBackgroundColor = raised;
 			t.MenuDropdownForegroundColor = foreground;
 
-			t.TabHeaderBackgroundColor = recessed;
+			// Tab header is chrome (like bars/dropdown/table header): use the RAISED surface, not the
+			// recessed one. On a light theme "recessed" tints lighter than the window, which washes the
+			// inactive tabs out; "raised" keeps the header strip a visible, consistent chrome surface.
+			t.TabHeaderBackgroundColor = raised;
 			t.TabHeaderForegroundColor = dimText;
 			t.TabHeaderActiveBackgroundColor = background;
 			t.TabHeaderActiveForegroundColor = foreground;
-			t.TabHeaderDisabledBackgroundColor = recessed;
+			t.TabHeaderDisabledBackgroundColor = raised;
 			t.TabHeaderDisabledForegroundColor = faintText;
 
 			t.TableBackgroundColor = background;

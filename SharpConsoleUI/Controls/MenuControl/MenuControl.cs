@@ -349,13 +349,13 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 
 	Color IContainer.BackgroundColor
 	{
-		get => Container?.BackgroundColor ?? Color.Black;
+		get => Helpers.ColorResolver.ResolveBackground(null, Container);
 		set { /* Menu doesn't support changing background color directly */ }
 	}
 
 	Color IContainer.ForegroundColor
 	{
-		get => Container?.ForegroundColor ?? Color.White;
+		get => Helpers.ColorResolver.ResolveForeground(null, Container);
 		set { /* Menu doesn't support changing foreground color directly */ }
 	}
 

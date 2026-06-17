@@ -31,6 +31,12 @@ namespace SharpConsoleUI.Controls
 		private readonly object _contentLock = new();
 		private LayoutResult _layoutResult;
 		private int _lastLayoutWidth = -1;
+		// The fg/bg/link colors baked into the current layout. Layout bakes theme colors into every
+		// cell, so a theme switch leaves the cached layout stale until these are seen to differ and a
+		// relayout is forced (reload already does this; this makes a live theme switch do it too).
+		private Color? _lastLayoutFg;
+		private Color? _lastLayoutBg;
+		private Color? _lastLayoutLinkColor;
 		private string? _rawHtml;
 		private string? _baseUrl;
 		private string? _currentUrl;
@@ -70,7 +76,8 @@ namespace SharpConsoleUI.Controls
 		private Color? _backgroundColorValue;
 
 		// Property backing fields
-		private Color _linkColor = HtmlConstants.DefaultLinkColor;
+		// Null = follow the active theme accent (so links read on light themes); explicit set pins it.
+		private Color? _linkColor;
 		private Color _visitedLinkColor = HtmlConstants.DefaultVisitedLinkColor;
 		private bool _showImages;
 		private bool _showBulletPoints = true;
@@ -114,16 +121,30 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color BackgroundColor
 		{
-			get => _backgroundColorValue ?? Container?.BackgroundColor ?? Color.Black;
+			// HTML rendering needs a CONCRETE surface (images/contrast blend against it), so resolve to
+			// an opaque color: control bg if set → container's bg (only if opaque) → theme window bg →
+			// black. The theme step is what makes it light on light themes (was a hardcoded ?? black).
+			get
+			{
+				if (_backgroundColorValue is { } own)
+					return own;
+				var containerBg = Container?.BackgroundColor;
+				if (containerBg is { } cbg && cbg.A == 255)
+					return cbg;
+				return Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
+			}
 			set => SetProperty(ref _backgroundColorValue, (Color?)value);
 		}
 
 		/// <summary>
-		/// Gets or sets the color used for unvisited links.
+		/// Gets or sets the color used for unvisited links. When unset, follows the active theme accent
+		/// so links stay readable on light themes (instead of a hardcoded cyan).
 		/// </summary>
 		public Color LinkColor
 		{
-			get => _linkColor;
+			get => _linkColor
+				?? Container?.GetConsoleWindowSystem?.Theme?.ActiveBorderForegroundColor
+				?? HtmlConstants.DefaultLinkColor;
 			set => SetProperty(ref _linkColor, value);
 		}
 
@@ -681,7 +702,8 @@ namespace SharpConsoleUI.Controls
 					return false;
 
 				var fg = ForegroundColor;
-				var bg = Container?.BackgroundColor ?? Color.Black;
+				var bg = BackgroundColor; // theme-resolved (was Container?.BackgroundColor ?? Color.Black)
+				_lastLayoutFg = fg; _lastLayoutBg = bg; _lastLayoutLinkColor = LinkColor;
 
 				try
 				{
@@ -689,7 +711,7 @@ namespace SharpConsoleUI.Controls
 					_layoutResult = _layoutEngine.Layout(
 						capturedHtml,
 						capturedWidth, fg, bg,
-						_blockSpacing, _linkColor, _visitedLinkColor,
+						_blockSpacing, LinkColor, VisitedLinkColor,
 						capturedBaseUrl,
 						showImages: true,
 						imageCache: imageCache,
@@ -717,13 +739,14 @@ namespace SharpConsoleUI.Controls
 			}
 
 			var fg = ForegroundColor;
-			var bg = Container?.BackgroundColor ?? Color.Black;
+			var bg = BackgroundColor; // theme-resolved (was Container?.BackgroundColor ?? Color.Black)
+			_lastLayoutFg = fg; _lastLayoutBg = bg; _lastLayoutLinkColor = LinkColor;
 
 			try
 			{
 				_layoutResult = _layoutEngine.Layout(
 					_rawHtml, width, fg, bg, _blockSpacing,
-					_linkColor, _visitedLinkColor, _baseUrl,
+					LinkColor, VisitedLinkColor, _baseUrl,
 					showImages: false);
 			}
 			catch (Exception ex)
@@ -751,7 +774,8 @@ namespace SharpConsoleUI.Controls
 			}
 
 			var fg = ForegroundColor;
-			var bg = Container?.BackgroundColor ?? Color.Black;
+			var bg = BackgroundColor; // theme-resolved (was Container?.BackgroundColor ?? Color.Black)
+			_lastLayoutFg = fg; _lastLayoutBg = bg; _lastLayoutLinkColor = LinkColor;
 
 			try
 			{
@@ -762,8 +786,8 @@ namespace SharpConsoleUI.Controls
 					fg,
 					bg,
 					_blockSpacing,
-					_linkColor,
-					_visitedLinkColor,
+					LinkColor,
+					VisitedLinkColor,
 					_baseUrl,
 					_showImages,
 					graphicsProtocol: gp);

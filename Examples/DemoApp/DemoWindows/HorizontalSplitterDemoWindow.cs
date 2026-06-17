@@ -1,3 +1,4 @@
+using DemoApp.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -23,7 +24,7 @@ internal static class HorizontalSplitterDemoWindow
 			.Column(col =>
 			{
 				col.Add(Controls.Markup()
-					.AddLine("[bold cyan]Both Fill[/]")
+					.AddLine("[bold]Both Fill[/]")
 					.AddLine("[dim]Drag the ═══ bar to resize[/]")
 					.WithMargin(0, 0, 0, 0).Build());
 
@@ -55,7 +56,7 @@ internal static class HorizontalSplitterDemoWindow
 					.WithBorderColor(Color.Cyan1)
 					.WithVerticalAlignment(VerticalAlignment.Fill)
 					.AddControl(Controls.Markup()
-						.AddLine("[cyan]This panel adjusts too[/]")
+						.AddLine("[bold]This panel adjusts too[/]")
 						.AddLine("")
 						.AddLine("When the top panel grows,")
 						.AddLine("this one shrinks, and")
@@ -109,10 +110,6 @@ internal static class HorizontalSplitterDemoWindow
 			})
 			.Build();
 
-		var gradient = ColorGradient.FromColors(
-			new Color(20, 10, 30),
-			new Color(10, 25, 20));
-
 		var bottomControl = Controls.ScrollablePanel()
 			.WithBorderStyle(BorderStyle.Rounded)
 			.WithHeader("Bottom Control")
@@ -129,15 +126,15 @@ internal static class HorizontalSplitterDemoWindow
 
 		var splitter = Controls.HorizontalSplitter().Build();
 
-		return new WindowBuilder(ws)
+		var window = new WindowBuilder(ws)
 			.WithTitle("Horizontal Splitter Demo")
 			.WithSize(WindowWidth, WindowHeight)
 			.Centered()
-			.WithBackgroundGradient(gradient, GradientDirection.Vertical)
-			.WithForegroundColor(Color.White)
 			.AddControl(grid)
 			.AddControl(splitter)
 			.AddControl(bottomControl)
 			.BuildAndShow();
+		DemoTheme.ApplyThemeGradient(window, ws);
+		return window;
 	}
 }

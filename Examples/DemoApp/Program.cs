@@ -21,7 +21,7 @@ internal class Program
 		{
 			var options = new ConsoleWindowSystemOptions(
 				TopPanelConfig: panel => panel
-					.Left(Elements.StatusText("[bold cyan]SharpConsoleUI Demo[/]"))
+					.Left(Elements.StatusText("[bold]SharpConsoleUI Demo[/]"))
 					.Left(Elements.Separator())
 					.Left(Elements.StatusText("[dim]Ctrl+L: Launcher[/]"))
 					.Right(Elements.Performance()),
@@ -31,10 +31,9 @@ internal class Program
 						.WithOptions(new StartMenuOptions
 						{
 							AppName = "SharpConsoleUI Demo",
-							SidebarStyle = StartMenuSidebarStyle.IconLabel,
-							BackgroundGradient = new GradientBackground(
-								ColorGradient.FromColors(new Color(25, 25, 60), new Color(15, 15, 35)),
-								GradientDirection.Vertical)
+							SidebarStyle = StartMenuSidebarStyle.IconLabel
+							// Background left unset so the Start menu follows the active theme (a hardcoded
+							// dark gradient here rendered as an unreadable dark popup on light themes).
 						}))
 					.Center(Elements.TaskBar())
 					.Right(Elements.Clock().WithFormat("HH:mm:ss"))

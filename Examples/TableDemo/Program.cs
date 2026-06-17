@@ -56,7 +56,7 @@ window.KeyPressed += (s, e) =>
 			break;
 
 		case ConsoleKey.F2:
-			windowSystem.ThemeStateService.SetTheme(new SharpConsoleUI.Themes.ClassicTheme());
+			windowSystem.ThemeStateService.SetTheme(new SharpConsoleUI.Themes.ModernGrayTheme());
 			break;
 
 		case ConsoleKey.F3:

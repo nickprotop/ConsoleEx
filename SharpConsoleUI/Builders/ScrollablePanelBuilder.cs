@@ -41,7 +41,8 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
 	private Color? _backgroundColor;
-	private Color _foregroundColor = Color.White;
+	// Null = follow the active theme (do NOT force white, which overrode the theme on light themes).
+	private Color? _foregroundColor;
 	private BorderStyle _borderStyle = BorderStyle.None;
 	private Color? _borderColor;
 	private Padding _padding = new(0, 0, 0, 0);
@@ -470,7 +471,6 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 			Name = _name,
 			Tag = _tag,
 			StickyPosition = _stickyPosition,
-			ForegroundColor = _foregroundColor,
 			BorderStyle = _borderStyle,
 			BorderColor = _borderColor,
 			Padding = _padding,
@@ -482,6 +482,12 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 		if (_backgroundColor.HasValue)
 		{
 			control.BackgroundColor = _backgroundColor.Value;
+		}
+
+		// Set foreground only if explicitly specified (null = follow the active theme).
+		if (_foregroundColor.HasValue)
+		{
+			control.ForegroundColor = _foregroundColor.Value;
 		}
 
 		// Add all children

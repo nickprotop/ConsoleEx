@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using DemoApp.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -37,7 +38,7 @@ public static class SliderDemoWindow
 			{
 				volumeStatus.SetContent(new List<string>
 				{
-					$"[dim]Volume: [bold cyan]{val:F0}[/][/]"
+					$"[dim]Volume: [bold]{val:F0}[/][/]"
 				});
 			})
 			.Build();
@@ -160,16 +161,10 @@ public static class SliderDemoWindow
 			.StickyBottom()
 			.Build();
 
-		var gradient = ColorGradient.FromColors(
-			new Color(10, 45, 30),
-			new Color(25, 60, 55),
-			new Color(15, 35, 50));
-
-		return new WindowBuilder(ws)
+		var window = new WindowBuilder(ws)
 			.WithTitle("Slider Controls")
 			.WithSize(WindowWidth, WindowHeight)
 			.Centered()
-			.WithBackgroundGradient(gradient, GradientDirection.Vertical)
 			.AddControls(panel, statusBar)
 			.OnKeyPressed((sender, e) =>
 			{
@@ -180,5 +175,7 @@ public static class SliderDemoWindow
 				}
 			})
 			.BuildAndShow();
+		DemoTheme.ApplyThemeGradient(window, ws);
+		return window;
 	}
 }

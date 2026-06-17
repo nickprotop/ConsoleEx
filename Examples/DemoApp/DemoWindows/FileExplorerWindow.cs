@@ -122,7 +122,7 @@ public static class FileExplorerWindow
 		if (string.IsNullOrEmpty(rootName))
 			rootName = rootPath;
 
-		var rootNode = builder.AddRootNode($"[cyan]{rootName}[/]");
+		var rootNode = builder.AddRootNode($"[bold]{rootName}[/]");
 		rootNode.Tag = rootPath;
 		rootNode.IsExpanded = true;
 
@@ -145,7 +145,7 @@ public static class FileExplorerWindow
 				if (name.StartsWith('.'))
 					continue;
 
-				var node = parentNode.AddChild($"[cyan]{name}[/]");
+				var node = parentNode.AddChild($"[bold]{name}[/]");
 				node.Tag = dir;
 				node.IsExpanded = false;
 

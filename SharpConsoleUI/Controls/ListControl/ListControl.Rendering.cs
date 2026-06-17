@@ -278,7 +278,11 @@ namespace SharpConsoleUI.Controls
 			}
 			else if (HasFocus)
 			{
-				backgroundColor = ColorResolver.ResolveButtonFocusedBackground(_focusedBackgroundColorValue, Container);
+				// Focus must NOT flood the whole list with an accent (the old behavior borrowed the
+				// button-focused background, painting every row blue). The list surface stays the list
+				// background; only the SELECTED item gets a highlight. An explicit focused bg still wins.
+				backgroundColor = _focusedBackgroundColorValue
+					?? ColorResolver.ResolveListBackground(_backgroundColorValue, Container);
 				foregroundColor = FocusedForegroundColor;
 			}
 			else

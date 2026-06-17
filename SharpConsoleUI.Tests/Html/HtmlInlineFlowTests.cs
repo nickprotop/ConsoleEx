@@ -89,11 +89,15 @@ namespace SharpConsoleUI.Tests.Html
 		[Fact]
 		public void InlineCode_HasCodeBackground()
 		{
+			// Code background is derived from the page background (a subtle stepped surface, theme-aware)
+			// rather than a hardcoded grey. On the black default bg it steps to a near-black, but it must
+			// be DISTINCT from the page bg so the inline code is visually set apart.
 			var lines = Flow("<code>foo()</code>");
 			Assert.Single(lines);
 			var cells = lines[0].Cells;
-			Assert.Equal(HtmlConstants.DefaultCodeBackground, cells[0].Background);
-			Assert.Equal(HtmlConstants.DefaultCodeBackground, cells[4].Background);
+			Assert.NotEqual(Color.Black, cells[0].Background);
+			Assert.NotEqual(Color.Black, cells[4].Background);
+			Assert.Equal(cells[0].Background, cells[4].Background); // uniform across the code run
 		}
 
 		[Fact]

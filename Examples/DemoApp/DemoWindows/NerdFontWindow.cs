@@ -16,7 +16,7 @@ internal static class NerdFontWindow
 			? "[green]Detected[/]"
 			: "[yellow]Not detected (ASCII fallbacks shown)[/]";
 
-		var header = Controls.Markup($"[bold cyan]Nerd Font Icons[/]  -  NerdFont support: {status}")
+		var header = Controls.Markup($"[bold]Nerd Font Icons[/]  -  NerdFont support: {status}")
 			.Build();
 
 		var fontAwesome = Controls.Markup("[bold yellow]FontAwesome[/]")

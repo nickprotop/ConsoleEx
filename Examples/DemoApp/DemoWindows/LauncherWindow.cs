@@ -1,3 +1,4 @@
+using DemoApp.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -13,7 +14,7 @@ public static class LauncherWindow
 	{
 		var nav = Controls.NavigationView()
 			.WithNavWidth(30)
-			.WithPaneHeader("[bold white]  SharpConsoleUI[/]")
+			.WithPaneHeader("[bold]  SharpConsoleUI[/]")
 			.WithContentBorder(BorderStyle.Rounded)
 			// Content border/background left unset so they follow the active theme (the theme switcher
 			// recolors them).
@@ -111,10 +112,13 @@ public static class LauncherWindow
 			.WithTitle("SharpConsoleUI Demo")
 			.WithSize(90, 30)
 			.AtPosition(0, 0)
-			// No explicit background — the window tracks the active theme, so the theme switcher
-			// recolors the whole launcher (not just the border).
 			.AddControl(nav)
 			.BuildAndShow();
+
+		// Background gradient is derived from the active theme (see DemoTheme) and re-baked on
+		// ThemeChanged, so the theme switcher recolors the whole launcher — subtle depth on dark
+		// themes, readable on light.
+		DemoTheme.ApplyThemeGradient(window, ws);
 
 		return window;
 	}
@@ -277,7 +281,7 @@ public static class LauncherWindow
 		{
 			"Border Styles" => new List<string>
 			{
-				"[bold cyan]Border Styles[/]",
+				"[bold]Border Styles[/]",
 				"",
 				"Explore all four window border styles: DoubleLine,",
 				"Single, Rounded, and None (borderless). Spawn",
@@ -295,7 +299,7 @@ public static class LauncherWindow
 			},
 			"IDE Layout" => new List<string>
 			{
-				"[bold cyan]IDE Layout[/]",
+				"[bold]IDE Layout[/]",
 				"",
 				"A complete IDE-like application UI with menu bar,",
 				"toolbar, project explorer, tabbed editor, and status bar.",
@@ -308,7 +312,7 @@ public static class LauncherWindow
 			},
 			"File Explorer" => new List<string>
 			{
-				"[bold cyan]File Explorer[/]",
+				"[bold]File Explorer[/]",
 				"",
 				"Browse the filesystem with a tree view for directories",
 				"and a list view for files with icons and sizes.",
@@ -319,7 +323,7 @@ public static class LauncherWindow
 			},
 			"Multi-Tab Demo" => new List<string>
 			{
-				"[bold cyan]Multi-Tab Demo[/]",
+				"[bold]Multi-Tab Demo[/]",
 				"",
 				"Demonstrates the TabControl with multiple tabs",
 				"containing different types of content.",
@@ -330,7 +334,7 @@ public static class LauncherWindow
 			},
 			"Collapsible Panel" => new List<string>
 			{
-				"[bold cyan]Collapsible Panel[/]",
+				"[bold]Collapsible Panel[/]",
 				"",
 				"Click-to-expand sections that show/hide their body.",
 				"Built for FAQ accordions and AI-agent transcripts,",
@@ -352,7 +356,7 @@ public static class LauncherWindow
 			},
 			"WinUI Layout" => new List<string>
 			{
-				"[bold cyan]WinUI Layout[/]",
+				"[bold]WinUI Layout[/]",
 				"",
 				"Windows 11 WinUI-inspired settings layout with",
 				"gradient background, transparent nav panel, and",
@@ -371,7 +375,7 @@ public static class LauncherWindow
 			},
 			"Horizontal Splitter" => new List<string>
 			{
-				"[bold cyan]Horizontal Splitter[/]",
+				"[bold]Horizontal Splitter[/]",
 				"",
 				"Drag-to-resize horizontal bar between vertically",
 				"stacked controls. Supports mouse drag and keyboard.",
@@ -388,7 +392,7 @@ public static class LauncherWindow
 			},
 			"Status Bar" => new List<string>
 			{
-				"[bold cyan]Status Bar[/]",
+				"[bold]Status Bar[/]",
 				"",
 				"Dedicated StatusBarControl with left/center/right",
 				"alignment zones, clickable shortcut+label items,",
@@ -408,7 +412,7 @@ public static class LauncherWindow
 			},
 			"Toolbar" => new List<string>
 			{
-				"[bold cyan]Toolbar Demo[/]",
+				"[bold]Toolbar Demo[/]",
 				"",
 				"ToolbarControl with auto-height support for",
 				"multi-row items like bordered buttons. Shows",
@@ -426,7 +430,7 @@ public static class LauncherWindow
 			},
 			"Prompt Control" => new List<string>
 			{
-				"[bold cyan]Prompt Control[/]",
+				"[bold]Prompt Control[/]",
 				"",
 				"Single-line text input with readline-style editing,",
 				"command history, text selection, clipboard, and",
@@ -443,7 +447,7 @@ public static class LauncherWindow
 			},
 			"Interactive Demo" => new List<string>
 			{
-				"[bold cyan]Interactive Demo[/]",
+				"[bold]Interactive Demo[/]",
 				"",
 				"Shows real-time key press event handling.",
 				"Press any key to see its details displayed.",
@@ -453,7 +457,7 @@ public static class LauncherWindow
 			},
 			"Dropdown" => new List<string>
 			{
-				"[bold cyan]Meal Planner[/]",
+				"[bold]Meal Planner[/]",
 				"",
 				"Five cascading dropdowns with per-item colors",
 				"and icons, live summary panel, and contextual",
@@ -468,7 +472,7 @@ public static class LauncherWindow
 			},
 			"List View" => new List<string>
 			{
-				"[bold cyan]Package Manager[/]",
+				"[bold]Package Manager[/]",
 				"",
 				"NuGet-style package browser with checkbox mode,",
 				"type-ahead search, custom formatting, hover",
@@ -484,7 +488,7 @@ public static class LauncherWindow
 			},
 			"Table" => new List<string>
 			{
-				"[bold cyan]Employee Directory[/]",
+				"[bold]Employee Directory[/]",
 				"",
 				"Interactive table with 25 employees across 6",
 				"departments. Sorting, filtering, inline editing,",
@@ -500,7 +504,7 @@ public static class LauncherWindow
 			},
 			"DataGrid" => new List<string>
 			{
-				"[bold cyan]Interactive DataGrid[/]",
+				"[bold]Interactive DataGrid[/]",
 				"",
 				"Full-featured DataGrid with 10,000 virtual rows,",
 				"ITableDataSource, sorting, inline editing,",
@@ -515,7 +519,7 @@ public static class LauncherWindow
 			},
 			"Nerd Fonts" => new List<string>
 			{
-				"[bold cyan]Nerd Font Showcase[/]",
+				"[bold]Nerd Font Showcase[/]",
 				"",
 				"Displays NerdFont icon families with auto-detection",
 				"and ASCII fallback support.",
@@ -526,7 +530,7 @@ public static class LauncherWindow
 			},
 			"Markup Syntax" => new List<string>
 			{
-				"[bold cyan]Markup Syntax Showcase[/]",
+				"[bold]Markup Syntax Showcase[/]",
 				"",
 				"Demonstrates the rich markup system with colors,",
 				"RGB/hex support, text decorations, backgrounds,",
@@ -538,9 +542,9 @@ public static class LauncherWindow
 			},
 			"Markdown" => new List<string>
 			{
-				"[bold cyan]Markdown Rendering[/]",
+				"[bold]Markdown Rendering[/]",
 				"",
-				"The [cyan][[markdown]][/] markup tag parses Markdown via",
+				"The [bold][[markdown]][/] markup tag parses Markdown via",
 				"Markdig and renders it as native markup wherever markup",
 				"is accepted. Copied text stays plain automatically.",
 				"",
@@ -564,13 +568,13 @@ public static class LauncherWindow
 			},
 			"Selectable Text" => new List<string>
 			{
-				"[bold cyan]Selectable Text[/]",
+				"[bold]Selectable Text[/]",
 				"",
 				"MarkupControl is display-only by default. Set",
-				"[cyan]EnableSelection = true[/] (opt-in, off by default)",
+				"[bold]EnableSelection = true[/] (opt-in, off by default)",
 				"to make its text mouse-selectable and copyable.",
 				"",
-				"Drag to select, then [bold cyan]Ctrl+C[/] copies the",
+				"Drag to select, then [bold]Ctrl+C[/] copies the",
 				"selection as plain text — markup tags stripped.",
 				"Selection is coordinated per window: only one",
 				"control holds a selection at a time.",
@@ -589,7 +593,7 @@ public static class LauncherWindow
 			},
 			"International & Emoji" => new List<string>
 			{
-				"[bold cyan]International & Emoji Showcase[/]",
+				"[bold]International & Emoji Showcase[/]",
 				"",
 				"Demonstrates Unicode support including CJK wide",
 				"characters, surrogate pairs (U+10000+), emoji,",
@@ -609,7 +613,7 @@ public static class LauncherWindow
 			},
 			"Data Binding" => new List<string>
 			{
-				"[bold cyan]MVVM Data Binding[/]",
+				"[bold]MVVM Data Binding[/]",
 				"",
 				"Demonstrates INotifyPropertyChanged-based data",
 				"binding between a ViewModel and UI controls.",
@@ -626,7 +630,7 @@ public static class LauncherWindow
 			},
 			"Date & Time" => new List<string>
 			{
-				"[bold cyan]Date & Time[/]",
+				"[bold]Date & Time[/]",
 				"",
 				"DatePicker and TimePicker controls with multiple",
 				"format and culture configurations, constraints,",
@@ -647,7 +651,7 @@ public static class LauncherWindow
 			},
 			"Graphs & Charts" => new List<string>
 			{
-				"[bold cyan]Graphs & Charts[/]",
+				"[bold]Graphs & Charts[/]",
 				"",
 				"Live sparklines, bar graphs, and progress bars",
 				"with animated real-time updates.",
@@ -658,7 +662,7 @@ public static class LauncherWindow
 			},
 			"System Monitor" => new List<string>
 			{
-				"[bold cyan]System Monitor[/]",
+				"[bold]System Monitor[/]",
 				"",
 				"Real-time system monitoring dashboard with multi-",
 				"frequency updates. Simulates CPU, memory, disk, and",
@@ -678,7 +682,7 @@ public static class LauncherWindow
 			},
 			"Container Backgrounds" => new List<string>
 			{
-				"[bold cyan]Container Background Demo[/]",
+				"[bold]Container Background Demo[/]",
 				"",
 				"Showcases how background colors and gradients",
 				"propagate through nested containers.",
@@ -697,7 +701,7 @@ public static class LauncherWindow
 			},
 			"Gradients" => new List<string>
 			{
-				"[bold cyan]Gradient Demo[/]",
+				"[bold]Gradient Demo[/]",
 				"",
 				"Showcases gradient text markup and gradient",
 				"window backgrounds with direction cycling.",
@@ -709,7 +713,7 @@ public static class LauncherWindow
 			},
 			"Animations" => new List<string>
 			{
-				"[bold cyan]Animation Demo[/]",
+				"[bold]Animation Demo[/]",
 				"",
 				"Shows window animations including fade and slide",
 				"transitions with selectable easing functions.",
@@ -721,7 +725,7 @@ public static class LauncherWindow
 			},
 			"Image Rendering" => new List<string>
 			{
-				"[bold cyan]Image Rendering Demo[/]",
+				"[bold]Image Rendering Demo[/]",
 				"",
 				"Displays programmatic pixel art using half-block",
 				"characters for 2-pixel-per-cell resolution.",
@@ -733,7 +737,7 @@ public static class LauncherWindow
 			},
 			"Image Viewer" => new List<string>
 			{
-				"[bold cyan]Image Viewer[/]",
+				"[bold]Image Viewer[/]",
 				"",
 				"Load and display real image files (PNG, JPEG, BMP,",
 				"GIF, WebP, TIFF) with half-block Unicode rendering.",
@@ -748,7 +752,7 @@ public static class LauncherWindow
 			},
 			"Built-in Dialogs" => new List<string>
 			{
-				"[bold cyan]Built-in Dialogs[/]",
+				"[bold]Built-in Dialogs[/]",
 				"",
 				"Showcases all built-in dialog types: file pickers,",
 				"folder picker, save dialog, about, settings,",
@@ -761,7 +765,7 @@ public static class LauncherWindow
 			},
 			"Digital Clock" => new List<string>
 			{
-				"[bold cyan]Digital Clock[/]",
+				"[bold]Digital Clock[/]",
 				"",
 				"A FIGlet-rendered digital clock that updates",
 				"every second using async window thread.",
@@ -771,7 +775,7 @@ public static class LauncherWindow
 			},
 			"Log Viewer" => new List<string>
 			{
-				"[bold cyan]Log Viewer[/]",
+				"[bold]Log Viewer[/]",
 				"",
 				"Real-time log display with simulated entries",
 				"and severity-based coloring.",
@@ -781,7 +785,7 @@ public static class LauncherWindow
 			},
 			"Notifications" => new List<string>
 			{
-				"[bold cyan]Notifications[/]",
+				"[bold]Notifications[/]",
 				"",
 				"Demonstrates the notification system with all",
 				"severity levels: info, success, warning, danger.",
@@ -793,7 +797,7 @@ public static class LauncherWindow
 			},
 			"System Info" => new List<string>
 			{
-				"[bold cyan]System Information[/]",
+				"[bold]System Information[/]",
 				"",
 				"Displays OS, runtime, memory, and processor",
 				"details in a formatted view.",
@@ -803,7 +807,7 @@ public static class LauncherWindow
 			},
 			"Terminal" => new List<string>
 			{
-				"[bold cyan]Terminal[/]",
+				"[bold]Terminal[/]",
 				"",
 				"A PTY-backed terminal emulator running",
 				"the system shell.",
@@ -813,7 +817,7 @@ public static class LauncherWindow
 			},
 			"Slider" => new List<string>
 			{
-				"[bold cyan]Slider Controls[/]",
+				"[bold]Slider Controls[/]",
 				"",
 				"Single-value sliders and dual-thumb range sliders",
 				"with keyboard and mouse interaction.",
@@ -832,7 +836,7 @@ public static class LauncherWindow
 			},
 			"Spinner" => new List<string>
 			{
-				"[bold cyan]Spinner Controls[/]",
+				"[bold]Spinner Controls[/]",
 				"",
 				"Animated spinners for indeterminate-progress feedback.",
 				"Six built-in styles plus fully custom frame sequences.",
@@ -852,7 +856,7 @@ public static class LauncherWindow
 			},
 			"Welcome Banner" => new List<string>
 			{
-				"[bold cyan]Welcome Banner[/]",
+				"[bold]Welcome Banner[/]",
 				"",
 				"FIGlet ASCII art banner with project info.",
 				"",
@@ -861,7 +865,7 @@ public static class LauncherWindow
 			},
 			"Canvas Animations" => new List<string>
 			{
-				"[bold cyan]Canvas Animations[/]",
+				"[bold]Canvas Animations[/]",
 				"",
 				"Three animated CanvasControl windows showcasing",
 				"real-time drawing with BeginPaint/EndPaint and",
@@ -886,7 +890,7 @@ public static class LauncherWindow
 			},
 			"Alpha Blending" => new List<string>
 			{
-				"[bold cyan]Alpha Blending[/]",
+				"[bold]Alpha Blending[/]",
 				"",
 				"Per-cell alpha compositing across five interactive zones.",
 				"Drag a slider to preview Color.Blend() live, watch a panel",
@@ -902,7 +906,7 @@ public static class LauncherWindow
 			},
 			"Transparent Windows" => new List<string>
 			{
-				"[bold cyan]Transparent Windows[/]",
+				"[bold]Transparent Windows[/]",
 				"",
 				"Mica-style see-through window compositing.",
 				"Semi-transparent windows show content from",
@@ -916,7 +920,7 @@ public static class LauncherWindow
 			},
 			"Panel Config" => new List<string>
 			{
-				"[bold cyan]Panel Configuration[/]",
+				"[bold]Panel Configuration[/]",
 				"",
 				"Interactive control center for the desktop panel system.",
 				"Toggle panels, add/remove elements at runtime, and",
@@ -936,7 +940,7 @@ public static class LauncherWindow
 			},
 			"Desktop Background" => new List<string>
 			{
-				"[bold cyan]Desktop Background[/]",
+				"[bold]Desktop Background[/]",
 				"",
 				"Configure the desktop background with solid colors,",
 				"gradients, repeating patterns, animated effects,",
@@ -955,7 +959,7 @@ public static class LauncherWindow
 			},
 			"HTML Rendering" => new List<string>
 			{
-				"[bold cyan]HTML Rendering[/]",
+				"[bold]HTML Rendering[/]",
 				"",
 				"Renders HTML content directly in the terminal,",
 				"inspired by the Lynx text browser.",
@@ -977,15 +981,15 @@ public static class LauncherWindow
 			},
 			"Video Player" => new List<string>
 			{
-				"[bold cyan]Video Player[/]",
+				"[bold]Video Player[/]",
 				"",
 				"Plays video files in the terminal using three",
 				"rendering modes. Requires FFmpeg on PATH.",
 				"",
 				"[dim]Render Modes:[/]",
-				"  - [white]Half-Block:[/] 2 pixels/cell, best color",
-				"  - [white]ASCII:[/] Brightness-to-density characters",
-				"  - [white]Braille:[/] 2x4 dots/cell, highest resolution",
+				"  - [bold]Half-Block:[/] 2 pixels/cell, best color",
+				"  - [bold]ASCII:[/] Brightness-to-density characters",
+				"  - [bold]Braille:[/] 2x4 dots/cell, highest resolution",
 				"",
 				"[dim]Controls:[/]",
 				"  Space — Play / Pause",

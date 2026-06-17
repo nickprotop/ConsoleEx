@@ -11,6 +11,7 @@
 using System.IO;
 using AngleSharp;
 using AngleSharp.Dom;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
 
@@ -437,9 +438,11 @@ namespace SharpConsoleUI.Html
 			var effectiveWidth = ctx.MaxWidth - indent;
 			if (effectiveWidth <= 0) effectiveWidth = 1;
 
+			// Code-block background derived from the page background (subtle on light AND dark themes).
+			Color codeBg = ctx.DefaultBg.IsDark() ? ctx.DefaultBg.Tint(0.10) : ctx.DefaultBg.Shade(0.08);
 			foreach (var rawLine in rawLines)
 			{
-				var cells = TextToCells(rawLine, effectiveWidth, ctx.DefaultFg, HtmlConstants.DefaultCodeBackground);
+				var cells = TextToCells(rawLine, effectiveWidth, ctx.DefaultFg, codeBg);
 				var line = new LayoutLine(0, indent, cells.Length, cells, TextAlignment.Left);
 				ctx.AddLine(line, indent);
 			}

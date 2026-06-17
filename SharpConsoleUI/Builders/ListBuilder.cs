@@ -22,7 +22,8 @@ namespace SharpConsoleUI.Builders;
 public sealed class ListBuilder : IControlBuilder<ListControl>
 {
 	private readonly List<ListItem> _items = new();
-	private string _title = "List";
+	// Empty by default: an unspecified title shows NO title row (was the literal "List").
+	private string _title = string.Empty;
 	private int? _maxVisibleItems;
 	private bool _isSelectable = true;
 	private bool _autoAdjustWidth = false;
@@ -70,7 +71,7 @@ public sealed class ListBuilder : IControlBuilder<ListControl>
 	/// </summary>
 	public ListBuilder WithTitle(string title)
 	{
-		_title = title;
+		_title = title ?? string.Empty;
 		return this;
 	}
 

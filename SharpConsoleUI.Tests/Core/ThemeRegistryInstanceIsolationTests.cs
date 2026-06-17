@@ -23,7 +23,7 @@ public class ThemeRegistryInstanceIsolationTests
 
 		Assert.NotSame(a.ThemeRegistryService, b.ThemeRegistryService);
 		Assert.True(a.ThemeRegistryService.IsThemeRegistered("ModernGray"));
-		Assert.True(b.ThemeRegistryService.IsThemeRegistered("Classic"));
+		Assert.True(b.ThemeRegistryService.IsThemeRegistered("Ocean"));
 	}
 
 	[Fact]
@@ -32,7 +32,7 @@ public class ThemeRegistryInstanceIsolationTests
 		var a = NewSystem();
 		var b = NewSystem();
 
-		a.ThemeRegistryService.RegisterTheme("PluginTheme", "from a plugin in A", () => new ClassicTheme());
+		a.ThemeRegistryService.RegisterTheme("PluginTheme", "from a plugin in A", () => new ModernGrayTheme());
 
 		Assert.True(a.ThemeRegistryService.IsThemeRegistered("PluginTheme"));
 		Assert.False(b.ThemeRegistryService.IsThemeRegistered("PluginTheme"));
@@ -43,7 +43,7 @@ public class ThemeRegistryInstanceIsolationTests
 	{
 		var a = NewSystem();
 		// A theme only registered in A is switchable in A...
-		a.ThemeRegistryService.RegisterTheme("OnlyA", "desc", () => new ClassicTheme());
+		a.ThemeRegistryService.RegisterTheme("OnlyA", "desc", () => new ModernGrayTheme());
 		Assert.True(a.ThemeStateService.SwitchTheme("OnlyA"));
 
 		// ...but not in a fresh system B.
@@ -55,7 +55,7 @@ public class ThemeRegistryInstanceIsolationTests
 	public void SwitchTheme_BuiltInWorks()
 	{
 		var a = NewSystem();
-		Assert.True(a.ThemeStateService.SwitchTheme("Classic"));
-		Assert.Equal("Classic", a.Theme.Name);
+		Assert.True(a.ThemeStateService.SwitchTheme("ModernGray"));
+		Assert.Equal("ModernGray", a.Theme.Name);
 	}
 }

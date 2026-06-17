@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using DemoApp.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -392,7 +393,7 @@ public static class DataGridWindow
 		// --- Right panel: Info + static table ---
 		var infoMarkup = Controls.Markup()
 			.AddLines(
-				"[bold cyan]DataGrid Features[/]",
+				"[bold]DataGrid Features[/]",
 				"",
 				"[dim]Navigation:[/]",
 				"  [yellow]\u2191\u2193[/] Row navigation",
@@ -480,16 +481,10 @@ public static class DataGridWindow
 			}
 		};
 
-		var gradient = ColorGradient.FromColors(
-			new Color(10, 10, 50),
-			new Color(0, 50, 80),
-			new Color(40, 10, 60));
-
-		return new WindowBuilder(ws)
+		var window = new WindowBuilder(ws)
 			.WithTitle("Interactive DataGrid Demo")
 			.WithSize(130, 35)
 			.Centered()
-			.WithBackgroundGradient(gradient, GradientDirection.Vertical)
 			.AddControls(toolbar, grid, statusBar)
 			.OnKeyPressed((sender, e) =>
 			{
@@ -502,5 +497,7 @@ public static class DataGridWindow
 				}
 			})
 			.BuildAndShow();
+		DemoTheme.ApplyThemeGradient(window, ws);
+		return window;
 	}
 }

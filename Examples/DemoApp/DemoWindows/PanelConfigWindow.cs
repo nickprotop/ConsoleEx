@@ -1,3 +1,4 @@
+using DemoApp.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -45,12 +46,10 @@ public static class PanelConfigWindow
 			.WithTitle("Panel Configuration")
 			.WithSize(80, 28)
 			.Centered()
-			.WithBackgroundGradient(
-				ColorGradient.FromColors(new Color(20, 15, 40), new Color(10, 8, 20)),
-				GradientDirection.Vertical)
 			.AddControl(nav)
 			.BuildAndShow();
 
+		DemoTheme.ApplyThemeGradient(window, ws);
 		return window;
 	}
 

@@ -529,14 +529,7 @@ namespace SharpConsoleUI.Controls
 				&& _items[newIndex].ItemType != NavigationItemType.Header)
 			{
 				var item = _items[newIndex];
-				string titleMarkup = _currentDisplayMode == NavigationViewDisplayMode.Minimal
-					? $"[bold white]{ControlDefaults.NavigationViewHamburgerChar} {item.Text}[/]"
-					: $"[bold white]{item.Text}[/]";
-
-				var headerLines = new List<string> { titleMarkup };
-				if (item.Subtitle != null)
-					headerLines.Add($"[dim]{item.Subtitle}[/]");
-				_contentHeader.SetContent(headerLines);
+				_contentHeader.SetContent(FormatContentHeader(item));
 			}
 
 			// Switch content — only clear+populate if a factory is registered.

@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using DemoApp.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -67,7 +68,7 @@ public static class SpinnerDemoWindow
 			.AddControl(Controls.Header("Original Preset Styles"))
 			.AddControl(Row(SpinnerStyle.Braille, Color.Yellow, "[yellow]Braille[/]", "default style, reliably narrow on modern terminals"))
 			.AddControl(Row(SpinnerStyle.Circle, Color.Cyan1, "[cyan1]Circle[/]", "quarter-circle rotation"))
-			.AddControl(Row(SpinnerStyle.Line, Color.White, "[white]Line[/]", "ASCII - \\ | / sequence"))
+			.AddControl(Row(SpinnerStyle.Line, Color.White, "[bold]Line[/]", "ASCII - \\ | / sequence"))
 			.AddControl(Row(SpinnerStyle.Dots, Color.Green, "[green]Dots[/]", "fixed 3-column  .  /  .. / ... sequence"))
 			.AddControl(Row(SpinnerStyle.Arc, Color.Orange1, "[orange1]Arc[/]", "arc rotation at 300 ms/frame (slow)", interval: 300))
 			.AddControl(Row(SpinnerStyle.Bounce, Color.Magenta1, "[magenta1]Bounce[/]", "bouncing braille dot"))
@@ -78,7 +79,7 @@ public static class SpinnerDemoWindow
 			.AddControl(Row(SpinnerStyle.GrowHorizontal, Color.Green, "[green]GrowHorizontal[/]", "pulsing horizontal bar ▏▎▍▌▋▊▉"))
 			.AddControl(Row(SpinnerStyle.Toggle, Color.Magenta1, "[magenta1]Toggle[/]", "empty/filled square blink □■"))
 			.AddControl(Row(SpinnerStyle.Arrow, Color.Orange1, "[orange1]Arrow[/]", "rotating arrow ←↑→↓"))
-			.AddControl(Row(SpinnerStyle.BouncingBar, Color.White, "[white]BouncingBar[/]", "ASCII [[==  ]] bounce"))
+			.AddControl(Row(SpinnerStyle.BouncingBar, Color.White, "[bold]BouncingBar[/]", "ASCII [[==  ]] bounce"))
 			.AddControl(Row(SpinnerStyle.AestheticBar, Color.SpringGreen1, "[springgreen1]AestheticBar[/]", "progress bar ▰▰▰▱▱▱"))
 			.AddControl(Row(SpinnerStyle.BrailleDots, Color.Yellow, "[yellow]BrailleDots[/]", "classic braille throbber ⠋⠙⠹⠸"))
 			.AddControl(Row(SpinnerStyle.DotsBounce, Color.Cyan1, "[cyan1]DotsBounce[/]", "bouncing ASCII dots .  / ... /  .."))
@@ -151,7 +152,6 @@ public static class SpinnerDemoWindow
 			.AddRight("T", "Toggle animator")
 			.AddRight("Esc", "Close")
 			.WithAboveLine()
-			.WithBackgroundColor(Color.Grey15)
 			.WithShortcutForegroundColor(Color.Cyan1)
 			.StickyBottom()
 			.Build();
@@ -183,16 +183,10 @@ public static class SpinnerDemoWindow
 			if (args.Item.Shortcut == "T") ToggleAnimator();
 		};
 
-		var gradient = ColorGradient.FromColors(
-			new Color(10, 20, 40),
-			new Color(20, 35, 60),
-			new Color(12, 28, 50));
-
-		return new WindowBuilder(ws)
+		var window = new WindowBuilder(ws)
 			.WithTitle("Spinner Controls")
 			.WithSize(WindowWidth, WindowHeight)
 			.Centered()
-			.WithBackgroundGradient(gradient, GradientDirection.Vertical)
 			.AddControls(panel, statusBar)
 			.OnKeyPressed((sender, e) =>
 			{
@@ -210,5 +204,7 @@ public static class SpinnerDemoWindow
 			})
 			.OnClosed((_, _) => animator.Dispose())
 			.BuildAndShow();
+		DemoTheme.ApplyThemeGradient(window, ws);
+		return window;
 	}
 }

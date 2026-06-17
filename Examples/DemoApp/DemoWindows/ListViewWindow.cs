@@ -37,7 +37,7 @@ public static class ListViewWindow
 			.StickyBottom()
 			.Build();
 
-		var header = Controls.Markup("[bold cyan]  NuGet Package Manager[/]")
+		var header = Controls.Markup("[bold]  NuGet Package Manager[/]")
 			.StickyTop()
 			.Build();
 
@@ -122,7 +122,7 @@ public static class ListViewWindow
 	{
 		detail.SetContent(new List<string>
 		{
-			$"[bold cyan]{pkg.Name}[/]  [dim]v{pkg.Version}[/]",
+			$"[bold]{pkg.Name}[/]  [dim]v{pkg.Version}[/]",
 			"",
 			$"[dim]Author:[/]    {pkg.Author}",
 			$"[dim]Downloads:[/] {pkg.Downloads:N0}",

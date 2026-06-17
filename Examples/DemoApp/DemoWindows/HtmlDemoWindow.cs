@@ -1,3 +1,4 @@
+using DemoApp.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -20,7 +21,7 @@ internal static class HtmlDemoWindow
 	/// styled text, and a quick-launch grid of live test sites.
 	/// </summary>
 	private const string HomeHtml = """
-        <h1>SharpConsoleUI <span style="color: cyan">HTML Control</span></h1>
+        <h1>SharpConsoleUI HTML Control</h1>
         <p>A <b>native</b> HTML rendering widget for a .NET TUI compositor.
         Parses real websites with <i>AngleSharp</i>, lays out block/inline/table/grid
         with a custom engine, and renders inline images as half-block pixels —
@@ -170,7 +171,7 @@ internal static class HtmlDemoWindow
 		{
 			if (urlItem == null) return;
 			var prefix = state != null ? $"[yellow]{state}[/] " : "";
-			var display = url == HomePseudoUrl ? "[grey]about:home[/]" : $"[cyan]{url}[/]";
+			var display = url == HomePseudoUrl ? "[grey]about:home[/]" : $"[bold]{url}[/]";
 			urlItem.Label = prefix + display;
 		}
 
@@ -218,7 +219,7 @@ internal static class HtmlDemoWindow
 		{
 			if (hoverItem == null) return;
 			hoverItem.Label = args.Url != null
-				? $"[underline cyan]{args.Url}[/]"
+				? $"[underline]{args.Url}[/]"
 				: "";
 		};
 
@@ -335,7 +336,6 @@ internal static class HtmlDemoWindow
 		var navToolbar = Controls.Toolbar()
 			.WithSpacing(1)
 			.WithContentPadding(1, 0, 1, 0)
-			.WithBackgroundColor(Color.Grey11)
 			.Build();
 		navToolbar.AddItem(homeButton);
 		navToolbar.AddItem(backButton);
@@ -349,7 +349,6 @@ internal static class HtmlDemoWindow
 			Controls.Button()
 				.WithText($" {label} ")
 				.WithBorder(ButtonBorderStyle.None)
-				.WithColors(Color.Grey70, Color.Grey11)
 				.WithFocusedColors(Color.White, Color.Blue)
 				.OnClick((_, _) => NavigateTo(url, pushHistory: true))
 				.Build();
@@ -358,7 +357,6 @@ internal static class HtmlDemoWindow
 			.WithSpacing(2)
 			.WithContentPadding(1, 0, 1, 0)
 			.WithBelowLine()
-			.WithBackgroundColor(Color.Grey11)
 			.Build();
 		bookmarksToolbar.AddItem(Controls.Markup().AddLine($"[dim]{iconBookmark}  Bookmarks:[/]").Build());
 		bookmarksToolbar.AddItem(BookmarkButton("Wikipedia Cat", "https://en.wikipedia.org/wiki/Cat"));
@@ -379,8 +377,6 @@ internal static class HtmlDemoWindow
 			.AddRightSeparator()
 			.AddRightText("[grey]—[/]")
 			.WithAboveLine()
-			.WithBackgroundColor(Color.Grey15)
-			.WithShortcutForegroundColor(Color.Cyan1)
 			.StickyBottom()
 			.Build();
 
@@ -396,9 +392,6 @@ internal static class HtmlDemoWindow
 			.WithTitle($"{iconBrowser}  HTML Browser")
 			.WithSize(WindowWidth, WindowHeight)
 			.Centered()
-			.WithBackgroundGradient(
-				ColorGradient.FromColors(new Color(10, 20, 45), new Color(5, 5, 15)),
-				GradientDirection.Vertical)
 			.OnKeyPressed((s, e) =>
 			{
 				switch (e.KeyInfo.Key)
@@ -433,6 +426,7 @@ internal static class HtmlDemoWindow
 			.AddControl(statusBar)
 			.BuildAndShow();
 
+		DemoTheme.ApplyThemeGradient(window, ws);
 		return window;
 	}
 }

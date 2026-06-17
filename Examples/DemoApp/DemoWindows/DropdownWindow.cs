@@ -1,3 +1,4 @@
+using DemoApp.Helpers;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -96,7 +97,7 @@ internal static class DropdownWindow
 
 			summaryMarkup.SetContent(new List<string>
 			{
-				"[bold cyan]Your Meal Plan[/]",
+				"[bold]Your Meal Plan[/]",
 				"",
 				$"[dim]Cuisine:[/]     {cuisineText}",
 				$"[dim]Dietary:[/]     {dietText}",
@@ -143,13 +144,10 @@ internal static class DropdownWindow
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
 
-		return new WindowBuilder(ws)
+		var window = new WindowBuilder(ws)
 			.WithTitle("Meal Planner")
 			.WithSize(WindowWidth, WindowHeight)
 			.Centered()
-			.WithBackgroundGradient(
-				ColorGradient.FromColors(new Color(20, 15, 40), new Color(10, 30, 50)),
-				GradientDirection.Vertical)
 			.AddControls(header, grid, statusBar)
 			.OnKeyPressed((sender, e) =>
 			{
@@ -160,6 +158,8 @@ internal static class DropdownWindow
 				}
 			})
 			.BuildAndShow();
+		DemoTheme.ApplyThemeGradient(window, ws);
+		return window;
 	}
 
 	private static string GetSelectedText(DropdownControl dropdown)
