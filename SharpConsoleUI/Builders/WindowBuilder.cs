@@ -370,6 +370,12 @@ public sealed class WindowBuilder
 	/// <summary>
 	/// Creates a borderless window (renders borders as invisible spaces).
 	/// </summary>
+	/// <remarks>
+	/// This maps to <see cref="BorderStyle.None"/>: the 1-cell frame is still reserved in the
+	/// layout, just painted invisibly (the content area does not grow). It does NOT reclaim that
+	/// space. To remove the frame entirely and let content fill the whole window rect, use
+	/// <see cref="Frameless"/> (<see cref="BorderStyle.Frameless"/>) instead.
+	/// </remarks>
 	/// <returns>The current builder instance for method chaining.</returns>
 	public WindowBuilder Borderless()
 	{
@@ -383,6 +389,11 @@ public sealed class WindowBuilder
 	/// Use <see cref="WithPadding(Padding)"/> to add space around the content. Move/resize remain
 	/// possible programmatically via SetPosition/SetSize.
 	/// </summary>
+	/// <remarks>
+	/// Unlike <see cref="Borderless"/> (<see cref="BorderStyle.None"/>), which keeps the 1-cell
+	/// frame reserved-but-invisible, <see cref="BorderStyle.Frameless"/> reclaims that space so
+	/// content fills the entire window rect.
+	/// </remarks>
 	/// <returns>The current builder instance for method chaining.</returns>
 	public WindowBuilder Frameless()
 	{
