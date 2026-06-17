@@ -28,7 +28,7 @@ namespace SharpConsoleUI.Layout
 			var panel = Panel(node);
 			var margin = panel?.Margin ?? new SharpConsoleUI.Controls.Margin(0, 0, 0, 0);
 			int headerH = panel?.HeaderHeight ?? 1;
-			bool bordered = panel?.HeaderStyle == SharpConsoleUI.Controls.CollapsibleHeaderStyle.Bordered;
+			bool bordered = panel?.IsBordered ?? false;
 			int marginH = margin.Top + margin.Bottom;
 			int marginW = margin.Left + margin.Right;
 
@@ -44,12 +44,18 @@ namespace SharpConsoleUI.Layout
 			var childConstraints = new LayoutConstraints(
 				Math.Max(0, constraints.MinWidth - chromeW), availW, 0, availH);
 
+			// A collapsed panel contributes no body height — independent of each child's own Visible
+			// (so the panel does NOT clobber a caller's child.Visible just to hide the body).
+			bool expanded = panel?.IsExpanded ?? true;
 			int maxW = 0, sumH = 0;
-			foreach (var child in node.Children)
+			if (expanded)
 			{
-				var size = child.Measure(childConstraints); // invisible children measure to zero
-				maxW = Math.Max(maxW, size.Width);
-				sumH += size.Height;
+				foreach (var child in node.Children)
+				{
+					var size = child.Measure(childConstraints); // a child's own Visible=false still measures to zero
+					maxW = Math.Max(maxW, size.Width);
+					sumH += size.Height;
+				}
 			}
 
 			int cap = panel?.MaxContentHeight ?? int.MaxValue;
@@ -80,7 +86,7 @@ namespace SharpConsoleUI.Layout
 			var panel = Panel(node);
 			var margin = panel?.Margin ?? new SharpConsoleUI.Controls.Margin(0, 0, 0, 0);
 			int headerH = panel?.HeaderHeight ?? 1;
-			bool bordered = panel?.HeaderStyle == SharpConsoleUI.Controls.CollapsibleHeaderStyle.Bordered;
+			bool bordered = panel?.IsBordered ?? false;
 
 			// Bug B: in the bordered style the box frames the body — inset the body by the left
 			// and right side borders (1 column each) and reserve one row at the bottom for the
@@ -117,9 +123,12 @@ namespace SharpConsoleUI.Layout
 			int y = bounds.Y + contentTop;
 			int bottomLimit = bounds.Y + contentTop + regionH;
 
+			// Collapsed → arrange every body child to nothing (panel hides the body without touching
+			// each child's own Visible). Expanded → a child's own Visible=false still hides just it.
+			bool expanded = panel?.IsExpanded ?? true;
 			foreach (var child in node.Children)
 			{
-				if (!child.IsVisible)
+				if (!expanded || !child.IsVisible)
 				{
 					child.Arrange(new LayoutRect(0, 0, 0, 0));
 					continue;

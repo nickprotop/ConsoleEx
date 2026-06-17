@@ -95,6 +95,13 @@ namespace SharpConsoleUI.Controls
 			set => SetProperty(ref _headerStyle, value);
 		}
 
+		/// <summary>True when the header style draws a box frame (Bordered or Rounded).</summary>
+		internal bool IsBordered => _headerStyle is CollapsibleHeaderStyle.Bordered or CollapsibleHeaderStyle.Rounded;
+
+		/// <summary>The box-drawing set for the current header style (rounded corners for Rounded).</summary>
+		internal Drawing.BoxChars HeaderBox =>
+			_headerStyle == CollapsibleHeaderStyle.Rounded ? Drawing.BoxChars.Rounded : Drawing.BoxChars.Single;
+
 		/// <summary>
 		/// Gets or sets the indicator glyph shown in the header when the panel is expanded.
 		/// When <see langword="null"/> or empty, no indicator is drawn.
@@ -260,7 +267,8 @@ namespace SharpConsoleUI.Controls
 				return; // guard: no redundant event / invalidation (CLAUDE.md rule #5)
 
 			_isExpanded = value;
-			ApplyChildVisibility();
+			// Body show/hide is handled by the layout (CollapsibleLayout gates on IsExpanded), so we no
+			// longer mutate each child's Visible — that clobbered a caller's explicit visibility (#53).
 
 			if (_animationMode == CollapsibleAnimationMode.Height)
 				StartHeightAnimation(); // Task 7 fills this in; instant fallback until then
@@ -271,15 +279,6 @@ namespace SharpConsoleUI.Controls
 			// INPC for IsExpanded so data binding sees toggles (property setter + Toggle/Expand/Collapse all route here).
 			OnPropertyChanged(nameof(IsExpanded));
 			ExpandedChanged?.Invoke(this, _isExpanded);
-		}
-
-		private void ApplyChildVisibility()
-		{
-			lock (_childrenLock)
-			{
-				foreach (var c in _children)
-					c.Visible = _isExpanded;
-			}
 		}
 
 		// Animation hook. Implemented in Task 7 (Animations partial). No-op until then.
@@ -360,21 +359,31 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public IReadOnlyList<IWindowControl> GetChildren()
 		{
+			// Collapsed → no body is shown, so expose no children to focus traversal / enumeration
+			// (the body children are still retained; the layout uses ContentsSnapshot()). This keeps
+			// Tab focus from landing on a hidden-by-collapse child now that we no longer flip their
+			// Visible flag (#53).
+			if (!_isExpanded) return System.Array.Empty<IWindowControl>();
 			lock (_childrenLock) { return new List<IWindowControl>(_children); }
 		}
 
 		/// <summary>
-		/// Gets a locked snapshot of the current child controls. Used by the layout factory
-		/// (wired in a later task) to build child layout nodes.
+		/// Gets a locked snapshot of ALL retained child controls (regardless of expand state). Used by
+		/// the layout factory to build child layout nodes; the layout itself collapses the body to zero
+		/// height when the panel is collapsed.
 		/// </summary>
 		/// <returns>A snapshot of the children in insertion order.</returns>
-		internal IReadOnlyList<IWindowControl> ContentsSnapshot() => GetChildren();
+		internal IReadOnlyList<IWindowControl> ContentsSnapshot()
+		{
+			lock (_childrenLock) { return new List<IWindowControl>(_children); }
+		}
 
 		/// <inheritdoc/>
 		public void AddControl(IWindowControl control)
 		{
 			control.Container = this;
-			control.Visible = _isExpanded;
+			// Do NOT force control.Visible here: the panel hides its body via the layout (collapsed →
+			// children arranged to zero), so a caller's explicit Visible is preserved (issue #53).
 			lock (_childrenLock)
 			{
 				_children.Add(control);
@@ -450,7 +459,7 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				if (_headerStyle == CollapsibleHeaderStyle.Bordered)
+				if (IsBordered)
 					return 1; // top border row; box frames the body below. When the header is
 							  // hidden this row becomes a plain (titleless) top border.
 							  // Borderless: a hidden header occupies no rows at all.
@@ -497,7 +506,7 @@ namespace SharpConsoleUI.Controls
 				bg = ColorResolver.ResolveCollapsibleHeaderFocusedBackground(_focusedBackgroundValue, Container);
 			}
 
-			if (_headerStyle == CollapsibleHeaderStyle.Bordered)
+			if (IsBordered)
 			{
 				PaintBorderedHeader(buffer, bounds, clipRect, fg, bg); // Task 5 implements
 				return;
@@ -513,7 +522,11 @@ namespace SharpConsoleUI.Controls
 			for (int x = left; x < right; x++)
 				buffer.SetNarrowCell(x, headerY, ' ', fg, bg);
 
-			var cells = MarkupParser.Parse(ComposeHeaderText(), fg, bg);
+			// The title follows BorderColor when one is set (so WithBorderColor colors the title even in
+			// borderless mode, issue #49); otherwise the resolved foreground. Markup in the title still
+			// overrides per-span. Falls back to fg.
+			Color titleFg = _borderColorValue ?? fg;
+			var cells = MarkupParser.Parse(ComposeHeaderText(), titleFg, bg);
 
 			int avail = Math.Max(0, right - left);
 			int textWidth = Math.Min(cells.Count, avail);
@@ -577,7 +590,7 @@ namespace SharpConsoleUI.Controls
 			LayoutRect clipRect, Color fg, Color bg)
 		{
 			Color border = _borderColorValue ?? fg;
-			var box = BoxChars.Single;
+			var box = HeaderBox;
 
 			int x = bounds.X + Margin.Left;
 			int top = bounds.Y + Margin.Top;

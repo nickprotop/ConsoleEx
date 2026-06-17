@@ -17,7 +17,10 @@ namespace SharpConsoleUI.Controls
 		Borderless,
 
 		/// <summary>A bordered box with the title embedded in the top border (PanelControl-style).</summary>
-		Bordered
+		Bordered,
+
+		/// <summary>Like <see cref="Bordered"/> but with rounded corners (╭╮╰╯).</summary>
+		Rounded
 	}
 
 	/// <summary>

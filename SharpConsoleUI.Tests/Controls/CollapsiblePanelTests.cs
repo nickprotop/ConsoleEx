@@ -90,13 +90,31 @@ public class CollapsiblePanelTests
 		var child = Label("body");
 		panel.AddControl(child);
 
+		// Collapse hides the BODY (no children exposed for layout/focus) but must NOT clobber the
+		// child's own Visible flag — that flag is the caller's (issue #53).
 		panel.Collapse();
 		Assert.False(panel.IsExpanded);
-		Assert.False(child.Visible);
+		Assert.Empty(panel.GetChildren());   // body not shown
+		Assert.True(child.Visible);          // caller's Visible preserved
 
 		panel.Expand();
 		Assert.True(panel.IsExpanded);
+		Assert.Contains(child, panel.GetChildren());
 		Assert.True(child.Visible);
+	}
+
+	[Fact]
+	public void AddControl_DoesNotClobberCallerVisible()
+	{
+		// Issue #53: a control explicitly set Visible=false stays hidden after being added — the panel
+		// must not reset it to match its own expand state.
+		var panel = new CollapsiblePanel(); // expanded by default
+		var child = Label("body");
+		child.Visible = false;
+
+		panel.AddControl(child);
+
+		Assert.False(child.Visible);
 	}
 
 	[Fact]
@@ -310,7 +328,7 @@ public class CollapsiblePanelTests
 	{
 		// CollapsiblePanel implements IFocusableContainerWithHeader, so its header is a Tab
 		// stop AND its visible body children participate in Tab traversal. When collapsed,
-		// children are Visible=false and must be skipped by focus collection.
+		// the panel exposes no body children, so focus collection skips them.
 		var system = TestWindowSystemBuilder.CreateTestSystem(80, 25);
 		var window = new Window(system) { Width = 80, Height = 25 };
 
@@ -338,10 +356,11 @@ public class CollapsiblePanelTests
 		Assert.True(buttonReachedExpanded,
 			"Expanded panel: focusable child button should be reachable via Tab traversal.");
 
-		// --- Collapsed: the button is hidden and must NOT be reachable. ---
+		// --- Collapsed: the body is hidden and must NOT be reachable by Tab. The child's own
+		// Visible flag is the caller's and is left untouched (#53) — what matters is the panel
+		// exposes no body children while collapsed, so focus traversal can't land on it. ---
 		panel.Collapse();
 		Assert.False(panel.IsExpanded);
-		Assert.False(button.Visible);
 
 		// Move focus back to the panel header as a known starting point.
 		window.FocusManager.SetFocus(panel, FocusReason.Programmatic);

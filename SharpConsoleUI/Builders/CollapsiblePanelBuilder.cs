@@ -27,6 +27,27 @@ public sealed class CollapsiblePanelBuilder : IControlBuilder<CollapsiblePanel>
 		return this;
 	}
 
+	/// <summary>Sets the panel margin (left, top, right, bottom).</summary>
+	public CollapsiblePanelBuilder WithMargin(int left, int top, int right, int bottom)
+	{
+		_panel.Margin = new Margin(left, top, right, bottom);
+		return this;
+	}
+
+	/// <summary>Sets a uniform margin on all sides.</summary>
+	public CollapsiblePanelBuilder WithMargin(int margin)
+	{
+		_panel.Margin = new Margin(margin, margin, margin, margin);
+		return this;
+	}
+
+	/// <summary>Sets the panel margin.</summary>
+	public CollapsiblePanelBuilder WithMargin(Margin margin)
+	{
+		_panel.Margin = margin;
+		return this;
+	}
+
 	/// <summary>Starts the panel in the collapsed state.</summary>
 	public CollapsiblePanelBuilder Collapsed()
 	{
@@ -45,6 +66,20 @@ public sealed class CollapsiblePanelBuilder : IControlBuilder<CollapsiblePanel>
 	public CollapsiblePanelBuilder WithHeaderStyle(CollapsibleHeaderStyle style)
 	{
 		_panel.HeaderStyle = style;
+		return this;
+	}
+
+	/// <summary>Renders the header as a bordered box (title embedded in the top border).</summary>
+	public CollapsiblePanelBuilder Bordered()
+	{
+		_panel.HeaderStyle = CollapsibleHeaderStyle.Bordered;
+		return this;
+	}
+
+	/// <summary>Renders the header as a bordered box with rounded corners (╭╮╰╯).</summary>
+	public CollapsiblePanelBuilder Rounded()
+	{
+		_panel.HeaderStyle = CollapsibleHeaderStyle.Rounded;
 		return this;
 	}
 

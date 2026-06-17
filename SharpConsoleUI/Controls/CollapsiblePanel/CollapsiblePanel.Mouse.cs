@@ -108,7 +108,7 @@ namespace SharpConsoleUI.Controls
 			// the WheeledUp/WheeledDown bits respectively, so testing those two covers horizontal wheel too.
 			bool isWheel = args.HasFlag(MouseFlags.WheeledUp) || args.HasFlag(MouseFlags.WheeledDown);
 
-			bool bordered = _headerStyle == CollapsibleHeaderStyle.Bordered;
+			bool bordered = IsBordered;
 			int sideInset = bordered ? 1 : 0;
 
 			// Body content origin within the panel (matches CollapsibleLayout.ArrangeChildren).
