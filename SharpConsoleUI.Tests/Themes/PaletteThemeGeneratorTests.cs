@@ -122,7 +122,12 @@ public class PaletteThemeGeneratorTests
 			+ string.Join("\n", notDerived));
 	}
 
-	private static double LumGap(Color a, Color b) => System.Math.Abs(a.Luminance() - b.Luminance());
+	private static double LumGap(Color? a, Color? b)
+	{
+		Assert.NotNull(a);
+		Assert.NotNull(b);
+		return System.Math.Abs(a.Value.Luminance() - b.Value.Luminance());
+	}
 
 	[Fact]
 	public void Foreground_StaysReadable_EvenWhenUserSuppliesLowContrast()

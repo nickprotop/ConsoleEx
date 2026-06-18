@@ -35,7 +35,7 @@ public class ScrollbarThemeColorTests
 	// overrides only the scrollbar colors via explicit interface members.
 	private sealed class CustomScrollbarTheme : ModernGrayTheme, ITheme
 	{
-		Color ITheme.ScrollbarThumbColor => Color.Red;
-		Color ITheme.ScrollbarTrackColor => Color.Blue;
+		Color? ITheme.ScrollbarThumbColor => Color.Red;
+		Color? ITheme.ScrollbarTrackColor => Color.Blue;
 	}
 }
