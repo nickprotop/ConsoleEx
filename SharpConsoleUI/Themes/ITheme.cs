@@ -148,22 +148,24 @@ public interface ITheme
 	/// Default follows the active border so the scrollbar matches the control's border.
 	/// Controls fall back to this unless they expose a per-control theme color or an instance override.
 	/// </summary>
-	Color ScrollbarThumbColor => ActiveBorderForegroundColor;
+	Color? ScrollbarThumbColor => ActiveBorderForegroundColor;
 
 	/// <summary>
 	/// General scrollbar thumb color when the control is NOT focused. Defaults to the inactive border.
 	/// </summary>
-	Color ScrollbarThumbUnfocusedColor => InactiveBorderForegroundColor;
+	Color? ScrollbarThumbUnfocusedColor => InactiveBorderForegroundColor;
 
 	/// <summary>
-	/// General scrollbar track color when focused. Defaults to a dim grey so the thumb stays visible.
+	/// General scrollbar track color when focused. Defaults to <c>null</c> (unset): concrete themes such as
+	/// ModernGray pin a value, and consumers fall back to a surface-appropriate color when this is unset.
 	/// </summary>
-	Color ScrollbarTrackColor => Color.Grey23;
+	Color? ScrollbarTrackColor => null;
 
 	/// <summary>
-	/// General scrollbar track color when not focused. Defaults to the same dim grey.
+	/// General scrollbar track color when not focused. Defaults to <c>null</c> (unset): concrete themes such as
+	/// ModernGray pin a value, and consumers fall back to a surface-appropriate color when this is unset.
 	/// </summary>
-	Color ScrollbarTrackUnfocusedColor => Color.Grey23;
+	Color? ScrollbarTrackUnfocusedColor => null;
 
 	/// <summary>
 	/// Gets the foreground color for the title text of inactive (unfocused) windows.
@@ -479,7 +481,7 @@ public interface ITheme
 	/// Foreground for the active tab header when the tab strip has keyboard focus.
 	/// Default implementation returns <see cref="TabHeaderActiveForegroundColor"/>.
 	/// </summary>
-	Color TabHeaderActiveFocusedForegroundColor => TabHeaderActiveForegroundColor;
+	Color? TabHeaderActiveFocusedForegroundColor => TabHeaderActiveForegroundColor;
 
 	/// <summary>
 	/// Background for inactive tab headers when the tab strip has keyboard focus.
@@ -491,13 +493,13 @@ public interface ITheme
 	/// Foreground for inactive tab headers when the tab strip has keyboard focus.
 	/// Default implementation returns <see cref="TabHeaderForegroundColor"/>.
 	/// </summary>
-	Color TabHeaderFocusedForegroundColor => TabHeaderForegroundColor;
+	Color? TabHeaderFocusedForegroundColor => TabHeaderForegroundColor;
 	/// <summary>
 	/// Foreground color for a CollapsiblePanel header when the panel has keyboard focus.
 	/// Default implementation returns <see cref="ActiveTitleForegroundColor"/> (the active-title
 	/// accent) so existing themes keep working without code changes.
 	/// </summary>
-	Color CollapsibleHeaderFocusedForegroundColor => ActiveTitleForegroundColor;
+	Color? CollapsibleHeaderFocusedForegroundColor => ActiveTitleForegroundColor;
 
 	/// <summary>
 	/// Background color for a CollapsiblePanel header when the panel has keyboard focus.
