@@ -35,22 +35,22 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for the border of active (focused) windows.
 		/// </summary>
-		public override Color ActiveBorderForegroundColor { get; set; } = Color.Cyan1;
+		public override Color? ActiveBorderForegroundColor { get; set; } = Color.Cyan1;
 
 		/// <summary>
 		/// Gets or sets the foreground color for the title text of active (focused) windows.
 		/// </summary>
-		public override Color ActiveTitleForegroundColor { get; set; } = Color.Cyan1;
+		public override Color? ActiveTitleForegroundColor { get; set; } = Color.Cyan1;
 
 		/// <summary>
 		/// Gets or sets the background color for the bottom status bar of the console window system.
 		/// </summary>
-		public override Color BottomBarBackgroundColor { get; set; } = Color.Grey15;
+		public override Color? BottomBarBackgroundColor { get; set; } = Color.Grey15;
 
 		/// <summary>
 		/// Gets or sets the foreground color for text displayed in the bottom status bar.
 		/// </summary>
-		public override Color BottomBarForegroundColor { get; set; } = Color.Grey93;
+		public override Color? BottomBarForegroundColor { get; set; } = Color.Grey93;
 
 		/// <summary>
 		/// Gets or sets the background color for buttons in their default (unfocused, unselected) state.
@@ -65,7 +65,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for button text when the button is disabled.
 		/// </summary>
-		public override Color ButtonDisabledForegroundColor { get; set; } = Color.Grey50;
+		public override Color? ButtonDisabledForegroundColor { get; set; } = Color.Grey50;
 
 		/// <summary>
 		/// Gets or sets the background color for buttons when they have keyboard focus.
@@ -75,12 +75,12 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for button text when the button has keyboard focus.
 		/// </summary>
-		public override Color ButtonFocusedForegroundColor { get; set; } = Color.Cyan1;
+		public override Color? ButtonFocusedForegroundColor { get; set; } = Color.Cyan1;
 
 		/// <summary>
 		/// Gets or sets the foreground color for button text in the default (unfocused, unselected) state.
 		/// </summary>
-		public override Color ButtonForegroundColor { get; set; } = Color.Grey93;
+		public override Color? ButtonForegroundColor { get; set; } = Color.Grey93;
 
 		/// <summary>
 		/// Gets or sets the background color for buttons when they are selected or pressed.
@@ -90,7 +90,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for button text when the button is selected or pressed.
 		/// </summary>
-		public override Color ButtonSelectedForegroundColor { get; set; } = Color.White;
+		public override Color? ButtonSelectedForegroundColor { get; set; } = Color.White;
 
 		/// <summary>
 		/// Gets or sets the background color for list items when highlighted but the control is unfocused.
@@ -100,7 +100,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for list items when highlighted but the control is unfocused.
 		/// </summary>
-		public override Color ListUnfocusedHighlightForegroundColor { get; set; } = Color.White;
+		public override Color? ListUnfocusedHighlightForegroundColor { get; set; } = Color.White;
 
 		/// <summary>
 		/// Gets or sets the background color for list items when hovered by the mouse.
@@ -115,7 +115,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the background color for the desktop area behind all windows.
 		/// </summary>
-		public override Color DesktopBackgroundColor { get; set; } = Color.Grey11;
+		public override Color? DesktopBackgroundColor { get; set; } = Color.Grey11;
 
 		/// <summary>
 		/// Gets or sets the character used to fill the desktop background area.
@@ -125,7 +125,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for the desktop background character pattern.
 		/// </summary>
-		public override Color DesktopForegroundColor { get; set; } = Color.Grey50;
+		public override Color? DesktopForegroundColor { get; set; } = Color.Grey50;
 
 		/// <inheritdoc />
 		public override GradientBackground? DesktopBackgroundGradient { get; set; }
@@ -133,52 +133,52 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for the border of inactive (unfocused) windows.
 		/// </summary>
-		public override Color InactiveBorderForegroundColor { get; set; } = Color.Grey50;
+		public override Color? InactiveBorderForegroundColor { get; set; } = Color.Grey50;
 
 		/// <summary>
 		/// Gets or sets the foreground color for the title text of inactive (unfocused) windows.
 		/// </summary>
-		public override Color InactiveTitleForegroundColor { get; set; } = Color.Grey70;
+		public override Color? InactiveTitleForegroundColor { get; set; } = Color.Grey70;
 
 		/// <summary>
 		/// Gets or sets the background color for modal dialog windows.
 		/// </summary>
-		public override Color ModalBackgroundColor { get; set; } = Color.Grey15;
+		public override Color? ModalBackgroundColor { get; set; } = Color.Grey15;
 
 		/// <summary>
 		/// Gets or sets the foreground color for the border of modal dialog windows.
 		/// </summary>
-		public override Color ModalBorderForegroundColor { get; set; } = Color.Cyan1;
+		public override Color? ModalBorderForegroundColor { get; set; } = Color.Cyan1;
 
 		/// <summary>
 		/// Gets or sets the foreground color for the title text of modal dialog windows.
 		/// </summary>
-		public override Color ModalTitleForegroundColor { get; set; } = Color.Cyan1;
+		public override Color? ModalTitleForegroundColor { get; set; } = Color.Cyan1;
 
 		/// <summary>
 		/// Gets or sets the background color for danger/error notification windows.
 		/// </summary>
-		public override Color NotificationDangerWindowBackgroundColor { get; set; } = Color.Maroon;
+		public override Color? NotificationDangerWindowBackgroundColor { get; set; } = Color.Maroon;
 
 		/// <summary>
 		/// Gets or sets the background color for informational notification windows.
 		/// </summary>
-		public override Color NotificationInfoWindowBackgroundColor { get; set; } = Color.SteelBlue;
+		public override Color? NotificationInfoWindowBackgroundColor { get; set; } = Color.SteelBlue;
 
 		/// <summary>
 		/// Gets or sets the background color for success notification windows.
 		/// </summary>
-		public override Color NotificationSuccessWindowBackgroundColor { get; set; } = Color.DarkGreen;
+		public override Color? NotificationSuccessWindowBackgroundColor { get; set; } = Color.DarkGreen;
 
 		/// <summary>
 		/// Gets or sets the background color for warning notification windows.
 		/// </summary>
-		public override Color NotificationWarningWindowBackgroundColor { get; set; } = Color.Orange3;
+		public override Color? NotificationWarningWindowBackgroundColor { get; set; } = Color.Orange3;
 
 		/// <summary>
 		/// Gets or sets the background color for generic notification windows without a specific type.
 		/// </summary>
-		public override Color NotificationWindowBackgroundColor { get; set; } = Color.Grey15;
+		public override Color? NotificationWindowBackgroundColor { get; set; } = Color.Grey15;
 
 		/// <summary>
 		/// Gets or sets the background color for prompt input fields in their default state.
@@ -193,12 +193,12 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for text in prompt input fields when focused.
 		/// </summary>
-		public override Color PromptInputFocusedForegroundColor { get; set; } = Color.White;
+		public override Color? PromptInputFocusedForegroundColor { get; set; } = Color.White;
 
 		/// <summary>
 		/// Gets or sets the foreground color for text in prompt input fields in their default state.
 		/// </summary>
-		public override Color PromptInputForegroundColor { get; set; } = Color.Grey93;
+		public override Color? PromptInputForegroundColor { get; set; } = Color.Grey93;
 
 		/// <summary>
 		/// Gets or sets a value indicating whether modal windows should display a drop shadow effect.
@@ -208,17 +208,17 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the background color for text edit controls when focused but not in editing mode.
 		/// </summary>
-		public override Color TextEditFocusedNotEditing { get; set; } = Color.Grey23;
+		public override Color? TextEditFocusedNotEditing { get; set; } = Color.Grey23;
 
 		/// <summary>
 		/// Gets or sets the background color for the top application bar of the console window system.
 		/// </summary>
-		public override Color TopBarBackgroundColor { get; set; } = Color.Grey15;
+		public override Color? TopBarBackgroundColor { get; set; } = Color.Grey15;
 
 		/// <summary>
 		/// Gets or sets the foreground color for text displayed in the top application bar.
 		/// </summary>
-		public override Color TopBarForegroundColor { get; set; } = Color.Grey93;
+		public override Color? TopBarForegroundColor { get; set; } = Color.Grey93;
 
 		/// <summary>
 		/// Gets or sets a value indicating whether modal windows should use double-line border characters
@@ -273,7 +273,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for highlighted menu bar items.
 		/// </summary>
-		public override Color MenuBarHighlightForegroundColor { get; set; } = Color.Cyan1;
+		public override Color? MenuBarHighlightForegroundColor { get; set; } = Color.Cyan1;
 
 		/// <summary>
 		/// Gets or sets the background color for menu dropdowns.
@@ -283,7 +283,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for menu dropdown items.
 		/// </summary>
-		public override Color MenuDropdownForegroundColor { get; set; } = Color.Grey93;
+		public override Color? MenuDropdownForegroundColor { get; set; } = Color.Grey93;
 
 		/// <summary>
 		/// Gets or sets the background color for highlighted menu dropdown items.
@@ -293,7 +293,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for highlighted menu dropdown items.
 		/// </summary>
-		public override Color MenuDropdownHighlightForegroundColor { get; set; } = Color.White;
+		public override Color? MenuDropdownHighlightForegroundColor { get; set; } = Color.White;
 
 		/// <summary>
 		/// Gets or sets the background color for dropdown control lists.
@@ -303,7 +303,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for dropdown control list items.
 		/// </summary>
-		public override Color DropdownForegroundColor { get; set; } = Color.Grey93;
+		public override Color? DropdownForegroundColor { get; set; } = Color.Grey93;
 
 		/// <summary>
 		/// Gets or sets the background color for highlighted/selected dropdown items.
@@ -313,27 +313,27 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for highlighted/selected dropdown items.
 		/// </summary>
-		public override Color DropdownHighlightForegroundColor { get; set; } = Color.White;
+		public override Color? DropdownHighlightForegroundColor { get; set; } = Color.White;
 
 		/// <summary>
 		/// Gets or sets the background color used when flashing modal windows to draw user attention.
 		/// </summary>
-		public override Color ModalFlashColor { get; set; } = Color.Grey35;
+		public override Color? ModalFlashColor { get; set; } = Color.Grey35;
 
 		/// <summary>
 		/// Gets or sets the color for the filled portion of progress bars.
 		/// </summary>
-		public override Color ProgressBarFilledColor { get; set; } = Color.Cyan1;
+		public override Color? ProgressBarFilledColor { get; set; } = Color.Cyan1;
 
 		/// <summary>
 		/// Gets or sets the color for the unfilled portion of progress bars.
 		/// </summary>
-		public override Color ProgressBarUnfilledColor { get; set; } = Color.Grey23;
+		public override Color? ProgressBarUnfilledColor { get; set; } = Color.Grey23;
 
 		/// <summary>
 		/// Gets or sets the color for the percentage text display on progress bars.
 		/// </summary>
-		public override Color ProgressBarPercentageColor { get; set; } = Color.Grey93;
+		public override Color? ProgressBarPercentageColor { get; set; } = Color.Grey93;
 
 		/// <summary>
 		/// Gets or sets the background color for table controls.
@@ -343,7 +343,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for table controls.
 		/// </summary>
-		public override Color TableForegroundColor { get; set; } = Color.Grey93;
+		public override Color? TableForegroundColor { get; set; } = Color.Grey93;
 
 		/// <summary>
 		/// Gets or sets the border color for table controls.
@@ -359,7 +359,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for table headers.
 		/// </summary>
-		public override Color TableHeaderForegroundColor { get; set; } = Color.Cyan1;
+		public override Color? TableHeaderForegroundColor { get; set; } = Color.Cyan1;
 
 		/// <summary>
 		/// Gets or sets the background color for selected rows in the table when focused.
@@ -369,7 +369,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for selected rows in the table when focused.
 		/// </summary>
-		public override Color TableSelectionForegroundColor { get; set; } = Color.White;
+		public override Color? TableSelectionForegroundColor { get; set; } = Color.White;
 
 		/// <summary>
 		/// Gets or sets the background color for hovered rows in the table.
@@ -379,7 +379,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for hovered rows in the table.
 		/// </summary>
-		public override Color TableHoverForegroundColor { get; set; } = Color.Grey93;
+		public override Color? TableHoverForegroundColor { get; set; } = Color.Grey93;
 
 		/// <summary>
 		/// Gets or sets the background color for selected rows in the table when unfocused.
@@ -389,32 +389,32 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for selected rows in the table when unfocused.
 		/// </summary>
-		public override Color TableUnfocusedSelectionForegroundColor { get; set; } = Color.Grey70;
+		public override Color? TableUnfocusedSelectionForegroundColor { get; set; } = Color.Grey70;
 
 		/// <summary>
 		/// Gets or sets the color for the table scrollbar thumb.
 		/// </summary>
-		public override Color TableScrollbarThumbColor { get; set; } = Color.Cyan1;
+		public override Color? TableScrollbarThumbColor { get; set; } = Color.Cyan1;
 
 		/// <summary>
 		/// Gets or sets the color for the table scrollbar track.
 		/// </summary>
-		public override Color TableScrollbarTrackColor { get; set; } = Color.Grey23;
+		public override Color? TableScrollbarTrackColor { get; set; } = Color.Grey23;
 
 		/// <summary>Gets or sets the general scrollbar thumb color when the control is focused.</summary>
-		public override Color ScrollbarThumbColor { get; set; } = Color.Cyan1;
+		public override Color? ScrollbarThumbColor { get; set; } = Color.Cyan1;
 
 		/// <summary>Gets or sets the general scrollbar thumb color when the control is unfocused.</summary>
-		public override Color ScrollbarThumbUnfocusedColor { get; set; } = Color.Grey50;
+		public override Color? ScrollbarThumbUnfocusedColor { get; set; } = Color.Grey50;
 
 		/// <summary>Gets or sets the general scrollbar track color when the control is focused.</summary>
-		public override Color ScrollbarTrackColor { get; set; } = Color.Grey23;
+		public override Color? ScrollbarTrackColor { get; set; } = Color.Grey23;
 
 		/// <summary>Gets or sets the general scrollbar track color when the control is unfocused.</summary>
-		public override Color ScrollbarTrackUnfocusedColor { get; set; } = Color.Grey23;
+		public override Color? ScrollbarTrackUnfocusedColor { get; set; } = Color.Grey23;
 
 		/// <summary>Gets or sets the collapsible-panel header foreground color when focused.</summary>
-		public override Color CollapsibleHeaderFocusedForegroundColor { get; set; } = Color.Cyan1;
+		public override Color? CollapsibleHeaderFocusedForegroundColor { get; set; } = Color.Cyan1;
 
 		/// <summary>Gets or sets the collapsible-panel header background color when focused.</summary>
 		public override Color? CollapsibleHeaderFocusedBackgroundColor { get; set; } = Color.Grey15;
@@ -427,7 +427,7 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for the active (selected) tab header.
 		/// </summary>
-		public override Color TabHeaderActiveForegroundColor { get; set; } = Color.Cyan1;
+		public override Color? TabHeaderActiveForegroundColor { get; set; } = Color.Cyan1;
 
 		/// <summary>
 		/// Gets or sets the background color for inactive tab headers.
@@ -437,12 +437,12 @@ namespace SharpConsoleUI.Themes
 		/// <summary>
 		/// Gets or sets the foreground color for inactive tab headers.
 		/// </summary>
-		public override Color TabHeaderForegroundColor { get; set; } = Color.Grey70;
+		public override Color? TabHeaderForegroundColor { get; set; } = Color.Grey70;
 
 		/// <summary>
 		/// Gets or sets the foreground color for disabled tab headers.
 		/// </summary>
-		public override Color TabHeaderDisabledForegroundColor { get; set; } = Color.Grey35;
+		public override Color? TabHeaderDisabledForegroundColor { get; set; } = Color.Grey35;
 
 		/// <summary>
 		/// Gets or sets the background color for disabled tab headers.
@@ -453,13 +453,13 @@ namespace SharpConsoleUI.Themes
 		public override Color? TabHeaderActiveFocusedBackgroundColor { get; set; } = Color.Cyan1;
 
 		/// <summary>Active tab foreground when the header has keyboard focus.</summary>
-		public override Color TabHeaderActiveFocusedForegroundColor { get; set; } = Color.Black;
+		public override Color? TabHeaderActiveFocusedForegroundColor { get; set; } = Color.Black;
 
 		/// <summary>Inactive tab background when the header has keyboard focus.</summary>
 		public override Color? TabHeaderFocusedBackgroundColor { get; set; } = Color.Grey15;
 
 		/// <summary>Inactive tab foreground when the header has keyboard focus.</summary>
-		public override Color TabHeaderFocusedForegroundColor { get; set; } = Color.Grey85;
+		public override Color? TabHeaderFocusedForegroundColor { get; set; } = Color.Grey85;
 
 		/// <summary>
 		/// Gets or sets the border color for the TabControl content area.
@@ -549,41 +549,41 @@ namespace SharpConsoleUI.Themes
 		// Per-control colors (pinned to the Button* values these controls borrowed previously)
 
 		/// <inheritdoc/>
-		public override Color DropdownFocusedForegroundColor { get; set; } = Color.Cyan1;
+		public override Color? DropdownFocusedForegroundColor { get; set; } = Color.Cyan1;
 		/// <inheritdoc/>
 		public override Color? DropdownFocusedBackgroundColor { get; set; } = Color.Grey27;
 		/// <inheritdoc/>
-		public override Color DropdownDisabledForegroundColor { get; set; } = Color.Grey50;
+		public override Color? DropdownDisabledForegroundColor { get; set; } = Color.Grey50;
 		/// <inheritdoc/>
 		public override Color? DropdownDisabledBackgroundColor { get; set; } = Color.Grey15;
 
 		/// <inheritdoc/>
-		public override Color ListForegroundColor { get; set; } = new Color(238, 238, 238);
+		public override Color? ListForegroundColor { get; set; } = new Color(238, 238, 238);
 		/// <inheritdoc/>
-		public override Color ListFocusedForegroundColor { get; set; } = Color.Cyan1;
+		public override Color? ListFocusedForegroundColor { get; set; } = Color.Cyan1;
 		/// <inheritdoc/>
-		public override Color ListSelectedForegroundColor { get; set; } = Color.White;
+		public override Color? ListSelectedForegroundColor { get; set; } = Color.White;
 		/// <inheritdoc/>
 		public override Color? ListSelectedBackgroundColor { get; set; } = Color.Grey23;
 		/// <inheritdoc/>
-		public override Color ListDisabledForegroundColor { get; set; } = Color.Grey50;
+		public override Color? ListDisabledForegroundColor { get; set; } = Color.Grey50;
 		/// <inheritdoc/>
 		public override Color? ListDisabledBackgroundColor { get; set; } = Color.Grey15;
 
 		/// <inheritdoc/>
-		public override Color CheckboxForegroundColor { get; set; } = new Color(238, 238, 238);
+		public override Color? CheckboxForegroundColor { get; set; } = new Color(238, 238, 238);
 		/// <inheritdoc/>
-		public override Color CheckboxFocusedForegroundColor { get; set; } = Color.Cyan1;
+		public override Color? CheckboxFocusedForegroundColor { get; set; } = Color.Cyan1;
 		/// <inheritdoc/>
-		public override Color CheckboxDisabledForegroundColor { get; set; } = Color.Grey50;
+		public override Color? CheckboxDisabledForegroundColor { get; set; } = Color.Grey50;
 		/// <inheritdoc/>
-		public override Color CheckboxCheckmarkColor { get; set; } = Color.Cyan1;
+		public override Color? CheckboxCheckmarkColor { get; set; } = Color.Cyan1;
 
 		/// <inheritdoc/>
 		public override Color? DatePickerDisabledBackgroundColor { get; set; } = Color.Grey15;
 
 		/// <inheritdoc/>
-		public override Color HtmlForegroundColor { get; set; } = new Color(238, 238, 238);
+		public override Color? HtmlForegroundColor { get; set; } = new Color(238, 238, 238);
 
 		// Start menu theming
 

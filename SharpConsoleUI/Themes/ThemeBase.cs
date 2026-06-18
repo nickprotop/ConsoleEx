@@ -45,16 +45,16 @@ namespace SharpConsoleUI.Themes
 		// --- Window / border / title colors ---
 
 		/// <inheritdoc/>
-		public virtual Color ActiveBorderForegroundColor { get; set; } = Color.White;
+		public virtual Color? ActiveBorderForegroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ActiveTitleForegroundColor { get; set; } = Color.White;
+		public virtual Color? ActiveTitleForegroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color InactiveBorderForegroundColor { get; set; } = Color.White;
+		public virtual Color? InactiveBorderForegroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color InactiveTitleForegroundColor { get; set; } = Color.White;
+		public virtual Color? InactiveTitleForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color WindowBackgroundColor { get; set; } = Color.Transparent;
@@ -65,16 +65,16 @@ namespace SharpConsoleUI.Themes
 		// --- Top / bottom bars ---
 
 		/// <inheritdoc/>
-		public virtual Color TopBarBackgroundColor { get; set; } = Color.Transparent;
+		public virtual Color? TopBarBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color TopBarForegroundColor { get; set; } = Color.White;
+		public virtual Color? TopBarForegroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color BottomBarBackgroundColor { get; set; } = Color.Transparent;
+		public virtual Color? BottomBarBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color BottomBarForegroundColor { get; set; } = Color.White;
+		public virtual Color? BottomBarForegroundColor { get; set; }
 
 		// --- Buttons ---
 
@@ -82,64 +82,64 @@ namespace SharpConsoleUI.Themes
 		public virtual Color? ButtonBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ButtonForegroundColor { get; set; } = Color.White;
+		public virtual Color? ButtonForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? ButtonFocusedBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ButtonFocusedForegroundColor { get; set; } = Color.White;
+		public virtual Color? ButtonFocusedForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? ButtonSelectedBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ButtonSelectedForegroundColor { get; set; } = Color.White;
+		public virtual Color? ButtonSelectedForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? ButtonDisabledBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ButtonDisabledForegroundColor { get; set; } = Color.White;
+		public virtual Color? ButtonDisabledForegroundColor { get; set; }
 
 		// --- Modal windows ---
 
 		/// <inheritdoc/>
-		public virtual Color ModalBackgroundColor { get; set; } = Color.Transparent;
+		public virtual Color? ModalBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ModalBorderForegroundColor { get; set; } = Color.White;
+		public virtual Color? ModalBorderForegroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ModalTitleForegroundColor { get; set; } = Color.White;
+		public virtual Color? ModalTitleForegroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ModalFlashColor { get; set; } = Color.Transparent;
+		public virtual Color? ModalFlashColor { get; set; }
 
 		// --- Notifications ---
 
 		/// <inheritdoc/>
-		public virtual Color NotificationWindowBackgroundColor { get; set; } = Color.Transparent;
+		public virtual Color? NotificationWindowBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color NotificationInfoWindowBackgroundColor { get; set; } = Color.Transparent;
+		public virtual Color? NotificationInfoWindowBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color NotificationSuccessWindowBackgroundColor { get; set; } = Color.Transparent;
+		public virtual Color? NotificationSuccessWindowBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color NotificationWarningWindowBackgroundColor { get; set; } = Color.Transparent;
+		public virtual Color? NotificationWarningWindowBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color NotificationDangerWindowBackgroundColor { get; set; } = Color.Transparent;
+		public virtual Color? NotificationDangerWindowBackgroundColor { get; set; }
 
 		// --- Desktop ---
 
 		/// <inheritdoc/>
-		public virtual Color DesktopBackgroundColor { get; set; } = Color.Transparent;
+		public virtual Color? DesktopBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color DesktopForegroundColor { get; set; } = Color.White;
+		public virtual Color? DesktopForegroundColor { get; set; }
 
 		// --- Prompt input ---
 
@@ -147,32 +147,32 @@ namespace SharpConsoleUI.Themes
 		public virtual Color? PromptInputBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color PromptInputForegroundColor { get; set; } = Color.White;
+		public virtual Color? PromptInputForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? PromptInputFocusedBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color PromptInputFocusedForegroundColor { get; set; } = Color.White;
+		public virtual Color? PromptInputFocusedForegroundColor { get; set; }
 
 		// --- Text edit ---
 
 		/// <inheritdoc/>
-		public virtual Color TextEditFocusedNotEditing { get; set; } = Color.Transparent;
+		public virtual Color? TextEditFocusedNotEditing { get; set; }
 
 		// --- Scrollbars (general) ---
 
 		/// <inheritdoc/>
-		public virtual Color ScrollbarThumbColor { get; set; } = Color.White;
+		public virtual Color? ScrollbarThumbColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ScrollbarThumbUnfocusedColor { get; set; } = Color.White;
+		public virtual Color? ScrollbarThumbUnfocusedColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ScrollbarTrackColor { get; set; } = Color.Transparent;
+		public virtual Color? ScrollbarTrackColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ScrollbarTrackUnfocusedColor { get; set; } = Color.Transparent;
+		public virtual Color? ScrollbarTrackUnfocusedColor { get; set; }
 
 		// --- Lists ---
 
@@ -180,7 +180,7 @@ namespace SharpConsoleUI.Themes
 		public virtual Color? ListUnfocusedHighlightBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ListUnfocusedHighlightForegroundColor { get; set; } = Color.White;
+		public virtual Color? ListUnfocusedHighlightForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? ListHoverBackgroundColor { get; set; }
@@ -192,19 +192,19 @@ namespace SharpConsoleUI.Themes
 		public virtual Color? ListBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ListForegroundColor { get; set; } = Color.White;
+		public virtual Color? ListForegroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ListFocusedForegroundColor { get; set; } = Color.White;
+		public virtual Color? ListFocusedForegroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ListSelectedForegroundColor { get; set; } = Color.White;
+		public virtual Color? ListSelectedForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? ListSelectedBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ListDisabledForegroundColor { get; set; } = Color.White;
+		public virtual Color? ListDisabledForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? ListDisabledBackgroundColor { get; set; }
@@ -221,7 +221,7 @@ namespace SharpConsoleUI.Themes
 		public virtual Color? MenuBarHighlightBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color MenuBarHighlightForegroundColor { get; set; } = Color.White;
+		public virtual Color? MenuBarHighlightForegroundColor { get; set; }
 
 		// --- Menu dropdowns ---
 
@@ -229,13 +229,13 @@ namespace SharpConsoleUI.Themes
 		public virtual Color? MenuDropdownBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color MenuDropdownForegroundColor { get; set; } = Color.White;
+		public virtual Color? MenuDropdownForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? MenuDropdownHighlightBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color MenuDropdownHighlightForegroundColor { get; set; } = Color.White;
+		public virtual Color? MenuDropdownHighlightForegroundColor { get; set; }
 
 		// --- Dropdown control ---
 
@@ -243,22 +243,22 @@ namespace SharpConsoleUI.Themes
 		public virtual Color? DropdownBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color DropdownForegroundColor { get; set; } = Color.White;
+		public virtual Color? DropdownForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? DropdownHighlightBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color DropdownHighlightForegroundColor { get; set; } = Color.White;
+		public virtual Color? DropdownHighlightForegroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color DropdownFocusedForegroundColor { get; set; } = Color.White;
+		public virtual Color? DropdownFocusedForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? DropdownFocusedBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color DropdownDisabledForegroundColor { get; set; } = Color.White;
+		public virtual Color? DropdownDisabledForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? DropdownDisabledBackgroundColor { get; set; }
@@ -266,13 +266,13 @@ namespace SharpConsoleUI.Themes
 		// --- Progress bar ---
 
 		/// <inheritdoc/>
-		public virtual Color ProgressBarFilledColor { get; set; } = Color.Transparent;
+		public virtual Color? ProgressBarFilledColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ProgressBarUnfilledColor { get; set; } = Color.Transparent;
+		public virtual Color? ProgressBarUnfilledColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color ProgressBarPercentageColor { get; set; } = Color.White;
+		public virtual Color? ProgressBarPercentageColor { get; set; }
 
 		// --- Tables ---
 
@@ -280,7 +280,7 @@ namespace SharpConsoleUI.Themes
 		public virtual Color? TableBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color TableForegroundColor { get; set; } = Color.White;
+		public virtual Color? TableForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? TableBorderColor { get; set; }
@@ -289,31 +289,31 @@ namespace SharpConsoleUI.Themes
 		public virtual Color? TableHeaderBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color TableHeaderForegroundColor { get; set; } = Color.White;
+		public virtual Color? TableHeaderForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? TableSelectionBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color TableSelectionForegroundColor { get; set; } = Color.White;
+		public virtual Color? TableSelectionForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? TableHoverBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color TableHoverForegroundColor { get; set; } = Color.White;
+		public virtual Color? TableHoverForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? TableUnfocusedSelectionBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color TableUnfocusedSelectionForegroundColor { get; set; } = Color.White;
+		public virtual Color? TableUnfocusedSelectionForegroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color TableScrollbarThumbColor { get; set; } = Color.White;
+		public virtual Color? TableScrollbarThumbColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color TableScrollbarTrackColor { get; set; } = Color.Transparent;
+		public virtual Color? TableScrollbarTrackColor { get; set; }
 
 		// --- Tab headers ---
 
@@ -321,16 +321,16 @@ namespace SharpConsoleUI.Themes
 		public virtual Color? TabHeaderActiveBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color TabHeaderActiveForegroundColor { get; set; } = Color.White;
+		public virtual Color? TabHeaderActiveForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? TabHeaderBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color TabHeaderForegroundColor { get; set; } = Color.White;
+		public virtual Color? TabHeaderForegroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color TabHeaderDisabledForegroundColor { get; set; } = Color.White;
+		public virtual Color? TabHeaderDisabledForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? TabHeaderDisabledBackgroundColor { get; set; }
@@ -339,13 +339,13 @@ namespace SharpConsoleUI.Themes
 		public virtual Color? TabHeaderActiveFocusedBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color TabHeaderActiveFocusedForegroundColor { get; set; } = Color.White;
+		public virtual Color? TabHeaderActiveFocusedForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? TabHeaderFocusedBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color TabHeaderFocusedForegroundColor { get; set; } = Color.White;
+		public virtual Color? TabHeaderFocusedForegroundColor { get; set; }
 
 		// --- Tab content ---
 
@@ -358,7 +358,7 @@ namespace SharpConsoleUI.Themes
 		// --- Collapsible panel header ---
 
 		/// <inheritdoc/>
-		public virtual Color CollapsibleHeaderFocusedForegroundColor { get; set; } = Color.White;
+		public virtual Color? CollapsibleHeaderFocusedForegroundColor { get; set; }
 
 		/// <inheritdoc/>
 		public virtual Color? CollapsibleHeaderFocusedBackgroundColor { get; set; }
@@ -469,16 +469,16 @@ namespace SharpConsoleUI.Themes
 		public virtual Color? CheckboxDisabledBackgroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color CheckboxForegroundColor { get; set; } = Color.White;
+		public virtual Color? CheckboxForegroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color CheckboxFocusedForegroundColor { get; set; } = Color.White;
+		public virtual Color? CheckboxFocusedForegroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color CheckboxDisabledForegroundColor { get; set; } = Color.White;
+		public virtual Color? CheckboxDisabledForegroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public virtual Color CheckboxCheckmarkColor { get; set; } = Color.White;
+		public virtual Color? CheckboxCheckmarkColor { get; set; }
 
 		// --- Tree ---
 
@@ -505,7 +505,7 @@ namespace SharpConsoleUI.Themes
 		// --- Html ---
 
 		/// <inheritdoc/>
-		public virtual Color HtmlForegroundColor { get; set; } = Color.White;
+		public virtual Color? HtmlForegroundColor { get; set; }
 
 		// --- Start menu ---
 
