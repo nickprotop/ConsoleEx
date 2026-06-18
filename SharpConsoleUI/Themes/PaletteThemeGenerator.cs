@@ -50,8 +50,14 @@ namespace SharpConsoleUI.Themes
 			// Accent-derived selection surfaces.
 			Color selectionBg = primary.Mix(background, 0.6);
 			Color selectionFg = PaletteColors.ReadableOn(selectionBg);
-			Color primaryDisabled = primary.Shade(0.5);
 			Color primaryFocused = primary.Tint(0.2);
+
+			// Disabled states are damped with ALPHA rather than shading. Because the renderer is a real
+			// compositor, a semi-transparent disabled color blends with the surface behind the control,
+			// giving a natural "greyed-out" look that tracks whatever is underneath (idea from
+			// discussion #44). Dim(c) reduces a color's opacity to DisabledAlpha.
+			const byte DisabledAlpha = 115; // ~45% opacity
+			Color Dim(Color c) => c.WithAlpha(DisabledAlpha);
 
 			var t = new MutableTheme { Mode = mode };
 
@@ -78,17 +84,17 @@ namespace SharpConsoleUI.Themes
 
 			t.DropdownBackgroundColor = raised;
 			t.DropdownForegroundColor = foreground;
-			t.DropdownDisabledForegroundColor = faintText;
-			t.DropdownDisabledBackgroundColor = recessed;
+			t.DropdownDisabledForegroundColor = Dim(foreground);
+			t.DropdownDisabledBackgroundColor = Dim(raised);
 
 			t.ListForegroundColor = foreground;
-			t.ListDisabledForegroundColor = faintText;
-			t.ListDisabledBackgroundColor = recessed;
+			t.ListDisabledForegroundColor = Dim(foreground);
+			t.ListDisabledBackgroundColor = Dim(background);
 
 			t.CheckboxForegroundColor = foreground;
-			t.CheckboxDisabledForegroundColor = faintText;
+			t.CheckboxDisabledForegroundColor = Dim(foreground);
 
-			t.DatePickerDisabledBackgroundColor = recessed;
+			t.DatePickerDisabledBackgroundColor = Dim(raised);
 
 			t.HtmlForegroundColor = foreground;
 
@@ -102,8 +108,8 @@ namespace SharpConsoleUI.Themes
 			t.TabHeaderForegroundColor = dimText;
 			t.TabHeaderActiveBackgroundColor = background;
 			t.TabHeaderActiveForegroundColor = foreground;
-			t.TabHeaderDisabledBackgroundColor = raised;
-			t.TabHeaderDisabledForegroundColor = faintText;
+			t.TabHeaderDisabledBackgroundColor = Dim(raised);
+			t.TabHeaderDisabledForegroundColor = Dim(dimText);
 
 			t.TableBackgroundColor = background;
 			t.TableForegroundColor = foreground;
@@ -129,14 +135,14 @@ namespace SharpConsoleUI.Themes
 			t.DatePickerForegroundColor = foreground;
 			t.DatePickerSegmentBackgroundColor = Raise(background, 0.2);
 			t.DatePickerSegmentForegroundColor = foreground;
-			t.DatePickerDisabledForegroundColor = faintText;
+			t.DatePickerDisabledForegroundColor = Dim(foreground);
 			t.DatePickerCalendarHeaderColor = dimText;
 
 			t.TimePickerBackgroundColor = raised;
 			t.TimePickerForegroundColor = foreground;
 			t.TimePickerSegmentBackgroundColor = Raise(background, 0.2);
 			t.TimePickerSegmentForegroundColor = foreground;
-			t.TimePickerDisabledForegroundColor = faintText;
+			t.TimePickerDisabledForegroundColor = Dim(foreground);
 
 			t.StatusBarBackgroundColor = raised;
 			t.StatusBarForegroundColor = foreground;
@@ -144,7 +150,7 @@ namespace SharpConsoleUI.Themes
 			t.SliderTrackColor = Raise(background, 0.1);
 
 			t.CheckboxBackgroundColor = Raise(background, 0.2);
-			t.CheckboxDisabledBackgroundColor = recessed;
+			t.CheckboxDisabledBackgroundColor = Dim(Raise(background, 0.2));
 
 			t.TreeBackgroundColor = background;
 
@@ -169,8 +175,12 @@ namespace SharpConsoleUI.Themes
 			t.ButtonFocusedForegroundColor = PaletteColors.ContrastOn(primaryFocused);
 			t.ButtonSelectedBackgroundColor = secondary;
 			t.ButtonSelectedForegroundColor = PaletteColors.ReadableOn(secondary);
-			t.ButtonDisabledBackgroundColor = primaryDisabled;
-			t.ButtonDisabledForegroundColor = PaletteColors.ReadableOn(primaryDisabled);
+			// The disabled bg is alpha-translucent, so the window background shows through it. The
+			// disabled text must therefore read against the WINDOW background (not against the opaque
+			// primary it would sit on when enabled) — so damp the window foreground, which is already
+			// contrast-guaranteed against the surface.
+			t.ButtonDisabledBackgroundColor = Dim(primary);
+			t.ButtonDisabledForegroundColor = Dim(foreground);
 
 			t.ListUnfocusedHighlightBackgroundColor = selectionBg.Mix(background, 0.35);
 			t.ListUnfocusedHighlightForegroundColor = PaletteColors.ReadableOn(selectionBg.Mix(background, 0.35));

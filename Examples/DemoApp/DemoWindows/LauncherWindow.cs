@@ -35,6 +35,7 @@ public static class LauncherWindow
 				.AddItem("Interactive Demo", subtitle: "Real-time key press handling", content: MakeInfoPanel("Interactive Demo"))
 				.AddItem("Dropdown", subtitle: "Cascading dropdowns", content: MakeInfoPanel("Dropdown"))
 				.AddItem("List View", subtitle: "NuGet-style package browser", content: MakeInfoPanel("List View"))
+				.AddItem("Disabled States", subtitle: "Enabled vs. disabled controls — compare theme rendering", content: MakeInfoPanel("Disabled States"))
 				.AddItem("Table", subtitle: "Interactive employee directory", content: MakeInfoPanel("Table"))
 				.AddItem("DataGrid", subtitle: "Virtual DataGrid with 10K rows", content: MakeInfoPanel("DataGrid"))
 				.AddItem("Nerd Fonts", subtitle: "NerdFont icon showcase", content: MakeInfoPanel("Nerd Fonts"))
@@ -238,6 +239,7 @@ public static class LauncherWindow
 			"Interactive Demo" => InteractiveWindow.Create(ws),
 			"Dropdown" => DropdownWindow.Create(ws),
 			"List View" => ListViewWindow.Create(ws),
+			"Disabled States" => DisabledStatesWindow.Create(ws),
 			"Table" => TableDemoWindow.Create(ws),
 			"DataGrid" => DataGridWindow.Create(ws),
 			"Nerd Fonts" => NerdFontWindow.Create(ws),
@@ -1000,6 +1002,24 @@ public static class LauncherWindow
 				"[dim]Formats:[/] MP4, MKV, AVI, WebM, MOV, FLV, WMV",
 				"",
 				"[dim]Requires:[/] FFmpeg installed and on system PATH",
+			},
+			"Disabled States" => new List<string>
+			{
+				"[bold]Disabled States[/]",
+				"",
+				"Shows every interactive control in its enabled and",
+				"disabled state, side by side, so you can compare how",
+				"a theme renders disabled controls.",
+				"",
+				"[dim]Try it:[/]",
+				"  - Palette-based themes (Ocean, Slate, Daylight…)",
+				"    damp disabled controls with alpha blending, so",
+				"    they recede into the surface behind them.",
+				"  - Switch themes from the toolbar to compare.",
+				"",
+				"[dim]Controls used:[/]",
+				"  - ButtonControl, CheckboxControl",
+				"  - DropdownControl, ListControl",
 			},
 			_ => null
 		};
