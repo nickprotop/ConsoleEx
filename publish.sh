@@ -13,6 +13,7 @@ NC='\033[0m' # No Color
 
 # Default values
 VERSION_TYPE="patch"
+IS_RC=false
 FORCE=false
 
 # Parse arguments
@@ -21,21 +22,30 @@ for arg in "$@"; do
         major|minor|patch)
             VERSION_TYPE="$arg"
             ;;
+        rc)
+            IS_RC=true
+            ;;
         --force|-f)
             FORCE=true
             ;;
         --help|-h)
-            echo "Usage: ./publish.sh [major|minor|patch] [--force]"
+            echo "Usage: ./publish.sh [rc] [major|minor|patch] [--force]"
             echo ""
             echo "Arguments:"
             echo "  major           Increment major version (v2.4.6 -> v3.0.0)"
             echo "  minor           Increment minor version (v2.4.6 -> v2.5.0)"
             echo "  patch           Increment patch version (v2.4.6 -> v2.4.7) [default]"
+            echo "  rc              Publish a release candidate (prerelease) toward the next"
+            echo "                  major/minor/patch. Repeating 'rc' for the same target bumps"
+            echo "                  the rc counter (-rc.1 -> -rc.2). Promote to stable by running"
+            echo "                  the matching major/minor/patch without 'rc'."
             echo "  --force, -f     Skip confirmation prompt"
             echo ""
-            echo "Example:"
-            echo "  ./publish.sh patch          # Interactive, increment patch"
-            echo "  ./publish.sh minor --force  # No prompt, increment minor"
+            echo "Examples:"
+            echo "  ./publish.sh patch              # Stable patch (v2.4.6 -> v2.4.7)"
+            echo "  ./publish.sh rc minor           # First RC toward a minor (v2.4.6 -> v2.5.0-rc.1)"
+            echo "  ./publish.sh rc minor           # Again: next RC (v2.5.0-rc.1 -> v2.5.0-rc.2)"
+            echo "  ./publish.sh minor              # Promote: drop the suffix (v2.5.0-rc.2 -> v2.5.0)"
             exit 0
             ;;
         *)
@@ -117,8 +127,23 @@ echo ""
 echo -e "${BLUE}[2/5]${NC} Fetching tags from remote..."
 git fetch --tags --quiet
 
-# Get the latest tag
-LATEST_TAG=$(git tag --sort=-v:refname | head -1)
+# Get the latest tag with correct SemVer precedence. Neither `git --sort=-v:refname` nor GNU
+# `sort -V` implements prerelease precedence: both rank v2.5.0-rc.2 ABOVE v2.5.0, but SemVer says a
+# prerelease is LOWER than its release. Picking the rc as "latest" after a stable release would make
+# the next `rc` build produce rc.N for an already-released version. So build a sortable key per tag:
+#   major.minor.patch + a 4th field where stable = 9999 (sorts after any rc), rc.N = N.
+# Sort numerically on that key and take the top.
+LATEST_TAG=$(
+    git tag | while IFS= read -r tag; do
+        if [[ $tag =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)(-rc\.([0-9]+))?$ ]]; then
+            rc="${BASH_REMATCH[5]}"
+            # stable (no rc) ranks highest within its M.m.p
+            order="${rc:-9999}"
+            printf '%010d.%010d.%010d.%010d\t%s\n' \
+                "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" "$order" "$tag"
+        fi
+    done | sort -r | head -1 | cut -f2-
+)
 
 if [ -z "$LATEST_TAG" ]; then
     echo -e "${RED}Error: No tags found in repository${NC}"
@@ -128,41 +153,51 @@ fi
 echo -e "${GREEN}✓ Latest tag: $LATEST_TAG${NC}"
 echo ""
 
-# Parse version from tag (v2.4.6 -> 2.4.6)
-if [[ ! $LATEST_TAG =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-    echo -e "${RED}Error: Latest tag '$LATEST_TAG' is not in semver format (v{major}.{minor}.{patch})${NC}"
+# Parse version from tag. Accept stable (v2.4.6) and RC (v2.5.0-rc.1) tags.
+if [[ ! $LATEST_TAG =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)(-rc\.([0-9]+))?$ ]]; then
+    echo -e "${RED}Error: Latest tag '$LATEST_TAG' is not in semver format (v{major}.{minor}.{patch}[-rc.{n}])${NC}"
     exit 1
 fi
 
 MAJOR="${BASH_REMATCH[1]}"
 MINOR="${BASH_REMATCH[2]}"
 PATCH="${BASH_REMATCH[3]}"
+LATEST_RC="${BASH_REMATCH[5]}"  # empty when the latest tag is stable
 
-# Increment version based on type
+# The base (M.m.p) the next release targets. When the latest tag is already an RC, its own
+# M.m.p IS the target base — a 'minor' RC of 2.4.6 produced 2.5.0-rc.1, so 2.5.0 is the base for
+# both the next RC and the eventual stable promotion. When the latest tag is stable, bump from it.
 echo -e "${BLUE}[3/5]${NC} Calculating new version..."
 
-case $VERSION_TYPE in
-    major)
-        NEW_MAJOR=$((MAJOR + 1))
-        NEW_MINOR=0
-        NEW_PATCH=0
-        ;;
-    minor)
-        NEW_MAJOR=$MAJOR
-        NEW_MINOR=$((MINOR + 1))
-        NEW_PATCH=0
-        ;;
-    patch)
-        NEW_MAJOR=$MAJOR
-        NEW_MINOR=$MINOR
-        NEW_PATCH=$((PATCH + 1))
-        ;;
-esac
+if [ -n "$LATEST_RC" ]; then
+    # Latest tag is an RC (e.g. v2.5.0-rc.1): the base is its own M.m.p; do NOT bump again.
+    BASE_MAJOR=$MAJOR
+    BASE_MINOR=$MINOR
+    BASE_PATCH=$PATCH
+else
+    # Latest tag is stable: bump per the requested type to get the target base.
+    case $VERSION_TYPE in
+        major) BASE_MAJOR=$((MAJOR + 1)); BASE_MINOR=0;            BASE_PATCH=0 ;;
+        minor) BASE_MAJOR=$MAJOR;         BASE_MINOR=$((MINOR + 1)); BASE_PATCH=0 ;;
+        patch) BASE_MAJOR=$MAJOR;         BASE_MINOR=$MINOR;         BASE_PATCH=$((PATCH + 1)) ;;
+    esac
+fi
 
-NEW_TAG="v${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}"
-NEW_VERSION="${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}"
+NEW_VERSION="${BASE_MAJOR}.${BASE_MINOR}.${BASE_PATCH}"
 
-echo -e "${GREEN}✓ Version type: ${YELLOW}$VERSION_TYPE${NC}"
+if [ "$IS_RC" = true ]; then
+    # RC build: increment the rc counter when continuing the same target, else start at 1.
+    if [ -n "$LATEST_RC" ]; then
+        NEW_RC=$((LATEST_RC + 1))
+    else
+        NEW_RC=1
+    fi
+    NEW_VERSION="${NEW_VERSION}-rc.${NEW_RC}"
+fi
+
+NEW_TAG="v${NEW_VERSION}"
+
+echo -e "${GREEN}✓ Version type: ${YELLOW}${VERSION_TYPE}$([ "$IS_RC" = true ] && echo " (rc)")${NC}"
 echo -e "  ${LATEST_TAG} -> ${GREEN}${NEW_TAG}${NC}"
 echo ""
 
@@ -181,8 +216,16 @@ echo ""
 echo -e "${YELLOW}This will trigger GitHub Actions to:${NC}"
 echo -e "  1. Build the solution"
 echo -e "  2. Run tests"
-echo -e "  3. Create NuGet packages (SharpConsoleUI + SharpConsoleUI.Templates + SharpConsoleUI.Host ${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH})"
-echo -e "  4. Publish to NuGet.org"
+echo -e "  3. Create NuGet packages (SharpConsoleUI + SharpConsoleUI.Templates + SharpConsoleUI.Host ${NEW_VERSION})"
+if [ "$IS_RC" = true ]; then
+    echo -e "  4. Publish to NuGet.org ${YELLOW}as a prerelease${NC}"
+    echo ""
+    echo -e "  Testers install it with:"
+    echo -e "    ${BLUE}dotnet add package SharpConsoleUI --version ${NEW_VERSION}${NC}"
+    echo -e "    ${BLUE}dotnet add package SharpConsoleUI --prerelease${NC}  (latest preview)"
+else
+    echo -e "  4. Publish to NuGet.org"
+fi
 echo ""
 
 # Confirmation (unless --force)
@@ -195,11 +238,18 @@ if [ "$FORCE" = false ]; then
     fi
 fi
 
-# Update template SharpConsoleUI dependency to new version (after confirmation)
+# Update template SharpConsoleUI dependency to new version (after confirmation).
+# Skipped for RC builds: templates pin a concrete dependency for `dotnet new` users, and we don't
+# want a `dotnet new` app to depend on a prerelease — templates stay on the last stable version.
 TEMPLATES_UPDATED=false
+
+if [ "$IS_RC" = true ]; then
+    echo -e "${BLUE}ℹ${NC} RC build — leaving template dependencies on the last stable version."
+fi
 
 # 1. csproj-based templates (dotnet-new templates, schost templates)
 for TEMPLATE_CSPROJ in templates/content/*/*.csproj tools/schost/templates/*/*.csproj; do
+    [ "$IS_RC" = true ] && break
     if [ -f "$TEMPLATE_CSPROJ" ]; then
         sed -i "s|<PackageReference Include=\"SharpConsoleUI\" Version=\"[^\"]*\"|<PackageReference Include=\"SharpConsoleUI\" Version=\"${NEW_VERSION}\"|" "$TEMPLATE_CSPROJ"
         TEMPLATES_UPDATED=true
@@ -208,6 +258,7 @@ done
 
 # 2. .NET 10 file-based app templates under docs/scripting/templates/
 for TEMPLATE_CS in docs/scripting/templates/*.cs; do
+    [ "$IS_RC" = true ] && break
     if [ -f "$TEMPLATE_CS" ] && grep -q '^#:package SharpConsoleUI@' "$TEMPLATE_CS"; then
         sed -i "s|^#:package SharpConsoleUI@.*|#:package SharpConsoleUI@${NEW_VERSION}|" "$TEMPLATE_CS"
         TEMPLATES_UPDATED=true
