@@ -118,7 +118,7 @@ namespace SharpConsoleUI.Configuration
 		{
 			// ITheme has no literal "primary"; ActiveBorderForegroundColor is the accent every theme
 			// sets and the palette generator drives from its primary seed.
-			Color accent = theme.ActiveBorderForegroundColor;
+			Color accent = theme.ActiveBorderForegroundColor ?? theme.WindowForegroundColor;
 			Color bg = theme.WindowBackgroundColor;
 			Color fg = theme.WindowForegroundColor;
 

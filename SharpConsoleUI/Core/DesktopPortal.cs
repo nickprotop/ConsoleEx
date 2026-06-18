@@ -180,14 +180,14 @@ namespace SharpConsoleUI.Core
 		/// <inheritdoc/>
 		public Color BackgroundColor
 		{
-			get => Portal.WindowSystem.Theme.DesktopBackgroundColor;
+			get => Portal.WindowSystem.Theme.DesktopBackgroundColor ?? Portal.WindowSystem.Theme.WindowBackgroundColor;
 			set { /* Portal background is controlled by the portal system */ }
 		}
 
 		/// <inheritdoc/>
 		public Color ForegroundColor
 		{
-			get => Portal.WindowSystem.Theme.DesktopForegroundColor;
+			get => Portal.WindowSystem.Theme.DesktopForegroundColor ?? Portal.WindowSystem.Theme.WindowForegroundColor;
 			set { /* Portal foreground is controlled by the portal system */ }
 		}
 

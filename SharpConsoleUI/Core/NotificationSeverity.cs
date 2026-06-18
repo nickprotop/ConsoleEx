@@ -114,7 +114,7 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public Color WindowBackgroundColor(ConsoleWindowSystem consoleWindowSystem)
 		{
-			return Severity switch
+			return (Severity switch
 			{
 				NotificationSeverityEnum.Danger => consoleWindowSystem.Theme.NotificationDangerWindowBackgroundColor,
 				NotificationSeverityEnum.Info => consoleWindowSystem.Theme.NotificationInfoWindowBackgroundColor,
@@ -122,7 +122,7 @@ namespace SharpConsoleUI.Core
 				NotificationSeverityEnum.Success => consoleWindowSystem.Theme.NotificationSuccessWindowBackgroundColor,
 				NotificationSeverityEnum.Warning => consoleWindowSystem.Theme.NotificationWarningWindowBackgroundColor,
 				_ => throw new NotImplementedException()
-			};
+			}) ?? consoleWindowSystem.Theme.WindowBackgroundColor;
 		}
 	}
 }

@@ -36,7 +36,7 @@ public static class PerformanceDialog
 			.Minimizable(false)
 			.Maximizable(false)
 			.Movable(true)
-			.WithColors(theme.WindowForegroundColor, theme.ModalBackgroundColor);
+			.WithColors(theme.WindowForegroundColor, theme.ModalBackgroundColor ?? theme.WindowBackgroundColor);
 
 		if (parentWindow != null)
 			builder.WithParent(parentWindow);

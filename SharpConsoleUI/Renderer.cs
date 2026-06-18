@@ -126,7 +126,7 @@ namespace SharpConsoleUI
 					if (effectiveWidth <= 0) continue;
 					_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
 						0, y + desktopY, service.Buffer!, 0, y, effectiveWidth,
-						theme.DesktopBackgroundColor);
+						theme.DesktopBackgroundColor ?? theme.WindowBackgroundColor);
 				}
 			}
 			else
@@ -173,7 +173,7 @@ namespace SharpConsoleUI
 
 					_consoleWindowSystem.ConsoleDriver.WriteBufferRegion(
 						left, top + y + desktopY, service.Buffer, left, top + y, effectiveWidth,
-						theme.DesktopBackgroundColor);
+						theme.DesktopBackgroundColor ?? theme.WindowBackgroundColor);
 				}
 			}
 			else
@@ -857,7 +857,7 @@ namespace SharpConsoleUI
 		private Cell ResolveCellBelow(int screenX, int screenY, int aboveZIndex, List<Window> sortedWindowsDesc, int depth)
 		{
 			if (depth > 20)
-				return Cell.BlankWithBackground(_consoleWindowSystem.Theme.DesktopBackgroundColor);
+				return Cell.BlankWithBackground(_consoleWindowSystem.Theme.DesktopBackgroundColor ?? _consoleWindowSystem.Theme.WindowBackgroundColor);
 
 			for (int i = 0; i < sortedWindowsDesc.Count; i++)
 			{
@@ -890,7 +890,7 @@ namespace SharpConsoleUI
 						return Cell.BlankWithBackground(w.BackgroundColor.A == 255
 							? w.BackgroundColor
 							: Color.Blend(w.BackgroundColor, Cell.BlankWithBackground(
-								_consoleWindowSystem.Theme.DesktopBackgroundColor).Background));
+								_consoleWindowSystem.Theme.DesktopBackgroundColor ?? _consoleWindowSystem.Theme.WindowBackgroundColor).Background));
 					}
 
 					int bufX = screenX - (w.Left + w.InsetLeft);
@@ -929,7 +929,7 @@ namespace SharpConsoleUI
 				}
 			}
 
-			return Cell.BlankWithBackground(_consoleWindowSystem.Theme.DesktopBackgroundColor);
+			return Cell.BlankWithBackground(_consoleWindowSystem.Theme.DesktopBackgroundColor ?? _consoleWindowSystem.Theme.WindowBackgroundColor);
 		}
 
 		/// <summary>

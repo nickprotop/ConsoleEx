@@ -105,8 +105,8 @@ public class DesktopBackgroundService : IDisposable
 
 		// Layer 1: Base fill — config color overrides theme
 		var bgChar = theme.DesktopBackgroundChar;
-		var bgColor = _config?.BackgroundColor ?? theme.DesktopBackgroundColor;
-		var fgColor = theme.DesktopForegroundColor;
+		var bgColor = _config?.BackgroundColor ?? theme.DesktopBackgroundColor ?? theme.WindowBackgroundColor;
+		var fgColor = theme.DesktopForegroundColor ?? theme.WindowForegroundColor;
 		// Use Clear for transparent bg — FillRect uses Color.Blend which is a no-op for A=0
 		if (bgColor.A == 0)
 			_buffer.Clear(bgColor);

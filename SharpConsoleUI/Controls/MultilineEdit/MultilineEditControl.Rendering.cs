@@ -195,10 +195,10 @@ namespace SharpConsoleUI.Controls
 			Color scrollbarBg = bgColor;
 			var sbTheme = Container?.GetConsoleWindowSystem?.Theme;
 			Color activeThumbColor = _scrollbarThumbColorValue
-				?? (sbTheme != null ? (HasFocus ? sbTheme.ScrollbarThumbColor : sbTheme.ScrollbarThumbUnfocusedColor)
+				?? (sbTheme != null ? ((HasFocus ? sbTheme.ScrollbarThumbColor : sbTheme.ScrollbarThumbUnfocusedColor) ?? sbTheme.WindowForegroundColor)
 									 : (HasFocus ? Color.Cyan1 : Color.Grey));
 			Color activeTrackColor = _scrollbarColorValue
-				?? (sbTheme != null ? (HasFocus ? sbTheme.ScrollbarTrackColor : sbTheme.ScrollbarTrackUnfocusedColor)
+				?? (sbTheme != null ? ((HasFocus ? sbTheme.ScrollbarTrackColor : sbTheme.ScrollbarTrackUnfocusedColor) ?? sbTheme.WindowBackgroundColor)
 									 : (HasFocus ? Color.Grey : Color.Grey23));
 
 			int contentStartX = startX + gutterWidth;

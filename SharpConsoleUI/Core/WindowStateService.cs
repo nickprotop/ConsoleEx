@@ -1081,7 +1081,7 @@ namespace SharpConsoleUI.Core
 
 			var context = _getWindowSystem();
 
-			var flashColor = flashBackgroundColor ?? context.Theme.ModalFlashColor;
+			Color flashColor = flashBackgroundColor ?? context.Theme.ModalFlashColor ?? context.Theme.WindowBackgroundColor;
 			int pulseDurationMs = flashDuration > 0 ? flashDuration : AnimationDefaults.DefaultFlashPulseDurationMs;
 
 			var state = new FlashState

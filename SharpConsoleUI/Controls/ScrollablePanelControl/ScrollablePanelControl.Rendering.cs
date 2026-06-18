@@ -293,7 +293,7 @@ namespace SharpConsoleUI.Controls
 			if (_scrollbarThumbColor.HasValue) return _scrollbarThumbColor.Value;
 			var theme = GetConsoleWindowSystem?.Theme;
 			if (theme != null)
-				return HasFocus ? theme.ScrollbarThumbColor : theme.ScrollbarThumbUnfocusedColor;
+				return (HasFocus ? theme.ScrollbarThumbColor : theme.ScrollbarThumbUnfocusedColor) ?? theme.WindowForegroundColor;
 			return HasFocus ? Color.Cyan1 : Color.Grey;
 		}
 
@@ -303,7 +303,7 @@ namespace SharpConsoleUI.Controls
 			if (_scrollbarColor.HasValue) return _scrollbarColor.Value;
 			var theme = GetConsoleWindowSystem?.Theme;
 			if (theme != null)
-				return HasFocus ? theme.ScrollbarTrackColor : theme.ScrollbarTrackUnfocusedColor;
+				return (HasFocus ? theme.ScrollbarTrackColor : theme.ScrollbarTrackUnfocusedColor) ?? theme.WindowBackgroundColor;
 			return HasFocus ? Color.Grey : Color.Grey23;
 		}
 

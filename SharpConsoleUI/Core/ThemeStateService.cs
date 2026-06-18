@@ -55,10 +55,10 @@ namespace SharpConsoleUI.Core
 			{
 				return new WindowColorSet
 				{
-					BackgroundColor = theme.ModalBackgroundColor,
+					BackgroundColor = theme.ModalBackgroundColor ?? theme.WindowBackgroundColor,
 					ForegroundColor = theme.WindowForegroundColor,
-					BorderForegroundColor = theme.ModalBorderForegroundColor,
-					TitleForegroundColor = theme.ModalTitleForegroundColor,
+					BorderForegroundColor = theme.ModalBorderForegroundColor ?? theme.WindowForegroundColor,
+					TitleForegroundColor = theme.ModalTitleForegroundColor ?? theme.WindowForegroundColor,
 					IsActive = isActive
 				};
 			}
@@ -67,8 +67,8 @@ namespace SharpConsoleUI.Core
 			{
 				BackgroundColor = theme.WindowBackgroundColor,
 				ForegroundColor = theme.WindowForegroundColor,
-				BorderForegroundColor = isActive ? theme.ActiveBorderForegroundColor : theme.InactiveBorderForegroundColor,
-				TitleForegroundColor = isActive ? theme.ActiveTitleForegroundColor : theme.InactiveTitleForegroundColor,
+				BorderForegroundColor = (isActive ? theme.ActiveBorderForegroundColor : theme.InactiveBorderForegroundColor) ?? theme.WindowForegroundColor,
+				TitleForegroundColor = (isActive ? theme.ActiveTitleForegroundColor : theme.InactiveTitleForegroundColor) ?? theme.WindowForegroundColor,
 				IsActive = isActive
 			};
 		}
@@ -113,7 +113,7 @@ namespace SharpConsoleUI.Core
 				return new ButtonColorSet
 				{
 					BackgroundColor = theme.ButtonDisabledBackgroundColor ?? Color.Transparent,
-					ForegroundColor = theme.ButtonDisabledForegroundColor,
+					ForegroundColor = theme.ButtonDisabledForegroundColor ?? theme.WindowForegroundColor,
 					IsFocused = false,
 					IsEnabled = false
 				};
@@ -124,7 +124,7 @@ namespace SharpConsoleUI.Core
 				return new ButtonColorSet
 				{
 					BackgroundColor = theme.ButtonFocusedBackgroundColor ?? Color.Transparent,
-					ForegroundColor = theme.ButtonFocusedForegroundColor,
+					ForegroundColor = theme.ButtonFocusedForegroundColor ?? theme.WindowForegroundColor,
 					IsFocused = true,
 					IsEnabled = true
 				};
@@ -133,7 +133,7 @@ namespace SharpConsoleUI.Core
 			return new ButtonColorSet
 			{
 				BackgroundColor = theme.ButtonBackgroundColor ?? Color.Transparent,
-				ForegroundColor = theme.ButtonForegroundColor,
+				ForegroundColor = theme.ButtonForegroundColor ?? theme.WindowForegroundColor,
 				IsFocused = false,
 				IsEnabled = true
 			};
@@ -348,7 +348,7 @@ namespace SharpConsoleUI.Core
 		public (Color Background, Color Foreground, char BackgroundChar) GetDesktopColors()
 		{
 			var theme = CurrentTheme;
-			return (theme.DesktopBackgroundColor, theme.DesktopForegroundColor, theme.DesktopBackgroundChar);
+			return (theme.DesktopBackgroundColor ?? theme.WindowBackgroundColor, theme.DesktopForegroundColor ?? theme.WindowForegroundColor, theme.DesktopBackgroundChar);
 		}
 
 		/// <summary>
@@ -357,7 +357,7 @@ namespace SharpConsoleUI.Core
 		public (Color TopBarBackground, Color TopBarForeground, Color BottomBarBackground, Color BottomBarForeground) GetStatusBarColors()
 		{
 			var theme = CurrentTheme;
-			return (theme.TopBarBackgroundColor, theme.TopBarForegroundColor, theme.BottomBarBackgroundColor, theme.BottomBarForegroundColor);
+			return (theme.TopBarBackgroundColor ?? theme.WindowBackgroundColor, theme.TopBarForegroundColor ?? theme.WindowForegroundColor, theme.BottomBarBackgroundColor ?? theme.WindowBackgroundColor, theme.BottomBarForegroundColor ?? theme.WindowForegroundColor);
 		}
 
 		/// <summary>
@@ -366,8 +366,8 @@ namespace SharpConsoleUI.Core
 		public (Color Background, Color Foreground, Color FocusedBackground, Color FocusedForeground) GetInputColors()
 		{
 			var theme = CurrentTheme;
-			return (theme.PromptInputBackgroundColor ?? Color.Transparent, theme.PromptInputForegroundColor,
-					theme.PromptInputFocusedBackgroundColor ?? Color.Transparent, theme.PromptInputFocusedForegroundColor);
+			return (theme.PromptInputBackgroundColor ?? Color.Transparent, theme.PromptInputForegroundColor ?? theme.WindowForegroundColor,
+					theme.PromptInputFocusedBackgroundColor ?? Color.Transparent, theme.PromptInputFocusedForegroundColor ?? theme.WindowForegroundColor);
 		}
 
 		/// <summary>
@@ -376,9 +376,9 @@ namespace SharpConsoleUI.Core
 		public (Color Default, Color Info, Color Success, Color Warning, Color Danger) GetNotificationColors()
 		{
 			var theme = CurrentTheme;
-			return (theme.NotificationWindowBackgroundColor, theme.NotificationInfoWindowBackgroundColor,
-					theme.NotificationSuccessWindowBackgroundColor, theme.NotificationWarningWindowBackgroundColor,
-					theme.NotificationDangerWindowBackgroundColor);
+			return (theme.NotificationWindowBackgroundColor ?? theme.WindowBackgroundColor, theme.NotificationInfoWindowBackgroundColor ?? theme.WindowBackgroundColor,
+					theme.NotificationSuccessWindowBackgroundColor ?? theme.WindowBackgroundColor, theme.NotificationWarningWindowBackgroundColor ?? theme.WindowBackgroundColor,
+					theme.NotificationDangerWindowBackgroundColor ?? theme.WindowBackgroundColor);
 		}
 
 		#endregion

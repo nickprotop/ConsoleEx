@@ -351,12 +351,12 @@ namespace SharpConsoleUI.Rendering
 				var bottomPanel = _windowSystemContext.BottomPanel;
 
 				RenderPanel(topPanel, 0,
-					_windowSystemContext.Theme.TopBarForegroundColor,
-					_windowSystemContext.Theme.TopBarBackgroundColor,
+					_windowSystemContext.Theme.TopBarForegroundColor ?? _windowSystemContext.Theme.WindowForegroundColor,
+					_windowSystemContext.Theme.TopBarBackgroundColor ?? _windowSystemContext.Theme.WindowBackgroundColor,
 					ref _lastTopPanelVisible);
 				RenderPanel(bottomPanel, _consoleDriver.ScreenSize.Height - 1,
-					_windowSystemContext.Theme.BottomBarForegroundColor,
-					_windowSystemContext.Theme.BottomBarBackgroundColor,
+					_windowSystemContext.Theme.BottomBarForegroundColor ?? _windowSystemContext.Theme.WindowForegroundColor,
+					_windowSystemContext.Theme.BottomBarBackgroundColor ?? _windowSystemContext.Theme.WindowBackgroundColor,
 					ref _lastBottomPanelVisible);
 
 				// Update status bar bounds for mouse click detection
@@ -506,7 +506,7 @@ namespace SharpConsoleUI.Rendering
 							portal.Buffer,
 							pSrcX, pSrcY + row,
 							inter.Width,
-							theme.DesktopBackgroundColor);
+							theme.DesktopBackgroundColor ?? theme.WindowBackgroundColor);
 					}
 				}
 			}
@@ -552,7 +552,7 @@ namespace SharpConsoleUI.Rendering
 				}
 				else
 				{
-					portal.Buffer.Clear(_windowSystemContext.Theme.DesktopBackgroundColor);
+					portal.Buffer.Clear(_windowSystemContext.Theme.DesktopBackgroundColor ?? _windowSystemContext.Theme.WindowBackgroundColor);
 				}
 
 				// Re-measure and arrange the DOM
@@ -671,7 +671,7 @@ namespace SharpConsoleUI.Rendering
 						portal.Buffer,
 						baseSrcX, baseSrcY + row,
 						clippedWidth,
-						_windowSystemContext.Theme.DesktopBackgroundColor);
+						_windowSystemContext.Theme.DesktopBackgroundColor ?? _windowSystemContext.Theme.WindowBackgroundColor);
 				}
 			}
 		}
