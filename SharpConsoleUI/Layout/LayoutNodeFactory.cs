@@ -44,7 +44,11 @@ namespace SharpConsoleUI.Layout
 			}
 			else if (control is TabControl tabControl)
 			{
-				return (new TabLayout(), tabControl.TabPages.Select(tp => tp.Content));
+				// Build only the active tab's content into the layout tree (mirrors
+				// TabControl.GetChildren()). The active page is selected by the control's
+				// own ActiveTabIndex state, NOT by clobbering each page's caller-owned
+				// Visible flag. See issue #53.
+				return (new TabLayout(), tabControl.GetChildren());
 			}
 			else if (control is CollapsiblePanel collapsible)
 			{

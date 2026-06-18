@@ -126,7 +126,7 @@ public class TabControlTests
 	}
 
 	[Fact]
-	public void ActiveTabIndex_TogglesVisibility()
+	public void ActiveTabIndex_SwitchesActiveContent()
 	{
 		// Arrange
 		var tabControl = new TabControl();
@@ -138,8 +138,13 @@ public class TabControlTests
 		// Act - Switch to tab 2
 		tabControl.ActiveTabIndex = 1;
 
-		// Assert
-		Assert.False(content1.Visible);
+		// Assert: the active page is selected via GetChildren() (the layout/focus tree),
+		// NOT by mutating the caller-owned Visible flag (issue #53).
+		Assert.Equal(new[] { content2 }, tabControl.GetChildren());
+		Assert.DoesNotContain(content1, tabControl.GetChildren());
+
+		// Caller never touched Visible, so both stay at their default (true).
+		Assert.True(content1.Visible);
 		Assert.True(content2.Visible);
 	}
 
@@ -1209,7 +1214,7 @@ public class TabControlTests
 	}
 
 	[Fact]
-	public void SetTabContent_PreservesVisibilityState()
+	public void SetTabContent_SelectsActiveContentByIndex()
 	{
 		var tab = new SharpConsoleUI.Controls.TabControl();
 		var content1 = CreateLabel("Content 1");
@@ -1224,8 +1229,25 @@ public class TabControlTests
 		tab.SetTabContent(0, newActiveContent);
 		tab.SetTabContent(1, newInactiveContent);
 
-		Assert.True(newActiveContent.Visible);
-		Assert.False(newInactiveContent.Visible);
+		// Active page is selected via GetChildren(), not via the caller-owned Visible flag (#53).
+		Assert.Equal(new[] { newActiveContent }, tab.GetChildren());
+		Assert.DoesNotContain(newInactiveContent, tab.GetChildren());
+	}
+
+	[Fact]
+	public void SetTabContent_DoesNotClobberCallerVisible()
+	{
+		// Issue #53: content placed into an inactive tab with Visible=false stays hidden;
+		// SetTabContent must not reset it to match the tab's active/inactive state.
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		tab.AddTab("Tab 1", CreateLabel("Content 1"));
+		tab.AddTab("Tab 2", CreateLabel("Content 2"));
+
+		var hidden = CreateLabel("Hidden");
+		hidden.Visible = false;
+		tab.SetTabContent(1, hidden); // inactive tab
+
+		Assert.False(hidden.Visible);
 	}
 
 	[Fact]
@@ -1680,7 +1702,7 @@ public class TabControlTests
 	#region Visibility Consistency
 
 	[Fact]
-	public void AllInactiveTabs_AreInvisible()
+	public void OnlyActiveTab_IsExposedForLayout()
 	{
 		var tab = new SharpConsoleUI.Controls.TabControl();
 		var contents = Enumerable.Range(0, 5)
@@ -1692,17 +1714,19 @@ public class TabControlTests
 
 		tab.ActiveTabIndex = 2;
 
+		// Active page selection flows through GetChildren() (the layout/focus tree),
+		// not through the caller-owned Visible flag (issue #53).
+		var children = tab.GetChildren();
+		Assert.Equal(new[] { contents[2] }, children);
 		for (int i = 0; i < 5; i++)
 		{
-			if (i == 2)
-				Assert.True(contents[i].Visible, $"Active tab {i} should be visible");
-			else
-				Assert.False(contents[i].Visible, $"Inactive tab {i} should be invisible");
+			if (i != 2)
+				Assert.DoesNotContain(contents[i], children);
 		}
 	}
 
 	[Fact]
-	public void RapidTabSwitching_VisibilityConsistent()
+	public void RapidTabSwitching_ExposesExactlyOneActiveChild()
 	{
 		var tab = new SharpConsoleUI.Controls.TabControl();
 		var contents = new MarkupControl[10];
@@ -1719,12 +1743,69 @@ public class TabControlTests
 			{
 				tab.ActiveTabIndex = i;
 
-				// Exactly one tab should be visible at any time
-				int visibleCount = contents.Count(c => c.Visible);
-				Assert.Equal(1, visibleCount);
-				Assert.True(contents[i].Visible);
+				// Exactly one tab's content is exposed for layout at any time, and it is
+				// the active one. Visible is never mutated by the control (#53).
+				var children = tab.GetChildren();
+				Assert.Single(children);
+				Assert.Same(contents[i], children[0]);
 			}
 		}
+	}
+
+	[Fact]
+	public void AddTab_DoesNotClobberCallerVisibleOnPageContent()
+	{
+		// Issue #53: page content added with Visible=false stays hidden — TabControl must not
+		// reset it to match the tab's active/inactive state.
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		var hidden = CreateLabel("Hidden body");
+		hidden.Visible = false;
+
+		tab.AddTab("Tab 1", hidden); // first tab => becomes active
+
+		Assert.False(hidden.Visible); // caller's flag preserved, even on the active tab
+	}
+
+	[Fact]
+	public void SwitchingTabs_PreservesCallerVisibleOnInactivePageContent()
+	{
+		// Issue #53: set a page content's Visible=false, switch away and back —
+		// the control must never write the caller-owned flag.
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		var content1 = CreateLabel("Content 1");
+		var content2 = CreateLabel("Content 2");
+		tab.AddTab("Tab 1", content1);
+		tab.AddTab("Tab 2", content2);
+
+		// Caller hides content2 (currently inactive)
+		content2.Visible = false;
+
+		tab.ActiveTabIndex = 1; // switch to tab 2
+		Assert.False(content2.Visible); // still false — no clobber
+		Assert.True(content1.Visible);  // content1 untouched
+
+		tab.ActiveTabIndex = 0; // switch back to tab 1
+		Assert.False(content2.Visible); // still false after switching away and back
+		Assert.True(content1.Visible);
+	}
+
+	[Fact]
+	public void SwitchingTabs_StillSelectsActivePage_WithoutVisibleWrites()
+	{
+		// Confirms switching works purely via GetChildren() (no reliance on Visible writes).
+		var tab = new SharpConsoleUI.Controls.TabControl();
+		var content1 = CreateLabel("Content 1");
+		var content2 = CreateLabel("Content 2");
+		tab.AddTab("Tab 1", content1);
+		tab.AddTab("Tab 2", content2);
+
+		Assert.Equal(new[] { content1 }, tab.GetChildren());
+
+		tab.ActiveTabIndex = 1;
+		Assert.Equal(new[] { content2 }, tab.GetChildren());
+
+		tab.ActiveTabIndex = 0;
+		Assert.Equal(new[] { content1 }, tab.GetChildren());
 	}
 
 	#endregion

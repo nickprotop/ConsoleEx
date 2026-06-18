@@ -72,7 +72,10 @@ namespace SharpConsoleUI.Layout
 
 		/// <summary>
 		/// Arranges all children within the container's final bounds.
-		/// Active tab is positioned below header, inactive tabs are collapsed.
+		/// Only the active tab's content is built into the layout tree (see
+		/// <see cref="LayoutNodeFactory.ResolveLayout"/>), so a single child is
+		/// arranged below the header. A child whose own Visible flag is false
+		/// collapses to nothing (the caller hid that page's content).
 		/// Accounts for the TabControl's margins.
 		/// </summary>
 		public void ArrangeChildren(LayoutNode node, LayoutRect bounds)

@@ -45,7 +45,7 @@ namespace SharpConsoleUI.Controls
 						_activeTabIndex = _tabPages.Count - 1;
 					}
 					// else: stay at same index (next tab slides into position)
-					_tabPages[_activeTabIndex].Content.Visible = true;
+					// Active page shows via GetChildren()/layout, not Content.Visible (issue #53).
 				}
 				else if (index < _activeTabIndex)
 				{
@@ -91,7 +91,7 @@ namespace SharpConsoleUI.Controls
 				{
 					if (_activeTabIndex >= _tabPages.Count)
 						_activeTabIndex = _tabPages.Count - 1;
-					_tabPages[_activeTabIndex].Content.Visible = true;
+					// Active page shows via GetChildren()/layout, not Content.Visible (issue #53).
 				}
 				else if (index < _activeTabIndex)
 				{
@@ -244,7 +244,8 @@ namespace SharpConsoleUI.Controls
 					oldContent.Dispose();
 					_tabPages[index].Content = newContent;
 					newContent.Container = this;
-					newContent.Visible = index == _activeTabIndex;
+					// NOTE: do NOT touch newContent.Visible — caller owns it. The active page
+					// is selected via GetChildren()/layout by index (issue #53).
 				}
 				else
 				{

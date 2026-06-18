@@ -178,8 +178,9 @@ namespace SharpConsoleUI.Controls
 			}
 			content.Container = this;
 
-			// Set visibility based on whether this is the active tab
-			content.Visible = count - 1 == _activeTabIndex;
+			// NOTE: do NOT touch content.Visible here — that flag is owned by the caller.
+			// The active page is selected by ActiveTabIndex / GetChildren(), so only the
+			// active tab's content is built into the layout tree (see issue #53).
 
 			Core.AsyncEvent.Raise(TabAdded, TabAddedAsync, this, new TabEventArgs(tabPage, count - 1), Container?.GetConsoleWindowSystem?.LogService);
 
@@ -232,7 +233,11 @@ namespace SharpConsoleUI.Controls
 						if (_activeTabIndex >= 0 && _activeTabIndex < _tabPages.Count)
 						{
 							var oldContent = _tabPages[_activeTabIndex].Content;
-							oldContent.Visible = false;
+
+							// NOTE: do NOT set oldContent.Visible = false — that flag belongs to the
+							// caller. The old page leaves the layout tree because GetChildren() now
+							// returns only the new active tab. Focus release below uses
+							// ContainsFocusedControl, not Visible, so it is unaffected (issue #53).
 
 							// If the focused control lives inside the old tab, clear its focus through FocusManager
 							// then re-focus the TabControl itself so Tab navigation still works
@@ -249,7 +254,8 @@ namespace SharpConsoleUI.Controls
 
 						_activeTabIndex = value;
 						OnPropertyChanged();
-						_tabPages[_activeTabIndex].Content.Visible = true;
+						// Active page becomes visible via GetChildren()/layout, not by mutating
+						// the caller-owned Content.Visible flag (issue #53).
 
 						changedArgs = new TabChangedEventArgs(changingArgs.OldIndex, changingArgs.NewIndex, changingArgs.OldTab, changingArgs.NewTab);
 					}
@@ -259,6 +265,13 @@ namespace SharpConsoleUI.Controls
 				if (changedArgs != null)
 				{
 					Core.AsyncEvent.Raise(TabChanged, TabChangedAsync, this, changedArgs, Container?.GetConsoleWindowSystem?.LogService);
+
+					// The set of children exposed for layout changed (GetChildren() now returns
+					// the NEW active page), so the DOM layout tree must be rebuilt — a plain
+					// Invalidate only re-measures the existing tree. Previously the tree held
+					// every page and switching just toggled the caller-owned Content.Visible
+					// flag, which #53 forbids.
+					this.GetParentWindow()?.ForceRebuildLayout();
 					Invalidate(true);
 				}
 			}
@@ -360,7 +373,7 @@ namespace SharpConsoleUI.Controls
 				tabPage = new TabPage { Title = title, Content = content };
 				_tabPages.Insert(index, tabPage);
 				content.Container = this;
-				content.Visible = false;
+				// NOTE: do NOT touch content.Visible — caller owns it (issue #53).
 
 				// Adjust active tab index if needed
 				if (index <= _activeTabIndex)
