@@ -25,6 +25,7 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 
 	private bool _showScrollbar = true;
 	private ScrollbarPosition _scrollbarPosition = ScrollbarPosition.Right;
+	private bool _scrollbarOverlay;
 	private Color? _scrollbarColor;
 	private Color? _scrollbarThumbColor;
 	private ScrollMode _horizontalScrollMode = ScrollMode.None;
@@ -119,6 +120,18 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 	public ScrollablePanelBuilder WithScrollbarPosition(ScrollbarPosition position)
 	{
 		_scrollbarPosition = position;
+		return this;
+	}
+
+	/// <summary>
+	/// Renders the vertical scrollbar on the panel's border instead of reserving an interior
+	/// column, freeing that space for content. Only takes effect when the panel has a border.
+	/// </summary>
+	/// <param name="overlay">Whether to overlay the scrollbar on the border.</param>
+	/// <returns>The builder for chaining</returns>
+	public ScrollablePanelBuilder OverlayScrollbar(bool overlay = true)
+	{
+		_scrollbarOverlay = overlay;
 		return this;
 	}
 
@@ -480,6 +493,7 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 			ScrollbarPosition = _scrollbarPosition,
 			ScrollbarColor = _scrollbarColor,
 			ScrollbarThumbColor = _scrollbarThumbColor,
+			ScrollbarOverlay = _scrollbarOverlay,
 			HorizontalScrollMode = _horizontalScrollMode,
 			VerticalScrollMode = _verticalScrollMode,
 			EnableMouseWheel = _enableMouseWheel,

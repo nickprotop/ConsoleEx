@@ -114,6 +114,7 @@ namespace SharpConsoleUI.Controls
 		// Configurable options
 		private bool _showScrollbar = true;
 		private ScrollbarPosition _scrollbarPosition = ScrollbarPosition.Right;
+		private bool _scrollbarOverlay;
 		private ScrollMode _horizontalScrollMode = ScrollMode.None;
 		private ScrollMode _verticalScrollMode = ScrollMode.Scroll;
 		private bool _enableMouseWheel = true;
@@ -231,6 +232,24 @@ namespace SharpConsoleUI.Controls
 			get => _scrollbarPosition;
 			set => SetProperty(ref _scrollbarPosition, value);
 		}
+
+		/// <summary>
+		/// When <c>true</c>, the vertical scrollbar is painted on the panel's border instead of
+		/// reserving an interior column, freeing that space for content. Only takes effect when the
+		/// panel has a border; a borderless panel falls back to the normal reserved-column scrollbar.
+		/// Default <c>false</c>. Orthogonal to <see cref="ScrollbarPosition"/> (overlays whichever side).
+		/// </summary>
+		public bool ScrollbarOverlay
+		{
+			get => _scrollbarOverlay;
+			set => SetProperty(ref _scrollbarOverlay, value);
+		}
+
+		/// <summary>
+		/// True when overlay mode is requested AND the panel has a border to overlay onto. When this
+		/// is true the scrollbar reserves no content column and its thumb paints on the border line.
+		/// </summary>
+		private bool OverlayActive => _scrollbarOverlay && _borderStyle != BorderStyle.None;
 
 		/// <summary>
 		/// Gets or sets the horizontal scroll mode.
@@ -366,7 +385,7 @@ namespace SharpConsoleUI.Controls
 			{
 				if (!_showScrollbar || _verticalScrollMode != ScrollMode.Scroll || _viewportHeight <= 0)
 					return false;
-				int effHeight = _viewportHeight - (RawNeedsHorizontalScrollbar ? HorizontalScrollbarRows : 0);
+				int effHeight = _viewportHeight - (RawNeedsHorizontalScrollbar ? EffectiveScrollbarRows : 0);
 				return _contentHeight > Math.Max(0, effHeight);
 			}
 		}
@@ -377,23 +396,35 @@ namespace SharpConsoleUI.Controls
 			{
 				if (!_showScrollbar || _horizontalScrollMode != ScrollMode.Scroll || _viewportWidth <= 0)
 					return false;
-				int effWidth = _viewportWidth - (RawNeedsVerticalScrollbar ? VerticalScrollbarColumns : 0);
+				int effWidth = _viewportWidth - (RawNeedsVerticalScrollbar ? EffectiveScrollbarColumns : 0);
 				return _contentWidth > Math.Max(0, effWidth);
 			}
 		}
+
+		/// <summary>
+		/// Content columns reserved for the vertical scrollbar: the normal count, or 0 in overlay mode
+		/// (the scrollbar paints on the border instead, so no content column is consumed).
+		/// </summary>
+		private int EffectiveScrollbarColumns => OverlayActive ? 0 : VerticalScrollbarColumns;
+
+		/// <summary>
+		/// Content rows reserved for the horizontal scrollbar: the normal count, or 0 in overlay mode
+		/// (the scrollbar paints on the bottom border instead, so no content row is consumed).
+		/// </summary>
+		private int EffectiveScrollbarRows => OverlayActive ? 0 : HorizontalScrollbarRows;
 
 		/// <summary>
 		/// The visible content width (viewport minus the vertical scrollbar columns, when shown).
 		/// This is the width children are painted into and the basis for horizontal scroll extent.
 		/// </summary>
 		private int VisibleContentWidth =>
-			Math.Max(1, _viewportWidth - (NeedsVerticalScrollbar ? VerticalScrollbarColumns : 0));
+			Math.Max(1, _viewportWidth - (NeedsVerticalScrollbar ? EffectiveScrollbarColumns : 0));
 
 		/// <summary>
 		/// The content viewport height (viewport minus the horizontal scrollbar row, when shown).
 		/// </summary>
 		private int VisibleContentHeight =>
-			Math.Max(1, _viewportHeight - (NeedsHorizontalScrollbar ? HorizontalScrollbarRows : 0));
+			Math.Max(1, _viewportHeight - (NeedsHorizontalScrollbar ? EffectiveScrollbarRows : 0));
 
 		/// <summary>
 		/// The maximum horizontal scroll offset: total content width minus the visible content

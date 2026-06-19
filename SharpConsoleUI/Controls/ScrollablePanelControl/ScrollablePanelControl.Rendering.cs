@@ -263,11 +263,25 @@ namespace SharpConsoleUI.Controls
 
 		private (int scrollbarRelX, int scrollbarTop, int scrollbarHeight, int thumbY, int thumbHeight) GetScrollbarGeometry()
 		{
-			// scrollbarRelX is control-relative (offset from bounds.X)
-			// Position scrollbar inside the border if present
-			int scrollbarRelX = _scrollbarPosition == ScrollbarPosition.Right
-				? Margin.Left + ContentInsetLeft + _viewportWidth - 1
-				: Margin.Left + ContentInsetLeft;
+			// scrollbarRelX is control-relative (offset from bounds.X).
+			int scrollbarRelX;
+			if (OverlayActive)
+			{
+				// Overlay: paint the thumb ON the border line (no interior column reserved). The border
+				// columns are the panel edges: left at Margin.Left, right at Margin.Left+targetWidth-1.
+				// targetWidth is the panel's drawn width = viewport + border + horizontal padding.
+				int panelWidth = _viewportWidth + BorderWidth + _padding.Left + _padding.Right;
+				scrollbarRelX = _scrollbarPosition == ScrollbarPosition.Right
+					? Margin.Left + panelWidth - 1   // right border column
+					: Margin.Left;                    // left border column
+			}
+			else
+			{
+				// Normal: position the scrollbar inside the border, in its reserved interior column.
+				scrollbarRelX = _scrollbarPosition == ScrollbarPosition.Right
+					? Margin.Left + ContentInsetLeft + _viewportWidth - 1
+					: Margin.Left + ContentInsetLeft;
+			}
 			int scrollbarTop = Margin.Top + ContentInsetTop;
 			// The vertical track spans the content height (the H-scrollbar row, when shown, is below it).
 			int scrollbarHeight = VisibleContentHeight;
@@ -284,7 +298,11 @@ namespace SharpConsoleUI.Controls
 		{
 			int trackWidth = VisibleContentWidth;
 			int scrollbarRelX = Margin.Left + ContentInsetLeft;
-			int scrollbarRelY = Margin.Top + ContentInsetTop + VisibleContentHeight;
+			// Overlay: paint on the bottom border row (no reserved row). Non-overlay: the reserved row
+			// directly below the content viewport.
+			int scrollbarRelY = OverlayActive
+				? Margin.Top + (_viewportHeight + BorderHeight + _padding.Top + _padding.Bottom) - 1  // bottom border row
+				: Margin.Top + ContentInsetTop + VisibleContentHeight;
 
 			int thumbWidth = ThumbLength(trackWidth, trackWidth, _contentWidth);
 			int thumbX = ThumbPosForOffset(trackWidth, trackWidth, _contentWidth, _horizontalScrollOffset);
@@ -330,28 +348,28 @@ namespace SharpConsoleUI.Controls
 			Color thumbColor = ResolveScrollbarThumbColor();
 			Color trackColor = ResolveScrollbarTrackColor();
 
+			// In overlay mode the scrollbar shares the border column: the existing border line IS the
+			// track, so paint ONLY the thumb cells (overriding the border where the thumb sits) and skip
+			// the track fill + arrows, which would otherwise erase/overdraw the frame.
+			bool overlay = OverlayActive;
+
 			for (int y = 0; y < scrollbarHeight; y++)
 			{
-				Color color;
-				char ch;
+				bool isThumb = y >= thumbY && y < thumbY + thumbHeight;
+				if (overlay && !isThumb)
+					continue; // leave the border line intact as the track
 
-				if (y >= thumbY && y < thumbY + thumbHeight)
-				{
-					color = thumbColor;
-					ch = '\u2588';
-				}
-				else
-				{
-					color = trackColor;
-					ch = '\u2502';
-				}
-
+				Color color = isThumb ? thumbColor : trackColor;
+				char ch = isThumb ? '\u2588' : '\u2502';
 				buffer.SetNarrowCell(scrollbarX, scrollbarAbsTop + y, ch, color, bgColor);
 			}
 
-			// Always draw arrows at top/bottom with thumb color
-			buffer.SetNarrowCell(scrollbarX, scrollbarAbsTop, '\u25b2', thumbColor, bgColor);
-			buffer.SetNarrowCell(scrollbarX, scrollbarAbsTop + scrollbarHeight - 1, '\u25bc', thumbColor, bgColor);
+			if (!overlay)
+			{
+				// Arrows at top/bottom (non-overlay only \u2014 in overlay they'd overwrite the border corners).
+				buffer.SetNarrowCell(scrollbarX, scrollbarAbsTop, '\u25b2', thumbColor, bgColor);
+				buffer.SetNarrowCell(scrollbarX, scrollbarAbsTop + scrollbarHeight - 1, '\u25bc', thumbColor, bgColor);
+			}
 		}
 
 		/// <summary>
@@ -371,26 +389,28 @@ namespace SharpConsoleUI.Controls
 			Color thumbColor = ResolveScrollbarThumbColor();
 			Color trackColor = ResolveScrollbarTrackColor();
 
+			// In overlay mode the scrollbar shares the bottom border row: the border line IS the track,
+			// so paint ONLY the thumb cells and skip the track fill + end arrows (which would erase the
+			// frame / overwrite the corners).
+			bool overlay = OverlayActive;
+
 			for (int x = 0; x < trackWidth; x++)
 			{
-				char ch;
-				Color color;
-				if (x >= thumbX && x < thumbX + thumbWidth)
-				{
-					color = thumbColor;
-					ch = '\u25ac'; // U+25AC \u2014 matches MultilineEditControl's horizontal thumb (less thick than \u2588)
-				}
-				else
-				{
-					color = trackColor;
-					ch = '\u2500'; // U+2500
-				}
+				bool isThumb = x >= thumbX && x < thumbX + thumbWidth;
+				if (overlay && !isThumb)
+					continue; // leave the bottom border intact as the track
+
+				Color color = isThumb ? thumbColor : trackColor;
+				char ch = isThumb ? '\u25ac' : '\u2500'; // U+25AC thumb / U+2500 track
 				buffer.SetNarrowCell(scrollbarX + x, scrollbarY, ch, color, bgColor);
 			}
 
-			// Left/right arrows at the ends (narrow, reliably 1-wide per ControlDefaults guidance).
-			buffer.SetNarrowCell(scrollbarX, scrollbarY, '\u25c4', thumbColor, bgColor);                 // U+25C4
-			buffer.SetNarrowCell(scrollbarX + trackWidth - 1, scrollbarY, '\u25ba', thumbColor, bgColor); // U+25BA
+			if (!overlay)
+			{
+				// Left/right arrows at the ends (non-overlay only \u2014 they'd overwrite the border corners).
+				buffer.SetNarrowCell(scrollbarX, scrollbarY, '\u25c4', thumbColor, bgColor);                 // U+25C4
+				buffer.SetNarrowCell(scrollbarX + trackWidth - 1, scrollbarY, '\u25ba', thumbColor, bgColor); // U+25BA
+			}
 		}
 
 		#endregion
