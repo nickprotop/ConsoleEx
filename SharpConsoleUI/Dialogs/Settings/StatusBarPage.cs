@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Helpers;
 using Ctl = SharpConsoleUI.Builders.Controls;
 
 namespace SharpConsoleUI.Dialogs.Settings;
@@ -16,16 +17,18 @@ internal static class StatusBarPage
 {
 	public static void Build(ScrollablePanelControl panel, ConsoleWindowSystem windowSystem)
 	{
+		var theme = windowSystem.Theme;
+		var ruleColor = DialogColors.Rule(theme);
 		var panelService = windowSystem.PanelStateService;
 
 		panel.AddControl(Ctl.Markup()
-			.AddLine("[bold rgb(120,180,255)]Panels[/]")
+			.AddLine($"[bold {DialogColors.Section(theme, DialogSection.Appearance).ToMarkup()}]Panels[/]")
 			.AddEmptyLine()
 			.Build());
 
 		panel.AddControl(Ctl.RuleBuilder()
 			.WithTitle("Visibility")
-			.WithColor(new Color(60, 100, 160))
+			.WithColor(ruleColor)
 			.Build());
 
 		// Read initial state from panel service

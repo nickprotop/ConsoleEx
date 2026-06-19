@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Helpers;
 using Ctl = SharpConsoleUI.Builders.Controls;
 
 namespace SharpConsoleUI.Dialogs.Settings;
@@ -16,16 +17,18 @@ internal static class AnimationsPage
 {
 	public static void Build(ScrollablePanelControl panel, ConsoleWindowSystem windowSystem)
 	{
+		var theme = windowSystem.Theme;
+		var ruleColor = DialogColors.Rule(theme);
 		var animationCount = windowSystem.Animations.ActiveCount;
 
 		panel.AddControl(Ctl.Markup()
-			.AddLine("[bold rgb(252,152,103)]Animations[/]")
+			.AddLine($"[bold {DialogColors.Section(theme, DialogSection.Performance).ToMarkup()}]Animations[/]")
 			.AddEmptyLine()
 			.Build());
 
 		panel.AddControl(Ctl.RuleBuilder()
 			.WithTitle("Settings")
-			.WithColor(new Color(60, 100, 160))
+			.WithColor(ruleColor)
 			.Build());
 
 		panel.AddControl(Ctl.Checkbox("Enable animations")
@@ -39,7 +42,7 @@ internal static class AnimationsPage
 
 		panel.AddControl(Ctl.RuleBuilder()
 			.WithTitle("Status")
-			.WithColor(new Color(60, 100, 160))
+			.WithColor(ruleColor)
 			.Build());
 
 		panel.AddControl(Ctl.Markup()

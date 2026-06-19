@@ -121,6 +121,7 @@ public static class LauncherWindow
 		// ThemeChanged, so the theme switcher recolors the whole launcher — subtle depth on dark
 		// themes, readable on light.
 		DemoTheme.ApplyThemeGradient(window, ws);
+		DemoTheme.ApplyNavColors(nav, window, ws);
 
 		return window;
 	}

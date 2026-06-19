@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Logging;
 using Ctl = SharpConsoleUI.Builders.Controls;
 
@@ -17,16 +18,18 @@ internal static class LogSettingsPage
 {
 	public static void Build(ScrollablePanelControl panel, ConsoleWindowSystem windowSystem)
 	{
+		var theme = windowSystem.Theme;
+		var ruleColor = DialogColors.Rule(theme);
 		var logService = windowSystem.LogService;
 
 		panel.AddControl(Ctl.Markup()
-			.AddLine("[bold rgb(255,97,136)]Logging[/]")
+			.AddLine($"[bold {DialogColors.Section(theme, DialogSection.Logging).ToMarkup()}]Logging[/]")
 			.AddEmptyLine()
 			.Build());
 
 		panel.AddControl(Ctl.RuleBuilder()
 			.WithTitle("Log Level")
-			.WithColor(new Color(60, 100, 160))
+			.WithColor(ruleColor)
 			.Build());
 
 		var levels = new[] { LogLevel.Trace, LogLevel.Debug, LogLevel.Information, LogLevel.Warning, LogLevel.Error, LogLevel.Critical };
@@ -55,7 +58,7 @@ internal static class LogSettingsPage
 
 		panel.AddControl(Ctl.RuleBuilder()
 			.WithTitle("File Output")
-			.WithColor(new Color(60, 100, 160))
+			.WithColor(ruleColor)
 			.Build());
 
 		var fileLoggingEnabled = logService.IsFileLoggingEnabled;
@@ -67,7 +70,7 @@ internal static class LogSettingsPage
 
 		panel.AddControl(Ctl.RuleBuilder()
 			.WithTitle("Buffer")
-			.WithColor(new Color(60, 100, 160))
+			.WithColor(ruleColor)
 			.Build());
 
 		panel.AddControl(Ctl.Markup()

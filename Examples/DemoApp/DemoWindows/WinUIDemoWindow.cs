@@ -157,6 +157,7 @@ internal static class WinUIDemoWindow
 			.BuildAndShow();
 
 		DemoTheme.ApplyThemeGradient(window, ws);
+		DemoTheme.ApplyNavColors(nav, window, ws);
 		return window;
 	}
 }

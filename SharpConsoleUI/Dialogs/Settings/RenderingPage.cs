@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Helpers;
 using Ctl = SharpConsoleUI.Builders.Controls;
 
 namespace SharpConsoleUI.Dialogs.Settings;
@@ -16,17 +17,19 @@ internal static class RenderingPage
 {
 	public static void Build(ScrollablePanelControl panel, ConsoleWindowSystem windowSystem)
 	{
+		var theme = windowSystem.Theme;
+		var ruleColor = DialogColors.Rule(theme);
 		var perf = windowSystem.Performance;
 		var driverType = windowSystem.ConsoleDriver.GetType().Name;
 
 		panel.AddControl(Ctl.Markup()
-			.AddLine("[bold rgb(252,152,103)]Rendering[/]")
+			.AddLine($"[bold {DialogColors.Section(theme, DialogSection.Performance).ToMarkup()}]Rendering[/]")
 			.AddEmptyLine()
 			.Build());
 
 		panel.AddControl(Ctl.RuleBuilder()
 			.WithTitle("Display Driver")
-			.WithColor(new Color(60, 100, 160))
+			.WithColor(ruleColor)
 			.Build());
 
 		panel.AddControl(Ctl.Markup()
@@ -37,7 +40,7 @@ internal static class RenderingPage
 
 		panel.AddControl(Ctl.RuleBuilder()
 			.WithTitle("Performance")
-			.WithColor(new Color(60, 100, 160))
+			.WithColor(ruleColor)
 			.Build());
 
 		panel.AddControl(Ctl.Checkbox("Show performance metrics")
@@ -64,7 +67,7 @@ internal static class RenderingPage
 
 		panel.AddControl(Ctl.RuleBuilder()
 			.WithTitle("Frame Rate")
-			.WithColor(new Color(60, 100, 160))
+			.WithColor(ruleColor)
 			.Build());
 
 		var fpsOptions = new[] { 30, 60, 120, 144 };

@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Themes;
 using Ctl = SharpConsoleUI.Builders.Controls;
 
@@ -17,16 +18,18 @@ internal static class ThemePage
 {
 	public static void Build(ScrollablePanelControl panel, ConsoleWindowSystem windowSystem)
 	{
+		var theme = windowSystem.Theme;
+		var ruleColor = DialogColors.Rule(theme);
 		var currentTheme = windowSystem.ThemeStateService.CurrentTheme?.Name ?? "Unknown";
 
 		panel.AddControl(Ctl.Markup()
-			.AddLine("[bold rgb(120,180,255)]Theme[/]")
+			.AddLine($"[bold {DialogColors.Section(theme, DialogSection.Appearance).ToMarkup()}]Theme[/]")
 			.AddEmptyLine()
 			.Build());
 
 		panel.AddControl(Ctl.RuleBuilder()
 			.WithTitle("Current Theme")
-			.WithColor(new Color(60, 100, 160))
+			.WithColor(ruleColor)
 			.Build());
 
 		panel.AddControl(Ctl.Markup()

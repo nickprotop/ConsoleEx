@@ -16,11 +16,8 @@ public static class DesktopBackgroundWindow
 		var nav = Ctl.NavigationView()
 			.WithNavWidth(28)
 			.WithPaneHeader("[bold rgb(180,140,255)]  Desktop Background[/]")
-			.WithSelectedColors(Color.White, new Color(80, 50, 140))
 			.WithSelectionIndicator('\u25b8')
 			.WithContentBorder(BorderStyle.Rounded)
-			.WithContentBorderColor(new Color(80, 60, 120))
-			.WithContentBackground(new Color(22, 18, 35))
 			.WithContentPadding(1, 0, 1, 0)
 			.WithContentHeader(true)
 			.AddHeader("Background", new Color(180, 140, 255), header => header
@@ -48,6 +45,7 @@ public static class DesktopBackgroundWindow
 			.BuildAndShow();
 
 		DemoTheme.ApplyThemeGradient(window, ws);
+		DemoTheme.ApplyNavColors(nav, window, ws);
 		return window;
 	}
 

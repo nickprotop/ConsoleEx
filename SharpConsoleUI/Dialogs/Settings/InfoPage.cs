@@ -9,6 +9,7 @@
 using System.Runtime.InteropServices;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Helpers;
 using Ctl = SharpConsoleUI.Builders.Controls;
 
 namespace SharpConsoleUI.Dialogs.Settings;
@@ -17,19 +18,21 @@ internal static class InfoPage
 {
 	public static void Build(ScrollablePanelControl panel, ConsoleWindowSystem windowSystem)
 	{
+		var theme = windowSystem.Theme;
+		var ruleColor = DialogColors.Rule(theme);
 		var libVersion = typeof(ConsoleWindowSystem).Assembly.GetName().Version;
 		var versionStr = libVersion != null
 			? $"{libVersion.Major}.{libVersion.Minor}.{libVersion.Build}"
 			: "0.0.1";
 
 		panel.AddControl(Ctl.Markup()
-			.AddLine("[bold rgb(171,157,242)]System Information[/]")
+			.AddLine($"[bold {DialogColors.Section(theme, DialogSection.Info).ToMarkup()}]System Information[/]")
 			.AddEmptyLine()
 			.Build());
 
 		panel.AddControl(Ctl.RuleBuilder()
 			.WithTitle("Version")
-			.WithColor(new Color(60, 100, 160))
+			.WithColor(ruleColor)
 			.Build());
 
 		panel.AddControl(Ctl.Markup()
@@ -42,7 +45,7 @@ internal static class InfoPage
 
 		panel.AddControl(Ctl.RuleBuilder()
 			.WithTitle("Console")
-			.WithColor(new Color(60, 100, 160))
+			.WithColor(ruleColor)
 			.Build());
 
 		var driver = windowSystem.ConsoleDriver;
@@ -55,7 +58,7 @@ internal static class InfoPage
 
 		panel.AddControl(Ctl.RuleBuilder()
 			.WithTitle("Windows")
-			.WithColor(new Color(60, 100, 160))
+			.WithColor(ruleColor)
 			.Build());
 
 		var windowCount = windowSystem.Windows.Count;
@@ -71,7 +74,7 @@ internal static class InfoPage
 
 		panel.AddControl(Ctl.RuleBuilder()
 			.WithTitle("Plugins")
-			.WithColor(new Color(60, 100, 160))
+			.WithColor(ruleColor)
 			.Build());
 
 		var pluginState = windowSystem.PluginStateService.CurrentState;
@@ -88,7 +91,7 @@ internal static class InfoPage
 
 		panel.AddControl(Ctl.RuleBuilder()
 			.WithTitle("Performance")
-			.WithColor(new Color(60, 100, 160))
+			.WithColor(ruleColor)
 			.Build());
 
 		var perf = windowSystem.Performance;

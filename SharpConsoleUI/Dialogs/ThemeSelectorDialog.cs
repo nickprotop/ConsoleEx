@@ -9,6 +9,7 @@
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Themes;
 using Ctl = SharpConsoleUI.Builders.Controls;
@@ -29,6 +30,15 @@ public static class ThemeSelectorDialog
 		var themes = windowSystem.ThemeRegistryService.GetAvailableThemes();
 		var currentThemeName = windowSystem.Theme.Name;
 		var logService = windowSystem.LogService;
+
+		// Theme-derived markup colors so the dialog reads on any theme (a hardcoded [white]/[cyan1] would
+		// be invisible on a light theme). Accent for highlights, window foreground for body, a dimmed
+		// foreground for secondary text, and DialogColors.Rule for the separators.
+		var theme = windowSystem.Theme;
+		string accent = DialogColors.Accent(theme).ToMarkup();
+		string fg = theme.WindowForegroundColor.ToMarkup();
+		string dim = theme.WindowForegroundColor.Mix(theme.WindowBackgroundColor, 0.45).ToMarkup();
+		var ruleColor = DialogColors.Rule(theme);
 
 		// Log available themes
 		logService?.LogInfo(
@@ -53,15 +63,15 @@ public static class ThemeSelectorDialog
 
 		// Header with title and instructions
 		modal.AddControl(Ctl.Markup()
-			.AddLine("[cyan1 bold]Available Themes[/]")
-			.AddLine("[grey50]Select a theme to apply, or press Escape to cancel[/]")
+			.AddLine($"[{accent} bold]Available Themes[/]")
+			.AddLine($"[{dim}]Select a theme to apply, or press Escape to cancel[/]")
 			.WithAlignment(HorizontalAlignment.Left)
 			.WithMargin(1, 0, 1, 0)
 			.Build());
 
 		// Separator
 		modal.AddControl(Ctl.RuleBuilder()
-			.WithColor(Color.Grey23)
+			.WithColor(ruleColor)
 			.Build());
 
 		// Theme list (no explicit colors - inherit from theme)
@@ -76,8 +86,8 @@ public static class ThemeSelectorDialog
 		{
 			var isCurrentTheme = themeInfo.Name == currentThemeName;
 			var label = isCurrentTheme
-				? $"[white bold]{themeInfo.Name}[/] [cyan1](current)[/] [grey50]{themeInfo.Description}[/]"
-				: $"[white]{themeInfo.Name}[/] [grey50]{themeInfo.Description}[/]";
+				? $"[{fg} bold]{themeInfo.Name}[/] [{accent}](current)[/] [{dim}]{themeInfo.Description}[/]"
+				: $"[{fg}]{themeInfo.Name}[/] [{dim}]{themeInfo.Description}[/]";
 
 			themeList.AddItem(new ListItem(label) { Tag = themeInfo.Name });
 		}
@@ -93,13 +103,13 @@ public static class ThemeSelectorDialog
 
 		// Bottom separator
 		modal.AddControl(Ctl.RuleBuilder()
-			.WithColor(Color.Grey23)
+			.WithColor(ruleColor)
 			.StickyBottom()
 			.Build());
 
 		// Footer with instructions
 		modal.AddControl(Ctl.Markup()
-			.AddLine("[grey70]Enter/Double-click: Apply Theme  •  Escape: Cancel[/]")
+			.AddLine($"[{dim}]Enter/Double-click: Apply Theme  •  Escape: Cancel[/]")
 			.WithAlignment(HorizontalAlignment.Center)
 			.WithMargin(0, 0, 0, 0)
 			.StickyBottom()

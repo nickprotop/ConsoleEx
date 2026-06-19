@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Builders;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using Ctl = SharpConsoleUI.Builders.Controls;
 
@@ -27,6 +28,16 @@ public static class AboutDialog
 		var theme = windowSystem.Theme;
 		var pluginState = windowSystem.PluginStateService.CurrentState;
 
+		// Theme-derived markup colors so the text reads on any theme (hardcoded [white]/[grey] would be
+		// invisible on a light theme): accent for highlights, window foreground for labels, a dimmed
+		// foreground for body, and DialogColors.Rule for separators.
+		string accent = DialogColors.Accent(theme).ToMarkup();
+		string fg = theme.WindowForegroundColor.ToMarkup();
+		string dim = theme.WindowForegroundColor.Mix(theme.WindowBackgroundColor, 0.40).ToMarkup();
+		string success = (theme.SuccessColor ?? Color.Green).ToMarkup();
+		string warn = (theme.WarningColor ?? Color.Orange1).ToMarkup();
+		var ruleColor = DialogColors.Rule(theme);
+
 		// Create modal window
 		var builder = new WindowBuilder(windowSystem)
 			.WithTitle("About SharpConsoleUI")
@@ -46,34 +57,34 @@ public static class AboutDialog
 
 		// Header
 		modal.AddControl(Ctl.Markup()
-			.AddLine("[cyan1 bold]SharpConsoleUI - Console Window System[/]")
-			.AddLine("[grey50]Version 2.0.0[/]")
+			.AddLine($"[{accent} bold]SharpConsoleUI - Console Window System[/]")
+			.AddLine($"[{dim}]Version 2.0.0[/]")
 			.WithAlignment(HorizontalAlignment.Center)
 			.WithMargin(1, 0, 1, 0)
 			.Build());
 
 		modal.AddControl(Ctl.RuleBuilder()
-			.WithColor(Color.Grey23)
+			.WithColor(ruleColor)
 			.Build());
 
 		// Application information
 		modal.AddControl(Ctl.Markup()
-			.AddLine("[white bold]Description:[/]")
-			.AddLine("[grey70]A modern .NET console windowing system with dependency injection,[/]")
-			.AddLine("[grey70]fluent builders, async/await patterns, and plugin architecture.[/]")
+			.AddLine($"[{fg} bold]Description:[/]")
+			.AddLine($"[{dim}]A modern .NET console windowing system with dependency injection,[/]")
+			.AddLine($"[{dim}]fluent builders, async/await patterns, and plugin architecture.[/]")
 			.AddLine("")
-			.AddLine("[white bold]Author:[/] [cyan1]Nikolaos Protopapas[/]")
-			.AddLine("[white bold]Email:[/] [grey70]nikolaos.protopapas@gmail.com[/]")
-			.AddLine("[white bold]License:[/] [green]MIT[/]")
+			.AddLine($"[{fg} bold]Author:[/] [{accent}]Nikolaos Protopapas[/]")
+			.AddLine($"[{fg} bold]Email:[/] [{dim}]nikolaos.protopapas@gmail.com[/]")
+			.AddLine($"[{fg} bold]License:[/] [{success}]MIT[/]")
 			.AddLine("")
-			.AddLine("[white bold]Core Features:[/]")
-			.AddLine("[grey70]• Double-buffered rendering with dirty region tracking[/]")
-			.AddLine("[grey70]• Modern async/await and fluent builder patterns[/]")
-			.AddLine("[grey70]• Rich control library with Spectre.Console integration[/]")
-			.AddLine("[grey70]• Plugin system with reflection-free patterns[/]")
-			.AddLine("[grey70]• Configurable frame rate limiting and performance metrics[/]")
+			.AddLine($"[{fg} bold]Core Features:[/]")
+			.AddLine($"[{dim}]• Double-buffered rendering with dirty region tracking[/]")
+			.AddLine($"[{dim}]• Modern async/await and fluent builder patterns[/]")
+			.AddLine($"[{dim}]• Rich control library with Spectre.Console integration[/]")
+			.AddLine($"[{dim}]• Plugin system with reflection-free patterns[/]")
+			.AddLine($"[{dim}]• Configurable frame rate limiting and performance metrics[/]")
 			.AddLine("")
-			.AddLine($"[white bold]Loaded Plugins:[/] [yellow]{pluginState.LoadedPluginCount}[/]")
+			.AddLine($"[{fg} bold]Loaded Plugins:[/] [{warn}]{pluginState.LoadedPluginCount}[/]")
 			.WithAlignment(HorizontalAlignment.Left)
 			.WithMargin(2, 0, 1, 0)
 			.Build());
@@ -81,7 +92,7 @@ public static class AboutDialog
 		// Display loaded plugin names if any
 		if (pluginState.LoadedPluginCount > 0)
 		{
-			var pluginLines = pluginState.PluginNames.Select(name => $"[grey70]  • {name}[/]").ToArray();
+			var pluginLines = pluginState.PluginNames.Select(name => $"[{dim}]  • {name}[/]").ToArray();
 			modal.AddControl(Ctl.Markup()
 				.AddLines(pluginLines)
 				.WithAlignment(HorizontalAlignment.Left)
@@ -91,13 +102,13 @@ public static class AboutDialog
 
 		// Bottom separator
 		modal.AddControl(Ctl.RuleBuilder()
-			.WithColor(Color.Grey23)
+			.WithColor(ruleColor)
 			.StickyBottom()
 			.Build());
 
 		// Footer
 		modal.AddControl(Ctl.Markup()
-			.AddLine("[grey70]Press Escape or Enter to close[/]")
+			.AddLine($"[{dim}]Press Escape or Enter to close[/]")
 			.WithAlignment(HorizontalAlignment.Center)
 			.WithMargin(0, 0, 0, 0)
 			.StickyBottom()

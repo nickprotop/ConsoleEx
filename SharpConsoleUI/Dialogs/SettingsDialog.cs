@@ -28,15 +28,16 @@ public static class SettingsDialog
 	/// <param name="parentWindow">Optional parent window. If specified, the dialog will be modal to this window only.</param>
 	public static void Show(ConsoleWindowSystem windowSystem, Window? parentWindow = null)
 	{
-		var gradient = ColorGradient.FromColors(
-			new Color(10, 15, 40),
-			new Color(25, 40, 80),
-			new Color(15, 20, 50));
+		// Dialog chrome follows the active theme (see Helpers/DialogColors) instead of hardcoded blues,
+		// so Settings stays coherent under any theme — including FromPalette and light themes.
+		var theme = windowSystem.Theme;
+		var navColors = DialogColors.Nav(theme);
+		var gradient = DialogColors.BackgroundGradient(theme);
 
 		var navBuilder = Ctl.NavigationView()
 			.WithNavWidth(28)
-			.WithPaneHeader("[bold rgb(120,180,255)]  ⚙  Settings[/]")
-			.WithSelectedColors(Color.White, new Color(40, 80, 160))
+			.WithPaneHeader($"[bold {DialogColors.Section(theme, DialogSection.Appearance).ToMarkup()}]  ⚙  Settings[/]")
+			.WithSelectedColors(navColors.SelectedForeground, navColors.SelectedBackground)
 			.WithSelectionIndicator('▸')
 			.WithPaneDisplayMode(NavigationViewDisplayMode.Auto)
 			.WithExpandedThreshold(80)
@@ -44,15 +45,15 @@ public static class SettingsDialog
 			.WithCompactPaneWidth(6)
 			.WithAnimateTransitions(true)
 			.WithContentBorder(BorderStyle.Rounded)
-			.WithContentBorderColor(new Color(60, 80, 120))
-			.WithContentBackground(new Color(20, 25, 45))
+			.WithContentBorderColor(navColors.ContentBorder)
+			.WithContentBackground(navColors.ContentBackground)
 			.WithContentPadding(1, 0, 1, 0)
 			.WithContentHeader(true)
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.WithVerticalAlignment(VerticalAlignment.Fill);
 
 		// Built-in groups
-		navBuilder.AddHeader("Appearance", new Color(120, 180, 255), h =>
+		navBuilder.AddHeader("Appearance", DialogColors.Section(theme, DialogSection.Appearance), h =>
 		{
 			h.AddItem("Theme", icon: "◐", subtitle: "Select visual theme",
 				content: panel => ThemePage.Build(panel, windowSystem));
@@ -60,7 +61,7 @@ public static class SettingsDialog
 				content: panel => StatusBarPage.Build(panel, windowSystem));
 		});
 
-		navBuilder.AddHeader("Performance", new Color(252, 152, 103), h =>
+		navBuilder.AddHeader("Performance", DialogColors.Section(theme, DialogSection.Performance), h =>
 		{
 			h.AddItem("Rendering", icon: "▦", subtitle: "Display and rendering options",
 				content: panel => RenderingPage.Build(panel, windowSystem));
@@ -68,13 +69,13 @@ public static class SettingsDialog
 				content: panel => AnimationsPage.Build(panel, windowSystem));
 		});
 
-		navBuilder.AddHeader("Logging", new Color(255, 97, 136), h =>
+		navBuilder.AddHeader("Logging", DialogColors.Section(theme, DialogSection.Logging), h =>
 		{
 			h.AddItem("Log Settings", icon: "▤", subtitle: "Log level and output",
 				content: panel => LogSettingsPage.Build(panel, windowSystem));
 		});
 
-		navBuilder.AddHeader("Info", new Color(171, 157, 242), h =>
+		navBuilder.AddHeader("Info", DialogColors.Section(theme, DialogSection.Info), h =>
 		{
 			h.AddItem("System", icon: "⊞", subtitle: "Runtime and system information",
 				content: panel => InfoPage.Build(panel, windowSystem));
