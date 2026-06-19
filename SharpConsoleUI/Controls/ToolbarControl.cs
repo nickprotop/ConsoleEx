@@ -24,19 +24,27 @@ namespace SharpConsoleUI.Controls
 	/// A horizontal toolbar control that contains buttons, separators, and other controls.
 	/// Supports Tab navigation between focusable items and Enter key activation of buttons.
 	/// </summary>
-	public class ToolbarControl : BaseControl, IContainer, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainerControl, ILogicalCursorProvider, ICursorShapeProvider, IFocusScope, IRoleableControl
+	public class ToolbarControl : BaseControl, IContainer, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainerControl, ILogicalCursorProvider, ICursorShapeProvider, IFocusScope, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -100,10 +108,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color BackgroundColor
 		{
-			// Explicit override → semantic Role fill (the toolbar surface) → theme/container. For
-			// Role=Default the role helper returns null, keeping the no-role path byte-identical.
+			// Explicit override → semantic ColorRole fill (the toolbar surface) → theme/container. For
+			// ColorRole=Default the role helper returns null, keeping the no-role path byte-identical.
 			get => _backgroundColorValue
-				?? ColorResolver.RoleBackground(Role, Container, Outline, CurrentRoleState)
+				?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, CurrentRoleState, mode: ColorRoleMode)
 				?? Container?.GetConsoleWindowSystem?.Theme?.ToolbarBackgroundColor
 				?? Container?.BackgroundColor
 				?? Color.Black;
@@ -151,10 +159,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color ForegroundColor
 		{
-			// Explicit override → readable text on the role fill → theme/container. For Role=Default the
+			// Explicit override → readable text on the role fill → theme/container. For ColorRole=Default the
 			// role helper returns null, keeping the no-role path byte-identical.
 			get => _foregroundColorValue
-				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, CurrentRoleState)
+				?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, CurrentRoleState, mode: ColorRoleMode)
 				?? Container?.GetConsoleWindowSystem?.Theme?.ToolbarForegroundColor
 				?? Container?.ForegroundColor
 				?? Color.White;
@@ -265,8 +273,8 @@ namespace SharpConsoleUI.Controls
 		/// Computes the current role state from the toolbar's enabled/focus state so role colours
 		/// reflect the same visual state the renderer paints.
 		/// </summary>
-		private RoleState CurrentRoleState =>
-			!_isEnabled ? RoleState.Disabled : (HasFocus ? RoleState.Focused : RoleState.Normal);
+		private ColorRoleState CurrentRoleState =>
+			!_isEnabled ? ColorRoleState.Disabled : (HasFocus ? ColorRoleState.Focused : ColorRoleState.Normal);
 
 		/// <summary>
 		/// Inner padding between toolbar edge and items.
@@ -567,11 +575,11 @@ namespace SharpConsoleUI.Controls
 
 			// Resolve colors with fallback chain
 			var theme = Container?.GetConsoleWindowSystem?.Theme;
-			RoleState roleState = CurrentRoleState;
+			ColorRoleState roleState = CurrentRoleState;
 
-			// Role-derived toolbar fill (null when Role=Default); used both for the colour and to decide
+			// ColorRole-derived toolbar fill (null when ColorRole=Default); used both for the colour and to decide
 			// whether the strip background is actually painted (mirrors the explicit-bg behaviour).
-			Color? roleBg = ColorResolver.RoleBackground(Role, Container, Outline, roleState);
+			Color? roleBg = ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode);
 
 			Color bgColor = _backgroundColorValue
 				?? roleBg
@@ -580,7 +588,7 @@ namespace SharpConsoleUI.Controls
 				?? defaultBg;
 
 			Color fgColor = _foregroundColorValue
-				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, roleState)
+				?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode)
 				?? theme?.ToolbarForegroundColor
 				?? Container?.ForegroundColor
 				?? defaultFg;

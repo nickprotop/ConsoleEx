@@ -384,9 +384,11 @@ public sealed class NavigationViewBuilder : IControlBuilder<NavigationView>
 
 	/// <summary>Sets the control's semantic colour role, which tints the selected nav item accent.</summary>
 	/// <param name="role">The semantic role determining the selected item's colours.</param>
-	public NavigationViewBuilder WithRole(Themes.ControlRole role)
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
+	public NavigationViewBuilder WithColorRole(Themes.ColorRole role, Themes.ThemeMode? mode = null)
 	{
-		_control.Role = role;
+		_control.ColorRole = role;
+		_control.ColorRoleMode = mode;
 		return this;
 	}
 

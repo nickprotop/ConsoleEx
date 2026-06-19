@@ -24,19 +24,27 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public partial class NavigationView : BaseControl, IInteractiveControl,
 		IFocusableControl, IMouseAwareControl, IContainer, IContainerControl,
-		IFocusScope, IRoleableControl
+		IFocusScope, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -315,7 +323,7 @@ namespace SharpConsoleUI.Controls
 		{
 			// Unset → theme menu-highlight background so the selection follows the theme; explicit set pins it.
 			get => _selectedItemBackground
-				?? ColorResolver.RoleBackground(Role, Container, Outline, RoleState.Normal)
+				?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, ColorRoleState.Normal, mode: ColorRoleMode)
 				?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownHighlightBackgroundColor
 				?? new Color(
 					ControlDefaults.NavigationViewSelectedBgR,
@@ -332,7 +340,7 @@ namespace SharpConsoleUI.Controls
 			// Unset → theme highlight foreground, or a color guaranteed readable on the RESOLVED
 			// selection background (so the bg/fg pair always has contrast). Explicit set pins it.
 			get => _selectedItemForeground
-				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, RoleState.Normal)
+				?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, ColorRoleState.Normal, mode: ColorRoleMode)
 				?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownHighlightForegroundColor
 				?? PaletteColors.ReadableOn(SelectedItemBackground);
 			set { if (SetProperty(ref _selectedItemForeground, value)) RefreshAllItemMarkup(); }

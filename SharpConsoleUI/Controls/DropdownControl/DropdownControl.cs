@@ -25,19 +25,27 @@ namespace SharpConsoleUI.Controls
 	/// A dropdown/combobox control that displays a list of selectable items.
 	/// Supports keyboard navigation, type-ahead search, and custom item formatting.
 	/// </summary>
-	public partial class DropdownControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IRoleableControl
+	public partial class DropdownControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -263,7 +271,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color FocusedBackgroundColor
 		{
-			get => ResolveBackground(RoleState.Focused);
+			get => ResolveBackground(ColorRoleState.Focused);
 			set => SetProperty(ref _focusedBackgroundColorValue, (Color?)value);
 		}
 
@@ -272,7 +280,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color FocusedForegroundColor
 		{
-			get => ResolveForeground(RoleState.Focused);
+			get => ResolveForeground(ColorRoleState.Focused);
 			set => SetProperty(ref _focusedForegroundColorValue, (Color?)value);
 		}
 
@@ -298,53 +306,53 @@ namespace SharpConsoleUI.Controls
 		/// Computes the current role state from the dropdown's enabled/focus state so role colours
 		/// reflect the same visual state the renderer paints.
 		/// </summary>
-		private RoleState CurrentRoleState =>
-			!_isEnabled ? RoleState.Disabled : (ComputeHasFocus() ? RoleState.Focused : RoleState.Normal);
+		private ColorRoleState CurrentRoleState =>
+			!_isEnabled ? ColorRoleState.Disabled : (ComputeHasFocus() ? ColorRoleState.Focused : ColorRoleState.Normal);
 
 		/// <summary>
 		/// Resolves the painted header foreground. The dropdown header paints text on its fill, so the
-		/// role contributes <see cref="ColorResolver.RoleTextOnBackground"/>. Explicit override wins,
-		/// then the role, then the legacy per-state default. For <see cref="ControlRole.Default"/> (no
+		/// role contributes <see cref="ColorResolver.ColorRoleTextOnBackground"/>. Explicit override wins,
+		/// then the role, then the legacy per-state default. For <see cref="ColorRole.Default"/> (no
 		/// role) the role helper returns null, so this is the legacy value. Pure in <paramref name="state"/>.
 		/// </summary>
-		private Color ResolveForeground(RoleState state)
+		private Color ResolveForeground(ColorRoleState state)
 		{
-			if (state == RoleState.Disabled)
+			if (state == ColorRoleState.Disabled)
 			{
-				return ColorResolver.RoleTextOnBackground(Role, Container, Outline, state)
+				return ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 					?? Container?.GetConsoleWindowSystem?.Theme?.DropdownDisabledForegroundColor ?? Color.DarkSlateGray1;
 			}
-			if (state == RoleState.Focused)
+			if (state == ColorRoleState.Focused)
 			{
 				return _focusedForegroundColorValue
-					?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, state)
+					?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 					?? Container?.GetConsoleWindowSystem?.Theme?.DropdownFocusedForegroundColor ?? Color.White;
 			}
 			return _foregroundColorValue
-				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, state)
+				?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 				?? Container?.GetConsoleWindowSystem?.Theme?.DropdownForegroundColor ?? Color.White;
 		}
 
 		/// <summary>
 		/// Resolves the painted header background fill: explicit override, then the role background
-		/// (<see cref="ColorResolver.RoleBackground"/>), then the legacy per-state default.
+		/// (<see cref="ColorResolver.ColorRoleBackground"/>), then the legacy per-state default.
 		/// Pure in <paramref name="state"/>.
 		/// </summary>
-		private Color ResolveBackground(RoleState state)
+		private Color ResolveBackground(ColorRoleState state)
 		{
-			if (state == RoleState.Disabled)
+			if (state == ColorRoleState.Disabled)
 			{
-				return ColorResolver.RoleBackground(Role, Container, Outline, state)
+				return ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 					?? Container?.GetConsoleWindowSystem?.Theme?.DropdownDisabledBackgroundColor ?? Color.Grey;
 			}
-			if (state == RoleState.Focused)
+			if (state == ColorRoleState.Focused)
 			{
 				return _focusedBackgroundColorValue
-					?? ColorResolver.RoleBackground(Role, Container, Outline, state)
+					?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 					?? Container?.GetConsoleWindowSystem?.Theme?.DropdownFocusedBackgroundColor ?? Color.Blue;
 			}
 			return _backgroundColorValue
-				?? ColorResolver.RoleBackground(Role, Container, Outline, state)
+				?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 				?? ColorResolver.ResolveBackground(null, Container);
 		}
 

@@ -21,19 +21,27 @@ namespace SharpConsoleUI.Controls
 	/// A control that renders a bordered panel with content.
 	/// Renders directly to CharacterBuffer using BoxChars and MarkupParser.
 	/// </summary>
-	public class PanelControl : BaseControl, IMouseAwareControl, IRoleableControl
+	public class PanelControl : BaseControl, IMouseAwareControl, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -510,9 +518,9 @@ namespace SharpConsoleUI.Controls
 			// Resolve colors using standard fallback chain
 			Color bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
 			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? defaultFg;
-			// Role anchor for a bordered container is the frame: explicit border → role border → foreground.
+			// ColorRole anchor for a bordered container is the frame: explicit border → role border → foreground.
 			Color borderColor = _borderColorValue
-				?? ColorResolver.RoleBorder(Role, Container, Outline, RoleState.Normal)
+				?? ColorResolver.ColorRoleBorder(ColorRole, Container, Outline, ColorRoleState.Normal, mode: ColorRoleMode)
 				?? fgColor;
 			var effectiveBg = _backgroundColorValue == null ? Color.Transparent : bgColor;
 

@@ -37,7 +37,8 @@ public sealed class PanelBuilder : IControlBuilder<PanelControl>
 	private StickyPosition _stickyPosition = StickyPosition.None;
 	private Color? _backgroundColor;
 	private Color? _foregroundColor;
-	private ControlRole _role = ControlRole.Default;
+	private ColorRole _role = ColorRole.Default;
+	private ThemeMode? _colorRoleMode;
 	private bool _outline;
 
 	/// <summary>
@@ -414,10 +415,12 @@ public sealed class PanelBuilder : IControlBuilder<PanelControl>
 
 	/// <summary>Sets the control's semantic colour role, which tints the panel border.</summary>
 	/// <param name="role">The semantic role determining the panel's border colour.</param>
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
 	/// <returns>The builder for chaining.</returns>
-	public PanelBuilder WithRole(ControlRole role)
+	public PanelBuilder WithColorRole(ColorRole role, ThemeMode? mode = null)
 	{
 		_role = role;
+		_colorRoleMode = mode;
 		return this;
 	}
 
@@ -457,7 +460,8 @@ public sealed class PanelBuilder : IControlBuilder<PanelControl>
 			StickyPosition = _stickyPosition,
 			BackgroundColor = _backgroundColor,
 			ForegroundColor = _foregroundColor,
-			Role = _role,
+			ColorRole = _role,
+			ColorRoleMode = _colorRoleMode,
 			Outline = _outline
 		};
 

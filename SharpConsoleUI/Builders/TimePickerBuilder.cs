@@ -37,7 +37,8 @@ public sealed class TimePickerBuilder : IControlBuilder<TimePickerControl>
 	private string? _name;
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
-	private ControlRole _role = ControlRole.Default;
+	private ColorRole _role = ColorRole.Default;
+	private ThemeMode? _colorRoleMode;
 	private bool _outline;
 	private EventHandler<TimeSpan?>? _selectedTimeChangedHandler;
 	private WindowEventHandler<TimeSpan?>? _selectedTimeChangedWithWindowHandler;
@@ -333,10 +334,12 @@ public sealed class TimePickerBuilder : IControlBuilder<TimePickerControl>
 
 	/// <summary>Sets the control's semantic colour role.</summary>
 	/// <param name="role">The semantic role determining the picker's colours.</param>
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
 	/// <returns>The builder for chaining</returns>
-	public TimePickerBuilder WithRole(ControlRole role)
+	public TimePickerBuilder WithColorRole(ColorRole role, ThemeMode? mode = null)
 	{
 		_role = role;
+		_colorRoleMode = mode;
 		return this;
 	}
 
@@ -367,7 +370,8 @@ public sealed class TimePickerBuilder : IControlBuilder<TimePickerControl>
 			Name = _name,
 			Tag = _tag,
 			StickyPosition = _stickyPosition,
-			Role = _role,
+			ColorRole = _role,
+			ColorRoleMode = _colorRoleMode,
 			Outline = _outline
 		};
 

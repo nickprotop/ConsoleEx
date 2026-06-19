@@ -42,29 +42,29 @@ namespace SharpConsoleUI.Controls
 
 			var effectiveBg = Color.Transparent;
 
-			// Role link applied between explicit override and theme default; identical to legacy when Role==Default.
-			RoleState roleState = CurrentRoleState;
+			// ColorRole link applied between explicit override and theme default; identical to legacy when ColorRole==Default.
+			ColorRoleState roleState = CurrentRoleState;
 			Color backgroundColor;
 			Color foregroundColor;
 
 			if (!_isEnabled)
 			{
-				backgroundColor = ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+				backgroundColor = ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode)
 					?? Container?.GetConsoleWindowSystem?.Theme?.DatePickerDisabledBackgroundColor ?? Color.Grey;
-				foregroundColor = ColorResolver.RoleTextOnBackground(Role, Container, Outline, roleState)
+				foregroundColor = ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode)
 					?? Container?.GetConsoleWindowSystem?.Theme?.DatePickerDisabledForegroundColor ?? Color.DarkSlateGray1;
 			}
 			else if (HasFocus)
 			{
 				backgroundColor = _focusedBackgroundColorValue
-					?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+					?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode)
 					?? ColorResolver.ResolveDatePickerFocusedBackground(null, Container);
 				foregroundColor = FocusedForegroundColor;
 			}
 			else
 			{
 				backgroundColor = _backgroundColorValue
-					?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+					?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode)
 					?? ColorResolver.ResolveDatePickerBackground(null, Container);
 				foregroundColor = ForegroundColor;
 			}

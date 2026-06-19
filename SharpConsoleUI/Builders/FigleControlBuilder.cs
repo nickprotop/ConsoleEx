@@ -33,17 +33,20 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	private FigletFont? _customFont;
 	private string? _fontPath;
 	private WrapMode _wrapMode = WrapMode.NoWrap;
-	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private Themes.ColorRole _role = Themes.ColorRole.Default;
+	private Themes.ThemeMode? _colorRoleMode;
 	private bool _outline = false;
 
 	/// <summary>
 	/// Sets the control's semantic colour role (drives the banner colour).
 	/// </summary>
 	/// <param name="role">The semantic role determining the banner colour.</param>
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithRole(Themes.ControlRole role)
+	public FigleControlBuilder WithColorRole(Themes.ColorRole role, Themes.ThemeMode? mode = null)
 	{
 		_role = role;
+		_colorRoleMode = mode;
 		return this;
 	}
 
@@ -309,7 +312,8 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 			CustomFont = _customFont,
 			FontPath = _fontPath,
 			WrapMode = _wrapMode,
-			Role = _role,
+			ColorRole = _role,
+			ColorRoleMode = _colorRoleMode,
 			Outline = _outline
 		};
 

@@ -59,7 +59,8 @@ public sealed class MultilineEditControlBuilder : IControlBuilder<MultilineEditC
 	private bool _showEditingHints;
 	private ISyntaxHighlighter? _syntaxHighlighter;
 	private bool _escapeExitsEditMode = true;
-	private ControlRole _role = ControlRole.Default;
+	private ColorRole _role = ColorRole.Default;
+	private ThemeMode? _colorRoleMode;
 	private bool _outline;
 	private List<IGutterRenderer>? _gutterRenderers;
 
@@ -702,10 +703,12 @@ public sealed class MultilineEditControlBuilder : IControlBuilder<MultilineEditC
 
 	/// <summary>Sets the control's semantic colour role.</summary>
 	/// <param name="role">The semantic role determining the editor's colours.</param>
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
 	/// <returns>The builder for chaining</returns>
-	public MultilineEditControlBuilder WithRole(ControlRole role)
+	public MultilineEditControlBuilder WithColorRole(ColorRole role, ThemeMode? mode = null)
 	{
 		_role = role;
+		_colorRoleMode = mode;
 		return this;
 	}
 
@@ -731,7 +734,8 @@ public sealed class MultilineEditControlBuilder : IControlBuilder<MultilineEditC
 			Margin = _margin,
 			Visible = _visible,
 			IsEnabled = _isEnabled,
-			Role = _role,
+			ColorRole = _role,
+			ColorRoleMode = _colorRoleMode,
 			Outline = _outline,
 			IsEditing = _isEditing,
 			ReadOnly = _readOnly,

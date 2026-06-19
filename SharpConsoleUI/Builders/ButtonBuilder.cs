@@ -41,7 +41,8 @@ public sealed class ButtonBuilder : IControlBuilder<ButtonControl>
 	private Color? _borderColor;
 	private Color? _borderBackgroundColor;
 	private ButtonBorderStyle _borderStyle = ButtonBorderStyle.None;
-	private ControlRole _role = ControlRole.Default;
+	private ColorRole _role = ColorRole.Default;
+	private ThemeMode? _colorRoleMode;
 	private bool _outline;
 	private EventHandler<ButtonControl>? _clickHandler;
 	private WindowEventHandler<ButtonControl>? _clickWithWindowHandler;
@@ -308,10 +309,12 @@ public sealed class ButtonBuilder : IControlBuilder<ButtonControl>
 
 	/// <summary>Sets the control's semantic colour role.</summary>
 	/// <param name="role">The semantic role determining the button's colours.</param>
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
 	/// <returns>The builder for chaining</returns>
-	public ButtonBuilder WithRole(ControlRole role)
+	public ButtonBuilder WithColorRole(ColorRole role, ThemeMode? mode = null)
 	{
 		_role = role;
+		_colorRoleMode = mode;
 		return this;
 	}
 
@@ -429,7 +432,8 @@ public sealed class ButtonBuilder : IControlBuilder<ButtonControl>
 			Tag = _tag,
 			StickyPosition = _stickyPosition,
 			ButtonBorder = _borderStyle,
-			Role = _role,
+			ColorRole = _role,
+			ColorRoleMode = _colorRoleMode,
 			Outline = _outline
 		};
 

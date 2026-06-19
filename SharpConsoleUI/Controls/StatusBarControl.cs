@@ -131,19 +131,27 @@ public class StatusBarItem
 /// A single-row status bar with left/center/right alignment zones, clickable items,
 /// and optional shortcut key hints. Does not receive keyboard focus — display and click only.
 /// </summary>
-public class StatusBarControl : BaseControl, IMouseAwareControl, IRoleableControl
+public class StatusBarControl : BaseControl, IMouseAwareControl, IColorRoleableControl
 {
 
-	#region Role
+	#region ColorRole
 
-	private ControlRole _role = ControlRole.Default;
+	private ColorRole _role = ColorRole.Default;
+	private ThemeMode? _colorRoleMode;
 	private bool _outline;
 
 	/// <inheritdoc/>
-	public ControlRole Role
+	public ColorRole ColorRole
 	{
 		get => _role;
 		set => SetProperty(ref _role, value);
+	}
+
+	/// <inheritdoc/>
+	public ThemeMode? ColorRoleMode
+	{
+		get => _colorRoleMode;
+		set => SetProperty(ref _colorRoleMode, value);
 	}
 
 	/// <inheritdoc/>
@@ -229,9 +237,9 @@ public class StatusBarControl : BaseControl, IMouseAwareControl, IRoleableContro
 	public Color ForegroundColor
 	{
 		// Explicit override → readable text on the role fill → legacy theme/container resolution. For
-		// Role=Default the role helper returns null, keeping the no-role path byte-identical.
+		// ColorRole=Default the role helper returns null, keeping the no-role path byte-identical.
 		get => _foregroundColorValue
-			?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, RoleState.Normal)
+			?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, ColorRoleState.Normal, mode: ColorRoleMode)
 			?? ColorResolver.ResolveStatusBarForeground(null, Container);
 		set => SetProperty(ref _foregroundColorValue, (Color?)value);
 	}
@@ -563,9 +571,9 @@ public class StatusBarControl : BaseControl, IMouseAwareControl, IRoleableContro
 	{
 		SetActualBounds(bounds);
 
-		// Explicit override → semantic Role fill (the status bar surface) → legacy theme resolution.
+		// Explicit override → semantic ColorRole fill (the status bar surface) → legacy theme resolution.
 		var bgColor = _backgroundColorValue
-			?? ColorResolver.RoleBackground(Role, Container, Outline, RoleState.Normal)
+			?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, ColorRoleState.Normal, mode: ColorRoleMode)
 			?? ColorResolver.ResolveStatusBarBackground(null, Container);
 		var fgColor = ForegroundColor;
 		var shortcutFg = ShortcutForegroundColor;

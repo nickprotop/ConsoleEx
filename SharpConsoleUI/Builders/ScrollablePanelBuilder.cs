@@ -46,7 +46,8 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 	private Color? _foregroundColor;
 	private BorderStyle _borderStyle = BorderStyle.None;
 	private Color? _borderColor;
-	private ControlRole _role = ControlRole.Default;
+	private ColorRole _role = ColorRole.Default;
+	private ThemeMode? _colorRoleMode;
 	private bool _outline;
 	private Padding _padding = new(0, 0, 0, 0);
 	private string? _header;
@@ -417,9 +418,10 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 	/// Sets the control's semantic colour role, which tints the scrollbar thumb (and the border, when
 	/// drawn) from the theme's role palette.
 	/// </summary>
-	public ScrollablePanelBuilder WithRole(ControlRole role)
+	public ScrollablePanelBuilder WithColorRole(ColorRole role, ThemeMode? mode = null)
 	{
 		_role = role;
+		_colorRoleMode = mode;
 		return this;
 	}
 
@@ -493,7 +495,8 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 			StickyPosition = _stickyPosition,
 			BorderStyle = _borderStyle,
 			BorderColor = _borderColor,
-			Role = _role,
+			ColorRole = _role,
+			ColorRoleMode = _colorRoleMode,
 			Outline = _outline,
 			Padding = _padding,
 			Header = _header,

@@ -34,7 +34,7 @@ namespace SharpConsoleUI.Builders
 		public SpinnerBuilder WithColor(Color color) { _control.Color = color; return this; }
 
 		/// <summary>Sets the control's semantic colour role (drives the spinner glyph colour).</summary>
-		public SpinnerBuilder WithRole(ControlRole role) { _control.Role = role; return this; }
+		public SpinnerBuilder WithColorRole(ColorRole role, ThemeMode? mode = null) { _control.ColorRole = role; _control.ColorRoleMode = mode; return this; }
 
 		/// <summary>Renders the spinner in outline style.</summary>
 		public SpinnerBuilder Outline(bool outline = true) { _control.Outline = outline; return this; }

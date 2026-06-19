@@ -82,16 +82,16 @@ namespace SharpConsoleUI.Controls
 				gutterSnapshot = _gutterRenderers.ToList();
 			}
 
-			// Role link applied between explicit override and theme default; identical to legacy when Role==Default.
-			RoleState roleState = CurrentRoleState;
+			// ColorRole link applied between explicit override and theme default; identical to legacy when ColorRole==Default.
+			ColorRoleState roleState = CurrentRoleState;
 			Color bgColor;
 			if (HasFocus)
 				bgColor = _focusedBackgroundColorValue
-					?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+					?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode)
 					?? ColorResolver.ResolveMultilineEditFocusedBackground(null, Container);
 			else
 				bgColor = _backgroundColorValue
-					?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+					?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode)
 					?? ColorResolver.ResolveMultilineEditBackground(null, Container);
 			Color fgColor = HasFocus ? FocusedForegroundColor : ForegroundColor;
 			Color selBgColor = SelectionBackgroundColor;

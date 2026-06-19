@@ -17,19 +17,27 @@ namespace SharpConsoleUI.Controls
 	/// Unlike <see cref="SplitterControl"/>, this is non-interactive and non-focusable.
 	/// Uses a single vertical line character for a subtle appearance.
 	/// </summary>
-	public class SeparatorControl : BaseControl, IRoleableControl
+	public class SeparatorControl : BaseControl, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -148,7 +156,7 @@ namespace SharpConsoleUI.Controls
 			var theme = Container?.GetConsoleWindowSystem?.Theme;
 
 			Color fgColor = _foregroundColorValue
-				?? ColorResolver.RoleForeground(Role, Container, Outline)
+				?? ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, mode: ColorRoleMode)
 				?? theme?.SeparatorForegroundColor
 				?? Container?.ForegroundColor
 				?? defaultFg;

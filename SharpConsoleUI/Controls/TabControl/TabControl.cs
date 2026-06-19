@@ -36,19 +36,27 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public partial class TabControl : BaseControl, IContainer,
 		IMouseAwareControl, IInteractiveControl, IContainerControl,
-		IFocusableControl, IFocusableContainerWithHeader, IRoleableControl
+		IFocusableControl, IFocusableContainerWithHeader, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>

@@ -24,7 +24,7 @@ namespace SharpConsoleUI.Controls;
 /// Thread-safe: log events can be received from any thread.
 /// </summary>
 /// <remarks>
-/// This control does not implement <see cref="IRoleableControl"/>, so it has no semantic role and does
+/// This control does not implement <see cref="IColorRoleableControl"/>, so it has no semantic role and does
 /// not honour them: it has no single themed colour surface (log lines colour themselves by severity).
 /// </remarks>
 public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl

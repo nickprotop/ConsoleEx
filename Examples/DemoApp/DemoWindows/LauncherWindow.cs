@@ -1044,7 +1044,7 @@ public static class LauncherWindow
 				"  - Switch themes (toolbar) to watch each role",
 				"    re-derive from each palette.",
 				"",
-				"[dim]API:[/] .WithRole(ControlRole.Danger).Outline()",
+				"[dim]API:[/] .WithColorRole(ColorRole.Danger).Outline()",
 			},
 			_ => null
 		};

@@ -8,7 +8,7 @@ using SharpConsoleUI.Themes;
 namespace DemoApp.DemoWindows;
 
 /// <summary>
-/// Showcases the Control Roles system: a control declares a semantic <see cref="ControlRole"/>
+/// Showcases the Control Roles system: a control declares a semantic <see cref="ColorRole"/>
 /// (Primary/Secondary/Tertiary/Info/Success/Warning/Danger) and its colours are derived from the
 /// active theme's role palette. Solid and outline variants are shown side by side. Switch themes
 /// from the toolbar dropdown to watch every role re-derive from each palette.
@@ -18,15 +18,15 @@ internal static class ControlRolesWindow
 	private const int WindowWidth = 92;
 	private const int WindowHeight = 32;
 
-	private static readonly (ControlRole Role, string Name)[] RoleRows =
+	private static readonly (ColorRole ColorRole, string Name)[] RoleRows =
 	{
-		(ControlRole.Primary, "Primary"),
-		(ControlRole.Secondary, "Secondary"),
-		(ControlRole.Tertiary, "Tertiary"),
-		(ControlRole.Info, "Info"),
-		(ControlRole.Success, "Success"),
-		(ControlRole.Warning, "Warning"),
-		(ControlRole.Danger, "Danger"),
+		(ColorRole.Primary, "Primary"),
+		(ColorRole.Secondary, "Secondary"),
+		(ColorRole.Tertiary, "Tertiary"),
+		(ColorRole.Info, "Info"),
+		(ColorRole.Success, "Success"),
+		(ColorRole.Warning, "Warning"),
+		(ColorRole.Danger, "Danger"),
 	};
 
 	public static Window Create(ConsoleWindowSystem ws)
@@ -56,10 +56,10 @@ internal static class ControlRolesWindow
 
 		foreach (var (role, name) in RoleRows)
 		{
-			var label = Controls.Markup($"[bold]{name}[/]").WithRole(role).WithMargin(1, 0, 0, 0).Build();
+			var label = Controls.Markup($"[bold]{name}[/]").WithColorRole(role).WithMargin(1, 0, 0, 0).Build();
 			var toolbar = Controls.Toolbar()
-				.AddButton(Controls.Button($"  {name}  ").WithRole(role))
-				.AddButton(Controls.Button($"  {name}  ").WithRole(role).Outline())
+				.AddButton(Controls.Button($"  {name}  ").WithColorRole(role))
+				.AddButton(Controls.Button($"  {name}  ").WithColorRole(role).Outline())
 				.Build();
 
 			var row = Controls.HorizontalGrid()
@@ -72,14 +72,14 @@ internal static class ControlRolesWindow
 		}
 
 		buttonsPanel.AddControl(Controls.Markup("[bold underline]Checkboxes[/]").WithMargin(1, 1, 1, 0).Build());
-		buttonsPanel.AddControl(Controls.Checkbox("Success checkbox").Checked().WithRole(ControlRole.Success).WithMargin(1, 0, 1, 0).Build());
-		buttonsPanel.AddControl(Controls.Checkbox("Warning checkbox").Checked().WithRole(ControlRole.Warning).WithMargin(1, 0, 1, 0).Build());
-		buttonsPanel.AddControl(Controls.Checkbox("Danger checkbox").WithRole(ControlRole.Danger).WithMargin(1, 0, 1, 1).Build());
+		buttonsPanel.AddControl(Controls.Checkbox("Success checkbox").Checked().WithColorRole(ColorRole.Success).WithMargin(1, 0, 1, 0).Build());
+		buttonsPanel.AddControl(Controls.Checkbox("Warning checkbox").Checked().WithColorRole(ColorRole.Warning).WithMargin(1, 0, 1, 0).Build());
+		buttonsPanel.AddControl(Controls.Checkbox("Danger checkbox").WithColorRole(ColorRole.Danger).WithMargin(1, 0, 1, 1).Build());
 
 		buttonsPanel.AddControl(Controls.Markup("[bold underline]List[/]  [dim](Info selection)[/]").WithMargin(1, 1, 1, 0).Build());
 		var roleList = Controls.List()
 			.AddItems("Overview", "Details", "Settings", "History")
-			.WithRole(ControlRole.Info)
+			.WithColorRole(ColorRole.Info)
 			.WithMargin(1, 0, 1, 1)
 			.Build();
 		roleList.SelectedIndex = 0;   // show the full-strength role selection too
@@ -87,7 +87,7 @@ internal static class ControlRolesWindow
 
 		buttonsPanel.AddControl(Controls.Markup("[bold underline]Markup text[/]  [dim](role default fg)[/]").WithMargin(1, 1, 1, 0).Build());
 		buttonsPanel.AddControl(Controls.Markup("Danger-roled text — [blue]inline tags[/] still win.")
-			.WithRole(ControlRole.Danger)
+			.WithColorRole(ColorRole.Danger)
 			.WithMargin(1, 0, 1, 1)
 			.Build());
 
@@ -102,7 +102,7 @@ internal static class ControlRolesWindow
 			var bar = Controls.ProgressBar()
 				.WithHeader(name)
 				.WithPercentage(35 + System.Array.IndexOf(RoleRows, (role, name)) * 9)
-				.WithRole(role)
+				.WithColorRole(role)
 				.WithMargin(1, 0, 1, 0)
 				.Build();
 			indicatorsPanel.AddControl(bar);
@@ -113,24 +113,24 @@ internal static class ControlRolesWindow
 			.WithRange(0, 100)
 			.WithValue(64)
 			.ShowValueLabel()
-			.WithRole(ControlRole.Warning)
+			.WithColorRole(ColorRole.Warning)
 			.WithMargin(1, 0, 1, 1)
 			.Build());
 
 		indicatorsPanel.AddControl(Controls.Markup("[bold underline]Rules[/]  [dim](role-coloured dividers)[/]").WithMargin(1, 1, 1, 0).Build());
-		indicatorsPanel.AddControl(Controls.RuleBuilder().WithTitle("Success").WithRole(ControlRole.Success).WithMargin(1, 0, 1, 0).Build());
-		indicatorsPanel.AddControl(Controls.RuleBuilder().WithTitle("Danger").WithRole(ControlRole.Danger).WithMargin(1, 0, 1, 0).Build());
+		indicatorsPanel.AddControl(Controls.RuleBuilder().WithTitle("Success").WithColorRole(ColorRole.Success).WithMargin(1, 0, 1, 0).Build());
+		indicatorsPanel.AddControl(Controls.RuleBuilder().WithTitle("Danger").WithColorRole(ColorRole.Danger).WithMargin(1, 0, 1, 0).Build());
 
 		indicatorsPanel.AddControl(Controls.Markup("[bold underline]Role-framed panels[/]").WithMargin(1, 1, 1, 0).Build());
 		indicatorsPanel.AddControl(Controls.Panel()
 			.WithContent("Danger panel — the frame follows the Danger role.")
-			.WithRole(ControlRole.Danger)
+			.WithColorRole(ColorRole.Danger)
 			.WithWidth(40)
 			.WithMargin(1, 0, 1, 0)
 			.Build());
 		indicatorsPanel.AddControl(Controls.Panel()
 			.WithContent("Success panel — themed frame, no per-colour set.")
-			.WithRole(ControlRole.Success)
+			.WithColorRole(ColorRole.Success)
 			.WithWidth(40)
 			.WithMargin(1, 0, 1, 1)
 			.Build());

@@ -74,19 +74,27 @@ namespace SharpConsoleUI.Controls
 	/// A line graph control for visualizing time-series data using braille or ASCII rendering.
 	/// Supports multiple named series rendered as connected lines.
 	/// </summary>
-	public partial class LineGraphControl : BaseControl, IRoleableControl
+	public partial class LineGraphControl : BaseControl, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -435,13 +443,13 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the line colour applied to the implicit default series (the series used by
 		/// <see cref="AddDataPoint(double)"/>). When null, this resolves from the control's
-		/// <see cref="Role"/> (if set) and otherwise defaults to Cyan1. Series added
+		/// <see cref="ColorRole"/> (if set) and otherwise defaults to Cyan1. Series added
 		/// explicitly via <see cref="AddSeries"/> keep their own colours and are unaffected.
 		/// </summary>
 		public Color LineColor
 		{
 			get => _lineColor
-				?? ColorResolver.RoleBackground(Role, Container, Outline)
+				?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, mode: ColorRoleMode)
 				?? Color.Cyan1;
 			set
 			{

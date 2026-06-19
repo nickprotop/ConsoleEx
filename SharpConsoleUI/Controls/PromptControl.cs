@@ -22,19 +22,27 @@ namespace SharpConsoleUI.Controls
 	/// A single-line text input control with optional prompt text.
 	/// Supports text editing, cursor navigation, and horizontal scrolling for overflow text.
 	/// </summary>
-	public class PromptControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider, IPasteTarget, IRoleableControl
+	public class PromptControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider, IPasteTarget, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -641,8 +649,8 @@ namespace SharpConsoleUI.Controls
 		/// Computes the current role state from the prompt's enabled/focus state so role colours
 		/// reflect the same visual state the renderer paints.
 		/// </summary>
-		private RoleState CurrentRoleState =>
-			!IsEnabled ? RoleState.Disabled : (HasFocus ? RoleState.Focused : RoleState.Normal);
+		private ColorRoleState CurrentRoleState =>
+			!IsEnabled ? ColorRoleState.Disabled : (HasFocus ? ColorRoleState.Focused : ColorRoleState.Normal);
 
 		/// <summary>
 		/// Sets the input text and positions the cursor at the end.
@@ -769,23 +777,23 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Calculate colors (role link applied between explicit override and theme default;
-				// identical to legacy when Role==Default since the role helpers return null).
-				RoleState roleState = CurrentRoleState;
+				// identical to legacy when ColorRole==Default since the role helpers return null).
+				ColorRoleState roleState = CurrentRoleState;
 				Color inputBackgroundColor = HasFocus
 					? ColorResolver.Coalesce(InputFocusedBackgroundColor)
-						?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+						?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode)
 						?? ColorResolver.Coalesce(Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedBackgroundColor)
 						?? Color.Transparent
 					: ColorResolver.Coalesce(InputBackgroundColor)
-						?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+						?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode)
 						?? ColorResolver.Coalesce(Container?.GetConsoleWindowSystem?.Theme?.PromptInputBackgroundColor)
 						?? Color.Transparent;
 				Color inputForegroundColor = HasFocus
 					? InputFocusedForegroundColor
-						?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, roleState)
+						?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode)
 						?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedForegroundColor ?? Color.Black
 					: InputForegroundColor
-						?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, roleState)
+						?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode)
 						?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputForegroundColor ?? Color.White;
 
 				int currentX = startX;

@@ -422,12 +422,12 @@ namespace SharpConsoleUI.Controls
 						Color itemBg, itemFg;
 						bool isHovered = (itemIndex == _hoveredIndex);
 
-						// When a Role is set the whole item surface is themed by it (so the list reads as
+						// When a ColorRole is set the whole item surface is themed by it (so the list reads as
 						// its role even with nothing selected): the role fill drives selection/hover at
-						// graded intensities and the role foreground tints normal item text. RoleBackground
-						// / RoleForeground return null for Role.Default, so the no-role paths are unchanged.
-						Color? roleFill = ColorResolver.RoleBackground(Role, Container, Outline);
-						Color? roleText = ColorResolver.RoleForeground(Role, Container, Outline);
+						// graded intensities and the role foreground tints normal item text. ColorRoleBackground
+						// / ColorRoleForeground return null for ColorRole.Default, so the no-role paths are unchanged.
+						Color? roleFill = ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, mode: ColorRoleMode);
+						Color? roleText = ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, mode: ColorRoleMode);
 						Color roleSurface = Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
 
 						if (!IsEnabled)

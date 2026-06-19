@@ -375,7 +375,7 @@ namespace SharpConsoleUI.Core
 				Text = "Close",
 				StickyPosition = StickyPosition.Bottom,
 				Margin = new Margin() { Left = 1 },
-				Role = MapSeverityToRole(severity.Severity)
+				ColorRole = MapSeverityToRole(severity.Severity)
 			};
 			closeButton.Click += (sender, e) =>
 			{
@@ -387,23 +387,23 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
-		/// Maps a notification severity to the semantic <see cref="ControlRole"/> a themed control
+		/// Maps a notification severity to the semantic <see cref="ColorRole"/> a themed control
 		/// should adopt so its accent reflects the notification's purpose.
 		/// </summary>
 		/// <param name="severity">The notification severity level.</param>
 		/// <returns>
-		/// The matching <see cref="ControlRole"/>, or <see cref="ControlRole.Default"/> for
+		/// The matching <see cref="ColorRole"/>, or <see cref="ColorRole.Default"/> for
 		/// <see cref="NotificationSeverityEnum.None"/> (no implied role).
 		/// </returns>
-		internal static ControlRole MapSeverityToRole(NotificationSeverityEnum severity)
+		internal static ColorRole MapSeverityToRole(NotificationSeverityEnum severity)
 		{
 			return severity switch
 			{
-				NotificationSeverityEnum.Danger => ControlRole.Danger,
-				NotificationSeverityEnum.Warning => ControlRole.Warning,
-				NotificationSeverityEnum.Success => ControlRole.Success,
-				NotificationSeverityEnum.Info => ControlRole.Info,
-				_ => ControlRole.Default,
+				NotificationSeverityEnum.Danger => ColorRole.Danger,
+				NotificationSeverityEnum.Warning => ColorRole.Warning,
+				NotificationSeverityEnum.Success => ColorRole.Success,
+				NotificationSeverityEnum.Info => ColorRole.Info,
+				_ => ColorRole.Default,
 			};
 		}
 

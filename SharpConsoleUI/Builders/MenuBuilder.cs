@@ -31,7 +31,8 @@ public class MenuBuilder : IControlBuilder<MenuControl>
 	private Color? _menuBarForegroundColor;
 	private Color? _menuBarHighlightBackgroundColor;
 	private Color? _menuBarHighlightForegroundColor;
-	private ControlRole _role = ControlRole.Default;
+	private ColorRole _role = ColorRole.Default;
+	private ThemeMode? _colorRoleMode;
 	private bool _outline;
 
 	// Dropdown colors
@@ -69,9 +70,11 @@ public class MenuBuilder : IControlBuilder<MenuControl>
 
 	/// <summary>Sets the control's semantic colour role, which tints the menu highlight accent.</summary>
 	/// <param name="role">The semantic role determining the highlight colours.</param>
-	public MenuBuilder WithRole(ControlRole role)
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
+	public MenuBuilder WithColorRole(ColorRole role, ThemeMode? mode = null)
 	{
 		_role = role;
+		_colorRoleMode = mode;
 		return this;
 	}
 
@@ -325,7 +328,8 @@ public class MenuBuilder : IControlBuilder<MenuControl>
 			DropdownForegroundColor = _dropdownForegroundColor,
 			DropdownHighlightBackgroundColor = _dropdownHighlightBackgroundColor,
 			DropdownHighlightForegroundColor = _dropdownHighlightForegroundColor,
-			Role = _role,
+			ColorRole = _role,
+			ColorRoleMode = _colorRoleMode,
 			Outline = _outline
 		};
 

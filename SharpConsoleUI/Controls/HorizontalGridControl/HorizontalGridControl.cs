@@ -70,7 +70,7 @@ namespace SharpConsoleUI.Controls
 	/// Window.cs during tree building. Users don't interact with HorizontalLayout directly.
 	/// </para>
 	/// <para>
-	/// This control does not implement <see cref="IRoleableControl"/>, so it has no semantic role and does
+	/// This control does not implement <see cref="IColorRoleableControl"/>, so it has no semantic role and does
 	/// not honour them: it has no single themed colour surface (it is a pure layout container).
 	/// </para>
 	/// </summary>

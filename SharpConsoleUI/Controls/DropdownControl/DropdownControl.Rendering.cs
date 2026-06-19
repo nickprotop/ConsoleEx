@@ -48,8 +48,8 @@ namespace SharpConsoleUI.Controls
 			// Store bounds for portal positioning
 			_lastLayoutBounds = bounds;
 
-			// Role link applied inside the resolvers; identical to legacy when Role==Default.
-			RoleState roleState = CurrentRoleState;
+			// ColorRole link applied inside the resolvers; identical to legacy when ColorRole==Default.
+			ColorRoleState roleState = CurrentRoleState;
 			Color backgroundColor = ResolveBackground(roleState);
 			Color foregroundColor = ResolveForeground(roleState);
 

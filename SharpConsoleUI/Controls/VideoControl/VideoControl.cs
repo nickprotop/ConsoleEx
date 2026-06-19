@@ -19,7 +19,7 @@ namespace SharpConsoleUI.Controls
 	/// Requires FFmpeg to be installed and on the system PATH.
 	/// </summary>
 	/// <remarks>
-	/// This control does not implement <see cref="IRoleableControl"/>, so it has no semantic role and does
+	/// This control does not implement <see cref="IColorRoleableControl"/>, so it has no semantic role and does
 	/// not honour them: it has no single themed colour surface (it renders external video frames).
 	/// </remarks>
 	public partial class VideoControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl

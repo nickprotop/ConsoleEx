@@ -134,10 +134,10 @@ namespace SharpConsoleUI.Controls
 			if (hasBorder)
 			{
 				var box = BoxChars.FromBorderStyle(_borderStyle);
-				// Border follows the control's Role when set (like the Panel family), else the explicit
-				// override, else the foreground. Role.Default makes RoleBorder null → unchanged.
+				// Border follows the control's ColorRole when set (like the Panel family), else the explicit
+				// override, else the foreground. ColorRole.Default makes ColorRoleBorder null → unchanged.
 				Color borderColor = _borderColor
-					?? ColorResolver.RoleBorder(Role, Container, Outline)
+					?? ColorResolver.ColorRoleBorder(ColorRole, Container, Outline, mode: ColorRoleMode)
 					?? fgColor;
 
 				// Fill the interior of the border with background color
@@ -292,14 +292,14 @@ namespace SharpConsoleUI.Controls
 			return (scrollbarRelX, scrollbarRelY, trackWidth, thumbX, thumbWidth);
 		}
 
-		/// <summary>Thumb color: the <see cref="ScrollbarThumbColor"/> override, else the control's Role
+		/// <summary>Thumb color: the <see cref="ScrollbarThumbColor"/> override, else the control's ColorRole
 		/// (the scrollbar is a scroll panel's defining chrome), else the theme's scrollbar thumb
 		/// (focus-aware), else a hardcoded fallback.</summary>
 		private Color ResolveScrollbarThumbColor()
 		{
 			if (_scrollbarThumbColor.HasValue) return _scrollbarThumbColor.Value;
-			var roleState = !IsEnabled ? RoleState.Disabled : (HasFocus ? RoleState.Focused : RoleState.Normal);
-			var roleThumb = ColorResolver.RoleBackground(Role, Container, Outline, roleState);
+			var roleState = !IsEnabled ? ColorRoleState.Disabled : (HasFocus ? ColorRoleState.Focused : ColorRoleState.Normal);
+			var roleThumb = ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode);
 			if (roleThumb != null) return roleThumb.Value;
 			var theme = GetConsoleWindowSystem?.Theme;
 			if (theme != null)

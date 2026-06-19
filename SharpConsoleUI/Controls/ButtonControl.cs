@@ -37,19 +37,27 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// A clickable button control that supports keyboard and mouse interaction.
 	/// </summary>
-	public class ButtonControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IRoleableControl
+	public class ButtonControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -134,8 +142,8 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		/// <remarks>
 		/// The getter returns the foreground actually painted for the button's current state, honouring an
-		/// explicit override, then the active <see cref="Role"/>, then the legacy theme default.
-		/// For <see cref="ControlRole.Default"/> (no role) this is exactly the legacy resolved value.
+		/// explicit override, then the active <see cref="ColorRole"/>, then the legacy theme default.
+		/// For <see cref="ColorRole.Default"/> (no role) this is exactly the legacy resolved value.
 		/// </remarks>
 		public Color ForegroundColor
 		{
@@ -157,12 +165,12 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		/// <remarks>
 		/// The getter returns the foreground painted in the focused state: explicit override, then the
-		/// active <see cref="Role"/>, then the legacy focused-theme default. For
-		/// <see cref="ControlRole.Default"/> (no role) this is exactly the legacy resolved value.
+		/// active <see cref="ColorRole"/>, then the legacy focused-theme default. For
+		/// <see cref="ColorRole.Default"/> (no role) this is exactly the legacy resolved value.
 		/// </remarks>
 		public Color FocusedForegroundColor
 		{
-			get => ResolveForeground(RoleState.Focused);
+			get => ResolveForeground(ColorRoleState.Focused);
 			set => SetProperty(ref _focusedForegroundColor, (Color?)value);
 		}
 
@@ -180,12 +188,12 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		/// <remarks>
 		/// The getter returns the foreground painted in the disabled state: explicit override, then the
-		/// active <see cref="Role"/>, then the legacy disabled-theme default. For
-		/// <see cref="ControlRole.Default"/> (no role) this is exactly the legacy resolved value.
+		/// active <see cref="ColorRole"/>, then the legacy disabled-theme default. For
+		/// <see cref="ColorRole.Default"/> (no role) this is exactly the legacy resolved value.
 		/// </remarks>
 		public Color DisabledForegroundColor
 		{
-			get => ResolveForeground(RoleState.Disabled);
+			get => ResolveForeground(ColorRoleState.Disabled);
 			set => SetProperty(ref _disabledForegroundColor, (Color?)value);
 		}
 
@@ -352,54 +360,54 @@ namespace SharpConsoleUI.Controls
 		/// Computes the current role state from the button's enabled/focus state so role colours
 		/// reflect the same visual state the renderer paints.
 		/// </summary>
-		private RoleState CurrentRoleState =>
-			!_enabled ? RoleState.Disabled : (HasFocus ? RoleState.Focused : RoleState.Normal);
+		private ColorRoleState CurrentRoleState =>
+			!_enabled ? ColorRoleState.Disabled : (HasFocus ? ColorRoleState.Focused : ColorRoleState.Normal);
 
 		/// <summary>
 		/// Resolves the painted background colour, honouring (in priority order) an explicit override,
-		/// the semantic <see cref="Role"/>, then the existing per-state default resolution.
+		/// the semantic <see cref="ColorRole"/>, then the existing per-state default resolution.
 		/// Pure in <paramref name="state"/> so callers evaluate the (focus-querying) state once.
 		/// </summary>
-		private Color ResolveBackground(RoleState state)
+		private Color ResolveBackground(ColorRoleState state)
 		{
-			if (state == RoleState.Disabled)
+			if (state == ColorRoleState.Disabled)
 			{
 				return _disabledBackgroundColor
-					?? ColorResolver.RoleBackground(Role, Container, Outline, state)
+					?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 					?? ColorResolver.ResolveButtonDisabledBackground(null, Container);
 			}
-			if (state == RoleState.Focused)
+			if (state == ColorRoleState.Focused)
 			{
 				return _focusedBackgroundColor
-					?? ColorResolver.RoleBackground(Role, Container, Outline, state)
+					?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 					?? ColorResolver.ResolveButtonFocusedBackground(null, Container);
 			}
 			return _backgroundColor
-				?? ColorResolver.RoleBackground(Role, Container, Outline, state)
+				?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 				?? ColorResolver.ResolveButtonBackground(null, Container);
 		}
 
 		/// <summary>
 		/// Resolves the painted label foreground. A filled button paints its text on the role fill, so
-		/// the role contributes <see cref="ColorResolver.RoleTextOnBackground"/>; outline mode is handled
+		/// the role contributes <see cref="ColorResolver.ColorRoleTextOnBackground"/>; outline mode is handled
 		/// inside that helper. Pure in <paramref name="state"/>.
 		/// </summary>
-		private Color ResolveForeground(RoleState state)
+		private Color ResolveForeground(ColorRoleState state)
 		{
-			if (state == RoleState.Disabled)
+			if (state == ColorRoleState.Disabled)
 			{
 				return _disabledForegroundColor
-					?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, state)
+					?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 					?? ColorResolver.ResolveButtonDisabledForeground(null, Container);
 			}
-			if (state == RoleState.Focused)
+			if (state == ColorRoleState.Focused)
 			{
 				return _focusedForegroundColor
-					?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, state)
+					?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 					?? ColorResolver.ResolveButtonFocusedForeground(null, Container);
 			}
 			return _foregroundColor
-				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, state)
+				?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 				?? ColorResolver.ResolveButtonForeground(null, Container);
 		}
 
@@ -407,10 +415,10 @@ namespace SharpConsoleUI.Controls
 		/// Resolves the border foreground: explicit override, then the role border colour, then the
 		/// already-resolved label foreground as the legacy default. Pure in <paramref name="state"/>.
 		/// </summary>
-		private Color ResolveBorder(RoleState state, Color foregroundFallback)
+		private Color ResolveBorder(ColorRoleState state, Color foregroundFallback)
 		{
 			return _borderColor
-				?? ColorResolver.RoleBorder(Role, Container, Outline, state)
+				?? ColorResolver.ColorRoleBorder(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 				?? foregroundFallback;
 		}
 
@@ -442,7 +450,7 @@ namespace SharpConsoleUI.Controls
 
 			var effectiveBg = Color.Transparent;
 
-			RoleState state = CurrentRoleState;
+			ColorRoleState state = CurrentRoleState;
 			Color backgroundColor = ResolveBackground(state);
 			Color foregroundColor = ResolveForeground(state);
 

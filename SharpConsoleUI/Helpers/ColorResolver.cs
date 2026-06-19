@@ -650,25 +650,25 @@ namespace SharpConsoleUI.Helpers
 			?? Coalesce(theme?.MenuDropdownHighlightForegroundColor)
 			?? Color.White;
 
-		// --- Role-link helpers ---
+		// --- ColorRole-link helpers ---
 
 		/// <summary>
 		/// Returns the role-derived background for a control with a role set, or null when the control
 		/// has no role (so the caller falls through to its normal resolution path).
 		/// </summary>
-		public static Color? RoleBackground(ControlRole role, IContainer? container, bool outline, RoleState state = RoleState.Normal)
-			=> role == ControlRole.Default ? (Color?)null : RoleResolver.Resolve(role, container, outline, state).Background;
+		public static Color? ColorRoleBackground(ColorRole role, IContainer? container, bool outline, ColorRoleState state = ColorRoleState.Normal, ThemeMode? mode = null)
+			=> role == ColorRole.Default ? (Color?)null : ColorRoleResolver.Resolve(role, container, outline, state, mode).Background;
 
-		/// <summary>Role-derived foreground (the role colour used as text on the surface), or null when no role.</summary>
-		public static Color? RoleForeground(ControlRole role, IContainer? container, bool outline, RoleState state = RoleState.Normal)
-			=> role == ControlRole.Default ? (Color?)null : RoleResolver.Resolve(role, container, outline, state).Text;
+		/// <summary>ColorRole-derived foreground (the role colour used as text on the surface), or null when no role.</summary>
+		public static Color? ColorRoleForeground(ColorRole role, IContainer? container, bool outline, ColorRoleState state = ColorRoleState.Normal, ThemeMode? mode = null)
+			=> role == ColorRole.Default ? (Color?)null : ColorRoleResolver.Resolve(role, container, outline, state, mode).Text;
 
-		/// <summary>Role-derived text-on-fill (foreground for a control whose fill is the role colour), or null when no role.</summary>
-		public static Color? RoleTextOnBackground(ControlRole role, IContainer? container, bool outline, RoleState state = RoleState.Normal)
-			=> role == ControlRole.Default ? (Color?)null : RoleResolver.Resolve(role, container, outline, state).TextOnBackground;
+		/// <summary>ColorRole-derived text-on-fill (foreground for a control whose fill is the role colour), or null when no role.</summary>
+		public static Color? ColorRoleTextOnBackground(ColorRole role, IContainer? container, bool outline, ColorRoleState state = ColorRoleState.Normal, ThemeMode? mode = null)
+			=> role == ColorRole.Default ? (Color?)null : ColorRoleResolver.Resolve(role, container, outline, state, mode).TextOnBackground;
 
-		/// <summary>Role-derived border, or null when no role.</summary>
-		public static Color? RoleBorder(ControlRole role, IContainer? container, bool outline, RoleState state = RoleState.Normal)
-			=> role == ControlRole.Default ? (Color?)null : RoleResolver.Resolve(role, container, outline, state).Border;
+		/// <summary>ColorRole-derived border, or null when no role.</summary>
+		public static Color? ColorRoleBorder(ColorRole role, IContainer? container, bool outline, ColorRoleState state = ColorRoleState.Normal, ThemeMode? mode = null)
+			=> role == ColorRole.Default ? (Color?)null : ColorRoleResolver.Resolve(role, container, outline, state, mode).Border;
 	}
 }

@@ -248,10 +248,12 @@ public sealed class TabControlBuilder : IControlBuilder<TabControl>
 
 	/// <summary>Sets the control's semantic colour role, which tints the active tab header.</summary>
 	/// <param name="role">The semantic role determining the active tab's colours.</param>
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
 	/// <returns>The builder for chaining</returns>
-	public TabControlBuilder WithRole(ControlRole role)
+	public TabControlBuilder WithColorRole(ColorRole role, ThemeMode? mode = null)
 	{
-		_control.Role = role;
+		_control.ColorRole = role;
+		_control.ColorRoleMode = mode;
 		return this;
 	}
 

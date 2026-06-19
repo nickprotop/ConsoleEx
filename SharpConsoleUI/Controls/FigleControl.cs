@@ -35,19 +35,27 @@ namespace SharpConsoleUI.Controls
 	/// A control that renders text using FIGlet ASCII art fonts.
 	/// Uses a custom FIGlet parser for direct rendering without Spectre.Console dependency.
 	/// </summary>
-	public class FigleControl : BaseControl, IRoleableControl
+	public class FigleControl : BaseControl, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -364,7 +372,7 @@ namespace SharpConsoleUI.Controls
 
 			var bgColor = Container?.BackgroundColor ?? defaultBg;
 			var fgColor = _color
-				?? ColorResolver.RoleForeground(Role, Container, Outline)
+				?? ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, mode: ColorRoleMode)
 				?? Container?.ForegroundColor ?? defaultFg;
 			var effectiveBg = SharpConsoleUI.Color.Transparent;
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;

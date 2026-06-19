@@ -21,19 +21,27 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// A hierarchical tree control that displays nodes in a collapsible tree structure with keyboard navigation.
 	/// </summary>
-	public partial class TreeControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IRoleableControl
+	public partial class TreeControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -199,7 +207,7 @@ namespace SharpConsoleUI.Controls
 		public Color HighlightForegroundColor
 		{
 			get => _highlightForegroundColorValue
-				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline)
+				?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, mode: ColorRoleMode)
 				?? Color.White;
 			set => SetProperty(ref _highlightForegroundColorValue, (Color?)value);
 		}

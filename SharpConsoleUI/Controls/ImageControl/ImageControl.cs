@@ -19,7 +19,7 @@ namespace SharpConsoleUI.Controls
 	/// Each character cell represents 2 vertical pixels.
 	/// </summary>
 	/// <remarks>
-	/// This control does not implement <see cref="IRoleableControl"/>, so it has no semantic role and does
+	/// This control does not implement <see cref="IColorRoleableControl"/>, so it has no semantic role and does
 	/// not honour them: it has no single themed colour surface (it renders external image pixel data).
 	/// </remarks>
 	public class ImageControl : BaseControl

@@ -33,7 +33,8 @@ public sealed class StatusBarBuilder : IControlBuilder<StatusBarControl>
 	private string? _shortcutLabelSeparator;
 	private bool _showAboveLine;
 	private Color? _aboveLineColor;
-	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private Themes.ColorRole _role = Themes.ColorRole.Default;
+	private Themes.ThemeMode? _colorRoleMode;
 	private bool _outline;
 	private EventHandler<StatusBarItemClickedEventArgs>? _itemClickedHandler;
 
@@ -167,9 +168,11 @@ public sealed class StatusBarBuilder : IControlBuilder<StatusBarControl>
 
 	/// <summary>Sets the control's semantic colour role, which tints the status bar background.</summary>
 	/// <param name="role">The semantic role determining the status bar's colours.</param>
-	public StatusBarBuilder WithRole(Themes.ControlRole role)
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
+	public StatusBarBuilder WithColorRole(Themes.ColorRole role, Themes.ThemeMode? mode = null)
 	{
 		_role = role;
+		_colorRoleMode = mode;
 		return this;
 	}
 
@@ -261,7 +264,8 @@ public sealed class StatusBarBuilder : IControlBuilder<StatusBarControl>
 			Tag = _tag,
 			StickyPosition = _stickyPosition,
 			HorizontalAlignment = _horizontalAlignment,
-			Role = _role,
+			ColorRole = _role,
+			ColorRoleMode = _colorRoleMode,
 			Outline = _outline,
 		};
 

@@ -20,19 +20,27 @@ namespace SharpConsoleUI.Controls
 	/// Supports keyboard interaction with Space or Enter keys to toggle state.
 	/// </summary>
 	public class CheckboxControl : BaseControl, IInteractiveControl,
-		IFocusableControl, IMouseAwareControl, IRoleableControl
+		IFocusableControl, IMouseAwareControl, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -194,7 +202,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color DisabledForegroundColor
 		{
-			get => ResolveForeground(RoleState.Disabled);
+			get => ResolveForeground(ColorRoleState.Disabled);
 			set => SetProperty(ref _disabledForegroundColorValue, (Color?)value);
 		}
 
@@ -212,7 +220,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color FocusedForegroundColor
 		{
-			get => ResolveForeground(RoleState.Focused);
+			get => ResolveForeground(ColorRoleState.Focused);
 			set => SetProperty(ref _focusedForegroundColorValue, (Color?)value);
 		}
 
@@ -383,31 +391,31 @@ namespace SharpConsoleUI.Controls
 		/// Computes the current role state from the checkbox's enabled/focus state so role colours
 		/// reflect the same visual state the renderer paints.
 		/// </summary>
-		private RoleState CurrentRoleState =>
-			!_isEnabled ? RoleState.Disabled : (ComputeHasFocus() ? RoleState.Focused : RoleState.Normal);
+		private ColorRoleState CurrentRoleState =>
+			!_isEnabled ? ColorRoleState.Disabled : (ComputeHasFocus() ? ColorRoleState.Focused : ColorRoleState.Normal);
 
 		/// <summary>
 		/// Resolves the painted label foreground: explicit override, then the role colour as text on the
-		/// window surface (<see cref="ColorResolver.RoleForeground"/>), then the legacy per-state default.
-		/// For <see cref="ControlRole.Default"/> (no role) the role helper returns null, so this is the
+		/// window surface (<see cref="ColorResolver.ColorRoleForeground"/>), then the legacy per-state default.
+		/// For <see cref="ColorRole.Default"/> (no role) the role helper returns null, so this is the
 		/// legacy resolved value. Pure in <paramref name="state"/>.
 		/// </summary>
-		private Color ResolveForeground(RoleState state)
+		private Color ResolveForeground(ColorRoleState state)
 		{
-			if (state == RoleState.Disabled)
+			if (state == ColorRoleState.Disabled)
 			{
 				return _disabledForegroundColorValue
-					?? ColorResolver.RoleForeground(Role, Container, Outline, state)
+					?? ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 					?? Container?.GetConsoleWindowSystem?.Theme?.CheckboxDisabledForegroundColor ?? Color.DarkSlateGray1;
 			}
-			if (state == RoleState.Focused)
+			if (state == ColorRoleState.Focused)
 			{
 				return _focusedForegroundColorValue
-					?? ColorResolver.RoleForeground(Role, Container, Outline, state)
+					?? ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 					?? Container?.GetConsoleWindowSystem?.Theme?.CheckboxFocusedForegroundColor ?? Color.White;
 			}
 			return _foregroundColorValue
-				?? ColorResolver.RoleForeground(Role, Container, Outline, state)
+				?? ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 				?? Container?.GetConsoleWindowSystem?.Theme?.CheckboxForegroundColor ?? Color.White;
 		}
 
@@ -417,14 +425,14 @@ namespace SharpConsoleUI.Controls
 		/// NOT introduce a solid background fill — the role colours the label foreground only (see
 		/// <see cref="ResolveForeground"/>). Pure in <paramref name="state"/>.
 		/// </summary>
-		private Color ResolveBackground(RoleState state)
+		private Color ResolveBackground(ColorRoleState state)
 		{
-			if (state == RoleState.Disabled)
+			if (state == ColorRoleState.Disabled)
 			{
 				return _disabledBackgroundColorValue
 					?? ColorResolver.ResolveCheckboxDisabledBackground(null, Container);
 			}
-			if (state == RoleState.Focused)
+			if (state == ColorRoleState.Focused)
 			{
 				return _focusedBackgroundColorValue
 					?? ColorResolver.ResolveCheckboxFocusedBackground(null, Container);
@@ -477,7 +485,7 @@ namespace SharpConsoleUI.Controls
 			var effectiveBg = Color.Transparent;
 
 			// Determine colors based on enabled/focused state (role link applied inside the resolvers).
-			RoleState roleState = CurrentRoleState;
+			ColorRoleState roleState = CurrentRoleState;
 			backgroundColor = ResolveBackground(roleState);
 			foregroundColor = ResolveForeground(roleState);
 

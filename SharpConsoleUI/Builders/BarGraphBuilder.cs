@@ -87,10 +87,12 @@ namespace SharpConsoleUI.Builders
 
 		/// <summary>Sets the control's semantic colour role (drives the default filled-bar accent).</summary>
 		/// <param name="role">The semantic role determining the bar's accent colour.</param>
+		/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
 		/// <returns>The builder for chaining.</returns>
-		public BarGraphBuilder WithRole(ControlRole role)
+		public BarGraphBuilder WithColorRole(ColorRole role, ThemeMode? mode = null)
 		{
-			_control.Role = role;
+			_control.ColorRole = role;
+			_control.ColorRoleMode = mode;
 			return this;
 		}
 

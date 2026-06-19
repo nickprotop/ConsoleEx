@@ -22,19 +22,27 @@ namespace SharpConsoleUI.Controls
 	/// Supports 12h and 24h formats, keyboard digit entry, and mouse interaction.
 	/// </summary>
 	public partial class TimePickerControl : BaseControl, IInteractiveControl,
-		IFocusableControl, IMouseAwareControl, ICursorShapeProvider, IRoleableControl
+		IFocusableControl, IMouseAwareControl, ICursorShapeProvider, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -224,8 +232,8 @@ namespace SharpConsoleUI.Controls
 		/// Computes the current role state from the picker's enabled/focus state so role colours
 		/// reflect the same visual state the renderer paints.
 		/// </summary>
-		private RoleState CurrentRoleState =>
-			!_isEnabled ? RoleState.Disabled : (ComputeHasFocus() ? RoleState.Focused : RoleState.Normal);
+		private ColorRoleState CurrentRoleState =>
+			!_isEnabled ? ColorRoleState.Disabled : (ComputeHasFocus() ? ColorRoleState.Focused : ColorRoleState.Normal);
 
 		/// <inheritdoc/>
 		public bool WantsMouseEvents => _isEnabled;
@@ -251,7 +259,7 @@ namespace SharpConsoleUI.Controls
 		public Color ForegroundColor
 		{
 			get => _foregroundColorValue
-				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, CurrentRoleState)
+				?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, CurrentRoleState, mode: ColorRoleMode)
 				?? ColorResolver.ResolveTimePickerForeground(null, Container);
 			set => SetProperty(ref _foregroundColorValue, (Color?)value);
 		}
@@ -271,7 +279,7 @@ namespace SharpConsoleUI.Controls
 		public Color FocusedForegroundColor
 		{
 			get => _focusedForegroundColorValue
-				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, RoleState.Focused)
+				?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, ColorRoleState.Focused, mode: ColorRoleMode)
 				?? ColorResolver.ResolveTimePickerFocusedForeground(null, Container);
 			set => SetProperty(ref _focusedForegroundColorValue, (Color?)value);
 		}
@@ -300,7 +308,7 @@ namespace SharpConsoleUI.Controls
 		public Color DisabledForegroundColor
 		{
 			get => _disabledForegroundColorValue
-				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, RoleState.Disabled)
+				?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, ColorRoleState.Disabled, mode: ColorRoleMode)
 				?? ColorResolver.ResolveTimePickerDisabledForeground(null, Container);
 			set => SetProperty(ref _disabledForegroundColorValue, (Color?)value);
 		}

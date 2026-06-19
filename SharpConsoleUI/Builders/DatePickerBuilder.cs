@@ -36,7 +36,8 @@ public sealed class DatePickerBuilder : IControlBuilder<DatePickerControl>
 	private string? _name;
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
-	private ControlRole _role = ControlRole.Default;
+	private ColorRole _role = ColorRole.Default;
+	private ThemeMode? _colorRoleMode;
 	private bool _outline;
 	private EventHandler<DateTime?>? _selectedDateChangedHandler;
 	private WindowEventHandler<DateTime?>? _selectedDateChangedWithWindowHandler;
@@ -312,10 +313,12 @@ public sealed class DatePickerBuilder : IControlBuilder<DatePickerControl>
 
 	/// <summary>Sets the control's semantic colour role.</summary>
 	/// <param name="role">The semantic role determining the picker's colours.</param>
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
 	/// <returns>The builder for chaining</returns>
-	public DatePickerBuilder WithRole(ControlRole role)
+	public DatePickerBuilder WithColorRole(ColorRole role, ThemeMode? mode = null)
 	{
 		_role = role;
+		_colorRoleMode = mode;
 		return this;
 	}
 
@@ -344,7 +347,8 @@ public sealed class DatePickerBuilder : IControlBuilder<DatePickerControl>
 			Name = _name,
 			Tag = _tag,
 			StickyPosition = _stickyPosition,
-			Role = _role,
+			ColorRole = _role,
+			ColorRoleMode = _colorRoleMode,
 			Outline = _outline
 		};
 

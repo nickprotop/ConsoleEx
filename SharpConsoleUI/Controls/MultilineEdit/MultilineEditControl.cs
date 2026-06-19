@@ -23,19 +23,27 @@ namespace SharpConsoleUI.Controls
 	/// A multiline text editing control with support for text selection, scrolling, and word wrap.
 	/// Provides full cursor navigation, cut/copy/paste-like operations, and configurable scrollbars.
 	/// </summary>
-	public partial class MultilineEditControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider, ISelectableControl, IPasteTarget, IDragAutoScrollTarget, IRoleableControl
+	public partial class MultilineEditControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider, ISelectableControl, IPasteTarget, IDragAutoScrollTarget, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -353,7 +361,7 @@ namespace SharpConsoleUI.Controls
 		public Color FocusedForegroundColor
 		{
 			get => _focusedForegroundColorValue
-				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, RoleState.Focused)
+				?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, ColorRoleState.Focused, mode: ColorRoleMode)
 				?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedForegroundColor ?? Color.White;
 			set
 			{
@@ -369,7 +377,7 @@ namespace SharpConsoleUI.Controls
 		public Color ForegroundColor
 		{
 			get => _foregroundColorValue
-				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, CurrentRoleState)
+				?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, CurrentRoleState, mode: ColorRoleMode)
 				?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputForegroundColor ?? Color.White;
 			set
 			{
@@ -889,8 +897,8 @@ namespace SharpConsoleUI.Controls
 		/// Computes the current role state from the editor's enabled/focus state so role colours
 		/// reflect the same visual state the renderer paints.
 		/// </summary>
-		private RoleState CurrentRoleState =>
-			!_isEnabled ? RoleState.Disabled : (ComputeHasFocus() ? RoleState.Focused : RoleState.Normal);
+		private ColorRoleState CurrentRoleState =>
+			!_isEnabled ? ColorRoleState.Disabled : (ComputeHasFocus() ? ColorRoleState.Focused : ColorRoleState.Normal);
 
 		/// <inheritdoc/>
 		public bool WantsMouseEvents => IsEnabled;

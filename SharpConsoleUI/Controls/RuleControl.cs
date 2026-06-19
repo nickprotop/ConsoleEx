@@ -20,19 +20,27 @@ namespace SharpConsoleUI.Controls
 	/// A control that renders a horizontal rule (divider line) with optional title text.
 	/// Renders directly to CharacterBuffer using BoxChars.
 	/// </summary>
-	public class RuleControl : BaseControl, IRoleableControl
+	public class RuleControl : BaseControl, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -282,7 +290,7 @@ namespace SharpConsoleUI.Controls
 			var fgColor = Container?.ForegroundColor ?? defaultFg;
 			var effectiveBg = SharpConsoleUI.Color.Transparent;
 			var ruleColor = _color
-				?? ColorResolver.RoleForeground(Role, Container, Outline)
+				?? ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, mode: ColorRoleMode)
 				?? fgColor;
 
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;

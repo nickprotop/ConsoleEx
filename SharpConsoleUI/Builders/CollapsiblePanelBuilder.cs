@@ -221,9 +221,11 @@ public sealed class CollapsiblePanelBuilder : IControlBuilder<CollapsiblePanel>
 
 	/// <summary>Sets the control's semantic colour role, which tints the panel border/header chrome.</summary>
 	/// <param name="role">The semantic role determining the panel's chrome colour.</param>
-	public CollapsiblePanelBuilder WithRole(ControlRole role)
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
+	public CollapsiblePanelBuilder WithColorRole(ColorRole role, ThemeMode? mode = null)
 	{
-		_panel.Role = role;
+		_panel.ColorRole = role;
+		_panel.ColorRoleMode = mode;
 		return this;
 	}
 

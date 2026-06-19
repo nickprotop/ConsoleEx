@@ -38,19 +38,27 @@ namespace SharpConsoleUI.Controls
 	/// along a track. Supports both horizontal and vertical orientations, keyboard and mouse
 	/// interaction, and optional value and min/max labels.
 	/// </summary>
-	public partial class SliderControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IRoleableControl
+	public partial class SliderControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -253,7 +261,7 @@ namespace SharpConsoleUI.Controls
 		public Color? FilledTrackColor
 		{
 			get => _filledTrackColor
-				?? ColorResolver.RoleBackground(Role, Container, Outline, CurrentRoleState)
+				?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, CurrentRoleState, mode: ColorRoleMode)
 				?? Container?.GetConsoleWindowSystem?.Theme?.SliderFilledTrackColor ?? Color.Cyan1;
 			set => SetProperty(ref _filledTrackColor, value);
 		}
@@ -317,8 +325,8 @@ namespace SharpConsoleUI.Controls
 		/// Computes the current role state from the slider's enabled/focus state so role colours
 		/// reflect the same visual state the renderer paints.
 		/// </summary>
-		private RoleState CurrentRoleState =>
-			!_isEnabled ? RoleState.Disabled : (ComputeHasFocus() ? RoleState.Focused : RoleState.Normal);
+		private ColorRoleState CurrentRoleState =>
+			!_isEnabled ? ColorRoleState.Disabled : (ComputeHasFocus() ? ColorRoleState.Focused : ColorRoleState.Normal);
 
 		/// <summary>
 		/// Gets or sets whether the slider is enabled and can be interacted with.

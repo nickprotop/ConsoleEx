@@ -20,19 +20,27 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// A scrollable list control that supports selection, highlighting, and keyboard navigation.
 	/// </summary>
-	public partial class ListControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IRoleableControl
+	public partial class ListControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -361,7 +369,7 @@ namespace SharpConsoleUI.Controls
 		public Color HighlightBackgroundColor
 		{
 			get => _highlightBackgroundColorValue
-				?? ColorResolver.RoleBackground(Role, Container, Outline)
+				?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, mode: ColorRoleMode)
 				?? Container?.GetConsoleWindowSystem?.Theme?.ListSelectedBackgroundColor ?? Color.DarkBlue;
 			set => SetProperty(ref _highlightBackgroundColorValue, (Color?)value);
 		}
@@ -372,7 +380,7 @@ namespace SharpConsoleUI.Controls
 		public Color HighlightForegroundColor
 		{
 			get => _highlightForegroundColorValue
-				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline)
+				?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, mode: ColorRoleMode)
 				?? Container?.GetConsoleWindowSystem?.Theme?.ListSelectedForegroundColor ?? Color.White;
 			set => SetProperty(ref _highlightForegroundColorValue, (Color?)value);
 		}

@@ -29,19 +29,27 @@ namespace SharpConsoleUI.Controls
 	/// keyboard activation, and the optional height animation are implemented in companion
 	/// partials added by later tasks.
 	/// </remarks>
-	public partial class CollapsiblePanel : BaseControl, IContainer, IContainerControl, IControlHost, IMouseAwareControl, IInteractiveControl, IFocusableControl, IFocusableContainerWithHeader, ILogicalCursorProvider, IRoleableControl
+	public partial class CollapsiblePanel : BaseControl, IContainer, IContainerControl, IControlHost, IMouseAwareControl, IInteractiveControl, IFocusableControl, IFocusableContainerWithHeader, ILogicalCursorProvider, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -569,15 +577,15 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>
 		/// Resolves the colour painted on the panel chrome (border, bordered/borderless title, separator):
-		/// explicit <see cref="BorderColor"/> → semantic <see cref="Role"/> border → the
-		/// supplied foreground fallback. For <see cref="ControlRole.Default"/> the role helper returns null,
+		/// explicit <see cref="BorderColor"/> → semantic <see cref="ColorRole"/> border → the
+		/// supplied foreground fallback. For <see cref="ColorRole.Default"/> the role helper returns null,
 		/// keeping the no-role path byte-identical to the legacy behaviour.
 		/// </summary>
 		private Color ResolveChromeColor(Color foregroundFallback)
 		{
-			RoleState state = !_isEnabled ? RoleState.Disabled : (HasFocus ? RoleState.Focused : RoleState.Normal);
+			ColorRoleState state = !_isEnabled ? ColorRoleState.Disabled : (HasFocus ? ColorRoleState.Focused : ColorRoleState.Normal);
 			return _borderColorValue
-				?? ColorResolver.RoleBorder(Role, Container, Outline, state)
+				?? ColorResolver.ColorRoleBorder(ColorRole, Container, Outline, state, mode: ColorRoleMode)
 				?? foregroundFallback;
 		}
 

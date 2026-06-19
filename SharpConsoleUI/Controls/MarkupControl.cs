@@ -21,19 +21,27 @@ namespace SharpConsoleUI.Controls
 	/// A control that displays rich text content using Spectre.Console markup syntax.
 	/// Supports text alignment, margins, word wrapping, and sticky positioning.
 	/// </summary>
-	public partial class MarkupControl : BaseControl, IMouseAwareControl, ISelectableControl, ICopyableControl, IFocusableControl, IInteractiveControl, IDragAutoScrollTarget, IRoleableControl
+	public partial class MarkupControl : BaseControl, IMouseAwareControl, ISelectableControl, ICopyableControl, IFocusableControl, IInteractiveControl, IDragAutoScrollTarget, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -537,7 +545,7 @@ namespace SharpConsoleUI.Controls
 			// The role sets the DEFAULT foreground passed to the markup parser; inline [color] tags
 			// in the content still override it (they are applied during parsing, after the default).
 			Color effectiveFg = _foregroundColor
-				?? ColorResolver.RoleForeground(Role, Container, Outline)
+				?? ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, mode: ColorRoleMode)
 				?? fgColor;
 			Color effectiveBg = _backgroundColor ?? Color.Transparent;
 			var mdStyle = ResolveMarkdownStyle();

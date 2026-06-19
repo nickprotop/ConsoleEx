@@ -32,17 +32,20 @@ public sealed class SplitterControlBuilder : IControlBuilder<SplitterControl>
 	private ColumnContainer? _leftColumn;
 	private ColumnContainer? _rightColumn;
 	private EventHandler<SplitterMovedEventArgs>? _splitterMovedHandler;
-	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private Themes.ColorRole _role = Themes.ColorRole.Default;
+	private Themes.ThemeMode? _colorRoleMode;
 	private bool _outline = false;
 
 	/// <summary>
 	/// Sets the control's semantic colour role (drives the splitter line colour).
 	/// </summary>
 	/// <param name="role">The semantic role determining the splitter line colour.</param>
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
 	/// <returns>The builder for chaining.</returns>
-	public SplitterControlBuilder WithRole(Themes.ControlRole role)
+	public SplitterControlBuilder WithColorRole(Themes.ColorRole role, Themes.ThemeMode? mode = null)
 	{
 		_role = role;
+		_colorRoleMode = mode;
 		return this;
 	}
 
@@ -182,7 +185,8 @@ public sealed class SplitterControlBuilder : IControlBuilder<SplitterControl>
 		control.Name = _name;
 		control.Tag = _tag;
 		control.StickyPosition = _stickyPosition;
-		control.Role = _role;
+		control.ColorRole = _role;
+		control.ColorRoleMode = _colorRoleMode;
 		control.Outline = _outline;
 
 		if (_borderColor.HasValue)

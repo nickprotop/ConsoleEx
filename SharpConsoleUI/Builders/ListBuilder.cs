@@ -65,17 +65,20 @@ public sealed class ListBuilder : IControlBuilder<ListControl>
 	private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
 	private bool _doubleClickActivates = true;
 	private int _doubleClickThresholdMs = 500;
-	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private Themes.ColorRole _role = Themes.ColorRole.Default;
+	private Themes.ThemeMode? _colorRoleMode;
 	private bool _outline = false;
 
 	/// <summary>
 	/// Sets the control's semantic colour role (drives the selected-item accent colour).
 	/// </summary>
 	/// <param name="role">The semantic role determining the selection accent colour.</param>
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
 	/// <returns>The builder for chaining.</returns>
-	public ListBuilder WithRole(Themes.ControlRole role)
+	public ListBuilder WithColorRole(Themes.ColorRole role, Themes.ThemeMode? mode = null)
 	{
 		_role = role;
+		_colorRoleMode = mode;
 		return this;
 	}
 
@@ -622,7 +625,8 @@ public sealed class ListBuilder : IControlBuilder<ListControl>
 			DoubleClickActivates = _doubleClickActivates,
 			DoubleClickThresholdMs = _doubleClickThresholdMs,
 			ScrollbarVisibility = _scrollbarVisibility,
-			Role = _role,
+			ColorRole = _role,
+			ColorRoleMode = _colorRoleMode,
 			Outline = _outline
 		};
 

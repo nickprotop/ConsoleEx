@@ -40,7 +40,8 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	private EventHandler<LinkClickedEventArgs>? _linkClickedHandler;
 	private Color? _focusedLinkForegroundColor;
 	private Color? _focusedLinkBackgroundColor;
-	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private Themes.ColorRole _role = Themes.ColorRole.Default;
+	private Themes.ThemeMode? _colorRoleMode;
 	private bool _outline = false;
 
 	/// <summary>
@@ -48,10 +49,12 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	/// inline [color] tags still override it).
 	/// </summary>
 	/// <param name="role">The semantic role determining the default text colour.</param>
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
 	/// <returns>The builder for chaining.</returns>
-	public MarkupBuilder WithRole(Themes.ControlRole role)
+	public MarkupBuilder WithColorRole(Themes.ColorRole role, Themes.ThemeMode? mode = null)
 	{
 		_role = role;
+		_colorRoleMode = mode;
 		return this;
 	}
 
@@ -478,7 +481,8 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 			CopyModifiers = _copyModifiers,
 			FocusedLinkForegroundColor = _focusedLinkForegroundColor,
 			FocusedLinkBackgroundColor = _focusedLinkBackgroundColor,
-			Role = _role,
+			ColorRole = _role,
+			ColorRoleMode = _colorRoleMode,
 			Outline = _outline
 		};
 

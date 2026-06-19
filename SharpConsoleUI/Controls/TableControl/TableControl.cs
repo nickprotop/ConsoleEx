@@ -26,19 +26,27 @@ namespace SharpConsoleUI.Controls;
 /// keyboard navigation, scrolling, sorting, multi-selection, column resizing,
 /// inline editing, draggable scrollbars, and virtual data binding.
 /// </summary>
-public partial class TableControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IPasteTarget, IRoleableControl
+public partial class TableControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IPasteTarget, IColorRoleableControl
 {
 
-	#region Role
+	#region ColorRole
 
-	private ControlRole _role = ControlRole.Default;
+	private ColorRole _role = ColorRole.Default;
+	private ThemeMode? _colorRoleMode;
 	private bool _outline;
 
 	/// <inheritdoc/>
-	public ControlRole Role
+	public ColorRole ColorRole
 	{
 		get => _role;
 		set => SetProperty(ref _role, value);
+	}
+
+	/// <inheritdoc/>
+	public ThemeMode? ColorRoleMode
+	{
+		get => _colorRoleMode;
+		set => SetProperty(ref _colorRoleMode, value);
 	}
 
 	/// <inheritdoc/>
@@ -847,14 +855,14 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 	internal Color ResolveForegroundColor(Color defaultFg)
 	{
-		// When a Role is set, normal-row text is tinted with the role (readable on the surface) so the
-		// table reads as its role even with no row selected. RoleForeground is null for Role.Default.
+		// When a ColorRole is set, normal-row text is tinted with the role (readable on the surface) so the
+		// table reads as its role even with no row selected. ColorRoleForeground is null for ColorRole.Default.
 		if (_foregroundColorValue == null)
-			return ColorResolver.RoleForeground(Role, Container, Outline) ?? Container?.ForegroundColor ?? defaultFg;
+			return ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, mode: ColorRoleMode) ?? Container?.ForegroundColor ?? defaultFg;
 		if (_foregroundColorValue.Value == Color.Default)
 		{
 			var theme = Container?.GetConsoleWindowSystem?.Theme;
-			return ColorResolver.RoleForeground(Role, Container, Outline)
+			return ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, mode: ColorRoleMode)
 				?? theme?.TableForegroundColor
 				?? Container?.ForegroundColor
 				?? defaultFg;
@@ -866,7 +874,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	// used for the graded selection/hover states. Returns null when no role is set.
 	private Color? RoleFillMixed(double towardSurface)
 	{
-		Color? roleFill = ColorResolver.RoleBackground(Role, Container, Outline);
+		Color? roleFill = ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, mode: ColorRoleMode);
 		if (roleFill == null)
 			return null;
 		Color surface = Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
@@ -915,14 +923,14 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	internal Color ResolveSelectionBackgroundColor()
 	{
 		var theme = Container?.GetConsoleWindowSystem?.Theme;
-		return ColorResolver.RoleBackground(Role, Container, Outline)
+		return ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, mode: ColorRoleMode)
 			?? theme?.TableSelectionBackgroundColor ?? Color.Blue;
 	}
 
 	internal Color ResolveSelectionForegroundColor()
 	{
 		var theme = Container?.GetConsoleWindowSystem?.Theme;
-		return ColorResolver.RoleTextOnBackground(Role, Container, Outline)
+		return ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, mode: ColorRoleMode)
 			?? theme?.TableSelectionForegroundColor ?? Color.White;
 	}
 

@@ -20,19 +20,27 @@ namespace SharpConsoleUI.Controls
 	/// A vertical splitter control that allows users to resize adjacent columns in a <see cref="HorizontalGridControl"/>.
 	/// Supports keyboard-based resizing with arrow keys and provides visual feedback during focus and dragging.
 	/// </summary>
-	public class SplitterControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IRoleableControl
+	public class SplitterControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IColorRoleableControl
 	{
 
-		#region Role
+		#region ColorRole
 
-		private ControlRole _role = ControlRole.Default;
+		private ColorRole _role = ColorRole.Default;
+		private ThemeMode? _colorRoleMode;
 		private bool _outline;
 
 		/// <inheritdoc/>
-		public ControlRole Role
+		public ColorRole ColorRole
 		{
 			get => _role;
 			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public ThemeMode? ColorRoleMode
+		{
+			get => _colorRoleMode;
+			set => SetProperty(ref _colorRoleMode, value);
 		}
 
 		/// <inheritdoc/>
@@ -219,7 +227,7 @@ namespace SharpConsoleUI.Controls
 		{
 			// Resolution chain: explicit → role → grid's fg → grid's parent (Container) → theme
 			get => _foregroundColorValue
-				?? ColorResolver.RoleForeground(Role, Container, Outline)
+				?? ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, mode: ColorRoleMode)
 				?? _parentGrid?.ForegroundColor
 				?? Container?.ForegroundColor
 				?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;

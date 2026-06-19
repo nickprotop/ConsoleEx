@@ -37,7 +37,8 @@ public sealed class ToolbarBuilder : IControlBuilder<ToolbarControl>
 	private bool _showBelowLine;
 	private Color? _aboveLineColor;
 	private Color? _belowLineColor;
-	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private Themes.ColorRole _role = Themes.ColorRole.Default;
+	private Themes.ThemeMode? _colorRoleMode;
 	private bool _outline;
 	private Padding? _contentPadding;
 	private EventHandler? _gotFocusHandler;
@@ -260,10 +261,12 @@ public sealed class ToolbarBuilder : IControlBuilder<ToolbarControl>
 
 	/// <summary>Sets the control's semantic colour role, which tints the toolbar surface.</summary>
 	/// <param name="role">The semantic role determining the toolbar's colours.</param>
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
 	/// <returns>The builder for chaining</returns>
-	public ToolbarBuilder WithRole(Themes.ControlRole role)
+	public ToolbarBuilder WithColorRole(Themes.ColorRole role, Themes.ThemeMode? mode = null)
 	{
 		_role = role;
+		_colorRoleMode = mode;
 		return this;
 	}
 
@@ -472,7 +475,8 @@ public sealed class ToolbarBuilder : IControlBuilder<ToolbarControl>
 			ShowBelowLine = _showBelowLine,
 			AboveLineColor = _aboveLineColor,
 			BelowLineColor = _belowLineColor,
-			Role = _role,
+			ColorRole = _role,
+			ColorRoleMode = _colorRoleMode,
 			Outline = _outline
 		};
 

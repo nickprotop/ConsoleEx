@@ -47,27 +47,27 @@ namespace SharpConsoleUI.Controls
 			var effectiveBg = Color.Transparent;
 
 			// Resolve colors based on state (role link applied between explicit override and theme
-			// default; identical to legacy when Role==Default since the role helpers return null).
-			RoleState roleState = CurrentRoleState;
+			// default; identical to legacy when ColorRole==Default since the role helpers return null).
+			ColorRoleState roleState = CurrentRoleState;
 			Color bgColor, fgColor;
 			if (!_isEnabled)
 			{
 				bgColor = _backgroundColorValue
-					?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+					?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode)
 					?? ColorResolver.ResolveTimePickerBackground(null, Container);
 				fgColor = DisabledForegroundColor;
 			}
 			else if (HasFocus)
 			{
 				bgColor = _focusedBackgroundColorValue
-					?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+					?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode)
 					?? ColorResolver.ResolveTimePickerFocusedBackground(null, Container);
 				fgColor = FocusedForegroundColor;
 			}
 			else
 			{
 				bgColor = _backgroundColorValue
-					?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+					?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode)
 					?? ColorResolver.ResolveTimePickerBackground(null, Container);
 				fgColor = ForegroundColor;
 			}

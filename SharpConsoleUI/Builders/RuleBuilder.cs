@@ -29,17 +29,20 @@ public sealed class RuleBuilder : IControlBuilder<RuleControl>
 	private string? _name;
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
-	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private Themes.ColorRole _role = Themes.ColorRole.Default;
+	private Themes.ThemeMode? _colorRoleMode;
 	private bool _outline = false;
 
 	/// <summary>
 	/// Sets the control's semantic colour role (drives the rule line colour).
 	/// </summary>
 	/// <param name="role">The semantic role determining the rule line colour.</param>
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
 	/// <returns>The builder for chaining</returns>
-	public RuleBuilder WithRole(Themes.ControlRole role)
+	public RuleBuilder WithColorRole(Themes.ColorRole role, Themes.ThemeMode? mode = null)
 	{
 		_role = role;
+		_colorRoleMode = mode;
 		return this;
 	}
 
@@ -281,7 +284,8 @@ public sealed class RuleBuilder : IControlBuilder<RuleControl>
 			Name = _name,
 			Tag = _tag,
 			StickyPosition = _stickyPosition,
-			Role = _role,
+			ColorRole = _role,
+			ColorRoleMode = _colorRoleMode,
 			Outline = _outline
 		};
 

@@ -30,7 +30,8 @@ public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 	private Color _highlightBackgroundColor = Color.Blue;
 	private Color _highlightForegroundColor = Color.White;
 	private bool _explicitHighlightColors = false;
-	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private Themes.ColorRole _role = Themes.ColorRole.Default;
+	private Themes.ThemeMode? _colorRoleMode;
 	private bool _outline = false;
 	private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
@@ -194,10 +195,12 @@ public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 	/// Sets the control's semantic colour role (drives the selected-node accent colour).
 	/// </summary>
 	/// <param name="role">The semantic role determining the selection accent colour.</param>
+	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
 	/// <returns>The builder for chaining</returns>
-	public TreeControlBuilder WithRole(Themes.ControlRole role)
+	public TreeControlBuilder WithColorRole(Themes.ColorRole role, Themes.ThemeMode? mode = null)
 	{
 		_role = role;
+		_colorRoleMode = mode;
 		return this;
 	}
 
@@ -477,13 +480,14 @@ public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 			ScrollbarVisibility = _scrollbarVisibility,
 			Name = _name,
 			Tag = _tag,
-			Role = _role,
+			ColorRole = _role,
+			ColorRoleMode = _colorRoleMode,
 			Outline = _outline
 		};
 
 		// Preserve the legacy default (Blue/White) when no role is set; when a role is set
 		// and the user didn't explicitly choose highlight colours, let the role drive them.
-		if (_explicitHighlightColors || _role == Themes.ControlRole.Default)
+		if (_explicitHighlightColors || _role == Themes.ColorRole.Default)
 		{
 			tree.HighlightBackgroundColor = _highlightBackgroundColor;
 			tree.HighlightForegroundColor = _highlightForegroundColor;

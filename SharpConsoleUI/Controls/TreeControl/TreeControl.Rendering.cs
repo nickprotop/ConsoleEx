@@ -224,14 +224,14 @@ namespace SharpConsoleUI.Controls
 				Color nodeBgColor;
 
 				var selectionBg = _highlightBackgroundColorValue
-					?? ColorResolver.RoleBackground(Role, Container, Outline)
+					?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, mode: ColorRoleMode)
 					?? ColorResolver.ResolveTreeSelectionBackground(null, Container);
 
-				// When a Role is set, the role fill drives every state at graded intensities (so the tree
-				// reads as its role even with nothing selected). RoleBackground/RoleForeground are null
-				// for Role.Default, leaving the legacy paths unchanged.
-				Color? roleFill = ColorResolver.RoleBackground(Role, Container, Outline);
-				Color? roleText = ColorResolver.RoleForeground(Role, Container, Outline);
+				// When a ColorRole is set, the role fill drives every state at graded intensities (so the tree
+				// reads as its role even with nothing selected). ColorRoleBackground/ColorRoleForeground are null
+				// for ColorRole.Default, leaving the legacy paths unchanged.
+				Color? roleFill = ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, mode: ColorRoleMode);
+				Color? roleText = ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, mode: ColorRoleMode);
 				Color roleSurface = Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
 
 				if (i == selectedIndex && HasFocus)

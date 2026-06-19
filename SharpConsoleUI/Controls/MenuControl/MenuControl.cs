@@ -20,19 +20,27 @@ namespace SharpConsoleUI.Controls;
 /// A full-featured menu control supporting horizontal (menu bar) and vertical (sidebar) orientations,
 /// unlimited submenu nesting, keyboard and mouse navigation, and overlay rendering.
 /// </summary>
-public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IRoleableControl
+public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IColorRoleableControl
 {
 
-	#region Role
+	#region ColorRole
 
-	private ControlRole _role = ControlRole.Default;
+	private ColorRole _role = ColorRole.Default;
+	private ThemeMode? _colorRoleMode;
 	private bool _outline;
 
 	/// <inheritdoc/>
-	public ControlRole Role
+	public ColorRole ColorRole
 	{
 		get => _role;
 		set => SetProperty(ref _role, value);
+	}
+
+	/// <inheritdoc/>
+	public ThemeMode? ColorRoleMode
+	{
+		get => _colorRoleMode;
+		set => SetProperty(ref _colorRoleMode, value);
 	}
 
 	/// <inheritdoc/>
@@ -211,22 +219,22 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 	// Resolved colors with theme fallback
 	private Color ResolvedMenuBarBackground => ColorResolver.ResolveMenuBarBackground(_menuBarBackgroundColor, Container);
 	private Color ResolvedMenuBarForeground => ColorResolver.ResolveMenuBarForeground(_menuBarForegroundColor, Container);
-	// The highlight is the role surface: when a Role is set, the highlighted/open item adopts the role
+	// The highlight is the role surface: when a ColorRole is set, the highlighted/open item adopts the role
 	// fill (background) and readable text-on-fill (foreground). Explicit overrides still win; for
-	// Role=Default the role helpers return null, keeping the no-role path byte-identical.
+	// ColorRole=Default the role helpers return null, keeping the no-role path byte-identical.
 	private Color ResolvedMenuBarHighlightBackground => _menuBarHighlightBackgroundColor
-		?? ColorResolver.RoleBackground(Role, Container, Outline, RoleState.Focused)
+		?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, ColorRoleState.Focused, mode: ColorRoleMode)
 		?? ColorResolver.ResolveMenuBarHighlightBackground(null, Container);
 	private Color ResolvedMenuBarHighlightForeground => _menuBarHighlightForegroundColor
-		?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, RoleState.Focused)
+		?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, ColorRoleState.Focused, mode: ColorRoleMode)
 		?? ColorResolver.ResolveMenuBarHighlightForeground(null, Container);
 	private Color ResolvedDropdownBackground => ColorResolver.ResolveDropdownBackground(_dropdownBackgroundColor, Container);
 	private Color ResolvedDropdownForeground => ColorResolver.ResolveDropdownForeground(_dropdownForegroundColor, Container);
 	private Color ResolvedDropdownHighlightBackground => _dropdownHighlightBackgroundColor
-		?? ColorResolver.RoleBackground(Role, Container, Outline, RoleState.Focused)
+		?? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, ColorRoleState.Focused, mode: ColorRoleMode)
 		?? ColorResolver.ResolveDropdownHighlightBackground(null, Container);
 	private Color ResolvedDropdownHighlightForeground => _dropdownHighlightForegroundColor
-		?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, RoleState.Focused)
+		?? ColorResolver.ColorRoleTextOnBackground(ColorRole, Container, Outline, ColorRoleState.Focused, mode: ColorRoleMode)
 		?? ColorResolver.ResolveDropdownHighlightForeground(null, Container);
 
 	// Legacy property aliases for backward compatibility
