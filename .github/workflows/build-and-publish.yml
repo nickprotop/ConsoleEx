@@ -89,8 +89,22 @@ jobs:
       if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
       id: release_notes
       run: |
-        # Get previous tag
-        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        # Pick the tag to diff against for the changelog.
+        # `git describe --abbrev=0` walks COMMIT ANCESTRY, so on a stable promotion it returns the
+        # immediately-preceding RC (e.g. v2.4.79 -> v2.4.79-rc.4), making the notes ~one commit and
+        # hiding everything since the last stable. So choose by version instead:
+        #   - Stable release  -> diff against the latest STABLE tag (skip rc.* entirely).
+        #   - RC release      -> diff against the latest tag of ANY kind below it (prior RC/stable),
+        #                        so each RC lists only what changed since the previous RC.
+        # In both cases exclude the tag being released. `-v:refname` is safe here because we never
+        # mix stable and rc in the same candidate list (see publish.sh for the precedence rationale).
+        VERSION="${{ steps.version.outputs.version }}"
+        if [[ "$VERSION" == *-rc.* ]]; then
+          PREVIOUS_TAG=$(git tag --list 'v*' --sort=-v:refname | grep -vFx "v${VERSION}" | head -1)
+        else
+          PREVIOUS_TAG=$(git tag --list 'v*' --sort=-v:refname | grep -vE -- '-rc\.' | grep -vFx "v${VERSION}" | head -1)
+        fi
+        echo "Changelog base: ${PREVIOUS_TAG:-<none>} -> v${VERSION}"
 
         # Generate commit list
         if [ -n "$PREVIOUS_TAG" ]; then
