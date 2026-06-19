@@ -7,6 +7,7 @@ SharpConsoleUI includes a powerful theme system that allows runtime theme switch
 - [Built-in Themes](#built-in-themes)
 - [Using Themes](#using-themes)
 - [Deriving a Theme from Another (Recommended)](#deriving-a-theme-from-another-recommended)
+- [Control Roles](#control-roles)
 - [Creating Custom Themes from Scratch](#creating-custom-themes-from-scratch)
 - [Theme Registry](#theme-registry)
 - [Runtime Theme Switching](#runtime-theme-switching)
@@ -177,6 +178,105 @@ The library registers a handful of palette-generated themes out of the box, so e
 ready-made selection in the theme selector without any setup: **Ocean**, **Amber**, **Forest**,
 **Crimson**, **Slate** (dark) and **Daylight** (light). `ModernGray` remains the default. These are
 just normal registered themes — switch to them by name like any other.
+
+## Control Roles
+
+Instead of setting individual colors on a control, you can give it a **semantic role** and let the
+active theme supply a coordinated set of colors. A role describes a control's *purpose* — a delete
+button is `Danger`, a confirmation is `Success` — and the theme decides what those look like. Switch
+themes and every roled control re-derives from the new palette automatically.
+
+### The roles
+
+```csharp
+public enum ControlRole
+{
+    Default,    // no role — the control resolves colors as it normally would
+    Primary, Secondary, Tertiary,
+    Info, Success, Warning, Danger
+}
+```
+
+`Default` (the default) leaves a control's color resolution exactly as it was — roles are fully
+additive, so existing code is unaffected.
+
+### Applying a role
+
+Every control inherits two properties from `BaseControl`:
+
+```csharp
+button.Role = ControlRole.Danger;   // colors derived from the theme's Danger palette
+button.Outline = true;              // outline style: role color on text + border, surface fill
+```
+
+Or fluently via the builders:
+
+```csharp
+// A danger button
+new ButtonBuilder().WithText("Delete account").WithRole(ControlRole.Danger).Build();
+
+// An outline success button (surface fill, green text + border)
+new ButtonBuilder().WithText("Confirm").WithRole(ControlRole.Success).Outline().Build();
+
+// Primary / secondary action pair
+new ButtonBuilder().WithText("Save").WithRole(ControlRole.Primary).Build();
+new ButtonBuilder().WithText("Cancel").WithRole(ControlRole.Secondary).Outline().Build();
+```
+
+A per-control explicit color always wins over the role, so you can override a single slot and let the
+rest come from the role:
+
+```csharp
+new ButtonBuilder()
+    .WithRole(ControlRole.Danger)        // danger text + border…
+    .WithBackgroundColor(Color.Black)    // …but a specific black fill
+    .Build();
+```
+
+The same code is theme-agnostic — `WithRole(ControlRole.Danger)` resolves to Ocean's danger red under
+Ocean, Maroon under ModernGray, and so on.
+
+### Where the colors come from
+
+A role resolves to a coordinated set — `{ Text, Background, TextOnBackground, Border }` plus
+focus/disabled state variants — derived from the theme's seed colors and its window foreground/
+background anchors. The theme surfaces up to seven nullable seed colors; anything left unset is
+derived (secondary/tertiary from primary, status colors from mode-tuned defaults):
+
+```csharp
+// On any ITheme (ThemeBase / MutableTheme / a palette-generated theme):
+Color? PrimaryColor   { get; }
+Color? SecondaryColor { get; }
+Color? TertiaryColor  { get; }
+Color? InfoColor      { get; }
+Color? SuccessColor   { get; }
+Color? WarningColor   { get; }
+Color? DangerColor    { get; }
+```
+
+`Theme.FromPalette(...)` populates all seven from the palette, and `ModernGray` authors them
+explicitly, so every built-in theme has a full, coherent role palette out of the box. A custom theme
+that sets only `PrimaryColor` still gets every role — the rest are derived.
+
+### Which controls honor roles
+
+Roles apply broadly. Interactive controls (Button, Checkbox, Dropdown, Slider, the pickers…),
+containers/chrome (Panel, CollapsiblePanel, TabControl, Toolbar, StatusBar…), indicators
+(ProgressBar, Spinner, the graphs), data controls (List, Table, Tree) and text controls (Markup,
+FIGlet) all respond to `Role`. For data controls the role themes the **whole item surface** across
+states — normal rows take a role-tinted foreground, hover and selection take graded role fills — so
+the control reads as its role even with nothing selected. For `MarkupControl` the role sets the
+*default* foreground; inline `[color]` tags still win.
+
+A few controls have no single themed surface — `CanvasControl`, `ImageControl`, `VideoControl`,
+`HtmlControl`, `SpectreRenderableControl`, `LogViewerControl`, `HorizontalGridControl` — they inherit
+the `Role` property but ignore it.
+
+### Defaults by purpose
+
+Built-in components with an inherent purpose set their own role by default — notifications map their
+severity to a role (a `Danger` notification is themed by the Danger role) — so you get coherent,
+role-consistent UI without setting anything.
 
 ## Creating Custom Themes from Scratch
 
