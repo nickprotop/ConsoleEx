@@ -36,6 +36,7 @@ public static class LauncherWindow
 				.AddItem("Dropdown", subtitle: "Cascading dropdowns", content: MakeInfoPanel("Dropdown"))
 				.AddItem("List View", subtitle: "NuGet-style package browser", content: MakeInfoPanel("List View"))
 				.AddItem("Disabled States", subtitle: "Enabled vs. disabled controls — compare theme rendering", content: MakeInfoPanel("Disabled States"))
+				.AddItem("Control Roles", subtitle: "Semantic roles (Danger/Success…) — solid & outline, per theme", content: MakeInfoPanel("Control Roles"))
 				.AddItem("Table", subtitle: "Interactive employee directory", content: MakeInfoPanel("Table"))
 				.AddItem("DataGrid", subtitle: "Virtual DataGrid with 10K rows", content: MakeInfoPanel("DataGrid"))
 				.AddItem("Nerd Fonts", subtitle: "NerdFont icon showcase", content: MakeInfoPanel("Nerd Fonts"))
@@ -223,6 +224,9 @@ public static class LauncherWindow
 		};
 	}
 
+	/// <summary>Launches a demo window by its launcher name (used by the <c>--demo</c> command-line arg).</summary>
+	public static void LaunchByName(ConsoleWindowSystem ws, string demoName) => LaunchDemo(ws, demoName);
+
 	private static void LaunchDemo(ConsoleWindowSystem ws, string demoName)
 	{
 		_ = demoName switch
@@ -240,6 +244,7 @@ public static class LauncherWindow
 			"Dropdown" => DropdownWindow.Create(ws),
 			"List View" => ListViewWindow.Create(ws),
 			"Disabled States" => DisabledStatesWindow.Create(ws),
+			"Control Roles" => ControlRolesWindow.Create(ws),
 			"Table" => TableDemoWindow.Create(ws),
 			"DataGrid" => DataGridWindow.Create(ws),
 			"Nerd Fonts" => NerdFontWindow.Create(ws),
@@ -1020,6 +1025,26 @@ public static class LauncherWindow
 				"[dim]Controls used:[/]",
 				"  - ButtonControl, CheckboxControl",
 				"  - DropdownControl, ListControl",
+			},
+			"Control Roles" => new List<string>
+			{
+				"[bold]Control Roles[/]",
+				"",
+				"A control can declare a semantic role (Primary,",
+				"Secondary, Tertiary, Info, Success, Warning, Danger)",
+				"and its colours are derived from the active theme's",
+				"role palette — no per-colour set needed.",
+				"",
+				"[dim]Shown here:[/]",
+				"  - A button per role, solid and outline",
+				"  - Role-coloured checkboxes & progress bars",
+				"  - Role-framed panels (Danger / Success)",
+				"",
+				"[dim]Try it:[/]",
+				"  - Switch themes (toolbar) to watch each role",
+				"    re-derive from each palette.",
+				"",
+				"[dim]API:[/] .WithRole(ControlRole.Danger).Outline()",
 			},
 			_ => null
 		};

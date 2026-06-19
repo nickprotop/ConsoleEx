@@ -58,6 +58,17 @@ internal class Program
 
 			LauncherWindow.Create(windowSystem);
 
+			// Command-line helpers for headless/automated capture:
+			//   --theme <Name>   switch to a registered theme before showing the UI
+			//   --demo "<Name>"  open a specific demo window by its launcher name on startup
+			for (int i = 0; i < args.Length - 1; i++)
+			{
+				if (args[i] == "--theme")
+					windowSystem.ThemeStateService.SwitchTheme(args[i + 1]);
+				else if (args[i] == "--demo")
+					LauncherWindow.LaunchByName(windowSystem, args[i + 1]);
+			}
+
 			// Shared logic: open/activate/recreate launcher
 			void OpenLauncher()
 			{
