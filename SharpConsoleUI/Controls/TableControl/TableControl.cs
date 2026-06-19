@@ -824,16 +824,30 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 	internal Color ResolveForegroundColor(Color defaultFg)
 	{
+		// When a Role is set, normal-row text is tinted with the role (readable on the surface) so the
+		// table reads as its role even with no row selected. RoleForeground is null for Role.Default.
 		if (_foregroundColorValue == null)
-			return Container?.ForegroundColor ?? defaultFg;
+			return ColorResolver.RoleForeground(Role, Container, Outline) ?? Container?.ForegroundColor ?? defaultFg;
 		if (_foregroundColorValue.Value == Color.Default)
 		{
 			var theme = Container?.GetConsoleWindowSystem?.Theme;
-			return theme?.TableForegroundColor
+			return ColorResolver.RoleForeground(Role, Container, Outline)
+				?? theme?.TableForegroundColor
 				?? Container?.ForegroundColor
 				?? defaultFg;
 		}
 		return _foregroundColorValue.Value;
+	}
+
+	// A role fill mixed toward the window surface at the given strength (0 = surface, 1 = full role),
+	// used for the graded selection/hover states. Returns null when no role is set.
+	private Color? RoleFillMixed(double towardSurface)
+	{
+		Color? roleFill = ColorResolver.RoleBackground(Role, Container, Outline);
+		if (roleFill == null)
+			return null;
+		Color surface = Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
+		return roleFill.Value.Mix(surface, towardSurface);
 	}
 
 	internal Color ResolveHeaderBackgroundColor()
@@ -891,25 +905,33 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 	internal Color ResolveUnfocusedSelectionBackgroundColor()
 	{
+		// Unfocused selection = a dimmed role fill (quieter, still visible) when a role is set.
 		var theme = Container?.GetConsoleWindowSystem?.Theme;
-		return theme?.TableUnfocusedSelectionBackgroundColor ?? Color.Navy;
+		return RoleFillMixed(0.35) ?? theme?.TableUnfocusedSelectionBackgroundColor ?? Color.Navy;
 	}
 
 	internal Color ResolveUnfocusedSelectionForegroundColor()
 	{
 		var theme = Container?.GetConsoleWindowSystem?.Theme;
+		var roleBg = RoleFillMixed(0.35);
+		if (roleBg != null)
+			return PaletteColors.ReadableOn(roleBg.Value);
 		return theme?.TableUnfocusedSelectionForegroundColor ?? Color.Silver;
 	}
 
 	internal Color ResolveHoverBackgroundColor()
 	{
+		// Hover = a mid-intensity role fill when a role is set.
 		var theme = Container?.GetConsoleWindowSystem?.Theme;
-		return theme?.TableHoverBackgroundColor ?? Color.Grey27;
+		return RoleFillMixed(0.55) ?? theme?.TableHoverBackgroundColor ?? Color.Grey27;
 	}
 
 	internal Color ResolveHoverForegroundColor()
 	{
 		var theme = Container?.GetConsoleWindowSystem?.Theme;
+		var roleBg = RoleFillMixed(0.55);
+		if (roleBg != null)
+			return PaletteColors.ReadableOn(roleBg.Value);
 		return theme?.TableHoverForegroundColor ?? Color.White;
 	}
 

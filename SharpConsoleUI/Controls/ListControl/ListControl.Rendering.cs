@@ -422,6 +422,14 @@ namespace SharpConsoleUI.Controls
 						Color itemBg, itemFg;
 						bool isHovered = (itemIndex == _hoveredIndex);
 
+						// When a Role is set the whole item surface is themed by it (so the list reads as
+						// its role even with nothing selected): the role fill drives selection/hover at
+						// graded intensities and the role foreground tints normal item text. RoleBackground
+						// / RoleForeground return null for Role.Default, so the no-role paths are unchanged.
+						Color? roleFill = ColorResolver.RoleBackground(Role, Container, Outline);
+						Color? roleText = ColorResolver.RoleForeground(Role, Container, Outline);
+						Color roleSurface = Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
+
 						if (!IsEnabled)
 						{
 							itemBg = Container?.GetConsoleWindowSystem?.Theme?.ListDisabledBackgroundColor ?? Color.Grey;
@@ -429,26 +437,46 @@ namespace SharpConsoleUI.Controls
 						}
 						else if (isHovered && _hoverHighlightsItems && HasFocus)
 						{
-							// Hover takes precedence when control has focus
-							// Use theme hover colors if available, otherwise fall back to highlight colors
-							var theme = Container?.GetConsoleWindowSystem?.Theme;
-							itemBg = theme?.ListHoverBackgroundColor ?? HighlightBackgroundColor;
-							itemFg = theme?.ListHoverForegroundColor ?? HighlightForegroundColor;
+							if (roleFill != null)
+							{
+								// Hover = a mid-intensity role fill (between the normal surface and a full selection).
+								itemBg = roleFill.Value.Mix(roleSurface, 0.55);
+								itemFg = PaletteColors.ReadableOn(itemBg);
+							}
+							else
+							{
+								var theme = Container?.GetConsoleWindowSystem?.Theme;
+								itemBg = theme?.ListHoverBackgroundColor ?? HighlightBackgroundColor;
+								itemFg = theme?.ListHoverForegroundColor ?? HighlightForegroundColor;
+							}
 						}
 						else if (_isSelectable && itemIndex == selectedIndex && HasFocus)
 						{
+							// Full-strength selection (HighlightBackgroundColor/ForegroundColor already
+							// resolve to the role fill + readable text when a role is set).
 							itemBg = HighlightBackgroundColor;
 							itemFg = HighlightForegroundColor;
 						}
 						else if (_isSelectable && itemIndex == selectedIndex && !HasFocus)
 						{
-							itemBg = Container?.GetConsoleWindowSystem?.Theme?.ListUnfocusedHighlightBackgroundColor ?? HighlightBackgroundColor;
-							itemFg = Container?.GetConsoleWindowSystem?.Theme?.ListUnfocusedHighlightForegroundColor ?? Color.Grey;
+							if (roleFill != null)
+							{
+								// Unfocused selection = a dimmed role fill (quieter, still visible).
+								itemBg = roleFill.Value.Mix(roleSurface, 0.35);
+								itemFg = PaletteColors.ReadableOn(itemBg);
+							}
+							else
+							{
+								itemBg = Container?.GetConsoleWindowSystem?.Theme?.ListUnfocusedHighlightBackgroundColor ?? HighlightBackgroundColor;
+								itemFg = Container?.GetConsoleWindowSystem?.Theme?.ListUnfocusedHighlightForegroundColor ?? Color.Grey;
+							}
 						}
 						else
 						{
+							// Normal item: keep the list surface, but tint the text with the role so the
+							// list reads as its role even when no row is selected.
 							itemBg = backgroundColor;
-							itemFg = foregroundColor;
+							itemFg = roleText ?? foregroundColor;
 						}
 
 						// Build item content with checkbox markers

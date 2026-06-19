@@ -41,34 +41,33 @@ internal static class ControlRolesWindow
 			.WithMargin(1, 0, 1, 0)
 			.Build();
 
-		// Left side: a button per role, solid + outline, plus a role-coloured checkbox.
+		// Left side: each role on its own line — a fixed-width label column, then a toolbar column
+		// (solid + outline buttons). The fixed label column keeps every toolbar aligned.
 		var buttonsPanel = Controls.ScrollablePanel()
-			.AddControl(Controls.Markup("[bold underline]Buttons[/]   [dim]solid · outline[/]").WithMargin(1, 1, 1, 1).Build())
+			.AddControl(Controls.Markup("[bold underline]Buttons[/]   [dim]solid · outline, one toolbar per role[/]").WithMargin(1, 1, 1, 1).Build())
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
 
-		// Size every column to its content + 2 (no half-splitting). All rows share the widest role
-		// name so the three columns line up. Button label is "  {name}  " (name + 4 spaces), plus 2
-		// for the button chrome and 2 for the margin → name length + 8; +2 spare = + 10.
-		int widestName = 0;
+		// Label column width = widest role name + bold padding + a little breathing room.
+		int labelColWidth = 0;
 		foreach (var (_, name) in RoleRows)
-			widestName = System.Math.Max(widestName, name.Length);
-		int labelColWidth = widestName + 2 + 2;   // markup label + margin + 2 spare
-		int buttonColWidth = widestName + 8 + 2;  // "  name  " + chrome + margin + 2 spare
+			labelColWidth = System.Math.Max(labelColWidth, name.Length);
+		labelColWidth += 3;
 
 		foreach (var (role, name) in RoleRows)
 		{
-			var label = Controls.Markup($"[bold]{name}[/]").WithMargin(1, 0, 1, 0).Build();
-			var solid = Controls.Button($"  {name}  ").WithRole(role).WithMargin(1, 0, 1, 0).Build();
-			var outline = Controls.Button($"  {name}  ").WithRole(role).Outline().WithMargin(1, 0, 1, 0).Build();
+			var label = Controls.Markup($"[bold]{name}[/]").WithRole(role).WithMargin(1, 0, 0, 0).Build();
+			var toolbar = Controls.Toolbar()
+				.AddButton(Controls.Button($"  {name}  ").WithRole(role))
+				.AddButton(Controls.Button($"  {name}  ").WithRole(role).Outline())
+				.Build();
 
 			var row = Controls.HorizontalGrid()
 				.Column(col => col.Width(labelColWidth).Add(label))
-				.Column(col => col.Width(buttonColWidth).Add(solid))
-				.Column(col => col.Width(buttonColWidth).Add(outline))
+				.Column(col => col.Flex().Add(toolbar))
 				.WithAlignment(HorizontalAlignment.Left)
+				.WithMargin(1, 0, 1, 0)
 				.Build();
-
 			buttonsPanel.AddControl(row);
 		}
 
@@ -78,11 +77,13 @@ internal static class ControlRolesWindow
 		buttonsPanel.AddControl(Controls.Checkbox("Danger checkbox").WithRole(ControlRole.Danger).WithMargin(1, 0, 1, 1).Build());
 
 		buttonsPanel.AddControl(Controls.Markup("[bold underline]List[/]  [dim](Info selection)[/]").WithMargin(1, 1, 1, 0).Build());
-		buttonsPanel.AddControl(Controls.List()
+		var roleList = Controls.List()
 			.AddItems("Overview", "Details", "Settings", "History")
 			.WithRole(ControlRole.Info)
 			.WithMargin(1, 0, 1, 1)
-			.Build());
+			.Build();
+		roleList.SelectedIndex = 0;   // show the full-strength role selection too
+		buttonsPanel.AddControl(roleList);
 
 		buttonsPanel.AddControl(Controls.Markup("[bold underline]Markup text[/]  [dim](role default fg)[/]").WithMargin(1, 1, 1, 0).Build());
 		buttonsPanel.AddControl(Controls.Markup("Danger-roled text — [blue]inline tags[/] still win.")

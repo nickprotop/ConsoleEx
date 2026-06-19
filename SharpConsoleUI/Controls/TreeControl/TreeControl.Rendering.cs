@@ -226,6 +226,14 @@ namespace SharpConsoleUI.Controls
 				var selectionBg = _highlightBackgroundColorValue
 					?? ColorResolver.RoleBackground(Role, Container, Outline)
 					?? ColorResolver.ResolveTreeSelectionBackground(null, Container);
+
+				// When a Role is set, the role fill drives every state at graded intensities (so the tree
+				// reads as its role even with nothing selected). RoleBackground/RoleForeground are null
+				// for Role.Default, leaving the legacy paths unchanged.
+				Color? roleFill = ColorResolver.RoleBackground(Role, Container, Outline);
+				Color? roleText = ColorResolver.RoleForeground(Role, Container, Outline);
+				Color roleSurface = Container?.GetConsoleWindowSystem?.Theme?.WindowBackgroundColor ?? Color.Black;
+
 				if (i == selectedIndex && HasFocus)
 				{
 					textColor = HighlightForegroundColor;
@@ -233,20 +241,38 @@ namespace SharpConsoleUI.Controls
 				}
 				else if (i == _hoveredIndex && HasFocus)
 				{
-					// Hover highlight - subtle visual distinction
-					textColor = HighlightForegroundColor;
-					nodeBgColor = selectionBg;
+					// Hover = a mid-intensity role fill (or the legacy selection highlight with no role).
+					if (roleFill != null)
+					{
+						nodeBgColor = roleFill.Value.Mix(roleSurface, 0.55);
+						textColor = PaletteColors.ReadableOn(nodeBgColor);
+					}
+					else
+					{
+						textColor = HighlightForegroundColor;
+						nodeBgColor = selectionBg;
+					}
 				}
 				else if (i == selectedIndex && !HasFocus)
 				{
-					// Unfocused highlight - dimmer version of selection
-					var theme = Container?.GetConsoleWindowSystem?.Theme;
-					textColor = theme?.ListUnfocusedHighlightForegroundColor ?? Color.Grey;
-					nodeBgColor = theme?.ListUnfocusedHighlightBackgroundColor ?? Color.Grey23;
+					// Unfocused selection = a dimmed role fill (or the legacy unfocused highlight).
+					if (roleFill != null)
+					{
+						nodeBgColor = roleFill.Value.Mix(roleSurface, 0.35);
+						textColor = PaletteColors.ReadableOn(nodeBgColor);
+					}
+					else
+					{
+						var theme = Container?.GetConsoleWindowSystem?.Theme;
+						textColor = theme?.ListUnfocusedHighlightForegroundColor ?? Color.Grey;
+						nodeBgColor = theme?.ListUnfocusedHighlightBackgroundColor ?? Color.Grey23;
+					}
 				}
 				else
 				{
-					textColor = node.TextColor ?? fgColor;
+					// Normal node: surface background, but tint the text with the role (a node's own
+					// explicit TextColor still wins) so the tree reads as its role with nothing selected.
+					textColor = node.TextColor ?? roleText ?? fgColor;
 					nodeBgColor = bgColor;
 				}
 
