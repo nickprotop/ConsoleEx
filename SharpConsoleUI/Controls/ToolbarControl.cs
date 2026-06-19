@@ -24,8 +24,30 @@ namespace SharpConsoleUI.Controls
 	/// A horizontal toolbar control that contains buttons, separators, and other controls.
 	/// Supports Tab navigation between focusable items and Enter key activation of buttons.
 	/// </summary>
-	public class ToolbarControl : BaseControl, IContainer, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainerControl, ILogicalCursorProvider, ICursorShapeProvider, IFocusScope
+	public class ToolbarControl : BaseControl, IContainer, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainerControl, ILogicalCursorProvider, ICursorShapeProvider, IFocusScope, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private Color? _backgroundColorValue;
 		private IInteractiveControl? _focusedItem;
 		private Color? _foregroundColorValue;

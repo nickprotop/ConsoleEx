@@ -29,8 +29,30 @@ namespace SharpConsoleUI.Controls
 	/// keyboard activation, and the optional height animation are implemented in companion
 	/// partials added by later tasks.
 	/// </remarks>
-	public partial class CollapsiblePanel : BaseControl, IContainer, IContainerControl, IControlHost, IMouseAwareControl, IInteractiveControl, IFocusableControl, IFocusableContainerWithHeader, ILogicalCursorProvider
+	public partial class CollapsiblePanel : BaseControl, IContainer, IContainerControl, IControlHost, IMouseAwareControl, IInteractiveControl, IFocusableControl, IFocusableContainerWithHeader, ILogicalCursorProvider, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		#region Fields
 
 		private readonly List<IWindowControl> _children = new();
@@ -547,7 +569,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>
 		/// Resolves the colour painted on the panel chrome (border, bordered/borderless title, separator):
-		/// explicit <see cref="BorderColor"/> → semantic <see cref="BaseControl.Role"/> border → the
+		/// explicit <see cref="BorderColor"/> → semantic <see cref="Role"/> border → the
 		/// supplied foreground fallback. For <see cref="ControlRole.Default"/> the role helper returns null,
 		/// keeping the no-role path byte-identical to the legacy behaviour.
 		/// </summary>

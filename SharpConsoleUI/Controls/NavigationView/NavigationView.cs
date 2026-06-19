@@ -24,8 +24,30 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public partial class NavigationView : BaseControl, IInteractiveControl,
 		IFocusableControl, IMouseAwareControl, IContainer, IContainerControl,
-		IFocusScope
+		IFocusScope, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private readonly HorizontalGridControl _grid;
 		private readonly ColumnContainer _navColumn;
 		private readonly ColumnContainer _contentColumn;

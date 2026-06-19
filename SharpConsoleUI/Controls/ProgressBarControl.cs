@@ -19,8 +19,30 @@ namespace SharpConsoleUI.Controls
 	/// A progress bar control with both determinate (percentage) and indeterminate (pulsing) modes.
 	/// Uses box-drawing character ━ (U+2501) for clean terminal rendering.
 	/// </summary>
-	public class ProgressBarControl : BaseControl
+	public class ProgressBarControl : BaseControl, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private const char BAR_CHAR = '━'; // U+2501 - Box Drawings Heavy Horizontal
 
 		// Animation

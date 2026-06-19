@@ -25,8 +25,30 @@ namespace SharpConsoleUI.Controls
 	/// A horizontal bar graph control for visualizing percentage-based data.
 	/// Displays a filled/unfilled bar with optional label, value, and custom colors.
 	/// </summary>
-	public class BarGraphControl : BaseControl
+	public class BarGraphControl : BaseControl, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private const int DEFAULT_BAR_WIDTH = 20;
 		private const char FILLED_CHAR = '█';
 		private const char EMPTY_CHAR = '░';

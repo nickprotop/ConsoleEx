@@ -65,8 +65,30 @@ namespace SharpConsoleUI.Controls
 	/// A vertical column/sparkline graph control for visualizing time-series data.
 	/// Displays vertical bars showing historical values over time.
 	/// </summary>
-	public partial class SparklineControl : BaseControl
+	public partial class SparklineControl : BaseControl, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private const int DEFAULT_HEIGHT = 8;
 		private const int DEFAULT_MAX_DATA_POINTS = 50;
 

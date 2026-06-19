@@ -13,6 +13,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -35,8 +36,30 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public partial class TabControl : BaseControl, IContainer,
 		IMouseAwareControl, IInteractiveControl, IContainerControl,
-		IFocusableControl, IFocusableContainerWithHeader
+		IFocusableControl, IFocusableContainerWithHeader, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private readonly List<TabPage> _tabPages = new();
 		private readonly object _tabLock = new();
 		private int _activeTabIndex = -1;

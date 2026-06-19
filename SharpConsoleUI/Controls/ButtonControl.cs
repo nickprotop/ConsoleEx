@@ -37,8 +37,30 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// A clickable button control that supports keyboard and mouse interaction.
 	/// </summary>
-	public class ButtonControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
+	public class ButtonControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private bool _enabled = true;
 		private string _text = "Button";
 		private ButtonBorderStyle _borderStyle = ButtonBorderStyle.None;
@@ -112,7 +134,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		/// <remarks>
 		/// The getter returns the foreground actually painted for the button's current state, honouring an
-		/// explicit override, then the active <see cref="BaseControl.Role"/>, then the legacy theme default.
+		/// explicit override, then the active <see cref="Role"/>, then the legacy theme default.
 		/// For <see cref="ControlRole.Default"/> (no role) this is exactly the legacy resolved value.
 		/// </remarks>
 		public Color ForegroundColor
@@ -135,7 +157,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		/// <remarks>
 		/// The getter returns the foreground painted in the focused state: explicit override, then the
-		/// active <see cref="BaseControl.Role"/>, then the legacy focused-theme default. For
+		/// active <see cref="Role"/>, then the legacy focused-theme default. For
 		/// <see cref="ControlRole.Default"/> (no role) this is exactly the legacy resolved value.
 		/// </remarks>
 		public Color FocusedForegroundColor
@@ -158,7 +180,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		/// <remarks>
 		/// The getter returns the foreground painted in the disabled state: explicit override, then the
-		/// active <see cref="BaseControl.Role"/>, then the legacy disabled-theme default. For
+		/// active <see cref="Role"/>, then the legacy disabled-theme default. For
 		/// <see cref="ControlRole.Default"/> (no role) this is exactly the legacy resolved value.
 		/// </remarks>
 		public Color DisabledForegroundColor
@@ -335,7 +357,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>
 		/// Resolves the painted background colour, honouring (in priority order) an explicit override,
-		/// the semantic <see cref="BaseControl.Role"/>, then the existing per-state default resolution.
+		/// the semantic <see cref="Role"/>, then the existing per-state default resolution.
 		/// Pure in <paramref name="state"/> so callers evaluate the (focus-querying) state once.
 		/// </summary>
 		private Color ResolveBackground(RoleState state)

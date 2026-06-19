@@ -27,6 +27,7 @@ All controls support:
 - `Container` - Reference to parent container
 - `Tag` - Store custom data
 - Layout properties (Width, Margin, Alignment, StickyPosition)
+- `Role` / `Outline` - Available on controls implementing `IRoleableControl`. Apply a semantic [Control Role](THEMES.md#control-roles) (Primary, Success, Danger, …) so the control's colors come from the theme's palette instead of being set by hand. `Role.Default` (the default) leaves color resolution unchanged. Most controls implement `IRoleableControl`; a few non-themed ones (Canvas, Image, Video, Html, …) do not and have no `Role`/`Outline`.
 
 ## Basic Input Controls
 

@@ -20,8 +20,30 @@ namespace SharpConsoleUI.Controls
 	/// Supports keyboard interaction with Space or Enter keys to toggle state.
 	/// </summary>
 	public class CheckboxControl : BaseControl, IInteractiveControl,
-		IFocusableControl, IMouseAwareControl
+		IFocusableControl, IMouseAwareControl, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private Color? _backgroundColorValue;
 		private bool _checked = false;
 		private string _checkedCharacter = "X";

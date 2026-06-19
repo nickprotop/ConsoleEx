@@ -13,14 +13,37 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
 	/// A vertical splitter control that allows users to resize adjacent columns in a <see cref="HorizontalGridControl"/>.
 	/// Supports keyboard-based resizing with arrow keys and provides visual feedback during focus and dragging.
 	/// </summary>
-	public class SplitterControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
+	public class SplitterControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private const int DEFAULT_WIDTH = 1;
 		private const float MIN_COLUMN_PERCENTAGE = 0.1f; // Minimum 10% width for any column
 

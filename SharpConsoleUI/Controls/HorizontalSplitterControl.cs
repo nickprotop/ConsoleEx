@@ -13,6 +13,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -21,8 +22,30 @@ namespace SharpConsoleUI.Controls
 	/// Renders as a thin horizontal bar (═══) and supports keyboard and mouse interaction.
 	/// Works in any container: Window, ColumnContainer, ScrollablePanelControl.
 	/// </summary>
-	public class HorizontalSplitterControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
+	public class HorizontalSplitterControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		#region Fields
 
 		private Color? _backgroundColorValue;

@@ -70,9 +70,8 @@ namespace SharpConsoleUI.Controls
 	/// Window.cs during tree building. Users don't interact with HorizontalLayout directly.
 	/// </para>
 	/// <para>
-	/// This control inherits <see cref="BaseControl.Role"/>/<see cref="BaseControl.Outline"/> but does
+	/// This control does not implement <see cref="IRoleableControl"/>, so it has no semantic role and does
 	/// not honour them: it has no single themed colour surface (it is a pure layout container).
-	/// Setting a role is a no-op.
 	/// </para>
 	/// </summary>
 	public partial class HorizontalGridControl : BaseControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IContainerControl, IFocusScope

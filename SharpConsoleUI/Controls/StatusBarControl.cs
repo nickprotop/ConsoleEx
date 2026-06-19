@@ -131,8 +131,30 @@ public class StatusBarItem
 /// A single-row status bar with left/center/right alignment zones, clickable items,
 /// and optional shortcut key hints. Does not receive keyboard focus — display and click only.
 /// </summary>
-public class StatusBarControl : BaseControl, IMouseAwareControl
+public class StatusBarControl : BaseControl, IMouseAwareControl, IRoleableControl
 {
+
+	#region Role
+
+	private ControlRole _role = ControlRole.Default;
+	private bool _outline;
+
+	/// <inheritdoc/>
+	public ControlRole Role
+	{
+		get => _role;
+		set => SetProperty(ref _role, value);
+	}
+
+	/// <inheritdoc/>
+	public bool Outline
+	{
+		get => _outline;
+		set => SetProperty(ref _outline, value);
+	}
+
+	#endregion
+
 	#region Fields
 
 	private readonly List<StatusBarItem> _leftItems = new();

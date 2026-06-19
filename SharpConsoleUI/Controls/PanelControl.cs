@@ -21,8 +21,30 @@ namespace SharpConsoleUI.Controls
 	/// A control that renders a bordered panel with content.
 	/// Renders directly to CharacterBuffer using BoxChars and MarkupParser.
 	/// </summary>
-	public class PanelControl : BaseControl, IMouseAwareControl
+	public class PanelControl : BaseControl, IMouseAwareControl, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private Color? _backgroundColorValue;
 		private Color? _foregroundColorValue;
 		private int? _height;

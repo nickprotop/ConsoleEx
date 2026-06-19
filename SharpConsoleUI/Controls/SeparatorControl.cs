@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -16,8 +17,30 @@ namespace SharpConsoleUI.Controls
 	/// Unlike <see cref="SplitterControl"/>, this is non-interactive and non-focusable.
 	/// Uses a single vertical line character for a subtle appearance.
 	/// </summary>
-	public class SeparatorControl : BaseControl
+	public class SeparatorControl : BaseControl, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private const char DEFAULT_CHARACTER = '│';
 
 		private Color? _backgroundColorValue;

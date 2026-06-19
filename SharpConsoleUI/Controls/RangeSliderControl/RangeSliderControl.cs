@@ -33,8 +33,30 @@ namespace SharpConsoleUI.Controls
 	/// by dragging two thumbs along a track. Supports keyboard and mouse interaction,
 	/// minimum range enforcement, and optional value and min/max labels.
 	/// </summary>
-	public partial class RangeSliderControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
+	public partial class RangeSliderControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		#region Fields
 
 		private double _lowValue;

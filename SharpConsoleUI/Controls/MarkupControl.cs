@@ -13,6 +13,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -20,8 +21,30 @@ namespace SharpConsoleUI.Controls
 	/// A control that displays rich text content using Spectre.Console markup syntax.
 	/// Supports text alignment, margins, word wrapping, and sticky positioning.
 	/// </summary>
-	public partial class MarkupControl : BaseControl, IMouseAwareControl, ISelectableControl, ICopyableControl, IFocusableControl, IInteractiveControl, IDragAutoScrollTarget
+	public partial class MarkupControl : BaseControl, IMouseAwareControl, ISelectableControl, ICopyableControl, IFocusableControl, IInteractiveControl, IDragAutoScrollTarget, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private List<string> _content;
 		private readonly object _contentLock = new();
 		private bool _wrap = true;

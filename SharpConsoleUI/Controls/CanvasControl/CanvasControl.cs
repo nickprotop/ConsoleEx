@@ -21,9 +21,8 @@ namespace SharpConsoleUI.Controls
 	/// <see cref="Paint"/> event. Both modes can be combined.
 	/// </summary>
 	/// <remarks>
-	/// This control inherits <see cref="BaseControl.Role"/>/<see cref="BaseControl.Outline"/> but does
+	/// This control does not implement <see cref="IRoleableControl"/>, so it has no semantic role and does
 	/// not honour them: it has no single themed colour surface (it renders raw user-drawn pixels).
-	/// Setting a role is a no-op.
 	/// </remarks>
 	public partial class CanvasControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
 	{

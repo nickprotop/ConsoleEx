@@ -22,8 +22,30 @@ namespace SharpConsoleUI.Controls
 	/// Supports 12h and 24h formats, keyboard digit entry, and mouse interaction.
 	/// </summary>
 	public partial class TimePickerControl : BaseControl, IInteractiveControl,
-		IFocusableControl, IMouseAwareControl, ICursorShapeProvider
+		IFocusableControl, IMouseAwareControl, ICursorShapeProvider, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		#region Fields
 
 		private TimeSpan? _selectedTime;

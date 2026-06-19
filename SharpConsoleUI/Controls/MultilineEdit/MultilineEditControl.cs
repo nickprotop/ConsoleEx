@@ -23,8 +23,30 @@ namespace SharpConsoleUI.Controls
 	/// A multiline text editing control with support for text selection, scrolling, and word wrap.
 	/// Provides full cursor navigation, cut/copy/paste-like operations, and configurable scrollbars.
 	/// </summary>
-	public partial class MultilineEditControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider, ISelectableControl, IPasteTarget, IDragAutoScrollTarget
+	public partial class MultilineEditControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider, ISelectableControl, IPasteTarget, IDragAutoScrollTarget, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		#region Fields
 
 		private readonly object _contentLock = new();

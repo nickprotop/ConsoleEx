@@ -9,6 +9,7 @@
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -34,8 +35,30 @@ namespace SharpConsoleUI.Controls
 	/// A control that renders text using FIGlet ASCII art fonts.
 	/// Uses a custom FIGlet parser for direct rendering without Spectre.Console dependency.
 	/// </summary>
-	public class FigleControl : BaseControl
+	public class FigleControl : BaseControl, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private Color? _color;
 		private string? _text;
 		private bool _rightPadded = true;

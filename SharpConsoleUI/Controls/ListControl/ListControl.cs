@@ -14,13 +14,36 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
 	/// A scrollable list control that supports selection, highlighting, and keyboard navigation.
 	/// </summary>
-	public partial class ListControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
+	public partial class ListControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		/// <summary>
 		/// Creates a fluent builder for constructing a ListControl.
 		/// </summary>

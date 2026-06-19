@@ -12,6 +12,7 @@ using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -19,8 +20,30 @@ namespace SharpConsoleUI.Controls
 	/// A control that renders a horizontal rule (divider line) with optional title text.
 	/// Renders directly to CharacterBuffer using BoxChars.
 	/// </summary>
-	public class RuleControl : BaseControl
+	public class RuleControl : BaseControl, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private Color? _color;
 		private string? _title;
 		private TextJustification _titleAlignment = TextJustification.Left;

@@ -74,8 +74,30 @@ namespace SharpConsoleUI.Controls
 	/// A line graph control for visualizing time-series data using braille or ASCII rendering.
 	/// Supports multiple named series rendered as connected lines.
 	/// </summary>
-	public partial class LineGraphControl : BaseControl
+	public partial class LineGraphControl : BaseControl, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		#region Constants
 
 		private const string DEFAULT_SERIES_NAME = "default";
@@ -413,7 +435,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the line colour applied to the implicit default series (the series used by
 		/// <see cref="AddDataPoint(double)"/>). When null, this resolves from the control's
-		/// <see cref="BaseControl.Role"/> (if set) and otherwise defaults to Cyan1. Series added
+		/// <see cref="Role"/> (if set) and otherwise defaults to Cyan1. Series added
 		/// explicitly via <see cref="AddSeries"/> keep their own colours and are unaffected.
 		/// </summary>
 		public Color LineColor

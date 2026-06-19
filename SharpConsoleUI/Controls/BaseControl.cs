@@ -34,8 +34,6 @@ namespace SharpConsoleUI.Controls
 		private volatile int _actualY;
 		private volatile int _actualWidth;
 		private volatile int _actualHeight;
-		private ControlRole _role = ControlRole.Default;
-		private bool _outline;
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private Margin _margin = new Margin(0, 0, 0, 0);
@@ -149,28 +147,6 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public int ActualHeight => _actualHeight;
-
-		/// <summary>
-		/// The semantic colour role this control adopts. <see cref="ControlRole.Default"/> (the
-		/// default) leaves colour resolution unchanged. Other roles colour the control from the
-		/// theme's role palette. Controls with no themed surface (e.g. CanvasControl, ImageControl)
-		/// ignore this.
-		/// </summary>
-		public ControlRole Role
-		{
-			get => _role;
-			set => SetProperty(ref _role, value);
-		}
-
-		/// <summary>
-		/// When true and a <see cref="Role"/> is set, the control renders "outline" style: the role
-		/// colour moves to the text and border and the fill becomes the window surface.
-		/// </summary>
-		public bool Outline
-		{
-			get => _outline;
-			set => SetProperty(ref _outline, value);
-		}
 
 		/// <inheritdoc/>
 		public virtual HorizontalAlignment HorizontalAlignment

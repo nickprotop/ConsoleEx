@@ -22,8 +22,30 @@ namespace SharpConsoleUI.Controls;
 /// glyph frames on a fixed interval via the window system's animation manager.
 /// Frames may contain Spectre-compatible markup (e.g. "[yellow]◐[/]").
 /// </summary>
-public class SpinnerControl : BaseControl
+public class SpinnerControl : BaseControl, IRoleableControl
 {
+
+	#region Role
+
+	private ControlRole _role = ControlRole.Default;
+	private bool _outline;
+
+	/// <inheritdoc/>
+	public ControlRole Role
+	{
+		get => _role;
+		set => SetProperty(ref _role, value);
+	}
+
+	/// <inheritdoc/>
+	public bool Outline
+	{
+		get => _outline;
+		set => SetProperty(ref _outline, value);
+	}
+
+	#endregion
+
 	private SpinnerStyle _style = SpinnerStyle.Braille;
 	private string[]? _customFrames;
 	private int? _intervalMs;

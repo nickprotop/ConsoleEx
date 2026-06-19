@@ -21,8 +21,30 @@ namespace SharpConsoleUI.Controls
 	/// A locale-aware date picker control with inline segment editing and a calendar portal overlay.
 	/// Supports keyboard navigation, digit entry, and mouse interaction.
 	/// </summary>
-	public partial class DatePickerControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ICursorShapeProvider
+	public partial class DatePickerControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ICursorShapeProvider, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		#region Nested Types
 
 		private enum SegmentType { Month, Day, Year }

@@ -25,8 +25,30 @@ namespace SharpConsoleUI.Controls
 	/// A dropdown/combobox control that displays a list of selectable items.
 	/// Supports keyboard navigation, type-ahead search, and custom item formatting.
 	/// </summary>
-	public partial class DropdownControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
+	public partial class DropdownControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private readonly TimeSpan _searchResetDelay = TimeSpan.FromSeconds(1.5);
 		private bool _autoAdjustWidth = true;
 		private Color? _backgroundColorValue;

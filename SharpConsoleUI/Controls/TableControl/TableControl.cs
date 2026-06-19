@@ -16,6 +16,7 @@ using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls;
 
@@ -25,8 +26,30 @@ namespace SharpConsoleUI.Controls;
 /// keyboard navigation, scrolling, sorting, multi-selection, column resizing,
 /// inline editing, draggable scrollbars, and virtual data binding.
 /// </summary>
-public partial class TableControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IPasteTarget
+public partial class TableControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IPasteTarget, IRoleableControl
 {
+
+	#region Role
+
+	private ControlRole _role = ControlRole.Default;
+	private bool _outline;
+
+	/// <inheritdoc/>
+	public ControlRole Role
+	{
+		get => _role;
+		set => SetProperty(ref _role, value);
+	}
+
+	/// <inheritdoc/>
+	public bool Outline
+	{
+		get => _outline;
+		set => SetProperty(ref _outline, value);
+	}
+
+	#endregion
+
 	#region Fields
 
 	private Color? _backgroundColorValue = Color.Default;

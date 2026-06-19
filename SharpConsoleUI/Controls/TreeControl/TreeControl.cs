@@ -15,13 +15,36 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
 	/// A hierarchical tree control that displays nodes in a collapsible tree structure with keyboard navigation.
 	/// </summary>
-	public partial class TreeControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
+	public partial class TreeControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private readonly List<TreeNode> _rootNodes = new();
 		private Color? _backgroundColorValue;
 		private Color? _highlightBackgroundColorValue;

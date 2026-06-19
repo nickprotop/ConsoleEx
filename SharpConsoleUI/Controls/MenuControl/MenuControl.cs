@@ -20,8 +20,30 @@ namespace SharpConsoleUI.Controls;
 /// A full-featured menu control supporting horizontal (menu bar) and vertical (sidebar) orientations,
 /// unlimited submenu nesting, keyboard and mouse navigation, and overlay rendering.
 /// </summary>
-public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer
+public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IRoleableControl
 {
+
+	#region Role
+
+	private ControlRole _role = ControlRole.Default;
+	private bool _outline;
+
+	/// <inheritdoc/>
+	public ControlRole Role
+	{
+		get => _role;
+		set => SetProperty(ref _role, value);
+	}
+
+	/// <inheritdoc/>
+	public bool Outline
+	{
+		get => _outline;
+		set => SetProperty(ref _outline, value);
+	}
+
+	#endregion
+
 	#region Fields
 
 	// Configuration

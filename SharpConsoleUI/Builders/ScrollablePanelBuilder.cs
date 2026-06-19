@@ -9,6 +9,7 @@
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Builders;
 
@@ -45,6 +46,8 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 	private Color? _foregroundColor;
 	private BorderStyle _borderStyle = BorderStyle.None;
 	private Color? _borderColor;
+	private ControlRole _role = ControlRole.Default;
+	private bool _outline;
 	private Padding _padding = new(0, 0, 0, 0);
 	private string? _header;
 	private TextJustification _headerAlignment = TextJustification.Left;
@@ -411,6 +414,23 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 	}
 
 	/// <summary>
+	/// Sets the control's semantic colour role, which tints the scrollbar thumb (and the border, when
+	/// drawn) from the theme's role palette.
+	/// </summary>
+	public ScrollablePanelBuilder WithRole(ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>Renders the panel's role chrome in outline style.</summary>
+	public ScrollablePanelBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the padding inside the border
 	/// </summary>
 	public ScrollablePanelBuilder WithPadding(int left, int top, int right, int bottom)
@@ -473,6 +493,8 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 			StickyPosition = _stickyPosition,
 			BorderStyle = _borderStyle,
 			BorderColor = _borderColor,
+			Role = _role,
+			Outline = _outline,
 			Padding = _padding,
 			Header = _header,
 			HeaderAlignment = _headerAlignment

@@ -22,8 +22,30 @@ namespace SharpConsoleUI.Controls
 	/// A single-line text input control with optional prompt text.
 	/// Supports text editing, cursor navigation, and horizontal scrolling for overflow text.
 	/// </summary>
-	public class PromptControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider, IPasteTarget
+	public class PromptControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, ILogicalCursorProvider, ICursorShapeProvider, IPasteTarget, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		/// <summary>
 		/// Event fired when Enter is pressed (modern standardized event)
 		/// </summary>

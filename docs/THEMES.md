@@ -260,17 +260,18 @@ that sets only `PrimaryColor` still gets every role — the rest are derived.
 
 ### Which controls honor roles
 
-Roles apply broadly. Interactive controls (Button, Checkbox, Dropdown, Slider, the pickers…),
-containers/chrome (Panel, CollapsiblePanel, TabControl, Toolbar, StatusBar…), indicators
-(ProgressBar, Spinner, the graphs), data controls (List, Table, Tree) and text controls (Markup,
-FIGlet) all respond to `Role`. For data controls the role themes the **whole item surface** across
-states — normal rows take a role-tinted foreground, hover and selection take graded role fills — so
-the control reads as its role even with nothing selected. For `MarkupControl` the role sets the
-*default* foreground; inline `[color]` tags still win.
+Controls that respond to roles implement the `IRoleableControl` capability interface (exposing the
+`Role` and `Outline` properties). That covers the bulk of the library: interactive controls (Button,
+Checkbox, Dropdown, Slider, the pickers…), containers/chrome (Panel, CollapsiblePanel, TabControl,
+Toolbar, StatusBar…), indicators (ProgressBar, Spinner, the graphs), data controls (List, Table,
+Tree) and text controls (Markup, FIGlet). For data controls the role themes the **whole item
+surface** across states — normal rows take a role-tinted foreground, hover and selection take graded
+role fills — so the control reads as its role even with nothing selected. For `MarkupControl` the
+role sets the *default* foreground; inline `[color]` tags still win.
 
 A few controls have no single themed surface — `CanvasControl`, `ImageControl`, `VideoControl`,
-`HtmlControl`, `SpectreRenderableControl`, `LogViewerControl`, `HorizontalGridControl` — they inherit
-the `Role` property but ignore it.
+`HtmlControl`, `SpectreRenderableControl`, `LogViewerControl`, `HorizontalGridControl` — so they do
+**not** implement `IRoleableControl` and have no `Role` property to set.
 
 ### Defaults by purpose
 

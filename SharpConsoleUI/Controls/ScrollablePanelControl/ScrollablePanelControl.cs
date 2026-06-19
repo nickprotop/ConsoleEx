@@ -11,6 +11,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -18,8 +19,30 @@ namespace SharpConsoleUI.Controls
 	/// A scrollable panel control that can host child controls with automatic scrolling support.
 	/// Supports vertical and horizontal scrolling, mouse wheel, and visual scrollbars.
 	/// </summary>
-	public partial class ScrollablePanelControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IContainerControl, IControlHost, IScrollableContainer, IFocusScope, ILogicalCursorProvider
+	public partial class ScrollablePanelControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl, IContainer, IContainerControl, IControlHost, IScrollableContainer, IFocusScope, ILogicalCursorProvider, IRoleableControl
 	{
+
+		#region Role
+
+		private ControlRole _role = ControlRole.Default;
+		private bool _outline;
+
+		/// <inheritdoc/>
+		public ControlRole Role
+		{
+			get => _role;
+			set => SetProperty(ref _role, value);
+		}
+
+		/// <inheritdoc/>
+		public bool Outline
+		{
+			get => _outline;
+			set => SetProperty(ref _outline, value);
+		}
+
+		#endregion
+
 		private readonly List<IWindowControl> _children = new();
 		private readonly object _childrenLock = new();
 		private int _verticalScrollOffset = 0;
