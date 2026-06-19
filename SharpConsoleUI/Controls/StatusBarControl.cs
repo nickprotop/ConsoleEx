@@ -11,6 +11,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
+using SharpConsoleUI.Themes;
 using Point = System.Drawing.Point;
 using Size = System.Drawing.Size;
 
@@ -205,7 +206,11 @@ public class StatusBarControl : BaseControl, IMouseAwareControl
 	/// </summary>
 	public Color ForegroundColor
 	{
-		get => ColorResolver.ResolveStatusBarForeground(_foregroundColorValue, Container);
+		// Explicit override → readable text on the role fill → legacy theme/container resolution. For
+		// Role=Default the role helper returns null, keeping the no-role path byte-identical.
+		get => _foregroundColorValue
+			?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, RoleState.Normal)
+			?? ColorResolver.ResolveStatusBarForeground(null, Container);
 		set => SetProperty(ref _foregroundColorValue, (Color?)value);
 	}
 
@@ -536,7 +541,10 @@ public class StatusBarControl : BaseControl, IMouseAwareControl
 	{
 		SetActualBounds(bounds);
 
-		var bgColor = ColorResolver.ResolveStatusBarBackground(_backgroundColorValue, Container);
+		// Explicit override → semantic Role fill (the status bar surface) → legacy theme resolution.
+		var bgColor = _backgroundColorValue
+			?? ColorResolver.RoleBackground(Role, Container, Outline, RoleState.Normal)
+			?? ColorResolver.ResolveStatusBarBackground(null, Container);
 		var fgColor = ForegroundColor;
 		var shortcutFg = ShortcutForegroundColor;
 

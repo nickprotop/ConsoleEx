@@ -29,6 +29,30 @@ public sealed class RuleBuilder : IControlBuilder<RuleControl>
 	private string? _name;
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
+	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private bool _outline = false;
+
+	/// <summary>
+	/// Sets the control's semantic colour role (drives the rule line colour).
+	/// </summary>
+	/// <param name="role">The semantic role determining the rule line colour.</param>
+	/// <returns>The builder for chaining</returns>
+	public RuleBuilder WithRole(Themes.ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>
+	/// Renders the role accent in outline style.
+	/// </summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	/// <returns>The builder for chaining</returns>
+	public RuleBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
+		return this;
+	}
 
 	/// <summary>
 	/// Sets the title text displayed within the rule
@@ -256,7 +280,9 @@ public sealed class RuleBuilder : IControlBuilder<RuleControl>
 			Width = _width,
 			Name = _name,
 			Tag = _tag,
-			StickyPosition = _stickyPosition
+			StickyPosition = _stickyPosition,
+			Role = _role,
+			Outline = _outline
 		};
 
 		BindingHelper.ApplyDeferredBindings(this, control);

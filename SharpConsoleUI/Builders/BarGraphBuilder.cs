@@ -10,6 +10,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Builders
 {
@@ -81,6 +82,24 @@ namespace SharpConsoleUI.Builders
 		public BarGraphBuilder WithFilledColor(Color color)
 		{
 			_control.FilledColor = color;
+			return this;
+		}
+
+		/// <summary>Sets the control's semantic colour role (drives the default filled-bar accent).</summary>
+		/// <param name="role">The semantic role determining the bar's accent colour.</param>
+		/// <returns>The builder for chaining.</returns>
+		public BarGraphBuilder WithRole(ControlRole role)
+		{
+			_control.Role = role;
+			return this;
+		}
+
+		/// <summary>Renders the bar graph in outline style.</summary>
+		/// <param name="outline">Whether to use outline style.</param>
+		/// <returns>The builder for chaining.</returns>
+		public BarGraphBuilder Outline(bool outline = true)
+		{
+			_control.Outline = outline;
 			return this;
 		}
 

@@ -10,6 +10,7 @@ using System.Drawing;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Builders
 {
@@ -31,6 +32,12 @@ namespace SharpConsoleUI.Builders
 
 		/// <summary>Sets the foreground color for plain frames.</summary>
 		public SpinnerBuilder WithColor(Color color) { _control.Color = color; return this; }
+
+		/// <summary>Sets the control's semantic colour role (drives the spinner glyph colour).</summary>
+		public SpinnerBuilder WithRole(ControlRole role) { _control.Role = role; return this; }
+
+		/// <summary>Renders the spinner in outline style.</summary>
+		public SpinnerBuilder Outline(bool outline = true) { _control.Outline = outline; return this; }
 
 		/// <summary>Sets whether the spinner starts animating (default true).</summary>
 		public SpinnerBuilder Spinning(bool spinning = true) { _control.IsSpinning = spinning; return this; }

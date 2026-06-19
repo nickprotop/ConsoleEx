@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Helpers;
 
 namespace SharpConsoleUI.Themes
@@ -55,11 +56,19 @@ namespace SharpConsoleUI.Themes
 			// Disabled states are damped with ALPHA rather than shading. Because the renderer is a real
 			// compositor, a semi-transparent disabled color blends with the surface behind the control,
 			// giving a natural "greyed-out" look that tracks whatever is underneath (idea from
-			// discussion #44). Dim(c) reduces a color's opacity to DisabledAlpha.
-			const byte DisabledAlpha = 115; // ~45% opacity
-			Color Dim(Color c) => c.WithAlpha(DisabledAlpha);
+			// discussion #44). Dim(c) reduces a color's opacity to DisabledStateAlpha.
+			Color Dim(Color c) => c.WithAlpha(ControlDefaults.DisabledStateAlpha);
 
 			var t = new MutableTheme { Mode = mode };
+
+			// ===== ROLE SEED family (surface the resolved accents/status colors) =====
+			t.PrimaryColor = primary;
+			t.SecondaryColor = secondary;
+			t.TertiaryColor = tertiary;
+			t.InfoColor = info;
+			t.SuccessColor = success;
+			t.WarningColor = warning;
+			t.DangerColor = danger;
 
 			// ===== NEUTRAL family (from background / foreground) =====
 			t.WindowBackgroundColor = background;

@@ -12,6 +12,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 using Size = System.Drawing.Size;
 
 namespace SharpConsoleUI.Controls
@@ -309,7 +310,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color? FilledTrackColor
 		{
-			get => _filledTrackColor ?? Container?.GetConsoleWindowSystem?.Theme?.SliderFilledTrackColor ?? Color.Cyan1;
+			get => _filledTrackColor
+				?? ColorResolver.RoleBackground(Role, Container, Outline, CurrentRoleState)
+				?? Container?.GetConsoleWindowSystem?.Theme?.SliderFilledTrackColor ?? Color.Cyan1;
 			set => SetProperty(ref _filledTrackColor, value);
 		}
 
@@ -367,6 +370,13 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => _isEnabled;
+
+		/// <summary>
+		/// Computes the current role state from the slider's enabled/focus state so role colours
+		/// reflect the same visual state the renderer paints.
+		/// </summary>
+		private RoleState CurrentRoleState =>
+			!_isEnabled ? RoleState.Disabled : (ComputeHasFocus() ? RoleState.Focused : RoleState.Normal);
 
 		/// <summary>
 		/// Gets or sets whether the range slider is enabled.

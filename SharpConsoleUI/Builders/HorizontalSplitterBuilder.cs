@@ -31,6 +31,30 @@ public sealed class HorizontalSplitterBuilder : IControlBuilder<HorizontalSplitt
 	private IWindowControl? _aboveControl;
 	private IWindowControl? _belowControl;
 	private EventHandler<HorizontalSplitterMovedEventArgs>? _splitterMovedHandler;
+	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private bool _outline = false;
+
+	/// <summary>
+	/// Sets the control's semantic colour role (drives the splitter line colour).
+	/// </summary>
+	/// <param name="role">The semantic role determining the splitter line colour.</param>
+	/// <returns>The builder for chaining.</returns>
+	public HorizontalSplitterBuilder WithRole(Themes.ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>
+	/// Renders the role accent in outline style.
+	/// </summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	/// <returns>The builder for chaining.</returns>
+	public HorizontalSplitterBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
+		return this;
+	}
 
 	/// <summary>
 	/// Sets the focused foreground and background colors.
@@ -168,6 +192,8 @@ public sealed class HorizontalSplitterBuilder : IControlBuilder<HorizontalSplitt
 		control.Name = _name;
 		control.Tag = _tag;
 		control.StickyPosition = _stickyPosition;
+		control.Role = _role;
+		control.Outline = _outline;
 
 		if (_focusedForegroundColor.HasValue)
 			control.FocusedForegroundColor = _focusedForegroundColor.Value;

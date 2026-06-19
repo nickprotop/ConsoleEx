@@ -65,6 +65,30 @@ public sealed class ListBuilder : IControlBuilder<ListControl>
 	private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
 	private bool _doubleClickActivates = true;
 	private int _doubleClickThresholdMs = 500;
+	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private bool _outline = false;
+
+	/// <summary>
+	/// Sets the control's semantic colour role (drives the selected-item accent colour).
+	/// </summary>
+	/// <param name="role">The semantic role determining the selection accent colour.</param>
+	/// <returns>The builder for chaining.</returns>
+	public ListBuilder WithRole(Themes.ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>
+	/// Renders the role accent in outline style.
+	/// </summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	/// <returns>The builder for chaining.</returns>
+	public ListBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
+		return this;
+	}
 
 	/// <summary>
 	/// Sets the list title
@@ -597,7 +621,9 @@ public sealed class ListBuilder : IControlBuilder<ListControl>
 			MouseWheelScrollSpeed = _mouseWheelScrollSpeed,
 			DoubleClickActivates = _doubleClickActivates,
 			DoubleClickThresholdMs = _doubleClickThresholdMs,
-			ScrollbarVisibility = _scrollbarVisibility
+			ScrollbarVisibility = _scrollbarVisibility,
+			Role = _role,
+			Outline = _outline
 		};
 
 		// Apply colors if specified

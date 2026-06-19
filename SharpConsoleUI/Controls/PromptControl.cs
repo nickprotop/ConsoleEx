@@ -14,6 +14,7 @@ using SharpConsoleUI.Core;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -615,6 +616,13 @@ namespace SharpConsoleUI.Controls
 		public bool CanReceiveFocus => IsEnabled;
 
 		/// <summary>
+		/// Computes the current role state from the prompt's enabled/focus state so role colours
+		/// reflect the same visual state the renderer paints.
+		/// </summary>
+		private RoleState CurrentRoleState =>
+			!IsEnabled ? RoleState.Disabled : (HasFocus ? RoleState.Focused : RoleState.Normal);
+
+		/// <summary>
 		/// Sets the input text and positions the cursor at the end.
 		/// </summary>
 		/// <param name="input">The text to set as input.</param>
@@ -738,17 +746,25 @@ namespace SharpConsoleUI.Controls
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, startY, Margin.Left, 1), fgColor, effectiveBg);
 				}
 
-				// Calculate colors
+				// Calculate colors (role link applied between explicit override and theme default;
+				// identical to legacy when Role==Default since the role helpers return null).
+				RoleState roleState = CurrentRoleState;
 				Color inputBackgroundColor = HasFocus
 					? ColorResolver.Coalesce(InputFocusedBackgroundColor)
+						?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
 						?? ColorResolver.Coalesce(Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedBackgroundColor)
 						?? Color.Transparent
 					: ColorResolver.Coalesce(InputBackgroundColor)
+						?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
 						?? ColorResolver.Coalesce(Container?.GetConsoleWindowSystem?.Theme?.PromptInputBackgroundColor)
 						?? Color.Transparent;
 				Color inputForegroundColor = HasFocus
-					? InputFocusedForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedForegroundColor ?? Color.Black
-					: InputForegroundColor ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputForegroundColor ?? Color.White;
+					? InputFocusedForegroundColor
+						?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, roleState)
+						?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedForegroundColor ?? Color.Black
+					: InputForegroundColor
+						?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, roleState)
+						?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputForegroundColor ?? Color.White;
 
 				int currentX = startX;
 				int promptLength = Parsing.MarkupParser.StripLength(_prompt ?? string.Empty);

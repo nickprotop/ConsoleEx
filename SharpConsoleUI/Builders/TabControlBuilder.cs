@@ -9,6 +9,7 @@
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Builders;
 
@@ -242,6 +243,24 @@ public sealed class TabControlBuilder : IControlBuilder<TabControl>
 	public TabControlBuilder WithName(string name)
 	{
 		_name = name;
+		return this;
+	}
+
+	/// <summary>Sets the control's semantic colour role, which tints the active tab header.</summary>
+	/// <param name="role">The semantic role determining the active tab's colours.</param>
+	/// <returns>The builder for chaining</returns>
+	public TabControlBuilder WithRole(ControlRole role)
+	{
+		_control.Role = role;
+		return this;
+	}
+
+	/// <summary>Renders the active tab in outline style (role colour on text, surface fill).</summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	/// <returns>The builder for chaining</returns>
+	public TabControlBuilder Outline(bool outline = true)
+	{
+		_control.Outline = outline;
 		return this;
 	}
 

@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Helpers
 {
@@ -648,5 +649,26 @@ namespace SharpConsoleUI.Helpers
 			=> Coalesce(explicitValue)
 			?? Coalesce(theme?.MenuDropdownHighlightForegroundColor)
 			?? Color.White;
+
+		// --- Role-link helpers ---
+
+		/// <summary>
+		/// Returns the role-derived background for a control with a role set, or null when the control
+		/// has no role (so the caller falls through to its normal resolution path).
+		/// </summary>
+		public static Color? RoleBackground(ControlRole role, IContainer? container, bool outline, RoleState state = RoleState.Normal)
+			=> role == ControlRole.Default ? (Color?)null : RoleResolver.Resolve(role, container, outline, state).Background;
+
+		/// <summary>Role-derived foreground (the role colour used as text on the surface), or null when no role.</summary>
+		public static Color? RoleForeground(ControlRole role, IContainer? container, bool outline, RoleState state = RoleState.Normal)
+			=> role == ControlRole.Default ? (Color?)null : RoleResolver.Resolve(role, container, outline, state).Text;
+
+		/// <summary>Role-derived text-on-fill (foreground for a control whose fill is the role colour), or null when no role.</summary>
+		public static Color? RoleTextOnBackground(ControlRole role, IContainer? container, bool outline, RoleState state = RoleState.Normal)
+			=> role == ControlRole.Default ? (Color?)null : RoleResolver.Resolve(role, container, outline, state).TextOnBackground;
+
+		/// <summary>Role-derived border, or null when no role.</summary>
+		public static Color? RoleBorder(ControlRole role, IContainer? container, bool outline, RoleState state = RoleState.Normal)
+			=> role == ControlRole.Default ? (Color?)null : RoleResolver.Resolve(role, container, outline, state).Border;
 	}
 }

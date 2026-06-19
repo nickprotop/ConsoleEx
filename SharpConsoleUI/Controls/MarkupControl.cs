@@ -511,7 +511,11 @@ namespace SharpConsoleUI.Controls
 			// Render content lines.
 			// Track each display row's source (logical) line index so selection copy can suppress
 			// soft-wrap newlines (rows from the same logical line are joined without a line break).
-			Color effectiveFg = _foregroundColor ?? fgColor;
+			// The role sets the DEFAULT foreground passed to the markup parser; inline [color] tags
+			// in the content still override it (they are applied during parsing, after the default).
+			Color effectiveFg = _foregroundColor
+				?? ColorResolver.RoleForeground(Role, Container, Outline)
+				?? fgColor;
 			Color effectiveBg = _backgroundColor ?? Color.Transparent;
 			var mdStyle = ResolveMarkdownStyle();
 			var renderedCellLines = new List<List<Cell>>();

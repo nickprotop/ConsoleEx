@@ -40,6 +40,31 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	private EventHandler<LinkClickedEventArgs>? _linkClickedHandler;
 	private Color? _focusedLinkForegroundColor;
 	private Color? _focusedLinkBackgroundColor;
+	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private bool _outline = false;
+
+	/// <summary>
+	/// Sets the control's semantic colour role (drives the default text colour;
+	/// inline [color] tags still override it).
+	/// </summary>
+	/// <param name="role">The semantic role determining the default text colour.</param>
+	/// <returns>The builder for chaining.</returns>
+	public MarkupBuilder WithRole(Themes.ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>
+	/// Renders the role accent in outline style.
+	/// </summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	/// <returns>The builder for chaining.</returns>
+	public MarkupBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
+		return this;
+	}
 
 	/// <summary>
 	/// Adds a line of markup text
@@ -452,7 +477,9 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 			CopyKey = _copyKey,
 			CopyModifiers = _copyModifiers,
 			FocusedLinkForegroundColor = _focusedLinkForegroundColor,
-			FocusedLinkBackgroundColor = _focusedLinkBackgroundColor
+			FocusedLinkBackgroundColor = _focusedLinkBackgroundColor,
+			Role = _role,
+			Outline = _outline
 		};
 
 		if (_linkClickedHandler != null)

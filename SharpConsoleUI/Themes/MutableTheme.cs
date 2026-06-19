@@ -58,6 +58,13 @@ namespace SharpConsoleUI.Themes
 			InactiveBorderForegroundColor = source.InactiveBorderForegroundColor;
 			ActiveTitleForegroundColor = source.ActiveTitleForegroundColor;
 			InactiveTitleForegroundColor = source.InactiveTitleForegroundColor;
+			PrimaryColor = source.PrimaryColor;
+			SecondaryColor = source.SecondaryColor;
+			TertiaryColor = source.TertiaryColor;
+			InfoColor = source.InfoColor;
+			SuccessColor = source.SuccessColor;
+			WarningColor = source.WarningColor;
+			DangerColor = source.DangerColor;
 
 			// Top / bottom bars
 			TopBarBackgroundColor = source.TopBarBackgroundColor;

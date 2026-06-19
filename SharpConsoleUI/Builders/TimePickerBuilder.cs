@@ -12,6 +12,7 @@ using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Builders;
 
@@ -36,6 +37,8 @@ public sealed class TimePickerBuilder : IControlBuilder<TimePickerControl>
 	private string? _name;
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
+	private ControlRole _role = ControlRole.Default;
+	private bool _outline;
 	private EventHandler<TimeSpan?>? _selectedTimeChangedHandler;
 	private WindowEventHandler<TimeSpan?>? _selectedTimeChangedWithWindowHandler;
 	private EventHandler? _gotFocusHandler;
@@ -328,6 +331,24 @@ public sealed class TimePickerBuilder : IControlBuilder<TimePickerControl>
 		return this;
 	}
 
+	/// <summary>Sets the control's semantic colour role.</summary>
+	/// <param name="role">The semantic role determining the picker's colours.</param>
+	/// <returns>The builder for chaining</returns>
+	public TimePickerBuilder WithRole(ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>Renders the picker in outline style (role colour on text, surface fill).</summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	/// <returns>The builder for chaining</returns>
+	public TimePickerBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
+		return this;
+	}
+
 	/// <summary>
 	/// Builds the time picker control.
 	/// </summary>
@@ -345,7 +366,9 @@ public sealed class TimePickerBuilder : IControlBuilder<TimePickerControl>
 			Width = _width,
 			Name = _name,
 			Tag = _tag,
-			StickyPosition = _stickyPosition
+			StickyPosition = _stickyPosition,
+			Role = _role,
+			Outline = _outline
 		};
 
 		if (_culture != null)

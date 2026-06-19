@@ -9,6 +9,7 @@
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 using Size = System.Drawing.Size;
 
 namespace SharpConsoleUI.Controls
@@ -105,7 +106,7 @@ namespace SharpConsoleUI.Controls
 		};
 
 		private Color? _backgroundColorValue;
-		private Color _barColor = Color.Cyan1;
+		private Color? _barColor;
 		private BorderStyle _borderStyle = BorderStyle.None;
 		private SparklineMode _mode = SparklineMode.Block;
 		private Color? _borderColor;
@@ -157,7 +158,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color BarColor
 		{
-			get => _barColor;
+			get => _barColor
+				?? ColorResolver.RoleBackground(Role, Container, Outline)
+				?? Color.Cyan1;
 			set => SetProperty(ref _barColor, value);
 		}
 

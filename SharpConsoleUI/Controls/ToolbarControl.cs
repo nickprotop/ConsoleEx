@@ -15,6 +15,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 using Point = System.Drawing.Point;
 using Size = System.Drawing.Size;
 namespace SharpConsoleUI.Controls
@@ -77,7 +78,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color BackgroundColor
 		{
+			// Explicit override → semantic Role fill (the toolbar surface) → theme/container. For
+			// Role=Default the role helper returns null, keeping the no-role path byte-identical.
 			get => _backgroundColorValue
+				?? ColorResolver.RoleBackground(Role, Container, Outline, CurrentRoleState)
 				?? Container?.GetConsoleWindowSystem?.Theme?.ToolbarBackgroundColor
 				?? Container?.BackgroundColor
 				?? Color.Black;
@@ -125,7 +129,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color ForegroundColor
 		{
+			// Explicit override → readable text on the role fill → theme/container. For Role=Default the
+			// role helper returns null, keeping the no-role path byte-identical.
 			get => _foregroundColorValue
+				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, CurrentRoleState)
 				?? Container?.GetConsoleWindowSystem?.Theme?.ToolbarForegroundColor
 				?? Container?.ForegroundColor
 				?? Color.White;
@@ -231,6 +238,13 @@ namespace SharpConsoleUI.Controls
 			get => _belowLineColor;
 			set => SetProperty(ref _belowLineColor, value);
 		}
+
+		/// <summary>
+		/// Computes the current role state from the toolbar's enabled/focus state so role colours
+		/// reflect the same visual state the renderer paints.
+		/// </summary>
+		private RoleState CurrentRoleState =>
+			!_isEnabled ? RoleState.Disabled : (HasFocus ? RoleState.Focused : RoleState.Normal);
 
 		/// <summary>
 		/// Inner padding between toolbar edge and items.
@@ -531,13 +545,20 @@ namespace SharpConsoleUI.Controls
 
 			// Resolve colors with fallback chain
 			var theme = Container?.GetConsoleWindowSystem?.Theme;
+			RoleState roleState = CurrentRoleState;
+
+			// Role-derived toolbar fill (null when Role=Default); used both for the colour and to decide
+			// whether the strip background is actually painted (mirrors the explicit-bg behaviour).
+			Color? roleBg = ColorResolver.RoleBackground(Role, Container, Outline, roleState);
 
 			Color bgColor = _backgroundColorValue
+				?? roleBg
 				?? theme?.ToolbarBackgroundColor
 				?? Container?.BackgroundColor
 				?? defaultBg;
 
 			Color fgColor = _foregroundColorValue
+				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, roleState)
 				?? theme?.ToolbarForegroundColor
 				?? Container?.ForegroundColor
 				?? defaultFg;
@@ -557,7 +578,8 @@ namespace SharpConsoleUI.Controls
 			// Fill margins with container background
 			Color containerBg = Container?.BackgroundColor ?? defaultBg;
 			var effectiveBg = Color.Transparent;
-			var innerEffectiveBg = _backgroundColorValue == null ? Color.Transparent : bgColor;
+			// Paint the strip fill when an explicit bg or a role fill is present; otherwise stay transparent.
+			var innerEffectiveBg = (_backgroundColorValue == null && roleBg == null) ? Color.Transparent : bgColor;
 
 			// Top margin
 			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, outerY, fgColor, effectiveBg);

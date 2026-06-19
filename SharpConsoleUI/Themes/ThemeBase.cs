@@ -51,6 +51,21 @@ namespace SharpConsoleUI.Themes
 		public virtual Color? ActiveTitleForegroundColor { get; set; }
 
 		/// <inheritdoc/>
+		public virtual Color? PrimaryColor { get; set; }
+		/// <inheritdoc/>
+		public virtual Color? SecondaryColor { get; set; }
+		/// <inheritdoc/>
+		public virtual Color? TertiaryColor { get; set; }
+		/// <inheritdoc/>
+		public virtual Color? InfoColor { get; set; }
+		/// <inheritdoc/>
+		public virtual Color? SuccessColor { get; set; }
+		/// <inheritdoc/>
+		public virtual Color? WarningColor { get; set; }
+		/// <inheritdoc/>
+		public virtual Color? DangerColor { get; set; }
+
+		/// <inheritdoc/>
 		public virtual Color? InactiveBorderForegroundColor { get; set; }
 
 		/// <inheritdoc/>

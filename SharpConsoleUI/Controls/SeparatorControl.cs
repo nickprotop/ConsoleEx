@@ -125,6 +125,7 @@ namespace SharpConsoleUI.Controls
 			var theme = Container?.GetConsoleWindowSystem?.Theme;
 
 			Color fgColor = _foregroundColorValue
+				?? ColorResolver.RoleForeground(Role, Container, Outline)
 				?? theme?.SeparatorForegroundColor
 				?? Container?.ForegroundColor
 				?? defaultFg;

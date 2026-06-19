@@ -37,6 +37,8 @@ public sealed class ToolbarBuilder : IControlBuilder<ToolbarControl>
 	private bool _showBelowLine;
 	private Color? _aboveLineColor;
 	private Color? _belowLineColor;
+	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private bool _outline;
 	private Padding? _contentPadding;
 	private EventHandler? _gotFocusHandler;
 	private WindowEventHandler<EventArgs>? _gotFocusWithWindowHandler;
@@ -256,6 +258,24 @@ public sealed class ToolbarBuilder : IControlBuilder<ToolbarControl>
 		return this;
 	}
 
+	/// <summary>Sets the control's semantic colour role, which tints the toolbar surface.</summary>
+	/// <param name="role">The semantic role determining the toolbar's colours.</param>
+	/// <returns>The builder for chaining</returns>
+	public ToolbarBuilder WithRole(Themes.ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>Renders the toolbar in outline style (role colour on text, surface fill).</summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	/// <returns>The builder for chaining</returns>
+	public ToolbarBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
+		return this;
+	}
+
 	/// <summary>
 	/// Sets a tag object
 	/// </summary>
@@ -451,7 +471,9 @@ public sealed class ToolbarBuilder : IControlBuilder<ToolbarControl>
 			ShowAboveLine = _showAboveLine,
 			ShowBelowLine = _showBelowLine,
 			AboveLineColor = _aboveLineColor,
-			BelowLineColor = _belowLineColor
+			BelowLineColor = _belowLineColor,
+			Role = _role,
+			Outline = _outline
 		};
 
 		if (_contentPadding.HasValue)

@@ -11,6 +11,7 @@ using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Builders;
 
@@ -30,6 +31,8 @@ public sealed class DropdownBuilder : IControlBuilder<DropdownControl>
 	private string? _name;
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
+	private ControlRole _role = ControlRole.Default;
+	private bool _outline;
 	private EventHandler<int>? _selectionChangedHandler;
 	private EventHandler<DropdownItem?>? _selectedItemChangedHandler;
 	private WindowEventHandler<int>? _selectionChangedWithWindowHandler;
@@ -297,6 +300,24 @@ public sealed class DropdownBuilder : IControlBuilder<DropdownControl>
 		return this;
 	}
 
+	/// <summary>Sets the control's semantic colour role.</summary>
+	/// <param name="role">The semantic role determining the dropdown's colours.</param>
+	/// <returns>The builder for chaining</returns>
+	public DropdownBuilder WithRole(ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>Renders the dropdown header in outline style (role colour on text, surface fill).</summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	/// <returns>The builder for chaining</returns>
+	public DropdownBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
+		return this;
+	}
+
 	/// <summary>
 	/// Builds the dropdown control
 	/// </summary>
@@ -311,7 +332,9 @@ public sealed class DropdownBuilder : IControlBuilder<DropdownControl>
 			Width = _width,
 			Name = _name,
 			Tag = _tag,
-			StickyPosition = _stickyPosition
+			StickyPosition = _stickyPosition,
+			Role = _role,
+			Outline = _outline
 		};
 
 		foreach (var item in _items)

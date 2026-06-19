@@ -25,6 +25,7 @@ namespace SharpConsoleUI.Controls
 		private readonly List<TreeNode> _rootNodes = new();
 		private Color? _backgroundColorValue;
 		private Color? _highlightBackgroundColorValue;
+		private Color? _highlightForegroundColorValue;
 		private int? _calculatedMaxVisibleItems;
 		private List<TreeNode> _flattenedNodes = new();
 
@@ -172,7 +173,13 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the foreground color for highlighted items
 		/// </summary>
-		public Color HighlightForegroundColor { get; set; } = Color.White;
+		public Color HighlightForegroundColor
+		{
+			get => _highlightForegroundColorValue
+				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline)
+				?? Color.White;
+			set => SetProperty(ref _highlightForegroundColorValue, (Color?)value);
+		}
 
 		/// <summary>
 		/// Gets or sets the indent string for each level

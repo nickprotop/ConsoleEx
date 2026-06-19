@@ -29,6 +29,9 @@ public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 	private Color? _foregroundColor;
 	private Color _highlightBackgroundColor = Color.Blue;
 	private Color _highlightForegroundColor = Color.White;
+	private bool _explicitHighlightColors = false;
+	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private bool _outline = false;
 	private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 	private Margin _margin = new(0, 0, 0, 0);
@@ -183,6 +186,29 @@ public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 	{
 		_highlightForegroundColor = foreground;
 		_highlightBackgroundColor = background;
+		_explicitHighlightColors = true;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the control's semantic colour role (drives the selected-node accent colour).
+	/// </summary>
+	/// <param name="role">The semantic role determining the selection accent colour.</param>
+	/// <returns>The builder for chaining</returns>
+	public TreeControlBuilder WithRole(Themes.ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>
+	/// Renders the role accent in outline style.
+	/// </summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	/// <returns>The builder for chaining</returns>
+	public TreeControlBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
 		return this;
 	}
 
@@ -440,8 +466,6 @@ public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 			Guide = _guide,
 			Indent = _indent,
 			MaxVisibleItems = _maxVisibleItems,
-			HighlightBackgroundColor = _highlightBackgroundColor,
-			HighlightForegroundColor = _highlightForegroundColor,
 			HorizontalAlignment = _horizontalAlignment,
 			VerticalAlignment = _verticalAlignment,
 			Margin = _margin,
@@ -452,8 +476,18 @@ public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 			StickyPosition = _stickyPosition,
 			ScrollbarVisibility = _scrollbarVisibility,
 			Name = _name,
-			Tag = _tag
+			Tag = _tag,
+			Role = _role,
+			Outline = _outline
 		};
+
+		// Preserve the legacy default (Blue/White) when no role is set; when a role is set
+		// and the user didn't explicitly choose highlight colours, let the role drive them.
+		if (_explicitHighlightColors || _role == Themes.ControlRole.Default)
+		{
+			tree.HighlightBackgroundColor = _highlightBackgroundColor;
+			tree.HighlightForegroundColor = _highlightForegroundColor;
+		}
 
 		// Set optional colors
 		if (_backgroundColor.HasValue)

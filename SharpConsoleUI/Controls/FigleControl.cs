@@ -340,7 +340,9 @@ namespace SharpConsoleUI.Controls
 			SetActualBounds(bounds);
 
 			var bgColor = Container?.BackgroundColor ?? defaultBg;
-			var fgColor = _color ?? Container?.ForegroundColor ?? defaultFg;
+			var fgColor = _color
+				?? ColorResolver.RoleForeground(Role, Container, Outline)
+				?? Container?.ForegroundColor ?? defaultFg;
 			var effectiveBg = SharpConsoleUI.Color.Transparent;
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 

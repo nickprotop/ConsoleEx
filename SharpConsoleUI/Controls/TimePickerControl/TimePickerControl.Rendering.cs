@@ -11,6 +11,7 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -45,22 +46,30 @@ namespace SharpConsoleUI.Controls
 
 			var effectiveBg = Color.Transparent;
 
-			// Resolve colors based on state
+			// Resolve colors based on state (role link applied between explicit override and theme
+			// default; identical to legacy when Role==Default since the role helpers return null).
+			RoleState roleState = CurrentRoleState;
 			Color bgColor, fgColor;
 			if (!_isEnabled)
 			{
-				bgColor = ColorResolver.ResolveTimePickerBackground(_backgroundColorValue, Container);
-				fgColor = ColorResolver.ResolveTimePickerDisabledForeground(_disabledForegroundColorValue, Container);
+				bgColor = _backgroundColorValue
+					?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+					?? ColorResolver.ResolveTimePickerBackground(null, Container);
+				fgColor = DisabledForegroundColor;
 			}
 			else if (HasFocus)
 			{
-				bgColor = ColorResolver.ResolveTimePickerFocusedBackground(_focusedBackgroundColorValue, Container);
-				fgColor = ColorResolver.ResolveTimePickerFocusedForeground(_focusedForegroundColorValue, Container);
+				bgColor = _focusedBackgroundColorValue
+					?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+					?? ColorResolver.ResolveTimePickerFocusedBackground(null, Container);
+				fgColor = FocusedForegroundColor;
 			}
 			else
 			{
-				bgColor = ColorResolver.ResolveTimePickerBackground(_backgroundColorValue, Container);
-				fgColor = ColorResolver.ResolveTimePickerForeground(_foregroundColorValue, Container);
+				bgColor = _backgroundColorValue
+					?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+					?? ColorResolver.ResolveTimePickerBackground(null, Container);
+				fgColor = ForegroundColor;
 			}
 
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;

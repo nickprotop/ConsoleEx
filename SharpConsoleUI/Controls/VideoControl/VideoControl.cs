@@ -18,6 +18,11 @@ namespace SharpConsoleUI.Controls
 	/// rendering. Decodes frames via FFmpeg subprocess and renders at up to 30 fps.
 	/// Requires FFmpeg to be installed and on the system PATH.
 	/// </summary>
+	/// <remarks>
+	/// This control inherits <see cref="BaseControl.Role"/>/<see cref="BaseControl.Outline"/> but does
+	/// not honour them: it has no single themed colour surface (it renders external video frames).
+	/// Setting a role is a no-op.
+	/// </remarks>
 	public partial class VideoControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
 	{
 		#region Fields

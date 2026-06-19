@@ -10,6 +10,7 @@ using System.Drawing;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Builders;
 
@@ -215,6 +216,22 @@ public sealed class CollapsiblePanelBuilder : IControlBuilder<CollapsiblePanel>
 	{
 		_panel.FocusedForegroundColor = foreground;
 		_panel.FocusedBackgroundColor = background;
+		return this;
+	}
+
+	/// <summary>Sets the control's semantic colour role, which tints the panel border/header chrome.</summary>
+	/// <param name="role">The semantic role determining the panel's chrome colour.</param>
+	public CollapsiblePanelBuilder WithRole(ControlRole role)
+	{
+		_panel.Role = role;
+		return this;
+	}
+
+	/// <summary>Renders the panel in outline style (lighter role chrome).</summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	public CollapsiblePanelBuilder Outline(bool outline = true)
+	{
+		_panel.Outline = outline;
 		return this;
 	}
 

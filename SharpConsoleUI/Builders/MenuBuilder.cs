@@ -9,6 +9,7 @@
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Builders;
 
@@ -30,6 +31,8 @@ public class MenuBuilder : IControlBuilder<MenuControl>
 	private Color? _menuBarForegroundColor;
 	private Color? _menuBarHighlightBackgroundColor;
 	private Color? _menuBarHighlightForegroundColor;
+	private ControlRole _role = ControlRole.Default;
+	private bool _outline;
 
 	// Dropdown colors
 	private Color? _dropdownBackgroundColor;
@@ -61,6 +64,22 @@ public class MenuBuilder : IControlBuilder<MenuControl>
 	public MenuBuilder WithName(string name)
 	{
 		_name = name;
+		return this;
+	}
+
+	/// <summary>Sets the control's semantic colour role, which tints the menu highlight accent.</summary>
+	/// <param name="role">The semantic role determining the highlight colours.</param>
+	public MenuBuilder WithRole(ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>Renders the menu highlight in outline style (role colour on text, surface fill).</summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	public MenuBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
 		return this;
 	}
 
@@ -305,7 +324,9 @@ public class MenuBuilder : IControlBuilder<MenuControl>
 			DropdownBackgroundColor = _dropdownBackgroundColor,
 			DropdownForegroundColor = _dropdownForegroundColor,
 			DropdownHighlightBackgroundColor = _dropdownHighlightBackgroundColor,
-			DropdownHighlightForegroundColor = _dropdownHighlightForegroundColor
+			DropdownHighlightForegroundColor = _dropdownHighlightForegroundColor,
+			Role = _role,
+			Outline = _outline
 		};
 
 		foreach (var item in _items)

@@ -18,6 +18,11 @@ namespace SharpConsoleUI.Controls
 	/// <summary>
 	/// A control that renders HTML content in the terminal with scrolling, link interaction, and keyboard navigation.
 	/// </summary>
+	/// <remarks>
+	/// This control inherits <see cref="BaseControl.Role"/>/<see cref="BaseControl.Outline"/> but does
+	/// not honour them: it has no single themed colour surface (colours come from the HTML/CSS content).
+	/// Setting a role is a no-op.
+	/// </remarks>
 	public partial class HtmlControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
 	{
 		/// <summary>

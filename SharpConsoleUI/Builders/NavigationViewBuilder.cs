@@ -382,6 +382,22 @@ public sealed class NavigationViewBuilder : IControlBuilder<NavigationView>
 		return this;
 	}
 
+	/// <summary>Sets the control's semantic colour role, which tints the selected nav item accent.</summary>
+	/// <param name="role">The semantic role determining the selected item's colours.</param>
+	public NavigationViewBuilder WithRole(Themes.ControlRole role)
+	{
+		_control.Role = role;
+		return this;
+	}
+
+	/// <summary>Renders the selected nav item in outline style (role colour on text, surface fill).</summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	public NavigationViewBuilder Outline(bool outline = true)
+	{
+		_control.Outline = outline;
+		return this;
+	}
+
 	/// <summary>
 	/// Sets a tag object.
 	/// </summary>

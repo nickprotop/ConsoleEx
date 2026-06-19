@@ -10,6 +10,7 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -119,6 +120,7 @@ namespace SharpConsoleUI.Controls
 		private Color? _borderColor;
 		private Color? _backgroundColorValue;
 		private Color? _foregroundColorValue;
+		private Color? _lineColor;
 		// Reusable pixel grid to avoid GC pressure in braille mode
 		private bool[,]? _pixelGridCache;
 
@@ -409,6 +411,31 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Gets or sets the line colour applied to the implicit default series (the series used by
+		/// <see cref="AddDataPoint(double)"/>). When null, this resolves from the control's
+		/// <see cref="BaseControl.Role"/> (if set) and otherwise defaults to Cyan1. Series added
+		/// explicitly via <see cref="AddSeries"/> keep their own colours and are unaffected.
+		/// </summary>
+		public Color LineColor
+		{
+			get => _lineColor
+				?? ColorResolver.RoleBackground(Role, Container, Outline)
+				?? Color.Cyan1;
+			set
+			{
+				_lineColor = value;
+				lock (_dataLock)
+				{
+					var series = _series.Find(s => s.Name == DEFAULT_SERIES_NAME);
+					if (series != null)
+						series.LineColor = value;
+				}
+				OnPropertyChanged();
+				Container?.Invalidate(true);
+			}
+		}
+
+		/// <summary>
 		/// Gets or sets which side of the graph the high/low labels appear on.
 		/// </summary>
 		public MarkerSide HighLowLabelSide
@@ -691,7 +718,7 @@ namespace SharpConsoleUI.Controls
 			var series = _series.Find(s => s.Name == DEFAULT_SERIES_NAME);
 			if (series == null)
 			{
-				series = new LineGraphSeries(DEFAULT_SERIES_NAME, Color.Cyan1);
+				series = new LineGraphSeries(DEFAULT_SERIES_NAME, LineColor);
 				_series.Add(series);
 			}
 			return series;

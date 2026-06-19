@@ -68,6 +68,30 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 	private StickyPosition _stickyPosition = StickyPosition.None;
 	private Color? _backgroundColor = Color.Default;
 	private Color? _foregroundColor = Color.Default;
+	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private bool _outline = false;
+
+	/// <summary>
+	/// Sets the control's semantic colour role (drives the row-selection accent colour).
+	/// </summary>
+	/// <param name="role">The semantic role determining the selection accent colour.</param>
+	/// <returns>The builder for chaining.</returns>
+	public TableControlBuilder WithRole(Themes.ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>
+	/// Renders the role accent in outline style.
+	/// </summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	/// <returns>The builder for chaining.</returns>
+	public TableControlBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
+		return this;
+	}
 
 	#region Column Configuration
 
@@ -705,7 +729,9 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 			Tag = _tag,
 			StickyPosition = _stickyPosition,
 			BackgroundColor = _backgroundColor,
-			ForegroundColor = _foregroundColor
+			ForegroundColor = _foregroundColor,
+			Role = _role,
+			Outline = _outline
 		};
 
 		// Set data source if provided

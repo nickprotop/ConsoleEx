@@ -12,6 +12,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 using Size = System.Drawing.Size;
 namespace SharpConsoleUI.Controls;
 
@@ -188,12 +189,23 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 	// Resolved colors with theme fallback
 	private Color ResolvedMenuBarBackground => ColorResolver.ResolveMenuBarBackground(_menuBarBackgroundColor, Container);
 	private Color ResolvedMenuBarForeground => ColorResolver.ResolveMenuBarForeground(_menuBarForegroundColor, Container);
-	private Color ResolvedMenuBarHighlightBackground => ColorResolver.ResolveMenuBarHighlightBackground(_menuBarHighlightBackgroundColor, Container);
-	private Color ResolvedMenuBarHighlightForeground => ColorResolver.ResolveMenuBarHighlightForeground(_menuBarHighlightForegroundColor, Container);
+	// The highlight is the role surface: when a Role is set, the highlighted/open item adopts the role
+	// fill (background) and readable text-on-fill (foreground). Explicit overrides still win; for
+	// Role=Default the role helpers return null, keeping the no-role path byte-identical.
+	private Color ResolvedMenuBarHighlightBackground => _menuBarHighlightBackgroundColor
+		?? ColorResolver.RoleBackground(Role, Container, Outline, RoleState.Focused)
+		?? ColorResolver.ResolveMenuBarHighlightBackground(null, Container);
+	private Color ResolvedMenuBarHighlightForeground => _menuBarHighlightForegroundColor
+		?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, RoleState.Focused)
+		?? ColorResolver.ResolveMenuBarHighlightForeground(null, Container);
 	private Color ResolvedDropdownBackground => ColorResolver.ResolveDropdownBackground(_dropdownBackgroundColor, Container);
 	private Color ResolvedDropdownForeground => ColorResolver.ResolveDropdownForeground(_dropdownForegroundColor, Container);
-	private Color ResolvedDropdownHighlightBackground => ColorResolver.ResolveDropdownHighlightBackground(_dropdownHighlightBackgroundColor, Container);
-	private Color ResolvedDropdownHighlightForeground => ColorResolver.ResolveDropdownHighlightForeground(_dropdownHighlightForegroundColor, Container);
+	private Color ResolvedDropdownHighlightBackground => _dropdownHighlightBackgroundColor
+		?? ColorResolver.RoleBackground(Role, Container, Outline, RoleState.Focused)
+		?? ColorResolver.ResolveDropdownHighlightBackground(null, Container);
+	private Color ResolvedDropdownHighlightForeground => _dropdownHighlightForegroundColor
+		?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, RoleState.Focused)
+		?? ColorResolver.ResolveDropdownHighlightForeground(null, Container);
 
 	// Legacy property aliases for backward compatibility
 	/// <summary>

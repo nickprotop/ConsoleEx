@@ -11,6 +11,7 @@ using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 #pragma warning disable CS1591
 
@@ -40,6 +41,8 @@ public sealed class ButtonBuilder : IControlBuilder<ButtonControl>
 	private Color? _borderColor;
 	private Color? _borderBackgroundColor;
 	private ButtonBorderStyle _borderStyle = ButtonBorderStyle.None;
+	private ControlRole _role = ControlRole.Default;
+	private bool _outline;
 	private EventHandler<ButtonControl>? _clickHandler;
 	private WindowEventHandler<ButtonControl>? _clickWithWindowHandler;
 	private EventHandler? _gotFocusHandler;
@@ -303,6 +306,24 @@ public sealed class ButtonBuilder : IControlBuilder<ButtonControl>
 		return this;
 	}
 
+	/// <summary>Sets the control's semantic colour role.</summary>
+	/// <param name="role">The semantic role determining the button's colours.</param>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder WithRole(ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>Renders the button in outline style (role colour on text + border, surface fill).</summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	/// <returns>The builder for chaining</returns>
+	public ButtonBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
+		return this;
+	}
+
 	public ButtonBuilder WithColors(Color foregroundColor, Color backgroundColor)
 	{
 		_foregroundColor = foregroundColor;
@@ -407,7 +428,9 @@ public sealed class ButtonBuilder : IControlBuilder<ButtonControl>
 			Name = _name,
 			Tag = _tag,
 			StickyPosition = _stickyPosition,
-			ButtonBorder = _borderStyle
+			ButtonBorder = _borderStyle,
+			Role = _role,
+			Outline = _outline
 		};
 
 		if (_backgroundColor.HasValue) button.BackgroundColor = _backgroundColor.Value;

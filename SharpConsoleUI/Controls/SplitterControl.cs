@@ -194,8 +194,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color ForegroundColor
 		{
-			// Resolution chain: explicit → grid's fg → grid's parent (Container) → theme
-			get => _foregroundColorValue ?? _parentGrid?.ForegroundColor
+			// Resolution chain: explicit → role → grid's fg → grid's parent (Container) → theme
+			get => _foregroundColorValue
+				?? ColorResolver.RoleForeground(Role, Container, Outline)
+				?? _parentGrid?.ForegroundColor
 				?? Container?.ForegroundColor
 				?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
 			set

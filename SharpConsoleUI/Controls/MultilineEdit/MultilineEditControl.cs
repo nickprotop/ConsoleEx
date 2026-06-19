@@ -15,6 +15,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 using Size = SharpConsoleUI.Helpers.Size;
 namespace SharpConsoleUI.Controls
 {
@@ -329,7 +330,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color FocusedForegroundColor
 		{
-			get => _focusedForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedForegroundColor ?? Color.White;
+			get => _focusedForegroundColorValue
+				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, RoleState.Focused)
+				?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputFocusedForegroundColor ?? Color.White;
 			set
 			{
 				_focusedForegroundColorValue = value;
@@ -343,7 +346,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color ForegroundColor
 		{
-			get => _foregroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputForegroundColor ?? Color.White;
+			get => _foregroundColorValue
+				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, CurrentRoleState)
+				?? Container?.GetConsoleWindowSystem?.Theme?.PromptInputForegroundColor ?? Color.White;
 			set
 			{
 				_foregroundColorValue = value;
@@ -857,6 +862,13 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
+
+		/// <summary>
+		/// Computes the current role state from the editor's enabled/focus state so role colours
+		/// reflect the same visual state the renderer paints.
+		/// </summary>
+		private RoleState CurrentRoleState =>
+			!_isEnabled ? RoleState.Disabled : (ComputeHasFocus() ? RoleState.Focused : RoleState.Normal);
 
 		/// <inheritdoc/>
 		public bool WantsMouseEvents => IsEnabled;

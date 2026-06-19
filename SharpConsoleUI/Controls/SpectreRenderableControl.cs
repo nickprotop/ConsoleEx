@@ -27,6 +27,11 @@ namespace SharpConsoleUI.Controls
 	/// A control that wraps any Spectre.Console IRenderable for display within the window system.
 	/// Provides a bridge between Spectre.Console's rich rendering and the SharpConsoleUI framework.
 	/// </summary>
+	/// <remarks>
+	/// This control inherits <see cref="BaseControl.Role"/>/<see cref="BaseControl.Outline"/> but does
+	/// not honour them: it has no single themed colour surface (it wraps an arbitrary Spectre IRenderable
+	/// that owns its own colours). Setting a role is a no-op.
+	/// </remarks>
 	public class SpectreRenderableControl : BaseControl, IMouseAwareControl
 	{
 		private Color? _backgroundColorValue;

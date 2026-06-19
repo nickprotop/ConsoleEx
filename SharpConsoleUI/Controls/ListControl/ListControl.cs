@@ -337,7 +337,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color HighlightBackgroundColor
 		{
-			get => _highlightBackgroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ListSelectedBackgroundColor ?? Color.DarkBlue;
+			get => _highlightBackgroundColorValue
+				?? ColorResolver.RoleBackground(Role, Container, Outline)
+				?? Container?.GetConsoleWindowSystem?.Theme?.ListSelectedBackgroundColor ?? Color.DarkBlue;
 			set => SetProperty(ref _highlightBackgroundColorValue, (Color?)value);
 		}
 
@@ -346,7 +348,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color HighlightForegroundColor
 		{
-			get => _highlightForegroundColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ListSelectedForegroundColor ?? Color.White;
+			get => _highlightForegroundColorValue
+				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline)
+				?? Container?.GetConsoleWindowSystem?.Theme?.ListSelectedForegroundColor ?? Color.White;
 			set => SetProperty(ref _highlightForegroundColorValue, (Color?)value);
 		}
 

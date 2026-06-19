@@ -13,6 +13,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -292,6 +293,7 @@ namespace SharpConsoleUI.Controls
 		{
 			// Unset → theme menu-highlight background so the selection follows the theme; explicit set pins it.
 			get => _selectedItemBackground
+				?? ColorResolver.RoleBackground(Role, Container, Outline, RoleState.Normal)
 				?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownHighlightBackgroundColor
 				?? new Color(
 					ControlDefaults.NavigationViewSelectedBgR,
@@ -308,6 +310,7 @@ namespace SharpConsoleUI.Controls
 			// Unset → theme highlight foreground, or a color guaranteed readable on the RESOLVED
 			// selection background (so the bg/fg pair always has contrast). Explicit set pins it.
 			get => _selectedItemForeground
+				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, RoleState.Normal)
 				?? Container?.GetConsoleWindowSystem?.Theme?.MenuDropdownHighlightForegroundColor
 				?? PaletteColors.ReadableOn(SelectedItemBackground);
 			set { if (SetProperty(ref _selectedItemForeground, value)) RefreshAllItemMarkup(); }

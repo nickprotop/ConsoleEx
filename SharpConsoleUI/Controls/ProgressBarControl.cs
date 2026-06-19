@@ -9,6 +9,7 @@
 using System.Timers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 using Size = System.Drawing.Size;
 using Timer = System.Timers.Timer;
 
@@ -180,7 +181,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color? FilledColor
 		{
-			get => _filledColorValue ?? Container?.GetConsoleWindowSystem?.Theme?.ProgressBarFilledColor ?? Color.Cyan1;
+			get => _filledColorValue
+				?? ColorResolver.RoleBackground(Role, Container, Outline)
+				?? Container?.GetConsoleWindowSystem?.Theme?.ProgressBarFilledColor ?? Color.Cyan1;
 			set => SetProperty(ref _filledColorValue, value);
 		}
 

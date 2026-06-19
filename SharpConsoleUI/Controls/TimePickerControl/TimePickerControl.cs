@@ -14,6 +14,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
@@ -197,6 +198,13 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
 
+		/// <summary>
+		/// Computes the current role state from the picker's enabled/focus state so role colours
+		/// reflect the same visual state the renderer paints.
+		/// </summary>
+		private RoleState CurrentRoleState =>
+			!_isEnabled ? RoleState.Disabled : (ComputeHasFocus() ? RoleState.Focused : RoleState.Normal);
+
 		/// <inheritdoc/>
 		public bool WantsMouseEvents => _isEnabled;
 
@@ -220,7 +228,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color ForegroundColor
 		{
-			get => ColorResolver.ResolveTimePickerForeground(_foregroundColorValue, Container);
+			get => _foregroundColorValue
+				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, CurrentRoleState)
+				?? ColorResolver.ResolveTimePickerForeground(null, Container);
 			set => SetProperty(ref _foregroundColorValue, (Color?)value);
 		}
 
@@ -238,7 +248,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color FocusedForegroundColor
 		{
-			get => ColorResolver.ResolveTimePickerFocusedForeground(_focusedForegroundColorValue, Container);
+			get => _focusedForegroundColorValue
+				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, RoleState.Focused)
+				?? ColorResolver.ResolveTimePickerFocusedForeground(null, Container);
 			set => SetProperty(ref _focusedForegroundColorValue, (Color?)value);
 		}
 
@@ -265,7 +277,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color DisabledForegroundColor
 		{
-			get => ColorResolver.ResolveTimePickerDisabledForeground(_disabledForegroundColorValue, Container);
+			get => _disabledForegroundColorValue
+				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, RoleState.Disabled)
+				?? ColorResolver.ResolveTimePickerDisabledForeground(null, Container);
 			set => SetProperty(ref _disabledForegroundColorValue, (Color?)value);
 		}
 

@@ -33,6 +33,8 @@ public sealed class StatusBarBuilder : IControlBuilder<StatusBarControl>
 	private string? _shortcutLabelSeparator;
 	private bool _showAboveLine;
 	private Color? _aboveLineColor;
+	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private bool _outline;
 	private EventHandler<StatusBarItemClickedEventArgs>? _itemClickedHandler;
 
 	#region Add Left
@@ -163,6 +165,22 @@ public sealed class StatusBarBuilder : IControlBuilder<StatusBarControl>
 		return this;
 	}
 
+	/// <summary>Sets the control's semantic colour role, which tints the status bar background.</summary>
+	/// <param name="role">The semantic role determining the status bar's colours.</param>
+	public StatusBarBuilder WithRole(Themes.ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>Renders the status bar in outline style (role colour on text, surface fill).</summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	public StatusBarBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
+		return this;
+	}
+
 	public StatusBarBuilder WithTag(object tag)
 	{
 		_tag = tag;
@@ -243,6 +261,8 @@ public sealed class StatusBarBuilder : IControlBuilder<StatusBarControl>
 			Tag = _tag,
 			StickyPosition = _stickyPosition,
 			HorizontalAlignment = _horizontalAlignment,
+			Role = _role,
+			Outline = _outline,
 		};
 
 		if (_backgroundColor.HasValue) bar.BackgroundColor = _backgroundColor.Value;

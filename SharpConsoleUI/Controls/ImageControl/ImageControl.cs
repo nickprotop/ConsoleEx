@@ -18,6 +18,11 @@ namespace SharpConsoleUI.Controls
 	/// Displays a PixelBuffer as a half-block image in a console window.
 	/// Each character cell represents 2 vertical pixels.
 	/// </summary>
+	/// <remarks>
+	/// This control inherits <see cref="BaseControl.Role"/>/<see cref="BaseControl.Outline"/> but does
+	/// not honour them: it has no single themed colour surface (it renders external image pixel data).
+	/// Setting a role is a no-op.
+	/// </remarks>
 	public class ImageControl : BaseControl
 	{
 		private PixelBuffer? _source;

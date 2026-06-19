@@ -11,6 +11,7 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -41,23 +42,31 @@ namespace SharpConsoleUI.Controls
 
 			var effectiveBg = Color.Transparent;
 
+			// Role link applied between explicit override and theme default; identical to legacy when Role==Default.
+			RoleState roleState = CurrentRoleState;
 			Color backgroundColor;
 			Color foregroundColor;
 
 			if (!_isEnabled)
 			{
-				backgroundColor = Container?.GetConsoleWindowSystem?.Theme?.DatePickerDisabledBackgroundColor ?? Color.Grey;
-				foregroundColor = Container?.GetConsoleWindowSystem?.Theme?.DatePickerDisabledForegroundColor ?? Color.DarkSlateGray1;
+				backgroundColor = ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+					?? Container?.GetConsoleWindowSystem?.Theme?.DatePickerDisabledBackgroundColor ?? Color.Grey;
+				foregroundColor = ColorResolver.RoleTextOnBackground(Role, Container, Outline, roleState)
+					?? Container?.GetConsoleWindowSystem?.Theme?.DatePickerDisabledForegroundColor ?? Color.DarkSlateGray1;
 			}
 			else if (HasFocus)
 			{
-				backgroundColor = ColorResolver.ResolveDatePickerFocusedBackground(_focusedBackgroundColorValue, Container);
-				foregroundColor = ColorResolver.ResolveDatePickerFocusedForeground(_focusedForegroundColorValue, Container);
+				backgroundColor = _focusedBackgroundColorValue
+					?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+					?? ColorResolver.ResolveDatePickerFocusedBackground(null, Container);
+				foregroundColor = FocusedForegroundColor;
 			}
 			else
 			{
-				backgroundColor = ColorResolver.ResolveDatePickerBackground(_backgroundColorValue, Container);
-				foregroundColor = ColorResolver.ResolveDatePickerForeground(_foregroundColorValue, Container);
+				backgroundColor = _backgroundColorValue
+					?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+					?? ColorResolver.ResolveDatePickerBackground(null, Container);
+				foregroundColor = ForegroundColor;
 			}
 
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;

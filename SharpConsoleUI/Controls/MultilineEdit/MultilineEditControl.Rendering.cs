@@ -12,6 +12,7 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -81,11 +82,17 @@ namespace SharpConsoleUI.Controls
 				gutterSnapshot = _gutterRenderers.ToList();
 			}
 
+			// Role link applied between explicit override and theme default; identical to legacy when Role==Default.
+			RoleState roleState = CurrentRoleState;
 			Color bgColor;
 			if (HasFocus)
-				bgColor = ColorResolver.ResolveMultilineEditFocusedBackground(_focusedBackgroundColorValue, Container);
+				bgColor = _focusedBackgroundColorValue
+					?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+					?? ColorResolver.ResolveMultilineEditFocusedBackground(null, Container);
 			else
-				bgColor = ColorResolver.ResolveMultilineEditBackground(_backgroundColorValue, Container);
+				bgColor = _backgroundColorValue
+					?? ColorResolver.RoleBackground(Role, Container, Outline, roleState)
+					?? ColorResolver.ResolveMultilineEditBackground(null, Container);
 			Color fgColor = HasFocus ? FocusedForegroundColor : ForegroundColor;
 			Color selBgColor = SelectionBackgroundColor;
 			Color selFgColor = SelectionForegroundColor;

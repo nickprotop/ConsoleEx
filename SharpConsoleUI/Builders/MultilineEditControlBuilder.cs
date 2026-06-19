@@ -11,6 +11,7 @@ using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Builders;
 
@@ -58,6 +59,8 @@ public sealed class MultilineEditControlBuilder : IControlBuilder<MultilineEditC
 	private bool _showEditingHints;
 	private ISyntaxHighlighter? _syntaxHighlighter;
 	private bool _escapeExitsEditMode = true;
+	private ControlRole _role = ControlRole.Default;
+	private bool _outline;
 	private List<IGutterRenderer>? _gutterRenderers;
 
 	// Event handlers
@@ -697,6 +700,24 @@ public sealed class MultilineEditControlBuilder : IControlBuilder<MultilineEditC
 		return this;
 	}
 
+	/// <summary>Sets the control's semantic colour role.</summary>
+	/// <param name="role">The semantic role determining the editor's colours.</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithRole(ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>Renders the editor in outline style (role colour on text, surface fill).</summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
+		return this;
+	}
+
 	/// <summary>
 	/// Builds the multiline edit control
 	/// </summary>
@@ -710,6 +731,8 @@ public sealed class MultilineEditControlBuilder : IControlBuilder<MultilineEditC
 			Margin = _margin,
 			Visible = _visible,
 			IsEnabled = _isEnabled,
+			Role = _role,
+			Outline = _outline,
 			IsEditing = _isEditing,
 			ReadOnly = _readOnly,
 			WrapMode = _wrapMode,

@@ -223,7 +223,9 @@ namespace SharpConsoleUI.Controls
 				Color textColor;
 				Color nodeBgColor;
 
-				var selectionBg = ColorResolver.ResolveTreeSelectionBackground(_highlightBackgroundColorValue, Container);
+				var selectionBg = _highlightBackgroundColorValue
+					?? ColorResolver.RoleBackground(Role, Container, Outline)
+					?? ColorResolver.ResolveTreeSelectionBackground(null, Container);
 				if (i == selectedIndex && HasFocus)
 				{
 					textColor = HighlightForegroundColor;

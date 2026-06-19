@@ -878,13 +878,15 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	internal Color ResolveSelectionBackgroundColor()
 	{
 		var theme = Container?.GetConsoleWindowSystem?.Theme;
-		return theme?.TableSelectionBackgroundColor ?? Color.Blue;
+		return ColorResolver.RoleBackground(Role, Container, Outline)
+			?? theme?.TableSelectionBackgroundColor ?? Color.Blue;
 	}
 
 	internal Color ResolveSelectionForegroundColor()
 	{
 		var theme = Container?.GetConsoleWindowSystem?.Theme;
-		return theme?.TableSelectionForegroundColor ?? Color.White;
+		return ColorResolver.RoleTextOnBackground(Role, Container, Outline)
+			?? theme?.TableSelectionForegroundColor ?? Color.White;
 	}
 
 	internal Color ResolveUnfocusedSelectionBackgroundColor()

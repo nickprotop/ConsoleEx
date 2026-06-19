@@ -20,6 +20,11 @@ namespace SharpConsoleUI.Controls
 	/// <see cref="BeginPaint"/>/<see cref="EndPaint"/> and event-driven painting via the
 	/// <see cref="Paint"/> event. Both modes can be combined.
 	/// </summary>
+	/// <remarks>
+	/// This control inherits <see cref="BaseControl.Role"/>/<see cref="BaseControl.Outline"/> but does
+	/// not honour them: it has no single themed colour surface (it renders raw user-drawn pixels).
+	/// Setting a role is a no-op.
+	/// </remarks>
 	public partial class CanvasControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
 	{
 		#region Fields

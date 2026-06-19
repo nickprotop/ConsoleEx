@@ -42,6 +42,21 @@ namespace SharpConsoleUI.Themes
 		/// </summary>
 		public override Color? ActiveTitleForegroundColor { get; set; } = Color.Cyan1;
 
+		/// <inheritdoc/>
+		public override Color? PrimaryColor { get; set; } = Color.Cyan1;
+		/// <inheritdoc/>
+		public override Color? SecondaryColor { get; set; } = Color.SteelBlue;
+		/// <inheritdoc/>
+		public override Color? TertiaryColor { get; set; } = Color.SlateBlue1;
+		/// <inheritdoc/>
+		public override Color? InfoColor { get; set; } = Color.SteelBlue;
+		/// <inheritdoc/>
+		public override Color? SuccessColor { get; set; } = Color.DarkGreen;
+		/// <inheritdoc/>
+		public override Color? WarningColor { get; set; } = Color.Orange3;
+		/// <inheritdoc/>
+		public override Color? DangerColor { get; set; } = Color.Maroon;
+
 		/// <summary>
 		/// Gets or sets the background color for the bottom status bar of the console window system.
 		/// </summary>

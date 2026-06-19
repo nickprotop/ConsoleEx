@@ -14,6 +14,7 @@ using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -525,7 +526,7 @@ namespace SharpConsoleUI.Controls
 			// The title follows BorderColor when one is set (so WithBorderColor colors the title even in
 			// borderless mode, issue #49); otherwise the resolved foreground. Markup in the title still
 			// overrides per-span. Falls back to fg.
-			Color titleFg = _borderColorValue ?? fg;
+			Color titleFg = ResolveChromeColor(fg);
 			var cells = MarkupParser.Parse(ComposeHeaderText(), titleFg, bg);
 
 			int avail = Math.Max(0, right - left);
@@ -538,10 +539,24 @@ namespace SharpConsoleUI.Controls
 			if (_showHeaderSeparator)
 			{
 				int sepY = headerY + 1;
-				Color sep = _borderColorValue ?? fg;
+				Color sep = ResolveChromeColor(fg);
 				for (int x = left; x < right; x++)
 					buffer.SetNarrowCell(x, sepY, '─', sep, bg);
 			}
+		}
+
+		/// <summary>
+		/// Resolves the colour painted on the panel chrome (border, bordered/borderless title, separator):
+		/// explicit <see cref="BorderColor"/> → semantic <see cref="BaseControl.Role"/> border → the
+		/// supplied foreground fallback. For <see cref="ControlRole.Default"/> the role helper returns null,
+		/// keeping the no-role path byte-identical to the legacy behaviour.
+		/// </summary>
+		private Color ResolveChromeColor(Color foregroundFallback)
+		{
+			RoleState state = !_isEnabled ? RoleState.Disabled : (HasFocus ? RoleState.Focused : RoleState.Normal);
+			return _borderColorValue
+				?? ColorResolver.RoleBorder(Role, Container, Outline, state)
+				?? foregroundFallback;
 		}
 
 		private static int HorizontalOffset(int contentWidth, int available, HorizontalAlignment align)
@@ -589,7 +604,7 @@ namespace SharpConsoleUI.Controls
 		private void PaintBorderedHeader(CharacterBuffer buffer, LayoutRect bounds,
 			LayoutRect clipRect, Color fg, Color bg)
 		{
-			Color border = _borderColorValue ?? fg;
+			Color border = ResolveChromeColor(fg);
 			var box = HeaderBox;
 
 			int x = bounds.X + Margin.Left;

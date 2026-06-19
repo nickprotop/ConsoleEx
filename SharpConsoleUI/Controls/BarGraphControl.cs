@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 using Size = System.Drawing.Size;
 
 namespace SharpConsoleUI.Controls
@@ -32,7 +33,7 @@ namespace SharpConsoleUI.Controls
 
 		private Color? _backgroundColorValue;
 		private int _barWidth = DEFAULT_BAR_WIDTH;
-		private Color _filledColor = Color.Cyan1;
+		private Color? _filledColor;
 		private Color? _foregroundColorValue;
 		private string _label = string.Empty;
 		private int? _labelWidth;
@@ -79,7 +80,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color FilledColor
 		{
-			get => _filledColor;
+			get => _filledColor
+				?? ColorResolver.RoleBackground(Role, Container, Outline)
+				?? Color.Cyan1;
 			set => SetProperty(ref _filledColor, value);
 		}
 
@@ -483,7 +486,7 @@ namespace SharpConsoleUI.Controls
 			// Priority 1: Threshold-based gradients (existing functionality)
 			if (colorThresholds != null && colorThresholds.Count > 0)
 			{
-				Color result = _filledColor;
+				Color result = FilledColor;
 				foreach (var threshold in colorThresholds)
 				{
 					if (percent >= threshold.Threshold)
@@ -499,7 +502,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Default: Solid color
-			return _filledColor;
+			return FilledColor;
 		}
 
 		#endregion

@@ -33,6 +33,30 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	private FigletFont? _customFont;
 	private string? _fontPath;
 	private WrapMode _wrapMode = WrapMode.NoWrap;
+	private Themes.ControlRole _role = Themes.ControlRole.Default;
+	private bool _outline = false;
+
+	/// <summary>
+	/// Sets the control's semantic colour role (drives the banner colour).
+	/// </summary>
+	/// <param name="role">The semantic role determining the banner colour.</param>
+	/// <returns>The builder for chaining</returns>
+	public FigleControlBuilder WithRole(Themes.ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>
+	/// Renders the role accent in outline style.
+	/// </summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	/// <returns>The builder for chaining</returns>
+	public FigleControlBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
+		return this;
+	}
 
 	/// <summary>
 	/// Sets the FIGlet text to render
@@ -284,7 +308,9 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 			Size = _size,
 			CustomFont = _customFont,
 			FontPath = _fontPath,
-			WrapMode = _wrapMode
+			WrapMode = _wrapMode,
+			Role = _role,
+			Outline = _outline
 		};
 
 		if (_color.HasValue)

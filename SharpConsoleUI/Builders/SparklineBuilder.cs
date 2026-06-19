@@ -10,6 +10,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Builders
 {
@@ -61,6 +62,24 @@ namespace SharpConsoleUI.Builders
 		public SparklineBuilder WithBarColor(Color color)
 		{
 			_control.BarColor = color;
+			return this;
+		}
+
+		/// <summary>Sets the control's semantic colour role (drives the bar accent colour).</summary>
+		/// <param name="role">The semantic role determining the bar accent colour.</param>
+		/// <returns>The builder for chaining.</returns>
+		public SparklineBuilder WithRole(ControlRole role)
+		{
+			_control.Role = role;
+			return this;
+		}
+
+		/// <summary>Renders the sparkline in outline style.</summary>
+		/// <param name="outline">Whether to use outline style.</param>
+		/// <returns>The builder for chaining.</returns>
+		public SparklineBuilder Outline(bool outline = true)
+		{
+			_control.Outline = outline;
 			return this;
 		}
 

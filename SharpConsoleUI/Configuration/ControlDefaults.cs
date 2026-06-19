@@ -35,6 +35,9 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int DefaultBorderWidth = 1;
 
+		/// <summary>Alpha (opacity) applied to disabled-state colours so they blend with the surface (~45%).</summary>
+		public const byte DisabledStateAlpha = 115;
+
 		// Text defaults
 		/// <summary>
 		/// Default padding around text content: "  text  " (default: 4 total, 2 each side)

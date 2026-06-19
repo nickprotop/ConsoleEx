@@ -258,7 +258,9 @@ namespace SharpConsoleUI.Controls
 			var bgColor = Container?.BackgroundColor ?? defaultBg;
 			var fgColor = Container?.ForegroundColor ?? defaultFg;
 			var effectiveBg = SharpConsoleUI.Color.Transparent;
-			var ruleColor = _color ?? fgColor;
+			var ruleColor = _color
+				?? ColorResolver.RoleForeground(Role, Container, Outline)
+				?? fgColor;
 
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			if (targetWidth <= 0) return;

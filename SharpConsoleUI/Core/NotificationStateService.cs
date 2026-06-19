@@ -12,6 +12,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Core
 {
@@ -366,12 +367,15 @@ namespace SharpConsoleUI.Core
 			};
 			notificationWindow.AddControl(notificationContent);
 
-			// Add close button that triggers window close
+			// Add close button that triggers window close. Default its role by the notification's
+			// purpose so the button accent matches the severity (amber warning, red error, etc.).
+			// Additive and overridable: a Default role leaves the button's legacy colours untouched.
 			var closeButton = new ButtonControl()
 			{
 				Text = "Close",
 				StickyPosition = StickyPosition.Bottom,
-				Margin = new Margin() { Left = 1 }
+				Margin = new Margin() { Left = 1 },
+				Role = MapSeverityToRole(severity.Severity)
 			};
 			closeButton.Click += (sender, e) =>
 			{
@@ -380,6 +384,27 @@ namespace SharpConsoleUI.Core
 			notificationWindow.AddControl(closeButton);
 
 			return notificationWindow;
+		}
+
+		/// <summary>
+		/// Maps a notification severity to the semantic <see cref="ControlRole"/> a themed control
+		/// should adopt so its accent reflects the notification's purpose.
+		/// </summary>
+		/// <param name="severity">The notification severity level.</param>
+		/// <returns>
+		/// The matching <see cref="ControlRole"/>, or <see cref="ControlRole.Default"/> for
+		/// <see cref="NotificationSeverityEnum.None"/> (no implied role).
+		/// </returns>
+		internal static ControlRole MapSeverityToRole(NotificationSeverityEnum severity)
+		{
+			return severity switch
+			{
+				NotificationSeverityEnum.Danger => ControlRole.Danger,
+				NotificationSeverityEnum.Warning => ControlRole.Warning,
+				NotificationSeverityEnum.Success => ControlRole.Success,
+				NotificationSeverityEnum.Info => ControlRole.Info,
+				_ => ControlRole.Default,
+			};
 		}
 
 		private void SetupTimeout(string notificationId, int timeoutMs)

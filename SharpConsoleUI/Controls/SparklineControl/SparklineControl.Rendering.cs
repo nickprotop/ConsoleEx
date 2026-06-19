@@ -321,7 +321,7 @@ namespace SharpConsoleUI.Controls
 					}
 					else
 					{
-						cellColor = _barColor;
+						cellColor = BarColor;
 					}
 					buffer.SetNarrowCell(paintX, paintY, displayChar, cellColor, bgColor);
 				}
@@ -386,7 +386,7 @@ namespace SharpConsoleUI.Controls
 						}
 						else
 						{
-							cellColor = _barColor;
+							cellColor = BarColor;
 						}
 						buffer.SetNarrowCell(paintX, paintY, displayChar, cellColor, bgColor);
 					}

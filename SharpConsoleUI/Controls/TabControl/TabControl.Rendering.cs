@@ -50,11 +50,21 @@ namespace SharpConsoleUI.Controls
 			lock (_tabLock) { snapshot = _tabPages.ToList(); activeIdx = _activeTabIndex; }
 			var bgColor = ColorResolver.ResolveBackground(_backgroundColor, Container);
 
-			// Resolve per-state header colors once per paint.
-			var activeFocFg = ColorResolver.ResolveTabHeaderActiveFocusedForeground(_activeFocusedForeground, Container);
-			var activeFocBg = ColorResolver.ResolveTabHeaderActiveFocusedBackground(_activeFocusedBackground, Container);
-			var activeUnfocFg = ColorResolver.ResolveTabHeaderActiveForeground(_activeUnfocusedForeground, Container);
-			var activeUnfocBg = ColorResolver.ResolveTabHeaderActiveBackground(_activeUnfocusedBackground, Container);
+			// Resolve per-state header colors once per paint. The active tab is the role surface: when a
+			// Role is set its fill/text-on-fill take precedence over the theme defaults (explicit overrides
+			// still win). For Role=Default the role helpers return null, keeping the no-role path identical.
+			var activeFocFg = _activeFocusedForeground
+				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, Themes.RoleState.Focused)
+				?? ColorResolver.ResolveTabHeaderActiveFocusedForeground(null, Container);
+			var activeFocBg = _activeFocusedBackground
+				?? ColorResolver.RoleBackground(Role, Container, Outline, Themes.RoleState.Focused)
+				?? ColorResolver.ResolveTabHeaderActiveFocusedBackground(null, Container);
+			var activeUnfocFg = _activeUnfocusedForeground
+				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, Themes.RoleState.Normal)
+				?? ColorResolver.ResolveTabHeaderActiveForeground(null, Container);
+			var activeUnfocBg = _activeUnfocusedBackground
+				?? ColorResolver.RoleBackground(Role, Container, Outline, Themes.RoleState.Normal)
+				?? ColorResolver.ResolveTabHeaderActiveBackground(null, Container);
 			var inactFocFg = ColorResolver.ResolveTabHeaderFocusedForeground(_inactiveFocusedForeground, Container);
 			var inactFocBg = ColorResolver.ResolveTabHeaderFocusedBackground(_inactiveFocusedBackground, Container);
 			var inactUnfocFg = ColorResolver.ResolveTabHeaderForeground(_inactiveUnfocusedForeground, Container);

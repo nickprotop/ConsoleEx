@@ -69,6 +69,11 @@ namespace SharpConsoleUI.Controls
 	/// and arranging columns. The layout algorithm is assigned automatically by
 	/// Window.cs during tree building. Users don't interact with HorizontalLayout directly.
 	/// </para>
+	/// <para>
+	/// This control inherits <see cref="BaseControl.Role"/>/<see cref="BaseControl.Outline"/> but does
+	/// not honour them: it has no single themed colour surface (it is a pure layout container).
+	/// Setting a role is a no-op.
+	/// </para>
 	/// </summary>
 	public partial class HorizontalGridControl : BaseControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IContainerControl, IFocusScope
 	{

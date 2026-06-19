@@ -23,6 +23,11 @@ namespace SharpConsoleUI.Controls;
 /// Uses ScrollablePanelControl internally for scrolling with AutoScroll support.
 /// Thread-safe: log events can be received from any thread.
 /// </summary>
+/// <remarks>
+/// This control inherits <see cref="BaseControl.Role"/>/<see cref="BaseControl.Outline"/> but does
+/// not honour them: it has no single themed colour surface (log lines colour themselves by severity).
+/// Setting a role is a no-op.
+/// </remarks>
 public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableControl, IMouseAwareControl
 {
 	private readonly ILogService _logService;

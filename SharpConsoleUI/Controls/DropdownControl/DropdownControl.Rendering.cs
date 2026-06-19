@@ -11,6 +11,7 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -47,24 +48,10 @@ namespace SharpConsoleUI.Controls
 			// Store bounds for portal positioning
 			_lastLayoutBounds = bounds;
 
-			Color backgroundColor;
-			Color foregroundColor;
-
-			if (!_isEnabled)
-			{
-				backgroundColor = Container?.GetConsoleWindowSystem?.Theme?.DropdownDisabledBackgroundColor ?? Color.Grey;
-				foregroundColor = Container?.GetConsoleWindowSystem?.Theme?.DropdownDisabledForegroundColor ?? Color.DarkSlateGray1;
-			}
-			else if (HasFocus)
-			{
-				backgroundColor = FocusedBackgroundColor;
-				foregroundColor = FocusedForegroundColor;
-			}
-			else
-			{
-				backgroundColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-				foregroundColor = ForegroundColor;
-			}
+			// Role link applied inside the resolvers; identical to legacy when Role==Default.
+			RoleState roleState = CurrentRoleState;
+			Color backgroundColor = ResolveBackground(roleState);
+			Color foregroundColor = ResolveForeground(roleState);
 
 			var effectiveBg = Color.Transparent;
 

@@ -10,6 +10,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Builders
 {
@@ -109,6 +110,33 @@ namespace SharpConsoleUI.Builders
 		public LineGraphBuilder WithTitlePosition(TitlePosition position)
 		{
 			_control.TitlePosition = position;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the line colour of the implicit default series.
+		/// </summary>
+		public LineGraphBuilder WithLineColor(Color color)
+		{
+			_control.LineColor = color;
+			return this;
+		}
+
+		/// <summary>Sets the control's semantic colour role (drives the default series line colour).</summary>
+		/// <param name="role">The semantic role determining the line accent colour.</param>
+		/// <returns>The builder for chaining.</returns>
+		public LineGraphBuilder WithRole(ControlRole role)
+		{
+			_control.Role = role;
+			return this;
+		}
+
+		/// <summary>Renders the line graph in outline style.</summary>
+		/// <param name="outline">Whether to use outline style.</param>
+		/// <returns>The builder for chaining.</returns>
+		public LineGraphBuilder Outline(bool outline = true)
+		{
+			_control.Outline = outline;
 			return this;
 		}
 

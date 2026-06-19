@@ -9,8 +9,10 @@ using System.Drawing;
 using SharpConsoleUI.Animation;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
+using SharpConsoleUI.Themes;
 using Size = System.Drawing.Size;
 
 namespace SharpConsoleUI.Controls;
@@ -255,7 +257,9 @@ public class SpinnerControl : BaseControl
 		int idx = _currentFrameIndex % frames.Count;
 		string frame = frames[idx];
 
-		Color fg = _color ?? defaultFg;
+		Color fg = _color
+			?? ColorResolver.RoleForeground(Role, Container, Outline)
+			?? defaultFg;
 		Color bg = Container?.BackgroundColor ?? defaultBg;
 
 		int x = bounds.X + Margin.Left;

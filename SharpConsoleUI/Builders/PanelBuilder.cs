@@ -9,6 +9,7 @@
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Builders;
 
@@ -36,6 +37,8 @@ public sealed class PanelBuilder : IControlBuilder<PanelControl>
 	private StickyPosition _stickyPosition = StickyPosition.None;
 	private Color? _backgroundColor;
 	private Color? _foregroundColor;
+	private ControlRole _role = ControlRole.Default;
+	private bool _outline;
 
 	/// <summary>
 	/// Sets the content to display inside the panel using markup text.
@@ -409,6 +412,24 @@ public sealed class PanelBuilder : IControlBuilder<PanelControl>
 		return this;
 	}
 
+	/// <summary>Sets the control's semantic colour role, which tints the panel border.</summary>
+	/// <param name="role">The semantic role determining the panel's border colour.</param>
+	/// <returns>The builder for chaining.</returns>
+	public PanelBuilder WithRole(ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>Renders the panel in outline style (lighter role border).</summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	/// <returns>The builder for chaining.</returns>
+	public PanelBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
+		return this;
+	}
+
 	/// <summary>
 	/// Builds the PanelControl.
 	/// </summary>
@@ -435,7 +456,9 @@ public sealed class PanelBuilder : IControlBuilder<PanelControl>
 			Tag = _tag,
 			StickyPosition = _stickyPosition,
 			BackgroundColor = _backgroundColor,
-			ForegroundColor = _foregroundColor
+			ForegroundColor = _foregroundColor,
+			Role = _role,
+			Outline = _outline
 		};
 
 		BindingHelper.ApplyDeferredBindings(this, control);

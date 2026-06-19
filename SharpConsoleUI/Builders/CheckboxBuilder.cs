@@ -11,6 +11,7 @@ using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Builders;
 
@@ -31,6 +32,8 @@ public sealed class CheckboxBuilder : IControlBuilder<CheckboxControl>
 	private string? _name;
 	private object? _tag;
 	private StickyPosition _stickyPosition = StickyPosition.None;
+	private ControlRole _role = ControlRole.Default;
+	private bool _outline;
 	private EventHandler<bool>? _checkedChangedHandler;
 	private WindowEventHandler<bool>? _checkedChangedWithWindowHandler;
 	private EventHandler? _gotFocusHandler;
@@ -246,6 +249,24 @@ public sealed class CheckboxBuilder : IControlBuilder<CheckboxControl>
 		return this;
 	}
 
+	/// <summary>Sets the control's semantic colour role.</summary>
+	/// <param name="role">The semantic role determining the checkbox's colours.</param>
+	/// <returns>The builder for chaining</returns>
+	public CheckboxBuilder WithRole(ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>Renders the checkbox in outline style (role colour on text, surface fill).</summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	/// <returns>The builder for chaining</returns>
+	public CheckboxBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
+		return this;
+	}
+
 	/// <summary>
 	/// Builds the checkbox control
 	/// </summary>
@@ -260,7 +281,9 @@ public sealed class CheckboxBuilder : IControlBuilder<CheckboxControl>
 			Width = _width,
 			Name = _name,
 			Tag = _tag,
-			StickyPosition = _stickyPosition
+			StickyPosition = _stickyPosition,
+			Role = _role,
+			Outline = _outline
 		};
 
 		if (_checkedCharacter != null)

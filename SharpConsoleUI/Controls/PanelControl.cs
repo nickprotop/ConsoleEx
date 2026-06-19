@@ -13,6 +13,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -487,7 +488,10 @@ namespace SharpConsoleUI.Controls
 			// Resolve colors using standard fallback chain
 			Color bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
 			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? defaultFg;
-			Color borderColor = _borderColorValue ?? fgColor;
+			// Role anchor for a bordered container is the frame: explicit border → role border → foreground.
+			Color borderColor = _borderColorValue
+				?? ColorResolver.RoleBorder(Role, Container, Outline, RoleState.Normal)
+				?? fgColor;
 			var effectiveBg = _backgroundColorValue == null ? Color.Transparent : bgColor;
 
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;

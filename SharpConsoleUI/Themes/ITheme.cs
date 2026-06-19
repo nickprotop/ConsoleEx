@@ -44,6 +44,21 @@ public interface ITheme
 	/// </summary>
 	Color? ActiveTitleForegroundColor { get; }
 
+	/// <summary>Primary accent seed (borders, primary buttons). Null = derived. Drives the Primary role.</summary>
+	Color? PrimaryColor => null;
+	/// <summary>Secondary accent seed. Null = derived from Primary.</summary>
+	Color? SecondaryColor => null;
+	/// <summary>Tertiary accent seed. Null = derived from Secondary.</summary>
+	Color? TertiaryColor => null;
+	/// <summary>Info status seed. Null = a mode-tuned cyan/blue.</summary>
+	Color? InfoColor => null;
+	/// <summary>Success status seed. Null = a mode-tuned green.</summary>
+	Color? SuccessColor => null;
+	/// <summary>Warning status seed. Null = a mode-tuned amber.</summary>
+	Color? WarningColor => null;
+	/// <summary>Danger/error status seed. Null = a mode-tuned red.</summary>
+	Color? DangerColor => null;
+
 	/// <summary>
 	/// Gets the background color for the bottom status bar of the console window system.
 	/// </summary>

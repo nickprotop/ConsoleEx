@@ -13,6 +13,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
@@ -209,7 +210,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color ForegroundColor
 		{
-			get => ColorResolver.ResolveDatePickerForeground(_foregroundColorValue, Container);
+			get => _foregroundColorValue
+				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, CurrentRoleState)
+				?? ColorResolver.ResolveDatePickerForeground(null, Container);
 			set => SetProperty(ref _foregroundColorValue, (Color?)value);
 		}
 
@@ -227,7 +230,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color FocusedForegroundColor
 		{
-			get => ColorResolver.ResolveDatePickerFocusedForeground(_focusedForegroundColorValue, Container);
+			get => _focusedForegroundColorValue
+				?? ColorResolver.RoleTextOnBackground(Role, Container, Outline, RoleState.Focused)
+				?? ColorResolver.ResolveDatePickerFocusedForeground(null, Container);
 			set => SetProperty(ref _focusedForegroundColorValue, (Color?)value);
 		}
 
@@ -257,6 +262,13 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
+
+		/// <summary>
+		/// Computes the current role state from the picker's enabled/focus state so role colours
+		/// reflect the same visual state the renderer paints.
+		/// </summary>
+		private RoleState CurrentRoleState =>
+			!_isEnabled ? RoleState.Disabled : (ComputeHasFocus() ? RoleState.Focused : RoleState.Normal);
 
 		/// <summary>
 		/// Gets or sets whether the control is enabled.

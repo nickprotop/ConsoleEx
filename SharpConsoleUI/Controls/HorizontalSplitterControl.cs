@@ -135,7 +135,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public Color ForegroundColor
 		{
-			get => ColorResolver.ResolveForeground(_foregroundColorValue, Container);
+			get => _foregroundColorValue
+				?? ColorResolver.RoleForeground(Role, Container, Outline)
+				?? ColorResolver.ResolveForeground(null, Container);
 			set
 			{
 				_foregroundColorValue = value;

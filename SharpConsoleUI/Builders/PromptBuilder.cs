@@ -11,6 +11,7 @@ using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Builders;
 
@@ -46,6 +47,8 @@ public sealed class PromptBuilder : IControlBuilder<PromptControl>
 	private Color? _inputFocusedBackgroundColor;
 	private Color? _inputForegroundColor;
 	private Color? _inputFocusedForegroundColor;
+	private ControlRole _role = ControlRole.Default;
+	private bool _outline;
 
 	/// <summary>
 	/// Sets the prompt text (displayed before the input area)
@@ -290,6 +293,24 @@ public sealed class PromptBuilder : IControlBuilder<PromptControl>
 		return this;
 	}
 
+	/// <summary>Sets the control's semantic colour role.</summary>
+	/// <param name="role">The semantic role determining the prompt's colours.</param>
+	/// <returns>The builder for chaining</returns>
+	public PromptBuilder WithRole(ControlRole role)
+	{
+		_role = role;
+		return this;
+	}
+
+	/// <summary>Renders the prompt input in outline style (role colour on text, surface fill).</summary>
+	/// <param name="outline">Whether to use outline style.</param>
+	/// <returns>The builder for chaining</returns>
+	public PromptBuilder Outline(bool outline = true)
+	{
+		_outline = outline;
+		return this;
+	}
+
 	/// <summary>
 	/// Builds the prompt control
 	/// </summary>
@@ -306,7 +327,9 @@ public sealed class PromptBuilder : IControlBuilder<PromptControl>
 			Width = _width,
 			Name = _name,
 			Tag = _tag,
-			StickyPosition = _stickyPosition
+			StickyPosition = _stickyPosition,
+			Role = _role,
+			Outline = _outline
 		};
 
 		if (_maskCharacter.HasValue)
