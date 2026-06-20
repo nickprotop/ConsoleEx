@@ -75,6 +75,10 @@ namespace SharpConsoleUI.Layout
 				// grid's PaintDOM can read the per-cell rectangles the arrange pass recorded.
 				return (gridControl.LayoutAlgorithm, gridControl.OrderedCells.Select(c => c.Control).ToList());
 			}
+			else if (control is Controls.PanelControl panel)
+			{
+				return (new VerticalStackLayout(), new IWindowControl[] { panel.Inner });
+			}
 			else if (control is PortalContentContainer)
 			{
 				// Self-painting container - owns its layout

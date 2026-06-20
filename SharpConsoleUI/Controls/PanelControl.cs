@@ -19,9 +19,10 @@ namespace SharpConsoleUI.Controls
 {
 	/// <summary>
 	/// A control that renders a bordered panel with content.
-	/// Renders directly to CharacterBuffer using BoxChars and MarkupParser.
+	/// Implemented as a thin wrapper over an internal non-collapsible
+	/// <see cref="CollapsiblePanel"/> which owns the border/header chrome and body layout.
 	/// </summary>
-	public class PanelControl : BaseControl, IMouseAwareControl, IColorRoleableControl
+	public class PanelControl : BaseControl, IMouseAwareControl, IColorRoleableControl, IContainer
 	{
 
 		#region ColorRole
@@ -34,21 +35,21 @@ namespace SharpConsoleUI.Controls
 		public ColorRole ColorRole
 		{
 			get => _role;
-			set => SetProperty(ref _role, value);
+			set { _role = value; _inner.ColorRole = value; Container?.Invalidate(true); }
 		}
 
 		/// <inheritdoc/>
 		public ThemeMode? ColorRoleMode
 		{
 			get => _colorRoleMode;
-			set => SetProperty(ref _colorRoleMode, value);
+			set { _colorRoleMode = value; _inner.ColorRoleMode = value; Container?.Invalidate(true); }
 		}
 
 		/// <inheritdoc/>
 		public bool Outline
 		{
 			get => _outline;
-			set => SetProperty(ref _outline, value);
+			set { _outline = value; _inner.Outline = value; Container?.Invalidate(true); }
 		}
 
 		#endregion
@@ -66,47 +67,38 @@ namespace SharpConsoleUI.Controls
 		private Padding _padding = new Padding(1, 0, 1, 0);
 		private bool _useSafeBorder = false;
 		private bool _wordWrap = true;
+		private readonly CollapsiblePanel _inner = new CollapsiblePanel { Collapsible = false, ShowHeader = false };
+		internal CollapsiblePanel Inner => _inner;
 
 		// Mouse interaction state
 		private bool _wantsMouseEvents = true;
 		private bool _canFocusWithMouse = false;
-		private bool _isMouseInside = false;
-		private DateTime _lastClickTime = DateTime.MinValue;
-		private int _clickCount = 0;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="PanelControl"/> class.
 		/// </summary>
-		public PanelControl()
-		{
-		}
+		public PanelControl() { _inner.Container = this; WireInnerMouse(); SyncBorder(); }
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="PanelControl"/> class with text content.
 		/// </summary>
 		/// <param name="text">The text to display inside the panel (supports markup).</param>
-		public PanelControl(string text)
+		public PanelControl(string text) { _inner.Container = this; WireInnerMouse(); _content = text; SyncBorder(); }
+
+		private void WireInnerMouse()
 		{
-			_content = text;
+			_inner.MouseClick += (_, e) => MouseClick?.Invoke(this, e);
+			_inner.MouseDoubleClick += (_, e) => MouseDoubleClick?.Invoke(this, e);
+			_inner.MouseRightClick += (_, e) => MouseRightClick?.Invoke(this, e);
+			_inner.MouseEnter += (_, e) => MouseEnter?.Invoke(this, e);
+			_inner.MouseLeave += (_, e) => MouseLeave?.Invoke(this, e);
+			_inner.MouseMove += (_, e) => MouseMove?.Invoke(this, e);
 		}
 
 		#region Properties
 
 		/// <inheritdoc/>
-		public override int? ContentWidth
-		{
-			get
-			{
-				int borderWidth = _borderStyle == BorderStyle.None ? 0 : 2;
-				int innerPad = _padding.Left + _padding.Right;
-
-				if (string.IsNullOrEmpty(_content))
-					return borderWidth + innerPad + Margin.Left + Margin.Right;
-
-				int contentWidth = MarkupParser.StripLength(_content);
-				return contentWidth + borderWidth + innerPad + Margin.Left + Margin.Right;
-			}
-		}
+		public override int? ContentWidth => _inner.ContentWidth;
 
 		/// <summary>
 		/// Gets or sets the background color.
@@ -115,7 +107,7 @@ namespace SharpConsoleUI.Controls
 		public Color? BackgroundColor
 		{
 			get => _backgroundColorValue;
-			set => SetProperty(ref _backgroundColorValue, value);
+			set { _backgroundColorValue = value; _inner.BackgroundColor = value ?? Color.Transparent; Container?.Invalidate(true); }
 		}
 
 		/// <summary>
@@ -136,7 +128,21 @@ namespace SharpConsoleUI.Controls
 		public override int? Height
 		{
 			get => _height;
-			set => SetProperty(ref _height, value, v => v.HasValue ? Math.Max(0, v.Value) : v);
+			set { _height = value.HasValue ? Math.Max(0, value.Value) : value; _inner.Height = _height; Container?.Invalidate(true); }
+		}
+
+		/// <inheritdoc/>
+		public override VerticalAlignment VerticalAlignment
+		{
+			get => base.VerticalAlignment;
+			set { base.VerticalAlignment = value; _inner.VerticalAlignment = value; Container?.Invalidate(true); }
+		}
+
+		/// <inheritdoc/>
+		public override HorizontalAlignment HorizontalAlignment
+		{
+			get => base.HorizontalAlignment;
+			set { base.HorizontalAlignment = value; _inner.HorizontalAlignment = value; Container?.Invalidate(true); }
 		}
 
 		#endregion
@@ -158,7 +164,7 @@ namespace SharpConsoleUI.Controls
 		public BorderStyle BorderStyle
 		{
 			get => _borderStyle;
-			set => SetProperty(ref _borderStyle, value);
+			set { _borderStyle = value; SyncBorder(); Container?.Invalidate(true); }
 		}
 
 		/// <summary>
@@ -168,7 +174,7 @@ namespace SharpConsoleUI.Controls
 		public Color? BorderColor
 		{
 			get => _borderColorValue;
-			set => SetProperty(ref _borderColorValue, value);
+			set { _borderColorValue = value; _inner.BorderColor = value; Container?.Invalidate(true); }
 		}
 
 		/// <summary>
@@ -177,7 +183,7 @@ namespace SharpConsoleUI.Controls
 		public string? Header
 		{
 			get => _header;
-			set => SetProperty(ref _header, value);
+			set { _header = value; SyncBorder(); Container?.Invalidate(true); }
 		}
 
 		/// <summary>
@@ -186,7 +192,7 @@ namespace SharpConsoleUI.Controls
 		public TextJustification HeaderAlignment
 		{
 			get => _headerAlignment;
-			set => SetProperty(ref _headerAlignment, value);
+			set { _headerAlignment = value; _inner.HeaderAlignment = MapHeaderAlignment(value); Container?.Invalidate(true); }
 		}
 
 		/// <summary>
@@ -195,7 +201,7 @@ namespace SharpConsoleUI.Controls
 		public Padding Padding
 		{
 			get => _padding;
-			set => SetProperty(ref _padding, value);
+			set { _padding = value; _inner.Padding = value; Container?.Invalidate(true); }
 		}
 
 		/// <summary>
@@ -204,7 +210,7 @@ namespace SharpConsoleUI.Controls
 		public bool UseSafeBorder
 		{
 			get => _useSafeBorder;
-			set => SetProperty(ref _useSafeBorder, value);
+			set { _useSafeBorder = value; _inner.UseSafeBorder = value; Container?.Invalidate(true); }
 		}
 
 		/// <summary>
@@ -265,37 +271,50 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
+		#region IContainer
+
+		// These provide the inner panel's container colors. They must resolve from PanelControl's OWN
+		// state and outer Container — delegating to _inner would recurse (the inner panel's Container is
+		// this PanelControl, so it would ask us back).
+		Color IContainer.BackgroundColor
+		{
+			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
+			set { _backgroundColorValue = value; Container?.Invalidate(true); }
+		}
+		Color IContainer.ForegroundColor
+		{
+			get => ColorResolver.ResolveForeground(_foregroundColorValue, Container);
+			set { _foregroundColorValue = value; Container?.Invalidate(true); }
+		}
+		ConsoleWindowSystem? IContainer.GetConsoleWindowSystem => Container?.GetConsoleWindowSystem;
+		bool IContainer.IsDirty { get => ((IContainer)_inner).IsDirty; set => ((IContainer)_inner).IsDirty = value; }
+		void IContainer.Invalidate(bool redrawAll, IWindowControl? callerControl) => Container?.Invalidate(redrawAll, callerControl);
+		int? IContainer.GetVisibleHeightForControl(IWindowControl control) => Container?.GetVisibleHeightForControl(control);
+
+		#endregion
+
 		#region Private Rendering Methods
 
-		private BoxChars GetBoxChars()
+		private static CollapsibleHeaderStyle MapBorderStyle(BorderStyle style) => style switch
 		{
-			if (_useSafeBorder)
-				return BoxChars.Ascii;
-			return BoxChars.FromBorderStyle(_borderStyle);
-		}
-
-		/// <summary>
-		/// Calculates content lines for the given inner width.
-		/// When WordWrap is true, long lines are word-wrapped.
-		/// When WordWrap is false, long lines are clipped at innerContentWidth.
-		/// </summary>
-		private List<List<Cell>> GetContentLines(int innerContentWidth, Color fgColor, Color bgColor)
+			BorderStyle.Rounded => CollapsibleHeaderStyle.Rounded,
+			BorderStyle.DoubleLine => CollapsibleHeaderStyle.DoubleLine,
+			BorderStyle.None => CollapsibleHeaderStyle.Borderless,
+			BorderStyle.Frameless => CollapsibleHeaderStyle.Borderless,
+			_ => CollapsibleHeaderStyle.Bordered,
+		};
+		private static HorizontalAlignment MapHeaderAlignment(TextJustification j) => j switch
 		{
-			if (string.IsNullOrEmpty(_content) || innerContentWidth <= 0)
-				return new List<List<Cell>> { new List<Cell>() };
-
-			if (_wordWrap)
-				return MarkupParser.ParseLines(_content, innerContentWidth, fgColor, bgColor);
-
-			// Clip mode: split on explicit newlines only, truncate each line to width
-			// using markup-level truncation to handle wide chars and properly close tags.
-			var result = new List<List<Cell>>();
-			foreach (var line in _content.Split('\n'))
-			{
-				var truncated = MarkupParser.Truncate(line, innerContentWidth);
-				result.Add(MarkupParser.Parse(truncated, fgColor, bgColor));
-			}
-			return result;
+			TextJustification.Center => HorizontalAlignment.Center,
+			TextJustification.Right => HorizontalAlignment.Right,
+			_ => HorizontalAlignment.Left,
+		};
+		private void SyncBorder()
+		{
+			_inner.HeaderStyle = MapBorderStyle(_borderStyle);
+			_inner.ShowHeader = !string.IsNullOrEmpty(_header);
+			_inner.Title = _header;
+			_inner.HeaderAlignment = MapHeaderAlignment(_headerAlignment);
 		}
 
 		#endregion
@@ -308,94 +327,7 @@ namespace SharpConsoleUI.Controls
 			if (!WantsMouseEvents)
 				return false;
 
-			if (args.Handled)
-				return false;
-
-			// Handle mouse leave
-			if (args.HasFlag(MouseFlags.MouseLeave))
-			{
-				if (_isMouseInside)
-				{
-					_isMouseInside = false;
-					MouseLeave?.Invoke(this, args);
-					Container?.Invalidate(true);
-				}
-				return true;
-			}
-
-			// Handle mouse enter
-			if (!_isMouseInside && args.HasFlag(MouseFlags.ReportMousePosition))
-			{
-				_isMouseInside = true;
-				MouseEnter?.Invoke(this, args);
-				Container?.Invalidate(true);
-			}
-
-			// Handle right-click
-			if (args.HasFlag(MouseFlags.Button3Clicked))
-			{
-				MouseRightClick?.Invoke(this, args);
-				args.Handled = true;
-				return true;
-			}
-
-			// Scroll events - ALWAYS bubble up (don't consume)
-			if (args.HasFlag(MouseFlags.WheeledUp) || args.HasFlag(MouseFlags.WheeledDown) ||
-				args.HasFlag(MouseFlags.WheeledLeft) || args.HasFlag(MouseFlags.WheeledRight))
-			{
-				return false;  // Let scroll events bubble to parent
-			}
-
-			// Handle driver-provided double-click (preferred method)
-			if (args.HasFlag(MouseFlags.Button1DoubleClicked))
-			{
-				// Reset tracking state since driver handled the gesture
-				_clickCount = 0;
-				_lastClickTime = DateTime.MinValue;
-
-				MouseDoubleClick?.Invoke(this, args);
-				args.Handled = true;
-				Container?.Invalidate(true);
-				return true;
-			}
-
-			// Handle clicks with manual double-click detection (fallback)
-			if (args.HasFlag(MouseFlags.Button1Clicked))
-			{
-				var now = DateTime.UtcNow;
-				var timeSince = (now - _lastClickTime).TotalMilliseconds;
-
-				// Check for double-click before updating state
-				bool isDoubleClick = timeSince <= ControlDefaults.DefaultDoubleClickThresholdMs &&
-									_clickCount == 1;
-
-				// Update tracking state
-				if (isDoubleClick)
-				{
-					_clickCount = 0;
-					_lastClickTime = DateTime.MinValue;
-					MouseDoubleClick?.Invoke(this, args);
-				}
-				else
-				{
-					_clickCount = 1;
-					_lastClickTime = now;
-					MouseClick?.Invoke(this, args);
-				}
-
-				args.Handled = true;
-				Container?.Invalidate(true);
-				return true;
-			}
-
-			// Handle mouse movement
-			if (args.HasFlag(MouseFlags.ReportMousePosition))
-			{
-				MouseMove?.Invoke(this, args);
-				return true;
-			}
-
-			return false;
+			return _inner.ProcessMouseEvent(args);
 		}
 
 		#endregion
@@ -404,7 +336,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>
 		/// Called during Dispose before Container is set to null.
-		/// Clears mouse event handlers to prevent memory leaks.
+		/// Clears mouse event handlers and disposes the inner panel.
 		/// </summary>
 		protected override void OnDisposing()
 		{
@@ -414,6 +346,7 @@ namespace SharpConsoleUI.Controls
 			MouseEnter = null;
 			MouseLeave = null;
 			MouseMove = null;
+			_inner.Dispose();
 		}
 
 		/// <summary>
@@ -426,26 +359,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public override System.Drawing.Size GetLogicalContentSize()
-		{
-			int width = ContentWidth ?? 0;
-			int borderHeight = _borderStyle == BorderStyle.None ? 0 : 2;
-			int contentLineCount = 1;
-
-			if (!string.IsNullOrEmpty(_content))
-			{
-				int innerWidth = (Width ?? 80) - (_borderStyle == BorderStyle.None ? 0 : 2) - _padding.Left - _padding.Right;
-				if (innerWidth > 0)
-				{
-					Color bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-					Color fgColor = ColorResolver.ResolveForeground(_foregroundColorValue, Container);
-					contentLineCount = GetContentLines(innerWidth, fgColor, bgColor).Count;
-				}
-			}
-
-			int height = contentLineCount + borderHeight + _padding.Top + _padding.Bottom + Margin.Top + Margin.Bottom;
-			return new System.Drawing.Size(width, height);
-		}
+		public override System.Drawing.Size GetLogicalContentSize() => _inner.GetLogicalContentSize();
 
 		/// <summary>
 		/// Sets the content to display inside the panel using text (supports markup).
@@ -461,204 +375,12 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <inheritdoc/>
-		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
-		{
-			Color bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			Color fgColor = ColorResolver.ResolveForeground(_foregroundColorValue, Container);
-
-			bool hasBorder = _borderStyle != BorderStyle.None;
-			int borderWidth = hasBorder ? 2 : 0;
-			int borderHeight = hasBorder ? 2 : 0;
-
-			int totalWidth = Width ?? constraints.MaxWidth;
-			int innerContentWidth = totalWidth - Margin.Left - Margin.Right - borderWidth - _padding.Left - _padding.Right;
-
-			int contentLineCount = 0;
-			int maxContentWidth = 0;
-
-			if (!string.IsNullOrEmpty(_content) && innerContentWidth > 0)
-			{
-				var lines = GetContentLines(innerContentWidth, fgColor, bgColor);
-				contentLineCount = lines.Count;
-				foreach (var line in lines)
-				{
-					if (line.Count > maxContentWidth)
-						maxContentWidth = line.Count;
-				}
-			}
-
-			int width;
-			if (Width.HasValue)
-			{
-				width = Width.Value + Margin.Left + Margin.Right;
-			}
-			else
-			{
-				width = maxContentWidth + borderWidth + _padding.Left + _padding.Right + Margin.Left + Margin.Right;
-			}
-
-			int height = contentLineCount + borderHeight + _padding.Top + _padding.Bottom + Margin.Top + Margin.Bottom;
-
-			if (_height.HasValue)
-			{
-				height = _height.Value;
-			}
-
-			return new LayoutSize(
-				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
-				Math.Clamp(height, constraints.MinHeight, constraints.MaxHeight)
-			);
-		}
+		public override LayoutSize MeasureDOM(LayoutConstraints constraints) => _inner.MeasureDOM(constraints);
 
 		/// <inheritdoc/>
 		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
 			SetActualBounds(bounds);
-
-			// Resolve colors using standard fallback chain
-			Color bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			Color fgColor = _foregroundColorValue ?? Container?.ForegroundColor ?? defaultFg;
-			// ColorRole anchor for a bordered container is the frame: explicit border → role border → foreground.
-			Color borderColor = _borderColorValue
-				?? ColorResolver.ColorRoleBorder(ColorRole, Container, Outline, ColorRoleState.Normal, mode: ColorRoleMode)
-				?? fgColor;
-			var effectiveBg = _backgroundColorValue == null ? Color.Transparent : bgColor;
-
-			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
-			int targetHeight = bounds.Height - Margin.Top - Margin.Bottom;
-
-			if (targetWidth <= 0 || targetHeight <= 0) return;
-
-			int startX = bounds.X + Margin.Left;
-			int startY = bounds.Y + Margin.Top;
-
-			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, effectiveBg);
-
-			bool hasBorder = _borderStyle != BorderStyle.None;
-			var box = GetBoxChars();
-
-			// Determine actual render height
-			int renderHeight = targetHeight;
-			if (_height.HasValue || VerticalAlignment == VerticalAlignment.Fill)
-			{
-				renderHeight = targetHeight;
-			}
-
-			int currentY = startY;
-
-			if (hasBorder)
-			{
-				// Top border with optional header
-				if (currentY < startY + renderHeight)
-				{
-					// Fill left margin on this row
-					if (Margin.Left > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), fgColor, effectiveBg);
-
-					PanelBorderRenderer.DrawTopBorder(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, effectiveBg, _header, _headerAlignment);
-
-					// Fill right margin
-					if (Margin.Right > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), fgColor, effectiveBg);
-
-					currentY++;
-				}
-			}
-
-			// Padding top rows
-			for (int i = 0; i < _padding.Top && currentY < startY + renderHeight; i++)
-			{
-				if (Margin.Left > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), fgColor, effectiveBg);
-
-				if (hasBorder)
-					PanelBorderRenderer.DrawBorderedRow(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, effectiveBg);
-				else if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, currentY, targetWidth, 1), fgColor, effectiveBg);
-
-				if (Margin.Right > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), fgColor, effectiveBg);
-
-				currentY++;
-			}
-
-			// Content rows
-			int innerContentWidth = targetWidth - (hasBorder ? 2 : 0) - _padding.Left - _padding.Right;
-			var contentLines = GetContentLines(innerContentWidth, fgColor, bgColor);
-			int maxContentRows = renderHeight - (hasBorder ? 2 : 0) - _padding.Top - _padding.Bottom;
-
-			for (int i = 0; i < contentLines.Count && i < maxContentRows && currentY < startY + renderHeight; i++)
-			{
-				if (Margin.Left > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), fgColor, effectiveBg);
-
-				if (hasBorder)
-					PanelBorderRenderer.DrawBorderedRow(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, effectiveBg, contentLines[i], _padding.Left);
-				else
-				{
-					// No border — just draw content with padding
-					if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
-					{
-						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, currentY, targetWidth, 1), fgColor, effectiveBg);
-						int contentX = startX + _padding.Left;
-						foreach (var cell in contentLines[i])
-						{
-							if (contentX >= clipRect.X && contentX < clipRect.Right)
-								buffer.SetCell(contentX, currentY, cell);
-							contentX++;
-						}
-					}
-				}
-
-				if (Margin.Right > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), fgColor, effectiveBg);
-
-				currentY++;
-			}
-
-			// Fill remaining content area (empty rows)
-			int bottomBorderRow = startY + renderHeight - (hasBorder ? 1 : 0);
-			while (currentY < bottomBorderRow)
-			{
-				if (Margin.Left > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), fgColor, effectiveBg);
-
-				if (hasBorder)
-					PanelBorderRenderer.DrawBorderedRow(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, effectiveBg);
-				else if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, currentY, targetWidth, 1), fgColor, effectiveBg);
-
-				if (Margin.Right > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), fgColor, effectiveBg);
-
-				currentY++;
-			}
-
-			if (hasBorder && currentY < startY + renderHeight)
-			{
-				// Bottom border
-				if (Margin.Left > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, Margin.Left, 1), fgColor, effectiveBg);
-
-				PanelBorderRenderer.DrawBottomBorder(buffer, startX, currentY, targetWidth, clipRect, box, borderColor, effectiveBg);
-
-				if (Margin.Right > 0 && currentY >= clipRect.Y && currentY < clipRect.Bottom)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, currentY, Margin.Right, 1), fgColor, effectiveBg);
-
-				currentY++;
-			}
-
-			// Fill any remaining height
-			while (currentY < bounds.Bottom - Margin.Bottom)
-			{
-				if (currentY >= clipRect.Y && currentY < clipRect.Bottom)
-					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, currentY, bounds.Width, 1), fgColor, effectiveBg);
-				currentY++;
-			}
-
-			// Fill bottom margin
-			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, effectiveBg);
 		}
 
 		#endregion
