@@ -173,6 +173,131 @@ namespace SharpConsoleUI.Tests.Controls
 			Assert.Same(grid, ctrl.Container);
 		}
 
+		[Fact]
+		public void AutoFlow_SkipsExplicitlyPlacedCell()
+		{
+			var grid = new GridControl();
+			grid.ColumnDefinitions.Add(GridLength.Star(1));
+			grid.ColumnDefinitions.Add(GridLength.Star(1));
+
+			var x = NewControl();
+			var a = NewControl();
+			grid.Place(x, 0, 0);
+
+			IControlHost host = grid;
+			host.AddControl(a);
+
+			Assert.Equal(new GridPlacement(0, 1), Find(grid.OrderedCells, a));
+		}
+
+		[Fact]
+		public void AutoFlow_SkipsExplicitlySpannedCells()
+		{
+			var grid = new GridControl();
+			grid.ColumnDefinitions.Add(GridLength.Star(1));
+			grid.ColumnDefinitions.Add(GridLength.Star(1));
+			grid.ColumnDefinitions.Add(GridLength.Star(1));
+
+			var x = NewControl();
+			var a = NewControl();
+			grid.Place(x, 0, 0, colSpan: 2);
+
+			IControlHost host = grid;
+			host.AddControl(a);
+
+			Assert.Equal(new GridPlacement(0, 2), Find(grid.OrderedCells, a));
+		}
+
+		[Fact]
+		public void AutoFlow_InterleavedWithPlace()
+		{
+			var grid = new GridControl();
+			grid.ColumnDefinitions.Add(GridLength.Star(1));
+			grid.ColumnDefinitions.Add(GridLength.Star(1));
+
+			var a = NewControl();
+			var x = NewControl();
+			var b = NewControl();
+
+			IControlHost host = grid;
+			host.AddControl(a);        // (0,0)
+			grid.Place(x, 0, 1);       // explicit (0,1)
+			host.AddControl(b);        // next free after (0,0), skipping (0,1) -> (1,0)
+
+			Assert.Equal(new GridPlacement(0, 0), Find(grid.OrderedCells, a));
+			Assert.Equal(new GridPlacement(1, 0), Find(grid.OrderedCells, b));
+		}
+
+		[Fact]
+		public void AutoFlow_MultiRowGrow_NoDuplicateCells()
+		{
+			var grid = new GridControl();
+			grid.ColumnDefinitions.Add(GridLength.Star(1));
+			grid.ColumnDefinitions.Add(GridLength.Star(1));
+
+			IControlHost host = grid;
+			IWindowControl? last = null;
+			for (int i = 0; i < 7; i++)
+			{
+				last = NewControl();
+				host.AddControl(last);
+			}
+
+			var cells = grid.OrderedCells;
+			Assert.Equal(7, cells.Count);
+
+			// No two controls share a cell.
+			var occupied = new HashSet<(int Row, int Col)>();
+			foreach (var (_, p) in cells)
+				Assert.True(occupied.Add((p.Row, p.Col)), $"duplicate cell ({p.Row},{p.Col})");
+
+			Assert.Equal(new GridPlacement(3, 0), Find(cells, last!));
+			Assert.Equal(4, grid.RowDefinitions.Count);
+		}
+
+		[Fact]
+		public void AutoFlow_NoColumns_SingleColumnGrows()
+		{
+			var grid = new GridControl();
+
+			IControlHost host = grid;
+			var a = NewControl();
+			var b = NewControl();
+			var c = NewControl();
+			host.AddControl(a);
+			host.AddControl(b);
+			host.AddControl(c);
+
+			Assert.Equal(new GridPlacement(0, 0), Find(grid.OrderedCells, a));
+			Assert.Equal(new GridPlacement(1, 0), Find(grid.OrderedCells, b));
+			Assert.Equal(new GridPlacement(2, 0), Find(grid.OrderedCells, c));
+			Assert.Equal(3, grid.RowDefinitions.Count);
+		}
+
+		[Fact]
+		public void AutoFlow_RowSpanExplicit_Skipped()
+		{
+			var grid = new GridControl();
+			grid.ColumnDefinitions.Add(GridLength.Star(1));
+			grid.ColumnDefinitions.Add(GridLength.Star(1));
+			// Pre-define two rows so the explicit rowSpan:2 placement is in range.
+			grid.RowDefinitions.Add(GridLength.Star(1));
+			grid.RowDefinitions.Add(GridLength.Star(1));
+
+			var x = NewControl();
+			var a = NewControl();
+			var b = NewControl();
+
+			grid.Place(x, 0, 0, rowSpan: 2);
+
+			IControlHost host = grid;
+			host.AddControl(a);  // (0,1)
+			host.AddControl(b);  // (1,0) is covered by x's rowSpan -> (1,1)
+
+			Assert.Equal(new GridPlacement(0, 1), Find(grid.OrderedCells, a));
+			Assert.Equal(new GridPlacement(1, 1), Find(grid.OrderedCells, b));
+		}
+
 		private static GridPlacement Find(
 			IReadOnlyList<(IWindowControl Control, GridPlacement Placement)> cells, IWindowControl control)
 		{
