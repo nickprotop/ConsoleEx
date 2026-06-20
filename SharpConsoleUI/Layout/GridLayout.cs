@@ -165,8 +165,14 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 		// Correlate child node to placement by index; tolerate a count mismatch defensively.
 		int pairCount = Math.Min(children.Count, cells.Count);
 
-		// Loose constraint of the available content area for measuring each cell's content.
-		LayoutConstraints cellConstraints = LayoutConstraints.Loose(availW, availH);
+		// Pre-estimate each column's width so a cell is measured at (close to) its real column width rather
+		// than the full grid width. Measuring a wrapping/scrolling cell at the full width makes it report a
+		// no-wrap content size that is wrong for its narrow column AND pollutes the child's cached metrics
+		// (e.g. a ScrollablePanel caches a too-small content height, capping its scroll). Auto columns have
+		// no width yet (they size FROM this measure), so an Auto cell is still measured at the full available
+		// width — correct, since Auto means "size to content". Fixed columns use their exact width; Star
+		// columns use their proportional share of the space left after Fixed/Auto.
+		int[] estColWidths = EstimateColumnWidths(colDefs, availW, columnGapForMeasure: _source.ColumnGap);
 
 		for (int i = 0; i < pairCount; i++)
 		{
@@ -176,16 +182,114 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 				continue;
 			}
 
-			child.Measure(cellConstraints);
-			LayoutSize desired = child.DesiredSize;
-
 			GridPlacement placement = cells[i].Placement;
+
+			// Width to measure this cell at: the sum of its spanned columns' estimated widths (+ crossed
+			// gaps), or the full available width if any spanned column is Auto (Auto must measure at content
+			// width). Height is always loose-available (rows are sized after).
+			int measureW = EstimatedCellMeasureWidth(placement, colDefs, estColWidths, availW, _source.ColumnGap);
+
+			child.Measure(LayoutConstraints.Loose(measureW, availH));
+			LayoutSize desired = child.DesiredSize;
 
 			ContributeAutoContent(autoContentColSizes, colDefs, placement.Col, placement.ColSpan, desired.Width);
 			ContributeAutoContent(autoContentRowSizes, rowDefs, placement.Row, placement.RowSpan, desired.Height);
 		}
 
 		return (autoContentColSizes, autoContentRowSizes);
+	}
+
+	/// <summary>
+	/// Pass-1 estimate of each column's width, used only to measure cells at (close to) their real column
+	/// width instead of the full grid width. Fixed columns get their exact value; Star columns split the
+	/// space left after Fixed (and after reserving gaps) by weight; Auto columns return -1 (unknown — an
+	/// Auto cell is measured at the full available width, since Auto sizes to content).
+	/// </summary>
+	private static int[] EstimateColumnWidths(IReadOnlyList<GridLength> colDefs, int availW, int columnGapForMeasure)
+	{
+		int count = colDefs.Count;
+		int[] widths = new int[count];
+		int gap = Math.Max(0, columnGapForMeasure);
+		int totalGap = count > 1 ? (count - 1) * gap : 0;
+
+		int fixedSum = 0;
+		double starWeight = 0;
+		bool anyAuto = false;
+		for (int c = 0; c < count; c++)
+		{
+			switch (colDefs[c].Type)
+			{
+				case GridUnitType.Fixed:
+					fixedSum += colDefs[c].Value;
+					break;
+				case GridUnitType.Star:
+					starWeight += colDefs[c].Weight;
+					break;
+				default:
+					anyAuto = true;
+					break;
+			}
+		}
+
+		// Space available to Star columns after fixed tracks and gaps. Auto columns are unknown here; if
+		// any exist we cannot estimate Star precisely, so we leave a conservative remainder.
+		int starPool = Math.Max(0, availW - totalGap - fixedSum);
+		for (int c = 0; c < count; c++)
+		{
+			switch (colDefs[c].Type)
+			{
+				case GridUnitType.Fixed:
+					widths[c] = colDefs[c].Value;
+					break;
+				case GridUnitType.Star:
+					widths[c] = starWeight > 0
+						? (int)System.Math.Round(starPool * (colDefs[c].Weight / starWeight))
+						: 0;
+					break;
+				default:
+					widths[c] = -1; // Auto: measure at content width
+					break;
+			}
+		}
+
+		_ = anyAuto; // estimate is best-effort; an Auto neighbour just makes Star slightly generous
+		return widths;
+	}
+
+	/// <summary>
+	/// The width to measure a cell at in pass 1: the sum of its spanned columns' estimated widths plus the
+	/// gaps it crosses. Returns the full available width if any spanned column is Auto (Auto must measure at
+	/// content width) or if the estimate is non-positive.
+	/// </summary>
+	private static int EstimatedCellMeasureWidth(
+		GridPlacement placement, IReadOnlyList<GridLength> colDefs, int[] estColWidths, int availW, int columnGap)
+	{
+		int count = colDefs.Count;
+		int start = placement.Col;
+		if (start < 0 || start >= count)
+		{
+			return availW;
+		}
+
+		int span = Math.Clamp(placement.ColSpan, 1, count - start);
+		int gap = Math.Max(0, columnGap);
+		int width = 0;
+		int traversed = 0;
+		for (int c = start; c < start + span && c < count; c++)
+		{
+			if (estColWidths[c] < 0)
+			{
+				return availW; // spans an Auto column → measure at content width
+			}
+			width += estColWidths[c];
+			traversed++;
+		}
+		if (traversed > 1)
+		{
+			width += (traversed - 1) * gap;
+		}
+
+		return width > 0 ? width : availW;
 	}
 
 	/// <summary>
