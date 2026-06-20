@@ -6,13 +6,10 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drawing;
-using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Parsing;
 using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
