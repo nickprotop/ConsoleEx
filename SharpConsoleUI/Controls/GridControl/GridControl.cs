@@ -51,6 +51,13 @@ namespace SharpConsoleUI.Controls
 		private readonly List<(IWindowControl Control, GridPlacement Placement)> _cells = new();
 		private readonly object _cellsLock = new();
 		private List<(IWindowControl Control, GridPlacement Placement)>? _orderedCellsCache;
+		// Cached row-major projection of the cells' controls. Derived from _orderedCellsCache and
+		// keyed on its reference identity, so it is rebuilt only when the ordered set changes. Used by
+		// the hot focus paths (HasFocus / focused-child lookup, read by the render loop per repaint and
+		// on every keystroke) so they iterate children WITHOUT allocating a fresh projected list each
+		// call (CLAUDE.md rule 3). See OrderedChildren.
+		private List<(IWindowControl Control, GridPlacement Placement)>? _orderedChildrenSource;
+		private IReadOnlyList<IWindowControl>? _orderedChildrenCache;
 
 		private readonly GridDefinitionList _rowDefinitions;
 		private readonly GridDefinitionList _columnDefinitions;
@@ -489,6 +496,27 @@ namespace SharpConsoleUI.Controls
 					.ThenBy(c => c.Placement.Col)
 					.ToList();
 				return _orderedCellsCache;
+			}
+		}
+
+		/// <summary>
+		/// Returns a cached, row-major list of the cell controls for the hot focus paths. The projection
+		/// is rebuilt only when the ordered-cell set changes (keyed on <see cref="_orderedCellsCache"/>'s
+		/// reference identity), so per-frame/per-keystroke focus reads do not allocate a fresh list
+		/// (CLAUDE.md rule 3). Unlike the public <see cref="GetChildren"/>, the returned list is shared
+		/// and must be treated as read-only.
+		/// </summary>
+		internal IReadOnlyList<IWindowControl> OrderedChildren()
+		{
+			var ordered = BuildOrderedCells();
+			lock (_cellsLock)
+			{
+				if (_orderedChildrenCache == null || !ReferenceEquals(_orderedChildrenSource, ordered))
+				{
+					_orderedChildrenSource = ordered;
+					_orderedChildrenCache = ordered.Select(c => c.Control).ToList();
+				}
+				return _orderedChildrenCache;
 			}
 		}
 
