@@ -231,6 +231,12 @@ public static class Controls
 	public static HorizontalGridBuilder HorizontalGrid() => new HorizontalGridBuilder();
 
 	/// <summary>
+	/// Creates a new grid builder for two-dimensional row/column layouts.
+	/// </summary>
+	/// <returns>A new grid builder</returns>
+	public static GridBuilder Grid() => new GridBuilder();
+
+	/// <summary>
 	/// Creates a new scrollable panel builder
 	/// </summary>
 	/// <returns>A new scrollable panel builder</returns>
