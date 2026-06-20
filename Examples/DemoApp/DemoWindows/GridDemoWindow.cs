@@ -85,8 +85,12 @@ public static class GridDemoWindow
 			"[yellow]WARN[/] mem 73% on web-01",
 			"[green]OK[/]   health sweep done",
 		};
-		foreach (var line in logLines)
-			alertsLog.AddControl(Controls.Markup(line).WithMargin(1, 0, 1, 0).Build());
+		// Repeat the log several times so the tile overflows its cell and the scroll is demonstrable
+		// (a short log that fits the cell has nothing to scroll). Numbered so scrolling is visible.
+		int logSeq = 1;
+		for (int pass = 0; pass < 6; pass++)
+			foreach (var line in logLines)
+				alertsLog.AddControl(Controls.Markup($"[dim]{logSeq++,3}[/] {line}").WithMargin(1, 0, 1, 0).Build());
 
 		// ── Services tile (row 2, col 0) — a List proves a focusable control in a cell. ────────────
 		var services = Controls.List("Services")
