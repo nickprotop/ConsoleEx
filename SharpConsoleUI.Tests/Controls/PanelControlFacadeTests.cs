@@ -142,4 +142,17 @@ public class PanelControlFacadeTests
 		var text = Render(p);
 		Assert.Contains("TXT", text);
 	}
+
+	[Fact]
+	public void Builder_AddControl_HostsChild()
+	{
+		var p = SharpConsoleUI.Builders.Controls.Panel()
+			.WithContent("HDR")
+			.NoBorder()
+			.AddControl(new MarkupControl(new List<string> { "BUILT" }))
+			.Build();
+		var text = Render(p);
+		Assert.Contains("HDR", text);
+		Assert.Contains("BUILT", text);
+	}
 }

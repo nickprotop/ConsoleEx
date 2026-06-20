@@ -26,6 +26,7 @@ public sealed class PanelBuilder : IControlBuilder<PanelControl>
 	private Padding _padding = new Padding(1, 0, 1, 0);
 	private bool _useSafeBorder = false;
 	private bool _wordWrap = true;
+	private readonly List<IWindowControl> _children = new();
 	private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 	private Margin _margin = new(0, 0, 0, 0);
@@ -49,6 +50,15 @@ public sealed class PanelBuilder : IControlBuilder<PanelControl>
 	public PanelBuilder WithContent(string text)
 	{
 		_content = text;
+		return this;
+	}
+
+	/// <summary>Adds a child control to the panel body (after the markup content, if any).</summary>
+	/// <param name="control">The control to add.</param>
+	/// <returns>The builder for chaining.</returns>
+	public PanelBuilder AddControl(IWindowControl control)
+	{
+		_children.Add(control);
 		return this;
 	}
 
@@ -466,6 +476,10 @@ public sealed class PanelBuilder : IControlBuilder<PanelControl>
 		};
 
 		BindingHelper.ApplyDeferredBindings(this, control);
+
+		foreach (var child in _children)
+			control.AddControl(child);
+
 		return control;
 	}
 
