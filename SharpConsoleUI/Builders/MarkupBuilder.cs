@@ -76,19 +76,13 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	/// <returns>The builder for chaining</returns>
 	public MarkupBuilder AddLine(string markup)
 	{
-		// fix bug: Fix garbled text caused by improper handling of the `\r` character on Windows systems (issue #45)
-		// fix bug: Correct the behavioral logic of the AddLine method to properly handle line breaks within text.
-
-		if (string.IsNullOrEmpty(markup))
-		{
-			_lines.Add(string.Empty); // add empty line.
-		}
-		else
-		{
-			// add empty lines and other lines.
-			_lines.AddRange(markup.Split(["\r\n", "\r", "\n"], StringSplitOptions.None)); // fix: handle windows newline char.
-		}
-
+		// Store the markup verbatim as ONE logical line. Do NOT split on embedded newlines here:
+		// the paint path (MarkupControl.PaintDOM / ParseLines) already splits each logical line on
+		// "\r\n"/"\r"/"\n" at render time, so CR/CRLF is handled without pre-splitting (issue #45).
+		// Splitting here would also shatter a multi-line region whose open/close tags span newlines —
+		// e.g. AddMarkdown wraps content as "[markdown]…[/]", and splitting separated the "[markdown]"
+		// open tag from its "[/]" close, breaking code-block backgrounds (regression after PR #55).
+		_lines.Add(markup ?? string.Empty);
 		return this;
 	}
 

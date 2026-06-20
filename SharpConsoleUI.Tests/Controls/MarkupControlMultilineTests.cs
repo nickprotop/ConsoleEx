@@ -119,6 +119,26 @@ public class MarkupControlMultilineTests
 		Assert.Equal("hello world", RowText(buf, 0, 40));
 	}
 
+	[Fact]
+	public void AddLine_KeepsMultiLineRegionIntact_MarkdownStillRenders()
+	{
+		// Regression (post-PR #55): AddLine must store its argument verbatim as ONE logical line. A
+		// markup region whose open/close tags span embedded newlines — e.g. the "[markdown]…[/]"
+		// wrapper produced by AddMarkdown — must NOT be split here. Splitting separated "[markdown]"
+		// from its "[/]", shattering the region so a fenced code block rendered with no background.
+		// The fenced code block below must still render its 'short' line on its own row, proving the
+		// region survived AddLine and the markdown was parsed as one block.
+		var c = SharpConsoleUI.Builders.Controls.Markup()
+			.AddMarkdown("```\nshort\n```")
+			.Build();
+		var buf = Paint(c, w: 28, h: 6);
+		Assert.False(BufferContains(buf, Replacement, 28, 6));
+		bool hasShortRow = false;
+		for (int y = 0; y < 6; y++)
+			if (RowText(buf, y, 28).Contains("short")) hasShortRow = true;
+		Assert.True(hasShortRow, "fenced code block content must render (the [markdown] region must survive AddLine)");
+	}
+
 	// --- Windows newline (CRLF) and bare CR coverage (issue #45 / PR #55). A "\r\n" or "\r" left a
 	//     stray '\r' that MarkupParser sanitized to U+FFFD; every text entry point now splits on
 	//     "\r\n", "\r" and "\n" so the carriage return becomes a row break, not a replacement glyph.
