@@ -6,7 +6,9 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System;
 using System.Drawing;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
@@ -22,17 +24,25 @@ namespace SharpConsoleUI.Controls
 	{
 		#region IMouseAwareControl Implementation
 
+		// Body-interaction hover/double-click tracking (mirrors PanelControl). Only used for the
+		// non-header body events raised by RaiseBodyMouseEvent.
+		private bool _isMouseInside = false;
+		private DateTime _lastClickTime = DateTime.MinValue;
+		private int _clickCount = 0;
+
 		/// <inheritdoc/>
 		public bool WantsMouseEvents => true;
 
 		/// <inheritdoc/>
 		public bool CanFocusWithMouse => true;
 
-		/// <summary>Fired when the header is left-clicked (and the panel toggles).</summary>
+		/// <summary>
+		/// Fired on a left click — on a collapsible header (which also toggles the panel) or on the
+		/// expanded body when no body child consumes the click.
+		/// </summary>
 		public event EventHandler<MouseEventArgs>? MouseClick;
 
 		/// <inheritdoc/>
-#pragma warning disable CS0067 // Event never raised (interface requirement; header has no separate double/right-click or hover behavior)
 		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
 
 		/// <inheritdoc/>
@@ -46,7 +56,6 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public event EventHandler<MouseEventArgs>? MouseMove;
-#pragma warning restore CS0067
 
 		/// <inheritdoc/>
 		/// <remarks>
@@ -78,10 +87,105 @@ namespace SharpConsoleUI.Controls
 
 			// Below the header: when expanded, route the click to the body child under the cursor so
 			// clicking a focusable body control focuses it (mirrors ColumnContainer.ProcessMouseEvent).
+			// When no body child consumes the event, raise the panel's own mouse event so a hosting
+			// facade (or direct subscriber) can react to content-only body interaction.
 			if (!onHeader && _isExpanded)
-				return ForwardClickToBody(args);
+			{
+				bool consumed = ForwardClickToBody(args);
+				if (!consumed)
+					RaiseBodyMouseEvent(args);
+				return consumed;
+			}
 
 			return false;
+		}
+
+		/// <summary>
+		/// Raises the panel's own mouse event for a body interaction that no body child consumed.
+		/// Mirrors <see cref="PanelControl.ProcessMouseEvent"/> flag handling (enter/leave/right/
+		/// double/click/move). Wheel/scroll events are intentionally ignored here so they bubble
+		/// untouched to an outer scroll container.
+		/// </summary>
+		private void RaiseBodyMouseEvent(MouseEventArgs args)
+		{
+			if (args.Handled)
+				return;
+
+			// Mouse leave.
+			if (args.HasFlag(MouseFlags.MouseLeave))
+			{
+				if (_isMouseInside)
+				{
+					_isMouseInside = false;
+					MouseLeave?.Invoke(this, args);
+					Container?.Invalidate(true);
+				}
+				return;
+			}
+
+			// Mouse enter (first report-position while outside).
+			if (!_isMouseInside && args.HasFlag(MouseFlags.ReportMousePosition))
+			{
+				_isMouseInside = true;
+				MouseEnter?.Invoke(this, args);
+				Container?.Invalidate(true);
+			}
+
+			// Right-click.
+			if (args.HasFlag(MouseFlags.Button3Clicked))
+			{
+				MouseRightClick?.Invoke(this, args);
+				args.Handled = true;
+				return;
+			}
+
+			// Wheel/scroll: never raise a panel event — let it bubble to an outer scroll container.
+			if (args.HasFlag(MouseFlags.WheeledUp) || args.HasFlag(MouseFlags.WheeledDown) ||
+				args.HasFlag(MouseFlags.WheeledLeft) || args.HasFlag(MouseFlags.WheeledRight))
+			{
+				return;
+			}
+
+			// Driver-provided double-click (preferred).
+			if (args.HasFlag(MouseFlags.Button1DoubleClicked))
+			{
+				_clickCount = 0;
+				_lastClickTime = DateTime.MinValue;
+				MouseDoubleClick?.Invoke(this, args);
+				args.Handled = true;
+				return;
+			}
+
+			// Left click with manual double-click detection (fallback).
+			if (args.HasFlag(MouseFlags.Button1Clicked))
+			{
+				var now = DateTime.UtcNow;
+				var timeSince = (now - _lastClickTime).TotalMilliseconds;
+				bool isDoubleClick = timeSince <= ControlDefaults.DefaultDoubleClickThresholdMs &&
+									_clickCount == 1;
+
+				if (isDoubleClick)
+				{
+					_clickCount = 0;
+					_lastClickTime = DateTime.MinValue;
+					MouseDoubleClick?.Invoke(this, args);
+				}
+				else
+				{
+					_clickCount = 1;
+					_lastClickTime = now;
+					MouseClick?.Invoke(this, args);
+				}
+
+				args.Handled = true;
+				return;
+			}
+
+			// Mouse movement.
+			if (args.HasFlag(MouseFlags.ReportMousePosition))
+			{
+				MouseMove?.Invoke(this, args);
+			}
 		}
 
 		/// <summary>
@@ -164,16 +268,46 @@ namespace SharpConsoleUI.Controls
 						}
 					}
 
-					// A focusable but non-mouse-aware child (or one that didn't consume the click):
-					// focus was still set above, so report the click as handled.
-					args.Handled = true;
-					return true;
+					// The child did not consume the click. If it (or a descendant) is a focus
+					// target, focus was set above, so report the click as handled. Otherwise the
+					// child is passive — leave the event unconsumed so the panel can raise its own
+					// body mouse event for a hosting facade or direct subscriber.
+					if (HasFocusableTarget(child))
+					{
+						args.Handled = true;
+						return true;
+					}
+
+					return false;
 				}
 
 				y += childHeight;
 			}
 
 			return false; // event fell in body padding with no child underneath
+		}
+
+		/// <summary>
+		/// Returns <see langword="true"/> when <paramref name="control"/> itself, or any of its
+		/// descendants, can currently receive focus. Used to decide whether a body click on a
+		/// non-consuming child should still be treated as handled (because focus was taken) or
+		/// allowed to surface as the panel's own body mouse event.
+		/// </summary>
+		private static bool HasFocusableTarget(IWindowControl control)
+		{
+			if (control is IFocusableControl focusable && focusable.CanReceiveFocus)
+				return true;
+
+			if (control is IContainerControl container)
+			{
+				foreach (var child in container.GetChildren())
+				{
+					if (child.Visible && HasFocusableTarget(child))
+						return true;
+				}
+			}
+
+			return false;
 		}
 
 		#endregion
