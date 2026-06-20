@@ -153,6 +153,7 @@ namespace SharpConsoleUI.Controls
 				_lastClickTime = DateTime.MinValue;
 				MouseDoubleClick?.Invoke(this, args);
 				args.Handled = true;
+				Container?.Invalidate(true);
 				return;
 			}
 
@@ -178,6 +179,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				args.Handled = true;
+				Container?.Invalidate(true);
 				return;
 			}
 

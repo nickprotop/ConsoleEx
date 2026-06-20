@@ -38,4 +38,41 @@ public class CollapsiblePanelBodyMouseTests
 
 		Assert.True(clicked, "non-collapsible body click should raise MouseClick");
 	}
+
+	[Fact]
+	public void FocusableBodyChildClick_IsConsumed_DoesNotRaisePanelMouseClick()
+	{
+		// A focusable body child (a Button) gates the HasFocusableTarget check: clicking it must be
+		// consumed (focus was taken) and must NOT surface as the panel's own MouseClick.
+		var panel = new CollapsiblePanel { Collapsible = false, ShowHeader = false, Width = 20 };
+		panel.AddControl(new ButtonControl()); // focusable, no handler
+
+		bool clicked = false;
+		panel.MouseClick += (_, _) => clicked = true;
+
+		bool consumed = panel.ProcessMouseEvent(Click(2, 0)); // body row 0
+
+		Assert.True(consumed, "click on a focusable body child must be consumed");
+		Assert.False(clicked, "a focusable body child must not surface the panel's own MouseClick");
+	}
+
+	[Fact]
+	public void TwoRapidPassiveBodyClicks_RaiseMouseDoubleClick_NotTwoClicks()
+	{
+		// Manual double-click detection: two Button1Clicked within the threshold on a passive-child
+		// panel must raise a single MouseDoubleClick, not two MouseClicks.
+		var panel = new CollapsiblePanel { Collapsible = false, ShowHeader = false, Width = 20 };
+		panel.AddControl(new MarkupControl(new List<string> { "passive" }));
+
+		int clicks = 0;
+		int doubleClicks = 0;
+		panel.MouseClick += (_, _) => clicks++;
+		panel.MouseDoubleClick += (_, _) => doubleClicks++;
+
+		panel.ProcessMouseEvent(Click(2, 0));
+		panel.ProcessMouseEvent(Click(2, 0));
+
+		Assert.Equal(1, doubleClicks);
+		Assert.Equal(1, clicks); // first click fires MouseClick; the second collapses into the double-click
+	}
 }
