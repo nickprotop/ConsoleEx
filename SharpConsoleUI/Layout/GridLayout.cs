@@ -562,15 +562,21 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 	/// </summary>
 	private static (int Start, int Extent) AlignAxis(AxisAnchor anchor, int innerStart, int innerExtent, int desiredExtent)
 	{
+		// A non-stretch child is never arranged LARGER than its cell: a child whose desired size exceeds
+		// the cell is clamped to the cell extent (and the cell clip trims any overflow). This is essential
+		// for scroll-capable children (e.g. a ScrollablePanel in a cell) — if the child were arranged at
+		// its full content height, its node bounds would equal its content and it would believe it has
+		// nothing to scroll. Clamping gives it a bounded viewport so it can scroll inside the cell.
+		int extent = Math.Min(desiredExtent, innerExtent);
 		switch (anchor)
 		{
 			case AxisAnchor.Start:
-				return (innerStart, desiredExtent);
+				return (innerStart, extent);
 			case AxisAnchor.Center:
 				// Clamp so an oversized child never starts before the cell's inner edge.
-				return (Math.Max(innerStart, innerStart + (innerExtent - desiredExtent) / 2), desiredExtent);
+				return (Math.Max(innerStart, innerStart + (innerExtent - extent) / 2), extent);
 			case AxisAnchor.End:
-				return (Math.Max(innerStart, innerStart + innerExtent - desiredExtent), desiredExtent);
+				return (Math.Max(innerStart, innerStart + innerExtent - extent), extent);
 			case AxisAnchor.Stretch:
 			default:
 				return (innerStart, innerExtent);
