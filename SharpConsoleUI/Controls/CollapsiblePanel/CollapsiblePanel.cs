@@ -84,6 +84,7 @@ namespace SharpConsoleUI.Controls
 
 		private int? _maxContentHeight;
 		private Padding _padding = new(0, 0, 0, 0);
+		private bool _useSafeBorder = false;
 		private Color? _borderColorValue;
 
 		private bool _isEnabled = true;
@@ -130,14 +131,20 @@ namespace SharpConsoleUI.Controls
 		/// <summary>True when the header style draws a box frame (Bordered, Rounded or DoubleLine).</summary>
 		internal bool IsBordered => _headerStyle is CollapsibleHeaderStyle.Bordered or CollapsibleHeaderStyle.Rounded or CollapsibleHeaderStyle.DoubleLine;
 
-		/// <summary>The box-drawing set for the current header style (rounded corners for Rounded, double-line for DoubleLine).</summary>
+		/// <summary>
+		/// The box-drawing set for the current header style (rounded corners for Rounded, double-line
+		/// for DoubleLine). When <see cref="UseSafeBorder"/> is set, ASCII characters (<c>+ - |</c>) are
+		/// used regardless of style, for terminals/fonts that mis-render Unicode box-drawing.
+		/// </summary>
 		internal Drawing.BoxChars HeaderBox =>
-			_headerStyle switch
-			{
-				CollapsibleHeaderStyle.Rounded => Drawing.BoxChars.Rounded,
-				CollapsibleHeaderStyle.DoubleLine => Drawing.BoxChars.Double,
-				_ => Drawing.BoxChars.Single
-			};
+			_useSafeBorder
+				? Drawing.BoxChars.Ascii
+				: _headerStyle switch
+				{
+					CollapsibleHeaderStyle.Rounded => Drawing.BoxChars.Rounded,
+					CollapsibleHeaderStyle.DoubleLine => Drawing.BoxChars.Double,
+					_ => Drawing.BoxChars.Single
+				};
 
 		/// <summary>
 		/// Gets or sets the indicator glyph shown in the header when the panel is expanded.
@@ -249,6 +256,19 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _padding;
 			set => SetProperty(ref _padding, value);
+		}
+
+		/// <summary>
+		/// Gets or sets whether the border is drawn with ASCII characters (<c>+ - |</c>) instead of
+		/// Unicode box-drawing characters. Default <see langword="false"/>. When <see langword="true"/>,
+		/// the chosen <see cref="HeaderStyle"/> (Bordered/Rounded/DoubleLine) renders with safe ASCII
+		/// chars — useful for terminals or fonts that mis-render box-drawing glyphs. Orthogonal to the
+		/// style: the style is remembered and restored when this is set back to <see langword="false"/>.
+		/// </summary>
+		public bool UseSafeBorder
+		{
+			get => _useSafeBorder;
+			set => SetProperty(ref _useSafeBorder, value);
 		}
 
 		/// <summary>

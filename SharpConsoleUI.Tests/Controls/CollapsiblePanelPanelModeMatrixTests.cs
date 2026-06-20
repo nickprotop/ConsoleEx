@@ -631,6 +631,49 @@ public class CollapsiblePanelPanelModeMatrixTests
 	}
 
 	[Fact]
+	public void UseSafeBorder_DrawsAsciiBox_OverridingStyle()
+	{
+		// Safe border forces ASCII (+ - |) regardless of the chosen Unicode style.
+		var panel = new CollapsiblePanel
+		{
+			Title = "T",
+			HeaderStyle = CollapsibleHeaderStyle.Rounded, // would normally draw ╭╮╰╯
+			UseSafeBorder = true,
+			Width = 20
+		};
+		panel.AddControl(ContainerTestHelpers.CreateLabel("body"));
+
+		var text = RenderedText(panel, width: 22, height: 8);
+
+		Assert.Contains("+", text);
+		Assert.Contains("-", text);
+		Assert.Contains("|", text);
+		// No Unicode box-drawing chars leak through.
+		Assert.DoesNotContain("╭", text);
+		Assert.DoesNotContain("┌", text);
+		Assert.DoesNotContain("│", text);
+		Assert.Contains("body", text);
+	}
+
+	[Fact]
+	public void UseSafeBorder_DefaultFalse_DrawsUnicodeBox()
+	{
+		// Default (false) keeps Unicode box-drawing — no ASCII fallback.
+		var panel = new CollapsiblePanel
+		{
+			Title = "T",
+			HeaderStyle = CollapsibleHeaderStyle.Bordered,
+			Width = 20
+		};
+		panel.AddControl(ContainerTestHelpers.CreateLabel("body"));
+
+		var lines = ContainerTestHelpers.RenderToLines(panel, width: 22, height: 8);
+		// Single-line box corners present; no ASCII '+' border.
+		Assert.Contains(lines, l => l.Contains('┌') && l.Contains('┐'));
+		Assert.DoesNotContain(lines, l => l.Contains('+'));
+	}
+
+	[Fact]
 	public void Padding_InsetsBodyContent_DefaultZeroIsNoOp()
 	{
 		// Default padding (0) — body child sits flush against the border-inset content area.
