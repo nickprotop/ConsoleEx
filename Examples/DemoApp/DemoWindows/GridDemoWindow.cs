@@ -66,31 +66,33 @@ public static class GridDemoWindow
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
 		alertsLog.AddControl(Controls.Markup("[bold]Activity Log[/]  [dim](scrolls)[/]").WithMargin(1, 1, 1, 0).Build());
-		// Short, single-line entries (kept narrow so they do NOT wrap in the column — wrapped lines would
-		// inflate the scroll height and make the log look broken). status + a terse message that fits ~24 cols.
-		(string status, string msg)[] logEntries =
+		// VERY short single-line entries that fit the narrow column WITHOUT wrapping. Wrapped lines make
+		// the scroll height unstable (the same content measures to a different number of rows depending on
+		// whether the scrollbar is shown), which caps the scroll partway. Keeping each line within the cell
+		// width keeps the scroll honest and reaches the end. Format: "NN ● msg" (● is a colored status dot).
+		(string dot, string msg)[] logEntries =
 		{
-			("[green]OK[/]  ", "web-01 healthy"),
-			("[green]OK[/]  ", "web-02 healthy"),
-			("[yellow]WARN[/]", "api-03 latency"),
-			("[green]OK[/]  ", "db-01 synced"),
-			("[red]ERR[/] ", "cache-02 timeout"),
-			("[green]OK[/]  ", "queue drained"),
-			("[yellow]WARN[/]", "disk 73% db-01"),
-			("[green]OK[/]  ", "web-03 v2.4"),
-			("[yellow]WARN[/]", "api-03 retry x2"),
-			("[green]OK[/]  ", "tls renewed"),
-			("[red]ERR[/] ", "cache-02 evicted"),
-			("[green]OK[/]  ", "backup done"),
-			("[green]OK[/]  ", "web-02 scaled +1"),
-			("[yellow]WARN[/]", "mem 73% web-01"),
-			("[green]OK[/]  ", "sweep done"),
+			("[green]●[/]", "web-01 ok"),
+			("[green]●[/]", "web-02 ok"),
+			("[yellow]●[/]", "api latency"),
+			("[green]●[/]", "db synced"),
+			("[red]●[/]", "cache fail"),
+			("[green]●[/]", "queue ok"),
+			("[yellow]●[/]", "disk 73%"),
+			("[green]●[/]", "web-03 up"),
+			("[yellow]●[/]", "api retry"),
+			("[green]●[/]", "tls ok"),
+			("[red]●[/]", "cache out"),
+			("[green]●[/]", "backup ok"),
+			("[green]●[/]", "scaled +1"),
+			("[yellow]●[/]", "mem 73%"),
+			("[green]●[/]", "sweep ok"),
 		};
-		// Enough entries to overflow the tile so the scroll is demonstrable, numbered so it is visible.
+		// Enough entries to overflow the tile so the scroll is demonstrable, numbered so movement is visible.
 		int logSeq = 1;
 		for (int pass = 0; pass < 3; pass++)
-			foreach (var (status, msg) in logEntries)
-				alertsLog.AddControl(Controls.Markup($"[dim]{logSeq++,2}[/] {status} {msg}").WithMargin(1, 0, 1, 0).Build());
+			foreach (var (dot, msg) in logEntries)
+				alertsLog.AddControl(Controls.Markup($"[dim]{logSeq++,2}[/] {dot} {msg}").WithMargin(1, 0, 1, 0).Build());
 
 		// ── Services tile (row 2, col 0) — a List proves a focusable control in a cell. ────────────
 		var services = Controls.List("Services")

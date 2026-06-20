@@ -570,16 +570,28 @@ namespace SharpConsoleUI.Controls
 
 		private int CalculateContentHeight(int viewportWidth, int maxHeight = 0)
 		{
-			// Measure at full width first, then re-measure at reduced width only if
-			// the content actually overflows and a scrollbar will appear.
+			// Measure at full width first, then re-measure at the reduced (scrollbar) width if the content
+			// overflows and a scrollbar will appear.
 			int fullHeight = MeasureChildrenHeight(viewportWidth, maxHeight);
 
 			int viewportH = maxHeight > 0 ? maxHeight : _viewportHeight;
-			if (_showScrollbar && _verticalScrollMode == ScrollMode.Scroll && fullHeight > viewportH)
+			if (_showScrollbar && _verticalScrollMode == ScrollMode.Scroll)
 			{
 				int narrowWidth = Math.Max(1, viewportWidth - 2);
 				if (narrowWidth != viewportWidth)
-					return MeasureChildrenHeight(narrowWidth, maxHeight);
+				{
+					int narrowHeight = MeasureChildrenHeight(narrowWidth, maxHeight);
+
+					// Stability fix: the overflow decision must be a FIXED POINT, not dependent on the
+					// borderline full-width height. If EITHER measurement overflows the viewport, the
+					// scrollbar shows, so the content height is the NARROW (scrollbar-present) height.
+					// Deciding on fullHeight alone made content height oscillate between the wrapped and
+					// unwrapped values across re-measures (e.g. between a wheel tick and the ScrollVerticalBy
+					// clamp), capping the scroll partway through wrapping content (issue: log cell stopped
+					// scrolling at ~1/3). Using the narrow height whenever either overflows is stable.
+					if (narrowHeight > viewportH || fullHeight > viewportH)
+						return narrowHeight;
+				}
 			}
 
 			return fullHeight;
