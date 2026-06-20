@@ -1,0 +1,368 @@
+# GridControl
+
+A WinUI-`<Grid>`-style two-dimensional layout container for the terminal: arrange child controls into rows and columns with fixed, size-to-content, or proportional tracks, span cells across rows and columns, add CSS-style gaps, and style each cell individually with a background, border, and padding.
+
+## Overview
+
+GridControl is a pure layout container. It divides its area into a grid of rows and columns — each sized as a fixed number of cells, `Auto` (sized to its content), or `Star` (a proportional share of the leftover space) — and places one child control per cell. Cells can span multiple rows and/or columns, and the grid honours each child's `HorizontalAlignment`/`VerticalAlignment` (default `Stretch`/`Fill`) and `Margin` within its cell. This makes it the building block for dashboards, tiled status displays, settings forms, and any layout that is naturally a 2D matrix rather than a single row or column.
+
+Children are placed explicitly with `grid.Place(control, row, col, rowSpan, colSpan)`, or appended in row-major **AutoFlow** order with `grid.AddControl(control)` (each lands in the next free cell, growing rows as needed). `RowGap`/`ColumnGap` insert blank tracks between cells (a spanned cell absorbs the gaps it crosses). The grid has its own `Margin` and `Padding`, and a content control marked `Wrap=true` reflows to its column width via a two-pass measure, growing `Auto` rows to the wrapped height.
+
+A cell can hold **any** control — a `PanelControl`, `ListControl`, `LineGraphControl`, an editable `MultilineEditControl`/`PromptControl`, a `ScrollablePanelControl`, or even a nested grid. The grid is a full first-class container and focus scope: Tab moves focus row-major across cells (left-to-right, top-to-bottom), Shift+Tab reverses, a mouse click focuses the cell under the cursor, and the terminal cursor works in editable cells. The grid itself never scrolls (it is pure layout); compose it with `ScrollablePanelControl` for the WinUI `<Grid>`-in-`<ScrollViewer>` pattern.
+
+See also: [HorizontalGridControl](HorizontalGridControl.md), [ScrollablePanelControl](ScrollablePanelControl.md)
+
+## Quick Start
+
+```csharp
+var grid = Controls.Grid()
+    .Columns(GridLength.Star(1), GridLength.Star(1))
+    .Rows(GridLength.Auto(), GridLength.Star(1))
+    .RowGap(1)
+    .ColumnGap(2)
+    .Place(Controls.Markup("[bold]Header[/]").Build(), 0, 0, colSpan: 2)
+    .Place(leftPanel, 1, 0)
+    .Place(rightPanel, 1, 1)
+    .Build();
+
+window.AddControl(grid);
+```
+
+## Sizing Model
+
+Every row and column is described by a `GridLength`, created with one of three factories:
+
+| Factory | Type | Behavior |
+|---------|------|----------|
+| `GridLength.Cells(n, min?, max?)` | Fixed | Exactly `n` cells wide/tall |
+| `GridLength.Auto(min?, max?)` | Auto | Sizes to fit the cell's content |
+| `GridLength.Star(weight, min?, max?)` | Star | A proportional share of the leftover space, by `weight` |
+
+`Star` tracks split whatever space remains after the `Fixed` and `Auto` tracks are sized, in proportion to their weights — `Star(2)` gets twice the share of `Star(1)`. Every factory takes optional `min`/`max` cell clamps.
+
+```csharp
+var grid = Controls.Grid()
+    // A fixed 20-cell sidebar, then two content columns sharing the rest 1:2.
+    .Columns(GridLength.Cells(20), GridLength.Star(1), GridLength.Star(2))
+    // A toolbar row sized to its content, then a body row that fills the rest
+    // (but never below 5 cells tall).
+    .Rows(GridLength.Auto(), GridLength.Star(1, min: 5))
+    .Place(sidebar, 1, 0)
+    .Place(mainPanel, 1, 1)
+    .Place(detailPanel, 1, 2)
+    .Place(toolbar, 0, 0, colSpan: 3)
+    .Build();
+```
+
+## Placement and Spanning
+
+### Explicit placement
+
+`Place(control, row, col, rowSpan = 1, colSpan = 1)` puts a control at a specific cell and returns the grid for fluent chaining. Spanning is first-class — a cell can occupy several rows and/or columns, absorbing any gaps it crosses.
+
+```csharp
+grid.Place(header, 0, 0, colSpan: 3);   // header spans all three columns
+grid.Place(sidebar, 1, 0, rowSpan: 2);  // sidebar spans two rows
+```
+
+### AutoFlow
+
+`AddControl(control)` (or the builder's `.Add(control)`) appends a control in row-major order: it lands in the next free cell given the current column count, and the grid grows row definitions automatically when the flow runs past the last defined row. AutoFlow is span-aware — it skips over cells already occupied by a spanning child.
+
+```csharp
+var grid = Controls.Grid()
+    .Columns(GridLength.Star(1), GridLength.Star(1), GridLength.Star(1))
+    .Add(tile1)   // -> row 0, col 0
+    .Add(tile2)   // -> row 0, col 1
+    .Add(tile3)   // -> row 0, col 2
+    .Add(tile4)   // -> row 1, col 0 (a new row is grown automatically)
+    .Build();
+```
+
+## Gaps
+
+`RowGap` and `ColumnGap` insert blank tracks between adjacent cells, like CSS grid gaps. They default to 0. A spanned cell absorbs the gaps it crosses, so spanning tiles stay visually continuous.
+
+```csharp
+var grid = Controls.Grid()
+    .Columns(GridLength.Star(1), GridLength.Star(1))
+    .Rows(GridLength.Star(1), GridLength.Star(1))
+    .RowGap(1)       // one blank cell between rows
+    .ColumnGap(2)    // two blank cells between columns
+    .Build();
+```
+
+## Cells and Per-Cell Styling
+
+`grid[row, col]` (the indexer) and `grid.Cell(row, col)` both return a `GridCell` — a lightweight value-type handle that reads and writes the grid's cell store directly. It is not a control and stores no state of its own, so writing through it mutates the grid. The handle lets you frame and fill individual cells without wrapping each child in a `PanelControl`.
+
+| Member | Type | Description |
+|--------|------|-------------|
+| `Content` | `IWindowControl?` | Get the cell's control; set to place/replace it (keeping styling), or `null` to clear the content |
+| `Background` | `Color?` | Per-cell background fill (`null` = no fill, cell shows through). Setting `null` is a no-op — use `ResetStyle()` to clear |
+| `Border` | `BorderStyle` | Per-cell border; a non-`None` border draws a one-cell box and insets content. Default `None` |
+| `Padding` | `Padding` | Insets the cell's content from the cell edges (or from inside the border). Default `Padding.None` |
+| `Placement` | `GridPlacement?` | The cell's full placement (position, spans, styling), or `null` if the cell has neither content nor styling |
+| `Row` / `Col` | `int` | The cell's top-left coordinate |
+| `IsEmpty` | `bool` | `true` when the cell holds no content (a styled-but-empty cell still reports `true`) |
+| `Clear()` | — | Drops the cell's content (equivalent to `Content = null`) |
+| `ResetStyle()` | — | Clears the cell's background, border, and padding, keeping its content |
+
+```csharp
+// Frame the CPU tile with a rounded border and a subtle slate fill.
+grid.Cell(1, 0).Border = BorderStyle.Rounded;
+grid.Cell(1, 0).Background = new Color(40, 44, 60);
+grid.Cell(1, 0).Padding = new Padding(1, 0, 1, 0);
+
+// Replace a cell's content at runtime, keeping its styling.
+grid[2, 1].Content = newPanel;
+
+// Strip styling but keep content; or clear the cell entirely.
+grid.Cell(1, 0).ResetStyle();
+grid.Cell(2, 1).Clear();
+```
+
+A cell can be styled before it has any content — a styled empty cell carries chrome (border/background) with no control, so you can lay out framed tiles up front and fill them later.
+
+## Builder API
+
+Create a builder with `Controls.Grid()` (or `new GridBuilder()`). A builder implicitly converts to a `GridControl`, so it can be passed directly where a control is expected.
+
+### Tracks, Gaps, and Sizing
+
+```csharp
+.Columns(params GridLength[] columns)   // Column tracks, left to right
+.Rows(params GridLength[] rows)          // Row tracks, top to bottom
+.RowGap(int gap)                         // Blank cells between rows
+.ColumnGap(int gap)                      // Blank cells between columns
+.WithPadding(Padding padding)
+.WithPadding(int left, int top, int right, int bottom)
+.WithMargin(Margin margin)
+.WithMargin(int left, int top, int right, int bottom)
+.WithSize(int width, int height)
+.WithWidth(int width)
+.WithHeight(int height)
+```
+
+### Placement
+
+```csharp
+.Place(IWindowControl control, int row, int col, int rowSpan = 1, int colSpan = 1)
+.Add(IWindowControl control)             // AutoFlow into the next free cell
+```
+
+### Alignment, Theming, and Identity
+
+```csharp
+.WithAlignment(HorizontalAlignment alignment)
+.WithVerticalAlignment(VerticalAlignment alignment)
+.WithColorRole(ColorRole role, ThemeMode? mode = null)
+.Outline(bool outline = true)
+.WithName(string name)                   // For FindControl queries
+.Build()                                 // Builds and returns the GridControl
+```
+
+## Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `RowDefinitions` | `IList<GridLength>` | empty | Live row track definitions; mutating at runtime rebuilds and invalidates the grid |
+| `ColumnDefinitions` | `IList<GridLength>` | empty | Live column track definitions; mutating at runtime rebuilds and invalidates the grid |
+| `RowGap` | `int` | `0` | Blank cells between adjacent rows |
+| `ColumnGap` | `int` | `0` | Blank cells between adjacent columns |
+| `Padding` | `Padding` | `Padding.None` | The grid's own inner padding |
+| `HorizontalAlignment` | `HorizontalAlignment` | `Left` | Horizontal alignment of the grid within its container |
+| `VerticalAlignment` | `VerticalAlignment` | `Top` | Vertical alignment of the grid within its container |
+| `BackgroundColor` | `Color` | `Transparent` | Background fill (transparent shows through when unset) |
+| `ForegroundColor` | `Color` | from theme | Foreground (text) colour for the grid and its children |
+| `Width` | `int?` | `null` | Fixed width (auto-sized when null) |
+| `Height` | `int?` | `null` | Fixed height (auto-sized when null) |
+| `ColorRole` | `ColorRole` | `Default` | Semantic role tinting per-cell chrome (borders and surface fills) from the theme palette |
+| `Outline` | `bool` | `false` | Renders role chrome in outline style |
+| `Visible` | `bool` | `true` | Whether the grid is visible |
+| `IsEnabled` | `bool` | `true` | Enables/disables keyboard and mouse handling |
+| `HasFocus` | `bool` | `false` | True when this grid or one of its descendants is focused (read-only) |
+
+## Methods
+
+### Placement and Cells
+
+| Method | Description |
+|--------|-------------|
+| `Place(control, row, col, rowSpan = 1, colSpan = 1)` | Place a control at a cell with optional spanning; returns the grid for chaining |
+| `this[int row, int col]` / `Cell(int row, int col)` | Returns a `GridCell` handle for getting/setting the cell's content and styling |
+
+### Runtime CRUD
+
+| Method | Description |
+|--------|-------------|
+| `AddControl(control)` | Append a control in row-major AutoFlow order (grows rows as needed) |
+| `RemoveControl(control)` | Remove a control (other cells are left in place — no repacking) |
+| `ReplaceControl(oldControl, newControl)` | Replace a control, keeping the old control's cell placement and spans |
+| `RemoveAt(row, col)` | Remove the control whose placement starts at the given cell |
+| `ClearControls()` | Remove all child controls |
+
+`RowDefinitions` and `ColumnDefinitions` are live lists — adding, removing, clearing, or replacing entries at runtime rebuilds and invalidates the grid so the change shows on the next render.
+
+> **Thread safety:** the grid locks its cell store internally, but mutate it from the UI thread per the library convention. From background work, marshal calls with `EnqueueOnUIThread`.
+
+## Keyboard Support
+
+The grid is a transparent focus scope: it routes keys to its focused child first, then handles Tab traversal itself.
+
+| Key | Action |
+|-----|--------|
+| **Tab** | Move focus to the next focusable cell, row-major (left-to-right, top-to-bottom) |
+| **Shift+Tab** | Move focus to the previous focusable cell |
+
+When focus enters the grid it lands on the first (or, for Shift+Tab, the last) focusable cell; nested scopes such as a `ScrollablePanelControl` in a cell are entered transparently.
+
+## Mouse Support
+
+The grid implements `IMouseAwareControl`.
+
+- **Click** in a cell routes the event to the control under the cursor and focuses it if it can receive focus.
+- The terminal **cursor** works in editable cells (e.g. a `PromptControl` or `MultilineEditControl` placed in a cell).
+- Wheel and motion events that bubble up from a child (e.g. a scrollable panel at its scroll limit) do not steal focus.
+
+## Scrolling
+
+The grid does **not** scroll itself — it is pure layout, and cells clip their content to the cell bounds. To make grid content scrollable, compose with [ScrollablePanelControl](ScrollablePanelControl.md), the WinUI `<Grid>`-in-`<ScrollViewer>` pattern:
+
+```csharp
+// Whole grid scrolls: put the grid inside a scrollable panel.
+var scroller = Controls.ScrollablePanel()
+    .AddControl(grid)
+    .WithScrollbar(true)
+    .Build();
+
+// One cell scrolls: put a scrollable panel inside the cell.
+grid.Place(Controls.ScrollablePanel().AddControl(longLog).Build(), 1, 2);
+```
+
+## ColorRole Theming
+
+`WithColorRole(ColorRole.Primary)` (or the `ColorRole` property) themes the per-cell chrome — cell borders and the surface fill of cells that opt into chrome — from the active theme's role palette, so framed tiles re-tint when the theme changes. `Outline(true)` renders the role chrome in outline style. See [Control Roles](../THEMES.md#control-roles).
+
+```csharp
+var grid = Controls.Grid()
+    .Columns(GridLength.Star(1), GridLength.Star(1))
+    .WithColorRole(ColorRole.Primary)
+    .Build();
+
+grid.Cell(0, 0).Border = BorderStyle.Rounded;  // border tinted from the Primary role
+```
+
+GridControl is NativeAOT-clean.
+
+## Examples
+
+### Tiled Dashboard (Spans, Gaps, Per-Cell Styling)
+
+A three-column grid with a header that spans all columns, a different control type in every tile, a tile that spans two rows, and per-cell borders and backgrounds.
+
+```csharp
+var header = Controls.Markup("[bold]System Dashboard[/]").WithMargin(1, 0, 1, 0).Build();
+
+var cpuGraph = Controls.LineGraph()
+    .WithTitle("CPU %")
+    .WithColorRole(ColorRole.Info)
+    .WithVerticalAlignment(VerticalAlignment.Fill)
+    .WithMargin(1, 1, 1, 1)
+    .Build();
+
+var resourcePanel = Controls.ScrollablePanel()
+    .AddControl(Controls.BarGraph().WithLabel("Mem ").WithValue(73).ShowValue().Build())
+    .AddControl(Controls.BarGraph().WithLabel("Disk").WithValue(48).ShowValue().Build())
+    .WithVerticalAlignment(VerticalAlignment.Fill)
+    .Build();
+
+var alertsLog = Controls.ScrollablePanel()        // a scrollable cell
+    .WithVerticalAlignment(VerticalAlignment.Fill)
+    .Build();
+
+var services = Controls.List("Services")
+    .AddItems("nginx", "postgres", "redis", "rabbitmq")
+    .WithMargin(1, 1, 1, 1)
+    .Build();
+
+var commandPanel = Controls.ScrollablePanel()
+    .AddControl(Controls.Prompt("hub> ").WithInputWidth(20).WithMargin(1, 1, 1, 1).Build())
+    .WithVerticalAlignment(VerticalAlignment.Fill)
+    .Build();
+
+var grid = Controls.Grid()
+    .Columns(GridLength.Star(1), GridLength.Star(1), GridLength.Star(1))
+    .Rows(GridLength.Auto(), GridLength.Star(1), GridLength.Star(1))
+    .RowGap(1)
+    .ColumnGap(2)
+    .WithColorRole(ColorRole.Primary)
+    .WithPadding(1, 0, 1, 0)
+    .WithVerticalAlignment(VerticalAlignment.Fill)
+    .WithAlignment(HorizontalAlignment.Stretch)
+    .Place(header, 0, 0, colSpan: 3)          // header spans all three columns
+    .Place(cpuGraph, 1, 0)
+    .Place(resourcePanel, 1, 1)
+    .Place(alertsLog, 1, 2, rowSpan: 2)       // alerts span two rows
+    .Place(services, 2, 0)
+    .Place(commandPanel, 2, 1)
+    .Build();
+
+// Per-cell styling through the GridCell surface.
+grid.Cell(1, 0).Border = BorderStyle.Rounded;        // frame the CPU tile
+grid.Cell(2, 0).Border = BorderStyle.Single;         // frame the services tile
+grid.Cell(1, 1).Background = new Color(40, 44, 60);  // slate fill behind the resource tile
+grid.Cell(1, 2).Border = BorderStyle.Rounded;        // frame the spanning alerts tile
+
+window.AddControl(grid);
+```
+
+### Settings Form (AutoFlow)
+
+```csharp
+var form = Controls.Grid()
+    .Columns(GridLength.Auto(), GridLength.Star(1))   // labels size to content; inputs fill
+    .RowGap(1)
+    .Add(Controls.Label("Name:"))
+    .Add(Controls.Prompt().Build())
+    .Add(Controls.Label("Email:"))
+    .Add(Controls.Prompt().Build())
+    .Add(Controls.Label("Notes:"))
+    .Add(Controls.MultilineEdit().Build())
+    .Build();
+
+window.AddControl(form);
+```
+
+### Replacing a Cell's Content at Runtime
+
+```csharp
+var grid = Controls.Grid()
+    .Columns(GridLength.Star(1))
+    .Rows(GridLength.Star(1))
+    .Place(loadingSpinner, 0, 0)
+    .Build();
+
+window.AddControl(grid);
+
+// Later, on the UI thread, swap in the loaded content.
+grid[0, 0].Content = resultsPanel;
+```
+
+## Best Practices
+
+1. **Reach for a grid when the layout is 2D**: use `GridControl` for matrices and tiled dashboards; use [HorizontalGridControl](HorizontalGridControl.md) for a single row of resizable columns and [ScrollablePanelControl](ScrollablePanelControl.md) for a single scrollable column.
+2. **Mix track types**: give chrome (toolbars, headers) `Auto` rows, fixed sidebars `Cells(n)`, and the main content `Star` tracks so it absorbs leftover space.
+3. **Use `Stretch`/`Fill` alignment for full-bleed grids**: combine `WithAlignment(HorizontalAlignment.Stretch)` and `WithVerticalAlignment(VerticalAlignment.Fill)` so the grid fills its window.
+4. **Frame tiles with the cell surface, not nested panels**: `grid.Cell(r, c).Border` / `.Background` give per-cell chrome without wrapping each child in a `PanelControl`.
+5. **Compose to scroll**: the grid never scrolls itself — wrap it (or a single cell) in a `ScrollablePanelControl`.
+6. **Mutate on the UI thread**: `Place`, `AddControl`, cell writes, and `RowDefinitions`/`ColumnDefinitions` edits should run on the UI thread; from background work, marshal with `EnqueueOnUIThread`.
+
+## See Also
+
+- [HorizontalGridControl](HorizontalGridControl.md) - For a single row of variable-width, resizable columns
+- [ScrollablePanelControl](ScrollablePanelControl.md) - Wrap a grid (or a cell) to make its content scrollable
+
+---
+
+[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](../../README.md)

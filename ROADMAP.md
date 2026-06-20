@@ -4,6 +4,7 @@ SharpConsoleUI is actively maintained and driven by real-world usage in producti
 
 ## Recently Shipped
 
+- GridControl — WinUI-style 2D layout: Fixed/Auto/Star rows & columns, row/column spans, CSS-style gaps, per-cell background/border/padding via grid[r,c], AutoFlow, content wrapping, full focus/cursor host conformance, ColorRole theming
 - MVVM data binding — `INotifyPropertyChanged` on all controls, `Bind()` / `BindTwoWay()` API
 - CanvasControl — retained and immediate mode drawing with full graphics API
 - ImageControl — load and display PNG/JPEG/BMP/GIF/WebP/TIFF files in the terminal

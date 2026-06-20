@@ -93,6 +93,7 @@ Controls for organizing other controls.
 | **ColumnContainer** | Vertical stack container | Stack controls vertically, padding, alignment |
 | **[ScrollablePanelControl](controls/ScrollablePanelControl.md)** | Scrollable content area | Vertical scrolling, contains multiple controls |
 | **[HorizontalGridControl](controls/HorizontalGridControl.md)** | Multi-column layout | Variable-width columns, alignment, splitters |
+| **[GridControl](controls/GridControl.md)** | WinUI-style 2D grid | Fixed/Auto/Star rows & columns, row/col spans, gaps, per-cell styling, any control per cell |
 | **SplitterControl** | Resizable divider | Drag to resize adjacent columns |
 | **[TabControl](controls/TabControl.md)** | Multi-page tab container | Tab headers, keyboard/mouse switching, state preservation |
 | **[CollapsiblePanel](controls/CollapsiblePanel.md)** | Click-to-expand container | Borderless/bordered header, markup title, custom icons, MaxContentHeight, IControlHost. Can also serve as a plain, non-collapsible panel hosting any control via `.NonCollapsible()` / `.HideHeader()` |
@@ -144,7 +145,7 @@ public interface IInteractiveControl : IWindowControl
 }
 ```
 
-Implemented by: Button, Checkbox, Prompt, MultilineEdit, List, Tree, Table, Dropdown, Menu, Canvas
+Implemented by: Button, Checkbox, Prompt, MultilineEdit, List, Tree, Table, Dropdown, Menu, Canvas, Grid
 
 ### IFocusableControl
 
@@ -161,7 +162,7 @@ public interface IFocusableControl : IInteractiveControl
 }
 ```
 
-Implemented by: Button, Checkbox, Prompt, MultilineEdit, List, Tree, Table, Dropdown, Canvas
+Implemented by: Button, Checkbox, Prompt, MultilineEdit, List, Tree, Table, Dropdown, Canvas, Grid
 
 ### IMouseAwareControl
 
@@ -180,7 +181,7 @@ public interface IMouseAwareControl : IWindowControl
 }
 ```
 
-Implemented by: Button, List, Tree, Table, Dropdown, Menu, Toolbar, ScrollablePanel, Canvas
+Implemented by: Button, List, Tree, Table, Dropdown, Menu, Toolbar, ScrollablePanel, Canvas, Grid
 
 ### IContainer
 
@@ -198,7 +199,7 @@ public interface IContainer
 }
 ```
 
-Implemented by: ColumnContainer, ScrollablePanelControl, HorizontalGridControl, NavigationView, Window, and other containers.
+Implemented by: ColumnContainer, ScrollablePanelControl, HorizontalGridControl, GridControl, NavigationView, Window, and other containers.
 
 ### IControlHost
 
@@ -214,7 +215,7 @@ public interface IControlHost
 }
 ```
 
-Implemented by: `ScrollablePanelControl`, `ColumnContainer`, `CollapsiblePanel`, `Window`.
+Implemented by: `ScrollablePanelControl`, `ColumnContainer`, `CollapsiblePanel`, `GridControl`, `Window`.
 
 Not implemented by `TabControl` (tabs are title-keyed pages), `MenuControl` (children are `MenuItem`, not `IWindowControl`), `ToolbarControl`, or `NavigationView` — their child models are not a flat `IWindowControl` list, so forcing the contract would mean throwing `NotSupportedException`.
 
