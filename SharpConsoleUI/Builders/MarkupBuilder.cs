@@ -76,7 +76,19 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	/// <returns>The builder for chaining</returns>
 	public MarkupBuilder AddLine(string markup)
 	{
-		_lines.Add(markup ?? string.Empty);
+		// fix bug: Fix garbled text caused by improper handling of the `\r` character on Windows systems (issue #45)
+		// fix bug: Correct the behavioral logic of the AddLine method to properly handle line breaks within text.
+
+		if (string.IsNullOrEmpty(markup))
+		{
+			_lines.Add(string.Empty); // add empty line.
+		}
+		else
+		{
+			// add empty lines and other lines.
+			_lines.AddRange(markup.Split(["\r\n", "\r", "\n"], StringSplitOptions.None)); // fix: handle windows newline char.
+		}
+
 		return this;
 	}
 
@@ -92,7 +104,7 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	{
 		if (string.IsNullOrEmpty(markup)) return this;
 
-		var parts = markup.Split('\n');
+		var parts = markup.Split(["\r\n", "\r", "\n"], StringSplitOptions.None); // fix: handle windows newline char.
 
 		// Ensure at least one line exists, then join the first segment onto the current last line.
 		if (_lines.Count == 0)

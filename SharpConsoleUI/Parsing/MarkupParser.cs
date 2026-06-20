@@ -316,7 +316,7 @@ namespace SharpConsoleUI.Parsing
 			if (markup.Contains('\n'))
 			{
 				int maxLen = 0;
-				foreach (var line in markup.Split('\n'))
+				foreach (var line in markup.Split(["\r\n", "\r", "\n"], StringSplitOptions.None))  // fix: handle windows newline char.
 				{
 					int lineLen = StripLengthSingleLine(line);
 					if (lineLen > maxLen) maxLen = lineLen;
@@ -667,7 +667,7 @@ namespace SharpConsoleUI.Parsing
 			var result = new List<List<Cell>>();
 
 			// First split on explicit newlines
-			var explicitLines = markup.Split('\n');
+			var explicitLines = markup.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);  // fix: handle windows newline char.
 			foreach (var line in explicitLines)
 			{
 				var cells = Parse(line, defaultFg, defaultBg, out var lineSpans);
