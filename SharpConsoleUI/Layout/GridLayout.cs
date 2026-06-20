@@ -92,8 +92,42 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 		int starAvailW = constraints.IsWidthEffectivelyUnbounded ? 0 : availW;
 		int starAvailH = constraints.IsHeightEffectivelyUnbounded ? 0 : availH;
 
+		int columnGap = Math.Max(0, _source.ColumnGap);
+		int rowGap = Math.Max(0, _source.RowGap);
+
 		int[] colSizes = GridTrackSizer.Size(colDefs, autoContentColSizes, starAvailW, _source.ColumnGap);
 		int[] rowSizes = GridTrackSizer.Size(rowDefs, autoContentRowSizes, starAvailH, _source.RowGap);
+
+		// PASS 2: re-measure each content cell against its REAL cell extent (the actual column width
+		// computed in pass 1) so wrapping controls reflow to their column rather than reporting a single
+		// no-wrap line that later gets clipped. Re-priming each child's DesiredSize against the narrower
+		// inner width makes a Wrap=true control report a taller height; the Auto row sizes are then
+		// recomputed from those wrapped heights below. Column widths drove the wrap, so they are not
+		// re-derived (wrapping does not change how wide a column is, only how tall the cell becomes).
+		bool anyReflow = RemeasureCellsAgainstCellExtent(node, colDefs, rowDefs, colSizes, rowSizes, columnGap, rowGap);
+
+		if (anyReflow)
+		{
+			// Recompute ROW auto-content from the NEW (wrapped) DesiredSize heights so Auto rows grow to
+			// fit the reflowed text. Columns are unaffected, so colSizes is reused as-is.
+			int[] autoContentRowSizes2 = new int[rowDefs.Count];
+			var cells = _source.OrderedCells;
+			IReadOnlyList<LayoutNode> children = node.Children;
+			int pairCount = Math.Min(children.Count, cells.Count);
+			for (int i = 0; i < pairCount; i++)
+			{
+				LayoutNode child = children[i];
+				if (!child.IsVisible)
+				{
+					continue;
+				}
+
+				GridPlacement p = cells[i].Placement;
+				ContributeAutoContent(autoContentRowSizes2, rowDefs, p.Row, p.RowSpan, child.DesiredSize.Height);
+			}
+
+			rowSizes = GridTrackSizer.Size(rowDefs, autoContentRowSizes2, starAvailH, _source.RowGap);
+		}
 
 		int colGaps = colCount > 1 ? (colCount - 1) * Math.Max(0, _source.ColumnGap) : 0;
 		int rowGaps = rowCount > 1 ? (rowCount - 1) * Math.Max(0, _source.RowGap) : 0;
@@ -152,6 +186,93 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 		}
 
 		return (autoContentColSizes, autoContentRowSizes);
+	}
+
+	/// <summary>
+	/// Pass-2 measure helper: re-measures each visible content cell against the inner extent of the cell
+	/// it was placed in (the column width resolved by pass 1) so wrapping controls reflow to their column.
+	/// Re-measuring is a measure-pass operation and is both cheap and correct for non-wrapping controls
+	/// (they report the same size). A cell with no finite inner width (e.g. a Star column collapsed to 0 in
+	/// an unbounded axis) is skipped: wrapping to width 0 is degenerate, so its pass-1 DesiredSize is kept.
+	/// </summary>
+	/// <returns><c>true</c> if at least one cell was re-measured against a finite inner extent; otherwise <c>false</c>.</returns>
+	private bool RemeasureCellsAgainstCellExtent(
+		LayoutNode node,
+		IReadOnlyList<GridLength> colDefs,
+		IReadOnlyList<GridLength> rowDefs,
+		int[] colSizes,
+		int[] rowSizes,
+		int columnGap,
+		int rowGap)
+	{
+		var cells = _source.OrderedCells;
+		IReadOnlyList<LayoutNode> children = node.Children;
+		int pairCount = Math.Min(children.Count, cells.Count);
+
+		bool anyReflow = false;
+		for (int i = 0; i < pairCount; i++)
+		{
+			LayoutNode child = children[i];
+			if (!child.IsVisible)
+			{
+				continue;
+			}
+
+			(int innerW, int _) = CellInnerExtent(
+				cells[i].Placement, colSizes, rowSizes, colDefs.Count, rowDefs.Count, columnGap, rowGap, child);
+
+			// No meaningful width to wrap into (e.g. Star collapsed to 0 in an unbounded axis): keep the
+			// pass-1 DesiredSize rather than reflowing to width 0.
+			if (innerW <= 0)
+			{
+				continue;
+			}
+
+			// Constrain WIDTH to the cell's inner width so a wrapping control reflows to its column, but
+			// leave HEIGHT unbounded: the goal is to discover the wrapped height. Clamping height to the
+			// pass-1 row size would cap the reported height at the single-line measure and prevent an Auto
+			// row from growing. Fixed/Star rows ignore the reported height (only Auto rows size to content),
+			// and arrange clips each cell to its track, so an over-tall report is harmless for those rows.
+			child.Measure(LayoutConstraints.Loose(innerW, int.MaxValue));
+			anyReflow = true;
+		}
+
+		return anyReflow;
+	}
+
+	/// <summary>
+	/// Computes the inner content extent (width and height available to the child) of the cell at the given
+	/// placement, mirroring the exact inset order the arrange pass uses: the spanned track extent, minus the
+	/// cell border (1 each side when bordered), minus the cell padding, minus the child's own margin, floored
+	/// at 0. Shared by the pass-2 re-measure and <see cref="ArrangeChildren"/> so the wrap width a control is
+	/// measured against is identical to the box it is later arranged into.
+	/// </summary>
+	private static (int InnerW, int InnerH) CellInnerExtent(
+		GridPlacement placement,
+		int[] colSizes,
+		int[] rowSizes,
+		int colCount,
+		int rowCount,
+		int columnGap,
+		int rowGap,
+		LayoutNode child)
+	{
+		int col = Math.Clamp(placement.Col, 0, colCount - 1);
+		int row = Math.Clamp(placement.Row, 0, rowCount - 1);
+		int colSpan = Math.Clamp(placement.ColSpan, 1, colCount - col);
+		int rowSpan = Math.Clamp(placement.RowSpan, 1, rowCount - row);
+
+		int cellW = SpanExtent(colSizes, col, colSpan, columnGap);
+		int cellH = SpanExtent(rowSizes, row, rowSpan, rowGap);
+
+		int border = placement.Border != BorderStyle.None ? 1 : 0;
+		Padding cellPadding = placement.CellPadding;
+		Margin childMargin = child.Control?.Margin ?? default;
+
+		int innerW = Math.Max(0, cellW - 2 * border - cellPadding.Left - cellPadding.Right - childMargin.Left - childMargin.Right);
+		int innerH = Math.Max(0, cellH - 2 * border - cellPadding.Top - cellPadding.Bottom - childMargin.Top - childMargin.Bottom);
+
+		return (innerW, innerH);
 	}
 
 	/// <summary>
