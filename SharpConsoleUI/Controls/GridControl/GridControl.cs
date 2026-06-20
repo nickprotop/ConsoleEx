@@ -66,6 +66,12 @@ namespace SharpConsoleUI.Controls
 		private List<(IWindowControl Control, GridPlacement Placement)>? _orderedChildrenSource;
 		private IReadOnlyList<IWindowControl>? _orderedChildrenCache;
 
+		// When true, a definition-list mutation still nulls the ordered-cell caches but skips the
+		// per-mutation ForceRebuildLayout/Invalidate. Set during AddControl's auto-grow loop so the
+		// several RowDefinitions.Add calls collapse into the single RebuildAndInvalidate at the end of
+		// AddControl (CLAUDE.md rule 5 — avoid redundant invalidations).
+		private bool _suppressDefinitionCallbacks;
+
 		private readonly GridDefinitionList _rowDefinitions;
 		private readonly GridDefinitionList _columnDefinitions;
 
@@ -280,9 +286,19 @@ namespace SharpConsoleUI.Controls
 			{
 				var (row, col) = FindNextFreeCell(columnCount);
 
-				// Auto-grow rows so the placement is in range.
-				while (RowDefinitions.Count <= row)
-					RowDefinitions.Add(GridLength.Star(1));
+				// Auto-grow rows so the placement is in range. Suppress the per-Add definition callback
+				// so the several RowDefinitions.Add calls don't each fire a rebuild/invalidate; the
+				// single RebuildAndInvalidate below covers them (CLAUDE.md rule 5).
+				_suppressDefinitionCallbacks = true;
+				try
+				{
+					while (RowDefinitions.Count <= row)
+						RowDefinitions.Add(GridLength.Star(1));
+				}
+				finally
+				{
+					_suppressDefinitionCallbacks = false;
+				}
 
 				_cells.Add((control, new GridPlacement(row, col)));
 				_orderedCellsCache = null;
@@ -613,7 +629,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void OnDefinitionsChanged()
 		{
+			// Always null the caches (track changes can affect auto-flow geometry), even while
+			// suppressed — the suppression only defers the rebuild/invalidate, not cache coherence.
 			lock (_cellsLock) { _orderedCellsCache = null; _allOrderedCellsCache = null; }
+			if (_suppressDefinitionCallbacks) return;
 			RebuildAndInvalidate();
 		}
 

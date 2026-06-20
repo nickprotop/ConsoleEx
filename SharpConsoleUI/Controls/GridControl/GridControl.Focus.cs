@@ -308,8 +308,11 @@ namespace SharpConsoleUI.Controls
 			int absX = ActualX + gridPosition.X;
 			int absY = ActualY + gridPosition.Y;
 
-			foreach (var child in GetChildren())
+			// OrderedChildren() is the cached, content-only row-major projection — no per-event alloc.
+			var children = OrderedChildren();
+			for (int i = 0; i < children.Count; i++)
 			{
+				var child = children[i];
 				if (!child.Visible) continue;
 				if (child is not IInteractiveControl interactive) continue;
 
@@ -374,14 +377,17 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Builds the ordered list of focusable Tab stops across all cells. Iterates
-		/// <see cref="GetChildren"/> (row-major), so Tab flows left-to-right, top-to-bottom.
+		/// Builds the ordered list of focusable Tab stops across all cells. Iterates the cached
+		/// <see cref="OrderedChildren"/> (content-only, row-major), so Tab flows left-to-right,
+		/// top-to-bottom without a per-call children allocation.
 		/// </summary>
 		private List<IFocusableControl> GetFocusableChildren()
 		{
 			var result = new List<IFocusableControl>();
-			foreach (var child in GetChildren())
+			var children = OrderedChildren();
+			for (int i = 0; i < children.Count; i++)
 			{
+				var child = children[i];
 				if (!child.Visible) continue;
 				CollectFocusableChild(child, result);
 			}
