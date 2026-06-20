@@ -437,7 +437,12 @@ namespace SharpConsoleUI.Controls
 
 			var fgColor = ColorResolver.ResolveForeground(_foregroundColorValue, Container, defaultForeground);
 
-			// Grid's own background (optional): when set, fill the whole grid; otherwise cells show through.
+			// Grid's own background is DELIBERATELY not tinted by ColorRole. Unlike PanelControl — a single
+			// bordered box that fills its whole surface — the grid is a multi-cell surface whose default is
+			// "no background fill, cells show through". Auto-filling the whole grid from the role would
+			// break that show-through default and over-paint every cell. The role therefore drives per-cell
+			// CHROME only (cell borders and the surface fill of cells that opt into chrome); see
+			// PaintCellChrome. An explicit grid BackgroundColor still wins and fills as before.
 			if (_backgroundColorValue != null)
 			{
 				var bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
@@ -465,6 +470,16 @@ namespace SharpConsoleUI.Controls
 
 			GridLayout layout = LayoutAlgorithm;
 
+			// Role-derived chrome colours, resolved once. Both return null when no role is set
+			// (ColorRole.Default), so the explicit-wins fallback chains below collapse to today's behaviour.
+			Color? roleBorder = ColorResolver.ColorRoleBorder(ColorRole, Container, Outline, ColorRoleState.Normal, ColorRoleMode);
+			Color? roleBackground = ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, ColorRoleState.Normal, ColorRoleMode);
+
+			// Border glyph colour: explicit grid foreground / theme foreground is the fgColor already
+			// resolved by the caller; the role border (when a role is set) takes precedence over it for
+			// chrome so a roled grid paints its cell borders in the role's border colour.
+			Color cellBorderFg = roleBorder ?? fgColor;
+
 			for (int i = 0; i < cells.Count; i++)
 			{
 				GridPlacement placement = cells[i].Placement;
@@ -477,9 +492,17 @@ namespace SharpConsoleUI.Controls
 				var abs = new LayoutRect(bounds.X + local.X, bounds.Y + local.Y, local.Width, local.Height);
 				if (abs.Width <= 0 || abs.Height <= 0) continue;
 
-				if (hasBackground)
+				// Per-cell surface fill: an explicit cell background always wins. When the cell has chrome
+				// (border or background) but no explicit background AND a role is set, fill the cell interior
+				// with the role surface so a roled bordered tile gets a subtle role background. This is scoped
+				// to chrome cells only — plain cells keep showing through (no role fill).
+				Color? cellFill = placement.Background != null
+					? ColorResolver.ResolveBackground(placement.Background, Container)
+					: roleBackground;
+
+				if (cellFill.HasValue)
 				{
-					var cellBg = ColorResolver.ResolveBackground(placement.Background, Container);
+					Color cellBg = cellFill.Value;
 					for (int y = abs.Y; y < abs.Bottom; y++)
 					{
 						if (y < clipRect.Y || y >= clipRect.Bottom) continue;
@@ -492,10 +515,10 @@ namespace SharpConsoleUI.Controls
 
 				if (hasBorder)
 				{
-					var borderBg = hasBackground
-						? ColorResolver.ResolveBackground(placement.Background, Container)
-						: ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-					DrawCellBorder(buffer, abs, clipRect, placement.Border, fgColor, borderBg);
+					// Border background matches the cell's fill (explicit, then role, then grid bg) so the
+					// border row blends with whatever the cell interior was painted.
+					var borderBg = cellFill ?? ColorResolver.ResolveBackground(_backgroundColorValue, Container);
+					DrawCellBorder(buffer, abs, clipRect, placement.Border, cellBorderFg, borderBg);
 				}
 			}
 		}
