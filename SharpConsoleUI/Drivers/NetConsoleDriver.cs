@@ -8,6 +8,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -84,6 +85,17 @@ namespace SharpConsoleUI.Drivers
 		/// <summary>Safety cap on bracketed-paste payload chars on the Windows ReadKey path, so a
 		/// missing ESC[201~ end marker can never hang the input loop. ~1 MiB of text.</summary>
 		private const int MaxBracketedPasteChars = 1_048_576;
+
+		/// <summary>Safety cap on the parameter/intermediate bytes of a single CSI/SS3 sequence on
+		/// the Windows ReadKey path, so a malformed sequence can't grow the buffer unbounded.</summary>
+		internal const int MaxAnsiSequenceChars = 64;
+
+		/// <summary>Per-byte wait budget while collecting an in-flight CSI/SS3 sequence on the Windows
+		/// ReadKey path. A bracketed-paste start marker (ESC[200~) can be split across console-input
+		/// chunks, so the reader must wait briefly for the next byte instead of bailing the instant
+		/// Console.KeyAvailable reads false — that premature bail garbled consecutive pastes (issue
+		/// #42). Bounded so a genuine lone ESC[ (e.g. Alt+[) still terminates instead of hanging.</summary>
+		private const int AnsiSequenceByteTimeoutMs = 50;
 		private const uint ENABLE_ECHO_INPUT = 4;
 		private const uint ENABLE_EXTENDED_FLAGS = 128;
 		private const uint ENABLE_INSERT_MODE = 32;
@@ -716,6 +728,68 @@ namespace SharpConsoleUI.Drivers
 			return text;
 		}
 
+		/// <summary>
+		/// Minimal key-input abstraction so the CSI/SS3 sequence reader can be unit-tested without a
+		/// live console. <see cref="TryReadKey"/> waits up to a short budget for the next byte and
+		/// returns false if none arrives, so a split sequence stays together while an incomplete one
+		/// still terminates.
+		/// </summary>
+		internal interface IConsoleKeySource
+		{
+			bool TryReadKey(out ConsoleKeyInfo key);
+		}
+
+		/// <summary>Production <see cref="IConsoleKeySource"/> backed by <see cref="Console"/>.</summary>
+		private sealed class ConsoleKeySource : IConsoleKeySource
+		{
+			public bool TryReadKey(out ConsoleKeyInfo key)
+			{
+				// Wait briefly for the next byte of an in-flight sequence. A bracketed-paste start
+				// marker (ESC[200~) can be split across console-input chunks, so we must not conclude
+				// the sequence ended the instant KeyAvailable reads false — that split garbled
+				// consecutive pastes (issue #42). Bounded by AnsiSequenceByteTimeoutMs so a genuine
+				// lone ESC[ (e.g. Alt+[) and malformed sequences terminate instead of hanging.
+				var sw = Stopwatch.StartNew();
+				while (sw.ElapsedMilliseconds < AnsiSequenceByteTimeoutMs)
+				{
+					if (Console.KeyAvailable)
+					{
+						key = Console.ReadKey(true);
+						return true;
+					}
+					Thread.Sleep(1);
+				}
+				key = default;
+				return false;
+			}
+		}
+
+		private static readonly IConsoleKeySource ConsoleKeys = new ConsoleKeySource();
+
+		/// <summary>
+		/// Collects the parameter/intermediate/final bytes of a CSI/SS3 sequence after the initial
+		/// <c>ESC[</c> (or <c>ESC O</c>) has already been read, appending each <see cref="ConsoleKeyInfo"/>
+		/// to <paramref name="sequence"/> and returning the chars as a string. Reads via
+		/// <see cref="IConsoleKeySource.TryReadKey"/>, which tolerates a transient gap between bytes —
+		/// it must NOT bail the instant the next byte is momentarily unavailable, or a fast,
+		/// back-to-back bracketed-paste start marker (<c>ESC[200~</c>) gets split and its payload leaks
+		/// through the per-char parser and garbles (issue #42, consecutive-paste regression). Stops at
+		/// the final byte (letter / <c>~</c> / CR / Tab) so it does not consume the paste payload, and
+		/// is bounded by <see cref="MaxAnsiSequenceChars"/>.
+		/// </summary>
+		internal static string ReadAnsiSequence(IConsoleKeySource source, List<ConsoleKeyInfo> sequence)
+		{
+			var sb = new StringBuilder();
+			while (sb.Length < MaxAnsiSequenceChars && source.TryReadKey(out var k))
+			{
+				sequence.Add(k);
+				sb.Append(k.KeyChar);
+				if (char.IsLetter(k.KeyChar) || k.KeyChar == '~' || k.KeyChar == '\r' || k.KeyChar == '\t')
+					break;
+			}
+			return sb.ToString();
+		}
+
 		/// <inheritdoc/>
 		public void SetNarrowCell(int x, int y, char character, Color fg, Color bg)
 		{
@@ -1146,19 +1220,12 @@ namespace SharpConsoleUI.Drivers
 
 								if (nextKey.KeyChar == '[' || nextKey.KeyChar == 'O') // Handle both CSI and SS3
 								{
-									var ansiSequence = new StringBuilder();
-									while (Console.KeyAvailable)
-									{
-										var ansiKey = Console.ReadKey(true);
-										consoleKeyInfoSequence.Add(ansiKey);
-
-										if (char.IsLetter(ansiKey.KeyChar) || ansiKey.KeyChar == '~' || ansiKey.KeyChar == '\r' || ansiKey.KeyChar == '\t')
-										{
-											ansiSequence.Append(ansiKey.KeyChar);
-											break;
-										}
-										ansiSequence.Append(ansiKey.KeyChar);
-									}
+									// Collect the CSI sequence with a gap-tolerant reader — it must NOT bail the
+									// instant Console.KeyAvailable reads false, which can split the ESC[200~
+									// start marker between two back-to-back pastes and leak the payload through
+									// the per-char parser, garbling it (issue #42, consecutive-paste regression).
+									var ansiSequence = new StringBuilder(
+										ReadAnsiSequence(ConsoleKeys, consoleKeyInfoSequence));
 
 									// Bracketed paste: terminal sent ESC[200~ as the start marker. Collect the
 									// payload (decoded by Console.ReadKey under the UTF-8 input encoding) until
