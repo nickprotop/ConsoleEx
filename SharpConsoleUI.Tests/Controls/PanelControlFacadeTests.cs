@@ -125,4 +125,21 @@ public class PanelControlFacadeTests
 		Assert.Equal(fSize.Width, nSize.Width);
 		Assert.Equal(fSize.Height, nSize.Height);
 	}
+
+	[Fact]
+	public void UnsetBackground_RendersWithoutError_AndContentVisible()
+	{
+		var p = new PanelControl("VISIBLE") { BorderStyle = BorderStyle.Single, Width = 20 };
+		var text = Render(p);
+		Assert.Contains("VISIBLE", text);
+	}
+
+	[Fact]
+	public void ExplicitForeground_ReachesContent()
+	{
+		var p = new PanelControl("TXT") { BorderStyle = BorderStyle.None, ForegroundColor = new Color(255, 0, 0), Width = 20 };
+		Assert.Equal(new Color(255, 0, 0), p.ForegroundColor);
+		var text = Render(p);
+		Assert.Contains("TXT", text);
+	}
 }
