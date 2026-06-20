@@ -74,8 +74,17 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 		(int[] autoContentColSizes, int[] autoContentRowSizes) =
 			MeasureCellsAndCollectAutoContent(node, colDefs, rowDefs, availW, availH);
 
-		int[] colSizes = GridTrackSizer.Size(colDefs, autoContentColSizes, availW, _source.ColumnGap);
-		int[] rowSizes = GridTrackSizer.Size(rowDefs, autoContentRowSizes, availH, _source.RowGap);
+		// When an axis is effectively unbounded (e.g. a Star-track grid measured for vertical
+		// stacking), there is no finite extent for Star tracks to divide. Dividing ~int.MaxValue
+		// among the stars would push later cells billions of cells off-screen (silent content
+		// loss). Following the WinUI contract, Star-in-unbounded collapses to 0: pass 0 as the
+		// track-sizer available so Stars get no remainder, while Fixed/Auto tracks (which size from
+		// their own definitions, independent of available) are unaffected.
+		int starAvailW = constraints.IsWidthEffectivelyUnbounded ? 0 : availW;
+		int starAvailH = constraints.IsHeightEffectivelyUnbounded ? 0 : availH;
+
+		int[] colSizes = GridTrackSizer.Size(colDefs, autoContentColSizes, starAvailW, _source.ColumnGap);
+		int[] rowSizes = GridTrackSizer.Size(rowDefs, autoContentRowSizes, starAvailH, _source.RowGap);
 
 		int colGaps = colCount > 1 ? (colCount - 1) * Math.Max(0, _source.ColumnGap) : 0;
 		int rowGaps = rowCount > 1 ? (rowCount - 1) * Math.Max(0, _source.RowGap) : 0;

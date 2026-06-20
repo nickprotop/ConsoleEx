@@ -156,6 +156,36 @@ public class GridLayoutMeasureTests
 	}
 
 	[Fact]
+	public void UnboundedHeight_StarRowsCollapseToZero()
+	{
+		// A grid measured for vertical stacking sees an effectively-unbounded height. Star rows have
+		// no finite extent to divide, so they collapse to 0 (WinUI contract) rather than blowing up to
+		// ~int.MaxValue and pushing later cells off-screen. The Auto row keeps its content height.
+		var autoCell = Cell("line1", "line2");
+		var starCell = Cell("x");
+
+		var source = new FakeGridSource
+		{
+			ColumnDefinitions = new[] { GridLength.Cells(10) },
+			RowDefinitions = new[] { GridLength.Auto(), GridLength.Star(1) },
+			OrderedCells = new (IWindowControl, GridPlacement)[]
+			{
+				(autoCell, new GridPlacement(0, 0)),
+				(starCell, new GridPlacement(1, 0)),
+			},
+		};
+
+		var layout = new GridLayout(source);
+		var node = BuildNode(layout, source);
+
+		var desired = layout.MeasureChildren(node, LayoutConstraints.Unbounded);
+
+		// Desired height is the Auto row's content (2 lines) only; the Star row contributed 0 — no
+		// int.MaxValue blowup.
+		Assert.Equal(2, desired.Height);
+	}
+
+	[Fact]
 	public void EmptyGrid_ReturnsZero()
 	{
 		var source = new FakeGridSource();

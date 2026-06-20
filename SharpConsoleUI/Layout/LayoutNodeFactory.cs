@@ -66,6 +66,13 @@ namespace SharpConsoleUI.Layout
 				// The panel paints only its own chrome (border + scrollbars) in PaintDOM.
 				return (new ScrollLayout(), spc.Children);
 			}
+			else if (control is GridControl gridControl)
+			{
+				// Tree-participating container: the engine builds the grid's cells into the tree (in
+				// OrderedCells order) and GridLayout correlates node.Children[i] to OrderedCells[i] by
+				// index, so the children enumerable must be in OrderedCells order.
+				return (new GridLayout(gridControl), gridControl.OrderedCells.Select(c => c.Control).ToList());
+			}
 			else if (control is PortalContentContainer)
 			{
 				// Self-painting container - owns its layout
