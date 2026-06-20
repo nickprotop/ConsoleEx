@@ -33,6 +33,15 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 	private readonly Dictionary<LayoutNode, LayoutRect> _cellRects = new();
 
 	/// <summary>
+	/// Per-cell OUTER rectangles in node-local coordinates, keyed by the cell's start (row, col). Captured
+	/// during the most recent arrange pass for EVERY styled cell — content-bearing and content-less
+	/// styled-empty cells alike — so <see cref="Controls.GridControl.PaintDOM"/> can paint per-cell chrome
+	/// (background fill and border) over the right region. Unlike <see cref="_cellRects"/> (inner, for
+	/// child clipping) these are the full cell rectangle including any border/padding inset.
+	/// </summary>
+	private readonly Dictionary<(int Row, int Col), LayoutRect> _cellRectsByCoord = new();
+
+	/// <summary>
 	/// Initializes a new <see cref="GridLayout"/> backed by the given source.
 	/// </summary>
 	/// <param name="source">The grid source exposing track definitions, gaps, margin/padding, and cells.</param>
@@ -224,6 +233,7 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 	public void ArrangeChildren(LayoutNode node, LayoutRect finalRect)
 	{
 		_cellRects.Clear();
+		_cellRectsByCoord.Clear();
 
 		IReadOnlyList<GridLength> colDefs = _source.ColumnDefinitions;
 		IReadOnlyList<GridLength> rowDefs = _source.RowDefinitions;
@@ -232,7 +242,9 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 		int rowCount = rowDefs.Count;
 
 		IReadOnlyList<LayoutNode> children = node.Children;
-		if (children.Count == 0 || colCount == 0 || rowCount == 0)
+		// No tracks means nothing to lay out. A grid with no content children can still have content-less
+		// styled cells whose chrome rectangles must be recorded, so an empty child list does NOT short-circuit.
+		if (colCount == 0 || rowCount == 0)
 		{
 			return;
 		}
@@ -297,15 +309,30 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 			int cellW = SpanExtent(colSizes, col, colSpan, columnGap);
 			int cellH = SpanExtent(rowSizes, row, rowSpan, rowGap);
 
-			var cellRect = new LayoutRect(cellX, cellY, cellW, cellH);
+			// OUTER cell rectangle (full cell, including any border + padding): recorded by coordinate
+			// for the grid's per-cell chrome painting.
+			var outerRect = new LayoutRect(cellX, cellY, cellW, cellH);
+			_cellRectsByCoord[(placement.Row, placement.Col)] = outerRect;
+
+			// Inset the content area by the cell's border (1 on each side when bordered) then its padding,
+			// so content sits inside the border and padding. The remaining rectangle is the INNER cell
+			// area: it is both the child clip (stored in _cellRects) and the box the child aligns within.
+			int border = placement.Border != BorderStyle.None ? 1 : 0;
+			Padding cellPadding = placement.CellPadding;
+			int contentX = cellX + border + cellPadding.Left;
+			int contentY = cellY + border + cellPadding.Top;
+			int contentW = Math.Max(0, cellW - 2 * border - cellPadding.Left - cellPadding.Right);
+			int contentH = Math.Max(0, cellH - 2 * border - cellPadding.Top - cellPadding.Bottom);
+
+			var cellRect = new LayoutRect(contentX, contentY, contentW, contentH);
 			_cellRects[child] = cellRect;
 
-			// Inset the cell by the child's own margin to form the alignment box.
+			// Inset the content area by the child's own margin to form the alignment box.
 			Margin childMargin = child.Control?.Margin ?? default;
-			int innerX = cellX + childMargin.Left;
-			int innerY = cellY + childMargin.Top;
-			int innerW = Math.Max(0, cellW - childMargin.Left - childMargin.Right);
-			int innerH = Math.Max(0, cellH - childMargin.Top - childMargin.Bottom);
+			int innerX = contentX + childMargin.Left;
+			int innerY = contentY + childMargin.Top;
+			int innerW = Math.Max(0, contentW - childMargin.Left - childMargin.Right);
+			int innerH = Math.Max(0, contentH - childMargin.Top - childMargin.Bottom);
 
 			HorizontalAlignment hAlign = child.Control?.HorizontalAlignment ?? HorizontalAlignment.Stretch;
 			VerticalAlignment vAlign = child.Control?.VerticalAlignment ?? VerticalAlignment.Fill;
@@ -315,7 +342,47 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 
 			child.Arrange(new LayoutRect(childX, childY, childW, childH));
 		}
+
+		// Record OUTER rectangles for content-less styled cells (styled empty cells). They have no child
+		// node to arrange, so their geometry is derived directly from the track offsets/sizes; the grid's
+		// PaintDOM reads these to paint their chrome. Only GridControl exposes these; other IGridSource
+		// implementations (if any) simply contribute no content-less cells.
+		if (_source is Controls.GridControl gridControl)
+		{
+			var allCells = gridControl.AllOrderedCells();
+			for (int i = 0; i < allCells.Count; i++)
+			{
+				if (allCells[i].Control != null)
+				{
+					continue; // content cells already recorded in the loop above
+				}
+
+				GridPlacement placement = allCells[i].Placement;
+				int col = Math.Clamp(placement.Col, 0, colCount - 1);
+				int row = Math.Clamp(placement.Row, 0, rowCount - 1);
+				int colSpan = Math.Clamp(placement.ColSpan, 1, colCount - col);
+				int rowSpan = Math.Clamp(placement.RowSpan, 1, rowCount - row);
+
+				int cellX = colOffsets[col];
+				int cellY = rowOffsets[row];
+				int cellW = SpanExtent(colSizes, col, colSpan, columnGap);
+				int cellH = SpanExtent(rowSizes, row, rowSpan, rowGap);
+				_cellRectsByCoord[(placement.Row, placement.Col)] = new LayoutRect(cellX, cellY, cellW, cellH);
+			}
+		}
 	}
+
+	/// <summary>
+	/// Returns the OUTER (full) cell rectangle in node-local coordinates for the cell whose top-left is
+	/// <paramref name="row"/>/<paramref name="col"/>, as recorded by the most recent arrange pass. Used by
+	/// <see cref="Controls.GridControl.PaintDOM"/> to paint per-cell chrome (background and border).
+	/// </summary>
+	/// <param name="row">The zero-based row index of the cell's top-left corner.</param>
+	/// <param name="col">The zero-based column index of the cell's top-left corner.</param>
+	/// <param name="localRect">The cell's local outer rectangle when found.</param>
+	/// <returns><c>true</c> when a rectangle was recorded for the cell; otherwise <c>false</c>.</returns>
+	internal bool TryGetCellRect(int row, int col, out LayoutRect localRect) =>
+		_cellRectsByCoord.TryGetValue((row, col), out localRect);
 
 	/// <summary>
 	/// Computes the running start offset of each track: <c>origin + Σ(sizes before it) + (index * gap)</c>.

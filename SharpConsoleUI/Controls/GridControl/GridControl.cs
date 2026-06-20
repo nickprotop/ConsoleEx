@@ -48,9 +48,16 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Default number of columns assumed when no column definitions are supplied.</summary>
 		private const int DefaultColumnCount = 1;
 
-		private readonly List<(IWindowControl Control, GridPlacement Placement)> _cells = new();
+		// Cell entries may hold a null Control: a content-less entry is a styled-but-empty cell (a
+		// background/border applied to a cell before — or without — any content). Content-less entries
+		// are painted as chrome but are NOT layout-tree children or focus stops, so OrderedCells (the
+		// IGridSource seam read by the factory, measure/arrange, and focus) is content-only by
+		// construction; AllOrderedCells exposes every entry for the paint pass only.
+		private readonly List<(IWindowControl? Control, GridPlacement Placement)> _cells = new();
 		private readonly object _cellsLock = new();
 		private List<(IWindowControl Control, GridPlacement Placement)>? _orderedCellsCache;
+		private List<(IWindowControl? Control, GridPlacement Placement)>? _allOrderedCellsCache;
+		private GridLayout? _layoutAlgorithm;
 		// Cached row-major projection of the cells' controls. Derived from _orderedCellsCache and
 		// keyed on its reference identity, so it is rebuilt only when the ordered set changes. Used by
 		// the hot focus paths (HasFocus / focused-child lookup, read by the render loop per repaint and
@@ -229,11 +236,31 @@ namespace SharpConsoleUI.Controls
 			{
 				_cells.Add((control, new GridPlacement(row, col, rowSpan, colSpan)));
 				_orderedCellsCache = null;
+				_allOrderedCellsCache = null;
 			}
 			control.Container = this;
 			RebuildAndInvalidate();
 			return this;
 		}
+
+		/// <summary>
+		/// Gets a lightweight <see cref="GridCell"/> handle addressing the cell whose top-left is
+		/// <paramref name="row"/>/<paramref name="col"/>. The handle is a value type that reads and
+		/// writes this grid's cell store directly; it stores no state of its own. Use it to get/set the
+		/// cell's content and per-cell styling, e.g. <c>grid[0, 1].Background = Color.Blue;</c>.
+		/// </summary>
+		/// <param name="row">The zero-based row index of the cell's top-left corner.</param>
+		/// <param name="col">The zero-based column index of the cell's top-left corner.</param>
+		public GridCell this[int row, int col] => new(this, row, col);
+
+		/// <summary>
+		/// Returns a lightweight <see cref="GridCell"/> handle addressing the cell whose top-left is
+		/// <paramref name="row"/>/<paramref name="col"/>. Equivalent to the indexer
+		/// <see cref="this[int, int]"/>; provided for call sites that prefer a method.
+		/// </summary>
+		/// <param name="row">The zero-based row index of the cell's top-left corner.</param>
+		/// <param name="col">The zero-based column index of the cell's top-left corner.</param>
+		public GridCell Cell(int row, int col) => new(this, row, col);
 
 		#region IControlHost Implementation
 
@@ -259,6 +286,7 @@ namespace SharpConsoleUI.Controls
 
 				_cells.Add((control, new GridPlacement(row, col)));
 				_orderedCellsCache = null;
+				_allOrderedCellsCache = null;
 			}
 			control.Container = this;
 			RebuildAndInvalidate();
@@ -277,6 +305,7 @@ namespace SharpConsoleUI.Controls
 				if (index < 0) return;
 				_cells.RemoveAt(index);
 				_orderedCellsCache = null;
+				_allOrderedCellsCache = null;
 				removed = true;
 			}
 
@@ -288,15 +317,17 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Removes all child controls from the grid.</summary>
 		public void ClearControls()
 		{
-			List<(IWindowControl Control, GridPlacement Placement)> snapshot;
+			List<(IWindowControl? Control, GridPlacement Placement)> snapshot;
 			lock (_cellsLock)
 			{
-				snapshot = new List<(IWindowControl Control, GridPlacement Placement)>(_cells);
+				snapshot = new List<(IWindowControl? Control, GridPlacement Placement)>(_cells);
 				_cells.Clear();
 				_orderedCellsCache = null;
+				_allOrderedCellsCache = null;
 			}
 			foreach (var (control, _) in snapshot)
-				control.Container = null;
+				if (control != null)
+					control.Container = null;
 			RebuildAndInvalidate();
 		}
 
@@ -327,6 +358,7 @@ namespace SharpConsoleUI.Controls
 				placement = _cells[index].Placement;
 				_cells[index] = (newControl, placement);
 				_orderedCellsCache = null;
+				_allOrderedCellsCache = null;
 			}
 
 			oldControl.Container = null;
@@ -350,6 +382,7 @@ namespace SharpConsoleUI.Controls
 				removed = _cells[index].Control;
 				_cells.RemoveAt(index);
 				_orderedCellsCache = null;
+				_allOrderedCellsCache = null;
 			}
 
 			if (removed != null)
@@ -360,7 +393,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public IReadOnlyList<IWindowControl> Children
 		{
-			get { lock (_cellsLock) { return _cells.Select(c => c.Control).ToList(); } }
+			get { lock (_cellsLock) { return _cells.Where(c => c.Control != null).Select(c => c.Control!).ToList(); } }
 		}
 
 		#endregion
@@ -392,26 +425,105 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		/// <remarks>
-		/// Children are painted by their own layout nodes in the DOM tree, not here. This method only
-		/// records the grid's bounds and paints its own background (when <see cref="BackgroundColor"/>
-		/// is set).
+		/// Cell content is painted by the children's own layout nodes in the DOM tree, not here. This
+		/// method records the grid's bounds, paints the grid's own background (when
+		/// <see cref="BackgroundColor"/> is set), then paints per-cell chrome (background fill and border)
+		/// for every styled cell. Chrome is painted here — before the children paint — so it lands behind
+		/// cell content.
 		/// </remarks>
 		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultForeground, Color defaultBackground)
 		{
 			SetActualBounds(bounds);
 
-			// No background requested — let cells show through to whatever is behind the grid.
-			if (_backgroundColorValue == null)
-				return;
-
-			var bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
 			var fgColor = ColorResolver.ResolveForeground(_foregroundColorValue, Container, defaultForeground);
 
-			for (int y = bounds.Y; y < bounds.Bottom; y++)
+			// Grid's own background (optional): when set, fill the whole grid; otherwise cells show through.
+			if (_backgroundColorValue != null)
+			{
+				var bgColor = ColorResolver.ResolveBackground(_backgroundColorValue, Container);
+				for (int y = bounds.Y; y < bounds.Bottom; y++)
+				{
+					if (y < clipRect.Y || y >= clipRect.Bottom) continue;
+					var lineRect = new LayoutRect(bounds.X, y, bounds.Width, 1);
+					ControlRenderingHelpers.FillRect(buffer, lineRect, fgColor, bgColor);
+				}
+			}
+
+			PaintCellChrome(buffer, bounds, clipRect, fgColor);
+		}
+
+		/// <summary>
+		/// Paints per-cell chrome — background fill and border — for every styled cell (content-bearing and
+		/// content-less styled-empty cells alike). Each cell's OUTER local rectangle is read from the shared
+		/// <see cref="LayoutAlgorithm"/> (recorded during arrange), offset into absolute coordinates, and
+		/// clipped before painting. Cells with neither a background nor a border are skipped.
+		/// </summary>
+		private void PaintCellChrome(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color fgColor)
+		{
+			var cells = AllOrderedCells();
+			if (cells.Count == 0) return;
+
+			GridLayout layout = LayoutAlgorithm;
+
+			for (int i = 0; i < cells.Count; i++)
+			{
+				GridPlacement placement = cells[i].Placement;
+				bool hasBackground = placement.Background != null;
+				bool hasBorder = placement.Border != BorderStyle.None;
+				if (!hasBackground && !hasBorder) continue;
+
+				if (!layout.TryGetCellRect(placement.Row, placement.Col, out var local)) continue;
+
+				var abs = new LayoutRect(bounds.X + local.X, bounds.Y + local.Y, local.Width, local.Height);
+				if (abs.Width <= 0 || abs.Height <= 0) continue;
+
+				if (hasBackground)
+				{
+					var cellBg = ColorResolver.ResolveBackground(placement.Background, Container);
+					for (int y = abs.Y; y < abs.Bottom; y++)
+					{
+						if (y < clipRect.Y || y >= clipRect.Bottom) continue;
+						int rowX = Math.Max(abs.X, clipRect.X);
+						int rowRight = Math.Min(abs.Right, clipRect.Right);
+						if (rowRight <= rowX) continue;
+						ControlRenderingHelpers.FillRect(buffer, new LayoutRect(rowX, y, rowRight - rowX, 1), fgColor, cellBg);
+					}
+				}
+
+				if (hasBorder)
+				{
+					var borderBg = hasBackground
+						? ColorResolver.ResolveBackground(placement.Background, Container)
+						: ColorResolver.ResolveBackground(_backgroundColorValue, Container);
+					DrawCellBorder(buffer, abs, clipRect, placement.Border, fgColor, borderBg);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Draws a one-cell-thick box border around <paramref name="rect"/> using the box-drawing characters
+		/// for <paramref name="border"/>, clipped to <paramref name="clipRect"/>. Reuses the shared
+		/// <see cref="Helpers.PanelBorderRenderer"/> primitives so the glyphs match panel-style chrome.
+		/// </summary>
+		private static void DrawCellBorder(CharacterBuffer buffer, LayoutRect rect, LayoutRect clipRect, BorderStyle border, Color borderColor, Color bgColor)
+		{
+			if (rect.Width < 2 || rect.Height < 2) return; // need room for at least the corners
+
+			var box = Drawing.BoxChars.FromBorderStyle(border);
+
+			// Top and bottom border rows.
+			Helpers.PanelBorderRenderer.DrawTopBorder(buffer, rect.X, rect.Y, rect.Width, clipRect, box, borderColor, bgColor, header: null, headerAlignment: TextJustification.Left);
+			Helpers.PanelBorderRenderer.DrawBottomBorder(buffer, rect.X, rect.Bottom - 1, rect.Width, clipRect, box, borderColor, bgColor);
+
+			// Left and right verticals for the interior rows (the corners are drawn by the top/bottom rows).
+			int rightX = rect.Right - 1;
+			for (int y = rect.Y + 1; y < rect.Bottom - 1; y++)
 			{
 				if (y < clipRect.Y || y >= clipRect.Bottom) continue;
-				var lineRect = new LayoutRect(bounds.X, y, bounds.Width, 1);
-				ControlRenderingHelpers.FillRect(buffer, lineRect, fgColor, bgColor);
+				if (rect.X >= clipRect.X && rect.X < clipRect.Right)
+					buffer.SetNarrowCell(rect.X, y, box.Vertical, borderColor, bgColor);
+				if (rightX >= clipRect.X && rightX < clipRect.Right)
+					buffer.SetNarrowCell(rightX, y, box.Vertical, borderColor, bgColor);
 			}
 		}
 
@@ -452,7 +564,7 @@ namespace SharpConsoleUI.Controls
 			{
 				base.Container = value;
 				List<IWindowControl> snapshot;
-				lock (_cellsLock) { snapshot = _cells.Select(c => c.Control).ToList(); }
+				lock (_cellsLock) { snapshot = _cells.Where(c => c.Control != null).Select(c => c.Control!).ToList(); }
 				foreach (var control in snapshot)
 					control.Container = this;
 			}
@@ -478,26 +590,55 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void OnDefinitionsChanged()
 		{
-			lock (_cellsLock) { _orderedCellsCache = null; }
+			lock (_cellsLock) { _orderedCellsCache = null; _allOrderedCellsCache = null; }
 			RebuildAndInvalidate();
 		}
 
 		/// <summary>
-		/// Returns the cells in row-major order (sorted by row, then column), preserving insertion
-		/// order for cells that share the same start cell. The sorted list is cached and rebuilt only
-		/// when the cell set changes, so per-frame measure/arrange reads do not re-sort.
+		/// Returns the <b>content-bearing</b> cells in row-major order (sorted by row, then column),
+		/// preserving insertion order for cells that share the same start cell. Content-less styled cells
+		/// (a background/border on an empty cell) are excluded so the layout tree, focus traversal, and
+		/// the <see cref="IGridSource.OrderedCells"/> index-correlation only ever see real children. The
+		/// sorted list is cached and rebuilt only when the cell set changes, so per-frame measure/arrange
+		/// reads do not re-sort.
 		/// </summary>
 		private List<(IWindowControl Control, GridPlacement Placement)> BuildOrderedCells()
 		{
 			lock (_cellsLock)
 			{
 				_orderedCellsCache ??= _cells
+					.Where(c => c.Control != null)
 					.OrderBy(c => c.Placement.Row)
 					.ThenBy(c => c.Placement.Col)
+					.Select(c => (c.Control!, c.Placement))
 					.ToList();
 				return _orderedCellsCache;
 			}
 		}
+
+		/// <summary>
+		/// Returns <b>every</b> cell entry — content-bearing and content-less styled cells alike — in
+		/// row-major order, for the paint pass only (per-cell chrome must paint styled empty cells too).
+		/// Unlike <see cref="BuildOrderedCells"/> this is never used for layout-tree correlation or focus.
+		/// </summary>
+		internal IReadOnlyList<(IWindowControl? Control, GridPlacement Placement)> AllOrderedCells()
+		{
+			lock (_cellsLock)
+			{
+				_allOrderedCellsCache ??= _cells
+					.OrderBy(c => c.Placement.Row)
+					.ThenBy(c => c.Placement.Col)
+					.ToList();
+				return _allOrderedCellsCache;
+			}
+		}
+
+		/// <summary>
+		/// Gets the shared <see cref="GridLayout"/> instance for this grid. The layout tree's grid node
+		/// and <see cref="PaintDOM"/> share one instance so the paint pass can read the per-cell rectangles
+		/// the arrange pass recorded (via <see cref="GridLayout.TryGetCellRect"/>). Created lazily.
+		/// </summary>
+		internal GridLayout LayoutAlgorithm => _layoutAlgorithm ??= new GridLayout(this);
 
 		/// <summary>
 		/// Returns a cached, row-major list of the cell controls for the hot focus paths. The projection

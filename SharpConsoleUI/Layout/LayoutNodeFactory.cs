@@ -68,10 +68,12 @@ namespace SharpConsoleUI.Layout
 			}
 			else if (control is GridControl gridControl)
 			{
-				// Tree-participating container: the engine builds the grid's cells into the tree (in
-				// OrderedCells order) and GridLayout correlates node.Children[i] to OrderedCells[i] by
-				// index, so the children enumerable must be in OrderedCells order.
-				return (new GridLayout(gridControl), gridControl.OrderedCells.Select(c => c.Control).ToList());
+				// Tree-participating container: the engine builds the grid's content-bearing cells into the
+				// tree (in OrderedCells order, which is content-only) and GridLayout correlates
+				// node.Children[i] to OrderedCells[i] by index, so the children enumerable must be in
+				// OrderedCells order. The grid and the tree share the grid's GridLayout instance so the
+				// grid's PaintDOM can read the per-cell rectangles the arrange pass recorded.
+				return (gridControl.LayoutAlgorithm, gridControl.OrderedCells.Select(c => c.Control).ToList());
 			}
 			else if (control is PortalContentContainer)
 			{

@@ -43,10 +43,12 @@ public interface IGridSource
 	Padding Padding { get; }
 
 	/// <summary>
-	/// Gets the cells in placement order, each paired with where it sits in the grid. The
-	/// <see cref="IWindowControl"/> is the same instance the layout-node factory turns into a
-	/// <see cref="LayoutNode"/>, so the layout correlates node to placement by index (the order of
-	/// child nodes matches the order of this list).
+	/// Gets the <b>content-bearing</b> cells in placement order, each paired with where it sits in the
+	/// grid. The <see cref="IWindowControl"/> is the same instance the layout-node factory turns into a
+	/// <see cref="LayoutNode"/>, so the layout correlates node to placement by index (the order of child
+	/// nodes matches the order of this list). Content-less styled cells (a background/border applied to an
+	/// empty cell) are intentionally excluded so this index-correlation invariant holds; such cells affect
+	/// paint chrome only, never layout-tree children.
 	/// </summary>
 	IReadOnlyList<(IWindowControl Control, GridPlacement Placement)> OrderedCells { get; }
 }
