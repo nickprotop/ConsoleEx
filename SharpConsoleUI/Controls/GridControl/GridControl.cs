@@ -31,6 +31,17 @@ namespace SharpConsoleUI.Controls
 	/// This control does not paint its children: child controls are turned into layout nodes and
 	/// painted by the DOM tree. <see cref="PaintDOM"/> only paints the grid's own background.
 	/// </para>
+	/// <para>
+	/// <b>Threading.</b> Mutations — <see cref="Place"/>, <see cref="IControlHost.AddControl"/>,
+	/// <see cref="RemoveControl"/>, <see cref="ReplaceControl"/>, <see cref="RemoveAt"/>,
+	/// <see cref="ClearControls"/>, and edits to <see cref="RowDefinitions"/>/<see cref="ColumnDefinitions"/>
+	/// — should be performed on the UI thread, or marshalled there via
+	/// <c>ConsoleWindowSystem.EnqueueOnUIThread</c> (see CLAUDE.md rule 13). The grid and its definition
+	/// lists lock internally so concurrent mutation cannot corrupt the underlying collections or a reader
+	/// on the render thread, but this is a defensive guard only: it does not guarantee semantic
+	/// consistency (for example, a cell placed concurrently with a column removal may land in an
+	/// unexpected cell). The layout is always handed stable per-frame snapshots.
+	/// </para>
 	/// </remarks>
 	public partial class GridControl : BaseControl, IContainer, IContainerControl, IControlHost, IColorRoleableControl, IGridSource
 	{
@@ -40,6 +51,9 @@ namespace SharpConsoleUI.Controls
 		private readonly List<(IWindowControl Control, GridPlacement Placement)> _cells = new();
 		private readonly object _cellsLock = new();
 		private List<(IWindowControl Control, GridPlacement Placement)>? _orderedCellsCache;
+
+		private readonly GridDefinitionList _rowDefinitions;
+		private readonly GridDefinitionList _columnDefinitions;
 
 		private int _rowGap;
 		private int _columnGap;
@@ -77,6 +91,21 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
+		#region Constructors
+
+		/// <summary>
+		/// Initializes a new, empty grid. Add track definitions via <see cref="RowDefinitions"/> and
+		/// <see cref="ColumnDefinitions"/>, then place children with <see cref="Place"/> or auto-flow them
+		/// with <see cref="IControlHost.AddControl"/>.
+		/// </summary>
+		public GridControl()
+		{
+			_rowDefinitions = new GridDefinitionList(OnDefinitionsChanged);
+			_columnDefinitions = new GridDefinitionList(OnDefinitionsChanged);
+		}
+
+		#endregion
+
 		#region Properties
 
 		/// <summary>
@@ -103,14 +132,18 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the row track definitions, top to bottom. Add a <see cref="GridLength"/> per row, e.g.
 		/// <c>grid.RowDefinitions.Add(GridLength.Star(1));</c>. Auto-flow grows this list as needed.
+		/// Mutating this list at runtime (add, remove, clear, replace) rebuilds and invalidates the grid
+		/// so the change is reflected on the next render.
 		/// </summary>
-		public List<GridLength> RowDefinitions { get; } = new();
+		public IList<GridLength> RowDefinitions => _rowDefinitions;
 
 		/// <summary>
 		/// Gets the column track definitions, left to right. Add a <see cref="GridLength"/> per column,
-		/// e.g. <c>grid.ColumnDefinitions.Add(GridLength.Star(1));</c>.
+		/// e.g. <c>grid.ColumnDefinitions.Add(GridLength.Star(1));</c>. Mutating this list at runtime
+		/// (add, remove, clear, replace) rebuilds and invalidates the grid so the change is reflected on
+		/// the next render.
 		/// </summary>
-		public List<GridLength> ColumnDefinitions { get; } = new();
+		public IList<GridLength> ColumnDefinitions => _columnDefinitions;
 
 		/// <summary>Gets or sets the gap, in cells, between adjacent rows. Defaults to 0.</summary>
 		public int RowGap
@@ -138,10 +171,18 @@ namespace SharpConsoleUI.Controls
 		#region IGridSource explicit members
 
 		/// <inheritdoc/>
-		IReadOnlyList<GridLength> IGridSource.RowDefinitions => RowDefinitions;
+		/// <remarks>
+		/// Returns a per-frame snapshot taken under the list's internal lock so the layout sees a stable
+		/// set of tracks that cannot change mid-measure/arrange, mirroring <see cref="OrderedCells"/>.
+		/// </remarks>
+		IReadOnlyList<GridLength> IGridSource.RowDefinitions => _rowDefinitions.Snapshot();
 
 		/// <inheritdoc/>
-		IReadOnlyList<GridLength> IGridSource.ColumnDefinitions => ColumnDefinitions;
+		/// <remarks>
+		/// Returns a per-frame snapshot taken under the list's internal lock so the layout sees a stable
+		/// set of tracks that cannot change mid-measure/arrange, mirroring <see cref="OrderedCells"/>.
+		/// </remarks>
+		IReadOnlyList<GridLength> IGridSource.ColumnDefinitions => _columnDefinitions.Snapshot();
 
 		/// <inheritdoc/>
 		public IReadOnlyList<(IWindowControl Control, GridPlacement Placement)> OrderedCells => BuildOrderedCells();
@@ -183,8 +224,7 @@ namespace SharpConsoleUI.Controls
 				_orderedCellsCache = null;
 			}
 			control.Container = this;
-			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate();
+			RebuildAndInvalidate();
 			return this;
 		}
 
@@ -214,8 +254,7 @@ namespace SharpConsoleUI.Controls
 				_orderedCellsCache = null;
 			}
 			control.Container = this;
-			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate();
+			RebuildAndInvalidate();
 		}
 
 		/// <summary>
@@ -236,8 +275,7 @@ namespace SharpConsoleUI.Controls
 
 			if (removed)
 				control.Container = null;
-			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate();
+			RebuildAndInvalidate();
 		}
 
 		/// <summary>Removes all child controls from the grid.</summary>
@@ -252,8 +290,64 @@ namespace SharpConsoleUI.Controls
 			}
 			foreach (var (control, _) in snapshot)
 				control.Container = null;
-			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate();
+			RebuildAndInvalidate();
+		}
+
+		/// <summary>
+		/// Replaces an existing child control with a new one, keeping the old control's cell placement
+		/// (row, column, and spans). Other cells are untouched.
+		/// </summary>
+		/// <param name="oldControl">The control currently placed in the grid.</param>
+		/// <param name="newControl">The control to put in <paramref name="oldControl"/>'s cell.</param>
+		/// <exception cref="ArgumentNullException">
+		/// Thrown when <paramref name="oldControl"/> or <paramref name="newControl"/> is <c>null</c>.
+		/// </exception>
+		/// <exception cref="ArgumentException">
+		/// Thrown when <paramref name="oldControl"/> is not currently placed in this grid.
+		/// </exception>
+		public void ReplaceControl(IWindowControl oldControl, IWindowControl newControl)
+		{
+			ArgumentNullException.ThrowIfNull(oldControl);
+			ArgumentNullException.ThrowIfNull(newControl);
+
+			GridPlacement placement;
+			lock (_cellsLock)
+			{
+				int index = _cells.FindIndex(c => ReferenceEquals(c.Control, oldControl));
+				if (index < 0)
+					throw new ArgumentException("The control is not placed in this grid.", nameof(oldControl));
+
+				placement = _cells[index].Placement;
+				_cells[index] = (newControl, placement);
+				_orderedCellsCache = null;
+			}
+
+			oldControl.Container = null;
+			newControl.Container = this;
+			RebuildAndInvalidate();
+		}
+
+		/// <summary>
+		/// Removes the control whose placement starts at the given cell. If no control starts at that
+		/// cell, this is a no-op.
+		/// </summary>
+		/// <param name="row">The zero-based row index of the cell's top-left corner.</param>
+		/// <param name="col">The zero-based column index of the cell's top-left corner.</param>
+		public void RemoveAt(int row, int col)
+		{
+			IWindowControl? removed = null;
+			lock (_cellsLock)
+			{
+				int index = _cells.FindIndex(c => c.Placement.Row == row && c.Placement.Col == col);
+				if (index < 0) return;
+				removed = _cells[index].Control;
+				_cells.RemoveAt(index);
+				_orderedCellsCache = null;
+			}
+
+			if (removed != null)
+				removed.Container = null;
+			RebuildAndInvalidate();
 		}
 
 		/// <inheritdoc/>
@@ -358,6 +452,28 @@ namespace SharpConsoleUI.Controls
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Drops the ordered-cells cache, forces a layout rebuild on the owning window, and invalidates.
+		/// This is the common reaction to any structural change (cells added/removed/replaced, or track
+		/// definitions mutated) so the change is reflected on the next render.
+		/// </summary>
+		private void RebuildAndInvalidate()
+		{
+			this.GetParentWindow()?.ForceRebuildLayout();
+			Invalidate();
+		}
+
+		/// <summary>
+		/// Callback invoked by <see cref="RowDefinitions"/>/<see cref="ColumnDefinitions"/> after any
+		/// mutation. Nulls the ordered-cells cache (track changes can affect auto-flow geometry) and
+		/// triggers a rebuild so a live row/column change re-renders without needing another mutation.
+		/// </summary>
+		private void OnDefinitionsChanged()
+		{
+			lock (_cellsLock) { _orderedCellsCache = null; }
+			RebuildAndInvalidate();
+		}
 
 		/// <summary>
 		/// Returns the cells in row-major order (sorted by row, then column), preserving insertion
