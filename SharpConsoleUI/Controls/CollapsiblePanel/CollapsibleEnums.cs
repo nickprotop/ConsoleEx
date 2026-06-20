@@ -20,7 +20,10 @@ namespace SharpConsoleUI.Controls
 		Bordered,
 
 		/// <summary>Like <see cref="Bordered"/> but with rounded corners (╭╮╰╯).</summary>
-		Rounded
+		Rounded,
+
+		/// <summary>Like <see cref="Bordered"/> but with double-line characters (╔═╗║╚╝).</summary>
+		DoubleLine
 	}
 
 	/// <summary>

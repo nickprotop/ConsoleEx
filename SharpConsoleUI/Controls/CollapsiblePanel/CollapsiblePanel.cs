@@ -126,12 +126,17 @@ namespace SharpConsoleUI.Controls
 			set => SetProperty(ref _headerStyle, value);
 		}
 
-		/// <summary>True when the header style draws a box frame (Bordered or Rounded).</summary>
-		internal bool IsBordered => _headerStyle is CollapsibleHeaderStyle.Bordered or CollapsibleHeaderStyle.Rounded;
+		/// <summary>True when the header style draws a box frame (Bordered, Rounded or DoubleLine).</summary>
+		internal bool IsBordered => _headerStyle is CollapsibleHeaderStyle.Bordered or CollapsibleHeaderStyle.Rounded or CollapsibleHeaderStyle.DoubleLine;
 
-		/// <summary>The box-drawing set for the current header style (rounded corners for Rounded).</summary>
+		/// <summary>The box-drawing set for the current header style (rounded corners for Rounded, double-line for DoubleLine).</summary>
 		internal Drawing.BoxChars HeaderBox =>
-			_headerStyle == CollapsibleHeaderStyle.Rounded ? Drawing.BoxChars.Rounded : Drawing.BoxChars.Single;
+			_headerStyle switch
+			{
+				CollapsibleHeaderStyle.Rounded => Drawing.BoxChars.Rounded,
+				CollapsibleHeaderStyle.DoubleLine => Drawing.BoxChars.Double,
+				_ => Drawing.BoxChars.Single
+			};
 
 		/// <summary>
 		/// Gets or sets the indicator glyph shown in the header when the panel is expanded.

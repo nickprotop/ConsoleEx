@@ -606,6 +606,52 @@ public class CollapsiblePanelPanelModeMatrixTests
 		Assert.DoesNotContain(lines, l => l.Contains("SECRET TITLE"));
 	}
 
+	[Fact]
+	public void DoubleLine_DrawsDoubleLineBoxWithTitle()
+	{
+		// DoubleLine header style: a full ╔═╗║╚╝ box with the title embedded in the top border.
+		var panel = new CollapsiblePanel
+		{
+			Title = "DBL",
+			HeaderStyle = CollapsibleHeaderStyle.DoubleLine,
+			Width = 20
+		};
+		panel.AddControl(ContainerTestHelpers.CreateLabel("body"));
+
+		var lines = ContainerTestHelpers.RenderToLines(panel, width: 24, height: 8);
+
+		// Double-line corners + side rows prove a full double-line box (not single-line, not a top rule only).
+		Assert.Contains(lines, l => l.Contains('╔') && l.Contains('╗'));
+		Assert.Contains(lines, l => l.Contains('╚') && l.Contains('╝'));
+		Assert.Contains(lines, l => l.Contains('║'));
+		Assert.Contains(lines, l => l.Contains("body"));
+		// Must not fall back to single-line or rounded corners.
+		Assert.DoesNotContain(lines, l => l.Contains('┌'));
+		Assert.DoesNotContain(lines, l => l.Contains('╭'));
+	}
+
+	[Fact]
+	public void DoubleLine_NonCollapsibleHeaderless_DrawsTitlelessDoubleBox()
+	{
+		// Panel mode: a plain double-line box with no title in the top border.
+		var panel = new CollapsiblePanel
+		{
+			Title = "SECRET TITLE",
+			Collapsible = false,
+			ShowHeader = false,
+			HeaderStyle = CollapsibleHeaderStyle.DoubleLine,
+			Width = 24
+		};
+		panel.AddControl(ContainerTestHelpers.CreateLabel("body"));
+
+		var lines = ContainerTestHelpers.RenderToLines(panel, width: 30, height: 10);
+
+		Assert.Contains(lines, l => l.Contains('╔') && l.Contains('╗'));
+		Assert.Contains(lines, l => l.Contains('╚') && l.Contains('╝'));
+		Assert.Contains(lines, l => l.Contains("body"));
+		Assert.DoesNotContain(lines, l => l.Contains("SECRET TITLE")); // header suppressed
+	}
+
 	#endregion
 
 	#region J. Borderless headerless = zero chrome
