@@ -79,7 +79,7 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 		// fix bug: Fix garbled text caused by improper handling of the `\r` character on Windows systems (issue #45)
 		// fix bug: Correct the behavioral logic of the AddLine method to properly handle line breaks within text.
 
-		if (markup == null || string.Empty.Equals(markup))
+		if (string.IsNullOrEmpty(markup))
 		{
 			_lines.Add(string.Empty); // add empty line.
 		}
