@@ -26,6 +26,7 @@ public static class LauncherWindow
 				.AddItem("Multi-Tab Demo", subtitle: "TabControl with multiple tabs", content: MakeInfoPanel("Multi-Tab Demo"))
 					.AddItem("Collapsible Panel", subtitle: "Click-to-expand sections — FAQ & AI-agent logs", content: MakeInfoPanel("Collapsible Panel"))
 				.AddItem("WinUI Layout", subtitle: "WinUI-inspired settings layout", content: MakeInfoPanel("WinUI Layout"))
+					.AddItem("Grid Layout", subtitle: "WinUI-style grid: spans, gaps, per-cell styling", content: MakeInfoPanel("Grid Layout"))
 				.AddItem("Horizontal Splitter", subtitle: "Drag-to-resize horizontal bars", content: MakeInfoPanel("Horizontal Splitter"))
 				.AddItem("Status Bar", subtitle: "Clickable status bar with zones", content: MakeInfoPanel("Status Bar"))
 				.AddItem("Toolbar", subtitle: "Multi-height toolbar with auto-sizing", content: MakeInfoPanel("Toolbar")))
@@ -238,6 +239,7 @@ public static class LauncherWindow
 			"Multi-Tab Demo" => TabDemoWindow.Create(ws),
 			"Collapsible Panel" => CollapsibleDemoWindow.Create(ws),
 			"WinUI Layout" => WinUIDemoWindow.Create(ws),
+			"Grid Layout" => GridDemoWindow.Create(ws),
 			"Horizontal Splitter" => HorizontalSplitterDemoWindow.Create(ws),
 			"Status Bar" => StatusBarDemoWindow.Create(ws),
 			"Prompt Control" => PromptDemoWindow.Create(ws),
@@ -1026,6 +1028,30 @@ public static class LauncherWindow
 				"[dim]Controls used:[/]",
 				"  - ButtonControl, CheckboxControl",
 				"  - DropdownControl, ListControl",
+			},
+			"Grid Layout" => new List<string>
+			{
+				"[bold]Grid Layout[/]",
+				"",
+				"A ServerHub-style tiled dashboard built from a single",
+				"GridControl — a WinUI-style grid host where any control",
+				"can live in a cell.",
+				"",
+				"[dim]Grid features shown:[/]",
+				"  - Star + Auto track sizing (3 cols, Auto+2 star rows)",
+				"  - Header tile spanning all 3 columns (col-span)",
+				"  - Alerts tile spanning two rows (row-span)",
+				"  - Row gap + column gap between tiles",
+				"  - Per-cell borders and background via grid.Cell(r,c)",
+				"  - ColorRole chrome re-tints with the theme",
+				"",
+				"[dim]Controls hosted in cells:[/]",
+				"  - LineGraph (CPU), BarGraph (resources)",
+				"  - List (services), ScrollablePanel (log, scrolls)",
+				"  - Prompt (editable — cursor works in a cell)",
+				"",
+				"[dim]Try it:[/] Tab walks cells row-major; type in the",
+				"  command prompt; switch themes (toolbar) to re-tint.",
 			},
 			"Control Roles" => new List<string>
 			{
