@@ -83,6 +83,7 @@ namespace SharpConsoleUI.Controls
 		private Color? _focusedBackgroundValue;
 
 		private int? _maxContentHeight;
+		private Padding _padding = new(0, 0, 0, 0);
 		private Color? _borderColorValue;
 
 		private bool _isEnabled = true;
@@ -236,6 +237,18 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _maxContentHeight;
 			set => SetProperty(ref _maxContentHeight, value);
+		}
+
+		/// <summary>
+		/// Gets or sets the padding applied to the body region, inside the border. Default
+		/// <c>(0, 0, 0, 0)</c> (no inset), so existing panels are unaffected. Body children are
+		/// arranged within the border- and padding-inset region; the measured body overhead accounts
+		/// for it too.
+		/// </summary>
+		public Padding Padding
+		{
+			get => _padding;
+			set => SetProperty(ref _padding, value);
 		}
 
 		/// <summary>

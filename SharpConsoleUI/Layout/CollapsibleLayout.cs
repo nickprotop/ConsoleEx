@@ -36,8 +36,12 @@ namespace SharpConsoleUI.Layout
 			// column on each side. Account for both so the reported size matches the painted frame.
 			int sideInset = bordered ? 1 : 0;
 			int bottomBorderRows = bordered ? 1 : 0;
-			int overhead = headerH + marginH + bottomBorderRows;
-			int chromeW = marginW + (sideInset * 2);
+			// Body padding (default 0) insets content inside the border, on all four sides.
+			var padding = panel?.Padding ?? new SharpConsoleUI.Layout.Padding(0, 0, 0, 0);
+			int paddingW = padding.Left + padding.Right;
+			int paddingH = padding.Top + padding.Bottom;
+			int overhead = headerH + marginH + bottomBorderRows + paddingH;
+			int chromeW = marginW + (sideInset * 2) + paddingW;
 
 			int availW = Math.Max(0, constraints.MaxWidth - chromeW);
 			int availH = Math.Max(0, constraints.MaxHeight - overhead);
@@ -93,13 +97,15 @@ namespace SharpConsoleUI.Layout
 			// bottom border. Borderless body is not inset (unchanged behavior).
 			int sideInset = bordered ? 1 : 0;
 			int bottomBorderRows = bordered ? 1 : 0;
+			// Body padding (default 0) insets content inside the border, on all four sides.
+			var padding = panel?.Padding ?? new SharpConsoleUI.Layout.Padding(0, 0, 0, 0);
 
-			int contentTop = margin.Top + headerH;
-			int contentLeft = bounds.X + margin.Left + sideInset;
-			int contentWidth = Math.Max(0, bounds.Width - margin.Left - margin.Right - (sideInset * 2));
+			int contentTop = margin.Top + headerH + padding.Top;
+			int contentLeft = bounds.X + margin.Left + sideInset + padding.Left;
+			int contentWidth = Math.Max(0, bounds.Width - margin.Left - margin.Right - (sideInset * 2) - padding.Left - padding.Right);
 			int cap = panel?.MaxContentHeight ?? int.MaxValue;
 
-			int regionH = Math.Min(Math.Max(0, bounds.Height - contentTop - margin.Bottom - bottomBorderRows), cap);
+			int regionH = Math.Min(Math.Max(0, bounds.Height - contentTop - margin.Bottom - bottomBorderRows - padding.Bottom), cap);
 
 			// Bug A: the incoming bounds is the panel's FULL arranged height (the window content
 			// layout makes the whole panel scrollable and gives it its full desired height), so it

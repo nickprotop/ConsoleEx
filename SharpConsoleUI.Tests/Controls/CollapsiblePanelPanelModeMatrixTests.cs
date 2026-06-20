@@ -631,6 +631,48 @@ public class CollapsiblePanelPanelModeMatrixTests
 	}
 
 	[Fact]
+	public void Padding_InsetsBodyContent_DefaultZeroIsNoOp()
+	{
+		// Default padding (0) — body child sits flush against the border-inset content area.
+		var noPad = new CollapsiblePanel
+		{
+			Collapsible = false,
+			ShowHeader = false,
+			HeaderStyle = CollapsibleHeaderStyle.Bordered,
+			Width = 24
+		};
+		noPad.AddControl(ContainerTestHelpers.CreateLabel("X"));
+		var noPadLines = ContainerTestHelpers.RenderToLines(noPad, width: 30, height: 8);
+		int noPadCol = ColumnOf(noPadLines, 'X');
+
+		// With left padding 3, the same 'X' shifts right by 3 columns.
+		var pad = new CollapsiblePanel
+		{
+			Collapsible = false,
+			ShowHeader = false,
+			HeaderStyle = CollapsibleHeaderStyle.Bordered,
+			Padding = new SharpConsoleUI.Layout.Padding(3, 0, 0, 0),
+			Width = 24
+		};
+		pad.AddControl(ContainerTestHelpers.CreateLabel("X"));
+		var padLines = ContainerTestHelpers.RenderToLines(pad, width: 30, height: 8);
+		int padCol = ColumnOf(padLines, 'X');
+
+		Assert.True(noPadCol >= 0 && padCol >= 0, "X must render in both panels");
+		Assert.Equal(noPadCol + 3, padCol);
+	}
+
+	private static int ColumnOf(System.Collections.Generic.List<string> lines, char c)
+	{
+		foreach (var l in lines)
+		{
+			int i = l.IndexOf(c);
+			if (i >= 0) return i;
+		}
+		return -1;
+	}
+
+	[Fact]
 	public void DoubleLine_NonCollapsibleHeaderless_DrawsTitlelessDoubleBox()
 	{
 		// Panel mode: a plain double-line box with no title in the top border.
