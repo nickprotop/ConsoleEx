@@ -31,8 +31,8 @@ using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Drawing;
-using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Highlighting;
 using SharpConsoleUI.Imaging;
 using SharpConsoleUI.Layout;
@@ -147,8 +147,8 @@ try
 		var sample = lang switch
 		{
 			"csharp" => "public int X = 42; // comment",
-			"bash"   => "echo \"hello $USER\" # comment",
-			_        => "{ \"key\": \"value\", \"n\": 123 }",
+			"bash" => "echo \"hello $USER\" # comment",
+			_ => "{ \"key\": \"value\", \"n\": 123 }",
 		};
 		var (tokens, _) = hl.Tokenize(sample, 0, SyntaxLineState.Initial);
 		if (tokens == null || tokens.Count == 0)
@@ -211,6 +211,11 @@ try
 	// 5e. Containers / layout controls.
 	if (RenderGroup("containers",
 			Controls.Panel("[green]panel body[/]"),
+			Controls.Panel()
+				.WithContent("[bold]hosting panel[/]")
+				.AddControl(Controls.Label("panel child one"))
+				.AddControl(Controls.Label("panel child two"))
+				.Build(),
 			Controls.ScrollablePanel()
 				.AddControl(Controls.Label("scrollable child one"))
 				.AddControl(Controls.Label("scrollable child two"))
@@ -233,16 +238,16 @@ try
 			Controls.MultilineEdit("line 1\nline 2\nline 3").Build())
 		is { } e5e) return Fail(e5e);
 
-		// 5e1. NavigationView - a pane/content container with a portal-backed nav rail.
-		//      Build() materializes the items and their per-item content panels, so the
-		//      whole NavigationView render path goes into the AOT graph.
-		if (RenderGroup("nav",
-				Controls.NavigationView()
-					.AddItem("Home", icon: "*", content: p => p.AddControl(Controls.Label("home content")))
-					.AddItem("Settings", icon: "#", content: p => p.AddControl(Controls.Label("settings content")))
-					.WithSelectedIndex(0)
-					.Build())
-			is { } e5e1) return Fail(e5e1);
+	// 5e1. NavigationView - a pane/content container with a portal-backed nav rail.
+	//      Build() materializes the items and their per-item content panels, so the
+	//      whole NavigationView render path goes into the AOT graph.
+	if (RenderGroup("nav",
+			Controls.NavigationView()
+				.AddItem("Home", icon: "*", content: p => p.AddControl(Controls.Label("home content")))
+				.AddItem("Settings", icon: "#", content: p => p.AddControl(Controls.Label("settings content")))
+				.WithSelectedIndex(0)
+				.Build())
+		is { } e5e1) return Fail(e5e1);
 
 	// 5e2. CollapsiblePanel — exercise BOTH header styles and BOTH states in the AOT graph.
 	//      Borderless + expanded (custom icons, then toggled), and Bordered + collapsed.
