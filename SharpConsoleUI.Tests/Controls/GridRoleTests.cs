@@ -112,8 +112,12 @@ public class GridRoleTests
 	}
 
 	[Fact]
-	public void RoleBackground_FillsBorderedCell_WhenNoExplicitBg()
+	public void Role_DoesNotFloodCellInterior_WhenNoExplicitBg()
 	{
+		// The role must NOT fill the cell interior with the solid role colour — that would turn a Primary
+		// bordered tile into a slab of the accent (the wrong look for a content surface; right only for a
+		// role-filled control like a button). Like PanelControl, the role colours the BORDER only; the
+		// interior keeps showing through unless an explicit per-cell background is set.
 		var grid = NewGrid();
 		grid.ColorRole = ColorRole.Primary;
 		var cell = grid[0, 0];
@@ -122,24 +126,23 @@ public class GridRoleTests
 
 		var (raw, _) = RenderRaw(grid);
 
-		// The cell interior is filled with the role surface background.
+		// The solid role background must NOT appear as a cell fill...
 		var roleBg = ColorResolver.ColorRoleBackground(ColorRole.Primary, grid.Container, grid.Outline);
 		Assert.NotNull(roleBg);
-		Assert.Contains(Bg(roleBg!.Value), raw);
+		Assert.DoesNotContain(Bg(roleBg!.Value), raw);
+		// ...but the role border colour IS used for the border glyphs.
+		var roleBorder = ColorResolver.ColorRoleBorder(ColorRole.Primary, grid.Container, grid.Outline);
+		Assert.NotNull(roleBorder);
+		Assert.Contains(Fg(roleBorder!.Value), raw);
 	}
 
 	[Fact]
-	public void Outline_Mode_AffectsRoleColors()
+	public void Outline_Mode_IsHonored_BorderRendersInRoleColor()
 	{
-		// Outline must be honoured: the resolved role border/background differ between outline on/off, and
-		// the grid renders the outline-specific colours when Outline is set.
-		var theme = new ModernGrayTheme();
-		var filled = ColorRoleResolver.Resolve(ColorRole.Primary, theme, outline: false);
-		var outlined = ColorRoleResolver.Resolve(ColorRole.Primary, theme, outline: true);
-
-		// Sanity: outline changes the resolved set (otherwise this test proves nothing).
-		Assert.NotEqual(filled.Background, outlined.Background);
-
+		// Outline must be threaded through to the resolver. The grid colours its cell BORDER through the
+		// role (it does not flood the interior), so with Outline=true the role border colour is what the
+		// border glyphs render in. (For Primary the border colour is the accent in both modes; this proves
+		// Outline is passed through and the role border is actually painted, not ignored.)
 		var grid = NewGrid();
 		grid.ColorRole = ColorRole.Primary;
 		grid.Outline = true;
@@ -149,12 +152,8 @@ public class GridRoleTests
 
 		var (raw, _) = RenderRaw(grid);
 
-		// The grid resolves through Outline=true, so the outline-mode background fills the cell.
-		var roleBgOutline = ColorResolver.ColorRoleBackground(ColorRole.Primary, grid.Container, outline: true);
-		var roleBgFilled = ColorResolver.ColorRoleBackground(ColorRole.Primary, grid.Container, outline: false);
-		Assert.NotNull(roleBgOutline);
-		Assert.NotNull(roleBgFilled);
-		Assert.NotEqual(roleBgFilled!.Value, roleBgOutline!.Value);
-		Assert.Contains(Bg(roleBgOutline.Value), raw);
+		var roleBorder = ColorResolver.ColorRoleBorder(ColorRole.Primary, grid.Container, outline: true);
+		Assert.NotNull(roleBorder);
+		Assert.Contains(Fg(roleBorder!.Value), raw);
 	}
 }

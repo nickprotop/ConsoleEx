@@ -486,10 +486,10 @@ namespace SharpConsoleUI.Controls
 
 			GridLayout layout = LayoutAlgorithm;
 
-			// Role-derived chrome colours, resolved once. Both return null when no role is set
-			// (ColorRole.Default), so the explicit-wins fallback chains below collapse to today's behaviour.
+			// Role-derived border colour, resolved once. Returns null when no role is set
+			// (ColorRole.Default), so the explicit-wins fallback below collapses to today's behaviour. The
+			// role does NOT fill cell interiors (see the per-cell fill note) — only the border, like Panel.
 			Color? roleBorder = ColorResolver.ColorRoleBorder(ColorRole, Container, Outline, ColorRoleState.Normal, ColorRoleMode);
-			Color? roleBackground = ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, ColorRoleState.Normal, ColorRoleMode);
 
 			// Border glyph colour: explicit grid foreground / theme foreground is the fgColor already
 			// resolved by the caller; the role border (when a role is set) takes precedence over it for
@@ -508,13 +508,14 @@ namespace SharpConsoleUI.Controls
 				var abs = new LayoutRect(bounds.X + local.X, bounds.Y + local.Y, local.Width, local.Height);
 				if (abs.Width <= 0 || abs.Height <= 0) continue;
 
-				// Per-cell surface fill: an explicit cell background always wins. When the cell has chrome
-				// (border or background) but no explicit background AND a role is set, fill the cell interior
-				// with the role surface so a roled bordered tile gets a subtle role background. This is scoped
-				// to chrome cells only — plain cells keep showing through (no role fill).
+				// Per-cell surface fill: ONLY an explicit cell background fills the interior. The role does NOT
+				// flood the cell interior — ColorRoleBackground is the *solid* role colour (a Primary tile
+				// would become a slab of cyan), which is right for a role-filled control like a button but
+				// wrong for a content surface. Like PanelControl, the role colours only the BORDER (below);
+				// cell interiors keep showing through unless an explicit per-cell background is set.
 				Color? cellFill = placement.Background != null
 					? ColorResolver.ResolveBackground(placement.Background, Container)
-					: roleBackground;
+					: (Color?)null;
 
 				if (cellFill.HasValue)
 				{
