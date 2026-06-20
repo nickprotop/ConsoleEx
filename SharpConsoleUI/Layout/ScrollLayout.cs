@@ -107,14 +107,20 @@ namespace SharpConsoleUI.Layout
 			// Resolve the content region for the allocated outer box. This populates the panel's
 			// viewport/content fields so the Fill helpers below and the arrange pass see consistent metrics.
 			//
-			// CRITICAL: when the incoming constraint was effectively unbounded, the panel auto-sized to its
-			// content, so outerH/outerW are content-sized (not the real on-screen viewport). In that MEASURE
-			// case the derived viewport equals the content extent and the offset-max collapses to 0 — clamping
-			// the persisted scroll offset here would silently reset the user's scroll on every re-layout
-			// (the root cause of the wheel-doesn't-scroll bug). Only the arrange/paint passes (which receive
-			// the true bounded box) may clamp; suppress the clamp here for an unbounded measure.
-			bool clampOffsets = !heightUnbounded && !widthUnbounded;
-			var content = panel.ResolveContentMetrics(new LayoutRect(0, 0, outerW, outerH), clampOffsets);
+			// CRITICAL: this is a MEASURE pass, so it must NEVER clamp the persisted scroll offset — only
+			// the arrange/paint passes (which receive the panel's REAL on-screen box) may clamp. The outer
+			// box handed in here is whatever extent the parent allocates while sizing, which is NOT
+			// guaranteed to be the visible viewport:
+			//   • Unbounded constraint → the panel auto-sized to its content, so the derived viewport equals
+			//     the content extent and the offset-max collapses to 0 — clamping would wipe the user's
+			//     scroll on every re-layout (the original wheel-doesn't-scroll bug).
+			//   • Bounded constraint from a container (e.g. a GridControl cell allotted its star-row height)
+			//     can still exceed the window-clipped on-screen viewport. Clamping against that taller box
+			//     caps the scroll partway: maxOffset = content − cellExtent instead of content − viewport,
+			//     so the panel stops short of its real end (the SPC-in-grid-cell scroll-cap bug).
+			// Arrange (ArrangeChildrenCore → ResolveContentMetrics(finalRect)) clamps against the true box,
+			// which is both correct and sufficient, so suppress the clamp here unconditionally.
+			var content = panel.ResolveContentMetrics(new LayoutRect(0, 0, outerW, outerH), clampOffsets: false);
 
 			int contentWidth = content.Width;
 
