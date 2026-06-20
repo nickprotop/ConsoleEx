@@ -66,31 +66,31 @@ public static class GridDemoWindow
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.Build();
 		alertsLog.AddControl(Controls.Markup("[bold]Activity Log[/]  [dim](scrolls)[/]").WithMargin(1, 1, 1, 0).Build());
-		string[] logLines =
+		// Short, single-line entries (kept narrow so they do NOT wrap in the column — wrapped lines would
+		// inflate the scroll height and make the log look broken). status + a terse message that fits ~24 cols.
+		(string status, string msg)[] logEntries =
 		{
-			"[green]OK[/]   web-01 healthy",
-			"[green]OK[/]   web-02 healthy",
-			"[yellow]WARN[/] api-03 latency 412ms",
-			"[green]OK[/]   db-01 replica synced",
-			"[red]ERR[/]  cache-02 timeout",
-			"[green]OK[/]   web-01 healthy",
-			"[yellow]WARN[/] disk 73% on db-01",
-			"[green]OK[/]   queue drained",
-			"[green]OK[/]   web-03 deployed v2.4",
-			"[yellow]WARN[/] api-03 retry x2",
-			"[green]OK[/]   tls cert renewed",
-			"[red]ERR[/]  cache-02 evicted",
-			"[green]OK[/]   backup completed",
-			"[green]OK[/]   web-02 scaled +1",
-			"[yellow]WARN[/] mem 73% on web-01",
-			"[green]OK[/]   health sweep done",
+			("[green]OK[/]  ", "web-01 healthy"),
+			("[green]OK[/]  ", "web-02 healthy"),
+			("[yellow]WARN[/]", "api-03 latency"),
+			("[green]OK[/]  ", "db-01 synced"),
+			("[red]ERR[/] ", "cache-02 timeout"),
+			("[green]OK[/]  ", "queue drained"),
+			("[yellow]WARN[/]", "disk 73% db-01"),
+			("[green]OK[/]  ", "web-03 v2.4"),
+			("[yellow]WARN[/]", "api-03 retry x2"),
+			("[green]OK[/]  ", "tls renewed"),
+			("[red]ERR[/] ", "cache-02 evicted"),
+			("[green]OK[/]  ", "backup done"),
+			("[green]OK[/]  ", "web-02 scaled +1"),
+			("[yellow]WARN[/]", "mem 73% web-01"),
+			("[green]OK[/]  ", "sweep done"),
 		};
-		// Repeat the log several times so the tile overflows its cell and the scroll is demonstrable
-		// (a short log that fits the cell has nothing to scroll). Numbered so scrolling is visible.
+		// Enough entries to overflow the tile so the scroll is demonstrable, numbered so it is visible.
 		int logSeq = 1;
-		for (int pass = 0; pass < 6; pass++)
-			foreach (var line in logLines)
-				alertsLog.AddControl(Controls.Markup($"[dim]{logSeq++,3}[/] {line}").WithMargin(1, 0, 1, 0).Build());
+		for (int pass = 0; pass < 3; pass++)
+			foreach (var (status, msg) in logEntries)
+				alertsLog.AddControl(Controls.Markup($"[dim]{logSeq++,2}[/] {status} {msg}").WithMargin(1, 0, 1, 0).Build());
 
 		// ── Services tile (row 2, col 0) — a List proves a focusable control in a cell. ────────────
 		var services = Controls.List("Services")
