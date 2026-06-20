@@ -41,6 +41,19 @@ They're complementary, not always competing. SharpConsoleUI can host Spectre.Con
 >     .AddControl(form)
 >     .BuildAndShow();
 > ```
+>
+> And because dialogs are just windows, you get **proper dialogs for free** — modal *or* modeless, movable *or* pinned, resizable *or* fixed, with full title-bar chrome — using the same primitives, not a separate dialog concept. (`.AsModal()`, `.Movable(false)`, `.Resizable(false)`, plus `DialogTemplate` / `ToolWindowTemplate` and built-in File/Folder/Settings/About dialogs.)
+>
+> ```csharp
+> // A modal, fixed-size, non-movable dialog — every behavior is a window setting.
+> new WindowBuilder(system)
+>     .WithTitle("Confirm")
+>     .AsModal()
+>     .Movable(false)
+>     .Resizable(false)
+>     .AddControl(dialogBody)
+>     .BuildAndShow();
+> ```
 
 ## Detailed Comparison
 
