@@ -112,4 +112,17 @@ public class PanelControlFacadeTests
 
 		Assert.True(clicked, "content-only panel body click must raise PanelControl.MouseClick (PanelDemo contract)");
 	}
+
+	[Fact]
+	public void None_And_Frameless_HaveSameFootprint()
+	{
+		var none = new PanelControl("body") { BorderStyle = BorderStyle.None, Width = 20 };
+		var frameless = new PanelControl("body") { BorderStyle = BorderStyle.Frameless, Width = 20 };
+
+		var nSize = none.MeasureDOM(LayoutConstraints.Loose(40, 40));
+		var fSize = frameless.MeasureDOM(LayoutConstraints.Loose(40, 40));
+
+		Assert.Equal(fSize.Width, nSize.Width);
+		Assert.Equal(fSize.Height, nSize.Height);
+	}
 }
