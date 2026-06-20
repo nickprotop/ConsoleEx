@@ -35,6 +35,7 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Highlighting;
 using SharpConsoleUI.Imaging;
+using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
 using Spectre.Console;
 // Spectre.Console's namespace also defines Color and TreeNode; alias the SharpConsoleUI
@@ -217,6 +218,13 @@ try
 			Controls.HorizontalGrid()
 				.Column(c => c.Add(Controls.Label("left col")))
 				.Column(c => c.Add(Controls.Label("right col")))
+				.Build(),
+			Controls.Grid()
+				.Columns(GridLength.Star(1), GridLength.Star(1))
+				.Rows(GridLength.Auto())
+				.WithSize(40, 3)
+				.Place(Controls.Label("grid cell A"), 0, 0)
+				.Place(Controls.Label("grid cell B"), 0, 1)
 				.Build(),
 			Controls.TabControl()
 				.AddTab("Tab A", Controls.Label("content A"))
