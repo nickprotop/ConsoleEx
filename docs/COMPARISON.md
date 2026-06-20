@@ -19,7 +19,7 @@ They're complementary, not always competing. SharpConsoleUI can host Spectre.Con
 |---|:---:|:---:|:---:|:---:|
 | Pretty-print tables, trees, charts | **Best choice** | -- | -- | Via Spectre wrapper |
 | Build a CLI tool with prompts | **Best choice** | -- | Yes (inline mode) | -- |
-| Build a single-screen forms app | -- | **Best choice** | **Best choice** | Works |
+| Build a single-screen forms app | -- | **Yes** | **Yes** | **Yes** (one maximized borderless window = a full-screen app) |
 | Build a multi-window app with overlapping windows | No | Yes (v2 GA) | No | **Best choice** |
 | Drag, resize, minimize, maximize windows | No | Yes (v2 GA: move/resize/overlap) | No | **Built-in** |
 | Embed a working terminal emulator | No | No | No | **Built-in (PTY)** |
@@ -29,6 +29,18 @@ They're complementary, not always competing. SharpConsoleUI can host Spectre.Con
 | Render Markdown in controls | No | Yes (Markdown widget) | Yes (MarkdownControl) | **Yes (`[markdown]` tag, every markup control)** |
 | Play video in the terminal | No | No | No | **Yes (VideoControl)** |
 | Use it in production today on .NET 8+ | Yes (v0.56) | Yes (v2.4 GA, .NET 10) | Yes (v3.7, .NET 10) | Yes (v2.4.77, .NET 8/9/10) |
+
+> **"Single-screen" is not a limitation for SharpConsoleUI.** A windowing system is a *superset* of a single-screen toolkit: a full-screen app is just one maximized, borderless window. You get the simple single-screen case for free, and the option to add more windows later if you ever need them.
+>
+> ```csharp
+> // A full-screen, chromeless single-screen form — no title bar, no borders.
+> new WindowBuilder(system)
+>     .Maximized()
+>     .Borderless()
+>     .HideTitle()
+>     .AddControl(form)
+>     .BuildAndShow();
+> ```
 
 ## Detailed Comparison
 
@@ -282,7 +294,7 @@ XenoAtom.Terminal.UI has the most sophisticated layout system with a proper `Fle
 Be honest about the right tool:
 
 - **Just need pretty CLI output?** Use **Spectre.Console**. It's purpose-built for that and does it better than anything else in .NET.
-- **Building a simple single-screen form?** **Terminal.Gui** has the widest mature control library. **XenoAtom.Terminal.UI** has the most modern architecture with reactive bindings, but requires .NET 10.
+- **Building a simple single-screen form?** All three work — a SharpConsoleUI app can be a single maximized, borderless window (`.Maximized().Borderless().HideTitle()`), which is exactly a full-screen form. Reach for **Terminal.Gui** if you specifically want its widest mature control library, or **XenoAtom.Terminal.UI** for reactive bindings (requires .NET 10). Pick by control set and binding style, not by "can it do single-screen" — they all can.
 - **Need maximum community and ecosystem?** The bigger libraries have more users, more contributors, more blog posts, and more StackOverflow answers.
 - **Targeting .NET 6 or older?** SharpConsoleUI requires .NET 8+. Spectre.Console supports .NET Standard 2.0 (and net8/9/10). Terminal.Gui v2 targets .NET 10. XenoAtom requires .NET 10.
 - **Need ColorPicker or HexView?** Terminal.Gui has these built-in. XenoAtom has ColorPicker. SharpConsoleUI doesn't (yet).
