@@ -113,7 +113,7 @@ namespace SharpConsoleUI.Controls
 			get { lock (_contentLock) { return string.Join("\n", _content); } }
 			set
 			{
-				lock (_contentLock) { _content = value.Split('\n').ToList(); }
+				lock (_contentLock) { _content = value.Split(["\r\n", "\r", "\n"], StringSplitOptions.None).ToList(); } // fix: handle windows newline char.
 				InvalidateLinkCount();
 				OnPropertyChanged();
 				Container?.Invalidate(true);
@@ -253,7 +253,7 @@ namespace SharpConsoleUI.Controls
 			int totalLines = 0;
 			foreach (var line in snapshot)
 			{
-				var subLines = line.Split('\n');
+				var subLines = line.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);  // fix: handle windows newline char.
 				totalLines += subLines.Length;
 			}
 
@@ -329,7 +329,7 @@ namespace SharpConsoleUI.Controls
 		{
 			if (string.IsNullOrEmpty(text)) return;
 
-			var parts = text.Split('\n');
+			var parts = text.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);  // fix: handle windows newline char.
 			lock (_contentLock)
 			{
 				int startIndex = 0;
@@ -492,7 +492,7 @@ namespace SharpConsoleUI.Controls
 				else
 				{
 					// Count explicit newlines
-					var subLines = line.Split('\n');
+					var subLines = line.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);  // fix: handle windows newline char.
 					totalLines += subLines.Length;
 				}
 			}
@@ -576,7 +576,7 @@ namespace SharpConsoleUI.Controls
 					// otherwise emit a U+FFFD replacement glyph (issue #45). The wrap path (ParseLines)
 					// already splits; this keeps the non-wrap path symmetric, and matches how
 					// GetLogicalContentSize counts rows.
-					foreach (var subLine in line.Split('\n'))
+					foreach (var subLine in line.Split(["\r\n", "\r", "\n"], StringSplitOptions.None))  // fix: handle windows newline char.
 					{
 						var cells = Parsing.MarkupParser.Parse(subLine, effectiveFg, effectiveBg, out var lineLinks, mdStyle);
 						renderedCellLines.Add(cells);
