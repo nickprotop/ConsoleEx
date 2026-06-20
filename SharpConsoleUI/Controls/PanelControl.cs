@@ -19,7 +19,7 @@ namespace SharpConsoleUI.Controls
 	/// Implemented as a thin wrapper over an internal non-collapsible
 	/// <see cref="CollapsiblePanel"/> which owns the border/header chrome and body layout.
 	/// </summary>
-	public class PanelControl : BaseControl, IMouseAwareControl, IColorRoleableControl, IContainer
+	public class PanelControl : BaseControl, IMouseAwareControl, IColorRoleableControl, IContainer, IControlHost
 	{
 
 		#region ColorRole
@@ -398,6 +398,22 @@ namespace SharpConsoleUI.Controls
 		{
 			SetActualBounds(bounds);
 		}
+
+		#endregion
+
+		#region IControlHost
+
+		/// <inheritdoc/>
+		public void AddControl(IWindowControl control) => _inner.AddControl(control);
+
+		/// <inheritdoc/>
+		public void RemoveControl(IWindowControl control) => _inner.RemoveControl(control);
+
+		/// <inheritdoc/>
+		public void ClearControls() => _inner.ClearControls();
+
+		/// <inheritdoc/>
+		public IReadOnlyList<IWindowControl> Children => _inner.Children;
 
 		#endregion
 	}
