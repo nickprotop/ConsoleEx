@@ -91,7 +91,7 @@ Neither Terminal.Gui nor XenoAtom.Terminal.UI offer window-level gradients that 
 | Text input | Prompt (blocking) | TextField, TextView | TextBox, TextArea | PromptControl, MultilineEditControl |
 | List / selection | SelectionPrompt (blocking) | ListView | ListBox, SelectionList | ListControl (live, searchable) |
 | Tree view | Tree (static output) | TreeView&lt;T&gt; | TreeView | TreeControl |
-| Data grid / table | Table (static output) | TableView | DataGridControl | **TableControl (virtual, sort, filter, edit)** |
+| Data grid / table | Table (static output) | TableView | DataGridControl (virtualized, sort/filter/search/edit) | **TableControl (in-cell edit, AND/OR/per-column/fuzzy filter, multi-state sort, `ITableDataSource` virtualization seam)** |
 | Tabs | -- | TabView | TabControl | TabControl |
 | Menu bar | -- | MenuBar | MenuBar + CommandPalette | MenuControl with portals |
 | Dropdown | -- | ComboBox | Select&lt;T&gt; | DropdownControl with smart positioning |
@@ -122,6 +122,22 @@ Neither Terminal.Gui nor XenoAtom.Terminal.UI offer window-level gradients that 
 
 **Honest take:** Terminal.Gui (v2 GA) has the most mature and widest control library -- battle-tested over years, with specialized widgets like ColorPicker, HexView, and Wizard. XenoAtom.Terminal.UI is only ~5 months old but evolving fast (v3.7) and already ships a broad control set plus markdown, terminal graphics (Kitty/Sixel/iTerm2), and TextMate-based syntax highlighting. SharpConsoleUI now covers most common control types (DatePicker, TimePicker, Slider, RangeSlider, CollapsiblePanel) and its distinctive strengths are interactive/live controls (TerminalControl, SparklineControl, BarGraphControl, VideoControl, CanvasControl with 30+ drawing primitives), per-cell alpha blending, row-level animations, markup-everywhere (including `[markdown]` and clickable links), and the window management + compositor layer.
 
+#### Data Grid: TableControl vs XenoAtom DataGridControl
+
+The two most capable .NET TUI data grids are SharpConsoleUI's `TableControl` and XenoAtom's `DataGridControl`. They are close peers; an honest feature-by-feature:
+
+| Capability | XenoAtom DataGridControl | SharpConsoleUI TableControl |
+|---|---|---|
+| In-cell inline editing | Yes | Yes (`BeginCellEdit`/`CommitEdit`/`CancelEdit`, sync **and** async `CellEditCompleted`/`CellEditCancelled` events, paste-into-cell) |
+| Sorting | Yes | Multi-state cycle (None→Asc→Desc), per-column `IsSortable`, custom `IComparer`/`Comparison` |
+| Filtering | Search / filter | **Compound grammar**: space = AND, `\|` = OR, per-column `column:value`, `>`/`<` operators, fuzzy match; plus programmatic `ApplyFilter(...)` |
+| Column resize | Yes | Yes (`ColumnResizeEnabled`) |
+| Direct cell activation | Yes | Yes (`CellActivated`) |
+| Large / external data | Virtualized (built-in) | `ITableDataSource` pull seam (`RowCount` + `GetCellValue`, `INotifyCollectionChanged`) backs external/lazy data |
+| Row virtualization (turnkey) | **Yes (built-in)** | Seam provided; not a shipped turnkey virtualizing renderer |
+
+The honest split: **XenoAtom ships turnkey row virtualization**; SharpConsoleUI provides the pull-based data-source *seam* for it. In return, **SharpConsoleUI's filter is a richer expression grammar** (AND/OR/per-column/operators/fuzzy) rather than a single search box. Both are real editable, sortable, filterable data grids -- this category is a tie, not a win for either.
+
 ### Window Management
 
 This is SharpConsoleUI's primary differentiator.
@@ -148,7 +164,7 @@ XenoAtom.Terminal.UI has a `WindowLayer` that supports z-ordered overlays with b
 
 The through-line is **desktop-GUI capabilities brought to the terminal**. A handful of features set it apart in the .NET TUI space -- claims below describe SharpConsoleUI's own implementation:
 
-- **Markup everywhere, including `[markdown]`.** A single Spectre-compatible markup pipeline parses into cells (no ANSI roundtrip), and a parser-level `[markdown]` tag means every markup-rendering control can show Markdown -- not just one dedicated widget. Fenced code blocks flow into the syntax highlighters.
+- **Markup everywhere, including `[markdown]`.** One parser, one pipeline: Markdown lowers to the same Spectre-compatible markup, which parses straight into cells (no ANSI roundtrip), fully Unicode-aware (wide/CJK, combining marks, emoji). The parser-level `[markdown]` tag, `[link=url]` clickable links, `[spinner]`, and `[gradient]` text are all available in every one of the 26 markup-rendering controls -- not one dedicated widget. Fenced code blocks flow into the syntax highlighters.
 - **VideoControl with Kitty true-graphics.** Terminal video playback using half-block rendering everywhere, and the Kitty graphics protocol for true raster output where the terminal supports it. None of the other three libraries do video.
 - **PTY-backed embedded terminal.** `TerminalControl` runs a real PTY-backed terminal emulator inside a window, alongside your other controls -- rare in the .NET TUI ecosystem.
 - **GUI-level threading model.** Each window can own an independent async thread, with UI-thread marshaling (`EnqueueOnUIThread`) much like a desktop dispatcher, so panels update on their own schedule without blocking the UI.
@@ -182,11 +198,18 @@ var button = Controls.Button()
 | List items, Tree nodes | Yes |
 | Tab headers, Dropdowns | Yes |
 | Prompts, Panels, Rules | Yes |
-| Bar graph labels | Yes |
+| Table cells, Menu items | Yes |
+| Bar/Line graph & Sparkline labels | Yes |
+| Date/Time pickers, Spinners, Progress bars | Yes |
+| MultilineEdit, LogViewer, NavigationView | Yes |
 | MarkupControl | Yes (entire content, incl. clickable links) |
 | Status bars | Yes |
 
-The markup pipeline also renders **Markdown**, via a parser-level `[markdown]` tag (Markdig-based) rather than a dedicated control. Because it lives in the markup parser, every one of the ~25 markup-rendering controls -- buttons, list items, tree nodes, table cells, tab headers, the status bar -- can render Markdown, mixed inline with native markup in the same string. Fenced code blocks pick up the built-in syntax highlighters, and copied text falls back to plain text. Other libraries expose Markdown as a single dedicated control; here it is available anywhere markup is.
+*(26 controls call the markup parser in total -- the table above is a representative sample.)*
+
+The markup pipeline also renders **Markdown**, via a parser-level `[markdown]` tag (Markdig-based) rather than a dedicated control. Because it lives in the markup parser, every one of the **26 markup-rendering controls** -- buttons, list items, tree nodes, table cells, tab headers, the status bar -- can render Markdown, mixed inline with native markup in the same string. Fenced code blocks pick up the built-in syntax highlighters, and copied text falls back to plain text. Other libraries expose Markdown as a single dedicated control; here it is available anywhere markup is.
+
+**One parser, one pipeline: Markdown → native markup → cells.** This is the architectural core. Markdig-parsed Markdown lowers to the same Spectre-compatible markup the framework uses everywhere, which a single `MarkupParser` turns directly into display cells -- no ANSI roundtrip, no second renderer. That one parser handles colors (named + hex), the full decoration set (bold/dim/italic/underline/strike/blink/reverse/invert), `[link=url]` clickable links, `[spinner]` animated glyphs, `[gradient]` text, `[fillwidth]`, and `[markdown]` regions -- and it is **fully Unicode-aware** (width-correct wide/CJK characters, combining marks, surrogate-pair emoji). Because that single pipeline is wired into 26 controls, *any text in almost any control* speaks the same rich, Unicode-correct markup. No other .NET TUI library makes one markup parser this pervasive.
 
 ```csharp
 var label = Controls.Markup()
@@ -243,11 +266,11 @@ XenoAtom.Terminal.UI has the most sophisticated layout system with a proper `Fle
 
 | | Spectre.Console | Terminal.Gui | XenoAtom.Terminal.UI | SharpConsoleUI |
 |---|---|---|---|---|
-| **Stars** | ~11,490 | ~11,060 | ~263 | 232 |
+| **Stars** | ~11,490 | ~11,060 | ~271 | 232 |
 | **NuGet downloads** | ~44.4M | ~1.8M | ~17.8K | ~14,000 |
 | **Contributors** | ~146 | ~130 | ~2 | 1 |
-| **Latest stable** | 0.56.0 (pre-1.0) | 2.4.5 (v2 GA) | 3.7.2 | 2.4.77 |
-| **v2 / latest** | 0.56.0 | 2.4.5 (v2 GA, GA since 2024) | 3.7.2 | 2.4.77 |
+| **Latest stable** | 0.56.0 (pre-1.0) | 2.4.5 (v2 GA) | 3.7.4 | 2.4.77 |
+| **v2 / latest** | 0.56.0 | 2.4.5 (v2 GA, GA since 2024) | 3.7.4 | 2.4.77 |
 | **.NET version** | net8/9/10 + .NET Standard 2.0 | .NET 10 (v2.4.x) | .NET 10 only | net8/9/10 |
 | **License** | MIT | MIT | BSD-2-Clause | MIT |
 | **Repo age** | ~6 years | ~8.5 years | ~5 months | ~16 months |
@@ -274,7 +297,7 @@ SharpConsoleUI is the right choice when you need:
 - **Dashboard / monitoring tools** -- independent async window threads mean each panel updates on its own schedule without blocking the UI.
 - **IDE-like tools** -- [LazyDotIDE](https://github.com/nickprotop/LazyDotIDE) is a working .NET IDE built entirely on SharpConsoleUI, proving the framework handles complex, multi-window applications.
 - **Embedded terminal + UI** -- TerminalControl gives you a real PTY-backed terminal emulator inside a window, alongside your UI controls. Rare in the .NET ecosystem.
-- **Markdown and rich markup in every control** -- the `[markdown]` markup tag renders Markdown (and highlighted code blocks) inside any markup control, not just a single dedicated widget.
+- **Markdown and rich markup in every control** -- one parser lowers Markdown to native markup and parses it straight into Unicode-correct cells, so the `[markdown]` tag (and clickable `[link=url]`, `[gradient]`, `[spinner]`) work inside any of the 26 markup controls, not just a single dedicated widget.
 - **Terminal video** -- VideoControl plays video with half-block rendering, and Kitty true-graphics where supported. None of the other .NET TUI libraries do video.
 - **MVVM data binding** -- `Bind()` and `BindTwoWay()` with lambda expressions, type converters, and standard `INotifyPropertyChanged` ViewModels. All controls support property change notification out of the box.  See the [Data Binding guide](binding.md).
 - **Spectre.Console integration** -- use `[red bold]markup[/]` in every control, and embed any `IRenderable` (Tables, Charts, BarCharts) as a windowed control. Extends Spectre.Console rather than replacing it.
