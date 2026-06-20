@@ -65,6 +65,7 @@ namespace SharpConsoleUI.Controls
 		private bool _useSafeBorder = false;
 		private bool _wordWrap = true;
 		private readonly CollapsiblePanel _inner = new CollapsiblePanel { Collapsible = false, ShowHeader = false };
+		private MarkupControl? _markupChild;
 		internal CollapsiblePanel Inner => _inner;
 
 		// Mouse interaction state
@@ -80,7 +81,7 @@ namespace SharpConsoleUI.Controls
 		/// Initializes a new instance of the <see cref="PanelControl"/> class with text content.
 		/// </summary>
 		/// <param name="text">The text to display inside the panel (supports markup).</param>
-		public PanelControl(string text) { _inner.Container = this; WireInnerMouse(); _content = text; SyncBorder(); }
+		public PanelControl(string text) { _inner.Container = this; WireInnerMouse(); SyncBorder(); Content = text; }
 
 		private void WireInnerMouse()
 		{
@@ -114,7 +115,7 @@ namespace SharpConsoleUI.Controls
 		public Color? ForegroundColor
 		{
 			get => _foregroundColorValue;
-			set => SetProperty(ref _foregroundColorValue, value);
+			set { _foregroundColorValue = value; if (_markupChild != null) _markupChild.ForegroundColor = value; Container?.Invalidate(true); }
 		}
 
 		/// <summary>
@@ -152,7 +153,28 @@ namespace SharpConsoleUI.Controls
 		public string? Content
 		{
 			get => _content;
-			set => SetProperty(ref _content, value);
+			set
+			{
+				_content = value;
+				if (string.IsNullOrEmpty(value))
+				{
+					if (_markupChild != null)
+					{
+						_inner.RemoveControl(_markupChild); // disposes it (CollapsiblePanel semantics)
+						_markupChild = null;
+					}
+				}
+				else if (_markupChild == null)
+				{
+					_markupChild = new MarkupControl(new List<string> { value }) { Wrap = _wordWrap, ForegroundColor = _foregroundColorValue };
+					_inner.AddControl(_markupChild); // appended — first child when Content set before children
+				}
+				else
+				{
+					_markupChild.SetContent(new List<string> { value });
+				}
+				Container?.Invalidate(true);
+			}
 		}
 
 		/// <summary>
@@ -219,7 +241,7 @@ namespace SharpConsoleUI.Controls
 		public bool WordWrap
 		{
 			get => _wordWrap;
-			set => SetProperty(ref _wordWrap, value);
+			set { _wordWrap = value; if (_markupChild != null) _markupChild.Wrap = value; Container?.Invalidate(true); }
 		}
 
 		#endregion
@@ -362,10 +384,7 @@ namespace SharpConsoleUI.Controls
 		/// Sets the content to display inside the panel using text (supports markup).
 		/// </summary>
 		/// <param name="text">The text to display.</param>
-		public void SetContent(string text)
-		{
-			Content = text;
-		}
+		public void SetContent(string text) => Content = text;
 
 		#endregion
 
