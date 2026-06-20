@@ -24,6 +24,10 @@ namespace SharpConsoleUI.Controls
 
 		#region ColorRole
 
+		// These three back the public ColorRole/ColorRoleMode/Outline. The double-storage is deliberate:
+		// each setter keeps our own field AND pushes the value into _inner (which actually renders the
+		// chrome). The getters return our copy. Always set _inner.ColorRole/ColorRoleMode/Outline through
+		// these setters — never poke _inner's role directly elsewhere, or the two will desync.
 		private ColorRole _role = ColorRole.Default;
 		private ThemeMode? _colorRoleMode;
 		private bool _outline;
@@ -298,11 +302,18 @@ namespace SharpConsoleUI.Controls
 		Color IContainer.BackgroundColor
 		{
 			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			set { _backgroundColorValue = value; Container?.Invalidate(true); }
+			// Mirror the public BackgroundColor setter: push the value into _inner too, otherwise setting
+			// the background through an IContainer reference would leave _inner stale and the two paths
+			// would disagree. (value is a non-nullable Color, so no Transparent coalesce is needed.)
+			set { _backgroundColorValue = value; _inner.BackgroundColor = value; Container?.Invalidate(true); }
 		}
 		Color IContainer.ForegroundColor
 		{
 			get => ColorResolver.ResolveForeground(_foregroundColorValue, Container);
+			// Intentionally asymmetric with BackgroundColor: foreground flows to the markup body child
+			// (via the public ForegroundColor setter / Content creation), not into _inner's own foreground
+			// state, and the explicit getter resolves from our state. Nothing reads _inner's foreground for
+			// the panel, so writing only _foregroundColorValue here keeps both paths consistent.
 			set { _foregroundColorValue = value; Container?.Invalidate(true); }
 		}
 		ConsoleWindowSystem? IContainer.GetConsoleWindowSystem => Container?.GetConsoleWindowSystem;
@@ -396,6 +407,15 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
+			// The panel paints no chrome itself — the engine paints _inner (our sole child). We still
+			// record our own bounds so ActualX/Y/Width/Height are populated for consumers (e.g. the
+			// HorizontalSplitter, which reads PanelControl.ActualHeight).
+			//
+			// PanelControl.ActualBounds == _inner.ActualBounds always: _inner is the single child of a
+			// VerticalStackLayout with no spacing, and its alignment/width/height/explicit-height are all
+			// forwarded from this panel, so the layout arranges it at local (0,0) filling the panel's rect.
+			// Verified empirically across default/left/center/right/fill/explicit-W/explicit-H — bounds
+			// coincide in every case (including the X-offset cases). Hence no need to delegate Actual*.
 			SetActualBounds(bounds);
 		}
 
