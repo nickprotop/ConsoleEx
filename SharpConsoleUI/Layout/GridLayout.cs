@@ -18,8 +18,8 @@ namespace SharpConsoleUI.Layout;
 /// tracks they cover.
 /// </summary>
 /// <remarks>
-/// This type implements the measure and arrange passes. <see cref="GetPaintClipRect"/> (Task 5) is
-/// still stubbed and returns the parent clip unchanged.
+/// This type implements the measure and arrange passes, and clips each cell child to its track
+/// rectangle in <see cref="GetPaintClipRect"/>.
 /// </remarks>
 public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 {
@@ -413,11 +413,32 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 	}
 
 	/// <summary>
-	/// Gets the paint clip rectangle for a child cell. Not yet implemented; returns the parent clip.
+	/// Restricts a cell child's paint area to its track rectangle, intersected with the parent clip,
+	/// so a child can never paint outside the cell it was placed in. The cell rectangle cached during
+	/// arrange (<see cref="_cellRects"/>) is node-local, so it is offset by the grid node's absolute
+	/// origin to reach screen space before intersecting.
 	/// </summary>
+	/// <param name="child">The cell child whose paint clip is being resolved.</param>
+	/// <param name="parentClipRect">The parent's visible bounds, in absolute/screen coordinates.</param>
+	/// <returns>
+	/// The cell rectangle (in absolute coordinates) intersected with <paramref name="parentClipRect"/>,
+	/// or the parent clip unchanged when no cell rectangle is recorded for the child (e.g. arrange has
+	/// not run yet, or the child was removed between arrange and paint) so the child is never over-clipped.
+	/// </returns>
 	public LayoutRect GetPaintClipRect(LayoutNode child, LayoutRect parentClipRect)
 	{
-		// TODO: Task 5 — clip each cell to its track rectangle (and honour spanning).
-		return parentClipRect;
+		if (child.Parent == null || !_cellRects.TryGetValue(child, out var localCell))
+		{
+			return parentClipRect;
+		}
+
+		LayoutNode parent = child.Parent;
+		var absoluteCell = new LayoutRect(
+			parent.AbsoluteBounds.X + localCell.X,
+			parent.AbsoluteBounds.Y + localCell.Y,
+			localCell.Width,
+			localCell.Height);
+
+		return parentClipRect.Intersect(absoluteCell);
 	}
 }
