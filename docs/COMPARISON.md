@@ -265,11 +265,36 @@ The practical difference: Spectre hands the click to the terminal; Terminal.Gui 
 | | Spectre.Console | Terminal.Gui v2 | XenoAtom.Terminal.UI | SharpConsoleUI |
 |---|---|---|---|---|
 | **Approach** | Measure/Render | Pos/Dim with arithmetic | Flexbox + Grid + Dock | DOM pipeline (Measure/Arrange/Paint) |
-| **Containers** | Layout (grid cells) | View nesting | VStack, HStack, WrapStack, Grid, DockLayout, ZStack, Splitter, ScrollViewer | HorizontalGrid, ColumnContainer, ScrollablePanel |
-| **Reactive layout** | No | Computed Pos/Dim | **[Bindable] source-generated with dependency tracking** | MVVM binding with auto-invalidation |
-| **Flexibility** | Low | High (Pos/Dim arithmetic) | **Very high (WPF/Avalonia-level)** | Moderate |
+| **Containers** | Layout (grid cells) | View nesting | VStack, HStack, WrapStack, Grid, DockLayout, ZStack, Splitter, ScrollViewer | **GridControl (2D), HorizontalGrid, ColumnContainer, ScrollablePanel, sticky dock** |
+| **2D grid** | Layout (grid cells, no spans) | No | Grid (sizing modes undocumented) | **GridControl: Star/Auto/Fixed + per-track min/max, row/col spans, gaps, per-cell styling, interactive splitters** |
+| **Flex allocator** | No | Via Pos/Dim arithmetic | **Yes (per-control grow/shrink/min/max)** | No (approximated with Star tracks + nesting) |
+| **Dock** | No | Via Pos/Dim | **DockLayout (4-edge, any container)** | Sticky Top/Bottom at window root (space-reserving; no Left/Right) |
+| **Data binding for layout** | No | Computed Pos/Dim | **[Bindable] source-generated, dependency-tracked** | No `[Bindable]`; **MVVM binding (one-way + two-way) over `INotifyPropertyChanged`** |
+| **Flexibility** | Low | High (Pos/Dim arithmetic) | **Very high (WPF/Avalonia-level)** | High via composition (Moderate as primitives) |
 
-XenoAtom.Terminal.UI has the most sophisticated layout system with a proper `FlexAllocator` (grow/shrink/min/max like CSS Flexbox), full Grid with row/column definitions, and DockLayout. Terminal.Gui's Pos/Dim system with arithmetic composition is also very powerful. SharpConsoleUI's layout is simpler -- it prioritizes the compositor pipeline over layout complexity.
+The two libraries take different routes to layout power. **XenoAtom.Terminal.UI** exposes it as
+primitives: a proper `FlexAllocator` (grow/shrink/min/max like CSS Flexbox), a 4-edge `DockLayout`,
+and stack containers (VStack/HStack/WrapStack) as first-class types -- the most sophisticated layout
+*system* here. **SharpConsoleUI** reaches comparable outcomes by **composition** in its DOM
+Measure→Arrange→Paint pipeline: `GridControl` is a real WinUI-style 2D grid (Star/Auto/Fixed tracks
+with per-track min/max, row/column spans, gaps, per-cell border/background/padding, and *interactive
+splitters* with mouse drag + keyboard resize), and it nests arbitrarily inside `ColumnContainer`,
+`ScrollablePanel`, and other grids with focus, cursor, keyboard, and mouse routing intact at every
+level. On the **2D grid specifically, SharpConsoleUI is at or ahead of parity** -- its sizing/span/gap/
+splitter surface is concrete and documented, whereas XenoAtom's Grid sizing modes are not spelled out
+in its public docs.
+
+**Honest limitations.** SharpConsoleUI has **no flex allocator** -- there is no per-control grow/shrink;
+proportional sizing comes only from a Grid's Star tracks, so a `VStack`/`HStack`-style "these children
+share the leftover space" is expressed by nesting in a Star-tracked grid rather than by a flex property.
+Its **dock is vertical-only**: `StickyPosition.Top`/`Bottom` is a genuine space-reserving dock (the
+scrollable band's height is reduced by the sticky regions -- the classic header/body/footer pattern),
+but there is no Left/Right docking and sticky is honored **only at the window root**, not inside nested
+containers. And it has **no `[Bindable]`-style reactive layout** -- there is no source-generated
+dependency tracking that re-runs layout automatically; instead SharpConsoleUI offers **MVVM data binding
+(one-way and two-way) built on `INotifyPropertyChanged`**, where a bound property change invalidates and
+repaints. Net: for a 2D grid and a header/body/footer dock, SharpConsoleUI is competitive today; XenoAtom
+still leads on the flex allocator, full 4-edge dock, and source-generated reactive binding.
 
 ### Developer Experience
 
