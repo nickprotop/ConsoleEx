@@ -134,9 +134,9 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>
 		/// Raises the panel's own mouse event for a body interaction that no body child consumed.
-		/// Mirrors <see cref="PanelControl.ProcessMouseEvent"/> flag handling (enter/leave/right/
-		/// double/click/move). Wheel/scroll events are intentionally ignored here so they bubble
-		/// untouched to an outer scroll container.
+		/// Handles the same flags as <see cref="ProcessMouseEvent"/> (enter/leave/right/double/click/
+		/// move). Wheel/scroll events are intentionally ignored here so they bubble untouched to an
+		/// outer scroll container.
 		/// </summary>
 		/// <returns>
 		/// <see langword="true"/> when the event was CONSUMED (a button click/double-click/right-click
