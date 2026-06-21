@@ -226,10 +226,16 @@ try
 				.Build(),
 			Controls.Grid()
 				.Columns(GridLength.Star(1), GridLength.Star(1))
-				.Rows(GridLength.Auto())
-				.WithSize(40, 3)
+				.Rows(GridLength.Star(1), GridLength.Star(1))
+				.ColumnGap(1)
+				.RowGap(1)
+				.ColumnSplitterAfter(0)   // exercise grid-native column splitter paint/colour/focus paths under AOT
+				.RowSplitterAfter(0)      // exercise grid-native row splitter paths under AOT
+				.WithSize(40, 6)
 				.Place(Controls.Label("grid cell A"), 0, 0)
 				.Place(Controls.Label("grid cell B"), 0, 1)
+				.Place(Controls.Label("grid cell C"), 1, 0)
+				.Place(Controls.Label("grid cell D"), 1, 1)
 				.Build(),
 			Controls.TabControl()
 				.AddTab("Tab A", Controls.Label("content A"))

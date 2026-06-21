@@ -29,6 +29,9 @@ public sealed class GridBuilder : IControlBuilder<GridControl>
 	// declaration order is preserved when replayed in Build (after the track defs are set).
 	private readonly List<Action<GridControl>> _placements = new();
 
+	private readonly List<int> _columnSplitterAfter = new();
+	private readonly List<int> _rowSplitterAfter = new();
+
 	private int _rowGap;
 	private int _columnGap;
 	private Padding _padding = new(0, 0, 0, 0);
@@ -229,6 +232,24 @@ public sealed class GridBuilder : IControlBuilder<GridControl>
 		return this;
 	}
 
+	/// <summary>Makes the boundary after column <paramref name="afterIndex"/> draggable to resize the two columns.</summary>
+	/// <param name="afterIndex">The zero-based index of the column the splitter follows.</param>
+	/// <returns>The builder for chaining.</returns>
+	public GridBuilder ColumnSplitterAfter(int afterIndex)
+	{
+		_columnSplitterAfter.Add(afterIndex);
+		return this;
+	}
+
+	/// <summary>Makes the boundary after row <paramref name="afterIndex"/> draggable to resize the two rows.</summary>
+	/// <param name="afterIndex">The zero-based index of the row the splitter follows.</param>
+	/// <returns>The builder for chaining.</returns>
+	public GridBuilder RowSplitterAfter(int afterIndex)
+	{
+		_rowSplitterAfter.Add(afterIndex);
+		return this;
+	}
+
 	/// <summary>
 	/// Places a child control at the specified cell, with optional row and column spanning. The
 	/// placement is deferred and applied in <see cref="Build"/> after the track definitions are set
@@ -294,6 +315,12 @@ public sealed class GridBuilder : IControlBuilder<GridControl>
 		// Replay the deferred Place/Add intents in declaration order.
 		foreach (var placement in _placements)
 			placement(control);
+
+		// Declare splitters after the tracks they reference exist.
+		foreach (int i in _columnSplitterAfter)
+			control.AddColumnSplitterAfter(i);
+		foreach (int i in _rowSplitterAfter)
+			control.AddRowSplitterAfter(i);
 
 		BindingHelper.ApplyDeferredBindings(this, control);
 		return control;

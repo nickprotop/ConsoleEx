@@ -36,7 +36,8 @@ public static class GridDemoWindow
 	{
 		// ── Header tile (row 0) — spans all four columns to prove col-span. ─────────────────────────
 		var header = Controls.Markup(
-				"[bold]System Dashboard[/]   [dim]ServerHub · 4-column grid · spans · gaps · per-cell styling · live interactive cells[/]")
+				"[bold]System Dashboard[/]   [dim]ServerHub · 4-column grid · spans · gaps · per-cell styling · live interactive cells[/]\n" +
+				"[dim]Drag the ║ / ═ splitters to resize tracks; click a splitter then use arrow keys to nudge.[/]")
 			.WithMargin(1, 0, 1, 0)
 			.Build();
 
@@ -243,6 +244,8 @@ public static class GridDemoWindow
 			.WithPadding(1, 0, 1, 0)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.WithAlignment(HorizontalAlignment.Stretch)
+			.ColumnSplitterAfter(1)                  // drag-resize between columns 1 and 2
+			.RowSplitterAfter(1)                     // drag-resize between content rows 1 and 2
 			.Place(header, 0, 0, colSpan: 4)         // header spans all 4 columns
 			.Place(cpuGraph, 1, 0)
 			.Place(resourcePanel, 1, 1)
@@ -264,6 +267,10 @@ public static class GridDemoWindow
 		grid.Cell(1, 1).Background = new Color(40, 44, 60);   // subtle slate fill behind the resource tile
 		grid.Cell(1, 3).Border = BorderStyle.Rounded;        // frame the spanning alerts tile
 		grid.Cell(3, 1).Border = BorderStyle.Single;         // frame the topology tile
+
+		// Splitter colours are left to resolve from the grid's ColorRole (Primary) and the active theme:
+		// the idle handle uses the role's border colour and the focused/dragging handle brightens its glyph.
+		// (Set grid.SplitterColor / SplitterFocusedForeground to override per-grid if you ever need to.)
 
 		// Live-update streams. A few rotating message pools so the Activity Log reads like a real feed.
 		(string dot, string msg)[] feed =

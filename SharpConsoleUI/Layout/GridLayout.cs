@@ -41,6 +41,19 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 	/// </summary>
 	private readonly Dictionary<(int Row, int Col), LayoutRect> _cellRectsByCoord = new();
 
+	// Per-track arranged sizes/offsets from the last ArrangeChildren pass. Read by GridControl's splitter
+	// logic to render handles and translate a cell-drag into a track resize. Window-content relative offsets.
+	private int[] _lastColSizes = System.Array.Empty<int>();
+	private int[] _lastRowSizes = System.Array.Empty<int>();
+	private int[] _lastColOffsets = System.Array.Empty<int>();
+	private int[] _lastRowOffsets = System.Array.Empty<int>();
+	private int _lastColumnGap;
+	private int _lastRowGap;
+
+	/// <summary>Per-track arranged metrics from the last arrange, for GridControl splitter hit-testing/resize.</summary>
+	internal (int[] ColSizes, int[] RowSizes, int[] ColOffsets, int[] RowOffsets, int ColumnGap, int RowGap) LastArrangeMetrics
+		=> (_lastColSizes, _lastRowSizes, _lastColOffsets, _lastRowOffsets, _lastColumnGap, _lastRowGap);
+
 	/// <summary>
 	/// Initializes a new <see cref="GridLayout"/> backed by the given source.
 	/// </summary>
@@ -512,6 +525,13 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 
 		int[] colOffsets = ComputeOffsets(colSizes, originX, columnGap);
 		int[] rowOffsets = ComputeOffsets(rowSizes, originY, rowGap);
+
+		_lastColSizes = colSizes;
+		_lastRowSizes = rowSizes;
+		_lastColOffsets = colOffsets;
+		_lastRowOffsets = rowOffsets;
+		_lastColumnGap = columnGap;
+		_lastRowGap = rowGap;
 
 		for (int i = 0; i < pairCount; i++)
 		{

@@ -471,6 +471,9 @@ namespace SharpConsoleUI.Controls
 			}
 
 			PaintCellChrome(buffer, bounds, clipRect, fgColor);
+
+			// Splitter handles paint last, into their (auto-gapped) gaps, over the chrome.
+			PaintSplitters(buffer, bounds, clipRect);
 		}
 
 		/// <summary>

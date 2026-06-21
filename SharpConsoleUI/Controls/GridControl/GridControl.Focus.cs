@@ -27,7 +27,7 @@ namespace SharpConsoleUI.Controls
 	/// offset and no viewport clipping, so the cursor is simply the focused child's cursor translated
 	/// by that child's cell origin, with no offset subtraction and no off-viewport hiding.
 	/// </remarks>
-	public partial class GridControl : IInteractiveControl, IFocusableControl, IMouseAwareControl, IFocusScope, ILogicalCursorProvider, ICursorShapeProvider
+	public partial class GridControl : IInteractiveControl, IFocusableControl, IMouseAwareControl, IFocusScope, IFlattenableFocusScope, ILogicalCursorProvider, ICursorShapeProvider
 	{
 		private bool _isEnabled = true;
 
@@ -122,6 +122,11 @@ namespace SharpConsoleUI.Controls
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
 			if (!IsEnabled) return false;
+
+			// Inert unless a splitter is the FOCUSED control (via the window's FocusManager): TryHandleSplitterKey
+			// returns false immediately when no owned splitter is focused, so existing cell Tab/arrow navigation
+			// is unaffected. Arrow keys nudge the focused splitter's boundary.
+			if (TryHandleSplitterKey(key)) return true;
 
 			var focusedContent = GetFocusedChildFromCoordinator();
 
@@ -248,6 +253,11 @@ namespace SharpConsoleUI.Controls
 		{
 			if (!IsEnabled || !WantsMouseEvents)
 				return false;
+
+			// Splitter drag/capture must run BEFORE cell routing: a press on a handle captures this grid
+			// (the dispatcher routes the whole drag here), and an active drag consumes every frame so it
+			// never bleeds focus/clicks into the cells under the cursor.
+			if (TryHandleSplitterMouse(args)) return true;
 
 			var (clickedControl, childRelative) = GetChildAtGridPosition(args.Position);
 			if (clickedControl != null)
@@ -377,22 +387,75 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Builds the ordered list of focusable Tab stops across all cells. Iterates the cached
-		/// <see cref="OrderedChildren"/> (content-only, row-major), so Tab flows left-to-right,
-		/// top-to-bottom without a per-call children allocation.
+		/// Builds the ordered list of focusable Tab stops across all cells, with splitters INTERLEAVED into
+		/// the row-major cell order (per the splitter design addendum), each splitter visited exactly once:
+		/// <list type="bullet">
+		/// <item>COLUMN splitters are interleaved during the FIRST row's pass — a column splitter "after N"
+		/// follows the row-0 cell that reaches/ends at column boundary N (it is one handle spanning all rows,
+		/// so it is one Tab stop placed in the row-0 pass).</item>
+		/// <item>ROW splitters appear once after each row's cells — a row splitter "after N" follows the last
+		/// cell of row N.</item>
+		/// </list>
+		/// Iterates <see cref="OrderedCells"/> (row-major, carrying each cell's <see cref="Layout.GridPlacement"/>),
+		/// so Tab flows left-to-right, top-to-bottom and splitters slot in at their boundaries. Only handles
+		/// with a valid, visible boundary (non-empty Bounds → CanReceiveFocus) participate.
 		/// </summary>
 		private List<IFocusableControl> GetFocusableChildren()
 		{
 			var result = new List<IFocusableControl>();
-			var children = OrderedChildren();
-			for (int i = 0; i < children.Count; i++)
+			var cells = OrderedCells;
+
+			// Track which column splitters have already been emitted in the row-0 pass (each appears once).
+			var emittedColumnSplitters = new HashSet<int>();
+			int? currentRow = null;
+
+			for (int i = 0; i < cells.Count; i++)
 			{
-				var child = children[i];
-				if (!child.Visible) continue;
+				var (child, placement) = cells[i];
+				if (child == null || !child.Visible) continue;
+
+				// Row transition: we have finished every cell of the previous row(s) — emit their row
+				// splitters now (in ascending boundary order) so they sit after that row's last cell.
+				if (currentRow.HasValue && placement.Row > currentRow.Value)
+				{
+					for (int n = currentRow.Value; n < placement.Row; n++)
+						AppendRowSplitterAfter(result, n);
+				}
+				currentRow = placement.Row;
+
 				CollectFocusableChild(child, result);
+
+				// COLUMN splitters interleave only during the FIRST row's pass: emit every not-yet-emitted
+				// column splitter whose boundary N is reached/passed by this cell's right edge, right after it.
+				if (placement.Row == 0)
+				{
+					int rightEdge = placement.Col + placement.ColSpan - 1; // inclusive last column this cell covers
+					AppendColumnSplittersUpTo(result, rightEdge, emittedColumnSplitters);
+				}
 			}
+
+			// Any column splitters not yet emitted (e.g. boundaries past the last row-0 cell, or no row-0
+			// cells at all) get appended once at the end of the row-0 logical pass.
+			AppendRemainingColumnSplitters(result, emittedColumnSplitters);
+
+			// The final row's row splitter (after the last row's cells) and any trailing row boundaries.
+			if (currentRow.HasValue)
+				AppendRowSplitterAfter(result, currentRow.Value);
+
 			return result;
 		}
+
+		/// <summary>Test-only: the ordered list of focusable Tab stops (cells + interleaved splitters).</summary>
+		internal List<IFocusableControl> GetFocusableChildrenForTest() => GetFocusableChildren();
+
+		/// <inheritdoc/>
+		/// <remarks>
+		/// The grid's Tab stops include grid-native splitters that are NOT DOM children (they live in the
+		/// grid's own splitter list, not in <see cref="GetChildren"/>). The window's global Tab list calls
+		/// this so those splitters — including a column splitter that sorts first in Tab order — are reachable
+		/// as ordinary Tab stops instead of being skipped when the root scope recurses into DOM children.
+		/// </remarks>
+		List<IFocusableControl> IFlattenableFocusScope.GetOrderedTabStops() => GetFocusableChildren();
 
 		/// <summary>
 		/// Collects focusable Tab stops from a child control, handling

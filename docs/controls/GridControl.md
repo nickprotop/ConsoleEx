@@ -124,6 +124,83 @@ grid.Cell(2, 1).Clear();
 
 A cell can be styled before it has any content — a styled empty cell carries chrome (border/background) with no control, so you can lay out framed tiles up front and fill them later.
 
+## Splitters
+
+A splitter is a draggable boundary between two adjacent tracks that lets the user resize them at runtime, like a WinUI `GridSplitter`. A column splitter "after N" sits on the boundary between column `N` and column `N+1`; a row splitter "after N" sits between row `N` and row `N+1`.
+
+### Adding splitters
+
+On the builder:
+
+```csharp
+.ColumnSplitterAfter(int index)   // splitter between column index and index+1
+.RowSplitterAfter(int index)      // splitter between row index and index+1
+```
+
+On the control (runtime CRUD):
+
+| Method | Description |
+|--------|-------------|
+| `AddColumnSplitterAfter(int index)` | Add a draggable boundary after column `index` |
+| `AddRowSplitterAfter(int index)` | Add a draggable boundary after row `index` |
+| `RemoveColumnSplitterAfter(int index)` | Remove the column splitter after `index` |
+| `RemoveRowSplitterAfter(int index)` | Remove the row splitter after `index` |
+| `ClearSplitters()` | Remove all splitters |
+
+### Resize semantics
+
+Dragging a splitter resizes **only the two adjacent tracks**; the total grid size is conserved (the rest of the layout never shifts). The result depends on the two tracks' types:
+
+| Adjacent tracks | Behavior |
+|-----------------|----------|
+| `Star` \| `Star` | Weight is redistributed keeping the sum constant — both stay responsive and continue to reflow on window resize |
+| `Fixed` \| `Fixed` | The boundary moves cells from one track to the other |
+| `Star` \| `Fixed` | The `Star` side absorbs the change; the `Fixed` side is held |
+| `Auto` | An `Auto` track bakes to `Fixed(currentSize)` on its first drag, then behaves as fixed |
+
+Min/max clamps are respected, and the boundary stops at a neighbor's minimum so a track can never be dragged below its `min`.
+
+### Input
+
+- **Mouse:** drag the splitter handle.
+- **Keyboard:** a splitter is a real focus stop, so **Tab / Shift+Tab** cycles onto it in reading order (column splitters interleave during the first row's pass; a row splitter follows its row's last cell). You can also focus one programmatically with `FocusColumnSplitter(int index)` / `FocusRowSplitter(int index)`. Once focused, use the arrow keys — **Left/Right** for a column splitter, **Up/Down** for a row splitter. Hold **Shift** for a ×5 step.
+
+### Auto-gap
+
+A splitter forces a `≥1`-cell gap on its axis so the handle has a home to live in. This does **not** change the `ColumnGap`/`RowGap` property values — it is only a floor applied where a splitter sits.
+
+### Persistence
+
+A resize writes the new size straight into the live `RowDefinitions`/`ColumnDefinitions`, so the new layout survives a re-render, and `Star` tracks still reflow proportionally when the window is resized.
+
+### Colors
+
+The highlight is **foreground-only**: the handle's **background is the same in every state** (idle / focused / hovered / dragging) — only the glyph (`║` / `═`) changes. By default everything is theme- and `ColorRole`-driven, so the splitter matches the rest of the grid's chrome with no manual colours:
+
+- **Idle:** the grid's `ColorRole` border colour, **shaded dimmer**, so the resting handle reads as a quiet line.
+- **Focused / dragging:** the **full-bright** role border (its focused state is brightened), drawn **bold** — a clear dim→bright, normal→bold highlight on the same hue, visible on every theme.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `SplitterColor` | `Color?` | Idle handle glyph colour; `null` resolves to the grid's `ColorRole` border colour (shaded dimmer) |
+| `SplitterFocusedForeground` | `Color?` | Glyph colour when focused/hovered; `null` resolves to the bright role border / theme accent |
+| `SplitterDraggingForeground` | `Color?` | Glyph colour while dragging; `null` resolves the same as focused |
+| `SplitterFocusedBackground` | `Color?` | Optional fixed handle background; `null` keeps it transparent. **Does not change between states** — it pins the constant background |
+| `SplitterDraggingBackground` | `Color?` | Alias for pinning the same constant background (kept for API symmetry) |
+
+All are `Color?`; a `null` value resolves to a theme/role default.
+
+### Example
+
+```csharp
+var grid = Controls.Grid()
+    .Columns(GridLength.Star(1), GridLength.Star(1))
+    .Rows(GridLength.Auto(), GridLength.Star(1))
+    .ColumnSplitterAfter(0)   // drag boundary between col 0 and 1
+    .RowSplitterAfter(0)
+    .Build();
+```
+
 ## Builder API
 
 Create a builder with `Controls.Grid()` (or `new GridBuilder()`). A builder implicitly converts to a `GridControl`, so it can be passed directly where a control is expected.

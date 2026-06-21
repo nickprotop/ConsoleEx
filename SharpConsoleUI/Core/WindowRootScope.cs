@@ -154,7 +154,15 @@ internal class WindowRootScope : IFocusScope
 				result.Add(scopeFocusable);
 				return;
 			}
-			// CanReceiveFocus=false scope (e.g. HGrid): fall through to transparent container path
+			// CanReceiveFocus=false scope (e.g. HGrid): fall through to transparent container path.
+			// A transparent scope whose Tab order includes non-DOM stops (e.g. GridControl's grid-native
+			// splitters, absent from GetChildren) supplies its full ordered list verbatim so those stops
+			// stay reachable — recursing into DOM children alone would skip them.
+			if (control is IFlattenableFocusScope flattenable)
+			{
+				result.AddRange(flattenable.GetOrderedTabStops());
+				return;
+			}
 		}
 
 		if (control is IFocusableControl focusable && focusable.CanReceiveFocus)

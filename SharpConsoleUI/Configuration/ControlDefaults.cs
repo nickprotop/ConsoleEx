@@ -995,5 +995,29 @@ namespace SharpConsoleUI.Configuration
 
 		/// <summary>Maximum autoscroll speed in rows/second (caps runaway far-overshoot speed).</summary>
 		public const double DragAutoScrollMaxRowsPerSec = 60.0;
+
+		// --- GridControl splitters ---
+
+		/// <summary>Glyph for a GridControl COLUMN splitter handle (double vertical bar, U+2551). Reliably 1-cell wide.
+		/// Double-line distinguishes the draggable splitter from single-line cell borders.</summary>
+		public const char GridColumnSplitterGlyph = '║';
+
+		/// <summary>Glyph for a GridControl ROW splitter handle (double horizontal bar, U+2550). Reliably 1-cell wide.
+		/// Double-line distinguishes the draggable splitter from single-line cell borders.</summary>
+		public const char GridRowSplitterGlyph = '═';
+
+		/// <summary>Junction glyph drawn where a GridControl COLUMN splitter crosses a ROW splitter (double-line cross, U+256C). Reliably 1-cell wide.</summary>
+		public const char GridSplitterCrossGlyph = '╬';
+
+		/// <summary>Cells a GridControl splitter nudges per arrow key (mirrors SplitterControl).</summary>
+		public const int GridSplitterKeyboardStep = 1;
+
+		/// <summary>Cells a GridControl splitter nudges per Shift+arrow key (mirrors SplitterControl).</summary>
+		public const int GridSplitterKeyboardLargeStep = 5;
+
+		/// <summary>How much the idle (unfocused) GridControl splitter glyph is shaded toward black below its
+		/// role border colour (0..1, higher = dimmer), so the resting handle reads as a quiet line and the
+		/// full-bright border is the focus highlight.</summary>
+		public const double GridSplitterIdleShade = 0.5;
 	}
 }
