@@ -8,8 +8,6 @@
 
 #pragma warning disable CS1591
 
-using Spectre.Console;
-
 namespace SharpConsoleUI.Html
 {
 	/// <summary>

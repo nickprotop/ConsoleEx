@@ -8,7 +8,6 @@
 
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 
 namespace SharpConsoleUI.Rendering;
 

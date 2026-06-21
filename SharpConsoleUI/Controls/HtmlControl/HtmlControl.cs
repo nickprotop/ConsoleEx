@@ -11,7 +11,6 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Html;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 
 namespace SharpConsoleUI.Controls
 {

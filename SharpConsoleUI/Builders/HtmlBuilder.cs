@@ -11,7 +11,7 @@ using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
-using Color = Spectre.Console.Color;
+using Color = SharpConsoleUI.Color;
 
 namespace SharpConsoleUI.Builders;
 

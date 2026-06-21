@@ -10,7 +10,6 @@
 
 using AngleSharp.Css.Dom;
 using AngleSharp.Dom;
-using Spectre.Console;
 
 namespace SharpConsoleUI.Html
 {

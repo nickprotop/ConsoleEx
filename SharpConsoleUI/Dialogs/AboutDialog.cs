@@ -80,7 +80,7 @@ public static class AboutDialog
 			.AddLine($"[{fg} bold]Core Features:[/]")
 			.AddLine($"[{dim}]• Double-buffered rendering with dirty region tracking[/]")
 			.AddLine($"[{dim}]• Modern async/await and fluent builder patterns[/]")
-			.AddLine($"[{dim}]• Rich control library with Spectre.Console integration[/]")
+			.AddLine($"[{dim}]• Rich control library with optional Spectre.Console integration[/]")
 			.AddLine($"[{dim}]• Plugin system with reflection-free patterns[/]")
 			.AddLine($"[{dim}]• Configurable frame rate limiting and performance metrics[/]")
 			.AddLine("")

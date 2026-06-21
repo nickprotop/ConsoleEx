@@ -12,7 +12,6 @@ using AngleSharp;
 using AngleSharp.Css;
 using AngleSharp.Dom;
 using AngleSharp.Html.Parser;
-using Spectre.Console;
 
 // -----------------------------------------------------------------------------
 // Scoped NativeAOT trim-warning suppression for AngleSharp.Css's calc() pipeline.

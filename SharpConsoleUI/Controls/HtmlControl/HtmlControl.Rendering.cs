@@ -9,7 +9,6 @@
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Html;
 using SharpConsoleUI.Layout;
-using Spectre.Console;
 
 namespace SharpConsoleUI.Controls
 {
