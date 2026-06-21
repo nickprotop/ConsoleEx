@@ -233,7 +233,9 @@ public class CollapsiblePanelPanelModeMatrixTests
 		// Header row is y=0 (borderless). Click it.
 		bool handled = ((IMouseAwareControl)panel).ProcessMouseEvent(Click(1, 0, window));
 
-		Assert.False(handled);
+		// No toggle (ExpandedChanged never fires, stays expanded), but the click IS surfaced as the
+		// panel's own MouseClick and reported handled so an outer container does not also handle it.
+		Assert.True(handled);
 		Assert.True(panel.IsExpanded);
 		Assert.Equal(0, events);
 	}
@@ -343,10 +345,11 @@ public class CollapsiblePanelPanelModeMatrixTests
 		var (system, window) = HostInWindow(panel);
 		window.FocusManager.SetFocus(null, FocusReason.Programmatic);
 
-		// Header is content row y=0 (bordered top border). Clicking it must NOT toggle and must
-		// NOT be consumed by the panel.
+		// Header is content row y=0 (bordered top border). Clicking it must NOT toggle, but it IS
+		// surfaced as the panel's own MouseClick (reported handled) so a bubbling dispatcher stops at
+		// the panel. The "inert" contract is that it does not toggle — asserted by IsExpanded below.
 		bool headerHandled = ((IMouseAwareControl)panel).ProcessMouseEvent(Click(2, 0, window));
-		Assert.False(headerHandled);
+		Assert.True(headerHandled);
 		Assert.True(panel.IsExpanded);
 
 		// Body click: the bordered body starts below the top border (HeaderHeight=1). The button is

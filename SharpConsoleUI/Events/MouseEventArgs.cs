@@ -47,6 +47,15 @@ namespace SharpConsoleUI.Events
 		public Window? SourceWindow { get; set; }
 
 		/// <summary>
+		/// When a click is bubbled up the parent chain (because the deepest hit-target or captured
+		/// control did not consume it), this is set to that originating control. Container controls
+		/// use it to AVOID re-dispatching the click to the same child a second time (which would
+		/// double-fire the child's click/double-click tracking). Internal plumbing — not part of the
+		/// public mouse contract.
+		/// </summary>
+		internal Controls.IWindowControl? BubbleOriginControl { get; set; }
+
+		/// <summary>
 		/// Creates a new MouseEventArgs instance
 		/// </summary>
 		public MouseEventArgs(List<MouseFlags> flags, Point position, Point absolutePosition, Point windowPosition, Window? sourceWindow = null)
@@ -87,7 +96,8 @@ namespace SharpConsoleUI.Events
 		{
 			return new MouseEventArgs(Flags, newPosition, AbsolutePosition, WindowPosition, SourceWindow)
 			{
-				Handled = this.Handled
+				Handled = this.Handled,
+				BubbleOriginControl = this.BubbleOriginControl
 			};
 		}
 
@@ -100,7 +110,8 @@ namespace SharpConsoleUI.Events
 			newFlags.AddRange(additionalFlags);
 			return new MouseEventArgs(newFlags, Position, AbsolutePosition, WindowPosition, SourceWindow)
 			{
-				Handled = this.Handled
+				Handled = this.Handled,
+				BubbleOriginControl = this.BubbleOriginControl
 			};
 		}
 
@@ -111,7 +122,8 @@ namespace SharpConsoleUI.Events
 		{
 			return new MouseEventArgs(new List<MouseFlags>(replacementFlags), Position, AbsolutePosition, WindowPosition, SourceWindow)
 			{
-				Handled = this.Handled
+				Handled = this.Handled,
+				BubbleOriginControl = this.BubbleOriginControl
 			};
 		}
 	}

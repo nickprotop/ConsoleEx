@@ -72,6 +72,20 @@ namespace SharpConsoleUI.Controls
 			if (!_isEnabled)
 				return false;
 
+			// Pure hover notifications (enter/leave, and a plain move with no button) are not
+			// click-targeting events — route them straight to the panel's own event raiser instead of
+			// ForwardClickToBody (which hit-tests a child to focus/forward a click, and would steal focus
+			// on a mere move). The dispatcher delivers these to the panel directly (via its ancestor-chain
+			// hover tracking and move dispatch) when the cursor is over a passive body child, so the panel
+			// can surface MouseEnter/MouseLeave/MouseMove. A move WITH a button held is a drag, and a
+			// move accompanying a WHEEL is a scroll — neither is treated as a pure hover here, so the wheel
+			// still flows to ForwardClickToBody and reaches a scrollable body child.
+			bool isButtonDown = args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Dragged, MouseFlags.Button1Released);
+			bool isWheel = args.HasAnyFlag(MouseFlags.WheeledUp, MouseFlags.WheeledDown, MouseFlags.WheeledLeft, MouseFlags.WheeledRight);
+			if (!isWheel && (args.HasFlag(MouseFlags.MouseEnter) || args.HasFlag(MouseFlags.MouseLeave)
+				|| (args.HasFlag(MouseFlags.ReportMousePosition) && !isButtonDown)))
+				return RaiseBodyMouseEvent(args);
+
 			int headerTop = Margin.Top;
 			int headerBottom = headerTop + HeaderHeight; // exclusive
 			bool onHeader = args.Position.Y >= headerTop && args.Position.Y < headerBottom;
@@ -85,15 +99,33 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
+			// A NON-collapsible panel's header is not a toggle affordance — it's just part of the
+			// clickable panel surface (e.g. the title bar of a PanelControl-facade widget). Surface a
+			// header click there as the panel's own mouse event, exactly like a body click. (A
+			// collapsible panel already consumed its header click above, so we only reach here for the
+			// non-collapsible case.)
+			if (onHeader)
+			{
+				// A non-collapsible header click surfaces as the panel's own event. Report it as
+				// consumed when RaiseBodyMouseEvent actually handled it, so a bubbling dispatcher stops
+				// here and an outer container does not also handle the same click.
+				if (!_collapsible)
+					return RaiseBodyMouseEvent(args);
+				return false;
+			}
+
 			// Below the header: when expanded, route the click to the body child under the cursor so
 			// clicking a focusable body control focuses it (mirrors ColumnContainer.ProcessMouseEvent).
 			// When no body child consumes the event, raise the panel's own mouse event so a hosting
 			// facade (or direct subscriber) can react to content-only body interaction.
-			if (!onHeader && _isExpanded)
+			if (_isExpanded)
 			{
 				bool consumed = ForwardClickToBody(args);
 				if (!consumed)
-					RaiseBodyMouseEvent(args);
+					// RaiseBodyMouseEvent reports whether it handled the event; surface that as the
+					// ProcessMouseEvent result so a bubbling dispatcher stops here once the panel has
+					// raised its own body event (otherwise an outer container double-handles the click).
+					consumed = RaiseBodyMouseEvent(args);
 				return consumed;
 			}
 
@@ -106,10 +138,16 @@ namespace SharpConsoleUI.Controls
 		/// double/click/move). Wheel/scroll events are intentionally ignored here so they bubble
 		/// untouched to an outer scroll container.
 		/// </summary>
-		private void RaiseBodyMouseEvent(MouseEventArgs args)
+		/// <returns>
+		/// <see langword="true"/> when the event was CONSUMED (a button click/double-click/right-click
+		/// that fired the panel's own event), so a bubbling dispatcher stops here and an outer container
+		/// does not also handle the same click. <see langword="false"/> for passive enter/leave/move/
+		/// wheel notifications (or an already-handled event), which must keep propagating.
+		/// </returns>
+		private bool RaiseBodyMouseEvent(MouseEventArgs args)
 		{
 			if (args.Handled)
-				return;
+				return false;
 
 			// Mouse leave.
 			if (args.HasFlag(MouseFlags.MouseLeave))
@@ -120,11 +158,12 @@ namespace SharpConsoleUI.Controls
 					MouseLeave?.Invoke(this, args);
 					Container?.Invalidate(true);
 				}
-				return;
+				return false;
 			}
 
-			// Mouse enter (first report-position while outside).
-			if (!_isMouseInside && args.HasFlag(MouseFlags.ReportMousePosition))
+			// Mouse enter — on an explicit MouseEnter flag (delivered by the dispatcher's hover-chain
+			// tracking) or the first report-position seen while outside.
+			if (!_isMouseInside && (args.HasFlag(MouseFlags.MouseEnter) || args.HasFlag(MouseFlags.ReportMousePosition)))
 			{
 				_isMouseInside = true;
 				MouseEnter?.Invoke(this, args);
@@ -136,14 +175,14 @@ namespace SharpConsoleUI.Controls
 			{
 				MouseRightClick?.Invoke(this, args);
 				args.Handled = true;
-				return;
+				return true;
 			}
 
 			// Wheel/scroll: never raise a panel event — let it bubble to an outer scroll container.
 			if (args.HasFlag(MouseFlags.WheeledUp) || args.HasFlag(MouseFlags.WheeledDown) ||
 				args.HasFlag(MouseFlags.WheeledLeft) || args.HasFlag(MouseFlags.WheeledRight))
 			{
-				return;
+				return false;
 			}
 
 			// Driver-provided double-click (preferred).
@@ -154,7 +193,7 @@ namespace SharpConsoleUI.Controls
 				MouseDoubleClick?.Invoke(this, args);
 				args.Handled = true;
 				Container?.Invalidate(true);
-				return;
+				return true;
 			}
 
 			// Left click with manual double-click detection (fallback).
@@ -180,7 +219,7 @@ namespace SharpConsoleUI.Controls
 
 				args.Handled = true;
 				Container?.Invalidate(true);
-				return;
+				return true;
 			}
 
 			// Mouse movement.
@@ -188,6 +227,8 @@ namespace SharpConsoleUI.Controls
 			{
 				MouseMove?.Invoke(this, args);
 			}
+
+			return false;
 		}
 
 		/// <summary>
@@ -253,6 +294,13 @@ namespace SharpConsoleUI.Controls
 
 						return false; // unconsumed scroll bubbles to the panel's container
 					}
+
+					// If this click is bubbling UP from this very child (the dispatcher already gave the
+					// child its chance and it declined), do NOT re-dispatch to it — that would double-fire
+					// the child's click/double-click tracking. Treat it as unconsumed so the panel raises
+					// its own body mouse event below.
+					if (ReferenceEquals(args.BubbleOriginControl, child))
+						return false;
 
 					// Click: focus the child (or its focusable descendant) before forwarding, so
 					// subsequent keyboard/wheel input routes to it. HandleClick walks UP from the hit,

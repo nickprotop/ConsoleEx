@@ -86,6 +86,80 @@ namespace SharpConsoleUI.Windows
 		}
 
 		/// <summary>
+		/// Walks UP the parent chain from <paramref name="origin"/> (exclusive), offering the click to
+		/// each ancestor <see cref="Controls.IMouseAwareControl"/> until one consumes it. Mirrors the
+		/// scroll-event bubbling: a click that the deepest hit-target (or captured control) did not
+		/// consume surfaces to a hosting container, so e.g. a click on a PanelControl-facade widget's
+		/// passive <see cref="Controls.MarkupControl"/> content reaches the hosting
+		/// CollapsiblePanel/PanelControl which raises its own MouseClick. Each ancestor receives a
+		/// position relative to itself.
+		/// </summary>
+		/// <param name="origin">The control that already had its chance (its container is tried first).</param>
+		/// <param name="args">Window-relative mouse event.</param>
+		/// <returns>True if an ancestor consumed the click.</returns>
+		private bool BubbleClickToAncestors(IWindowControl origin, Events.MouseEventArgs args)
+		{
+			var current = origin.Container as IWindowControl;
+			while (current != null)
+			{
+				if (current is Controls.IMouseAwareControl ancestorAware && ancestorAware.WantsMouseEvents)
+				{
+					var ancestorPosition = GetControlRelativePosition(current, args.WindowPosition);
+					var ancestorArgs = args.WithPosition(ancestorPosition);
+					// Tag the originating control so a container ancestor (e.g. CollapsiblePanel) does
+					// not re-dispatch the click to the same child a second time.
+					ancestorArgs.BubbleOriginControl = origin;
+
+					using var _bubbleScope = new Core.UiCallbackScope(_window._windowSystem, _window, current, Core.UiOp.Click);
+					if (ancestorAware.ProcessMouseEvent(ancestorArgs))
+						return true;
+				}
+				current = current.Container as IWindowControl;
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// Delivers a plain mouse-move (ReportMousePosition) to each ancestor <see cref="Controls.IMouseAwareControl"/>
+		/// of <paramref name="origin"/>, so a host container surfaces continuous MouseMove notifications
+		/// when the cursor is over a passive descendant. Does not consume the event — move never "handles".
+		/// Each ancestor receives a position relative to itself.
+		/// </summary>
+		private void DispatchMoveToAncestors(IWindowControl origin, Events.MouseEventArgs args)
+		{
+			var current = origin.Container as IWindowControl;
+			while (current != null)
+			{
+				if (current is Controls.IMouseAwareControl ancestorAware && ancestorAware.WantsMouseEvents)
+				{
+					var ancestorPosition = GetControlRelativePosition(current, args.WindowPosition);
+					var ancestorArgs = args.WithPosition(ancestorPosition);
+					using var _moveScope = new Core.UiCallbackScope(_window._windowSystem, _window, current, Core.UiOp.MouseScroll);
+					ancestorAware.ProcessMouseEvent(ancestorArgs);
+				}
+				current = current.Container as IWindowControl;
+			}
+		}
+
+		/// <summary>
+		/// Builds the hover/containment chain for a control: the control itself followed by each of its
+		/// ancestors up to (but not including) the window root. Used for enter/leave tracking so a
+		/// container only fires MouseEnter when the cursor first enters its subtree and MouseLeave when
+		/// it leaves the entire subtree — not on every move between the container's own area and a child.
+		/// </summary>
+		private static List<IWindowControl> BuildHoverChain(IWindowControl? control)
+		{
+			var chain = new List<IWindowControl>();
+			var current = control;
+			while (current != null)
+			{
+				chain.Add(current);
+				current = current.Container as IWindowControl;
+			}
+			return chain;
+		}
+
+		/// <summary>
 		/// Handles mouse events for this window and propagates them to controls
 		/// </summary>
 		/// <param name="args">Mouse event arguments with window-relative coordinates</param>
@@ -114,7 +188,22 @@ namespace SharpConsoleUI.Windows
 						var controlPosition = GetControlRelativePosition(capturedControl, args.WindowPosition);
 						var controlArgs = args.WithPosition(controlPosition);
 						using var _capScope = new Core.UiCallbackScope(_window._windowSystem, _window, capturedControl, Core.UiOp.Click);
-						return mouseCapture.ProcessMouseEvent(controlArgs);
+						if (mouseCapture.ProcessMouseEvent(controlArgs))
+							return true;
+
+						// The captured control did not consume the event. For a terminating click (a left
+						// click, left double-click, or right click) bubble it up the parent chain so a host
+						// container can react — e.g. a press+release (or double-click) on a PanelControl-facade
+						// widget's passive MarkupControl content. Mouse capture routes the whole press→release
+						// gesture straight here (bypassing the hit-test/bubble path below), so without this a
+						// click on a passive captured leaf is silently dropped. We bubble only on the
+						// terminating click, never on intermediate drag/move frames.
+						bool isTerminatingClick = args.HasAnyFlag(
+							MouseFlags.Button1Clicked, MouseFlags.Button1DoubleClicked, MouseFlags.Button3Clicked);
+						if (isTerminatingClick && BubbleClickToAncestors(capturedControl, args))
+							return true;
+
+						return false;
 					}
 				}
 
@@ -125,23 +214,41 @@ namespace SharpConsoleUI.Windows
 					currentControl = GetControlAtPosition(args.WindowPosition);
 				}
 
-				// Generate enter/leave events when control under mouse changes
+				// Generate enter/leave events when the control under the mouse changes. Diff the full
+				// containment CHAINS (hit control + ancestors), not just the deepest control, so a
+				// container (e.g. a PanelControl facade hosting passive markup) fires MouseEnter once when
+				// the cursor first enters its subtree and MouseLeave once when it leaves the whole subtree
+				// — not on every move between the container's own area and its child. Without this, hover
+				// events only reached the deepest leaf and never surfaced to the hosting panel.
 				if (currentControl != _lastMouseOverControl)
 				{
-					// Send leave event to previous control
-					if (_lastMouseOverControl != null && _lastMouseOverControl is Controls.IMouseAwareControl leavingControl && leavingControl.WantsMouseEvents)
+					var oldChain = BuildHoverChain(_lastMouseOverControl);
+					var newChain = BuildHoverChain(currentControl);
+
+					// Leave: controls in the old chain that are no longer in the new chain (deepest first).
+					foreach (var leftControl in oldChain)
 					{
-						var leavePosition = GetControlRelativePosition(_lastMouseOverControl, args.WindowPosition);
-						var leaveArgs = args.WithPosition(leavePosition).WithFlags(MouseFlags.MouseLeave);
-						leavingControl.ProcessMouseEvent(leaveArgs);
+						if (newChain.Contains(leftControl))
+							continue;
+						if (leftControl is Controls.IMouseAwareControl leavingControl && leavingControl.WantsMouseEvents)
+						{
+							var leavePosition = GetControlRelativePosition(leftControl, args.WindowPosition);
+							var leaveArgs = args.WithPosition(leavePosition).WithFlags(MouseFlags.MouseLeave);
+							leavingControl.ProcessMouseEvent(leaveArgs);
+						}
 					}
 
-					// Send enter event to new control
-					if (currentControl != null && currentControl is Controls.IMouseAwareControl enteringControl && enteringControl.WantsMouseEvents)
+					// Enter: controls in the new chain that were not in the old chain (deepest first).
+					foreach (var enteredControl in newChain)
 					{
-						var enterPosition = GetControlRelativePosition(currentControl, args.WindowPosition);
-						var enterArgs = args.WithPosition(enterPosition).WithFlags(MouseFlags.MouseEnter);
-						enteringControl.ProcessMouseEvent(enterArgs);
+						if (oldChain.Contains(enteredControl))
+							continue;
+						if (enteredControl is Controls.IMouseAwareControl enteringControl && enteringControl.WantsMouseEvents)
+						{
+							var enterPosition = GetControlRelativePosition(enteredControl, args.WindowPosition);
+							var enterArgs = args.WithPosition(enterPosition).WithFlags(MouseFlags.MouseEnter);
+							enteringControl.ProcessMouseEvent(enterArgs);
+						}
 					}
 
 					_lastMouseOverControl = currentControl;
@@ -259,7 +366,28 @@ namespace SharpConsoleUI.Windows
 							using var _clickScope = new Core.UiCallbackScope(_window._windowSystem, _window, targetControl, Core.UiOp.Click);
 							if (mouseAware.ProcessMouseEvent(controlArgs))
 								return true;
-							// Control didn't handle it — fall through to UnhandledMouseClick
+
+							// The deepest hit-target did not consume the event. Bubble it up the parent
+							// chain so a host container can react — but ONLY for a terminating click (left
+							// click, left double-click, or right click). Never bubble press/enter/leave
+							// frames: they would flood every ancestor with spurious events every time the
+							// mouse moves over a passive leaf.
+							bool isTerminatingClick = args.HasAnyFlag(
+								MouseFlags.Button1Clicked, MouseFlags.Button1DoubleClicked, MouseFlags.Button3Clicked);
+							if (isTerminatingClick && BubbleClickToAncestors(targetControl, args))
+								return true;
+
+							// A plain mouse move (ReportMousePosition with no button) over a passive leaf is
+							// surfaced to ancestor containers as a MouseMove so a host (e.g. a PanelControl
+							// facade) gets continuous move notifications over its body content. This does NOT
+							// consume the event (move never "handles" anything) and is skipped while a button
+							// is down (those are drags, routed via mouse capture above).
+							if (args.HasFlag(MouseFlags.ReportMousePosition)
+								&& !args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Dragged, MouseFlags.Button1Released))
+							{
+								DispatchMoveToAncestors(targetControl, args);
+							}
+							// No ancestor consumed it either — fall through to UnhandledMouseClick
 						}
 
 						// Click was on a non-mouse-aware control (focus already handled above)

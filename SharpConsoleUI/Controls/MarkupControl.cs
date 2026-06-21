@@ -387,14 +387,18 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
-			// Handle double-click (driver-level detection - preferred method)
-			if (args.HasFlag(MouseFlags.Button1DoubleClicked) && _doubleClickEnabled)
+			// Handle double-click (driver-level detection - preferred method). Only CONSUME the event
+			// when there is actually a subscriber — a passive MarkupControl (no MouseDoubleClick handler)
+			// must leave the event unconsumed so it bubbles to a hosting container (e.g. a PanelControl
+			// facade whose body double-click should select/activate the widget). This mirrors the plain
+			// MouseClick path below, which only returns true when MouseClick != null.
+			if (args.HasFlag(MouseFlags.Button1DoubleClicked) && _doubleClickEnabled && MouseDoubleClick != null)
 			{
 				// Reset tracking state since driver handled the gesture
 				_lastClickTime = DateTime.MinValue;
 				_lastClickPosition = Point.Empty;
 
-				MouseDoubleClick?.Invoke(this, args);
+				MouseDoubleClick.Invoke(this, args);
 				return true;
 			}
 

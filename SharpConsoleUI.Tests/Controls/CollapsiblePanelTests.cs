@@ -198,7 +198,7 @@ public class CollapsiblePanelTests
 	}
 
 	[Fact]
-	public void BodyClick_NotHandled()
+	public void BodyClick_DoesNotToggle_ButIsSurfacedAsPanelClick()
 	{
 		var panel = new CollapsiblePanel { Title = "S", Width = 20 };
 		panel.AddControl(Label("body"));
@@ -213,7 +213,10 @@ public class CollapsiblePanelTests
 
 		bool handled = ((IMouseAwareControl)panel).ProcessMouseEvent(args);
 
-		Assert.False(handled);
+		// A body click over passive content (the label does not consume it) is surfaced as the panel's
+		// own MouseClick and reported handled, so a bubbling dispatcher stops at the panel rather than
+		// leaking the click to an outer container. It must NOT toggle the panel.
+		Assert.True(handled);
 		Assert.Equal(before, panel.IsExpanded); // body click must not toggle
 	}
 
