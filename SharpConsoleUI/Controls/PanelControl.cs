@@ -6,324 +6,232 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using SharpConsoleUI.Drawing;
-using SharpConsoleUI.Events;
-using SharpConsoleUI.Helpers;
+using System.Drawing;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
-	/// A control that renders a bordered panel with content.
-	/// Implemented as a thin wrapper over an internal non-collapsible
-	/// <see cref="CollapsiblePanel"/> which owns the border/header chrome and body layout.
+	/// A bordered panel that hosts child controls. Implemented as a permanently non-collapsible
+	/// <see cref="CollapsiblePanel"/>: the collapse API is sealed off (the panel is always expanded).
+	/// <see cref="Content"/>/<see cref="SetContent(string)"/> replace all body content with a single
+	/// borderless <see cref="MarkupControl"/> child. Container operations (<c>AddControl</c>,
+	/// <c>RemoveControl</c>, <c>ClearControls</c>, <c>Children</c>), the border/header chrome
+	/// (<c>BorderColor</c>, <c>Padding</c>, <c>UseSafeBorder</c>), the colour role
+	/// surface and the mouse events are all inherited from <see cref="CollapsiblePanel"/>.
 	/// </summary>
-	public class PanelControl : BaseControl, IMouseAwareControl, IColorRoleableControl, IContainer, IControlHost
+	public class PanelControl : CollapsiblePanel
 	{
-
-		#region ColorRole
-
-		// These three back the public ColorRole/ColorRoleMode/Outline. The double-storage is deliberate:
-		// each setter keeps our own field AND pushes the value into _inner (which actually renders the
-		// chrome). The getters return our copy. Always set _inner.ColorRole/ColorRoleMode/Outline through
-		// these setters — never poke _inner's role directly elsewhere, or the two will desync.
-		private ColorRole _role = ColorRole.Default;
-		private ThemeMode? _colorRoleMode;
-		private bool _outline;
-
-		/// <inheritdoc/>
-		public ColorRole ColorRole
-		{
-			get => _role;
-			set { _role = value; _inner.ColorRole = value; Container?.Invalidate(true); }
-		}
-
-		/// <inheritdoc/>
-		public ThemeMode? ColorRoleMode
-		{
-			get => _colorRoleMode;
-			set { _colorRoleMode = value; _inner.ColorRoleMode = value; Container?.Invalidate(true); }
-		}
-
-		/// <inheritdoc/>
-		public bool Outline
-		{
-			get => _outline;
-			set { _outline = value; _inner.Outline = value; Container?.Invalidate(true); }
-		}
-
-		#endregion
-
-		private Color? _backgroundColorValue;
-		private Color? _foregroundColorValue;
-		private int? _height;
-
-		// Panel-specific properties
-		private string? _content;
-		private BorderStyle _borderStyle = BorderStyle.Single;
-		private Color? _borderColorValue;
-		private string? _header;
-		private TextJustification _headerAlignment = TextJustification.Left;
-		private Padding _padding = new Padding(1, 0, 1, 0);
-		private bool _useSafeBorder = false;
+		private MarkupControl? _contentChild;
+		// Raw content string stored verbatim so the Content getter round-trips exactly,
+		// independent of any MarkupControl.Text normalization.
+		private string? _contentText;
 		private bool _wordWrap = true;
-		private readonly CollapsiblePanel _inner = new CollapsiblePanel { Collapsible = false, ShowHeader = false };
-		private MarkupControl? _markupChild;
-		internal CollapsiblePanel Inner => _inner;
 
-		// Mouse interaction state
-		private bool _wantsMouseEvents = true;
-		private bool _canFocusWithMouse = false;
+		// Nullable color shadows: PanelControl's public BackgroundColor/ForegroundColor have a Color?
+		// contract (callers do `panel.BackgroundColor ?? fallback`). CollapsiblePanel's are non-nullable
+		// Color. We keep our own nullable copy and forward into the base.
+		// TODO(nullable-colors): remove these shadows once CollapsiblePanel colors are Color?.
+		private Color? _bgColor;
+		private Color? _fgColor;
+
+		// Panel border state. The control still exposes a BorderStyle (BorderStyle enum) surface for
+		// backward compatibility; it maps onto the base HeaderStyle (CollapsibleHeaderStyle).
+		private BorderStyle _borderStyle = BorderStyle.Single;
+		private TextJustification _headerAlignment = TextJustification.Left;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="PanelControl"/> class.
 		/// </summary>
-		public PanelControl() { _inner.Container = this; WireInnerMouse(); SyncBorder(); }
+		public PanelControl()
+		{
+			// base.Collapsible setter forces the panel permanently expanded and clears the indicator.
+			// We go through the base setter (not the sealed no-op override) so the state actually sticks.
+			base.Collapsible = false;
+			// A panel only shows a header when one is set (matches the old facade default).
+			base.ShowHeader = false;
+			SyncBorder();
+		}
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="PanelControl"/> class with text content.
 		/// </summary>
 		/// <param name="text">The text to display inside the panel (supports markup).</param>
-		public PanelControl(string text) { _inner.Container = this; WireInnerMouse(); SyncBorder(); Content = text; }
-
-		private void WireInnerMouse()
+		public PanelControl(string text) : this()
 		{
-			_inner.MouseClick += (_, e) => MouseClick?.Invoke(this, e);
-			_inner.MouseDoubleClick += (_, e) => MouseDoubleClick?.Invoke(this, e);
-			_inner.MouseRightClick += (_, e) => MouseRightClick?.Invoke(this, e);
-			_inner.MouseEnter += (_, e) => MouseEnter?.Invoke(this, e);
-			_inner.MouseLeave += (_, e) => MouseLeave?.Invoke(this, e);
-			_inner.MouseMove += (_, e) => MouseMove?.Invoke(this, e);
+			Content = text;
 		}
 
-		#region Properties
+		#region Sealed collapse API — a Panel can never become collapsible
 
 		/// <inheritdoc/>
-		public override int? ContentWidth => _inner.ContentWidth;
-
-		/// <summary>
-		/// Gets or sets the background color.
-		/// When null, inherits from the container.
-		/// </summary>
-		public Color? BackgroundColor
+		/// <remarks>Always <see langword="false"/> for a panel; the setter is a no-op.</remarks>
+		public sealed override bool Collapsible
 		{
-			get => _backgroundColorValue;
-			set { _backgroundColorValue = value; _inner.BackgroundColor = value ?? Color.Transparent; Container?.Invalidate(true); }
-		}
-
-		/// <summary>
-		/// Gets or sets the foreground color.
-		/// When null, inherits from the container.
-		/// </summary>
-		public Color? ForegroundColor
-		{
-			get => _foregroundColorValue;
-			set { _foregroundColorValue = value; if (_markupChild != null) _markupChild.ForegroundColor = value; Container?.Invalidate(true); }
-		}
-
-		/// <summary>
-		/// Gets or sets the explicit height of the panel.
-		/// When set, the panel border will render at this height.
-		/// When null and VerticalAlignment is Fill, the panel stretches to fill available height.
-		/// </summary>
-		public override int? Height
-		{
-			get => _height;
-			set { _height = value.HasValue ? Math.Max(0, value.Value) : value; _inner.Height = _height; Container?.Invalidate(true); }
+			get => false;
+			set { /* no-op: panels are non-collapsible */ }
 		}
 
 		/// <inheritdoc/>
-		public override VerticalAlignment VerticalAlignment
+		/// <remarks>Always <see langword="true"/> for a panel; the setter is a no-op.</remarks>
+		public sealed override bool IsExpanded
 		{
-			get => base.VerticalAlignment;
-			set { base.VerticalAlignment = value; _inner.VerticalAlignment = value; Container?.Invalidate(true); }
+			get => true;
+			set { /* no-op: panels are always expanded */ }
 		}
 
 		/// <inheritdoc/>
-		public override HorizontalAlignment HorizontalAlignment
+		/// <remarks>No-op: a panel cannot be toggled.</remarks>
+		public sealed override void Toggle() { /* no-op */ }
+
+		/// <inheritdoc/>
+		/// <remarks>No-op: a panel is always expanded.</remarks>
+		public sealed override void Expand() { /* no-op */ }
+
+		/// <inheritdoc/>
+		/// <remarks>No-op: a panel cannot be collapsed.</remarks>
+		public sealed override void Collapse() { /* no-op */ }
+
+		// ShowHeader / ShowHeaderSeparator are legitimate on a panel (they don't toggle collapse).
+		// Seal them so they can't be re-virtualized, while still delegating to the base behavior.
+
+		/// <inheritdoc/>
+		public sealed override bool ShowHeader
 		{
-			get => base.HorizontalAlignment;
-			set { base.HorizontalAlignment = value; _inner.HorizontalAlignment = value; Container?.Invalidate(true); }
+			get => base.ShowHeader;
+			set => base.ShowHeader = value;
+		}
+
+		/// <inheritdoc/>
+		public sealed override bool ShowHeaderSeparator
+		{
+			get => base.ShowHeaderSeparator;
+			set => base.ShowHeaderSeparator = value;
 		}
 
 		#endregion
 
-		#region Panel-specific Properties
+		#region Nullable color shadows (preserve the Color? Panel contract)
 
 		/// <summary>
-		/// Gets or sets the content to display inside the panel (supports markup).
+		/// Gets or sets the background color. When <see langword="null"/>, the panel inherits from its
+		/// container. Exposes a <see cref="Color"/>? contract (callers may write
+		/// <c>panel.BackgroundColor ?? fallback</c>).
+		/// </summary>
+		public new Color? BackgroundColor
+		{
+			get => _bgColor;
+			// Push the RAW nullable through the internal hook so null truly clears the base's explicit
+			// color (resolves from container/theme), instead of pinning it to a concrete value. The
+			// public non-nullable base setter cannot express "no explicit color".
+			set { _bgColor = value; base.SetBackgroundColorNullable(value); }
+		}
+
+		/// <summary>
+		/// Gets or sets the foreground color. When <see langword="null"/>, the panel resolves the
+		/// foreground from the theme/container. Exposes a <see cref="Color"/>? contract.
+		/// </summary>
+		public new Color? ForegroundColor
+		{
+			get => _fgColor;
+			set
+			{
+				_fgColor = value;
+				// Push the RAW nullable through the internal hook. A null reset must clear the base's
+				// explicit color so CollapsiblePanel.PaintDOM (which reads _foregroundColorValue directly)
+				// resolves from the theme — NOT retain the prior explicit color.
+				base.SetForegroundColorNullable(value);
+				if (_contentChild != null) _contentChild.ForegroundColor = value;
+			}
+		}
+
+		#endregion
+
+		#region Content — replace-all single borderless markup child
+
+		/// <summary>
+		/// Gets or sets the content to display inside the panel (supports markup). Setting this replaces
+		/// ALL body content with a single borderless <see cref="MarkupControl"/> child. Setting it to
+		/// <see langword="null"/> or empty removes that child.
 		/// </summary>
 		public string? Content
 		{
-			get => _content;
+			get => _contentText;
 			set
 			{
-				_content = value;
-				if (string.IsNullOrEmpty(value))
+				ClearControls();        // replace ALL content (also disposes prior children)
+				_contentChild = null;
+				_contentText = null;
+				if (!string.IsNullOrEmpty(value))
 				{
-					if (_markupChild != null)
+					_contentText = value;   // store verbatim so the getter round-trips exactly
+					_contentChild = new MarkupControl(new System.Collections.Generic.List<string> { value })
 					{
-						_inner.RemoveControl(_markupChild); // disposes it (CollapsiblePanel semantics)
-						_markupChild = null;
-					}
+						Wrap = _wordWrap,
+						ForegroundColor = _fgColor
+					};
+					AddControl(_contentChild);
 				}
-				else if (_markupChild == null)
-				{
-					_markupChild = new MarkupControl(new List<string> { value }) { Wrap = _wordWrap, ForegroundColor = _foregroundColorValue };
-					_inner.AddControl(_markupChild); // appended — first child when Content set before children
-				}
-				else
-				{
-					_markupChild.SetContent(new List<string> { value });
-				}
-				Container?.Invalidate(true);
 			}
 		}
 
 		/// <summary>
-		/// Gets or sets the border style for the panel.
+		/// Sets the content to display inside the panel using text (supports markup). Replaces all
+		/// existing body content.
 		/// </summary>
-		public BorderStyle BorderStyle
-		{
-			get => _borderStyle;
-			set { _borderStyle = value; SyncBorder(); Container?.Invalidate(true); }
-		}
-
-		/// <summary>
-		/// Gets or sets the border color.
-		/// When null, uses the resolved foreground color.
-		/// </summary>
-		public Color? BorderColor
-		{
-			get => _borderColorValue;
-			set { _borderColorValue = value; _inner.BorderColor = value; Container?.Invalidate(true); }
-		}
-
-		/// <summary>
-		/// Gets or sets the header text displayed at the top of the panel border.
-		/// </summary>
-		public string? Header
-		{
-			get => _header;
-			set { _header = value; SyncBorder(); Container?.Invalidate(true); }
-		}
-
-		/// <summary>
-		/// Gets or sets the horizontal alignment of the header text.
-		/// </summary>
-		public TextJustification HeaderAlignment
-		{
-			get => _headerAlignment;
-			set { _headerAlignment = value; _inner.HeaderAlignment = MapHeaderAlignment(value); Container?.Invalidate(true); }
-		}
-
-		/// <summary>
-		/// Gets or sets the padding inside the panel border.
-		/// </summary>
-		public Padding Padding
-		{
-			get => _padding;
-			set { _padding = value; _inner.Padding = value; Container?.Invalidate(true); }
-		}
-
-		/// <summary>
-		/// Gets or sets whether to use safe border characters for better terminal compatibility.
-		/// </summary>
-		public bool UseSafeBorder
-		{
-			get => _useSafeBorder;
-			set { _useSafeBorder = value; _inner.UseSafeBorder = value; Container?.Invalidate(true); }
-		}
+		/// <param name="text">The text to display.</param>
+		public void SetContent(string text) => Content = text;
 
 		/// <summary>
 		/// Gets or sets whether content lines that exceed the panel width are word-wrapped.
-		/// When true (default), long lines are broken at word boundaries.
-		/// When false, long lines are clipped at the panel boundary — use this for
-		/// pre-formatted content such as graphs and progress bars.
+		/// When <see langword="true"/> (default), long lines are broken at word boundaries.
+		/// When <see langword="false"/>, long lines are clipped — use this for pre-formatted content
+		/// such as graphs and progress bars.
 		/// </summary>
 		public bool WordWrap
 		{
 			get => _wordWrap;
-			set { _wordWrap = value; if (_markupChild != null) _markupChild.Wrap = value; Container?.Invalidate(true); }
+			set { _wordWrap = value; if (_contentChild != null) _contentChild.Wrap = value; }
 		}
 
 		#endregion
 
-		#region IMouseAwareControl Properties
+		#region Panel chrome — backward-compatible BorderStyle / Header / HeaderAlignment
 
-		/// <inheritdoc/>
-		public bool WantsMouseEvents
+		/// <summary>
+		/// Gets or sets the border style for the panel. Maps onto the base
+		/// <see cref="CollapsiblePanel.HeaderStyle"/>: <see cref="BorderStyle.Rounded"/> →
+		/// <see cref="CollapsibleHeaderStyle.Rounded"/>, <see cref="BorderStyle.DoubleLine"/> →
+		/// <see cref="CollapsibleHeaderStyle.DoubleLine"/>, <see cref="BorderStyle.None"/>/
+		/// <see cref="BorderStyle.Frameless"/> → <see cref="CollapsibleHeaderStyle.Borderless"/>, and
+		/// <see cref="BorderStyle.Single"/> → <see cref="CollapsibleHeaderStyle.Bordered"/>.
+		/// </summary>
+		public BorderStyle BorderStyle
 		{
-			get => _wantsMouseEvents;
-			set
-			{
-				if (_wantsMouseEvents == value) return;
-				_wantsMouseEvents = value;
-			}
+			get => _borderStyle;
+			set { _borderStyle = value; SyncBorder(); }
 		}
 
-		/// <inheritdoc/>
-		public bool CanFocusWithMouse
+		/// <summary>
+		/// Gets or sets the header text displayed at the top of the panel border. An alias over
+		/// <see cref="CollapsiblePanel.Title"/> that also toggles header visibility.
+		/// </summary>
+		public string? Header
 		{
-			get => _canFocusWithMouse;
-			set
-			{
-				if (_canFocusWithMouse == value) return;
-				_canFocusWithMouse = value;
-			}
+			get => base.Title;
+			set { base.Title = value; base.ShowHeader = !string.IsNullOrEmpty(value); }
 		}
 
-		/// <inheritdoc/>
-		public event EventHandler<MouseEventArgs>? MouseClick;
-
-		/// <inheritdoc/>
-		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
-
-		/// <inheritdoc/>
-		public event EventHandler<MouseEventArgs>? MouseRightClick;
-
-		/// <inheritdoc/>
-		public event EventHandler<MouseEventArgs>? MouseEnter;
-
-		/// <inheritdoc/>
-		public event EventHandler<MouseEventArgs>? MouseLeave;
-
-		/// <inheritdoc/>
-		public event EventHandler<MouseEventArgs>? MouseMove;
-
-		#endregion
-
-		#region IContainer
-
-		// These provide the inner panel's container colors. They must resolve from PanelControl's OWN
-		// state and outer Container — delegating to _inner would recurse (the inner panel's Container is
-		// this PanelControl, so it would ask us back).
-		Color IContainer.BackgroundColor
+		/// <summary>
+		/// Gets or sets the horizontal alignment of the header text, using
+		/// <see cref="TextJustification"/>. Maps onto the base
+		/// <see cref="CollapsiblePanel.HeaderAlignment"/> (<see cref="HorizontalAlignment"/>).
+		/// </summary>
+		public new TextJustification HeaderAlignment
 		{
-			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			// Mirror the public BackgroundColor setter: push the value into _inner too, otherwise setting
-			// the background through an IContainer reference would leave _inner stale and the two paths
-			// would disagree. (value is a non-nullable Color, so no Transparent coalesce is needed.)
-			set { _backgroundColorValue = value; _inner.BackgroundColor = value; Container?.Invalidate(true); }
+			get => _headerAlignment;
+			set { _headerAlignment = value; base.HeaderAlignment = MapHeaderAlignment(value); }
 		}
-		Color IContainer.ForegroundColor
-		{
-			get => ColorResolver.ResolveForeground(_foregroundColorValue, Container);
-			// Intentionally asymmetric with BackgroundColor: foreground flows to the markup body child
-			// (via the public ForegroundColor setter / Content creation), not into _inner's own foreground
-			// state, and the explicit getter resolves from our state. Nothing reads _inner's foreground for
-			// the panel, so writing only _foregroundColorValue here keeps both paths consistent.
-			set { _foregroundColorValue = value; Container?.Invalidate(true); }
-		}
-		ConsoleWindowSystem? IContainer.GetConsoleWindowSystem => Container?.GetConsoleWindowSystem;
-		bool IContainer.IsDirty { get => ((IContainer)_inner).IsDirty; set => ((IContainer)_inner).IsDirty = value; }
-		void IContainer.Invalidate(bool redrawAll, IWindowControl? callerControl) => Container?.Invalidate(redrawAll, callerControl);
-		int? IContainer.GetVisibleHeightForControl(IWindowControl control) => Container?.GetVisibleHeightForControl(control);
-
-		#endregion
-
-		#region Private Rendering Methods
 
 		private static CollapsibleHeaderStyle MapBorderStyle(BorderStyle style) => style switch
 		{
@@ -333,108 +241,31 @@ namespace SharpConsoleUI.Controls
 			BorderStyle.Frameless => CollapsibleHeaderStyle.Borderless,
 			_ => CollapsibleHeaderStyle.Bordered,
 		};
+
 		private static HorizontalAlignment MapHeaderAlignment(TextJustification j) => j switch
 		{
 			TextJustification.Center => HorizontalAlignment.Center,
 			TextJustification.Right => HorizontalAlignment.Right,
 			_ => HorizontalAlignment.Left,
 		};
+
 		private void SyncBorder()
 		{
-			_inner.HeaderStyle = MapBorderStyle(_borderStyle);
-			_inner.ShowHeader = !string.IsNullOrEmpty(_header);
-			_inner.Title = _header;
-			_inner.HeaderAlignment = MapHeaderAlignment(_headerAlignment);
+			// Header text/visibility is owned by the Header property (delegates straight to base.Title).
+			// SyncBorder only maps the BorderStyle and header alignment onto the base.
+			base.HeaderStyle = MapBorderStyle(_borderStyle);
+			base.HeaderAlignment = MapHeaderAlignment(_headerAlignment);
 		}
 
 		#endregion
 
-		#region IMouseAwareControl Implementation
-
-		/// <inheritdoc/>
-		public bool ProcessMouseEvent(MouseEventArgs args)
-		{
-			if (!WantsMouseEvents)
-				return false;
-
-			return _inner.ProcessMouseEvent(args);
-		}
-
-		#endregion
-
-		#region BaseControl Overrides
-
 		/// <summary>
-		/// Called during Dispose before Container is set to null.
-		/// Clears mouse event handlers and disposes the inner panel.
+		/// Creates a new builder for configuring a <see cref="PanelControl"/>.
 		/// </summary>
-		protected override void OnDisposing()
-		{
-			MouseClick = null;
-			MouseDoubleClick = null;
-			MouseRightClick = null;
-			MouseEnter = null;
-			MouseLeave = null;
-			MouseMove = null;
-			_inner.Dispose();
-		}
-
-		/// <summary>
-		/// Creates a new builder for configuring a PanelControl
-		/// </summary>
-		/// <returns>A new builder instance</returns>
+		/// <returns>A new builder instance.</returns>
 		public static Builders.PanelBuilder Create()
 		{
 			return new Builders.PanelBuilder();
 		}
-
-		/// <inheritdoc/>
-		public override System.Drawing.Size GetLogicalContentSize() => _inner.GetLogicalContentSize();
-
-		/// <summary>
-		/// Sets the content to display inside the panel using text (supports markup).
-		/// </summary>
-		/// <param name="text">The text to display.</param>
-		public void SetContent(string text) => Content = text;
-
-		#endregion
-
-		#region IDOMPaintable Implementation
-
-		/// <inheritdoc/>
-		public override LayoutSize MeasureDOM(LayoutConstraints constraints) => _inner.MeasureDOM(constraints);
-
-		/// <inheritdoc/>
-		public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color defaultFg, Color defaultBg)
-		{
-			// The panel paints no chrome itself — the engine paints _inner (our sole child). We still
-			// record our own bounds so ActualX/Y/Width/Height are populated for consumers (e.g. the
-			// HorizontalSplitter, which reads PanelControl.ActualHeight).
-			//
-			// PanelControl.ActualBounds == _inner.ActualBounds always: _inner is the single child of a
-			// VerticalStackLayout with no spacing, and its alignment/width/height/explicit-height are all
-			// forwarded from this panel, so the layout arranges it at local (0,0) filling the panel's rect.
-			// Verified empirically across default/left/center/right/fill/explicit-W/explicit-H — bounds
-			// coincide in every case (including the X-offset cases). Hence no need to delegate Actual*.
-			SetActualBounds(bounds);
-		}
-
-		#endregion
-
-		#region IControlHost
-
-		/// <inheritdoc/>
-		public void AddControl(IWindowControl control) => _inner.AddControl(control);
-
-		/// <inheritdoc/>
-		public void RemoveControl(IWindowControl control) => _inner.RemoveControl(control);
-
-		/// <inheritdoc/>
-		public void ClearControls() => _inner.ClearControls();
-
-		/// <inheritdoc/>
-		public IReadOnlyList<IWindowControl> Children => _inner.Children;
-
-		#endregion
 	}
 }

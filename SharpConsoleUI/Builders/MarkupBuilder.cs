@@ -43,6 +43,12 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	private Themes.ColorRole _role = Themes.ColorRole.Default;
 	private Themes.ThemeMode? _colorRoleMode;
 	private bool _outline = false;
+	private BorderStyle _border = BorderStyle.None;
+	private Color? _borderColor;
+	private string? _header;
+	private TextJustification _headerAlignment = TextJustification.Left;
+	private bool _useSafeBorder;
+	private Padding _padding = new Padding(0, 0, 0, 0);
 
 	/// <summary>
 	/// Sets the control's semantic colour role (drives the default text colour;
@@ -459,6 +465,63 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	}
 
 	/// <summary>
+	/// Sets the border style drawn around the control.
+	/// </summary>
+	/// <param name="style">The border style.</param>
+	/// <returns>The builder for chaining.</returns>
+	public MarkupBuilder WithBorder(BorderStyle style) { _border = style; return this; }
+
+	/// <summary>
+	/// Shortcut for a rounded border.
+	/// </summary>
+	/// <returns>The builder for chaining.</returns>
+	public MarkupBuilder Rounded() { _border = BorderStyle.Rounded; return this; }
+
+	/// <summary>
+	/// Shortcut to remove the border.
+	/// </summary>
+	/// <returns>The builder for chaining.</returns>
+	public MarkupBuilder NoBorder() { _border = BorderStyle.None; return this; }
+
+	/// <summary>
+	/// Sets the border color.
+	/// </summary>
+	/// <param name="color">The border color.</param>
+	/// <returns>The builder for chaining.</returns>
+	public MarkupBuilder WithBorderColor(Color color) { _borderColor = color; return this; }
+
+	/// <summary>
+	/// Sets the header text embedded in the top border.
+	/// </summary>
+	/// <param name="header">The header text.</param>
+	/// <returns>The builder for chaining.</returns>
+	public MarkupBuilder WithHeader(string header) { _header = header; return this; }
+
+	/// <summary>
+	/// Sets the header text alignment within the top border.
+	/// </summary>
+	/// <param name="alignment">The header alignment.</param>
+	/// <returns>The builder for chaining.</returns>
+	public MarkupBuilder WithHeaderAlignment(TextJustification alignment) { _headerAlignment = alignment; return this; }
+
+	/// <summary>
+	/// Uses ASCII-safe border glyphs for terminals that render box-drawing characters poorly.
+	/// </summary>
+	/// <param name="useSafe">Whether to use safe border glyphs. Defaults to true.</param>
+	/// <returns>The builder for chaining.</returns>
+	public MarkupBuilder UseSafeBorder(bool useSafe = true) { _useSafeBorder = useSafe; return this; }
+
+	/// <summary>
+	/// Sets the inner padding between the border and the content.
+	/// </summary>
+	/// <param name="left">Left padding.</param>
+	/// <param name="top">Top padding.</param>
+	/// <param name="right">Right padding.</param>
+	/// <param name="bottom">Bottom padding.</param>
+	/// <returns>The builder for chaining.</returns>
+	public MarkupBuilder WithPadding(int left, int top, int right, int bottom) { _padding = new Padding(left, top, right, bottom); return this; }
+
+	/// <summary>
 	/// Builds the markup control
 	/// </summary>
 	/// <returns>The configured markup control</returns>
@@ -491,6 +554,13 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 			ColorRoleMode = _colorRoleMode,
 			Outline = _outline
 		};
+
+		markup.Border = _border;
+		markup.BorderColor = _borderColor;
+		markup.Header = _header;
+		markup.HeaderAlignment = _headerAlignment;
+		markup.UseSafeBorder = _useSafeBorder;
+		markup.Padding = _padding;
 
 		if (_linkClickedHandler != null)
 			markup.LinkClicked += _linkClickedHandler;

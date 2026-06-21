@@ -59,6 +59,12 @@ namespace SharpConsoleUI.Controls
 		private Color? _backgroundColor = null;
 		private Color? _foregroundColor = null;
 		private Configuration.MarkdownStyle? _markdownStyle = null;
+		private BorderStyle _border = BorderStyle.None;
+		private Color? _borderColor;
+		private string? _header;
+		private TextJustification _headerAlignment = TextJustification.Left;
+		private bool _useSafeBorder;
+		private Padding _padding = new Padding(0, 0, 0, 0);
 
 		// Double-click detection
 		private DateTime _lastClickTime = DateTime.MinValue;
@@ -101,7 +107,12 @@ namespace SharpConsoleUI.Controls
 					int length = Parsing.MarkupParser.StripLength(line);
 					if (length > maxLength) maxLength = length;
 				}
-				return maxLength + Margin.Left + Margin.Right;
+				// Include the optional border + inner padding so auto-sizing (TabLayout / column
+				// autofit) reserves room for the frame. Zero when borderless with no padding, so the
+				// returned width is unchanged from the plain-text path.
+				int borderInset = _border == BorderStyle.None ? 0 : 1;
+				int chromeWidth = borderInset * 2 + _padding.Left + _padding.Right;
+				return maxLength + Margin.Left + Margin.Right + chromeWidth;
 			}
 		}
 
@@ -128,6 +139,24 @@ namespace SharpConsoleUI.Controls
 			get => _wrap;
 			set => SetProperty(ref _wrap, value);
 		}
+
+		/// <summary>Optional border drawn around the markup. <see cref="BorderStyle.None"/> (default) = no border.</summary>
+		public BorderStyle Border { get => _border; set => SetProperty(ref _border, value); }
+
+		/// <summary>Border color. Null falls back to the ColorRole border / foreground.</summary>
+		public Color? BorderColor { get => _borderColor; set => SetProperty(ref _borderColor, value); }
+
+		/// <summary>Optional header text rendered in the top border (only when bordered).</summary>
+		public string? Header { get => _header; set => SetProperty(ref _header, value); }
+
+		/// <summary>Horizontal alignment of the header text within the top border.</summary>
+		public TextJustification HeaderAlignment { get => _headerAlignment; set => SetProperty(ref _headerAlignment, value); }
+
+		/// <summary>Use ASCII-safe border characters for better terminal compatibility.</summary>
+		public bool UseSafeBorder { get => _useSafeBorder; set => SetProperty(ref _useSafeBorder, value); }
+
+		/// <summary>Inner padding between the border (or edge) and the markup content.</summary>
+		public Padding Padding { get => _padding; set => SetProperty(ref _padding, value); }
 
 		/// <summary>
 		/// Gets or sets whether double-click events are enabled.
@@ -244,7 +273,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override System.Drawing.Size GetLogicalContentSize()
 		{
-			// Reuse ContentWidth for width calculation
+			// Reuse ContentWidth for width calculation (already includes border + padding chrome).
 			int width = ContentWidth ?? 0;
 
 			// Calculate total lines (including splits)
@@ -257,7 +286,12 @@ namespace SharpConsoleUI.Controls
 				totalLines += subLines.Length;
 			}
 
-			return new System.Drawing.Size(width, totalLines);
+			// Include the optional border + inner padding in the logical height so a bordered markup
+			// inside a ScrollablePanel scrolls to its true extent. Zero when borderless with no
+			// padding, keeping the no-border path identical.
+			int borderInset = _border == BorderStyle.None ? 0 : 1;
+			int chromeHeight = borderInset * 2 + _padding.Top + _padding.Bottom;
+			return new System.Drawing.Size(width, totalLines + chromeHeight);
 		}
 
 		/// <summary>
@@ -473,8 +507,14 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
+			// Chrome added by an optional border + inner padding. Zero when borderless with no padding,
+			// so the measured size is unchanged from the plain-text path (regression guard).
+			int borderInset = _border == BorderStyle.None ? 0 : 1;
+			int chromeWidth = borderInset * 2 + _padding.Left + _padding.Right;
+			int chromeHeight = borderInset * 2 + _padding.Top + _padding.Bottom;
+
 			int targetWidth = Width ?? constraints.MaxWidth;
-			int contentWidth = Math.Max(0, targetWidth - Margin.Left - Margin.Right);
+			int contentWidth = Math.Max(0, targetWidth - Margin.Left - Margin.Right - chromeWidth);
 
 			// Calculate content dimensions
 			List<string> snapshot;
@@ -504,11 +544,11 @@ namespace SharpConsoleUI.Controls
 			// Account for margins
 			// For Stretch alignment, request full available width
 			// For other alignments, request only what content needs
-			int contentBasedWidth = maxContentWidth + Margin.Left + Margin.Right;
+			int contentBasedWidth = maxContentWidth + Margin.Left + Margin.Right + chromeWidth;
 			int width = HorizontalAlignment == HorizontalAlignment.Stretch
 				? targetWidth + Margin.Left + Margin.Right
 				: Math.Min(targetWidth, contentBasedWidth);
-			int height = totalLines + Margin.Top + Margin.Bottom;
+			int height = totalLines + Margin.Top + Margin.Bottom + chromeHeight;
 
 			// Guard against invalid constraints (e.g. when container is resized very small)
 			int clampedMinW = Math.Min(constraints.MinWidth, constraints.MaxWidth);
@@ -529,7 +569,18 @@ namespace SharpConsoleUI.Controls
 			Color fgColor = Container?.ForegroundColor ?? defaultFg;
 			var marginBg = Color.Transparent;
 
-			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
+			// Border + padding inset. When _border == None and padding is all-zero, these insets
+			// EQUAL the margins, so the paint path is byte-identical to the borderless behavior
+			// (the regression guard). The content area shrinks by the border (1 cell each side when
+			// present) plus padding; everything that delimits the CONTENT AREA uses the *Inset vars,
+			// while the outer-margin fills stay on Margin.*.
+			int borderInset = _border == BorderStyle.None ? 0 : 1;
+			int leftInset = Margin.Left + borderInset + _padding.Left;
+			int topInset = Margin.Top + borderInset + _padding.Top;
+			int rightInset = Margin.Right + borderInset + _padding.Right;
+			int bottomInset = Margin.Bottom + borderInset + _padding.Bottom;
+
+			int targetWidth = bounds.Width - leftInset - rightInset;
 			if (targetWidth <= 0) return;
 
 			List<string> snapshot;
@@ -590,16 +641,16 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Paint with margins
-			int startY = bounds.Y + Margin.Top;
-			int startX = bounds.X + Margin.Left;
+			// Paint with margins + border + padding inset
+			int startY = bounds.Y + topInset;
+			int startX = bounds.X + leftInset;
 
 			// Cache the laid-out grid + paint origin so mouse hit-testing maps screen coords
 			// to (displayRow, cellIndex) over the exact cells that were painted.
 			// NOTE: mouse coordinates delivered to ProcessMouseEvent are CONTROL-RELATIVE
 			// (content top-left = (0,0)), so the cache stores origins relative to the control
 			// (Margin.Top / Margin.Left + alignOffset), NOT the absolute buffer bounds.
-			UpdateSelectionLayoutCache(renderedCellLines, rowSourceLineIndex, Margin.Left, Margin.Top, targetWidth);
+			UpdateSelectionLayoutCache(renderedCellLines, rowSourceLineIndex, leftInset, topInset, targetWidth);
 			UpdateLinkLayoutCache(renderedLinkLines);
 			UpdateLinkVisibilityCache(renderedCellLines.Count, startY, clipRect.Y, clipRect.Bottom);
 
@@ -621,11 +672,17 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Fill top margin
-			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, startY, fgColor, marginBg);
+			// Fill top margin (outer margin rows above the border/content)
+			int topMarginEnd = bounds.Y + Margin.Top;
+			ControlRenderingHelpers.FillTopMargin(buffer, bounds, clipRect, topMarginEnd, fgColor, marginBg);
 
-			// Paint content lines
-			for (int i = 0; i < renderedCellLines.Count && startY + i < bounds.Bottom; i++)
+			// ColorRole anchor for a bordered control is the frame: explicit border → role border → foreground.
+			Color borderColor = _borderColor
+				?? ColorResolver.ColorRoleBorder(ColorRole, Container, Outline, Themes.ColorRoleState.Normal, mode: ColorRoleMode)
+				?? effectiveFg;
+
+			// Paint content lines (leave room for the bottom border + bottom padding + bottom margin)
+			for (int i = 0; i < renderedCellLines.Count && startY + i < bounds.Bottom - bottomInset; i++)
 			{
 				int y = startY + i;
 				if (y < clipRect.Y || y >= clipRect.Bottom)
@@ -662,7 +719,9 @@ namespace SharpConsoleUI.Controls
 				}
 
 				// Record this row's horizontal paint offset (control-relative) for mouse hit-testing.
-				SetRowPaintOffset(i, Margin.Left + alignOffset);
+				// Uses the full inset (margin + border + padding) so a click inside a bordered markup
+				// maps to the correct cell.
+				SetRowPaintOffset(i, leftInset + alignOffset);
 
 				// Apply selection highlight (only when selection is enabled and this row is selected).
 				var paintLine = ApplySelectionHighlight(i, cellLine);
@@ -674,9 +733,10 @@ namespace SharpConsoleUI.Controls
 				// Paint the line content
 				buffer.WriteCellsClipped(startX + alignOffset, y, paintLine, clipRect);
 
-				// Fill remaining space (right side)
+				// Fill remaining space (right side) up to the right inset (leaves the right border /
+				// right padding / right margin columns untouched).
 				int rightPadStart = startX + alignOffset + lineWidth;
-				int rightPadWidth = bounds.Right - rightPadStart - Margin.Right;
+				int rightPadWidth = bounds.Right - rightPadStart - rightInset;
 				if (rightPadWidth > 0)
 				{
 					// Use the control's background color if set, otherwise container's
@@ -700,7 +760,7 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Fill bottom margin and remaining space
+			// Fill bottom margin and remaining space below the content.
 			int contentEndY = startY + renderedCellLines.Count;
 			for (int y = contentEndY; y < bounds.Bottom; y++)
 			{
@@ -708,6 +768,15 @@ namespace SharpConsoleUI.Controls
 				{
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.X, y, bounds.Width, 1), fgColor, marginBg);
 				}
+			}
+
+			// Draw the border frame LAST so its top/bottom borders and left/right vertical edges
+			// overwrite any margin/content spill. The frame helper only lays down chrome (border
+			// glyphs + interior fill on non-content rows / edge cells on content rows); the painted
+			// content above survives because the inset guarantees it landed strictly inside the frame.
+			if (_border != BorderStyle.None)
+			{
+				PaintBorderFrame(buffer, bounds, clipRect, borderColor, effectiveBg, renderedCellLines.Count, topInset, bottomInset);
 			}
 		}
 

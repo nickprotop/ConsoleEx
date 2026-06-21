@@ -25,6 +25,12 @@ MarkupControl displays multi-line text with rich formatting using SharpConsoleUI
 | `IsEnabled` | `bool` | `true` | Whether the control accepts keyboard input (link navigation). A disabled control is never a focus stop |
 | `FocusedLinkForegroundColor` | `Color?` | `null` | Foreground for the keyboard-focused link highlight; `null` uses a high-contrast default (see [Links](#links)) |
 | `FocusedLinkBackgroundColor` | `Color?` | `null` | Background for the keyboard-focused link highlight; `null` uses a high-contrast default |
+| `Border` | `BorderStyle` | `None` | Optional border drawn around the markup (None = no border) |
+| `BorderColor` | `Color?` | `null` | Border color; null resolves from ColorRole/foreground |
+| `Header` | `string?` | `null` | Header text shown in the top border (when bordered) |
+| `HeaderAlignment` | `TextJustification` | `Left` | Header text alignment within the top border |
+| `UseSafeBorder` | `bool` | `false` | Use ASCII-safe border characters |
+| `Padding` | `Padding` | `(0,0,0,0)` | Inner padding between border/edge and content |
 
 ## Methods
 
@@ -67,6 +73,23 @@ var markup = Controls.Markup()
     .Build();
 
 window.AddControl(markup);
+```
+
+## Bordered Markup (Text in a Box)
+
+A `MarkupControl` can draw its own border, header, and padding, so "bordered text" is just
+markup — you don't need a separate container around it. For a box that *hosts other controls*,
+use `Controls.Panel()` (a container) instead.
+
+```csharp
+// A bordered text box — no separate "panel" needed; MarkupControl draws its own border.
+var box = Controls.Markup("[cyan]Status:[/] All systems go")
+    .WithBorder(BorderStyle.Rounded)
+    .WithHeader("System")
+    .WithBorderColor(Color.Cyan1)
+    .WithPadding(1, 0, 1, 0)
+    .Build();
+window.AddControl(box);
 ```
 
 ### Using Constructor

@@ -170,7 +170,7 @@ namespace SharpConsoleUI.Controls
 		/// Gets or sets whether a horizontal separator line is drawn beneath a borderless header.
 		/// Has no effect on the bordered header style. Defaults to <see langword="false"/>.
 		/// </summary>
-		public bool ShowHeaderSeparator
+		public virtual bool ShowHeaderSeparator
 		{
 			get => _showHeaderSeparator;
 			set => SetProperty(ref _showHeaderSeparator, value);
@@ -193,7 +193,7 @@ namespace SharpConsoleUI.Controls
 		/// Enter/Space, and is not itself a Tab stop — focus passes through to its body children
 		/// (the panel behaves as a plain container).
 		/// </summary>
-		public bool Collapsible
+		public virtual bool Collapsible
 		{
 			get => _collapsible;
 			set
@@ -221,7 +221,7 @@ namespace SharpConsoleUI.Controls
 		/// regardless of this flag (see <see cref="Collapsible"/>), since the header is the only
 		/// affordance for toggling it.
 		/// </summary>
-		public bool ShowHeader
+		public virtual bool ShowHeader
 		{
 			get => _showHeader;
 			set => SetProperty(ref _showHeader, value);
@@ -311,20 +311,20 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<bool>? ExpandedChanged;
 
 		/// <summary>Gets or sets whether the body is expanded (visible). Default true.</summary>
-		public bool IsExpanded
+		public virtual bool IsExpanded
 		{
 			get => _isExpanded;
 			set => SetExpanded(value);
 		}
 
 		/// <summary>Expands the body.</summary>
-		public void Expand() => SetExpanded(true);
+		public virtual void Expand() => SetExpanded(true);
 
 		/// <summary>Collapses the body, leaving only the header visible.</summary>
-		public void Collapse() => SetExpanded(false);
+		public virtual void Collapse() => SetExpanded(false);
 
 		/// <summary>Toggles between expanded and collapsed.</summary>
-		public void Toggle() => SetExpanded(!_isExpanded);
+		public virtual void Toggle() => SetExpanded(!_isExpanded);
 
 		private void SetExpanded(bool value)
 		{
@@ -370,6 +370,30 @@ namespace SharpConsoleUI.Controls
 		{
 			get => ColorResolver.ResolveForeground(_foregroundColorValue, Container);
 			set { _foregroundColorValue = value; Container?.Invalidate(true); }
+		}
+
+		/// <summary>
+		/// Sets the explicit background color as a nullable value. <see langword="null"/> clears the
+		/// explicit color so it resolves from the container/theme. The public non-nullable
+		/// <see cref="BackgroundColor"/> setter cannot express "no explicit color"; this hook lets a
+		/// subclass exposing a <c>Color?</c> surface (e.g. <see cref="PanelControl"/>) round-trip null
+		/// correctly. Internal — not part of the public color contract.
+		/// </summary>
+		internal void SetBackgroundColorNullable(Color? value)
+		{
+			_backgroundColorValue = value;
+			Container?.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Sets the explicit foreground color as a nullable value. <see langword="null"/> clears the
+		/// explicit color so it resolves from the container/theme. Counterpart to
+		/// <see cref="SetBackgroundColorNullable"/>; see its remarks.
+		/// </summary>
+		internal void SetForegroundColorNullable(Color? value)
+		{
+			_foregroundColorValue = value;
+			Container?.Invalidate(true);
 		}
 
 		/// <inheritdoc/>

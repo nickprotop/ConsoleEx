@@ -62,12 +62,12 @@ Controls for displaying formatted content.
 
 | Control | Description | Details |
 |---------|-------------|---------|
-| **[MarkupControl](controls/MarkupControl.md)** | Rich text with markup | Colors, bold, italic, **clickable & keyboard-navigable links** (`[link=url]`); renders Markdown (incl. links) via the [`[markdown]` tag](MARKUP_SYNTAX.md#markdown) |
+| **[MarkupControl](controls/MarkupControl.md)** | Rich text with markup | Colors, bold, italic, **clickable & keyboard-navigable links** (`[link=url]`); renders Markdown (incl. links) via the [`[markdown]` tag](MARKUP_SYNTAX.md#markdown), optional border/header |
 | **[HtmlControl](controls/HtmlControl.md)** | HTML content renderer | Parse & render HTML with images, links, tables, keyboard navigation |
 | **[FigleControl](controls/FigleControl.md)** | ASCII art text (Figlet) | Large stylized text, multiple fonts |
 | **[LogViewerControl](controls/LogViewerControl.md)** | Log message viewer | Auto-scroll, filtering, severity colors |
 | **[SpectreRenderableControl](controls/SpectreRenderableControl.md)** | Wrapper for Spectre widgets | Display Tables, Trees, Panels, Charts, etc. |
-| **PanelControl** | Bordered content panel | Headers, multiple border styles, padding, mouse support |
+| **PanelControl** | Bordered container panel | Hosts child controls (a non-collapsible CollapsiblePanel); headers, border styles, padding, mouse. For bordered *text*, use [MarkupControl](controls/MarkupControl.md) with `.WithBorder()`. |
 | **RuleControl** | Horizontal rule/separator | Optional title, colors, horizontal line |
 | **SparklineControl** | Time-series sparkline graph | Block, braille, or bidirectional modes; borders; titles |
 | **[LineGraphControl](controls/LineGraphControl.md)** | Multi-series line graph | Braille and ASCII rendering modes, gradients, Y-axis labels, live updates |
