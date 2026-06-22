@@ -1019,5 +1019,9 @@ namespace SharpConsoleUI.Configuration
 		/// role border colour (0..1, higher = dimmer), so the resting handle reads as a quiet line and the
 		/// full-bright border is the focus highlight.</summary>
 		public const double GridSplitterIdleShade = 0.5;
+
+		/// <summary>How much an idle GridControl gridline glyph is shaded toward black below its role border
+		/// colour (0..1, higher = dimmer), so a rule reads as a light structural line rather than a full border.</summary>
+		public const double GridlineDimShade = 0.35;
 	}
 }

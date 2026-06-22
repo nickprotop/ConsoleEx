@@ -194,11 +194,11 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>The effective column gap the layout uses: bumped to at least 1 when a column splitter
 		/// exists so the handle has a gap to render in; otherwise the raw <see cref="ColumnGap"/>.</summary>
-		internal int EffectiveColumnGap => HasAnyColumnSplitter ? System.Math.Max(1, ColumnGap) : ColumnGap;
+		internal int EffectiveColumnGap => (HasAnyColumnSplitter || ColumnGridlinesActive) ? System.Math.Max(1, ColumnGap) : ColumnGap;
 
 		/// <summary>The effective row gap the layout uses: bumped to at least 1 when a row splitter
 		/// exists so the handle has a gap to render in; otherwise the raw <see cref="RowGap"/>.</summary>
-		internal int EffectiveRowGap => HasAnyRowSplitter ? System.Math.Max(1, RowGap) : RowGap;
+		internal int EffectiveRowGap => (HasAnyRowSplitter || RowGridlinesActive) ? System.Math.Max(1, RowGap) : RowGap;
 
 		// AUTO-GAP SEAM: layout reads gaps via IGridSource; return effective (auto-gapped) values there.
 		// The public ColumnGap/RowGap stay the raw user-set values; the layout sees the bumped ones.

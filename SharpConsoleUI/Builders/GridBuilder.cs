@@ -32,6 +32,13 @@ public sealed class GridBuilder : IControlBuilder<GridControl>
 	private readonly List<int> _columnSplitterAfter = new();
 	private readonly List<int> _rowSplitterAfter = new();
 
+	private readonly List<int> _columnGridlineAfter = new();
+	private readonly List<int> _rowGridlineAfter = new();
+	private bool _showColumnGridlines;
+	private bool _showRowGridlines;
+	private BorderStyle? _gridlineStyle;
+	private Color? _gridlineColor;
+
 	private int _rowGap;
 	private int _columnGap;
 	private Padding _padding = new(0, 0, 0, 0);
@@ -250,6 +257,24 @@ public sealed class GridBuilder : IControlBuilder<GridControl>
 		return this;
 	}
 
+	/// <summary>Draws a vertical rule between every adjacent column.</summary>
+	public GridBuilder ColumnGridlines(bool show = true) { _showColumnGridlines = show; return this; }
+
+	/// <summary>Draws a horizontal rule between every adjacent row.</summary>
+	public GridBuilder RowGridlines(bool show = true) { _showRowGridlines = show; return this; }
+
+	/// <summary>Adds a vertical rule at the boundary after column <paramref name="index"/>.</summary>
+	public GridBuilder GridlineAfterColumn(int index) { _columnGridlineAfter.Add(index); return this; }
+
+	/// <summary>Adds a horizontal rule at the boundary after row <paramref name="index"/>.</summary>
+	public GridBuilder GridlineAfterRow(int index) { _rowGridlineAfter.Add(index); return this; }
+
+	/// <summary>Sets the gridline box-drawing style (default Single).</summary>
+	public GridBuilder GridlineStyle(BorderStyle style) { _gridlineStyle = style; return this; }
+
+	/// <summary>Sets an explicit gridline colour (null keeps the role-derived default).</summary>
+	public GridBuilder GridlineColor(Color color) { _gridlineColor = color; return this; }
+
 	/// <summary>
 	/// Places a child control at the specified cell, with optional row and column spanning. The
 	/// placement is deferred and applied in <see cref="Build"/> after the track definitions are set
@@ -321,6 +346,15 @@ public sealed class GridBuilder : IControlBuilder<GridControl>
 			control.AddColumnSplitterAfter(i);
 		foreach (int i in _rowSplitterAfter)
 			control.AddRowSplitterAfter(i);
+
+		if (_showColumnGridlines) control.ShowColumnGridlines = true;
+		if (_showRowGridlines) control.ShowRowGridlines = true;
+		if (_gridlineStyle.HasValue) control.GridlineStyle = _gridlineStyle.Value;
+		if (_gridlineColor.HasValue) control.GridlineColor = _gridlineColor.Value;
+		foreach (int i in _columnGridlineAfter)
+			control.AddGridlineAfterColumn(i);
+		foreach (int i in _rowGridlineAfter)
+			control.AddGridlineAfterRow(i);
 
 		BindingHelper.ApplyDeferredBindings(this, control);
 		return control;

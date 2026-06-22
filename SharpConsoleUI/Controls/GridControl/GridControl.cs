@@ -472,6 +472,10 @@ namespace SharpConsoleUI.Controls
 
 			PaintCellChrome(buffer, bounds, clipRect, fgColor);
 
+			// Gridlines paint into the (auto-gapped) gaps, over cell chrome, BUT before splitters — a splitter
+			// boundary is skipped by PaintGridlines so the interactive splitter handle owns that gap.
+			PaintGridlines(buffer, bounds, clipRect);
+
 			// Splitter handles paint last, into their (auto-gapped) gaps, over the chrome.
 			PaintSplitters(buffer, bounds, clipRect);
 		}

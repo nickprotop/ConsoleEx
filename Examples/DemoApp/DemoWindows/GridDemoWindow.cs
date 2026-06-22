@@ -37,7 +37,7 @@ public static class GridDemoWindow
 		// ── Header tile (row 0) — spans all four columns to prove col-span. ─────────────────────────
 		var header = Controls.Markup(
 				"[bold]System Dashboard[/]   [dim]ServerHub · 4-column grid · spans · gaps · per-cell styling · live interactive cells[/]\n" +
-				"[dim]Drag the ║ / ═ splitters to resize tracks; click a splitter then use arrow keys to nudge.  ·  [c] collapse/expand column  ·  [r] collapse/expand row[/]")
+				"[dim]Drag the ║ / ═ splitters to resize tracks; click a splitter then use arrow keys to nudge.  ·  [c] collapse/expand column  ·  [r] collapse/expand row  ·  │ ─ gridlines show the row/column rules[/]")
 			.WithMargin(1, 0, 1, 0)
 			.Build();
 
@@ -246,6 +246,9 @@ public static class GridDemoWindow
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.ColumnSplitterAfter(1)                  // drag-resize between columns 1 and 2
 			.RowSplitterAfter(1)                     // drag-resize between content rows 1 and 2
+			.ColumnGridlines()                       // thin rules between columns (splitter boundary still wins)
+			.RowGridlines()                          // thin rules between rows
+			.GridlineStyle(BorderStyle.Single)       // │ ─ ┼, dimmer than a full border, themed by the grid role
 			.Place(header, 0, 0, colSpan: 4)         // header spans all 4 columns
 			.Place(cpuGraph, 1, 0)
 			.Place(resourcePanel, 1, 1)
