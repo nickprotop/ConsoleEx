@@ -12,13 +12,40 @@ namespace SharpConsoleUI.Layout
 	/// Represents layout constraints for measuring controls.
 	/// Defines minimum and maximum width/height bounds.
 	/// </summary>
-	public readonly record struct LayoutConstraints(
-		int MinWidth,
-		int MaxWidth,
-		int MinHeight,
-		int MaxHeight
-	)
+	/// <remarks>
+	/// The <see cref="MaxWidth"/>/<see cref="MaxHeight"/> bounds are normalized on construction to never fall
+	/// below their corresponding minimum: a degenerate constraint (e.g. <c>Min=1, Max=0</c>, which can arise
+	/// when a hosting cell collapses to zero — such as a grid track animated to 0 width) is clamped to
+	/// <c>Max = Min</c>. This guarantees <c>Min &lt;= Max</c> for every consumer, so controls can safely call
+	/// <c>Math.Clamp(value, MinWidth, MaxWidth)</c> without it throwing (CLAUDE.md: never feed Math.Clamp a
+	/// min greater than its max). The positional parameter names are retained for source compatibility.
+	/// </remarks>
+	public readonly record struct LayoutConstraints
 	{
+		/// <summary>The minimum width, in cells.</summary>
+		public int MinWidth { get; init; }
+
+		/// <summary>The maximum width, in cells. Never less than <see cref="MinWidth"/>.</summary>
+		public int MaxWidth { get; init; }
+
+		/// <summary>The minimum height, in cells.</summary>
+		public int MinHeight { get; init; }
+
+		/// <summary>The maximum height, in cells. Never less than <see cref="MinHeight"/>.</summary>
+		public int MaxHeight { get; init; }
+
+		/// <summary>
+		/// Creates layout constraints, normalizing each maximum up to its corresponding minimum so the
+		/// resulting bounds always satisfy <c>Min &lt;= Max</c>.
+		/// </summary>
+		public LayoutConstraints(int MinWidth, int MaxWidth, int MinHeight, int MaxHeight)
+		{
+			this.MinWidth = MinWidth;
+			this.MaxWidth = System.Math.Max(MinWidth, MaxWidth);
+			this.MinHeight = MinHeight;
+			this.MaxHeight = System.Math.Max(MinHeight, MaxHeight);
+		}
+
 		/// <summary>
 		/// Gets unbounded constraints (0 to MaxValue).
 		/// </summary>
