@@ -60,6 +60,18 @@ namespace SharpConsoleUI.Helpers
 
 		private static volatile Action<string>? _osc52Emitter;
 
+		// Optional trace sink (category "Clipboard"), wired by the driver/system to LogService.LogTrace so the
+		// static helper can emit a timestamped step-by-step timeline without taking a logging dependency.
+		// At SHARPCONSOLEUI_DEBUG_LEVEL=Trace a copy/paste produces a per-step log whose inter-line gaps reveal
+		// exactly which call stalled (issue #42 diagnosis). No-op (null) when tracing is off.
+		private static volatile Action<string>? _traceLogger;
+
+		/// <summary>Registers a trace sink for clipboard diagnostics (the driver wires this to the log service).
+		/// Pass null to unregister.</summary>
+		internal static void RegisterTraceLogger(Action<string>? logger) => _traceLogger = logger;
+
+		private static void Trace(string message) => _traceLogger?.Invoke(message);
+
 		/// <summary>
 		/// Registers the delegate used to emit an OSC 52 sequence to the terminal. Called by the
 		/// console driver at startup so the static helper can reach the terminal output stream
@@ -84,13 +96,21 @@ namespace SharpConsoleUI.Helpers
 				Osc52Mode.Disabled => false,
 				_ => TerminalCapabilities.SupportsOsc52
 			};
-			if (!enabled) return;
+			if (!enabled) { Trace("OSC52: disabled (skipped)"); return; }
 
 			try
 			{
 				var seq = Osc52.BuildSequence(text, tmuxWrap: TerminalCapabilities.IsTmux, MaxOsc52Bytes);
 				if (seq != null)
+				{
+					Trace($"OSC52: emitting {seq.Length} bytes → console");
 					emitter(seq);
+					Trace("OSC52: emit returned");
+				}
+				else
+				{
+					Trace("OSC52: payload too large (skipped)");
+				}
 			}
 			catch
 			{
@@ -123,12 +143,21 @@ namespace SharpConsoleUI.Helpers
 		/// </remarks>
 		public static void SetText(string text)
 		{
+			text ??= string.Empty;
+			var traceOn = _traceLogger != null;
+			var sw = traceOn ? System.Diagnostics.Stopwatch.StartNew() : null;
+			if (traceOn) Trace($"SetText: begin (len={text.Length}, hasNewline={text.Contains('\n')})");
+
 			TryEmitOsc52(text);
+			if (traceOn) Trace($"SetText: OSC52 emit done at {sw!.ElapsedMilliseconds}ms");
+
 			EnsureDetected();
+			if (traceOn) Trace($"SetText: backend={_backend} at {sw!.ElapsedMilliseconds}ms");
 
 			// Mirror the value into the in-process buffer synchronously so GetText() reflects the
 			// copy immediately (and tests stay deterministic) regardless of the external tool's timing.
 			lock (_lock) { _internalBuffer = text; }
+			if (traceOn) Trace($"SetText: in-process buffer set at {sw!.ElapsedMilliseconds}ms");
 
 			switch (_backend)
 			{
@@ -141,10 +170,18 @@ namespace SharpConsoleUI.Helpers
 					// (issue #42: "UI unresponsive after multiple copies"). The value is already mirrored into
 					// the in-process buffer synchronously above, so GetText() is correct immediately regardless
 					// of the background write's timing. Falls back to clip.exe if the native write fails.
+					if (traceOn) Trace($"SetText: queueing native Windows write at {sw!.ElapsedMilliseconds}ms");
 					ThreadPool.QueueUserWorkItem(_ =>
 					{
-						if (!TryWriteWindowsClipboard(text))
+						var bgSw = traceOn ? System.Diagnostics.Stopwatch.StartNew() : null;
+						if (traceOn) Trace("WindowsWrite(bg): begin");
+						bool ok = TryWriteWindowsClipboard(text);
+						if (traceOn) Trace($"WindowsWrite(bg): native {(ok ? "ok" : "FAILED→clip.exe")} at {bgSw!.ElapsedMilliseconds}ms");
+						if (!ok)
+						{
 							WriteToExternalTool(ClipboardBackend.WindowsClip, text);
+							if (traceOn) Trace($"WindowsWrite(bg): clip.exe fallback done at {bgSw!.ElapsedMilliseconds}ms");
+						}
 					});
 					break;
 				case ClipboardBackend.Pbcopy:
@@ -160,6 +197,8 @@ namespace SharpConsoleUI.Helpers
 					// Already written to the in-process buffer above.
 					break;
 			}
+
+			if (traceOn) Trace($"SetText: return (UI-thread time {sw!.ElapsedMilliseconds}ms)");
 		}
 
 		/// <summary>
