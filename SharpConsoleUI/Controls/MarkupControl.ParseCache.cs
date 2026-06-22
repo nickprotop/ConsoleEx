@@ -25,6 +25,11 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Test-only: total markup line-parses performed across all MarkupControls.</summary>
 		internal static long GetParseCountForTest() => Interlocked.Read(ref _parseCount);
 
+		/// <summary>Process-wide count of markup line-parses performed by all MarkupControls. A diagnostic:
+		/// it stops climbing once the parse cache is warm (scrolling/drag-selecting static content) and only
+		/// advances on a real content/width/colour change.</summary>
+		public static long TotalParseCount => Interlocked.Read(ref _parseCount);
+
 		/// <summary>Increment the parse counter once per logical line parsed.</summary>
 		private static void CountParse() => Interlocked.Increment(ref _parseCount);
 
@@ -63,7 +68,17 @@ namespace SharpConsoleUI.Controls
 			public int TotalRows => RowPrefix.Length > 0 ? RowPrefix[^1] : 0;
 		}
 
-		private ParseKey? _cacheKey;
+		// Small bounded LRU. The SPC overflow probe measures children at TWO widths per layout pass
+		// (full viewport and viewport-minus-scrollbar) before arranging at one of them, so a single
+		// slot is evicted on every paint. A 4-slot ring keeps every recently-used width hot, so the
+		// full measure→narrow-measure→paint sequence completes with three hits after warmup.
+		private const int ParseCacheCapacity = 4;
+		private readonly ParseKey?[] _cacheKeys = new ParseKey?[ParseCacheCapacity];
+		private readonly ParsedContent?[] _cacheEntries = new ParsedContent?[ParseCacheCapacity];
+		private int _cacheNextSlot = 0;
+
+		/// <summary>Most-recently produced parse, used by Selection.GetRowCellsForCopy to resolve
+		/// off-screen rows during a multi-row copy. Holds the same reference as the newest LRU slot.</summary>
 		private ParsedContent? _cached;
 
 		/// <summary>True if a logical line carries inline dynamic markup that must re-parse every frame.</summary>
@@ -93,8 +108,14 @@ namespace SharpConsoleUI.Controls
 
 			var key = new ParseKey(version, renderWidth, fg, bg, md, wrap);
 			bool dynamic = HasDynamicContent(snapshot);
-			if (!dynamic && _cached != null && _cacheKey == key)
-				return _cached;
+			if (!dynamic)
+			{
+				for (int i = 0; i < ParseCacheCapacity; i++)
+				{
+					if (_cacheEntries[i] != null && _cacheKeys[i] == key)
+						return _cacheEntries[i]!;
+				}
+			}
 
 			var rows = new List<List<Cell>>();
 			var rowSource = new List<int>();
@@ -147,28 +168,31 @@ namespace SharpConsoleUI.Controls
 
 			if (dynamic)
 			{
-				_cached = null;
-				_cacheKey = null;
+				for (int i = 0; i < ParseCacheCapacity; i++) { _cacheKeys[i] = null; _cacheEntries[i] = null; }
 			}
 			else
 			{
-				_cached = result;
-				_cacheKey = key;
+				int slot = _cacheNextSlot;
+				_cacheKeys[slot] = key;
+				_cacheEntries[slot] = result;
+				_cacheNextSlot = (slot + 1) % ParseCacheCapacity;
 			}
+			_cached = result;
 			return result;
 		}
 
 		/// <summary>
 		/// Resolves the effective foreground/background the parser is keyed on. MUST be used by BOTH
 		/// MeasureDOM and PaintDOM so they compute the same ParseKey and share one cache entry. The
-		/// fallback foreground passed in is paint's local default (container/theme derived); measure
-		/// passes the same role-resolved value so the keys match.
+		/// fallback chain is fully deterministic (explicit → role → container → theme → White) and does
+		/// NOT depend on a caller-supplied default — measure has no painter-supplied default fg, so any
+		/// such caller-supplied value would diverge from paint and evict the cache every frame.
 		/// </summary>
-		private (Color fg, Color bg) ResolveParseColors(Color fallbackFg)
+		private (Color fg, Color bg) ResolveParseColors()
 		{
 			Color fg = _foregroundColor
 				?? Helpers.ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, mode: ColorRoleMode)
-				?? fallbackFg;
+				?? Helpers.ColorResolver.ResolveForeground(null, Container, Color.White);
 			Color bg = _backgroundColor ?? Color.Transparent;
 			return (fg, bg);
 		}
@@ -207,6 +231,9 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>Test-only: drive EnsureParsed with default colors/style to exercise the cache.</summary>
 		internal ParsedContent EnsureParsedForTest(int width)
-			=> EnsureParsed(width, Color.White, Color.Transparent, ResolveMarkdownStyle(), _wrap);
+		{
+			var (fg, bg) = ResolveParseColors();
+			return EnsureParsed(width, fg, bg, ResolveMarkdownStyle(), _wrap);
+		}
 	}
 }

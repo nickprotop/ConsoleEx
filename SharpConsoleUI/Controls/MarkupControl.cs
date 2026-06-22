@@ -539,10 +539,7 @@ namespace SharpConsoleUI.Controls
 
 			// Parse (or reuse cached parse) to get rows + per-line counts without re-parsing on a hit.
 			var mdStyle = ResolveMarkdownStyle();
-			// Fall back to the SAME foreground paint resolves to (container foreground), so when no explicit
-			// color / role is set the measure and paint parse keys agree on fg and share one cache entry.
-			Color measureFallbackFg = Container?.ForegroundColor ?? Color.White;
-			var (measureFg, measureBg) = ResolveParseColors(measureFallbackFg);
+			var (measureFg, measureBg) = ResolveParseColors();
 			int parseWidth = ComputeParseWidth(contentWidth);
 			var parsed = EnsureParsed(parseWidth, measureFg, measureBg, mdStyle, _wrap);
 
@@ -598,7 +595,7 @@ namespace SharpConsoleUI.Controls
 			// re-parse). The role sets the DEFAULT foreground passed to the markup parser; inline [color]
 			// tags in the content still override it (applied during parsing, after the default).
 			var mdStyle = ResolveMarkdownStyle();
-			var (effectiveFg, effectiveBg) = ResolveParseColors(fgColor);
+			var (effectiveFg, effectiveBg) = ResolveParseColors();
 
 			// Consume the parse cache instead of re-parsing. EnsureParsed returns one cell-row per display
 			// row, its source (logical) line index, and the link spans per row — the same three lists the
