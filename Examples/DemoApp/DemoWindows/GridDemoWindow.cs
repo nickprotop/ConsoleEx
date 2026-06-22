@@ -37,7 +37,7 @@ public static class GridDemoWindow
 		// ── Header tile (row 0) — spans all four columns to prove col-span. ─────────────────────────
 		var header = Controls.Markup(
 				"[bold]System Dashboard[/]   [dim]ServerHub · 4-column grid · spans · gaps · per-cell styling · live interactive cells[/]\n" +
-				"[dim]Drag the ║ / ═ splitters to resize tracks; click a splitter then use arrow keys to nudge.[/]")
+				"[dim]Drag the ║ / ═ splitters to resize tracks; click a splitter then use arrow keys to nudge.  ·  [c] collapse/expand column  ·  [r] collapse/expand row[/]")
 			.WithMargin(1, 0, 1, 0)
 			.Build();
 
@@ -282,6 +282,10 @@ public static class GridDemoWindow
 			("[yellow]●[/]", "gc pause {0}ms"), ("[green]●[/]", "tls renew ok"),
 		};
 
+		// Toggle-state for the [c]/[r] animated collapse/expand demo — remembers the pre-collapse size.
+		int? savedColCells = null;
+		int? savedRowCells = null;
+
 		var window = new WindowBuilder(ws)
 			.WithTitle("Grid Layout")
 			.WithSize(WindowWidth, WindowHeight)
@@ -344,6 +348,34 @@ public static class GridDemoWindow
 				if (e.KeyInfo.Key == ConsoleKey.Escape)
 				{
 					ws.CloseWindow((Window)sender!);
+					e.Handled = true;
+				}
+				else if (e.KeyInfo.Key == ConsoleKey.C && e.KeyInfo.Modifiers == 0)
+				{
+					int current = grid.GetColumnArrangedWidth(1);
+					if (current > 0)
+					{
+						savedColCells = current;
+						grid.AnimateColumnWidth(1, 0, TimeSpan.FromMilliseconds(250));
+					}
+					else
+					{
+						grid.AnimateColumnWidth(1, savedColCells ?? 16, TimeSpan.FromMilliseconds(250));
+					}
+					e.Handled = true;
+				}
+				else if (e.KeyInfo.Key == ConsoleKey.R && e.KeyInfo.Modifiers == 0)
+				{
+					int current = grid.GetRowArrangedHeight(1);
+					if (current > 0)
+					{
+						savedRowCells = current;
+						grid.AnimateRowHeight(1, 0, TimeSpan.FromMilliseconds(250));
+					}
+					else
+					{
+						grid.AnimateRowHeight(1, savedRowCells ?? 5, TimeSpan.FromMilliseconds(250));
+					}
 					e.Handled = true;
 				}
 			})
