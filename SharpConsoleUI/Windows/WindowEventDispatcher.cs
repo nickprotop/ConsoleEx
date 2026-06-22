@@ -704,7 +704,9 @@ namespace SharpConsoleUI.Windows
 				{
 					if (_window.FocusManager.FocusedControl is Controls.IPasteTarget pasteTarget)
 					{
-						pasteTarget.Paste(Helpers.ClipboardHelper.GetText() ?? string.Empty);
+						// Read with a timeout so a slow OS clipboard tool (Unix xclip/wl-paste/pbpaste) can never
+						// stall the UI thread on Ctrl+V (issue #42: the Windows powershell read did exactly that).
+						pasteTarget.Paste(Helpers.ClipboardHelper.GetTextWithTimeout() ?? string.Empty);
 						return true;
 					}
 				}

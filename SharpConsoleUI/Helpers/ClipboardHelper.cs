@@ -130,14 +130,23 @@ namespace SharpConsoleUI.Helpers
 			// copy immediately (and tests stay deterministic) regardless of the external tool's timing.
 			lock (_lock) { _internalBuffer = text; }
 
-			// External tools that block on a child process run off the UI thread.
 			switch (_backend)
 			{
 				case ClipboardBackend.WindowsClip:
+					// Windows: write via the Win32 clipboard API (CF_UNICODETEXT) — in-process and
+					// microsecond-fast, so it stays on the calling thread without tripping the watchdog
+					// (issue #42: spawning clip.exe per copy was slow enough to stall the UI thread).
+					// UTF-16 is the clipboard's native text format, so CJK/Cyrillic round-trip without the
+					// clip.exe code-page guessing the old path needed. Falls back to clip.exe if the native
+					// call fails (e.g. the clipboard is locked by another process).
+					if (!TryWriteWindowsClipboard(text))
+						ThreadPool.QueueUserWorkItem(_ => WriteToExternalTool(ClipboardBackend.WindowsClip, text));
+					break;
 				case ClipboardBackend.Pbcopy:
 				case ClipboardBackend.WlClipboard:
 				case ClipboardBackend.Xclip:
 				case ClipboardBackend.Xsel:
+					// External tools that block on a child process run off the UI thread.
 					var backend = _backend;
 					ThreadPool.QueueUserWorkItem(_ => WriteToExternalTool(backend, text));
 					break;
@@ -196,8 +205,12 @@ namespace SharpConsoleUI.Helpers
 			{
 				return _backend switch
 				{
+					// Windows: read via the Win32 clipboard API (CF_UNICODETEXT) — in-process and instant,
+					// so a paste never spawns powershell.exe Get-Clipboard on the UI thread (issue #42: that
+					// spawn was slow enough to trip the unresponsive-watchdog). UTF-16 native, so CJK/Cyrillic
+					// round-trip without code-page re-encoding. Falls back to powershell only if it returns null.
 					ClipboardBackend.WindowsClip =>
-						RunProcessRead("powershell.exe", "-command", "Get-Clipboard"),
+						TryReadWindowsClipboard() ?? RunProcessRead("powershell.exe", "-command", "Get-Clipboard"),
 					ClipboardBackend.Pbcopy =>
 						RunProcessRead("pbpaste"),
 					ClipboardBackend.WlClipboard =>
@@ -214,6 +227,40 @@ namespace SharpConsoleUI.Helpers
 			{
 				return GetInternalBuffer();
 			}
+		}
+
+		/// <summary>
+		/// Returns the clipboard text without ever blocking the caller for more than
+		/// <paramref name="timeoutMs"/> milliseconds. The Windows path is the in-process Win32 read (instant),
+		/// but the Unix backends spawn a child process (<c>xclip -o</c> / <c>wl-paste</c> / <c>pbpaste</c>) that
+		/// can stall — running that on the UI thread is the same watchdog hazard as the Windows copy was
+		/// (issue #42). This runs the read on a background thread and, if it does not complete in time, returns
+		/// the in-process buffer so a paste can never hang the render loop. Use this from UI-thread paste paths;
+		/// <see cref="GetText"/> remains the (possibly blocking) full-fidelity read for non-UI callers/tests.
+		/// </summary>
+		public static string GetTextWithTimeout(int timeoutMs = 200)
+		{
+			EnsureDetected();
+
+			// Windows native read and the in-process fallback are already instant — no thread hop needed.
+			if (_backend is ClipboardBackend.WindowsClip or ClipboardBackend.InternalFallback)
+				return GetText();
+
+			// Unix process-backed read: do it off-thread, bounded by the timeout.
+			string? result = null;
+			var done = new ManualResetEventSlim(false);
+			ThreadPool.QueueUserWorkItem(_ =>
+			{
+				try { result = GetText(); }
+				catch { /* best-effort; fall through to buffer */ }
+				finally { done.Set(); }
+			});
+
+			if (done.Wait(timeoutMs) && result != null)
+				return result;
+
+			// Timed out (or the read failed): serve the last value the app itself copied, never block.
+			return GetInternalBuffer();
 		}
 
 		private static string GetInternalBuffer()
@@ -370,5 +417,149 @@ namespace SharpConsoleUI.Helpers
 			p.WaitForExit(ProcessTimeoutMs);
 			return result;
 		}
+
+		#region Windows native clipboard (Win32 API)
+
+		// Mirrors Terminal.Gui's proven Windows clipboard path: talk to the Win32 clipboard API directly
+		// (CF_UNICODETEXT) instead of spawning clip.exe / powershell.exe. In-process and microsecond-fast,
+		// so neither copy nor paste can stall the UI thread (issue #42), and UTF-16 is the clipboard's native
+		// text format so every script round-trips without code-page guessing. [DllImport] to system DLLs is
+		// AOT-safe (unlike Expression.Compile), so this keeps IsAotCompatible intact.
+
+		private const uint CF_UNICODETEXT = 13;
+		private const uint GMEM_MOVEABLE = 0x0002;
+
+		/// <summary>
+		/// Reads CF_UNICODETEXT from the Windows clipboard via the Win32 API. Returns the text, or
+		/// <c>null</c> on any failure (so the caller can fall back to the powershell path). Never throws.
+		/// </summary>
+		private static string? TryReadWindowsClipboard()
+		{
+			if (!OperatingSystem.IsWindows())
+				return null;
+
+			try
+			{
+				if (!OpenClipboard(nint.Zero))
+					return null;
+				try
+				{
+					nint handle = GetClipboardData(CF_UNICODETEXT);
+					if (handle == nint.Zero)
+						return string.Empty; // clipboard has no unicode text — distinct from "failed"
+
+					nint pointer = GlobalLock(handle);
+					if (pointer == nint.Zero)
+						return null;
+					try
+					{
+						return Marshal.PtrToStringUni(pointer) ?? string.Empty;
+					}
+					finally
+					{
+						GlobalUnlock(handle);
+					}
+				}
+				finally
+				{
+					CloseClipboard();
+				}
+			}
+			catch
+			{
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Writes <paramref name="text"/> to the Windows clipboard as CF_UNICODETEXT via the Win32 API.
+		/// Returns <c>true</c> on success; <c>false</c> on any failure (so the caller can fall back to
+		/// clip.exe). Never throws.
+		/// </summary>
+		private static bool TryWriteWindowsClipboard(string text)
+		{
+			if (!OperatingSystem.IsWindows())
+				return false;
+
+			try
+			{
+				if (!OpenClipboard(nint.Zero))
+					return false;
+				try
+				{
+					EmptyClipboard();
+
+					// Allocate a moveable global block holding the null-terminated UTF-16 string.
+					byte[] bytes = System.Text.Encoding.Unicode.GetBytes(text + '\0');
+					nint hGlobal = GlobalAlloc(GMEM_MOVEABLE, (nuint)bytes.Length);
+					if (hGlobal == nint.Zero)
+						return false;
+
+					nint target = GlobalLock(hGlobal);
+					if (target == nint.Zero)
+					{
+						GlobalFree(hGlobal);
+						return false;
+					}
+					try
+					{
+						Marshal.Copy(bytes, 0, target, bytes.Length);
+					}
+					finally
+					{
+						GlobalUnlock(hGlobal);
+					}
+
+					// On success the clipboard OWNS hGlobal — do not free it. On failure we must free it.
+					if (SetClipboardData(CF_UNICODETEXT, hGlobal) == nint.Zero)
+					{
+						GlobalFree(hGlobal);
+						return false;
+					}
+					return true;
+				}
+				finally
+				{
+					CloseClipboard();
+				}
+			}
+			catch
+			{
+				return false;
+			}
+		}
+
+		[DllImport("user32.dll", SetLastError = true)]
+		[return: MarshalAs(UnmanagedType.Bool)]
+		private static extern bool OpenClipboard(nint hWndNewOwner);
+
+		[DllImport("user32.dll", SetLastError = true)]
+		[return: MarshalAs(UnmanagedType.Bool)]
+		private static extern bool CloseClipboard();
+
+		[DllImport("user32.dll", SetLastError = true)]
+		[return: MarshalAs(UnmanagedType.Bool)]
+		private static extern bool EmptyClipboard();
+
+		[DllImport("user32.dll", SetLastError = true)]
+		private static extern nint GetClipboardData(uint uFormat);
+
+		[DllImport("user32.dll", SetLastError = true)]
+		private static extern nint SetClipboardData(uint uFormat, nint hMem);
+
+		[DllImport("kernel32.dll", SetLastError = true)]
+		private static extern nint GlobalAlloc(uint uFlags, nuint dwBytes);
+
+		[DllImport("kernel32.dll", SetLastError = true)]
+		private static extern nint GlobalFree(nint hMem);
+
+		[DllImport("kernel32.dll", SetLastError = true)]
+		private static extern nint GlobalLock(nint hMem);
+
+		[DllImport("kernel32.dll", SetLastError = true)]
+		[return: MarshalAs(UnmanagedType.Bool)]
+		private static extern bool GlobalUnlock(nint hMem);
+
+		#endregion
 	}
 }
