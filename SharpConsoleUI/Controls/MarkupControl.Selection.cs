@@ -174,25 +174,33 @@ namespace SharpConsoleUI.Controls
 		{
 			lock (_selectionLock)
 			{
-				if (!_hasSelection || _cachedRows.Count == 0)
+				if (!_hasSelection || (_cachedRows.Count == 0 && (_cached?.TotalRows ?? 0) == 0))
 					return string.Empty;
 
 				var (startRow, startCol, endRow, endCol) = GetOrderedSelectionBounds();
-				startRow = Math.Clamp(startRow, 0, _cachedRows.Count - 1);
-				endRow = Math.Clamp(endRow, 0, _cachedRows.Count - 1);
+				int rowCount = System.Math.Max(_cachedRows.Count, _cached?.TotalRows ?? 0);
+				if (rowCount == 0) return string.Empty;
+				startRow = Math.Clamp(startRow, 0, rowCount - 1);
+				endRow = Math.Clamp(endRow, 0, rowCount - 1);
 
 				var sb = new StringBuilder();
 				int? previousSourceLine = null;
 
 				for (int row = startRow; row <= endRow; row++)
 				{
-					var cells = _cachedRows[row];
+					var cells = GetRowCellsForCopy(row);
 					int from = (row == startRow) ? startCol : 0;
 					int to = (row == endRow) ? endCol : cells.Count;
 					from = Math.Clamp(from, 0, cells.Count);
 					to = Math.Clamp(to, 0, cells.Count);
 
-					int sourceLine = (row < _cachedRowSourceLine.Count) ? _cachedRowSourceLine[row] : row;
+					int sourceLine;
+					if (row < _cachedRowSourceLine.Count)
+						sourceLine = _cachedRowSourceLine[row];
+					else if (_cached != null && row < _cached.RowSourceLine.Count)
+						sourceLine = _cached.RowSourceLine[row];
+					else
+						sourceLine = row;
 					if (previousSourceLine != null)
 					{
 						// New logical line → real newline; same logical line (soft wrap) → no break.
@@ -211,6 +219,23 @@ namespace SharpConsoleUI.Controls
 
 				return sb.ToString();
 			}
+		}
+
+		/// <summary>
+		/// Returns the cell row for an ABSOLUTE display-row index. Uses the hit-test cache when the row is
+		/// present; otherwise reads it from the parse cache (which holds the full parsed row set). Returns an
+		/// empty list if the row cannot be resolved. This keeps off-screen copy correct and bounded — it never
+		/// re-parses the whole buffer. (Reserved seam for future viewport-only parsing.)
+		/// </summary>
+		private List<Cell> GetRowCellsForCopy(int row)
+		{
+			if (row >= 0 && row < _cachedRows.Count)
+				return _cachedRows[row];
+
+			var parsed = _cached;
+			if (parsed == null || row < 0 || row >= parsed.Rows.Count)
+				return new List<Cell>();
+			return parsed.Rows[row];
 		}
 
 		#region IDragAutoScrollTarget

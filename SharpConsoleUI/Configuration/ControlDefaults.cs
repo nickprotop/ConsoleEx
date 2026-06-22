@@ -1023,5 +1023,11 @@ namespace SharpConsoleUI.Configuration
 		/// <summary>How much an idle GridControl gridline glyph is shaded toward black below its role border
 		/// colour (0..1, higher = dimmer), so a rule reads as a light structural line rather than a full border.</summary>
 		public const double GridlineDimShade = 0.35;
+
+		/// <summary>
+		/// Extra display rows parsed above and below the visible viewport when a MarkupControl paints,
+		/// so edge hit-testing and partial-row reveals are safe. Small constant — keeps paint O(viewport).
+		/// </summary>
+		public const int MarkupViewportOverscanRows = 2;
 	}
 }

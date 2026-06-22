@@ -59,6 +59,14 @@ namespace SharpConsoleUI.Controls
 		private Color? _backgroundColor = null;
 		private Color? _foregroundColor = null;
 		private Configuration.MarkdownStyle? _markdownStyle = null;
+
+		// Memoize the theme-derived MarkdownStyle so ResolveMarkdownStyle returns a STABLE reference for an
+		// unchanged theme. MarkdownStyle is a record but carries a Dictionary member (CodeHighlighters) that
+		// has reference equality, so each fresh FromTheme() is record-unequal to the last — which would make
+		// the parse-cache ParseKey (which includes MdStyle) miss on every frame. Caching the instance keeps
+		// measure and paint keyed on the same reference. Invalidated when the source theme changes.
+		private Themes.ITheme? _mdStyleThemeKey;
+		private Configuration.MarkdownStyle? _mdStyleFromTheme;
 		private BorderStyle _border = BorderStyle.None;
 		private Color? _borderColor;
 		private string? _header;
@@ -125,6 +133,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				lock (_contentLock) { _content = value.Split(["\r\n", "\r", "\n"], StringSplitOptions.None).ToList(); } // fix: handle windows newline char.
+				BumpContentVersion();
 				InvalidateLinkCount();
 				OnPropertyChanged();
 				Container?.Invalidate(true);
@@ -220,7 +229,17 @@ namespace SharpConsoleUI.Controls
 			if (Configuration.MarkdownStyle.DefaultExplicitlySet)
 				return Configuration.MarkdownStyle.Default;
 			var theme = Container?.GetConsoleWindowSystem?.Theme;
-			return theme != null ? Configuration.MarkdownStyle.FromTheme(theme) : null;
+			if (theme == null)
+				return null;
+
+			// Return a STABLE instance for an unchanged theme (see _mdStyleThemeKey field comment) so the
+			// parse-cache key doesn't churn on the record's reference-equality Dictionary member.
+			if (!ReferenceEquals(_mdStyleThemeKey, theme))
+			{
+				_mdStyleThemeKey = theme;
+				_mdStyleFromTheme = Configuration.MarkdownStyle.FromTheme(theme);
+			}
+			return _mdStyleFromTheme;
 		}
 
 		#region IMouseAwareControl Implementation
@@ -301,6 +320,7 @@ namespace SharpConsoleUI.Controls
 		public void SetContent(List<string> lines)
 		{
 			lock (_contentLock) { _content = lines; }
+			BumpContentVersion();
 			InvalidateLinkCount();
 			OnPropertyChanged(nameof(Text));
 			Container?.Invalidate(true);
@@ -392,6 +412,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Shared post-append bookkeeping: any active selection is now stale, so clear it.</summary>
 		private void OnContentAppended()
 		{
+			BumpContentVersion();
 			if (_enableSelection && _hasSelection)
 				ClearSelection();
 			InvalidateLinkCount();
@@ -516,30 +537,19 @@ namespace SharpConsoleUI.Controls
 			int targetWidth = Width ?? constraints.MaxWidth;
 			int contentWidth = Math.Max(0, targetWidth - Margin.Left - Margin.Right - chromeWidth);
 
-			// Calculate content dimensions
-			List<string> snapshot;
-			lock (_contentLock) { snapshot = _content.ToList(); }
+			// Parse (or reuse cached parse) to get rows + per-line counts without re-parsing on a hit.
+			var mdStyle = ResolveMarkdownStyle();
+			// Fall back to the SAME foreground paint resolves to (container foreground), so when no explicit
+			// color / role is set the measure and paint parse keys agree on fg and share one cache entry.
+			Color measureFallbackFg = Container?.ForegroundColor ?? Color.White;
+			var (measureFg, measureBg) = ResolveParseColors(measureFallbackFg);
+			int parseWidth = ComputeParseWidth(contentWidth);
+			var parsed = EnsureParsed(parseWidth, measureFg, measureBg, mdStyle, _wrap);
+
 			int maxContentWidth = 0;
-			int totalLines = 0;
-
-			foreach (var line in snapshot)
-			{
-				int lineWidth = Parsing.MarkupParser.StripLength(line);
-				maxContentWidth = Math.Max(maxContentWidth, lineWidth);
-
-				if (_wrap && contentWidth > 0)
-				{
-					// Use actual word-wrap logic for accurate line count
-					var wrappedLines = Parsing.MarkupParser.ParseLines(line, contentWidth, Color.White, Color.Transparent);
-					totalLines += wrappedLines.Count;
-				}
-				else
-				{
-					// Count explicit newlines
-					var subLines = line.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);  // fix: handle windows newline char.
-					totalLines += subLines.Length;
-				}
-			}
+			for (int i = 0; i < parsed.Rows.Count; i++)
+				maxContentWidth = Math.Max(maxContentWidth, parsed.Rows[i].Count);
+			int totalLines = parsed.TotalRows;
 
 			// Account for margins
 			// For Stretch alignment, request full available width
@@ -583,63 +593,28 @@ namespace SharpConsoleUI.Controls
 			int targetWidth = bounds.Width - leftInset - rightInset;
 			if (targetWidth <= 0) return;
 
-			List<string> snapshot;
-			lock (_contentLock) { snapshot = _content.ToList(); }
-
-			// Calculate content width for alignment
-			int maxContentWidth = 0;
-			foreach (var line in snapshot)
-			{
-				int length = Parsing.MarkupParser.StripLength(line);
-				maxContentWidth = Math.Max(maxContentWidth, length);
-			}
-
-			// Render content lines.
-			// Track each display row's source (logical) line index so selection copy can suppress
-			// soft-wrap newlines (rows from the same logical line are joined without a line break).
-			// The role sets the DEFAULT foreground passed to the markup parser; inline [color] tags
-			// in the content still override it (they are applied during parsing, after the default).
-			Color effectiveFg = _foregroundColor
-				?? ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, mode: ColorRoleMode)
-				?? fgColor;
-			Color effectiveBg = _backgroundColor ?? Color.Transparent;
+			// Resolve the parse colors via the SHARED resolver so the ParseKey computed here matches the
+			// one MeasureDOM computes — that lets measure + paint share ONE cache entry (no per-frame
+			// re-parse). The role sets the DEFAULT foreground passed to the markup parser; inline [color]
+			// tags in the content still override it (applied during parsing, after the default).
 			var mdStyle = ResolveMarkdownStyle();
-			var renderedCellLines = new List<List<Cell>>();
-			var renderedLinkLines = new List<List<Parsing.LinkSpan>>();
-			var rowSourceLineIndex = new List<int>();
-			for (int sourceIndex = 0; sourceIndex < snapshot.Count; sourceIndex++)
-			{
-				var line = snapshot[sourceIndex];
-				int renderWidth = (HorizontalAlignment == HorizontalAlignment.Center || HorizontalAlignment == HorizontalAlignment.Right)
-					? Math.Min(maxContentWidth, targetWidth)
-					: targetWidth;
+			var (effectiveFg, effectiveBg) = ResolveParseColors(fgColor);
 
-				if (_wrap)
-				{
-					var wrappedLines = Parsing.MarkupParser.ParseLines(line, renderWidth, effectiveFg, effectiveBg, out var wrappedLinks, mdStyle);
-					for (int w = 0; w < wrappedLines.Count; w++)
-					{
-						renderedCellLines.Add(wrappedLines[w]);
-						renderedLinkLines.Add(w < wrappedLinks.Count ? wrappedLinks[w] : new List<Parsing.LinkSpan>());
-						rowSourceLineIndex.Add(sourceIndex);
-					}
-				}
-				else
-				{
-					// Split on explicit newlines so a logical line containing embedded "\n" renders as
-					// multiple rows. MarkupParser.Parse treats "\n" as an unsafe control char and would
-					// otherwise emit a U+FFFD replacement glyph (issue #45). The wrap path (ParseLines)
-					// already splits; this keeps the non-wrap path symmetric, and matches how
-					// GetLogicalContentSize counts rows.
-					foreach (var subLine in line.Split(["\r\n", "\r", "\n"], StringSplitOptions.None))  // fix: handle windows newline char.
-					{
-						var cells = Parsing.MarkupParser.Parse(subLine, effectiveFg, effectiveBg, out var lineLinks, mdStyle);
-						renderedCellLines.Add(cells);
-						renderedLinkLines.Add(lineLinks);
-						rowSourceLineIndex.Add(sourceIndex);
-					}
-				}
-			}
+			// Consume the parse cache instead of re-parsing. EnsureParsed returns one cell-row per display
+			// row, its source (logical) line index, and the link spans per row — the same three lists the
+			// old per-line loop built. CountParse now lives inside EnsureParsed, so a repeated paint with an
+			// unchanged key performs zero new parses (the issue #42 fix).
+			int parseWidth = ComputeParseWidth(targetWidth);
+			var parsed = EnsureParsed(parseWidth, effectiveFg, effectiveBg, mdStyle, _wrap);
+			var renderedCellLines = parsed.Rows;
+			var renderedLinkLines = parsed.RowLinks;
+			var rowSourceLineIndex = parsed.RowSourceLine;
+
+			// Calculate content width for alignment (Center/Right). Derived from the parsed rows (already in
+			// display columns) so it stays consistent with what is painted.
+			int maxContentWidth = 0;
+			for (int i = 0; i < renderedCellLines.Count; i++)
+				maxContentWidth = Math.Max(maxContentWidth, renderedCellLines[i].Count);
 
 			// Paint with margins + border + padding inset
 			int startY = bounds.Y + topInset;
