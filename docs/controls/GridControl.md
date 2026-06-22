@@ -201,6 +201,79 @@ var grid = Controls.Grid()
     .Build();
 ```
 
+## Gridlines
+
+Gridlines are thin, passive rules drawn *between* columns and/or rows — a lighter alternative to per-cell borders, like a spreadsheet grid or an HTML table's inner borders. Like splitters they live in the track gap (enabling them auto-bumps the gap to `≥1`), and like cell borders they are fully theme- and `ColorRole`-driven. Unlike splitters they are not interactive.
+
+### Enabling gridlines
+
+Grid-level (a rule between *every* adjacent track on an axis):
+
+```csharp
+grid.ShowColumnGridlines = true;   // vertical │ between every column
+grid.ShowRowGridlines = true;      // horizontal ─ between every row
+```
+
+Per-boundary (a rule at a *specific* boundary only); composes with the grid-level flags as a union:
+
+| Method | Description |
+|--------|-------------|
+| `AddGridlineAfterColumn(int index)` | Vertical rule between column `index` and `index+1` |
+| `AddGridlineAfterRow(int index)` | Horizontal rule between row `index` and `index+1` |
+| `RemoveGridlineAfterColumn(int index)` / `RemoveGridlineAfterRow(int index)` | Remove a per-boundary rule |
+| `HasGridlineAfterColumn(int index)` / `HasGridlineAfterRow(int index)` | Query a per-boundary rule |
+| `ClearGridlines()` | Remove all per-boundary rules (does not change the `Show*` flags) |
+
+### Style and colour
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `GridlineStyle` | `BorderStyle` | Box-drawing style. Default `Single` (`│ ─ ┼`); also `DoubleLine` (`║ ═ ╬`), `Rounded` |
+| `GridlineColor` | `Color?` | Glyph colour; `null` resolves to the grid's `ColorRole` border colour **shaded dimmer** (a rule reads lighter than a full border). Set it for full border-weight colour |
+
+Gridlines are static (no focus/hover reaction) — quiet structure, the same colour every frame.
+
+### Junctions, spans, and splitters
+
+Where a vertical and a horizontal rule cross, the correct junction glyph is chosen from which arms are present: `┼` interior, `┬`/`┴`/`├`/`┤` at an edge, `┌`/`┐`/`└`/`┘` at a corner. A cell that **spans** a boundary suppresses the rule (and adjusts the junction) across its span — e.g. a column-spanning header makes the boundary below it a `┬` rather than a `┼`.
+
+A boundary that carries a **splitter wins**: the interactive splitter handle is drawn there and the gridline is suppressed at that boundary; gridlines fill every other boundary.
+
+Lines are **centred** in their gap, so a `ColumnGap(2)`/`RowGap` grid shows symmetric rules (this applies to splitters too).
+
+### Example
+
+```csharp
+var grid = Controls.Grid()
+    .Columns(GridLength.Star(1), GridLength.Star(1), GridLength.Star(1))
+    .Rows(GridLength.Star(1), GridLength.Star(1))
+    .ColumnGridlines()                  // rules between all columns
+    .RowGridlines()                     // rules between all rows
+    .GridlineStyle(BorderStyle.Single)  // │ ─ ┼
+    .Build();
+```
+
+## Animation
+
+A row or column track can be animated to a target size — smooth collapse/expand/retarget — reusing the window system's `AnimationManager`. The track is held at a fixed size during the tween and restores its original sizing type on completion (a `Star` track resumes proportional reflow, an `Auto` track returns to content sizing).
+
+```csharp
+IAnimation? AnimateColumnWidth(int columnIndex, int targetCells, TimeSpan duration, EasingFunction? easing = null);
+IAnimation? AnimateRowHeight(int rowIndex,   int targetCells, TimeSpan duration, EasingFunction? easing = null);
+```
+
+- `targetCells` is in terminal cells; **collapse** is `Animate…(…, 0, …)`, expand passes the target width/height (the caller remembers the restore size).
+- Returns the `IAnimation` handle (or `null` when no window/manager is available yet — the target is applied immediately). Default easing is `EaseOut`.
+- Re-animating the same track auto-cancels its prior animation, so rapid toggles retarget cleanly.
+- `GetColumnArrangedWidth(int index)` / `GetRowArrangedHeight(int index)` return a track's current arranged size (cells), handy for reading a size before collapsing it so it can be restored on expand.
+
+```csharp
+// Toggle a panel column: collapse to 0, or expand back to a remembered width.
+int current = grid.GetColumnArrangedWidth(1);
+if (current > 0) { saved = current; grid.AnimateColumnWidth(1, 0, TimeSpan.FromMilliseconds(250)); }
+else             { grid.AnimateColumnWidth(1, saved ?? 16, TimeSpan.FromMilliseconds(250)); }
+```
+
 ## Builder API
 
 Create a builder with `Controls.Grid()` (or `new GridBuilder()`). A builder implicitly converts to a `GridControl`, so it can be passed directly where a control is expected.
@@ -226,6 +299,19 @@ Create a builder with `Controls.Grid()` (or `new GridBuilder()`). A builder impl
 ```csharp
 .Place(IWindowControl control, int row, int col, int rowSpan = 1, int colSpan = 1)
 .Add(IWindowControl control)             // AutoFlow into the next free cell
+```
+
+### Splitters and Gridlines
+
+```csharp
+.ColumnSplitterAfter(int index)          // draggable boundary between columns index/index+1
+.RowSplitterAfter(int index)             // draggable boundary between rows index/index+1
+.ColumnGridlines(bool show = true)       // rules between every column
+.RowGridlines(bool show = true)          // rules between every row
+.GridlineAfterColumn(int index)          // rule at one column boundary
+.GridlineAfterRow(int index)             // rule at one row boundary
+.GridlineStyle(BorderStyle style)        // Single (default) / DoubleLine / Rounded
+.GridlineColor(Color color)              // explicit gridline colour (else role-derived, dimmer)
 ```
 
 ### Alignment, Theming, and Identity
@@ -256,6 +342,9 @@ Create a builder with `Controls.Grid()` (or `new GridBuilder()`). A builder impl
 | `Height` | `int?` | `null` | Fixed height (auto-sized when null) |
 | `ColorRole` | `ColorRole` | `Default` | Semantic role tinting per-cell chrome (borders and surface fills) from the theme palette |
 | `Outline` | `bool` | `false` | Renders role chrome in outline style |
+| `ShowColumnGridlines` / `ShowRowGridlines` | `bool` | `false` | Draw a rule between every adjacent column / row (see [Gridlines](#gridlines)) |
+| `GridlineStyle` | `BorderStyle` | `Single` | Box-drawing style for gridlines (`Single` → `│ ─ ┼`; `DoubleLine`; `Rounded`) |
+| `GridlineColor` | `Color?` | `null` | Gridline glyph colour; `null` = role border shaded dimmer |
 | `Visible` | `bool` | `true` | Whether the grid is visible |
 | `IsEnabled` | `bool` | `true` | Enables/disables keyboard and mouse handling |
 | `HasFocus` | `bool` | `false` | True when this grid or one of its descendants is focused (read-only) |
@@ -278,6 +367,25 @@ Create a builder with `Controls.Grid()` (or `new GridBuilder()`). A builder impl
 | `ReplaceControl(oldControl, newControl)` | Replace a control, keeping the old control's cell placement and spans |
 | `RemoveAt(row, col)` | Remove the control whose placement starts at the given cell |
 | `ClearControls()` | Remove all child controls |
+
+### Splitters and Gridlines
+
+| Method | Description |
+|--------|-------------|
+| `AddColumnSplitterAfter(int)` / `AddRowSplitterAfter(int)` | Add a draggable boundary (see [Splitters](#splitters)) |
+| `RemoveColumnSplitterAfter(int)` / `RemoveRowSplitterAfter(int)` / `ClearSplitters()` | Remove splitters |
+| `FocusColumnSplitter(int)` / `FocusRowSplitter(int)` | Make a splitter the keyboard target |
+| `AddGridlineAfterColumn(int)` / `AddGridlineAfterRow(int)` | Add a per-boundary rule (see [Gridlines](#gridlines)) |
+| `RemoveGridlineAfterColumn(int)` / `RemoveGridlineAfterRow(int)` / `ClearGridlines()` | Remove per-boundary rules |
+| `HasGridlineAfterColumn(int)` / `HasGridlineAfterRow(int)` | Query a per-boundary rule |
+
+### Animation
+
+| Method | Description |
+|--------|-------------|
+| `AnimateColumnWidth(int index, int targetCells, TimeSpan duration, EasingFunction? easing = null)` | Animate a column to a target width (0 = collapse); returns `IAnimation?` (see [Animation](#animation)) |
+| `AnimateRowHeight(int index, int targetCells, TimeSpan duration, EasingFunction? easing = null)` | Animate a row to a target height |
+| `GetColumnArrangedWidth(int index)` / `GetRowArrangedHeight(int index)` | Current arranged track size in cells (or -1), e.g. to remember a size before collapsing |
 
 `RowDefinitions` and `ColumnDefinitions` are live lists — adding, removing, clearing, or replacing entries at runtime rebuilds and invalidates the grid so the change shows on the next render.
 
