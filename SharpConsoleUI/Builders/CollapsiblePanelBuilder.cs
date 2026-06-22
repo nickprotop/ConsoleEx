@@ -49,6 +49,17 @@ public sealed class CollapsiblePanelBuilder : IControlBuilder<CollapsiblePanel>
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the visibility
+	/// </summary>
+	/// <param name="visible">Whether the panel is visible</param>
+	/// <returns>The builder for chaining</returns>
+	public CollapsiblePanelBuilder Visible(bool visible = true)
+	{
+		_panel.Visible = visible;
+		return this;
+	}
+
 	/// <summary>Starts the panel in the collapsed state.</summary>
 	public CollapsiblePanelBuilder Collapsed()
 	{
