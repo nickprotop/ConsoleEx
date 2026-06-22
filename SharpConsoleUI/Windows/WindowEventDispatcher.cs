@@ -686,12 +686,15 @@ namespace SharpConsoleUI.Windows
 							&& key.Key == copyable.CopyKey
 							&& key.Modifiers == copyable.CopyModifiers)
 						{
+							// Breadcrumb the copy so a stall here is named in the watchdog log (issue #42).
+							using var _copyScope = new Core.UiCallbackScope(_window._windowSystem, "Copy: CopySelectionToClipboard");
 							copyable.CopySelectionToClipboard();
 							return true;
 						}
 					}
 					else if (key.Key == ConsoleKey.C && key.Modifiers.HasFlag(ConsoleModifiers.Control))
 					{
+						using var _copyScope = new Core.UiCallbackScope(_window._windowSystem, "Copy: SetText(selection)");
 						Helpers.ClipboardHelper.SetText(_window.SelectionManager.GetSelectedText() ?? string.Empty);
 						return true;
 					}
@@ -706,6 +709,7 @@ namespace SharpConsoleUI.Windows
 					{
 						// Read with a timeout so a slow OS clipboard tool (Unix xclip/wl-paste/pbpaste) can never
 						// stall the UI thread on Ctrl+V (issue #42: the Windows powershell read did exactly that).
+						using var _pasteScope = new Core.UiCallbackScope(_window._windowSystem, "Paste: GetTextWithTimeout+Paste");
 						pasteTarget.Paste(Helpers.ClipboardHelper.GetTextWithTimeout() ?? string.Empty);
 						return true;
 					}
