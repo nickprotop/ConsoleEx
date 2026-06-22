@@ -871,6 +871,30 @@ namespace SharpConsoleUI.Parsing
 
 		private static bool TryParseColor(string token, out Color color)
 		{
+			// Try rgba(r,g,b,a) — the form Color.ToMarkup() emits for any non-opaque colour (alpha as a
+			// 0..1 float, e.g. "rgba(255,0,0,0.5)"). Without this branch a [color.ToMarkup()] tag whose colour
+			// has alpha < 255 is unparseable and renders as literal text (issue #56). Alpha is accepted as a
+			// 0..1 float (ToMarkup's format) OR a 0..255 byte (defensive), mirroring the HTML colour parser.
+			if (token.StartsWith("rgba(", StringComparison.OrdinalIgnoreCase) && token.EndsWith(')'))
+			{
+				var inner = token.Substring(5, token.Length - 6);
+				var parts = inner.Split(',');
+				if (parts.Length == 4 &&
+					byte.TryParse(parts[0].Trim(), out byte ra) &&
+					byte.TryParse(parts[1].Trim(), out byte ga) &&
+					byte.TryParse(parts[2].Trim(), out byte ba) &&
+					double.TryParse(parts[3].Trim(), System.Globalization.NumberStyles.Float,
+						System.Globalization.CultureInfo.InvariantCulture, out double alpha))
+				{
+					// 0..1 float (ToMarkup) → 0..255; a value > 1 is treated as an already-byte alpha.
+					byte a = alpha <= 1.0
+						? (byte)System.Math.Clamp(System.Math.Round(alpha * 255.0), 0, 255)
+						: (byte)System.Math.Clamp(alpha, 0, 255);
+					color = new Color(ra, ga, ba, a);
+					return true;
+				}
+			}
+
 			// Try rgb(r,g,b)
 			if (token.StartsWith("rgb(", StringComparison.OrdinalIgnoreCase) && token.EndsWith(')'))
 			{

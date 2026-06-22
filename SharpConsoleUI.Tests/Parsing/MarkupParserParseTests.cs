@@ -328,6 +328,46 @@ namespace SharpConsoleUI.Tests.Parsing
 		}
 
 		[Fact]
+		public void Parse_RgbaColor_FloatAlpha()
+		{
+			// Issue #56: rgba(...) with a 0..1 float alpha (the form Color.ToMarkup emits) must parse, not
+			// render as literal text. 0.5 → byte 128 (rounded).
+			var result = MarkupParser.Parse("[rgba(255,0,0,0.5)]x[/]", Fg, Bg);
+			Assert.Equal(new Color(255, 0, 0, 128), result[0].Foreground);
+		}
+
+		[Fact]
+		public void Parse_RgbaColor_RoundTripsFromToMarkup()
+		{
+			// The exact #56 repro shape: a non-opaque color's ToMarkup() embedded in a tag must parse back to
+			// (approximately) the same color. ToMarkup emits "rgba(r,g,b,a)" with a as A/255 rounded to 2dp,
+			// so the alpha round-trips within 1 byte.
+			var original = new Color(10, 150, 200, 128);
+			var markup = $"[{original.ToMarkup()}]x[/]";
+			var result = MarkupParser.Parse(markup, Fg, Bg);
+			var parsed = result[0].Foreground;
+			Assert.Equal(original.R, parsed.R);
+			Assert.Equal(original.G, parsed.G);
+			Assert.Equal(original.B, parsed.B);
+			Assert.InRange(parsed.A, original.A - 1, original.A + 1);
+		}
+
+		[Fact]
+		public void Parse_RgbaColor_FullyOpaqueAlpha()
+		{
+			var result = MarkupParser.Parse("[rgba(0,128,255,1)]x[/]", Fg, Bg);
+			Assert.Equal(new Color(0, 128, 255, 255), result[0].Foreground);
+		}
+
+		[Fact]
+		public void Parse_InvalidRgba_EmittedAsLiteral()
+		{
+			// Out-of-range channel → byte.TryParse fails → unrecognized → literal text (no throw).
+			var result = MarkupParser.Parse("[rgba(999,0,0,0.5)]x[/]", Fg, Bg);
+			Assert.Contains("rgba", CellString(result));
+		}
+
+		[Fact]
 		public void Parse_OnKeyword_SetsBackgroundOnly()
 		{
 			var result = MarkupParser.Parse("[on blue]x[/]", Fg, Bg);
