@@ -688,23 +688,14 @@ namespace SharpConsoleUI.Windows
 						{
 							// Breadcrumb the copy so a stall here is named in the watchdog log (issue #42).
 							using var _copyScope = new Core.UiCallbackScope(_window._windowSystem, "Copy: CopySelectionToClipboard");
-							var log = _window._windowSystem?.LogService;
-							var sw = System.Diagnostics.Stopwatch.StartNew();
-							log?.LogTrace("copy: CopySelectionToClipboard begin", "Clipboard");
 							copyable.CopySelectionToClipboard();
-							log?.LogTrace($"copy: CopySelectionToClipboard returned in {sw.ElapsedMilliseconds}ms", "Clipboard");
 							return true;
 						}
 					}
 					else if (key.Key == ConsoleKey.C && key.Modifiers.HasFlag(ConsoleModifiers.Control))
 					{
 						using var _copyScope = new Core.UiCallbackScope(_window._windowSystem, "Copy: SetText(selection)");
-						var log = _window._windowSystem?.LogService;
-						var sw = System.Diagnostics.Stopwatch.StartNew();
-						var sel = _window.SelectionManager.GetSelectedText() ?? string.Empty;
-						log?.LogTrace($"copy: GetSelectedText done in {sw.ElapsedMilliseconds}ms (len={sel.Length})", "Clipboard");
-						Helpers.ClipboardHelper.SetText(sel);
-						log?.LogTrace($"copy: SetText returned at {sw.ElapsedMilliseconds}ms total", "Clipboard");
+						Helpers.ClipboardHelper.SetText(_window.SelectionManager.GetSelectedText() ?? string.Empty);
 						return true;
 					}
 				}
@@ -719,12 +710,7 @@ namespace SharpConsoleUI.Windows
 						// Read with a timeout so a slow OS clipboard tool (Unix xclip/wl-paste/pbpaste) can never
 						// stall the UI thread on Ctrl+V (issue #42: the Windows powershell read did exactly that).
 						using var _pasteScope = new Core.UiCallbackScope(_window._windowSystem, "Paste: GetTextWithTimeout+Paste");
-						var log = _window._windowSystem?.LogService;
-						var sw = System.Diagnostics.Stopwatch.StartNew();
-						var pasted = Helpers.ClipboardHelper.GetTextWithTimeout() ?? string.Empty;
-						log?.LogTrace($"paste: GetTextWithTimeout done in {sw.ElapsedMilliseconds}ms (len={pasted.Length})", "Clipboard");
-						pasteTarget.Paste(pasted);
-						log?.LogTrace($"paste: Paste returned at {sw.ElapsedMilliseconds}ms total", "Clipboard");
+						pasteTarget.Paste(Helpers.ClipboardHelper.GetTextWithTimeout() ?? string.Empty);
 						return true;
 					}
 				}

@@ -456,10 +456,6 @@ namespace SharpConsoleUI.Drivers
 			Helpers.TerminalCapabilities.DetectClipboardEnvironment();
 			Helpers.ClipboardHelper.RegisterOsc52Emitter(WriteClipboardOsc52);
 
-			// Route clipboard diagnostics to the log service (visible at SHARPCONSOLEUI_DEBUG_LEVEL=Trace).
-			// Each step of a copy/paste is timestamped, so the gap between lines pinpoints a stall (issue #42).
-			Helpers.ClipboardHelper.RegisterTraceLogger(msg => _consoleWindowSystem?.LogService?.LogTrace(msg, "Clipboard"));
-
 			_lastConsoleWidth = screenSize.Width;
 			_lastConsoleHeight = screenSize.Height;
 
@@ -611,7 +607,6 @@ namespace SharpConsoleUI.Drivers
 
 			// Unregister the OSC 52 emitter so a stopped driver doesn't keep a dangling delegate.
 			Helpers.ClipboardHelper.RegisterOsc52Emitter(null);
-			Helpers.ClipboardHelper.RegisterTraceLogger(null);
 
 			log?.LogInfo("NetConsoleDriver.Stop() complete", "Driver");
 		}
