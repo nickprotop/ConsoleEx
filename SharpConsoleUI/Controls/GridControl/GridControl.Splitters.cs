@@ -279,6 +279,19 @@ namespace SharpConsoleUI.Controls
 			buffer.SetCell(x, y, new Cell(glyph, fg, bg, deco));
 		}
 
+		/// <summary>
+		/// Window-content-relative X (before adding bounds.X) of the boundary line after column <paramref name="n"/>:
+		/// the gap's first cell plus half the gap, so a multi-cell gap CENTRES the line instead of hugging column n.
+		/// Shared by splitter and gridline paint AND the splitter hit-test bounds, so the drawn glyph and the
+		/// draggable rect always coincide. gap=1 → +0 (unchanged); gap=2 → +1; gap=3 → +1.
+		/// </summary>
+		private static int GapCentreColX(int[] colOffsets, int[] colSizes, int n, int columnGap)
+			=> colOffsets[n] + colSizes[n] + columnGap / 2;
+
+		/// <summary>Row counterpart of <see cref="GapCentreColX"/>: centred Y of the boundary line after row n.</summary>
+		private static int GapCentreRowY(int[] rowOffsets, int[] rowSizes, int n, int rowGap)
+			=> rowOffsets[n] + rowSizes[n] + rowGap / 2;
+
 		// ---- Paint each splitter handle into its gap. Call from PaintDOM AFTER cells. ----
 		internal void PaintSplitters(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect)
 		{
@@ -307,7 +320,8 @@ namespace SharpConsoleUI.Controls
 		{
 			if (s.AfterIndex < 0 || s.AfterIndex >= colSizes.Length - 1) { s.Bounds = Rectangle.Empty; return; }
 			int n = s.AfterIndex;
-			int gapX = bounds.X + colOffsets[n] + colSizes[n];
+			int columnGap = LayoutAlgorithm.LastArrangeMetrics.ColumnGap;
+			int gapX = bounds.X + GapCentreColX(colOffsets, colSizes, n, columnGap);
 			int topY = bounds.Y + rowOffsets[0];
 			int botY = bounds.Y + rowOffsets[rowSizes.Length - 1] + rowSizes[rowSizes.Length - 1];
 			var (fg, bg) = ResolveSplitterColors(s);
@@ -337,7 +351,7 @@ namespace SharpConsoleUI.Controls
 
 			// Record CONTROL-RELATIVE bounds (offsets only, no bounds.X/Y) for hit-testing. Kept as the FULL
 			// boundary span even where the line was span-skipped — the whole boundary stays draggable.
-			int relColX = colOffsets[n] + colSizes[n];
+			int relColX = GapCentreColX(colOffsets, colSizes, n, columnGap);
 			s.Bounds = new Rectangle(relColX, rowOffsets[0], 1, System.Math.Max(0, botY - topY));
 		}
 
@@ -348,7 +362,8 @@ namespace SharpConsoleUI.Controls
 		{
 			if (s.AfterIndex < 0 || s.AfterIndex >= rowSizes.Length - 1) { s.Bounds = Rectangle.Empty; return; }
 			int n = s.AfterIndex;
-			int gapY = bounds.Y + rowOffsets[n] + rowSizes[n];
+			int rowGap = LayoutAlgorithm.LastArrangeMetrics.RowGap;
+			int gapY = bounds.Y + GapCentreRowY(rowOffsets, rowSizes, n, rowGap);
 			int leftX = bounds.X + colOffsets[0];
 			int rightX = bounds.X + colOffsets[colSizes.Length - 1] + colSizes[colSizes.Length - 1];
 			var (fg, bg) = ResolveSplitterColors(s);
@@ -375,7 +390,7 @@ namespace SharpConsoleUI.Controls
 			if (!drewAny) { s.Bounds = Rectangle.Empty; return; }
 
 			// Record CONTROL-RELATIVE bounds (offsets only, no bounds.X/Y) — FULL boundary, draggable everywhere.
-			int relRowY = rowOffsets[n] + rowSizes[n];
+			int relRowY = GapCentreRowY(rowOffsets, rowSizes, n, rowGap);
 			s.Bounds = new Rectangle(colOffsets[0], relRowY, System.Math.Max(0, rightX - leftX), 1);
 		}
 
@@ -412,13 +427,15 @@ namespace SharpConsoleUI.Controls
 			{
 				if (col.Orientation != GridSplitterOrientation.Column) continue;
 				if (col.AfterIndex < 0 || col.AfterIndex >= colSizes.Length - 1) continue;
-				int gapX = bounds.X + colOffsets[col.AfterIndex] + colSizes[col.AfterIndex];
+				int columnGap = LayoutAlgorithm.LastArrangeMetrics.ColumnGap;
+				int gapX = bounds.X + GapCentreColX(colOffsets, colSizes, col.AfterIndex, columnGap);
 
 				foreach (var row in _splitters)
 				{
 					if (row.Orientation != GridSplitterOrientation.Row) continue;
 					if (row.AfterIndex < 0 || row.AfterIndex >= rowSizes.Length - 1) continue;
-					int gapY = bounds.Y + rowOffsets[row.AfterIndex] + rowSizes[row.AfterIndex];
+					int rowGap = LayoutAlgorithm.LastArrangeMetrics.RowGap;
+					int gapY = bounds.Y + GapCentreRowY(rowOffsets, rowSizes, row.AfterIndex, rowGap);
 
 					// The crossing cell sits in the column gap after col.AfterIndex and the row gap after
 					// row.AfterIndex. A spanning cell only ever covers track cells, never the gap rows/cols,

@@ -105,7 +105,7 @@ namespace SharpConsoleUI.Controls
 		{
 			if (!ColumnGridlinesActive && !RowGridlinesActive) return;
 
-			var (colSizes, rowSizes, colOffsets, rowOffsets, _, _) = LayoutAlgorithm.LastArrangeMetrics;
+			var (colSizes, rowSizes, colOffsets, rowOffsets, columnGap, rowGap) = LayoutAlgorithm.LastArrangeMetrics;
 			if (colSizes.Length == 0 || rowSizes.Length == 0) return;
 
 			var box = BoxChars.FromBorderStyle(_gridlineStyle);
@@ -120,7 +120,7 @@ namespace SharpConsoleUI.Controls
 					if (!WantsColumnGridline(n)) continue;
 					if (HasColumnSplitterAfter(n)) continue; // splitter wins at this boundary
 
-					int gapX = bounds.X + colOffsets[n] + colSizes[n];
+					int gapX = bounds.X + GapCentreColX(colOffsets, colSizes, n, columnGap);
 					int botY = bounds.Y + rowOffsets[rowSizes.Length - 1] + rowSizes[rowSizes.Length - 1];
 					for (int r = 0; r < rowSizes.Length; r++)
 					{
@@ -146,7 +146,7 @@ namespace SharpConsoleUI.Controls
 					if (!WantsRowGridline(n)) continue;
 					if (HasRowSplitterAfter(n)) continue; // splitter wins
 
-					int gapY = bounds.Y + rowOffsets[n] + rowSizes[n];
+					int gapY = bounds.Y + GapCentreRowY(rowOffsets, rowSizes, n, rowGap);
 					int rightX = bounds.X + colOffsets[colSizes.Length - 1] + colSizes[colSizes.Length - 1];
 					for (int c = 0; c < colSizes.Length; c++)
 					{
@@ -171,16 +171,41 @@ namespace SharpConsoleUI.Controls
 				for (int cn = 0; cn < colSizes.Length - 1; cn++)
 				{
 					if (!WantsColumnGridline(cn) || HasColumnSplitterAfter(cn)) continue;
-					int gapX = bounds.X + colOffsets[cn] + colSizes[cn];
+					int gapX = bounds.X + GapCentreColX(colOffsets, colSizes, cn, columnGap);
 					for (int rn = 0; rn < rowSizes.Length - 1; rn++)
 					{
 						if (!WantsRowGridline(rn) || HasRowSplitterAfter(rn)) continue;
-						int gapY = bounds.Y + rowOffsets[rn] + rowSizes[rn];
+						int gapY = bounds.Y + GapCentreRowY(rowOffsets, rowSizes, rn, rowGap);
 						if (gapX < clipRect.X || gapX >= clipRect.Right || gapY < clipRect.Y || gapY >= clipRect.Bottom) continue;
-						buffer.SetCell(gapX, gapY, new Cell(box.Cross, fg, bg));
+						bool up = !ColumnBoundaryBlockedAtRow(cn, rn);
+						bool down = !ColumnBoundaryBlockedAtRow(cn, rn + 1);
+						bool left = !RowBoundaryBlockedAtColumn(rn, cn);
+						bool right = !RowBoundaryBlockedAtColumn(rn, cn + 1);
+						char junction = ResolveJunctionGlyph(box, up, down, left, right);
+						buffer.SetCell(gapX, gapY, new Cell(junction, fg, bg));
 					}
 				}
 			}
+		}
+
+		/// <summary>
+		/// Picks the gridline junction glyph from which of the four arms carry a line at a crossing:
+		/// all four → ┼; a single missing arm → the matching tee (┬┴├┤); two missing adjacent arms → the
+		/// matching corner (┌┐└┘). Fewer than two arms is degenerate (a crossing only exists where both a
+		/// column and a row line are requested) and defaults to ┼.
+		/// </summary>
+		private static char ResolveJunctionGlyph(BoxChars box, bool up, bool down, bool left, bool right)
+		{
+			if (up && down && left && right) return box.Cross;
+			if (!up && down && left && right) return box.TopTee;
+			if (up && !down && left && right) return box.BottomTee;
+			if (up && down && !left && right) return box.LeftTee;
+			if (up && down && left && !right) return box.RightTee;
+			if (!up && down && !left && right) return box.TopLeft;
+			if (!up && down && left && !right) return box.TopRight;
+			if (up && !down && !left && right) return box.BottomLeft;
+			if (up && !down && left && !right) return box.BottomRight;
+			return box.Cross; // degenerate (≤1 arm) — defensive
 		}
 
 		/// <summary>Test-only: the colour gridlines currently paint with.</summary>
