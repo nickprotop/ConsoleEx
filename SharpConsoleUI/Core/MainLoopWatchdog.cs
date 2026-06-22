@@ -38,6 +38,7 @@ internal sealed class MainLoopWatchdog : IDisposable
 	private Func<TimeSpan, bool>? _onUnresponsive;   // returns whether to show the banner
 	private Action<TimeSpan>? _onRecovered;
 	private Action<string>? _logWarning;
+	private Func<string?>? _breadcrumb;          // best-effort "what is the UI thread doing" snapshot
 
 	/// <summary>
 	/// Creates a watchdog with configurable thresholds.
@@ -71,6 +72,18 @@ internal sealed class MainLoopWatchdog : IDisposable
 	public MainLoopWatchdog WithLogging(Action<string> logWarning)
 	{
 		_logWarning = logWarning;
+		return this;
+	}
+
+	/// <summary>
+	/// Attaches a best-effort breadcrumb provider describing what the UI thread is currently doing
+	/// (the frame op/window/control). It is read from the watchdog timer thread when a stall is logged,
+	/// so the "main loop stale" warning names where the UI thread is blocked — turning an opaque
+	/// "UI unresponsive" report into an actionable one.
+	/// </summary>
+	public MainLoopWatchdog WithBreadcrumb(Func<string?> breadcrumb)
+	{
+		_breadcrumb = breadcrumb;
 		return this;
 	}
 
@@ -137,7 +150,11 @@ internal sealed class MainLoopWatchdog : IDisposable
 		{
 			_staleLogged = true;
 			_wasStale = true;
-			_logWarning?.Invoke($"Main loop stale \u2014 no heartbeat for {elapsed.TotalMilliseconds:F0}ms");
+			string? where = null;
+			try { where = _breadcrumb?.Invoke(); } catch { /* breadcrumb is best-effort, never let it throw */ }
+			_logWarning?.Invoke(string.IsNullOrEmpty(where)
+				? $"Main loop stale \u2014 no heartbeat for {elapsed.TotalMilliseconds:F0}ms"
+				: $"Main loop stale \u2014 no heartbeat for {elapsed.TotalMilliseconds:F0}ms; blocked in: {where}");
 		}
 
 		if (elapsed.TotalMilliseconds > _unresponsiveThresholdMs && !_bannerShown)

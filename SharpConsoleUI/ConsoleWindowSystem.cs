@@ -926,6 +926,7 @@ namespace SharpConsoleUI
 			if (wd.Enabled)
 			{
 				_watchdog.WithLogging(msg => _logService.LogWarning(msg, "Watchdog"));
+				_watchdog.WithBreadcrumb(FormatCurrentCallback);
 				_watchdog.Start(
 					scanForEmergencyExit: ScanInputQueueForEmergencyExit,
 					onForceExit: () =>

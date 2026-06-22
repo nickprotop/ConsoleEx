@@ -133,14 +133,19 @@ namespace SharpConsoleUI.Helpers
 			switch (_backend)
 			{
 				case ClipboardBackend.WindowsClip:
-					// Windows: write via the Win32 clipboard API (CF_UNICODETEXT) — in-process and
-					// microsecond-fast, so it stays on the calling thread without tripping the watchdog
-					// (issue #42: spawning clip.exe per copy was slow enough to stall the UI thread).
-					// UTF-16 is the clipboard's native text format, so CJK/Cyrillic round-trip without the
-					// clip.exe code-page guessing the old path needed. Falls back to clip.exe if the native
-					// call fails (e.g. the clipboard is locked by another process).
-					if (!TryWriteWindowsClipboard(text))
-						ThreadPool.QueueUserWorkItem(_ => WriteToExternalTool(ClipboardBackend.WindowsClip, text));
+					// Windows: write via the Win32 clipboard API (CF_UNICODETEXT) — UTF-16 native, so
+					// CJK/Cyrillic round-trip without the clip.exe code-page guessing the old path needed.
+					// Run it OFF the UI thread: OpenClipboard can block or fail when another process holds the
+					// clipboard (Windows clipboard-history, the terminal's own paste handling, AV), so a copy
+					// right after a paste could otherwise stall the UI thread and trip the watchdog
+					// (issue #42: "UI unresponsive after multiple copies"). The value is already mirrored into
+					// the in-process buffer synchronously above, so GetText() is correct immediately regardless
+					// of the background write's timing. Falls back to clip.exe if the native write fails.
+					ThreadPool.QueueUserWorkItem(_ =>
+					{
+						if (!TryWriteWindowsClipboard(text))
+							WriteToExternalTool(ClipboardBackend.WindowsClip, text);
+					});
 					break;
 				case ClipboardBackend.Pbcopy:
 				case ClipboardBackend.WlClipboard:
@@ -429,6 +434,29 @@ namespace SharpConsoleUI.Helpers
 		private const uint CF_UNICODETEXT = 13;
 		private const uint GMEM_MOVEABLE = 0x0002;
 
+		// OpenClipboard fails (returns false) when another process holds the clipboard — extremely common
+		// right after a paste, or with Windows clipboard-history / the terminal's own clipboard use. Retry a
+		// few times with a short sleep, like Terminal.Gui does, instead of giving up on the first contention.
+		// Both call sites run OFF the UI thread (the write is queued to the ThreadPool; the read goes through
+		// GetTextWithTimeout's background path), so this brief blocking never stalls the render loop.
+		private const int ClipboardOpenRetries = 8;
+		private const int ClipboardOpenRetryDelayMs = 25;
+
+		/// <summary>
+		/// Opens the Windows clipboard, retrying briefly while it is held by another process. Returns false if
+		/// it could not be acquired within the retry budget (caller then falls back / returns null). Windows-only.
+		/// </summary>
+		private static bool OpenClipboardWithRetry()
+		{
+			for (int attempt = 0; attempt < ClipboardOpenRetries; attempt++)
+			{
+				if (OpenClipboard(nint.Zero))
+					return true;
+				Thread.Sleep(ClipboardOpenRetryDelayMs);
+			}
+			return false;
+		}
+
 		/// <summary>
 		/// Reads CF_UNICODETEXT from the Windows clipboard via the Win32 API. Returns the text, or
 		/// <c>null</c> on any failure (so the caller can fall back to the powershell path). Never throws.
@@ -440,7 +468,7 @@ namespace SharpConsoleUI.Helpers
 
 			try
 			{
-				if (!OpenClipboard(nint.Zero))
+				if (!OpenClipboardWithRetry())
 					return null;
 				try
 				{
@@ -483,7 +511,7 @@ namespace SharpConsoleUI.Helpers
 
 			try
 			{
-				if (!OpenClipboard(nint.Zero))
+				if (!OpenClipboardWithRetry())
 					return false;
 				try
 				{
