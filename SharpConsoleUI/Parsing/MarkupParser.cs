@@ -67,10 +67,17 @@ namespace SharpConsoleUI.Parsing
 			int i = 0;
 			int len = markup.Length;
 
+			// Tracks whether the previously-emitted rune in the main text path was a ZWJ (U+200D).
+			// A wide rune immediately after a ZWJ continues the current grapheme cluster and must
+			// attach to the base cell as a combiner instead of starting a new cell. Reset to false on
+			// any tag/bracket boundary (a cluster cannot span markup structure).
+			bool prevWasZwj = false;
+
 			while (i < len)
 			{
 				if (markup[i] == '[')
 				{
+					prevWasZwj = false;
 					// Escaped bracket [[
 					if (i + 1 < len && markup[i + 1] == '[')
 					{
@@ -175,6 +182,7 @@ namespace SharpConsoleUI.Parsing
 						if (!style.Foreground.HasValue && !style.Background.HasValue && style.AddedDecorations == TextDecoration.None)
 						{
 							cells.Add(new Cell('[', currentFg, currentBg, currentDec));
+							bool tagPrevWasZwj = false;
 							foreach (var rune in tagContent.EnumerateRunes())
 							{
 								var sanitized = TextSanitizer.IsUnsafeRune(rune)
@@ -183,7 +191,10 @@ namespace SharpConsoleUI.Parsing
 								if (runeWidth == 0 && cells.Count > 0)
 								{
 									if (!TextSanitizer.IsSafeCombiner(sanitized))
+									{
+										tagPrevWasZwj = (sanitized.Value == 0x200D);
 										continue;
+									}
 									var lastIdx = cells.Count - 1;
 									// Skip past continuation cells to attach to the base cell
 									if (cells[lastIdx].IsWideContinuation && lastIdx > 0)
@@ -202,12 +213,20 @@ namespace SharpConsoleUI.Parsing
 										cells[lastIdx] = lastCell;
 									}
 								}
+								else if (tagPrevWasZwj && TerminalCapabilities.SupportsZwjLigation && cells.Count > 0)
+								{
+									// A wide rune immediately after a ZWJ continues the current grapheme cluster
+									// (e.g. 👨‍👩‍👧‍👦). Attach it to the base cell's combiner tail instead of starting a
+									// new cell, so the whole cluster occupies one base + one continuation = 2 columns.
+									AppendClusterRune(cells, sanitized);
+								}
 								else
 								{
 									cells.Add(new Cell(sanitized, currentFg, currentBg, currentDec));
 									if (IsWideRune(sanitized))
 										cells.Add(new Cell(' ', currentFg, currentBg, currentDec) { IsWideContinuation = true });
 								}
+								tagPrevWasZwj = (sanitized.Value == 0x200D);
 							}
 							cells.Add(new Cell(']', currentFg, currentBg, currentDec));
 						}
@@ -223,6 +242,7 @@ namespace SharpConsoleUI.Parsing
 				}
 				else if (markup[i] == ']')
 				{
+					prevWasZwj = false;
 					// Escaped bracket ]]
 					if (i + 1 < len && markup[i + 1] == ']')
 					{
@@ -270,17 +290,28 @@ namespace SharpConsoleUI.Parsing
 							// every subsequent cell (e.g. the FEFF-at-start-of-line rendering
 							// bug with Outlook HTML).
 						}
+						else if (prevWasZwj && TerminalCapabilities.SupportsZwjLigation && cells.Count > 0)
+						{
+							// A wide rune immediately after a ZWJ continues the current grapheme cluster
+							// (e.g. 👨‍👩‍👧‍👦). Attach it to the base cell's combiner tail instead of starting a
+							// new cell, so the whole cluster occupies one base + one continuation = 2 columns,
+							// matching how a ligating terminal renders it. The rune is already sanitized, so we
+							// append it directly (AppendCombiner would reject a wide emoji as a non-combiner).
+							AppendClusterRune(cells, sanitized);
+						}
 						else
 						{
 							cells.Add(new Cell(sanitized, currentFg, currentBg, currentDec));
 							if (IsWideRune(sanitized))
 								cells.Add(new Cell(' ', currentFg, currentBg, currentDec) { IsWideContinuation = true });
 						}
+						prevWasZwj = (sanitized.Value == 0x200D);
 						i += rune.Utf16SequenceLength;
 					}
 					else
 					{
 						// Invalid surrogate — skip it
+						prevWasZwj = false;
 						i++;
 					}
 				}
@@ -302,6 +333,25 @@ namespace SharpConsoleUI.Parsing
 			}
 
 			return cells;
+		}
+
+		/// <summary>
+		/// Attaches a ZWJ-cluster-continuation rune to the current base cell's combiner tail so the whole
+		/// grapheme cluster (e.g. 👨‍👩‍👧‍👦) occupies one base + one continuation cell. The rune is appended
+		/// directly to <see cref="Cell.Combiners"/> rather than via <see cref="Cell.AppendCombiner"/>, because
+		/// a cluster-continuation rune is typically a wide emoji that the safe-combiner gate would reject — the
+		/// rune was already sanitized by the caller, so this is safe. Skips over a trailing wide-continuation
+		/// cell to land on the base cell. No-op if there is no base cell.
+		/// </summary>
+		private static void AppendClusterRune(List<Cell> cells, Rune continuation)
+		{
+			if (cells.Count == 0) return;
+			var lastIdx = cells.Count - 1;
+			if (cells[lastIdx].IsWideContinuation && lastIdx > 0)
+				lastIdx--;
+			var baseCell = cells[lastIdx];
+			baseCell.Combiners = (baseCell.Combiners ?? string.Empty) + continuation.ToString();
+			cells[lastIdx] = baseCell;
 		}
 
 		/// <summary>
@@ -1241,6 +1291,7 @@ namespace SharpConsoleUI.Parsing
 		{
 			int visibleLen = 0;
 			Rune? lastMeasuredRune = null;
+			bool prevWasZwj = false;
 			int i = 0;
 			int len = markup.Length;
 
@@ -1248,6 +1299,7 @@ namespace SharpConsoleUI.Parsing
 			{
 				if (markup[i] == '[')
 				{
+					prevWasZwj = false;
 					// Escaped [[
 					if (i + 1 < len && markup[i + 1] == '[')
 					{
@@ -1279,6 +1331,7 @@ namespace SharpConsoleUI.Parsing
 				}
 				else if (markup[i] == ']')
 				{
+					prevWasZwj = false;
 					// Escaped ]]
 					if (i + 1 < len && markup[i + 1] == ']')
 					{
@@ -1302,17 +1355,24 @@ namespace SharpConsoleUI.Parsing
 							visibleLen += 1;
 							lastMeasuredRune = null;
 						}
+						else if (prevWasZwj && TerminalCapabilities.SupportsZwjLigation)
+						{
+							// A rune immediately after a ZWJ continues the current grapheme cluster
+							// (e.g. 👨‍👩‍👧‍👦) and contributes 0 columns — matching Parse's cell-collapse.
+						}
 						else
 						{
 							if (rw > 0) lastMeasuredRune = rune;
 							visibleLen += rw;
 						}
+						prevWasZwj = (rune.Value == 0x200D);
 						i += rune.Utf16SequenceLength;
 					}
 					else
 					{
 						visibleLen++;
 						lastMeasuredRune = null;
+						prevWasZwj = false;
 						i++;
 					}
 				}

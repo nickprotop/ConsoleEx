@@ -18,66 +18,52 @@ namespace SharpConsoleUI.Tests.Parsing
 		[Fact]
 		public void Parse_FamilyEmoji_ZWJAttachesAsCombiner()
 		{
-			// 👨‍👩‍👦 = 👨(2 cells) + ZWJ(combiner) + 👩(2 cells) + ZWJ(combiner) + 👦(2 cells) = 6 cells
+			// 👨‍👩‍👦 ligates into ONE 2-column glyph: base cell + one wide continuation = 2 cells.
+			// Each post-ZWJ emoji continues the cluster and is appended to the base cell's combiner tail.
 			var cells = MarkupParser.Parse(
 				"\U0001F468\u200D\U0001F469\u200D\U0001F466",
 				Color.White, Color.Black);
 
-			// 👨 at cell 0-1, ZWJ attached to 👨
+			Assert.Equal(2, cells.Count);
 			Assert.Equal(new Rune(0x1F468), cells[0].Character);
 			Assert.NotNull(cells[0].Combiners);
 			Assert.Contains("\u200D", cells[0].Combiners);
 			Assert.True(cells[1].IsWideContinuation);
-
-			// 👩 at cell 2-3, ZWJ attached to 👩
-			Assert.Equal(new Rune(0x1F469), cells[2].Character);
-			Assert.NotNull(cells[2].Combiners);
-			Assert.Contains("\u200D", cells[2].Combiners);
-			Assert.True(cells[3].IsWideContinuation);
-
-			// 👦 at cell 4-5
-			Assert.Equal(new Rune(0x1F466), cells[4].Character);
-			Assert.True(cells[5].IsWideContinuation);
-
-			Assert.Equal(6, cells.Count);
 		}
 
 		[Fact]
-		public void StripLength_FamilyEmoji_Returns6()
+		public void StripLength_FamilyEmoji_ReturnsTwo()
 		{
-			// 👨(2) + ZWJ(0) + 👩(2) + ZWJ(0) + 👦(2) = 6
-			Assert.Equal(6, MarkupParser.StripLength(
+			// 👨‍👩‍👦 ligates into ONE 2-column glyph (each post-ZWJ rune contributes 0 columns).
+			Assert.Equal(2, MarkupParser.StripLength(
 				"\U0001F468\u200D\U0001F469\u200D\U0001F466"));
 		}
 
 		[Fact]
 		public void Parse_WomanTechnologist_ZWJAttachesCorrectly()
 		{
-			// 👩‍💻 = 👩(2) + ZWJ(combiner) + 💻(2) = 4 cells
+			// 👩‍💻 ligates into ONE 2-column glyph: base 👩 + ZWJ + 💻 in combiner tail = 2 cells.
 			var cells = MarkupParser.Parse(
 				"\U0001F469\u200D\U0001F4BB",
 				Color.White, Color.Black);
 
-			Assert.Equal(4, cells.Count);
-			Assert.NotNull(cells[0].Combiners); // ZWJ on 👩
-			Assert.Equal(new Rune(0x1F4BB), cells[2].Character);
+			Assert.Equal(2, cells.Count);
+			Assert.Equal(new Rune(0x1F469), cells[0].Character);
+			Assert.NotNull(cells[0].Combiners); // ZWJ + 💻 on 👩
+			Assert.True(cells[1].IsWideContinuation);
 		}
 
 		[Fact]
 		public void Parse_FourPersonFamily_CorrectLayout()
 		{
-			// 👨‍👩‍👧‍👦 = 8 cells
+			// 👨‍👩‍👧‍👦 ligates into ONE 2-column glyph = 2 cells (base + wide continuation).
 			var cells = MarkupParser.Parse(
 				"\U0001F468\u200D\U0001F469\u200D\U0001F467\u200D\U0001F466",
 				Color.White, Color.Black);
 
-			Assert.Equal(8, cells.Count);
-			// All even positions are base emoji, odd are continuations
-			for (int i = 0; i < 8; i += 2)
-			{
-				Assert.False(cells[i].IsWideContinuation);
-				Assert.True(cells[i + 1].IsWideContinuation);
-			}
+			Assert.Equal(2, cells.Count);
+			Assert.False(cells[0].IsWideContinuation);
+			Assert.True(cells[1].IsWideContinuation);
 		}
 
 		#endregion
@@ -638,13 +624,13 @@ namespace SharpConsoleUI.Tests.Parsing
 		[Fact]
 		public void ParseLines_ZWJSequence_FitsOnLine()
 		{
-			// Width=6, "👨‍👩‍👦" = 6 cells → fits exactly
+			// "👨‍👩‍👦" ligates into ONE 2-column glyph (2 cells) → fits on a width-6 line.
 			var lines = MarkupParser.ParseLines(
 				"\U0001F468\u200D\U0001F469\u200D\U0001F466",
 				6, Color.White, Color.Black);
 
 			Assert.Single(lines);
-			Assert.Equal(6, lines[0].Count);
+			Assert.Equal(2, lines[0].Count);
 		}
 
 		[Fact]

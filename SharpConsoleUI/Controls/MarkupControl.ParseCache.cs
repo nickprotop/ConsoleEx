@@ -51,7 +51,8 @@ namespace SharpConsoleUI.Controls
 			Color Fg,
 			Color Bg,
 			MarkdownStyle? MdStyle,
-			bool Wrap);
+			bool Wrap,
+			bool ZwjLigation);
 
 		/// <summary>
 		/// The cached result of parsing the whole content: one cell-row per display row, the source
@@ -106,7 +107,7 @@ namespace SharpConsoleUI.Controls
 			int version;
 			lock (_contentLock) { snapshot = _content.ToList(); version = Volatile.Read(ref _contentVersion); }
 
-			var key = new ParseKey(version, renderWidth, fg, bg, md, wrap);
+			var key = new ParseKey(version, renderWidth, fg, bg, md, wrap, Helpers.TerminalCapabilities.SupportsZwjLigation);
 			bool dynamic = HasDynamicContent(snapshot);
 			if (!dynamic)
 			{

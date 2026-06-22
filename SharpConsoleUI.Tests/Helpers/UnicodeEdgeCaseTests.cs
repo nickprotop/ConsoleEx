@@ -26,23 +26,23 @@ namespace SharpConsoleUI.Tests.Helpers
 		{
 			// 👨‍👩‍👦 = 👨(2) + ZWJ(0) + 👩(2) + ZWJ(0) + 👦(2) = 6
 			string family = "\U0001F468\u200D\U0001F469\u200D\U0001F466";
-			Assert.Equal(6, UnicodeWidth.GetStringWidth(family));
+			Assert.Equal(2, UnicodeWidth.GetStringWidth(family));
 		}
 
 		[Fact]
 		public void GetStringWidth_FourPersonFamily_CountsCorrectly()
 		{
-			// 👨‍👩‍👧‍👦 = 👨(2) + ZWJ(0) + 👩(2) + ZWJ(0) + 👧(2) + ZWJ(0) + 👦(2) = 8
+			// 👨‍👩‍👧‍👦 = 👨(2) + ZWJ(0) + 👩(2) ligates into ONE 2-column glyph (each post-ZWJ rune continues the cluster)
 			string family = "\U0001F468\u200D\U0001F469\u200D\U0001F467\u200D\U0001F466";
-			Assert.Equal(8, UnicodeWidth.GetStringWidth(family));
+			Assert.Equal(2, UnicodeWidth.GetStringWidth(family));
 		}
 
 		[Fact]
 		public void GetStringWidth_WomanTechnologist_CountsCorrectly()
 		{
-			// 👩‍💻 = 👩(2) + ZWJ(0) + 💻(2) = 4
+			// 👩‍💻 ligates into ONE 2-column glyph: 👩(2) + ZWJ(0) + 💻(continuation, 0) = 2
 			string techWoman = "\U0001F469\u200D\U0001F4BB";
-			Assert.Equal(4, UnicodeWidth.GetStringWidth(techWoman));
+			Assert.Equal(2, UnicodeWidth.GetStringWidth(techWoman));
 		}
 
 		#endregion

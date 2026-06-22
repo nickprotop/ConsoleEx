@@ -82,6 +82,33 @@ namespace SharpConsoleUI.Helpers
 		/// </summary>
 		public static bool IsVS16(Rune r) => r.Value == 0xFE0F;
 
+		/// <summary>The Zero-Width Joiner (U+200D). A rune that immediately follows a ZWJ continues the
+		/// current grapheme cluster and renders as part of the same glyph on ligating terminals.</summary>
+		private const int Zwj = 0x200D;
+
+		/// <summary>
+		/// True if a rune continues the current grapheme cluster — i.e. the immediately preceding rune was a
+		/// ZWJ and the terminal ligates ZWJ sequences. A continuation rune contributes 0 display columns.
+		/// Gated on <see cref="TerminalCapabilities.SupportsZwjLigation"/>.
+		/// </summary>
+		private static bool IsClusterContinuation(bool prevWasZwj)
+			=> prevWasZwj && TerminalCapabilities.SupportsZwjLigation;
+
+		/// <summary>
+		/// True if the rune starting at <paramref name="idx"/> belongs to the ZWJ cluster currently being
+		/// consumed — either the just-consumed rune was a ZWJ (so this rune is a 0-width continuation), or
+		/// this rune is itself a ZWJ that joins the preceding glyph to the next. Used by <see cref="TakeColumns"/>
+		/// to avoid stopping a slice in the middle of a cluster once the column budget is reached.
+		/// Gated on <see cref="TerminalCapabilities.SupportsZwjLigation"/>.
+		/// </summary>
+		private static bool NextRuneContinuesCluster(string s, int idx, bool prevWasZwj)
+		{
+			if (!TerminalCapabilities.SupportsZwjLigation) return false;
+			if (prevWasZwj) return true; // upcoming rune is a 0-width cluster continuation
+			if (idx >= s.Length) return false;
+			return Rune.TryGetRuneAt(s, idx, out var next) && next.Value == Zwj;
+		}
+
 		/// <summary>
 		/// Returns true if VS16 (U+FE0F) after this rune widens it from 1 to 2 columns.
 		/// Uses the Wcwidth library's Vs16Table for accurate lookup.
@@ -104,17 +131,26 @@ namespace SharpConsoleUI.Helpers
 
 			int w = 0;
 			Rune? lastMeasured = null;
+			bool prevWasZwj = false;
 			foreach (var rune in s.EnumerateRunes())
 			{
 				if (IsVS16(rune) && lastMeasured != null && IsVs16Widened(lastMeasured.Value))
 				{
 					w += 1; // widen from 1→2
 					lastMeasured = null;
+					prevWasZwj = false;
+					continue;
+				}
+				if (IsClusterContinuation(prevWasZwj))
+				{
+					// Part of the preceding ZWJ glyph — contributes no columns.
+					prevWasZwj = (rune.Value == Zwj);
 					continue;
 				}
 				int rw = GetRuneWidth(rune);
 				if (rw > 0) lastMeasured = rune;
 				w += rw;
+				prevWasZwj = (rune.Value == Zwj);
 			}
 			return w;
 		}
@@ -130,6 +166,7 @@ namespace SharpConsoleUI.Helpers
 			int col = 0;
 			int charIndex = 0;
 			Rune? lastMeasured = null;
+			bool prevWasZwj = false;
 			foreach (var rune in s.EnumerateRunes())
 			{
 				int rw;
@@ -137,11 +174,16 @@ namespace SharpConsoleUI.Helpers
 				{
 					rw = 1; lastMeasured = null;
 				}
+				else if (IsClusterContinuation(prevWasZwj))
+				{
+					rw = 0;
+				}
 				else
 				{
 					rw = GetRuneWidth(rune);
 					if (rw > 0) lastMeasured = rune;
 				}
+				prevWasZwj = (rune.Value == Zwj);
 				if (col + rw > column) return charIndex; // adding this rune would pass the target column
 				col += rw;
 				charIndex += rune.Utf16SequenceLength;
@@ -160,6 +202,7 @@ namespace SharpConsoleUI.Helpers
 			int col = 0;
 			int idx = 0;
 			Rune? lastMeasured = null;
+			bool prevWasZwj = false;
 			foreach (var rune in s.EnumerateRunes())
 			{
 				// Stop before a rune that starts at/after the target, or that straddles it
@@ -169,12 +212,17 @@ namespace SharpConsoleUI.Helpers
 				{
 					col += 1; lastMeasured = null;
 				}
+				else if (IsClusterContinuation(prevWasZwj))
+				{
+					// 0 columns
+				}
 				else
 				{
 					int rw = GetRuneWidth(rune);
 					if (rw > 0) lastMeasured = rune;
 					col += rw;
 				}
+				prevWasZwj = (rune.Value == Zwj);
 				idx += rune.Utf16SequenceLength;
 			}
 			return col;
@@ -192,6 +240,7 @@ namespace SharpConsoleUI.Helpers
 			int col = 0;
 			int idx = startChar;
 			Rune? lastMeasured = null;
+			bool prevWasZwj = false;
 			bool tookAny = false;
 			while (idx < s.Length)
 			{
@@ -203,11 +252,16 @@ namespace SharpConsoleUI.Helpers
 					{
 						rw = 1; lastMeasured = null;
 					}
+					else if (IsClusterContinuation(prevWasZwj))
+					{
+						rw = 0;
+					}
 					else
 					{
 						rw = GetRuneWidth(rune);
 						if (rw > 0) lastMeasured = rune;
 					}
+					prevWasZwj = (rune.Value == Zwj);
 					advance = rune.Utf16SequenceLength;
 				}
 				else
@@ -215,13 +269,16 @@ namespace SharpConsoleUI.Helpers
 					// Lone/unpaired UTF-16 surrogate (e.g. transient state while typing an
 					// emoji): treat it as a width-1 replacement glyph and advance one code
 					// unit so the loop always makes forward progress and never throws.
-					rw = 1; advance = 1; lastMeasured = null;
+					rw = 1; advance = 1; lastMeasured = null; prevWasZwj = false;
 				}
 				if (tookAny && col + rw > maxColumns) break; // would overflow - stop (but always take >= 1 rune)
 				col += rw;
 				idx += advance;
 				tookAny = true;
-				if (col >= maxColumns) break;
+				// Reached the column budget, but if the next rune begins/continues a ZWJ cluster
+				// (a ZWJ itself, or a 0-width continuation rune after one) keep consuming — those runes
+				// are part of the glyph just taken and must not spill into the next slice.
+				if (col >= maxColumns && !NextRuneContinuesCluster(s, idx, prevWasZwj)) break;
 			}
 			return (idx, col);
 		}

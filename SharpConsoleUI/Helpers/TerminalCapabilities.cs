@@ -16,6 +16,7 @@ namespace SharpConsoleUI.Helpers
 	{
 		private static bool? _supportsVS16Widening;
 		private static bool? _supportsUnicode16Widths;
+		private static bool? _supportsZwjLigation;
 		private static bool? _supportsKittyGraphics;
 		private static bool? _isRemoteSession;
 		private static bool? _isTmux;
@@ -41,6 +42,18 @@ namespace SharpConsoleUI.Helpers
 		public static bool SupportsUnicode16Widths
 		{
 			get => _supportsUnicode16Widths ?? false;
+		}
+
+		/// <summary>
+		/// Whether the terminal renders a ZWJ emoji sequence (e.g. 👨‍👩‍👧‍👦) as a SINGLE 2-column glyph
+		/// rather than as its component emoji side by side. Modern terminals ligate ZWJ sequences;
+		/// some legacy terminals draw each component separately. Defaults to true (modern assumption)
+		/// until probed via <see cref="Probe"/>. Note: ZWJ-cluster width is inherently terminal-dependent —
+		/// there is no universally-correct value; the probe makes the library match the actual terminal.
+		/// </summary>
+		public static bool SupportsZwjLigation
+		{
+			get => _supportsZwjLigation ?? true;
 		}
 
 		/// <summary>
@@ -101,6 +114,16 @@ namespace SharpConsoleUI.Helpers
 			{
 				// If probing fails, assume modern terminal
 				_supportsVS16Widening = true;
+			}
+
+			try
+			{
+				_supportsZwjLigation = ProbeZwjLigation(write, readByte);
+			}
+			catch
+			{
+				// If probing fails, assume modern terminal (ligates ZWJ).
+				_supportsZwjLigation = true;
 			}
 
 			try
@@ -188,6 +211,32 @@ namespace SharpConsoleUI.Helpers
 
 			return col >= 3; // col is 1-based; 3 means cursor at column 3 → char was 2 wide
 		}
+
+		/// <summary>
+		/// Probes whether the terminal ligates a ZWJ emoji sequence into a single 2-column glyph.
+		/// Writes the family emoji (👨‍👩‍👧‍👦) and queries the cursor column via DSR (ESC[6n).
+		/// Ligating terminals leave the cursor at column 3 (2 wide); non-ligating terminals advance to
+		/// column 9 (four 2-wide emoji side by side). Mirrors <see cref="ProbeVS16"/>.
+		/// </summary>
+		private static bool ProbeZwjLigation(Action<string> write, Func<int> readByte)
+		{
+			// \r → column 1; family ZWJ sequence; ESC[6n → cursor position report.
+			write("\r\U0001F468‍\U0001F469‍\U0001F467‍\U0001F466\x1b[6n");
+			int col = ReadDSRColumn(readByte);
+			write("\r\x1b[K"); // clean up probe output
+			return InterpretZwjProbeColumn(col);
+		}
+
+		/// <summary>Interprets a DSR column from the ZWJ probe. col ≤ 3 (and ≥ 1) → ligated;
+		/// a larger column → not ligated; col &lt; 0 (timeout) → assume modern (ligating).</summary>
+		private static bool InterpretZwjProbeColumn(int col)
+		{
+			if (col < 0) return true;   // timeout/error → assume modern
+			return col <= 3;            // 1-based; ≤3 means the cluster rendered as ≤2 columns
+		}
+
+		/// <summary>Test-only: exercise the ZWJ probe column interpretation without a live terminal.</summary>
+		internal static bool ProbeZwjLigationForTest(int dsrColumn) => InterpretZwjProbeColumn(dsrColumn);
 
 		/// <summary>
 		/// Probes whether the terminal renders Unicode 16.0 newly-widened characters as 2 columns.
