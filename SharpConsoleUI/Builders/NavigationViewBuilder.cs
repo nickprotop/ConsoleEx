@@ -20,7 +20,7 @@ public sealed class NavigationHeaderBuilder
 {
 	internal string Text { get; }
 	internal Color? HeaderColor { get; private set; }
-	internal readonly List<(NavigationItem item, Action<ScrollablePanelControl>? content)> Items = new();
+	internal readonly List<(NavigationItem item, Action<ScrollablePanelControl>? content, IWindowControl? directContent)> Items = new();
 
 	internal NavigationHeaderBuilder(string text)
 	{
@@ -42,7 +42,7 @@ public sealed class NavigationHeaderBuilder
 	public NavigationHeaderBuilder AddItem(string text, string? icon = null,
 		string? subtitle = null, Action<ScrollablePanelControl>? content = null)
 	{
-		Items.Add((new NavigationItem(text, icon, subtitle), content));
+		Items.Add((new NavigationItem(text, icon, subtitle), content, null));
 		return this;
 	}
 
@@ -51,7 +51,28 @@ public sealed class NavigationHeaderBuilder
 	/// </summary>
 	public NavigationHeaderBuilder AddItem(NavigationItem item, Action<ScrollablePanelControl>? content = null)
 	{
-		Items.Add((item, content));
+		Items.Add((item, content, null));
+		return this;
+	}
+
+	/// <summary>
+	/// Adds a child item under this header whose page content is hosted directly via the given control,
+	/// bypassing the built-in scrollable content panel (so a fill root fills the content area).
+	/// </summary>
+	public NavigationHeaderBuilder AddItem(string text, IWindowControl content,
+		string? icon = null, string? subtitle = null)
+	{
+		Items.Add((new NavigationItem(text, icon, subtitle), null, content));
+		return this;
+	}
+
+	/// <summary>
+	/// Adds a child item under this header whose page content is hosted directly via the given control,
+	/// bypassing the built-in scrollable content panel (so a fill root fills the content area).
+	/// </summary>
+	public NavigationHeaderBuilder AddItem(NavigationItem item, IWindowControl content)
+	{
+		Items.Add((item, null, content));
 		return this;
 	}
 }
@@ -69,6 +90,7 @@ public sealed class NavigationViewBuilder : IControlBuilder<NavigationView>
 	{
 		public NavigationItem Item { get; init; } = null!;
 		public Action<ScrollablePanelControl>? Content { get; init; }
+		public IWindowControl? DirectContent { get; init; }
 	}
 	private sealed class PendingHeader : IPendingEntry
 	{
@@ -108,6 +130,32 @@ public sealed class NavigationViewBuilder : IControlBuilder<NavigationView>
 	public NavigationViewBuilder AddItem(NavigationItem item, Action<ScrollablePanelControl>? content = null)
 	{
 		_pendingEntries.Add(new PendingItem { Item = item, Content = content });
+		return this;
+	}
+
+	/// <summary>
+	/// Adds a navigation item whose page content is hosted directly via the given control, bypassing the
+	/// built-in scrollable content panel — so a fill page root (e.g. a GridControl with
+	/// VerticalAlignment.Fill) occupies the whole content area instead of collapsing inside the panel.
+	/// </summary>
+	public NavigationViewBuilder AddItem(string text, IWindowControl content,
+		string? icon = null, string? subtitle = null)
+	{
+		_pendingEntries.Add(new PendingItem
+		{
+			Item = new NavigationItem(text, icon, subtitle),
+			DirectContent = content
+		});
+		return this;
+	}
+
+	/// <summary>
+	/// Adds a navigation item whose page content is hosted directly via the given control, bypassing the
+	/// built-in scrollable content panel (so a fill page root fills the whole content area).
+	/// </summary>
+	public NavigationViewBuilder AddItem(NavigationItem item, IWindowControl content)
+	{
+		_pendingEntries.Add(new PendingItem { Item = item, DirectContent = content });
 		return this;
 	}
 
@@ -448,18 +496,22 @@ public sealed class NavigationViewBuilder : IControlBuilder<NavigationView>
 			if (entry is PendingItem pi)
 			{
 				_control.AddItem(pi.Item);
-				if (pi.Content != null)
+				if (pi.DirectContent != null)
+					_control.SetItemContent(pi.Item, pi.DirectContent);
+				else if (pi.Content != null)
 					_control.SetItemContent(pi.Item, pi.Content);
 			}
 			else if (entry is PendingHeader ph)
 			{
 				var header = _control.AddHeader(ph.Builder.Text, ph.Builder.HeaderColor);
-				foreach (var (childItem, childContent) in ph.Builder.Items)
+				foreach (var (childItem, childContent, childDirectContent) in ph.Builder.Items)
 				{
 					var child = _control.AddItemToHeader(header, childItem.Text, childItem.Icon, childItem.Subtitle);
 					child.Tag = childItem.Tag;
 					child.IsEnabled = childItem.IsEnabled;
-					if (childContent != null)
+					if (childDirectContent != null)
+						_control.SetItemContent(child, childDirectContent);
+					else if (childContent != null)
 						_control.SetItemContent(child, childContent);
 				}
 			}

@@ -484,6 +484,32 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Registers a control to host DIRECTLY as the page content for <paramref name="item"/>, bypassing
+		/// the built-in scrollable content panel — so a fill page root (e.g. a GridControl with
+		/// VerticalAlignment.Fill) occupies the whole content area instead of collapsing inside the panel.
+		/// </summary>
+		public void SetItemContent(NavigationItem item, IWindowControl content)
+		{
+			lock (_itemsLock)
+			{
+				_directContent[item] = content;
+				_contentFactories.Remove(item);
+			}
+			if (SelectedItem == item)
+				ApplyDirectOrPanelContent(item);
+		}
+
+		/// <summary>Registers a direct content control for the item at <paramref name="index"/>.</summary>
+		public void SetItemContent(int index, IWindowControl content)
+		{
+			lock (_itemsLock)
+			{
+				if (index >= 0 && index < _items.Count)
+					SetItemContent(_items[index], content);
+			}
+		}
+
 		#endregion
 
 		#region Selection Helpers
@@ -532,14 +558,41 @@ namespace SharpConsoleUI.Controls
 				_contentHeader.SetContent(FormatContentHeader(item));
 			}
 
-			// Switch content — only clear+populate if a factory is registered.
-			if (newIndex >= 0 && newIndex < _items.Count
-				&& _contentFactories.TryGetValue(_items[newIndex], out var factory))
+			// Switch content — direct control (bypasses SPC) or SPC populate factory.
+			if (newIndex >= 0 && newIndex < _items.Count)
+				ApplyDirectOrPanelContent(_items[newIndex]);
+		}
+
+		// The content column holds [contentHeaderGrid, <body>]. <body> is the SPC by default; for a
+		// direct-content page we swap <body> to the registered control, and swap back to the SPC for
+		// SPC/empty pages — so each page type gets the right host without disturbing the header.
+		private void ApplyDirectOrPanelContent(NavigationItem item)
+		{
+			if (_directContent.TryGetValue(item, out var control))
 			{
-				_contentPanel.ClearContents();
-				factory(_contentPanel);
-				_contentPanel.ScrollToTop();
+				if (!ReferenceEquals(_contentColumnBody, control))
+				{
+					_contentColumn.RemoveContent(_contentColumnBody);
+					_contentColumn.AddContent(control);
+					_contentColumnBody = control;
+				}
 			}
+			else
+			{
+				if (!ReferenceEquals(_contentColumnBody, _contentPanel))
+				{
+					_contentColumn.RemoveContent(_contentColumnBody);
+					_contentColumn.AddContent(_contentPanel);
+					_contentColumnBody = _contentPanel;
+				}
+				if (_contentFactories.TryGetValue(item, out var factory))
+				{
+					_contentPanel.ClearContents();
+					factory(_contentPanel);
+					_contentPanel.ScrollToTop();
+				}
+			}
+			Invalidate(true);
 		}
 
 		private void RefreshAllItemMarkup()

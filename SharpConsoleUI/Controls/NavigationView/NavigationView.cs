@@ -63,6 +63,7 @@ namespace SharpConsoleUI.Controls
 		private readonly ScrollablePanelControl _navScrollPanel;
 		private readonly MarkupControl _contentHeader;
 		private readonly ScrollablePanelControl _contentPanel;
+		private IWindowControl _contentColumnBody = null!;
 
 		private readonly HorizontalGridControl _contentHeaderGrid;
 		private readonly ColumnContainer _contentHeaderTitleColumn;
@@ -72,6 +73,7 @@ namespace SharpConsoleUI.Controls
 		private readonly List<NavigationItem> _items = new();
 		private readonly List<MarkupControl> _itemControls = new();
 		private readonly Dictionary<NavigationItem, Action<ScrollablePanelControl>> _contentFactories = new();
+		private readonly Dictionary<NavigationItem, IWindowControl> _directContent = new();
 		private readonly object _itemsLock = new();
 		private IReadOnlyList<NavigationItem>? _cachedReadOnlyItems;
 
@@ -181,6 +183,7 @@ namespace SharpConsoleUI.Controls
 			_navColumn.AddContent(_navScrollPanel);
 			_contentColumn.AddContent(_contentHeaderGrid);
 			_contentColumn.AddContent(_contentPanel);
+			_contentColumnBody = _contentPanel;
 
 			_grid.AddColumn(_navColumn);
 			_grid.AddColumn(_contentColumn);
