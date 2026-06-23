@@ -442,6 +442,21 @@ namespace SharpConsoleUI.Helpers
 				}
 			}
 
+			// Consistency with the Unix AnsiInputParser path: an SGR motion-while-button-held report
+			// (motion bit 0x20 set, a real button 0/1/2 in the low 2 bits, not a wheel 0x40) must also
+			// surface ButtonNDragged. Without this the Windows ReadKey path emits only
+			// ButtonNPressed|ReportMousePosition, so drag-aware controls (selection autoscroll,
+			// splitters) never see Button1Dragged and behave differently than on Unix (#45).
+			if ((buttonCode & 0x20) != 0 && (buttonCode & 0x40) == 0)
+			{
+				switch (buttonCode & 0x03)
+				{
+					case 0: buttonState |= MouseFlags.Button1Dragged; break;
+					case 1: buttonState |= MouseFlags.Button2Dragged; break;
+					case 2: buttonState |= MouseFlags.Button3Dragged; break;
+				}
+			}
+
 			mouseFlags = [MouseFlags.AllEvents];
 
 			if (_lastMouseButtonPressed != null
