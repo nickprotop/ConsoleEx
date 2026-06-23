@@ -263,8 +263,8 @@ internal static class Pages
 	public static GridControl BuildSettingsGrid()
 	{
 		var grid = FillGrid()
-			.Columns(GridLength.Cells(16), GridLength.Star(1))
-			.Rows(GridLength.Cells(2), GridLength.Cells(2), GridLength.Cells(3), GridLength.Star(1))
+			.Columns(GridLength.Auto(), GridLength.Star(1))
+			.Rows(GridLength.Auto(), GridLength.Auto(), GridLength.Auto(), GridLength.Star(1))
 			.RowGap(1)
 			.ColumnGap(2)
 			.WithPadding(2, 2, 2, 2)

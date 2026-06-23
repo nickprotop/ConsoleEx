@@ -345,12 +345,21 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 				continue;
 			}
 
+			// Add the child's own margin back onto the measure width. CellInnerExtent already subtracted
+			// the child margin (it is the alignment box used by arrange), but a control's MeasureDOM treats
+			// constraints.MaxWidth as its TOTAL allocation and subtracts its margin again internally. Passing
+			// innerW directly would double-subtract the margin, starving the content by 2*margin and forcing
+			// a single-line label (e.g. "Animation" in an Auto column) to wrap. Re-add it so the control's
+			// content gets exactly cellWidth - border - cellPadding - margin, matching pass 1 and arrange.
+			Margin childMargin = child.Control?.Margin ?? default;
+			int measureW = innerW + childMargin.Left + childMargin.Right;
+
 			// Constrain WIDTH to the cell's inner width so a wrapping control reflows to its column, but
 			// leave HEIGHT unbounded: the goal is to discover the wrapped height. Clamping height to the
 			// pass-1 row size would cap the reported height at the single-line measure and prevent an Auto
 			// row from growing. Fixed/Star rows ignore the reported height (only Auto rows size to content),
 			// and arrange clips each cell to its track, so an over-tall report is harmless for those rows.
-			child.Measure(LayoutConstraints.Loose(innerW, int.MaxValue));
+			child.Measure(LayoutConstraints.Loose(measureW, int.MaxValue));
 			anyReflow = true;
 		}
 
@@ -572,18 +581,18 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 			var cellRect = new LayoutRect(contentX, contentY, contentW, contentH);
 			_cellRects[child] = cellRect;
 
-			// Inset the content area by the child's own margin to form the alignment box.
-			Margin childMargin = child.Control?.Margin ?? default;
-			int innerX = contentX + childMargin.Left;
-			int innerY = contentY + childMargin.Top;
-			int innerW = Math.Max(0, contentW - childMargin.Left - childMargin.Right);
-			int innerH = Math.Max(0, contentH - childMargin.Top - childMargin.Bottom);
-
+			// Align the child within the cell's CONTENT box (border + cell-padding already removed). Do NOT
+			// pre-subtract the child's own margin here: the control's own paint (its leftInset/topInset)
+			// already accounts for its margin, and its DesiredSize already includes it. Subtracting the
+			// margin to form the alignment box AND letting the control subtract it again in paint would
+			// double-subtract — starving the content by 2*margin and truncating a tight Auto-cell label
+			// (e.g. "Animation" -> "Animati"). The grid reserves border + cell-padding; the control owns
+			// its margin.
 			HorizontalAlignment hAlign = child.Control?.HorizontalAlignment ?? HorizontalAlignment.Stretch;
 			VerticalAlignment vAlign = child.Control?.VerticalAlignment ?? VerticalAlignment.Fill;
 
-			(int childX, int childW) = AlignHorizontal(hAlign, innerX, innerW, child.DesiredSize.Width);
-			(int childY, int childH) = AlignVertical(vAlign, innerY, innerH, child.DesiredSize.Height);
+			(int childX, int childW) = AlignHorizontal(hAlign, contentX, contentW, child.DesiredSize.Width);
+			(int childY, int childH) = AlignVertical(vAlign, contentY, contentH, child.DesiredSize.Height);
 
 			child.Arrange(new LayoutRect(childX, childY, childW, childH));
 		}
