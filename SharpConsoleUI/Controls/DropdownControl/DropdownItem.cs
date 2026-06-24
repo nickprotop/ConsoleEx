@@ -15,6 +15,13 @@ namespace SharpConsoleUI.Controls
 	public class DropdownItem
 	{
 		/// <summary>
+		/// The DropdownControl that owns this item, set via the owning control's
+		/// SyncItemOwners(). Display-property setters notify this owner so the
+		/// control re-renders. Null when the item is not attached to a control.
+		/// </summary>
+		internal DropdownControl? Owner;
+
+		/// <summary>
 		/// Initializes a new instance of the <see cref="DropdownItem"/> class.
 		/// </summary>
 		/// <param name="text">The display text for the item.</param>
@@ -27,30 +34,54 @@ namespace SharpConsoleUI.Controls
 			IconColor = iconColor;
 		}
 
+		private string? _icon;
+
 		/// <summary>
 		/// Gets or sets the icon character or string displayed before the item text.
 		/// </summary>
-		public string? Icon { get; set; }
+		public string? Icon
+		{
+			get => _icon;
+			set { if (_icon == value) return; _icon = value; Owner?.OnItemInvalidated(Invalidation.Relayout); }
+		}
+
+		private Color? _iconColor;
 
 		/// <summary>
 		/// Gets or sets the color of the icon.
 		/// </summary>
-		public Color? IconColor { get; set; }
+		public Color? IconColor
+		{
+			get => _iconColor;
+			set { if (_iconColor == value) return; _iconColor = value; Owner?.OnItemInvalidated(Invalidation.Repaint); }
+		}
+
+		private bool _isEnabled = true;
 
 		/// <summary>
 		/// Gets or sets whether the item is enabled and can be selected.
 		/// </summary>
-		public bool IsEnabled { get; set; } = true;
+		public bool IsEnabled
+		{
+			get => _isEnabled;
+			set { if (_isEnabled == value) return; _isEnabled = value; Owner?.OnItemInvalidated(Invalidation.Repaint); }
+		}
 
 		/// <summary>
 		/// Gets or sets custom data associated with this item.
 		/// </summary>
 		public object? Tag { get; set; }
 
+		private string _text = string.Empty;
+
 		/// <summary>
 		/// Gets or sets the display text for the item.
 		/// </summary>
-		public string Text { get; set; }
+		public string Text
+		{
+			get => _text;
+			set { if (_text == value) return; _text = value; Owner?.OnItemInvalidated(Invalidation.Relayout); }
+		}
 
 		/// <summary>
 		/// Gets or sets the programmatic value for the item.

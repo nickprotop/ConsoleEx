@@ -205,8 +205,13 @@ namespace SharpConsoleUI.Controls
 			set => SetInput(value);
 		}
 
+		private bool _isEnabled = true;
 		/// <inheritdoc/>
-		public bool IsEnabled { get; set; } = true;
+		public bool IsEnabled
+		{
+			get => _isEnabled;
+			set { if (_isEnabled == value) return; _isEnabled = value; Container?.Invalidate(Invalidation.Repaint); }
+		}
 
 		/// <summary>
 		/// Gets or sets the prompt text displayed before the input area.

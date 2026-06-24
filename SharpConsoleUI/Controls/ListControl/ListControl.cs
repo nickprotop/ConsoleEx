@@ -135,6 +135,32 @@ namespace SharpConsoleUI.Controls
 			return _textMeasurementCache.GetCachedLength(text);
 		}
 
+		/// <summary>
+		/// Called by an owned <see cref="ListItem"/> when one of its display properties changes,
+		/// so the list re-renders. Items render LIVE each paint (no bake), so invalidating the
+		/// container is sufficient to reflect the change.
+		/// </summary>
+		internal void OnItemInvalidated(Invalidation work)
+		{
+			if (work == Invalidation.Relayout)
+				_textMeasurementCache.InvalidateCache();
+			Container?.Invalidate(work);
+		}
+
+		/// <summary>
+		/// Assigns this control as the Owner of every item in <see cref="_items"/> so that
+		/// item display-property changes notify the control. Called after every bulk mutation
+		/// of the items collection (there is no per-item remove, only Clear + wholesale replace).
+		/// </summary>
+		private void SyncItemOwners()
+		{
+			lock (_itemsLock)
+			{
+				foreach (var it in _items)
+					it.Owner = this;
+			}
+		}
+
 		// Helper to find containing Window by traversing container hierarchy
 		private Window? FindContainingWindow()
 		{
@@ -170,6 +196,7 @@ namespace SharpConsoleUI.Controls
 					_items.Add(new ListItem(item));
 				}
 			}
+			SyncItemOwners();
 		}
 
 		/// <summary>
@@ -186,6 +213,7 @@ namespace SharpConsoleUI.Controls
 					_items.Add(new ListItem(item));
 				}
 			}
+			SyncItemOwners();
 		}
 
 		/// <summary>
@@ -200,6 +228,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_items.AddRange(items);
 			}
+			SyncItemOwners();
 		}
 
 		/// <summary>
@@ -213,6 +242,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_items.AddRange(items);
 			}
+			SyncItemOwners();
 		}
 
 		/// <summary>
@@ -417,6 +447,7 @@ namespace SharpConsoleUI.Controls
 					_items = value;
 					itemCount = _items.Count;
 				}
+				SyncItemOwners();
 				OnPropertyChanged();
 				_textMeasurementCache.InvalidateCache(); // Clear cache when items change
 														 // Adjust selection if out of bounds
@@ -633,6 +664,7 @@ namespace SharpConsoleUI.Controls
 					_items = value.Select(text => new ListItem(text)).ToList();
 					itemCount = _items.Count;
 				}
+				SyncItemOwners();
 				OnPropertyChanged();
 				_textMeasurementCache.InvalidateCache(); // Clear cache when items change
 				int currentSel = CurrentSelectedIndex;
@@ -696,7 +728,7 @@ namespace SharpConsoleUI.Controls
 		/// <param name="item">The item to add.</param>
 		public void AddItem(ListItem item)
 		{
-			lock (_itemsLock) { _items.Add(item); }
+			lock (_itemsLock) { _items.Add(item); item.Owner = this; }
 			_textMeasurementCache.InvalidateCache(); // Clear cache when items change
 			Container?.Invalidate(Invalidation.Relayout);
 		}

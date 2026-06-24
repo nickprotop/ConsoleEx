@@ -138,7 +138,7 @@ public partial class TableControl
 	/// Draws a data row with vertical borders and aligned cell text.
 	/// </summary>
 	private void DrawDataRow(CharacterBuffer buffer, int x, int y, int[] colWidths, LayoutRect clipRect,
-		BoxChars box, Color borderColor, Color borderBg, List<string> cells, List<TableColumn>? cols,
+		BoxChars box, Color borderColor, Color borderBg, IList<string> cells, List<TableColumn>? cols,
 		Color rowFg, Color rowBg, bool hasBorder,
 		int hScrollOffset = 0, int viewportWidth = int.MaxValue,
 		bool isSelected = false, int selectedCellIndex = -1, Color? selectedCellBg = null, Color? selectedCellFg = null,
@@ -794,7 +794,7 @@ public partial class TableControl
 			if (currentY >= maxY) break;
 
 			// Get row data
-			List<string> rowCells;
+			IList<string> rowCells;
 			Color rowBg, rowFg;
 			bool isEnabled = true;
 			bool isChecked = false;

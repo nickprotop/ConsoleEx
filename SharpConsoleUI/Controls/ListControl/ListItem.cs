@@ -14,6 +14,13 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public class ListItem
 	{
+		/// <summary>
+		/// The ListControl that owns this item, set via the owning control's
+		/// SyncItemOwners(). Display-property setters notify this owner so the
+		/// control re-renders. Null when the item is not attached to a control.
+		/// </summary>
+		internal ListControl? Owner;
+
 		private List<string>? _lines;
 		private string _text;
 
@@ -31,25 +38,49 @@ namespace SharpConsoleUI.Controls
 			IconColor = iconColor;
 		}
 
+		private string? _icon;
+
 		/// <summary>
 		/// Gets or sets the icon displayed before the item text.
 		/// </summary>
-		public string? Icon { get; set; }
+		public string? Icon
+		{
+			get => _icon;
+			set { if (_icon == value) return; _icon = value; Owner?.OnItemInvalidated(Invalidation.Relayout); }
+		}
+
+		private Color? _iconColor;
 
 		/// <summary>
 		/// Gets or sets the color of the icon.
 		/// </summary>
-		public Color? IconColor { get; set; }
+		public Color? IconColor
+		{
+			get => _iconColor;
+			set { if (_iconColor == value) return; _iconColor = value; Owner?.OnItemInvalidated(Invalidation.Repaint); }
+		}
+
+		private bool _isEnabled = true;
 
 		/// <summary>
 		/// Gets or sets whether this item is enabled.
 		/// </summary>
-		public bool IsEnabled { get; set; } = true;
+		public bool IsEnabled
+		{
+			get => _isEnabled;
+			set { if (_isEnabled == value) return; _isEnabled = value; Owner?.OnItemInvalidated(Invalidation.Repaint); }
+		}
+
+		private bool _isChecked = false;
 
 		/// <summary>
 		/// Gets or sets whether this item is checked (used in CheckboxMode).
 		/// </summary>
-		public bool IsChecked { get; set; } = false;
+		public bool IsChecked
+		{
+			get => _isChecked;
+			set { if (_isChecked == value) return; _isChecked = value; Owner?.OnItemInvalidated(Invalidation.Repaint); }
+		}
 
 		/// <summary>
 		/// Gets the text split into separate lines for multi-line items.
@@ -69,6 +100,7 @@ namespace SharpConsoleUI.Controls
 			get => _text;
 			set
 			{
+				if (_text == value) return;
 				_text = value;
 				// Split the text into lines when the text is set
 				_lines = value?.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
@@ -76,6 +108,7 @@ namespace SharpConsoleUI.Controls
 				{
 					_lines = new List<string> { "" };
 				}
+				Owner?.OnItemInvalidated(Invalidation.Relayout);
 			}
 		}
 

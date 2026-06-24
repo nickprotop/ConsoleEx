@@ -16,29 +16,65 @@ namespace SharpConsoleUI.Controls;
 public class TableColumn
 {
 	/// <summary>
+	/// The owning <see cref="TableControl"/>, set when the column is added. Used to route
+	/// display-property changes back to the table for cache busting and invalidation.
+	/// </summary>
+	internal TableControl? Owner;
+
+	private string _header = string.Empty;
+
+	/// <summary>
 	/// Gets or sets the header text for this column.
 	/// </summary>
-	public string Header { get; set; } = string.Empty;
+	public string Header
+	{
+		get => _header;
+		set { if (_header == value) return; _header = value; Owner?.OnColumnDisplayChanged(this, true, Invalidation.Relayout); }
+	}
+
+	private TextJustification _alignment = TextJustification.Left;
 
 	/// <summary>
 	/// Gets or sets the text alignment for cells in this column.
 	/// </summary>
-	public TextJustification Alignment { get; set; } = TextJustification.Left;
+	public TextJustification Alignment
+	{
+		get => _alignment;
+		set { if (_alignment == value) return; _alignment = value; Owner?.OnColumnDisplayChanged(this, false, Invalidation.Relayout); }
+	}
+
+	private int? _width;
 
 	/// <summary>
 	/// Gets or sets the fixed width for this column. Null means auto-width.
 	/// </summary>
-	public int? Width { get; set; }
+	public int? Width
+	{
+		get => _width;
+		set { if (_width == value) return; _width = value; Owner?.OnColumnDisplayChanged(this, true, Invalidation.Relayout); }
+	}
+
+	private bool _noWrap = false;
 
 	/// <summary>
 	/// Gets or sets whether text in this column should not wrap.
 	/// </summary>
-	public bool NoWrap { get; set; } = false;
+	public bool NoWrap
+	{
+		get => _noWrap;
+		set { if (_noWrap == value) return; _noWrap = value; Owner?.OnColumnDisplayChanged(this, false, Invalidation.Relayout); }
+	}
+
+	private Color? _headerColor;
 
 	/// <summary>
 	/// Gets or sets the foreground color for the header text.
 	/// </summary>
-	public Color? HeaderColor { get; set; }
+	public Color? HeaderColor
+	{
+		get => _headerColor;
+		set { if (_headerColor == value) return; _headerColor = value; Owner?.OnColumnDisplayChanged(this, false, Invalidation.Repaint); }
+	}
 
 	/// <summary>
 	/// Gets or sets an arbitrary object associated with this column for user data.

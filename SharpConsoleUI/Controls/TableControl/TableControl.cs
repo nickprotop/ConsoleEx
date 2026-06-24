@@ -502,7 +502,11 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	{
 		if (_dataSource != null)
 			throw new InvalidOperationException("Cannot add columns when DataSource is set.");
-		lock (_tableLock) { _columns.Add(new TableColumn(header, alignment, width)); }
+		lock (_tableLock)
+		{
+			var column = new TableColumn(header, alignment, width) { Owner = this };
+			_columns.Add(column);
+		}
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Container?.Invalidate(Invalidation.Relayout);
@@ -515,7 +519,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	{
 		if (_dataSource != null)
 			throw new InvalidOperationException("Cannot add columns when DataSource is set.");
-		lock (_tableLock) { _columns.Add(column); }
+		lock (_tableLock) { column.Owner = this; _columns.Add(column); }
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Container?.Invalidate(Invalidation.Relayout);
@@ -529,7 +533,10 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		lock (_tableLock)
 		{
 			if (index >= 0 && index < _columns.Count)
+			{
+				_columns[index].Owner = null;
 				_columns.RemoveAt(index);
+			}
 			else
 				return;
 		}
@@ -543,7 +550,12 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// </summary>
 	public void ClearColumns()
 	{
-		lock (_tableLock) { _columns.Clear(); }
+		lock (_tableLock)
+		{
+			foreach (var column in _columns)
+				column.Owner = null;
+			_columns.Clear();
+		}
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Container?.Invalidate(Invalidation.Relayout);
@@ -591,7 +603,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	{
 		if (_dataSource != null)
 			throw new InvalidOperationException("Cannot add rows when DataSource is set.");
-		lock (_tableLock) { _rows.Add(new TableRow(cells)); }
+		lock (_tableLock) { _rows.Add(new TableRow(cells) { Owner = this }); }
 		_sortIndexMap = null;
 		_filterIndexMap = null;
 		InvalidateColumnWidths();
@@ -606,7 +618,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	{
 		if (_dataSource != null)
 			throw new InvalidOperationException("Cannot add rows when DataSource is set.");
-		lock (_tableLock) { _rows.Add(row); }
+		lock (_tableLock) { row.Owner = this; _rows.Add(row); }
 		_sortIndexMap = null;
 		_filterIndexMap = null;
 		InvalidateColumnWidths();
@@ -621,7 +633,14 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	{
 		if (_dataSource != null)
 			throw new InvalidOperationException("Cannot add rows when DataSource is set.");
-		lock (_tableLock) { _rows.AddRange(rows); }
+		lock (_tableLock)
+		{
+			foreach (var row in rows)
+			{
+				row.Owner = this;
+				_rows.Add(row);
+			}
+		}
 		_sortIndexMap = null;
 		_filterIndexMap = null;
 		InvalidateColumnWidths();
@@ -654,6 +673,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		lock (_tableLock)
 		{
 			index = Math.Clamp(index, 0, _rows.Count);
+			row.Owner = this;
 			_rows.Insert(index, row);
 		}
 
@@ -682,6 +702,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		lock (_tableLock)
 		{
 			index = Math.Clamp(index, 0, _rows.Count);
+			foreach (var row in rowList) row.Owner = this;
 			_rows.InsertRange(index, rowList);
 		}
 
@@ -722,7 +743,10 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		lock (_tableLock)
 		{
 			if (index >= 0 && index < _rows.Count)
+			{
+				_rows[index].Owner = null;
 				_rows.RemoveAt(index);
+			}
 			else
 				return;
 		}
@@ -755,7 +779,11 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// </summary>
 	public void ClearRows()
 	{
-		lock (_tableLock) { _rows.Clear(); }
+		lock (_tableLock)
+		{
+			foreach (var row in _rows) row.Owner = null;
+			_rows.Clear();
+		}
 		_selectedRowIndex = -1;
 		_selectedColumnIndex = -1;
 		_hoveredRowIndex = -1;
@@ -824,7 +852,12 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// </summary>
 	public void SetData(IEnumerable<TableRow> rows)
 	{
-		lock (_tableLock) { _rows = new List<TableRow>(rows); }
+		lock (_tableLock)
+		{
+			foreach (var oldRow in _rows) oldRow.Owner = null;
+			_rows = new List<TableRow>(rows);
+			foreach (var row in _rows) row.Owner = this;
+		}
 		_sortIndexMap = null;
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
@@ -988,6 +1021,30 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		_cachedColumnWidthsForWidth = -1;
 		_cachedColumnWidthsScrollOffset = -1;
 		_measurementCache.InvalidateCache();
+	}
+
+	/// <summary>
+	/// Routes a display-property change on an owned <see cref="TableColumn"/> back to the table:
+	/// busts the cached column widths when the change affects sizing, then invalidates the container
+	/// with the given mode. No-ops in DataSource mode, where in-memory columns are unused.
+	/// </summary>
+	internal void OnColumnDisplayChanged(TableColumn column, bool widthAffecting, Invalidation mode)
+	{
+		if (DataSource != null) return; // in-memory columns unused in data-source mode
+		if (widthAffecting) InvalidateColumnWidths();
+		Container?.Invalidate(mode);
+	}
+
+	/// <summary>
+	/// Routes a display-property or cell change on an owned <see cref="TableRow"/> back to the table:
+	/// busts the cached column widths when the change affects sizing, then invalidates the container
+	/// with the given mode. No-ops in DataSource mode, where in-memory rows are unused.
+	/// </summary>
+	internal void OnRowDisplayChanged(TableRow row, bool widthAffecting, Invalidation mode)
+	{
+		if (DataSource != null) return; // in-memory rows unused in data-source mode
+		if (widthAffecting) InvalidateColumnWidths();
+		Container?.Invalidate(mode);
 	}
 
 	/// <summary>

@@ -127,6 +127,7 @@ namespace SharpConsoleUI.Controls
 					_selectedIndex = 0;
 					_highlightedIndex = 0;
 				}
+				SyncItemOwners();
 			}
 		}
 
@@ -146,6 +147,7 @@ namespace SharpConsoleUI.Controls
 					_selectedIndex = 0;
 					_highlightedIndex = 0;
 				}
+				SyncItemOwners();
 			}
 		}
 
@@ -406,6 +408,25 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Called by an owned <see cref="DropdownItem"/> when one of its display properties
+		/// changes, so the control re-renders with the appropriate invalidation level.
+		/// </summary>
+		internal void OnItemInvalidated(Invalidation work) => Container?.Invalidate(work);
+
+		/// <summary>
+		/// Sets the <see cref="DropdownItem.Owner"/> back-reference on every current item so
+		/// their display-property setters notify this control. Called after bulk item mutations.
+		/// </summary>
+		private void SyncItemOwners()
+		{
+			lock (_dropdownLock)
+			{
+				foreach (var it in _items)
+					it.Owner = this;
+			}
+		}
+
+		/// <summary>
 		/// Gets or sets the custom item formatter delegate for rendering dropdown items.
 		/// </summary>
 		public ItemFormatterEvent? ItemFormatter
@@ -423,6 +444,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				lock (_dropdownLock) { _items = value; }
+				SyncItemOwners();
 				OnPropertyChanged();
 				int currentSel = CurrentSelectedIndex;
 				if (currentSel >= _items.Count)
@@ -568,6 +590,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				lock (_dropdownLock) { _items = value.Select(text => new DropdownItem(text)).ToList(); }
+				SyncItemOwners();
 				OnPropertyChanged();
 				int currentSel = CurrentSelectedIndex;
 				if (currentSel >= _items.Count)
@@ -599,6 +622,7 @@ namespace SharpConsoleUI.Controls
 			int count;
 			lock (_dropdownLock)
 			{
+				item.Owner = this;
 				_items.Add(item);
 				count = _items.Count;
 			}

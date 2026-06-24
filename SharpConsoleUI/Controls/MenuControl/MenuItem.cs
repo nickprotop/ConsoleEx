@@ -29,6 +29,13 @@ public class MenuItem : INotifyPropertyChanged
 		Children = new MenuItemCollection(this);
 	}
 
+	/// <summary>Creates a MenuItem with the specified display text.</summary>
+	/// <param name="text">The display text for this menu item.</param>
+	public MenuItem(string text) : this()
+	{
+		_text = text;
+	}
+
 	private string _text = string.Empty;
 
 	/// <summary>
@@ -75,10 +82,16 @@ public class MenuItem : INotifyPropertyChanged
 		set { if (_isEnabled == value) return; _isEnabled = value; OnPropertyChanged(); Invalidate(); }
 	}
 
+	private bool _isSeparator;
+
 	/// <summary>
 	/// Gets or sets whether this menu item is a separator (horizontal line).
 	/// </summary>
-	public bool IsSeparator { get; set; }
+	public bool IsSeparator
+	{
+		get => _isSeparator;
+		set { if (_isSeparator == value) return; _isSeparator = value; OnPropertyChanged(); Invalidate(measurementChanged: true); }
+	}
 
 	/// <summary>
 	/// Gets or sets user-defined data associated with this menu item.
