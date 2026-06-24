@@ -247,7 +247,7 @@ namespace SharpConsoleUI.Controls
 				foreach (var column in columns)
 				{
 					column.GetConsoleWindowSystem = value?.GetConsoleWindowSystem;
-					column.Invalidate(true);
+					column.Invalidate(Invalidation.Relayout);
 				}
 
 				// Update container for all splitters as well
@@ -393,7 +393,7 @@ namespace SharpConsoleUI.Controls
 			// Force DOM rebuild for runtime addition
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
 
-			Invalidate();
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -439,7 +439,7 @@ namespace SharpConsoleUI.Controls
 				// Force DOM rebuild for runtime addition
 				(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
 
-				Invalidate();
+				Invalidate(Invalidation.Relayout);
 				return splitter;
 			}
 			else
@@ -478,7 +478,7 @@ namespace SharpConsoleUI.Controls
 			splitterControl.SplitterMoved += OnSplitterMoved;
 
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
-			Invalidate();
+			Invalidate(Invalidation.Relayout);
 			return true;
 		}
 
@@ -603,7 +603,7 @@ namespace SharpConsoleUI.Controls
 			// Force DOM rebuild for runtime removal
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
 
-			Invalidate();
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -627,7 +627,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
-			Invalidate();
+			Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion
@@ -780,10 +780,10 @@ namespace SharpConsoleUI.Controls
 			lock (_gridLock) { columns = new List<ColumnContainer>(_columns); }
 			foreach (var column in columns)
 			{
-				column.Invalidate(true);
+				column.Invalidate(Invalidation.Relayout);
 			}
 
-			Invalidate();
+			Invalidate(Invalidation.Relayout);
 		}
 	}
 }

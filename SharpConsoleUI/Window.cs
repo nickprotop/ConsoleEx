@@ -37,6 +37,33 @@ namespace SharpConsoleUI
 	}
 
 	/// <summary>
+	/// The kind of work a caller requests when invalidating. There is no <c>None</c>: "request nothing"
+	/// is not a meaningful invalidation. Values match <see cref="FrameWork"/>'s non-None values.
+	/// </summary>
+	public enum Invalidation : int
+	{
+		/// <summary>Appearance-only change (colour/content of cells). Measure is skipped; cached layout is reused.</summary>
+		Repaint = 1,
+		/// <summary>Size/position-affecting change. Full Measure + Arrange + Paint.</summary>
+		Relayout = 2
+	}
+
+	/// <summary>
+	/// A window's pending-frame work — the read-only accumulator state the render engine consults.
+	/// Ordered (<c>None &lt; Repaint &lt; Relayout</c>); <see cref="None"/> is the clean state and the identity
+	/// of the monotone Max-join. Callers never produce <c>None</c>; they use <see cref="Invalidation"/>.
+	/// </summary>
+	public enum FrameWork : int
+	{
+		/// <summary>No pending work — the window is clean and is skipped this frame.</summary>
+		None = 0,
+		/// <summary>Paint-only pending; Measure is skipped.</summary>
+		Repaint = 1,
+		/// <summary>Layout pending; full Measure + Arrange + Paint.</summary>
+		Relayout = 2
+	}
+
+	/// <summary>
 	/// Specifies the visual style of a window's border.
 	/// </summary>
 	public enum BorderStyle
@@ -166,7 +193,6 @@ namespace SharpConsoleUI
 		private string _guid;
 		private Color? _inactiveBorderForegroundColor;
 		private Color? _inactiveTitleForegroundColor;
-		internal bool _invalidated = false;
 		private bool _isActive;
 		private Controls.IFocusableControl? _savedFocusOnDeactivate;
 		/// <summary>Manages focus state for this window. Use to set, query, or move focus.</summary>
@@ -260,7 +286,7 @@ namespace SharpConsoleUI
 			_contentManager = new Windows.WindowContentManager(
 				() => Title,
 				_windowSystem?.LogService,
-				() => Invalidate(true),
+				() => Invalidate(Invalidation.Relayout),
 				() => _renderer?.InvalidateDOM());
 
 			// Initialize border renderer
@@ -327,7 +353,7 @@ namespace SharpConsoleUI
 			_contentManager = new Windows.WindowContentManager(
 				() => Title,
 				_windowSystem?.LogService,
-				() => Invalidate(true),
+				() => Invalidate(Invalidation.Relayout),
 				() => _renderer?.InvalidateDOM());
 
 			// Initialize border renderer
@@ -437,13 +463,13 @@ namespace SharpConsoleUI
 		/// Gets or sets the foreground color of the window border when active.
 		/// </summary>
 		public Color ActiveBorderForegroundColor
-		{ get => _activeBorderForegroundColor ?? _windowSystem?.Theme.ActiveBorderForegroundColor ?? Color.White; set { _activeBorderForegroundColor = value; InvalidateBorderCache(); Invalidate(false); } }
+		{ get => _activeBorderForegroundColor ?? _windowSystem?.Theme.ActiveBorderForegroundColor ?? Color.White; set { _activeBorderForegroundColor = value; InvalidateBorderCache(); Invalidate(Invalidation.Repaint); } }
 
 		/// <summary>
 		/// Gets or sets the foreground color of the window title when active.
 		/// </summary>
 		public Color ActiveTitleForegroundColor
-		{ get => _activeTitleForegroundColor ?? _windowSystem?.Theme.ActiveTitleForegroundColor ?? Color.White; set { _activeTitleForegroundColor = value; InvalidateBorderCache(); Invalidate(false); } }
+		{ get => _activeTitleForegroundColor ?? _windowSystem?.Theme.ActiveTitleForegroundColor ?? Color.White; set { _activeTitleForegroundColor = value; InvalidateBorderCache(); Invalidate(Invalidation.Repaint); } }
 
 		private Color? _backgroundColor;
 		private Color? _foregroundColor;
@@ -461,7 +487,7 @@ namespace SharpConsoleUI
 			{
 				_backgroundColor = value;
 				InvalidateBorderCache();
-				Invalidate(false);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -478,7 +504,7 @@ namespace SharpConsoleUI
 			set
 			{
 				_backgroundGradient = value;
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -496,7 +522,7 @@ namespace SharpConsoleUI
 			set
 			{
 				_transparencyBrush = value;
-				Invalidate(false);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -511,7 +537,7 @@ namespace SharpConsoleUI
 			{
 				_foregroundColor = value;
 				InvalidateBorderCache();
-				Invalidate(false);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -552,7 +578,7 @@ namespace SharpConsoleUI
 
 					_height = value;
 					InvalidateBorderCache();
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				}
 			}
 		}
@@ -561,13 +587,13 @@ namespace SharpConsoleUI
 		/// Gets or sets the foreground color of the window border when inactive.
 		/// </summary>
 		public Color InactiveBorderForegroundColor
-		{ get => _inactiveBorderForegroundColor ?? _windowSystem?.Theme.InactiveBorderForegroundColor ?? Color.White; set { _inactiveBorderForegroundColor = value; InvalidateBorderCache(); Invalidate(false); } }
+		{ get => _inactiveBorderForegroundColor ?? _windowSystem?.Theme.InactiveBorderForegroundColor ?? Color.White; set { _inactiveBorderForegroundColor = value; InvalidateBorderCache(); Invalidate(Invalidation.Repaint); } }
 
 		/// <summary>
 		/// Gets or sets the foreground color of the window title when inactive.
 		/// </summary>
 		public Color InactiveTitleForegroundColor
-		{ get => _inactiveTitleForegroundColor ?? _windowSystem?.Theme.InactiveTitleForegroundColor ?? Color.White; set { _inactiveTitleForegroundColor = value; InvalidateBorderCache(); Invalidate(false); } }
+		{ get => _inactiveTitleForegroundColor ?? _windowSystem?.Theme.InactiveTitleForegroundColor ?? Color.White; set { _inactiveTitleForegroundColor = value; InvalidateBorderCache(); Invalidate(Invalidation.Repaint); } }
 
 		/// <summary>
 		/// Gets or sets a value indicating whether the window can be closed by the user.
@@ -586,7 +612,7 @@ namespace SharpConsoleUI
 				if (_showCloseButton != value)
 				{
 					_showCloseButton = value;
-					Invalidate(false);
+					Invalidate(Invalidation.Repaint);
 				}
 			}
 		}
@@ -607,20 +633,47 @@ namespace SharpConsoleUI
 		public bool IsContentVisible { get; set; } = true;
 
 		/// <summary>
-		/// Thread-safe flag indicating whether the window needs to be redrawn (1 = true, 0 = false).
+		/// The window's pending-frame work, Interlocked-backed (<see cref="FrameWork"/> as an int).
+		/// Starts at <see cref="FrameWork.Relayout"/> so a freshly-created window measures + paints once.
 		/// </summary>
-		private int _isDirtyFlag = 1; // 1 = true initially
+		private int _pendingWork = (int)FrameWork.Relayout;
+
+		/// <summary>Per-frame count of invalidation requests (the coalescing metric, §5). Snapshot+reset each frame.</summary>
+		private int _requestsThisFrame;
 
 		/// <summary>
-		/// Gets or sets a value indicating whether the window needs to be redrawn.
-		/// When true, the window will be rendered on the next frame update.
-		/// Thread-safe using Interlocked operations.
+		/// The ONLY mutator of <see cref="_pendingWork"/>. Monotone Max-join — <see cref="FrameWork.Relayout"/>
+		/// dominates <see cref="FrameWork.Repaint"/> dominates <see cref="FrameWork.None"/>. Lock-free and safe
+		/// from any thread (no <c>Monitor.TryEnter</c>), so a cross-thread invalidation under render-lock
+		/// contention can never drop the intent.
 		/// </summary>
-		public bool IsDirty
+		private void Request(Invalidation work)
 		{
-			get => Interlocked.CompareExchange(ref _isDirtyFlag, 0, 0) == 1;
-			set => Interlocked.Exchange(ref _isDirtyFlag, value ? 1 : 0);
+			int w = (int)work;
+			int cur;
+			do
+			{
+				cur = Volatile.Read(ref _pendingWork);
+				if (w <= cur) break;
+			}
+			while (Interlocked.CompareExchange(ref _pendingWork, w, cur) != cur);
+
+			Interlocked.Increment(ref _requestsThisFrame);
 		}
+
+		/// <summary>
+		/// Gets the window's pending-frame work — the read-only frame intent the render engine consults
+		/// instead of the removed <c>IsDirty</c> flag. <see cref="FrameWork.None"/> means clean (skip this window).
+		/// </summary>
+		public FrameWork PendingWork => (FrameWork)Volatile.Read(ref _pendingWork);
+
+		/// <summary>
+		/// The number of invalidation requests that folded into the most recently consumed frame (the
+		/// coalescing metric, §5). A high value with a <see cref="FrameWork.Repaint"/> frame is cheap coalesced
+		/// churn; a high value with <see cref="FrameWork.Relayout"/> every frame is the expensive case. Read-only;
+		/// no behaviour depends on it.
+		/// </summary>
+		public int LastFrameRequests { get; private set; }
 
 		internal bool IsDragging { get; set; }
 
@@ -685,7 +738,7 @@ namespace SharpConsoleUI
 					// When unlocking, force re-render to show accumulated changes
 					if (!_renderLock)
 					{
-						IsDirty = true;
+						Request(Invalidation.Relayout);
 					}
 				}
 			}
@@ -771,7 +824,7 @@ namespace SharpConsoleUI
 			if (next != ScrollOffset)
 			{
 				ScrollOffset = next;
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -797,7 +850,7 @@ namespace SharpConsoleUI
 				{
 					_title = value;
 					InvalidateBorderCache();
-					Invalidate(false);
+					Invalidate(Invalidation.Repaint);
 				}
 			}
 		}
@@ -884,7 +937,7 @@ namespace SharpConsoleUI
 
 					_width = value;
 					InvalidateBorderCache();
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				}
 			}
 		}
@@ -903,7 +956,7 @@ namespace SharpConsoleUI
 				{
 					_padding = value;
 					InvalidateBorderCache();
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				}
 			}
 		}
@@ -990,7 +1043,7 @@ namespace SharpConsoleUI
 				{
 					_borderStyle = value;
 					InvalidateBorderCache();
-					Invalidate(false);
+					Invalidate(Invalidation.Repaint);
 				}
 			}
 		}
@@ -1007,7 +1060,7 @@ namespace SharpConsoleUI
 				if (_showTitle != value)
 				{
 					_showTitle = value;
-					Invalidate(false);
+					Invalidate(Invalidation.Repaint);
 				}
 			}
 		}

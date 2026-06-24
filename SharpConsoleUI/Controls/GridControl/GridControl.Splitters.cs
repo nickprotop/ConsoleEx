@@ -37,7 +37,7 @@ namespace SharpConsoleUI.Controls
 			if (!_splitters.Any(s => s.Matches(GridSplitterOrientation.Column, afterIndex)))
 			{
 				_splitters.Add(new GridSplitter(GridSplitterOrientation.Column, afterIndex) { OwnerGrid = this });
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 			return this;
 		}
@@ -54,7 +54,7 @@ namespace SharpConsoleUI.Controls
 			if (!_splitters.Any(s => s.Matches(GridSplitterOrientation.Row, afterIndex)))
 			{
 				_splitters.Add(new GridSplitter(GridSplitterOrientation.Row, afterIndex) { OwnerGrid = this });
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 			return this;
 		}
@@ -67,14 +67,14 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>Removes the column splitter after <paramref name="afterIndex"/>, if present.</summary>
 		/// <returns>This grid, to allow fluent chaining.</returns>
-		public GridControl RemoveColumnSplitterAfter(int afterIndex) { _splitters.RemoveAll(s => s.Matches(GridSplitterOrientation.Column, afterIndex)); Container?.Invalidate(true); return this; }
+		public GridControl RemoveColumnSplitterAfter(int afterIndex) { _splitters.RemoveAll(s => s.Matches(GridSplitterOrientation.Column, afterIndex)); Container?.Invalidate(Invalidation.Relayout); return this; }
 
 		/// <summary>Removes the row splitter after <paramref name="afterIndex"/>, if present.</summary>
 		/// <returns>This grid, to allow fluent chaining.</returns>
-		public GridControl RemoveRowSplitterAfter(int afterIndex) { _splitters.RemoveAll(s => s.Matches(GridSplitterOrientation.Row, afterIndex)); Container?.Invalidate(true); return this; }
+		public GridControl RemoveRowSplitterAfter(int afterIndex) { _splitters.RemoveAll(s => s.Matches(GridSplitterOrientation.Row, afterIndex)); Container?.Invalidate(Invalidation.Relayout); return this; }
 
 		/// <summary>Removes every declared splitter from this grid.</summary>
-		public void ClearSplitters() { _splitters.Clear(); Container?.Invalidate(true); }
+		public void ClearSplitters() { _splitters.Clear(); Container?.Invalidate(Invalidation.Relayout); }
 
 		// ---- Keyboard nudge + real splitter focus (via FocusManager) ----
 
@@ -111,7 +111,7 @@ namespace SharpConsoleUI.Controls
 		{
 			if (s == null) return;
 			this.GetParentWindow()?.FocusManager.SetFocus(s, FocusReason.Keyboard);
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Repaint);
 		}
 
 		/// <summary>Handle an arrow key for a SPECIFIC splitter <paramref name="s"/>. Returns true if consumed.
@@ -135,7 +135,7 @@ namespace SharpConsoleUI.Controls
 			}
 			if (delta == 0) return false;
 			ResizeSplitter(s, delta);
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 			return true;
 		}
 
@@ -213,19 +213,19 @@ namespace SharpConsoleUI.Controls
 		private Color? _splitterDraggingForeground;
 
 		/// <summary>Idle splitter glyph colour. Null falls back to the role border colour, then the grid foreground.</summary>
-		public Color? SplitterColor { get => _splitterColor; set { _splitterColor = value; Container?.Invalidate(true); } }
+		public Color? SplitterColor { get => _splitterColor; set { _splitterColor = value; Container?.Invalidate(Invalidation.Repaint); } }
 
 		/// <summary>Background highlight when a splitter is focused or hovered. Null uses the theme button-focused background.</summary>
-		public Color? SplitterFocusedBackground { get => _splitterFocusedBackground; set { _splitterFocusedBackground = value; Container?.Invalidate(true); } }
+		public Color? SplitterFocusedBackground { get => _splitterFocusedBackground; set { _splitterFocusedBackground = value; Container?.Invalidate(Invalidation.Repaint); } }
 
 		/// <summary>Glyph colour when a splitter is focused or hovered. Null uses the theme button-focused foreground.</summary>
-		public Color? SplitterFocusedForeground { get => _splitterFocusedForeground; set { _splitterFocusedForeground = value; Container?.Invalidate(true); } }
+		public Color? SplitterFocusedForeground { get => _splitterFocusedForeground; set { _splitterFocusedForeground = value; Container?.Invalidate(Invalidation.Repaint); } }
 
 		/// <summary>Background highlight while a splitter is being dragged. Null uses the theme button-focused background.</summary>
-		public Color? SplitterDraggingBackground { get => _splitterDraggingBackground; set { _splitterDraggingBackground = value; Container?.Invalidate(true); } }
+		public Color? SplitterDraggingBackground { get => _splitterDraggingBackground; set { _splitterDraggingBackground = value; Container?.Invalidate(Invalidation.Repaint); } }
 
 		/// <summary>Glyph colour while a splitter is being dragged. Null uses the theme button-focused foreground.</summary>
-		public Color? SplitterDraggingForeground { get => _splitterDraggingForeground; set { _splitterDraggingForeground = value; Container?.Invalidate(true); } }
+		public Color? SplitterDraggingForeground { get => _splitterDraggingForeground; set { _splitterDraggingForeground = value; Container?.Invalidate(Invalidation.Repaint); } }
 
 		// Splitter colours are fully THEME-DRIVEN and follow the grid's ColorRole — nothing is hardcoded.
 		// The highlight is FOREGROUND-ONLY: the BACKGROUND is the SAME in every state (idle / focused / hover /
@@ -480,7 +480,7 @@ namespace SharpConsoleUI.Controls
 				{
 					_activeDragSplitter.IsDragging = false;
 					_activeDragSplitter = null;
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Repaint);
 					args.Handled = true;
 					return true;
 				}
@@ -490,7 +490,7 @@ namespace SharpConsoleUI.Controls
 					int delta = current - _lastDragWindowCoord;
 					if (delta != 0 && ResizeSplitter(_activeDragSplitter, delta))
 						_lastDragWindowCoord = current;
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 					args.Handled = true;
 					return true;
 				}
@@ -511,7 +511,7 @@ namespace SharpConsoleUI.Controls
 					// off it via normal focus handling, clearing the highlight automatically.
 					this.GetParentWindow()?.FocusManager.SetFocus(hit, FocusReason.Mouse);
 					_lastDragWindowCoord = WinCoordFor(hit);
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Repaint);
 					args.Handled = true;
 					return true;
 				}

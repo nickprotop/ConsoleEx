@@ -253,7 +253,7 @@ namespace SharpConsoleUI.Controls
 		public bool HoverEnabled
 		{
 			get => _hoverEnabled;
-			set { _hoverEnabled = value; if (!value) _hoveredIndex = -1; OnPropertyChanged(); Container?.Invalidate(true); }
+			set { _hoverEnabled = value; if (!value) _hoveredIndex = -1; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <summary>
@@ -324,7 +324,7 @@ namespace SharpConsoleUI.Controls
 								eventArgs = new TreeNodeEventArgs(selectedNode);
 							}
 							EnsureSelectedItemVisible();
-							Container?.Invalidate(true);
+							Container?.Invalidate(Invalidation.Relayout);
 						}
 					}
 				}
@@ -361,12 +361,16 @@ namespace SharpConsoleUI.Controls
 			_deferredSelectionChanged = null;
 			lock (_treeLock)
 			{
+				// Attach the whole subtree to this control. Done directly (not via
+				// OnNodeStructureChanged) because this method already flattens + invalidates;
+				// routing through OnNodeStructureChanged would double the work.
+				node.SetOwnerRecursive(this);
 				_rootNodes.Add(node);
 				UpdateFlattenedNodes();
 			}
 			if (_deferredSelectionChanged != null)
 				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -380,13 +384,75 @@ namespace SharpConsoleUI.Controls
 			_deferredSelectionChanged = null;
 			lock (_treeLock)
 			{
+				node.SetOwnerRecursive(this);
 				_rootNodes.Add(node);
 				UpdateFlattenedNodes();
 			}
 			if (_deferredSelectionChanged != null)
 				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 			return node;
+		}
+
+		/// <summary>
+		/// Called by an owned <see cref="TreeNode"/> when its child collection changes
+		/// (child added, removed, or cleared) via direct node mutation. Rebuilds the flattened
+		/// cache and requests a relayout so the consumer does not have to call
+		/// <c>Invalidate()</c> manually.
+		/// </summary>
+		/// <remarks>
+		/// Mirrors <see cref="AddRootNode(TreeNode)"/>'s discipline: <see cref="UpdateFlattenedNodes"/>
+		/// runs inside <c>_treeLock</c>; <c>Container?.Invalidate</c> (lock-free) runs outside it.
+		/// </remarks>
+		internal void OnNodeStructureChanged()
+		{
+			// Re-entrancy guard: if this thread already holds _treeLock, the control is performing
+			// its own mutation (e.g. AddRootNode, CollapseAll) and will flatten + invalidate itself.
+			// Only genuine external/consumer mutations (which do not hold the lock) reach here to act.
+			if (System.Threading.Monitor.IsEntered(_treeLock))
+				return;
+
+			_deferredSelectionChanged = null;
+			lock (_treeLock)
+			{
+				UpdateFlattenedNodes();
+			}
+			if (_deferredSelectionChanged != null)
+				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
+			Container?.Invalidate(Invalidation.Relayout);
+		}
+
+		/// <summary>
+		/// Called by an owned <see cref="TreeNode"/> when one of its properties changes.
+		/// Expansion changes (<see cref="TreeNode.IsExpanded"/>) alter the visible/flattened set,
+		/// so they re-flatten and request a relayout; appearance-only properties (text, colour, tag)
+		/// keep the same node count and only request a repaint.
+		/// </summary>
+		/// <param name="propertyName">The name of the property that changed.</param>
+		internal void OnNodePropertyChanged(string? propertyName)
+		{
+			// Re-entrancy guard: control-internal mutations (interactive expand/collapse,
+			// ExpandAll/CollapseAll, EnsureNodeVisible) set node properties while holding _treeLock
+			// and handle flatten + invalidate themselves. Skip those; act only on external mutations.
+			if (System.Threading.Monitor.IsEntered(_treeLock))
+				return;
+
+			if (propertyName == nameof(TreeNode.IsExpanded))
+			{
+				_deferredSelectionChanged = null;
+				lock (_treeLock)
+				{
+					UpdateFlattenedNodes();
+				}
+				if (_deferredSelectionChanged != null)
+					Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
+				Container?.Invalidate(Invalidation.Relayout);
+			}
+			else
+			{
+				// Text/colour/tag: same node count, no re-flatten needed.
+				Container?.Invalidate(Invalidation.Repaint);
+			}
 		}
 
 		/// <summary>
@@ -397,6 +463,9 @@ namespace SharpConsoleUI.Controls
 			bool fireEvent = false;
 			lock (_treeLock)
 			{
+				// Detach all subtrees from this control before dropping them.
+				foreach (var root in _rootNodes)
+					root.SetOwnerRecursive(null);
 				_rootNodes.Clear();
 				_flattenedNodes.Clear();
 				_textMeasurementCache.InvalidateCache(); // Clear cache when tree cleared
@@ -409,7 +478,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			if (fireEvent) Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, new TreeNodeEventArgs(null), Container?.GetConsoleWindowSystem?.LogService);
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -425,7 +494,7 @@ namespace SharpConsoleUI.Controls
 			}
 			if (_deferredSelectionChanged != null)
 				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <inheritdoc/>
@@ -480,7 +549,7 @@ namespace SharpConsoleUI.Controls
 					}
 
 					UpdateFlattenedNodes();
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 					result = true;
 				}
 			}
@@ -503,7 +572,7 @@ namespace SharpConsoleUI.Controls
 			}
 			if (_deferredSelectionChanged != null)
 				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -600,6 +669,7 @@ namespace SharpConsoleUI.Controls
 				result = _rootNodes.Remove(node);
 				if (result)
 				{
+					node.SetOwnerRecursive(null);
 					UpdateFlattenedNodes();
 				}
 			}
@@ -607,7 +677,7 @@ namespace SharpConsoleUI.Controls
 				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
 			if (result)
 			{
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 			return result;
 		}
@@ -637,7 +707,7 @@ namespace SharpConsoleUI.Controls
 						eventArgs = new TreeNodeEventArgs(node);
 					}
 					EnsureSelectedItemVisible();
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 					result = true;
 				}
 				else
@@ -667,7 +737,7 @@ namespace SharpConsoleUI.Controls
 								eventArgs = new TreeNodeEventArgs(selectedNode);
 							}
 							EnsureSelectedItemVisible();
-							Container?.Invalidate(true);
+							Container?.Invalidate(Invalidation.Relayout);
 							result = true;
 						}
 					}

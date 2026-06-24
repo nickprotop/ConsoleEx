@@ -59,7 +59,6 @@ namespace SharpConsoleUI.Controls
 		private Color? _backgroundColorValue;
 		private IInteractiveControl? _focusedItem;
 		private Color? _foregroundColorValue;
-		private bool _isDirty;
 		private int? _height = null;
 		private bool _isEnabled = true;
 		private readonly List<IWindowControl> _items = new();
@@ -139,19 +138,12 @@ namespace SharpConsoleUI.Controls
 				{
 					item.Container = this;
 				}
-				base.Container?.Invalidate(true);
+				base.Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
 		/// <inheritdoc/>
 		public ConsoleWindowSystem? GetConsoleWindowSystem => Container?.GetConsoleWindowSystem;
-
-		/// <inheritdoc/>
-		public bool IsDirty
-		{
-			get => _isDirty;
-			set { _isDirty = value; OnPropertyChanged(); }
-		}
 
 		/// <summary>
 		/// Gets or sets the foreground color of the toolbar.
@@ -315,7 +307,7 @@ namespace SharpConsoleUI.Controls
 		{
 			lock (_toolbarLock) { _items.Add(item); }
 			item.Container = this;
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -334,7 +326,7 @@ namespace SharpConsoleUI.Controls
 				item.Container = null;
 			}
 			_focusedItem = null;
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -394,20 +386,13 @@ namespace SharpConsoleUI.Controls
 		{
 			lock (_toolbarLock) { _items.Insert(Math.Clamp(index, 0, _items.Count), item); }
 			item.Container = this;
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <inheritdoc/>
-		public new void Invalidate()
+		public void Invalidate(Invalidation work, IWindowControl? callerControl = null)
 		{
-			Invalidate(false, null);
-		}
-
-		/// <inheritdoc/>
-		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
-		{
-			_isDirty = true;
-			Container?.Invalidate(redrawAll, callerControl ?? this as IWindowControl);
+			Container?.Invalidate(work, callerControl ?? this as IWindowControl);
 		}
 
 		/// <inheritdoc/>
@@ -531,7 +516,7 @@ namespace SharpConsoleUI.Controls
 				{
 					_focusedItem = null;
 				}
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -990,7 +975,7 @@ namespace SharpConsoleUI.Controls
 			_focusedItem = focusableItems[newIndex];
 			SetItemFocus(_focusedItem, true);
 
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Repaint);
 			return true;
 		}
 
@@ -1047,7 +1032,7 @@ namespace SharpConsoleUI.Controls
 			if (_focusedItem != null)
 				SetItemFocus(_focusedItem, true);
 
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Repaint);
 			return true;
 		}
 
@@ -1093,7 +1078,7 @@ namespace SharpConsoleUI.Controls
 						window.FocusManager.SetFocus(null, FocusReason.Keyboard);
 				}
 				else
-					(item as IWindowControl)?.Container?.Invalidate(true);
+					(item as IWindowControl)?.Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 

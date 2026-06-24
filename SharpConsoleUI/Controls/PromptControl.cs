@@ -321,7 +321,7 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			Container?.Invalidate(false, this);
+			Container?.Invalidate(Invalidation.Repaint, this);
 		}
 
 		/// <inheritdoc/>
@@ -367,7 +367,7 @@ namespace SharpConsoleUI.Controls
 						if (cursorPos < _input.Length)
 						{
 							_input = _input.Substring(0, cursorPos);
-							Container?.Invalidate(true);
+							Container?.Invalidate(Invalidation.Relayout);
 							RaiseInputChanged();
 						}
 						return true;
@@ -417,7 +417,7 @@ namespace SharpConsoleUI.Controls
 					_cursorPosition = 0;
 					this.GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Keyboard);
 				}
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 				return true;
 			}
 			else if (key.Key == ConsoleKey.Backspace)
@@ -447,7 +447,7 @@ namespace SharpConsoleUI.Controls
 				if (cursorPos < _input.Length)
 				{
 					_input = _input.Remove(cursorPos, 1);
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 					RaiseInputChanged();
 				}
 				return true;
@@ -528,7 +528,7 @@ namespace SharpConsoleUI.Controls
 			else if (key.Key == ConsoleKey.Escape)
 			{
 				this.GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Keyboard);
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 				return true;
 			}
 			else if (!char.IsControl(key.KeyChar))
@@ -595,7 +595,7 @@ namespace SharpConsoleUI.Controls
 				SetScrollOffset(position);
 			else if (position >= scrollOffset + effectiveWidth)
 				SetScrollOffset(position - effectiveWidth + 1);
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -670,7 +670,7 @@ namespace SharpConsoleUI.Controls
 			_cursorPosition = newCursorPos;
 			_horizontalScrollOffset = 0;
 
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 			RaiseInputChanged();
 		}
 
@@ -720,7 +720,7 @@ namespace SharpConsoleUI.Controls
 				int charPos = clickX + _horizontalScrollOffset;
 				charPos = Math.Clamp(charPos, 0, _input.Length);
 				_cursorPosition = charPos;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 				args.Handled = true;
 				return true;
 			}

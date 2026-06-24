@@ -99,7 +99,7 @@ void ToggleDetailPanel()
         splitters[1].Visible = detailVisible;
     
     mainWindow.ForceRebuildLayout();
-    mainWindow.Invalidate(true);
+    mainWindow.Invalidate(Invalidation.Relayout);
 }
 ```
 
@@ -183,8 +183,9 @@ fileWatcher = fileSystem.WatchDirectory(path, _ =>
     });
 });
 
-// Note: Container?.Invalidate(true) is the ONLY call safe
-// to make directly from a background thread without EnqueueOnUIThread
+// Note: Container?.Invalidate(Invalidation work) is the ONLY call safe to make directly
+// from a background thread without EnqueueOnUIThread — it folds the request into the
+// window's PendingWork accumulator via a lock-free atomic max-join.
 ```
 
 ## 4. Modal Dialog with Result

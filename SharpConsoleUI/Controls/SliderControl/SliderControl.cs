@@ -145,7 +145,7 @@ namespace SharpConsoleUI.Controls
 
 				_value = snapped;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 				ValueChanged?.Invoke(this, _value);
 			}
 		}
@@ -163,7 +163,7 @@ namespace SharpConsoleUI.Controls
 				OnPropertyChanged();
 				if (_value < _minValue)
 					Value = _minValue;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -180,7 +180,7 @@ namespace SharpConsoleUI.Controls
 				OnPropertyChanged();
 				if (_value > _maxValue)
 					Value = _maxValue;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -308,7 +308,7 @@ namespace SharpConsoleUI.Controls
 			{
 				base.Container = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 

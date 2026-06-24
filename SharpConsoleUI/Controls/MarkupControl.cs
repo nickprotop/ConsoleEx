@@ -136,7 +136,7 @@ namespace SharpConsoleUI.Controls
 				BumpContentVersion();
 				InvalidateLinkCount();
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -323,7 +323,7 @@ namespace SharpConsoleUI.Controls
 			BumpContentVersion();
 			InvalidateLinkCount();
 			OnPropertyChanged(nameof(Text));
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -417,7 +417,7 @@ namespace SharpConsoleUI.Controls
 				ClearSelection();
 			InvalidateLinkCount();
 			OnPropertyChanged(nameof(Text));
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>

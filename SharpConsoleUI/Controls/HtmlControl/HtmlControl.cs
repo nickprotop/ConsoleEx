@@ -227,7 +227,7 @@ namespace SharpConsoleUI.Controls
 				int clamped = Math.Clamp(value, 0, maxScroll);
 				if (SetProperty(ref _scrollOffset, clamped))
 				{
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Repaint);
 				}
 			}
 		}
@@ -372,7 +372,7 @@ namespace SharpConsoleUI.Controls
 				int layoutWidth = _lastLayoutWidth > 0 ? _lastLayoutWidth : 80;
 				RunLayout(layoutWidth);
 			}
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -393,7 +393,7 @@ namespace SharpConsoleUI.Controls
 				int layoutWidth = _lastLayoutWidth > 0 ? _lastLayoutWidth : 80;
 				RunLayout(layoutWidth);
 			}
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -429,7 +429,7 @@ namespace SharpConsoleUI.Controls
 			_scrollOffset = 0;
 			_hoveredLinkLineIndex = -1;
 			_hoveredLinkIndex = -1;
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 
 			// Animate the loading-banner spinner for the full loading lifecycle
 			// (fetch → render → background image load). Fire-and-forget, tied to the same
@@ -443,7 +443,7 @@ namespace SharpConsoleUI.Controls
 				linkedToken.ThrowIfCancellationRequested();
 
 				_loadingStatus = "Rendering...";
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 
 				// Phase 2: Render text immediately (no images) — progressive rendering
 				lock (_contentLock)
@@ -464,7 +464,7 @@ namespace SharpConsoleUI.Controls
 					_loadingStatus = null;
 				else
 					_loadingStatus = "Preparing images...";
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 				Core.AsyncEvent.Raise(ContentLoaded, ContentLoadedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 
 				// Phase 2b: Load external CSS stylesheets in background.
@@ -474,7 +474,7 @@ namespace SharpConsoleUI.Controls
 					{
 						_lastLayoutWidth = -1; // force re-layout on next measure
 						InvalidateLinkCache();
-						Container?.Invalidate(true);
+						Container?.Invalidate(Invalidation.Relayout);
 					}, TaskScheduler.Default);
 
 				// Phase 3: If ShowImages, re-layout with images in background
@@ -522,7 +522,7 @@ namespace SharpConsoleUI.Controls
 				Core.AsyncEvent.Raise(LoadingCompleted, LoadingCompletedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 			}
 
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		private async Task AnimateLoadingSpinnerAsync(CancellationToken ct)
@@ -533,7 +533,7 @@ namespace SharpConsoleUI.Controls
 				// the navigation overlay (_isNavigating) and the background image-load banner.
 				while (_loadingStatus != null && !ct.IsCancellationRequested)
 				{
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Repaint);
 					await Task.Delay(100, ct);
 				}
 			}
@@ -559,7 +559,7 @@ namespace SharpConsoleUI.Controls
 				if (imageUrls.Count == 0)
 				{
 					_loadingStatus = null;
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 					return;
 				}
 
@@ -602,7 +602,7 @@ namespace SharpConsoleUI.Controls
 					ct.ThrowIfCancellationRequested();
 
 					_loadingStatus = $"Loading images ({_imageLoadCompleted + 1}/{_imageLoadTotal})...";
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 
 					try
 					{
@@ -641,7 +641,7 @@ namespace SharpConsoleUI.Controls
 							break; // page was replaced under us — abort image loading
 						}
 						lastCommitTicks = nowTicks;
-						Container?.Invalidate(true);
+						Container?.Invalidate(Invalidation.Relayout);
 					}
 				}
 
@@ -651,14 +651,14 @@ namespace SharpConsoleUI.Controls
 				{
 					ct.ThrowIfCancellationRequested();
 					_loadingStatus = "Rendering images...";
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 
 					if (!TryCommitPartialImageLayout(capturedHtml, capturedWidth, capturedBaseUrl, imageCache))
 						htmlChanged = true;
 				}
 
 				_loadingStatus = null;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 				if (htmlChanged)
 				{
 					// Caller is already navigating to new content — it owns its own completion
@@ -963,7 +963,7 @@ namespace SharpConsoleUI.Controls
 				{
 					EnsureLinkVisible(links[_focusedLinkIndex].lineY);
 				}
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 

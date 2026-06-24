@@ -37,6 +37,16 @@ namespace SharpConsoleUI.Controls
 				 GetTotalWrappedLineCount() > effectiveViewport);
 			int scrollbarWidth = needsVerticalScrollbar ? 1 : 0;
 			int gutterWidth = GetGutterWidth();
+			// Authoritative gutter-width tracking: if a gutter renderer's GetWidth changed since the last
+			// measure (e.g. git markers appeared/disappeared), the text content width shifts, so drop the
+			// wrapped-lines cache now and remember the new width. The render loop is woken by the renderer's
+			// (levelless) Invalidated signal; THIS is where the layout consequence is derived — no renderer or
+			// consumer ever decides "relayout vs repaint".
+			if (gutterWidth != _lastKnownGutterWidth)
+			{
+				_lastKnownGutterWidth = gutterWidth;
+				InvalidateWrappedLinesCache();
+			}
 			int contentWidth = baseWidth - scrollbarWidth - gutterWidth;
 
 			// Account for horizontal scrollbar if needed (using content width after scrollbar and gutter)

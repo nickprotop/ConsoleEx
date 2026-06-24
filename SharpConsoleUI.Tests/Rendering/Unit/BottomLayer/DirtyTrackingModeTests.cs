@@ -42,7 +42,7 @@ public class DirtyTrackingModeTests
 
 		// Act - change one character
 		control.SetContent(new List<string> { "ABXDEF" }); // C → X
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - Line mode renders entire line (200 cells wide)
@@ -80,7 +80,7 @@ public class DirtyTrackingModeTests
 
 		// Act - change one character
 		control.SetContent(new List<string> { "ABXDEF" }); // C → X
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - Cell mode renders only changed region (~1 cell)
@@ -148,7 +148,7 @@ public class DirtyTrackingModeTests
 
 		// Act - change 3 separate regions: AAAA, BBBB, CCCC → XXXX, YYYY, ZZZZ
 		control.SetContent(new List<string> { "XXXX____YYYY____ZZZZ" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - Should render 3 regions (12 cells total)
@@ -180,7 +180,7 @@ public class DirtyTrackingModeTests
 		lineSystem.WindowStateService.AddWindow(lineWindow);
 		lineSystem.Render.UpdateDisplay();
 		lineControl.SetContent(new List<string> { "BEST" });
-		lineWindow.Invalidate(true);
+		lineWindow.Invalidate(Invalidation.Relayout);
 		lineSystem.Render.UpdateDisplay();
 		var lineMetrics = lineSystem.RenderingDiagnostics?.LastMetrics;
 
@@ -192,7 +192,7 @@ public class DirtyTrackingModeTests
 		cellSystem.WindowStateService.AddWindow(cellWindow);
 		cellSystem.Render.UpdateDisplay();
 		cellControl.SetContent(new List<string> { "BEST" });
-		cellWindow.Invalidate(true);
+		cellWindow.Invalidate(Invalidation.Relayout);
 		cellSystem.Render.UpdateDisplay();
 		var cellMetrics = cellSystem.RenderingDiagnostics?.LastMetrics;
 

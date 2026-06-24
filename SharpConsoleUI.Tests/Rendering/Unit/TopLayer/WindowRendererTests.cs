@@ -134,7 +134,7 @@ public class WindowRendererTests
 
 		// Scroll down
 		list.SelectedIndex = 10; // This should scroll the list
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		var lines2 = window.RenderAndGetVisibleContent();
 		var content2 = string.Join("\n", lines2);
 
@@ -156,7 +156,7 @@ public class WindowRendererTests
 
 		// Change content and invalidate
 		markup.SetContent(new List<string> { "Changed" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		var lines = window.RenderAndGetVisibleContent();
 		var content = string.Join("\n", lines);
 
@@ -215,7 +215,7 @@ public class WindowRendererTests
 		// Resize window (triggers layout change)
 		window.Width = 60;
 		window.Height = 30;
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		var lines2 = window.RenderAndGetVisibleContent();
 
 		// Assert - Size should change

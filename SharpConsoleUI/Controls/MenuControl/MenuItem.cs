@@ -141,7 +141,7 @@ public class MenuItem : INotifyPropertyChanged
 	{
 		if (Owner == null) return;
 		if (measurementChanged) Owner.InvalidateMeasurementCache();
-		Owner.Container?.Invalidate(true);
+		Owner.Container?.Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>

@@ -128,7 +128,7 @@ public class RenderingBenchmarks
 			{
 				var target = windows[i % 3];
 				system.WindowStateService.SetActiveWindow(target);
-				target.IsDirty = true;
+				target.Invalidate(Invalidation.Relayout);
 			},
 			"Window Overlap — 3 Windows Cycling (130x50)");
 
@@ -293,7 +293,7 @@ public class RenderingBenchmarks
 		{
 			var (system, window) = CreateAlphaBlendingScene(110, 38);
 			system.Render.UpdateDisplay();
-			var r = RunBenchmark(system, window, (w, i) => { w.Title = $"Frame {i}"; w.IsDirty = true; }, "25%", quiet: true);
+			var r = RunBenchmark(system, window, (w, i) => { w.Title = $"Frame {i}"; w.Invalidate(Invalidation.Relayout); }, "25%", quiet: true);
 			_output.WriteLine($"  {"~25%",-8} {r.AvgMsPerFrame,-10:F3} {r.AvgBytesPerFrame,-10} {r.AvgCellsRendered,-10} {RatioLabel(r),-8}");
 		}
 

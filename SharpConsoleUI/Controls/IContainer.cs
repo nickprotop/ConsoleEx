@@ -23,15 +23,14 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Gets the console window system instance, or null if not attached to a window system.</summary>
 		ConsoleWindowSystem? GetConsoleWindowSystem { get; }
 
-		/// <summary>Gets or sets whether this container needs to be redrawn.</summary>
-		bool IsDirty { get; set; }
-
 		/// <summary>
-		/// Marks this container as needing to be redrawn.
+		/// Marks this container as needing the specified work on the next frame. The request propagates up the
+		/// container chain and folds into the owning window's frame-intent accumulator.
 		/// </summary>
-		/// <param name="redrawAll">If true, forces a complete redraw of all content.</param>
-		/// <param name="callerControl">The control that triggered the invalidation, if any.</param>
-		void Invalidate(bool redrawAll, IWindowControl? callerControl = null);
+		/// <param name="work">The kind of work requested: <see cref="Invalidation.Repaint"/> (appearance-only,
+		/// Measure skipped) or <see cref="Invalidation.Relayout"/> (full layout).</param>
+		/// <param name="callerControl">The control that triggered the invalidation, if any (cycle guard).</param>
+		void Invalidate(Invalidation work, IWindowControl? callerControl = null);
 
 		/// <summary>
 		/// Gets the actual visible height for a control within the container viewport.

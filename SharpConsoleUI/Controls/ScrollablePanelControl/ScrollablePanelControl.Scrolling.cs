@@ -140,7 +140,7 @@ namespace SharpConsoleUI.Controls
 
 			if (oldOffset != _verticalScrollOffset)
 			{
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 				Scrolled?.Invoke(this, new ScrollEventArgs(ScrollDirection.Vertical, _verticalScrollOffset, _horizontalScrollOffset));
 			}
 		}
@@ -152,7 +152,7 @@ namespace SharpConsoleUI.Controls
 
 			if (oldOffset != _verticalScrollOffset)
 			{
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 				Scrolled?.Invoke(this, new ScrollEventArgs(ScrollDirection.Vertical, _verticalScrollOffset, _horizontalScrollOffset));
 			}
 		}
@@ -195,7 +195,7 @@ namespace SharpConsoleUI.Controls
 
 			if (oldOffset != _horizontalScrollOffset)
 			{
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 				Scrolled?.Invoke(this, new ScrollEventArgs(ScrollDirection.Horizontal, _verticalScrollOffset, _horizontalScrollOffset));
 			}
 		}
@@ -214,7 +214,7 @@ namespace SharpConsoleUI.Controls
 
 			if (oldOffset != _horizontalScrollOffset)
 			{
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 				Scrolled?.Invoke(this, new ScrollEventArgs(ScrollDirection.Horizontal, _verticalScrollOffset, _horizontalScrollOffset));
 			}
 		}
@@ -270,7 +270,7 @@ namespace SharpConsoleUI.Controls
 			if (_horizontalScrollMode == ScrollMode.Scroll)
 			{
 				_horizontalScrollOffset = Math.Clamp(horizontal, 0, MaxHorizontalScrollOffset);
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 

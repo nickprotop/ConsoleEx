@@ -108,7 +108,7 @@ public class DiagnosticsInfrastructureTests
 		var frame1Number = system.RenderingDiagnostics!.CurrentFrameNumber;
 
 		// Render frame 2 (invalidate and render again)
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 		var frame2Number = system.RenderingDiagnostics.CurrentFrameNumber;
 

@@ -79,7 +79,7 @@ public class DoubleBufferingTests
 
 		// Act - change one character
 		control.SetContent(new List<string> { "AAAAABAAAA" }); // Change 6th A to B
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - should only output the changed region
@@ -152,7 +152,7 @@ public class DoubleBufferingTests
 		for (int i = 2; i <= 6; i++)
 		{
 			control.SetContent(new List<string> { i % 2 == 0 ? "B" : "A" });
-			window.Invalidate(true);
+			window.Invalidate(Invalidation.Relayout);
 			system.Render.UpdateDisplay();
 
 			var metrics = system.RenderingDiagnostics?.GetMetrics(i);
@@ -237,7 +237,7 @@ public class DoubleBufferingTests
 
 		// Act - update behind window (hidden by front window)
 		window1.AddControl(new MarkupControl(new List<string> { "Updated behind" }));
-		window1.Invalidate(true);
+		window1.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - only visible parts should output
@@ -316,7 +316,7 @@ public class DoubleBufferingTests
 
 		// Act - change color but keep same text
 		control.SetContent(new List<string> { "[red]TEXT[/]" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - color change should be efficient
@@ -392,7 +392,7 @@ public class DoubleBufferingTests
 		// Act - change only first line
 		lines[0] = "CHANGED";
 		window.AddControl(new MarkupControl(lines));
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - should only output changed region
@@ -437,7 +437,7 @@ public class DoubleBufferingTests
 		// Act - change only first line
 		lines[0] = "CHANGED";
 		window.AddControl(new MarkupControl(lines));
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - LINE mode outputs full line
@@ -475,7 +475,7 @@ public class DoubleBufferingTests
 
 		// Act - small change
 		control.SetContent(new List<string> { "AAAAABAAAA" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - efficiency ratio should be high
@@ -545,7 +545,7 @@ public class DoubleBufferingTests
 		for (int i = 2; i <= 6; i++)
 		{
 			control.SetContent(new List<string> { $"{(char)('A' + i - 2)}" });
-			window.Invalidate(true);
+			window.Invalidate(Invalidation.Relayout);
 			system.Render.UpdateDisplay();
 
 			var metrics = system.RenderingDiagnostics?.GetMetrics(i);
@@ -622,7 +622,7 @@ public class DoubleBufferingTests
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - should produce zero output because content is actually the same
-		// CORE PRINCIPLE: Even with Invalidate(true), if nothing changed, zero output!
+		// CORE PRINCIPLE: Even with Invalidate(Invalidation.Relayout), if nothing changed, zero output!
 		var metrics = system.RenderingDiagnostics?.LastMetrics;
 		Assert.NotNull(metrics);
 

@@ -88,7 +88,6 @@ namespace SharpConsoleUI.Controls
 		private Color? _borderColorValue;
 
 		private bool _isEnabled = true;
-		private bool _isDirty = true;
 
 		// Resolved on-screen height of the body region, published by CollapsibleLayout during
 		// arrange. Used by GetVisibleHeightForControl so body children report the real viewport.
@@ -209,7 +208,7 @@ namespace SharpConsoleUI.Controls
 				if (!value && !_isExpanded)
 					SetExpanded(true);
 				else
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -343,7 +342,7 @@ namespace SharpConsoleUI.Controls
 				StartHeightAnimation(); // Task 7 fills this in; instant fallback until then
 
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 
 			// INPC for IsExpanded so data binding sees toggles (property setter + Toggle/Expand/Collapse all route here).
 			OnPropertyChanged(nameof(IsExpanded));
@@ -362,14 +361,14 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			set { _backgroundColorValue = value; Container?.Invalidate(true); }
+			set { _backgroundColorValue = value; Container?.Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <inheritdoc/>
 		public Color ForegroundColor
 		{
 			get => ColorResolver.ResolveForeground(_foregroundColorValue, Container);
-			set { _foregroundColorValue = value; Container?.Invalidate(true); }
+			set { _foregroundColorValue = value; Container?.Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <summary>
@@ -382,7 +381,7 @@ namespace SharpConsoleUI.Controls
 		internal void SetBackgroundColorNullable(Color? value)
 		{
 			_backgroundColorValue = value;
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Repaint);
 		}
 
 		/// <summary>
@@ -393,24 +392,16 @@ namespace SharpConsoleUI.Controls
 		internal void SetForegroundColorNullable(Color? value)
 		{
 			_foregroundColorValue = value;
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Repaint);
 		}
 
 		/// <inheritdoc/>
 		public ConsoleWindowSystem? GetConsoleWindowSystem => Container?.GetConsoleWindowSystem;
 
 		/// <inheritdoc/>
-		public bool IsDirty
+		public void Invalidate(Invalidation work, IWindowControl? callerControl = null)
 		{
-			get => _isDirty;
-			set => _isDirty = value;
-		}
-
-		/// <inheritdoc/>
-		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
-		{
-			_isDirty = true;
-			Container?.Invalidate(redrawAll, callerControl);
+			Container?.Invalidate(work, callerControl);
 		}
 
 		/// <inheritdoc/>
@@ -483,7 +474,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <inheritdoc/>
@@ -501,7 +492,7 @@ namespace SharpConsoleUI.Controls
 				control.Dispose();
 
 				(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -522,7 +513,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion

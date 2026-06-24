@@ -29,7 +29,7 @@ namespace SharpConsoleUI.Controls
 						if (scrollOffset < _items.Count - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 10))
 						{
 							SetScrollOffset(scrollOffset + 1);
-							Container?.Invalidate(true);
+							Container?.Invalidate(Invalidation.Relayout);
 							return true;
 						}
 						return false;
@@ -38,7 +38,7 @@ namespace SharpConsoleUI.Controls
 						if (scrollOffset > 0)
 						{
 							SetScrollOffset(scrollOffset - 1);
-							Container?.Invalidate(true);
+							Container?.Invalidate(Invalidation.Relayout);
 							return true;
 						}
 						return false;
@@ -48,7 +48,7 @@ namespace SharpConsoleUI.Controls
 						if (scrollOffset < _items.Count - pageSize)
 						{
 							SetScrollOffset(Math.Min(_items.Count - pageSize, scrollOffset + pageSize));
-							Container?.Invalidate(true);
+							Container?.Invalidate(Invalidation.Relayout);
 							return true;
 						}
 						return false;
@@ -57,7 +57,7 @@ namespace SharpConsoleUI.Controls
 						if (scrollOffset > 0)
 						{
 							SetScrollOffset(Math.Max(0, scrollOffset - (_calculatedMaxVisibleItems ?? _maxVisibleItems ?? 10)));
-							Container?.Invalidate(true);
+							Container?.Invalidate(Invalidation.Relayout);
 							return true;
 						}
 						return false;
@@ -66,7 +66,7 @@ namespace SharpConsoleUI.Controls
 						if (scrollOffset > 0)
 						{
 							SetScrollOffset(0);
-							Container?.Invalidate(true);
+							Container?.Invalidate(Invalidation.Relayout);
 							return true;
 						}
 						return false;
@@ -76,7 +76,7 @@ namespace SharpConsoleUI.Controls
 						if (scrollOffset < availableItems && availableItems > 0)
 						{
 							SetScrollOffset(availableItems);
-							Container?.Invalidate(true);
+							Container?.Invalidate(Invalidation.Relayout);
 							return true;
 						}
 						return false;
@@ -128,7 +128,7 @@ namespace SharpConsoleUI.Controls
 					{
 						_items[_selectedIndex].IsChecked = !_items[_selectedIndex].IsChecked;
 						CheckedItemsChanged?.Invoke(this, EventArgs.Empty);
-						Container?.Invalidate(true);
+						Container?.Invalidate(Invalidation.Relayout);
 						return true;
 					}
 					return false;

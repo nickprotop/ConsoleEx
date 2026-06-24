@@ -144,7 +144,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public new void Invalidate()
+		public new void Invalidate(Invalidation work)
 		{
 			AdjustColumnWidthsForVisibility();
 
@@ -156,19 +156,23 @@ namespace SharpConsoleUI.Controls
 				splitters = new List<SplitterControl>(_splitters);
 			}
 
+			// Fan the SAME level out to siblings + up to the window. A child's appearance-only Repaint must
+			// stay a Repaint across the grid subtree; a genuine layout change (e.g. AdjustColumnWidthsForVisibility
+			// nulling an explicit Width) raises Relayout through the width-setter's own Invalidate, so the
+			// accumulator's Max-join can never under-level it.
 			foreach (var column in columns)
 			{
 				if (!column.Visible) continue;
-				column.InvalidateOnlyColumnContents(this);
+				column.InvalidateOnlyColumnContents(work, this);
 			}
 
 			foreach (var splitter in splitters)
 			{
 				if (!splitter.Visible) continue;
-				splitter.Invalidate();
+				splitter.Invalidate(work);
 			}
 
-			Container?.Invalidate(true);
+			Container?.Invalidate(work);
 		}
 
 		/// <summary>

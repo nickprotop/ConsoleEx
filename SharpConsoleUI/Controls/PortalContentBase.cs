@@ -20,7 +20,7 @@ namespace SharpConsoleUI.Controls
 	/// Provides default implementations of <see cref="IWindowControl"/>, <see cref="IDOMPaintable"/>,
 	/// <see cref="IMouseAwareControl"/>, and <see cref="IHasPortalBounds"/> to eliminate boilerplate.
 	/// </summary>
-	public abstract class PortalContentBase : IWindowControl, IDOMPaintable, IMouseAwareControl, IHasPortalBounds
+	public abstract class PortalContentBase : IWindowControl, IContainer, IDOMPaintable, IMouseAwareControl, IHasPortalBounds
 	{
 		private static readonly ConditionalWeakTable<IFocusableControl, PortalContentBase> _portalFocusRegistry = new();
 		private IFocusableControl? _portalFocusedControl;
@@ -29,6 +29,9 @@ namespace SharpConsoleUI.Controls
 		private int _actualY;
 		private int _actualWidth;
 		private int _actualHeight;
+
+		// The border-shrunk content rect from the last PaintDOM, used for hosted-child mouse hit-testing.
+		private LayoutRect _contentRect;
 
 		/// <summary>
 		/// Gets or sets the control that is focused within this portal's scope,
@@ -48,8 +51,8 @@ namespace SharpConsoleUI.Controls
 					_portalFocusRegistry.Remove(value);
 					_portalFocusRegistry.Add(value, this);
 				}
-				(old as IWindowControl)?.Container?.Invalidate(true);
-				(value as IWindowControl)?.Container?.Invalidate(true);
+				(old as IWindowControl)?.Container?.Invalidate(Invalidation.Relayout);
+				(value as IWindowControl)?.Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -174,7 +177,36 @@ namespace SharpConsoleUI.Controls
 		public VerticalAlignment VerticalAlignment { get; set; } = VerticalAlignment.Top;
 
 		/// <inheritdoc/>
+		/// <remarks>
+		/// This is the <b>upstream</b> container — the window that hosts this portal (set by
+		/// <c>CreatePortal</c>). It is distinct from this portal acting as the container for an
+		/// optional hosted <see cref="Content"/> child (see the <c>IContainer</c> implementation):
+		/// a hosted child's <c>Container</c> points at this portal, and this portal's
+		/// <c>Container</c> points at the window, forming the <c>child → portal → window</c> chain.
+		/// </remarks>
 		public IContainer? Container { get; set; }
+
+		private IWindowControl? _content;
+
+		/// <summary>
+		/// Optional hosted child control. When set, this portal renders the child through the normal control
+		/// pipeline (the child's own <see cref="IDOMPaintable.MeasureDOM"/>/<see cref="IDOMPaintable.PaintDOM"/>),
+		/// inside this portal's border, and forwards mouse events to it — so the child self-invalidates via its
+		/// Container and the consumer never calls Invalidate. When null, the subclass paints manually via
+		/// <see cref="PaintPortalContent"/> (the legacy path), so existing subclasses are unaffected.
+		/// </summary>
+		public IWindowControl? Content
+		{
+			get => _content;
+			set
+			{
+				if (ReferenceEquals(_content, value)) return;
+				if (_content != null) _content.Container = null;
+				_content = value;
+				if (_content != null) _content.Container = this; // child → this(IContainer) → window
+				Container?.Invalidate(Invalidation.Relayout);
+			}
+		}
 
 		/// <inheritdoc/>
 		public Margin Margin { get; set; } = new Margin(0, 0, 0, 0);
@@ -205,15 +237,62 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void Invalidate()
+		public void Invalidate(Invalidation work)
 		{
-			Container?.Invalidate(true);
+			Container?.Invalidate(work);
 		}
 
 		/// <inheritdoc/>
 		public void Dispose()
 		{
 			PortalFocusedControl = null;
+		}
+
+		#endregion
+
+		#region IContainer (host for an optional Content child)
+
+		// PortalContentBase already exposes `IContainer? Container` (the window). For IContainer we expose
+		// background/foreground/system resolved from that window container, and Invalidate forwards up (already
+		// implemented as Invalidate(Invalidation)). The IContainer.Invalidate(work, caller) overload forwards too.
+
+		/// <inheritdoc/>
+		public Color BackgroundColor
+		{
+			get => BorderBackgroundColor ?? Container?.BackgroundColor ?? Color.Black;
+			set => BorderBackgroundColor = value;
+		}
+
+		/// <inheritdoc/>
+		public Color ForegroundColor
+		{
+			get => BorderColor ?? Container?.ForegroundColor ?? Color.White;
+			set => BorderColor = value;
+		}
+
+		/// <inheritdoc/>
+		public ConsoleWindowSystem? GetConsoleWindowSystem => Container?.GetConsoleWindowSystem;
+
+		/// <inheritdoc/>
+		void IContainer.Invalidate(Invalidation work, IWindowControl? callerControl)
+			=> Container?.Invalidate(work, callerControl ?? this);
+
+		/// <inheritdoc/>
+		/// <remarks>
+		/// Returns the height of the INNER content area the hosted <see cref="Content"/> is painted into —
+		/// i.e. the portal height minus the border rows — NOT the portal's full <see cref="ActualHeight"/>.
+		/// The hosted child uses this for its scroll/ensure-visible math, so it must match the rect the child
+		/// is actually painted into (<c>_contentRect</c>), or the child believes it has the border rows too and
+		/// scrolls one row late.
+		/// </remarks>
+		public int? GetVisibleHeightForControl(IWindowControl control)
+		{
+			if (Content == null) return null;
+			// After a paint, _contentRect is the exact inner area. Before the first paint, derive it from the
+			// portal bounds minus the border (2 rows when bordered), matching PaintDOM's inner-rect math.
+			if (_contentRect.Height > 0) return _contentRect.Height;
+			int borderRows = BorderStyle.HasValue ? 2 : 0;
+			return Math.Max(0, GetPortalBounds().Height - borderRows);
 		}
 
 		#endregion
@@ -236,19 +315,49 @@ namespace SharpConsoleUI.Controls
 			_actualWidth = bounds.Width;
 			_actualHeight = bounds.Height;
 
+			LayoutRect contentRect;
+			LayoutRect contentClip;
 			if (BorderStyle is { } border)
 			{
 				buffer.DrawBox(bounds, border, BorderColor ?? defaultFg,
 					BorderBackgroundColor ?? defaultBg);
-				var inner = new LayoutRect(bounds.X + 1, bounds.Y + 1,
+				contentRect = new LayoutRect(bounds.X + 1, bounds.Y + 1,
 					Math.Max(0, bounds.Width - 2), Math.Max(0, bounds.Height - 2));
-				var innerClip = inner.Intersect(clipRect);
-				PaintPortalContent(buffer, inner, innerClip, defaultFg, defaultBg);
+				contentClip = contentRect.Intersect(clipRect);
 			}
 			else
 			{
-				PaintPortalContent(buffer, bounds, clipRect, defaultFg, defaultBg);
+				contentRect = bounds;
+				contentClip = clipRect;
 			}
+
+			// Record the content rect for hosted-child mouse hit-testing.
+			_contentRect = contentRect;
+
+			if (Content is IDOMPaintable paintable)
+			{
+				// Host the child: measure it to the content rect and paint via its own pipeline.
+				var constraints = LayoutConstraints.Tight(contentRect.Width, contentRect.Height);
+				paintable.MeasureDOM(constraints);
+				paintable.PaintDOM(buffer, contentRect, contentClip,
+					BorderColor ?? defaultFg, BorderBackgroundColor ?? defaultBg);
+			}
+			else
+			{
+				PaintPortalContent(buffer, contentRect, contentClip, defaultFg, defaultBg);
+			}
+		}
+
+		/// <summary>
+		/// Default mouse handling for a hosted <see cref="Content"/> child: forwards the (already border-adjusted)
+		/// event to the child. Subclasses that host a child should return this from their ProcessMouseEvent
+		/// override (and may inspect the result to fire higher-level events such as item-accepted).
+		/// </summary>
+		protected bool ProcessHostedMouseEvent(MouseEventArgs args)
+		{
+			if (Content is IMouseAwareControl mouse)
+				return mouse.ProcessMouseEvent(args);
+			return false;
 		}
 
 		/// <summary>

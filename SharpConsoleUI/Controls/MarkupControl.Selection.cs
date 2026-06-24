@@ -68,7 +68,7 @@ namespace SharpConsoleUI.Controls
 				_enableSelection = value;
 				if (!value) ClearSelection();
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -306,7 +306,7 @@ namespace SharpConsoleUI.Controls
 				_hasSelection = true;
 			}
 			NotifySelectionActive();
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Repaint);
 		}
 
 		#endregion
@@ -325,7 +325,7 @@ namespace SharpConsoleUI.Controls
 			if (had)
 			{
 				RaiseSelectionChanged(string.Empty);
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -437,7 +437,7 @@ namespace SharpConsoleUI.Controls
 					}
 					Container?.GetConsoleWindowSystem?.UnregisterDragAutoScroll(this);
 					NotifySelectionActive();
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Repaint);
 				}
 				handled = true;
 				return true;
@@ -451,7 +451,7 @@ namespace SharpConsoleUI.Controls
 					SelectWordAt(row, col);
 					Container?.GetConsoleWindowSystem?.UnregisterDragAutoScroll(this);
 					NotifySelectionActive();
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Repaint);
 				}
 				MouseDoubleClick?.Invoke(this, args);
 				handled = true;
@@ -475,7 +475,7 @@ namespace SharpConsoleUI.Controls
 				}
 				ExtendSelectionTo(args.Position.X, args.Position.Y);
 				NotifySelectionActive();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 				handled = true;
 				return true;
 			}
@@ -499,7 +499,7 @@ namespace SharpConsoleUI.Controls
 					Container?.GetConsoleWindowSystem?.RegisterDragAutoScroll(this);
 				}
 				NotifySelectionActive();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 				handled = true;
 				return true;
 			}

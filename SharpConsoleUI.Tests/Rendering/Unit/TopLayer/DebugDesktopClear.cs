@@ -156,12 +156,12 @@ public class DebugDesktopClear
 		_output.WriteLine($"  Z-order: Background (Z={background.ZIndex}), Moving (Z={moving.ZIndex})");
 
 		// BOTH dirty at the same time
-		background.Invalidate(true);
+		background.Invalidate(Invalidation.Relayout);
 		moving.Top = 8;
 
 		_output.WriteLine($"\nBefore render:");
-		_output.WriteLine($"  Background: IsDirty={background.IsDirty}");
-		_output.WriteLine($"  Moving: IsDirty={moving.IsDirty}");
+		_output.WriteLine($"  Background: IsDirty={background.PendingWork != FrameWork.None}");
+		_output.WriteLine($"  Moving: IsDirty={moving.PendingWork != FrameWork.None}");
 
 		_output.WriteLine($"\nExpected render sequence:");
 		_output.WriteLine($"  1. Desktop clear: old moving position y=12-21");

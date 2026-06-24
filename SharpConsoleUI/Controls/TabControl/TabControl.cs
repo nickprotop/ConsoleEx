@@ -79,7 +79,6 @@ namespace SharpConsoleUI.Controls
 		// Null = follow the active theme (no hardcoded black/white that overrides the theme).
 		private Color? _backgroundColor;
 		private Color? _foregroundColor;
-		private bool _isDirty = true;
 
 		/// <summary>
 		/// Gets or sets the visual style used to render the tab header area.
@@ -87,7 +86,7 @@ namespace SharpConsoleUI.Controls
 		public TabHeaderStyle HeaderStyle
 		{
 			get => _headerStyle;
-			set { _headerStyle = value; OnPropertyChanged(); Invalidate(true); }
+			set { _headerStyle = value; OnPropertyChanged(); Invalidate(Invalidation.Relayout); }
 		}
 
 		/// <summary>
@@ -115,56 +114,56 @@ namespace SharpConsoleUI.Controls
 		public Color? ActiveFocusedForegroundColor
 		{
 			get => _activeFocusedForeground;
-			set { _activeFocusedForeground = value; OnPropertyChanged(); Invalidate(true); }
+			set { _activeFocusedForeground = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <summary>Active tab background when the tab strip has keyboard focus. Null = theme default.</summary>
 		public Color? ActiveFocusedBackgroundColor
 		{
 			get => _activeFocusedBackground;
-			set { _activeFocusedBackground = value; OnPropertyChanged(); Invalidate(true); }
+			set { _activeFocusedBackground = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <summary>Active tab foreground when the tab strip does not have focus. Null = theme default.</summary>
 		public Color? ActiveUnfocusedForegroundColor
 		{
 			get => _activeUnfocusedForeground;
-			set { _activeUnfocusedForeground = value; OnPropertyChanged(); Invalidate(true); }
+			set { _activeUnfocusedForeground = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <summary>Active tab background when the tab strip does not have focus. Null = theme default.</summary>
 		public Color? ActiveUnfocusedBackgroundColor
 		{
 			get => _activeUnfocusedBackground;
-			set { _activeUnfocusedBackground = value; OnPropertyChanged(); Invalidate(true); }
+			set { _activeUnfocusedBackground = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <summary>Inactive tab foreground when the tab strip has keyboard focus. Null = theme default.</summary>
 		public Color? InactiveFocusedForegroundColor
 		{
 			get => _inactiveFocusedForeground;
-			set { _inactiveFocusedForeground = value; OnPropertyChanged(); Invalidate(true); }
+			set { _inactiveFocusedForeground = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <summary>Inactive tab background when the tab strip has keyboard focus. Null = theme default.</summary>
 		public Color? InactiveFocusedBackgroundColor
 		{
 			get => _inactiveFocusedBackground;
-			set { _inactiveFocusedBackground = value; OnPropertyChanged(); Invalidate(true); }
+			set { _inactiveFocusedBackground = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <summary>Inactive tab foreground when the tab strip does not have focus. Null = theme default.</summary>
 		public Color? InactiveUnfocusedForegroundColor
 		{
 			get => _inactiveUnfocusedForeground;
-			set { _inactiveUnfocusedForeground = value; OnPropertyChanged(); Invalidate(true); }
+			set { _inactiveUnfocusedForeground = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <summary>Inactive tab background when the tab strip does not have focus. Null = theme default.</summary>
 		public Color? InactiveUnfocusedBackgroundColor
 		{
 			get => _inactiveUnfocusedBackground;
-			set { _inactiveUnfocusedBackground = value; OnPropertyChanged(); Invalidate(true); }
+			set { _inactiveUnfocusedBackground = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 		}
 
 		private bool _showTabHeader = true;
@@ -201,6 +200,7 @@ namespace SharpConsoleUI.Controls
 		public void AddTab(string title, IWindowControl content, bool isClosable = false)
 		{
 			var tabPage = new TabPage { Title = title, Content = content, IsClosable = isClosable };
+			tabPage.Owner = this; // enable in-place property mutation to self-invalidate
 			int count;
 			lock (_tabLock)
 			{
@@ -221,7 +221,31 @@ namespace SharpConsoleUI.Controls
 
 			// New content control must be added to the DOM layout tree
 			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
+		}
+
+		/// <summary>
+		/// Called by an owned <see cref="TabPage"/> when a header-affecting property (<see cref="TabPage.Title"/>
+		/// or <see cref="TabPage.IsClosable"/>) changes in place. Re-lays out the header. The
+		/// <see cref="_tabLock"/> re-entrancy guard makes this a no-op when the change originated from an internal
+		/// mutator that already holds the lock and invalidates itself (e.g. <see cref="SetTabTitle"/>).
+		/// </summary>
+		internal void OnTabPageHeaderChanged()
+		{
+			if (Monitor.IsEntered(_tabLock)) return; // internal mutator already invalidates
+			Invalidate(Invalidation.Relayout);
+		}
+
+		/// <summary>
+		/// Called by an owned <see cref="TabPage"/> when its <see cref="TabPage.Content"/> is replaced in place.
+		/// Rebuilds the DOM layout tree and re-lays out. (For a managed swap that also disposes the old content
+		/// and wires the new content's container, prefer <see cref="SetTabContent"/>.) No-ops under the lock.
+		/// </summary>
+		internal void OnTabPageContentChanged()
+		{
+			if (Monitor.IsEntered(_tabLock)) return; // internal mutator (SetTabContent) already invalidates
+			this.GetParentWindow()?.ForceRebuildLayout();
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -303,7 +327,7 @@ namespace SharpConsoleUI.Controls
 					// every page and switching just toggled the caller-owned Content.Visible
 					// flag, which #53 forbids.
 					this.GetParentWindow()?.ForceRebuildLayout();
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				}
 			}
 		}
@@ -402,6 +426,7 @@ namespace SharpConsoleUI.Controls
 					return;
 
 				tabPage = new TabPage { Title = title, Content = content };
+				tabPage.Owner = this; // enable in-place property mutation to self-invalidate
 				_tabPages.Insert(index, tabPage);
 				content.Container = this;
 				// NOTE: do NOT touch content.Visible — caller owns it (issue #53).
@@ -415,7 +440,7 @@ namespace SharpConsoleUI.Controls
 
 			Core.AsyncEvent.Raise(TabAdded, TabAddedAsync, this, new TabEventArgs(tabPage, index), Container?.GetConsoleWindowSystem?.LogService);
 			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		#region IWindowControl Implementation (overrides from BaseControl)
@@ -472,7 +497,7 @@ namespace SharpConsoleUI.Controls
 					throw new ArgumentException("TabControl minimum height is 2 (1 header + 1 content line)");
 				_height = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -502,6 +527,7 @@ namespace SharpConsoleUI.Controls
 			{
 				foreach (var tab in _tabPages)
 				{
+					tab.Owner = null; // detach so a disposed page can't invalidate this dead control
 					tab.Content.Dispose();
 				}
 				_tabPages.Clear();
@@ -516,31 +542,23 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => Helpers.ColorResolver.ResolveBackground(_backgroundColor, Container);
-			set { _backgroundColor = value; OnPropertyChanged(); Invalidate(true); }
+			set { _backgroundColor = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <inheritdoc/>
 		public Color ForegroundColor
 		{
 			get => Helpers.ColorResolver.ResolveForeground(_foregroundColor, Container);
-			set { _foregroundColor = value; OnPropertyChanged(); Invalidate(true); }
+			set { _foregroundColor = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <inheritdoc/>
 		public ConsoleWindowSystem? GetConsoleWindowSystem => Container?.GetConsoleWindowSystem;
 
 		/// <inheritdoc/>
-		public bool IsDirty
+		public void Invalidate(Invalidation work, IWindowControl? callerControl = null)
 		{
-			get => _isDirty;
-			set => _isDirty = value;
-		}
-
-		/// <inheritdoc/>
-		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
-		{
-			_isDirty = true;
-			Container?.Invalidate(redrawAll, this);
+			Container?.Invalidate(work, this);
 		}
 
 		/// <inheritdoc/>
@@ -596,30 +614,73 @@ namespace SharpConsoleUI.Controls
 	/// </summary>
 	public class TabPage
 	{
-		/// <summary>
-		/// Gets or sets the title displayed in the tab header.
-		/// </summary>
-		public string Title { get; set; } = "";
+		private string _title = "";
+		private IWindowControl _content = null!;
+		private bool _isClosable;
 
 		/// <summary>
-		/// Gets or sets the control displayed when this tab is active.
+		/// The <see cref="TabControl"/> that owns this page, or null if the page is not attached to a
+		/// control. Set by the control when the page is added (and cleared when removed). When set,
+		/// header-affecting property changes (<see cref="Title"/>, <see cref="IsClosable"/>) and
+		/// content changes auto-invalidate the owning control — the consumer no longer needs to call
+		/// Invalidate after mutating a page in place.
 		/// </summary>
-		public IWindowControl Content { get; set; } = null!;
+		internal TabControl? Owner { get; set; }
 
 		/// <summary>
-		/// Gets or sets custom metadata associated with this tab.
+		/// Gets or sets the title displayed in the tab header. Changing it re-lays out the header
+		/// (title width changes) and invalidates the owning control automatically.
+		/// </summary>
+		public string Title
+		{
+			get => _title;
+			set
+			{
+				if (_title == value) return;
+				_title = value;
+				Owner?.OnTabPageHeaderChanged();
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the control displayed when this tab is active. Prefer
+		/// <see cref="TabControl.SetTabContent"/> for a live swap (it disposes the old content and wires the
+		/// new content's container); assigning here invalidates the owner but does NOT re-wire the container.
+		/// </summary>
+		public IWindowControl Content
+		{
+			get => _content;
+			set
+			{
+				if (ReferenceEquals(_content, value)) return;
+				_content = value;
+				Owner?.OnTabPageContentChanged();
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets custom metadata associated with this tab. Not rendered; no invalidation.
 		/// </summary>
 		public object? Tag { get; set; }
 
 		/// <summary>
-		/// Gets or sets whether this tab can be closed by the user.
-		/// Future feature: close button in tab header.
+		/// Gets or sets whether this tab can be closed by the user. Changing it re-lays out the header
+		/// (the close affordance adds a column) and invalidates the owning control automatically.
 		/// </summary>
-		public bool IsClosable { get; set; }
+		public bool IsClosable
+		{
+			get => _isClosable;
+			set
+			{
+				if (_isClosable == value) return;
+				_isClosable = value;
+				Owner?.OnTabPageHeaderChanged();
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets the tooltip text shown when hovering over the tab header.
-		/// Future feature: tooltip display on hover.
+		/// Future feature: tooltip display on hover. Not currently rendered; no invalidation.
 		/// </summary>
 		public string? Tooltip { get; set; }
 	}

@@ -156,22 +156,22 @@ public class ZOrderTests
 		system.Render.UpdateDisplay();
 
 		// Assert 1 - Window1 remains dirty (optimization: skip completely covered windows)
-		Assert.True(window1.IsDirty); // Still dirty - completely covered, not rendered
-		Assert.False(window2.IsDirty); // Window2 was rendered and cleaned
+		Assert.True(window1.PendingWork != FrameWork.None); // Still dirty - completely covered, not rendered
+		Assert.False(window2.PendingWork != FrameWork.None); // Window2 was rendered and cleaned
 
 		// Act 2 - Move window2 to partially overlap (expose window1)
 		window2.Left = 10; // Move right 10 chars - window1 now visible on left side
 		system.Render.UpdateDisplay();
 
 		// Assert 2 - Window1 should now be rendered and clean (exposed!)
-		Assert.False(window1.IsDirty); // Now clean - was rendered because exposed
-		Assert.False(window2.IsDirty);
+		Assert.False(window1.PendingWork != FrameWork.None); // Now clean - was rendered because exposed
+		Assert.False(window2.PendingWork != FrameWork.None);
 
 		// Act 3 - Bring window1 to front (changes z-order)
 		system.WindowStateService.BringToFront(window1);
 
 		// Assert 3 - Window1 should be marked dirty due to z-order change
-		Assert.True(window1.IsDirty); // Dirty again due to z-order change
+		Assert.True(window1.PendingWork != FrameWork.None); // Dirty again due to z-order change
 	}
 
 	[Fact]

@@ -242,7 +242,7 @@ class Program
 
         SpawnFood();
         UpdateSidebarDisplays();
-        _gameWindow?.Invalidate(redrawAll: true);
+        _gameWindow?.Invalidate(Invalidation.Relayout);
     }
 
     private static void RestartGame()
@@ -264,7 +264,7 @@ class Program
             if (_gameState == GameState.Playing)
             {
                 UpdateGame();
-                _gameWindow?.Invalidate(redrawAll: true);
+                _gameWindow?.Invalidate(Invalidation.Relayout);
             }
         };
         _gameTimer.Start();
@@ -330,7 +330,7 @@ class Program
                     if (_gameState == GameState.Playing)
                     {
                         UpdateGame();
-                        _gameWindow?.Invalidate(redrawAll: true);
+                        _gameWindow?.Invalidate(Invalidation.Relayout);
                     }
                 };
                 _gameTimer.Start();
@@ -415,7 +415,7 @@ class Program
                     _gameTimer?.Start();
                 }
                 UpdateSidebarDisplays();
-                _gameWindow?.Invalidate(redrawAll: true);
+                _gameWindow?.Invalidate(Invalidation.Relayout);
                 e.Handled = true;
                 break;
 

@@ -25,7 +25,7 @@ namespace SharpConsoleUI.Controls
 			if (!_overlayEnabled) return;
 			_overlayVisible = true;
 			_overlayLastInteractionTick = Environment.TickCount64;
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>

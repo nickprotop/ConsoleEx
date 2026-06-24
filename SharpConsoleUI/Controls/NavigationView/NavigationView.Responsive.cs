@@ -128,7 +128,7 @@ namespace SharpConsoleUI.Controls
 				// Instant — _effectiveNavWidth already set by ApplyDisplayMode
 				_navColumn.Width = toWidth;
 				this.GetParentWindow()?.ForceRebuildLayout();
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 				return;
 			}
 
@@ -143,7 +143,7 @@ namespace SharpConsoleUI.Controls
 				{
 					_navColumn.Width = w;
 					this.GetParentWindow()?.ForceRebuildLayout();
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				},
 				onComplete: () =>
 				{
@@ -153,7 +153,7 @@ namespace SharpConsoleUI.Controls
 					_navColumn.Width = toWidth;
 					RefreshAllItemMarkupForMode();
 					this.GetParentWindow()?.ForceRebuildLayout();
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				}
 			);
 		}

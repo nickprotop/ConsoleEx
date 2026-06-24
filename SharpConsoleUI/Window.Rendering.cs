@@ -28,7 +28,7 @@ namespace SharpConsoleUI
 
 			lock (_lock)
 			{
-				if (_invalidated)
+				if (PendingWork != FrameWork.None)
 				{
 					// FramelessLayoutWidth reserves the scrollbar column ONLY for an overflowing frameless
 					// window; the reservation is derived from TotalLines (measured at full width on the prior
@@ -37,9 +37,17 @@ namespace SharpConsoleUI
 					var availableHeight = ContentHeight;
 					RebuildContentBufferOnly(availableWidth, availableHeight, visibleRegions);
 
+					// No visible regions yet (off-screen): keep a rebuild pending so the window re-runs when it
+					// later gets a viewport. Re-raise at Repaint — the off-screen Measure already ran and its
+					// DesiredSize is viewport-independent, so the eventual on-screen frame reuses it (Measure
+					// skipped); a genuine size change is caught by the buffer-resize guard's NeedsMeasure backstop.
 					bool isInRenderingPipeline = visibleRegions != null && visibleRegions.Count > 0;
 					if (!isInRenderingPipeline)
-						_invalidated = true;
+					{
+						// Off-screen: no viewport yet. Re-raise at Repaint so the window re-runs once it gets a
+						// viewport. PendingWork is the only dirty signal; setting it here is the whole retry.
+						Request(Invalidation.Repaint);
+					}
 				}
 
 				return _renderer?.Buffer;
@@ -97,8 +105,7 @@ namespace SharpConsoleUI
 			{
 				_renderer?.InvalidateDOM(); // Force rebuild on next render
 			}
-			IsDirty = true;
-			_invalidated = true;
+			Request(Invalidation.Relayout);
 		}
 
 		/// <summary>

@@ -430,12 +430,12 @@ public class ScrollablePanelBehaviorTests
 		for (int i = 0; i < 10; i++) panel.AddControl(Wide($"r{i}"));
 		var (_, _) = Render(panel);
 
-		// Container?.Invalidate(true) is documented as the one thread-safe call from a bg thread.
+		// Container?.Invalidate(Invalidation.Relayout) is documented as the one thread-safe call from a bg thread.
 		var ex = Record.Exception(() =>
 		{
 			var tasks = Enumerable.Range(0, 8).Select(_ => System.Threading.Tasks.Task.Run(() =>
 			{
-				for (int i = 0; i < 50; i++) panel.Invalidate(true);
+				for (int i = 0; i < 50; i++) panel.Invalidate(Invalidation.Relayout);
 			})).ToArray();
 			System.Threading.Tasks.Task.WaitAll(tasks);
 		});

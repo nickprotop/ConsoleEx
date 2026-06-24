@@ -189,9 +189,9 @@ public class CollapsiblePanelPanelModeTests
 		bool handled = ((IMouseAwareControl)panel).ProcessMouseEvent(args);
 
 		Assert.True(panel.IsExpanded);   // never collapses
-		// A non-collapsible header click does NOT toggle (asserted by IsExpanded above), but it IS
-		// surfaced as the panel's own MouseClick and reported handled, so a bubbling dispatcher stops
-		// at the panel and an outer container does not double-handle the same click.
+										 // A non-collapsible header click does NOT toggle (asserted by IsExpanded above), but it IS
+										 // surfaced as the panel's own MouseClick and reported handled, so a bubbling dispatcher stops
+										 // at the panel and an outer container does not double-handle the same click.
 		Assert.True(handled);
 	}
 

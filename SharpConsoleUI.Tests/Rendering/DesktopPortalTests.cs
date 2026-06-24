@@ -262,7 +262,7 @@ public class DesktopPortalTests
 		system.WindowStateService.AddWindow(window);
 
 		system.Render.UpdateDisplay();
-		Assert.False(window.IsDirty); // Window should be clean after render
+		Assert.False(window.PendingWork != FrameWork.None); // Window should be clean after render
 
 		// Open a portal
 		system.DesktopPortalService.CreatePortal(new DesktopPortalOptions(
@@ -273,7 +273,7 @@ public class DesktopPortalTests
 		system.Render.UpdateDisplay();
 
 		// Window should still be clean (not force-invalidated)
-		Assert.False(window.IsDirty);
+		Assert.False(window.PendingWork != FrameWork.None);
 	}
 
 	#endregion

@@ -96,7 +96,7 @@ namespace SharpConsoleUI.Controls
 				if (changedArgs != null)
 				{
 					Core.AsyncEvent.Raise(SelectedItemChanged, SelectedItemChangedAsync, this, changedArgs, Container?.GetConsoleWindowSystem?.LogService);
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				}
 			}
 		}
@@ -150,7 +150,7 @@ namespace SharpConsoleUI.Controls
 				SelectedIndex = count - 1;
 
 			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -249,7 +249,7 @@ namespace SharpConsoleUI.Controls
 			_navScrollPanel.InsertControl(index, itemControl);
 
 			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -320,7 +320,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -355,7 +355,7 @@ namespace SharpConsoleUI.Controls
 			_contentHeader.SetContent(new List<string>());
 
 			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion
@@ -432,7 +432,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -468,7 +468,7 @@ namespace SharpConsoleUI.Controls
 				_contentPanel.ClearContents();
 				populate(_contentPanel);
 				_contentPanel.ScrollToTop();
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -592,7 +592,7 @@ namespace SharpConsoleUI.Controls
 					_contentPanel.ScrollToTop();
 				}
 			}
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		private void RefreshAllItemMarkup()

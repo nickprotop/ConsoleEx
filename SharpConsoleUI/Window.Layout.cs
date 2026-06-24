@@ -33,6 +33,35 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Gets the screen position (window-relative cell) of the logical cursor of the given control, as it
+		/// is actually painted — accumulating every layout offset (container nesting such as a TabControl's
+		/// header, scroll offsets) and the window's own frame/title inset. Use this to anchor overlays (e.g. a
+		/// completion popup) directly at the caret, rather than deriving a position from a control's
+		/// <c>ActualX</c>/<c>ActualY</c> (which are in window-CONTENT coordinates and omit the window inset and
+		/// some intermediate chrome).
+		/// </summary>
+		/// <param name="control">A control that provides a logical cursor (implements <c>ILogicalCursorProvider</c>).</param>
+		/// <returns>The window-relative screen cell of the cursor, or null if the control has no cursor /
+		/// is scrolled out of view / is not laid out.</returns>
+		public System.Drawing.Point? GetCursorScreenPosition(IWindowControl control)
+			=> _layoutManager.TranslateLogicalCursorToWindow(control);
+
+		/// <summary>
+		/// Gets the window-CONTENT-relative cell (origin at the content area, excluding the window's
+		/// frame/title inset) of the logical cursor of the given control, as it is actually painted —
+		/// accumulating every layout offset (container nesting such as a TabControl's header, scroll
+		/// offsets). This is the coordinate space that <see cref="CreatePortal"/> arranges portal content
+		/// in, so it is the correct anchor for a completion popup or similar overlay. Prefer this over
+		/// <see cref="GetCursorScreenPosition"/> when feeding a portal's positioner: the window-relative
+		/// variant includes the inset, which the portal layout would then add a second time.
+		/// </summary>
+		/// <param name="control">A control that provides a logical cursor (implements <c>ILogicalCursorProvider</c>).</param>
+		/// <returns>The content-relative cell of the cursor, or null if the control has no cursor /
+		/// is scrolled out of view / is not laid out.</returns>
+		public System.Drawing.Point? GetCursorContentPosition(IWindowControl control)
+			=> _layoutManager.TranslateLogicalCursorToContent(control);
+
+		/// <summary>
 		/// Creates a portal overlay for the specified control.
 		/// Portal content renders on top of all normal content with no parent clipping.
 		/// Portals are useful for dropdowns, tooltips, context menus, and other overlay content.
@@ -50,7 +79,7 @@ namespace SharpConsoleUI
 			var portalNode = _renderer?.CreatePortal(ownerControl, portalContent);
 			if (portalNode != null)
 			{
-				Invalidate(false);
+				Invalidate(Invalidation.Relayout);
 			}
 			return portalNode;
 		}
@@ -69,7 +98,7 @@ namespace SharpConsoleUI
 			}
 
 			_renderer?.RemovePortal(ownerControl, portalNode);
-			Invalidate(false);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		// Desktop portal tracking: maps LayoutNode → DesktopPortal for cleanup
@@ -245,9 +274,20 @@ namespace SharpConsoleUI
 		{
 			if (_renderer == null)
 			{
-				_invalidated = false;
+				// No renderer: do NOT consume the pending work — leave PendingWork set so the next tick (once a
+				// renderer exists) re-enters and rebuilds. Do NOT clear PendingWork here.
 				return;
 			}
+
+			// Consume = atomic snapshot-and-clear of the frame intent, BEFORE any work. This is the ONLY
+			// consume point; the accumulator resets to None here and is re-raised by any later Request.
+			var work = (FrameWork)Interlocked.Exchange(ref _pendingWork, (int)FrameWork.None);
+			LastFrameRequests = Interlocked.Exchange(ref _requestsThisFrame, 0);
+
+			// A None snapshot means nothing was pending (e.g. an unconditional rebuild call); still paint at
+			// Repaint fidelity so the buffer stays correct, but never re-measure for free.
+			if (work == FrameWork.None)
+				work = FrameWork.Repaint;
 
 			_renderer.RebuildContentBuffer(
 				_controls,
@@ -257,7 +297,8 @@ namespace SharpConsoleUI
 				Left,
 				Top,
 				ShowTitle,
-				BackgroundColor);
+				BackgroundColor,
+				work);
 
 			PostRebuildCleanup();
 		}
@@ -270,8 +311,6 @@ namespace SharpConsoleUI
 			_bottomStickyLines.Clear();
 			_bottomStickyHeight = 0;
 			_controlPositions.Clear();
-
-			_invalidated = false;
 		}
 
 		#endregion

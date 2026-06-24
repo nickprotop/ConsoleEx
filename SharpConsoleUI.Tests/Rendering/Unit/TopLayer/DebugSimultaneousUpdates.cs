@@ -69,29 +69,29 @@ public class DebugSimultaneousUpdates
 
 		var snapshot1 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		_output.WriteLine($"INITIAL STATE:");
-		_output.WriteLine($"  Background: IsDirty={background.IsDirty}");
-		_output.WriteLine($"  Moving: IsDirty={moving.IsDirty}");
+		_output.WriteLine($"  Background: IsDirty={background.PendingWork != FrameWork.None}");
+		_output.WriteLine($"  Moving: IsDirty={moving.PendingWork != FrameWork.None}");
 		_output.WriteLine($"  Char at (25,10): '{snapshot1?.GetBack(25, 10).Character}' (should be 'M')");
 
 		// CRITICAL: Make background window dirty (simulating it updating content)
 		// AND move the moving window at the same time
 		_output.WriteLine($"\nSIMULTANEOUS UPDATE:");
 		_output.WriteLine($"  1. Invalidating background (simulating content update)...");
-		background.Invalidate(true);
+		background.Invalidate(Invalidation.Relayout);
 
 		_output.WriteLine($"  2. Moving window to the right...");
 		moving.Left = 35;
 
 		_output.WriteLine($"\nBEFORE UpdateDisplay:");
-		_output.WriteLine($"  Background: IsDirty={background.IsDirty} (should be True - was updated)");
-		_output.WriteLine($"  Moving: IsDirty={moving.IsDirty} (should be True - was moved)");
+		_output.WriteLine($"  Background: IsDirty={background.PendingWork != FrameWork.None} (should be True - was updated)");
+		_output.WriteLine($"  Moving: IsDirty={moving.PendingWork != FrameWork.None} (should be True - was moved)");
 
 		system.Render.UpdateDisplay();
 
 		var snapshot2 = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		_output.WriteLine($"\nAFTER UpdateDisplay:");
-		_output.WriteLine($"  Background: IsDirty={background.IsDirty} (should be False after render)");
-		_output.WriteLine($"  Moving: IsDirty={moving.IsDirty} (should be False after render)");
+		_output.WriteLine($"  Background: IsDirty={background.PendingWork != FrameWork.None} (should be False after render)");
+		_output.WriteLine($"  Moving: IsDirty={moving.PendingWork != FrameWork.None} (should be False after render)");
 
 		// Check exposed area on the left (was covered by moving, now exposed)
 		_output.WriteLine($"\nCHECKING EXPOSED AREA:");
@@ -174,22 +174,22 @@ public class DebugSimultaneousUpdates
 
 		// SIMULTANEOUS: Background updates AND moving window moves upward
 		_output.WriteLine($"\nSIMULTANEOUS UPDATE:");
-		background.Invalidate(true);
+		background.Invalidate(Invalidation.Relayout);
 		_output.WriteLine($"  1. Background invalidated");
 
 		moving.Top = 8;
 		_output.WriteLine($"  2. Moving moved UP: Top={moving.Top}, covers y={moving.Top}-{moving.Top + moving.Height - 1}");
 
 		_output.WriteLine($"\nBEFORE UpdateDisplay:");
-		_output.WriteLine($"  Background: IsDirty={background.IsDirty}");
-		_output.WriteLine($"  Moving: IsDirty={moving.IsDirty}");
+		_output.WriteLine($"  Background: IsDirty={background.PendingWork != FrameWork.None}");
+		_output.WriteLine($"  Moving: IsDirty={moving.PendingWork != FrameWork.None}");
 
 		system.Render.UpdateDisplay();
 
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 		_output.WriteLine($"\nAFTER UpdateDisplay:");
-		_output.WriteLine($"  Background: IsDirty={background.IsDirty}");
-		_output.WriteLine($"  Moving: IsDirty={moving.IsDirty}");
+		_output.WriteLine($"  Background: IsDirty={background.PendingWork != FrameWork.None}");
+		_output.WriteLine($"  Moving: IsDirty={moving.PendingWork != FrameWork.None}");
 
 		// Check exposed bottom area (old position y=12-21, new position y=8-17, exposed y=18-21)
 		_output.WriteLine($"\nCHECKING EXPOSED BOTTOM AREA:");

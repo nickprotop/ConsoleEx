@@ -24,7 +24,7 @@ public partial class TableControl
 			_sortingEnabled = value;
 			OnPropertyChanged();
 			if (!value) ClearSort();
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 	}
 
@@ -125,7 +125,7 @@ public partial class TableControl
 		}
 
 		InvalidateColumnWidths();
-		Container?.Invalidate(true);
+		Container?.Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -139,7 +139,7 @@ public partial class TableControl
 		// If filter is active, recompute without sort
 		if (_filterIndexMap != null && _activeFilter != null)
 			RecomputeDisplayMap();
-		Container?.Invalidate(true);
+		Container?.Invalidate(Invalidation.Relayout);
 	}
 
 	private void ApplySort()

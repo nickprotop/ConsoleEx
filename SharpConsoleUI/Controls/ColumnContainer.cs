@@ -32,12 +32,12 @@ namespace SharpConsoleUI.Controls
 		private readonly object _contentsLock = new();
 		private Color? _foregroundColorValue;
 		private HorizontalGridControl _horizontalGridContent;
-		private bool _isDirty;
 		private bool _isEnabled = true;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private StickyPosition _stickyPosition = StickyPosition.None;
 		private bool _visible = true;
 		private int? _width;
+		private int? _height;
 
 		// Double-click detection
 		private DateTime _lastClickTime = DateTime.MinValue;
@@ -65,7 +65,7 @@ namespace SharpConsoleUI.Controls
 		{
 			// Resolution chain: explicit → Transparent (children use alpha blending, no container fallback needed)
 			get => _backgroundColorValue ?? Color.Transparent;
-			set { _backgroundColorValue = value; Container?.Invalidate(true); }
+			set { _backgroundColorValue = value; Container?.Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <inheritdoc/>
@@ -75,7 +75,7 @@ namespace SharpConsoleUI.Controls
 			get => _foregroundColorValue ?? _horizontalGridContent?.ForegroundColor
 				?? _horizontalGridContent?.Container?.ForegroundColor
 				?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
-			set { _foregroundColorValue = value; Container?.Invalidate(true); }
+			set { _foregroundColorValue = value; Container?.Invalidate(Invalidation.Repaint); }
 		}
 
 		private bool _propagatingWindowSystem = false;
@@ -123,9 +123,9 @@ namespace SharpConsoleUI.Controls
 				lock (_contentsLock) { invalidateSnapshot = new List<IWindowControl>(_contents); }
 				foreach (IWindowControl control in invalidateSnapshot)
 				{
-					control.Invalidate();
+					control.Invalidate(Invalidation.Relayout);
 				}
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -140,19 +140,7 @@ namespace SharpConsoleUI.Controls
 				_horizontalGridContent = value;
 				_consoleWindowSystem = value.Container?.GetConsoleWindowSystem;
 
-				_horizontalGridContent.Invalidate();
-			}
-		}
-
-		/// <summary>
-		/// Gets or sets a value indicating whether this column needs to be re-rendered.
-		/// </summary>
-		public bool IsDirty
-		{
-			get => _isDirty;
-			set
-			{
-				_isDirty = value;
+				_horizontalGridContent.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -166,13 +154,25 @@ namespace SharpConsoleUI.Controls
 				if (_width != validatedValue)
 				{
 					_width = validatedValue;
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				}
 			}
 		}
 
 		/// <inheritdoc/>
-		public int? Height { get; set; }
+		public int? Height
+		{
+			get => _height;
+			set
+			{
+				var validatedValue = value.HasValue ? Math.Max(0, value.Value) : value;
+				if (_height != validatedValue)
+				{
+					_height = validatedValue;
+					Invalidate(Invalidation.Relayout);
+				}
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets whether double-click events are enabled for white space clicks.
@@ -210,7 +210,7 @@ namespace SharpConsoleUI.Controls
 				if (_minWidth != value)
 				{
 					_minWidth = value;
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				}
 			}
 		}
@@ -226,7 +226,7 @@ namespace SharpConsoleUI.Controls
 				if (_maxWidth != value)
 				{
 					_maxWidth = value;
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				}
 			}
 		}
@@ -242,7 +242,7 @@ namespace SharpConsoleUI.Controls
 				if (_flexFactor != value)
 				{
 					_flexFactor = Math.Max(0, value);
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				}
 			}
 		}
@@ -322,7 +322,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_horizontalAlignment = value;
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -333,7 +333,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_verticalAlignment = value;
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -344,7 +344,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_container = value;
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -355,7 +355,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_margin = value;
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -366,7 +366,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_stickyPosition = value;
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -383,7 +383,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_visible = value;
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -438,7 +438,7 @@ namespace SharpConsoleUI.Controls
 			// Force DOM rebuild for runtime addition
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
 
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -461,7 +461,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -510,10 +510,8 @@ namespace SharpConsoleUI.Controls
 		private static readonly ThreadLocal<HashSet<ColumnContainer>> _invalidatingContainers = new(() => new HashSet<ColumnContainer>());
 
 		/// <inheritdoc/>
-		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
+		public void Invalidate(Invalidation work, IWindowControl? callerControl = null)
 		{
-			_isDirty = true;
-
 			// Prevent infinite recursion by tracking if this container is already being invalidated
 			if (_invalidatingContainers.Value!.Contains(this))
 			{
@@ -527,7 +525,7 @@ namespace SharpConsoleUI.Controls
 				_invalidatingContainers.Value!.Add(this);
 				try
 				{
-					_horizontalGridContent.Invalidate();
+					_horizontalGridContent.Invalidate(work);
 				}
 				finally
 				{
@@ -549,11 +547,10 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Invalidates only the child controls within this column without triggering parent invalidation.
 		/// </summary>
+		/// <param name="work"></param>
 		/// <param name="callerControl">Optional caller control to exclude from invalidation.</param>
-		public void InvalidateOnlyColumnContents(IWindowControl? callerControl = null)
+		public void InvalidateOnlyColumnContents(Invalidation work, IWindowControl? callerControl = null)
 		{
-			_isDirty = true;
-
 			// Prevent infinite recursion by tracking if this container is already being invalidated
 			if (_invalidatingContainers.Value!.Contains(this))
 			{
@@ -572,7 +569,7 @@ namespace SharpConsoleUI.Controls
 					// 2. The caller control passed as parameter
 					if (content != _horizontalGridContent && content != callerControl)
 					{
-						content.Invalidate();
+						content.Invalidate(work);
 					}
 				}
 			}
@@ -602,7 +599,7 @@ namespace SharpConsoleUI.Controls
 				// Force DOM rebuild for runtime removal
 				(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
 
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -625,7 +622,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <inheritdoc/>
@@ -641,7 +638,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_isEnabled = value;
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -719,9 +716,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void Invalidate()
+		public void Invalidate(Invalidation work)
 		{
-			Invalidate(true);
+			Invalidate(work, null);
 		}
 
 		/// <summary>
@@ -956,8 +953,6 @@ namespace SharpConsoleUI.Controls
 				var lineRect = new LayoutRect(bounds.X, y, bounds.Width, 1);
 				buffer.FillRect(lineRect, ' ', fgColor, effectiveBg);
 			}
-
-			_isDirty = false;
 		}
 
 		#endregion

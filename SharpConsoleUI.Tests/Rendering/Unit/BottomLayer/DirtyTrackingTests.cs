@@ -75,7 +75,7 @@ public class DirtyTrackingTests
 
 		// Act - change one character
 		control.SetContent(new List<string> { "ABXDEF" }); // C → X
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - minimal dirty cells
@@ -120,7 +120,7 @@ public class DirtyTrackingTests
 		// Act - change only line 3
 		lines[2] = "CHANGED";
 		window.AddControl(new MarkupControl(lines));
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - should not mark all lines dirty
@@ -163,7 +163,7 @@ public class DirtyTrackingTests
 		// Act - change only line 3
 		lines[2] = "CHANGED";
 		window.AddControl(new MarkupControl(lines));
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - LINE mode renders entire lines
@@ -235,7 +235,7 @@ public class DirtyTrackingTests
 
 		// Act - change color but keep same characters
 		control.SetContent(new List<string> { "[red]Text[/]" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - color change should mark cells dirty
@@ -281,7 +281,7 @@ public class DirtyTrackingTests
 
 		// Act - update hidden window
 		window1.AddControl(new MarkupControl(new List<string> { "Updated" }));
-		window1.Invalidate(true);
+		window1.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - should produce minimal output since window1 is hidden
@@ -330,7 +330,7 @@ public class DirtyTrackingTests
 
 		// Act - update behind window
 		window1.AddControl(new MarkupControl(new List<string> { "Updated behind" }));
-		window1.Invalidate(true);
+		window1.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - only visible portion should be dirty
@@ -367,7 +367,7 @@ public class DirtyTrackingTests
 
 		// Act - small change
 		control.SetContent(new List<string> { "AAAAABAAAA" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - efficiency should be good
@@ -406,7 +406,7 @@ public class DirtyTrackingTests
 		lines[0] = "AXAA"; // 1 char change
 		lines[2] = "CXCC"; // 1 char change
 		window.AddControl(new MarkupControl(lines));
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - should track both changes
@@ -446,7 +446,7 @@ public class DirtyTrackingTests
 		lines[0] = "AXAA"; // 1 char change
 		lines[2] = "CXCC"; // 1 char change
 		window.AddControl(new MarkupControl(lines));
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - LINE mode renders full lines
@@ -516,7 +516,7 @@ public class DirtyTrackingTests
 
 		// Act - change background color (affects entire window)
 		window.BackgroundColor = Color.Blue;
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - background change affects entire window
@@ -628,7 +628,7 @@ public class DirtyTrackingTests
 		system.Render.UpdateDisplay(); // Frame 1
 
 		// Act - invalidate but no actual changes
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - even though invalidated, no actual output if content same

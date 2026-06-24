@@ -83,13 +83,13 @@ public partial class HorizontalGridControl
 			onUpdate: width =>
 			{
 				column.Width = width;
-				Invalidate();
+				Invalidate(Invalidation.Relayout);
 			},
 			onComplete: () =>
 			{
 				if (targetWidth == 0)
 					column.Visible = false;
-				Invalidate();
+				Invalidate(Invalidation.Relayout);
 			});
 	}
 }

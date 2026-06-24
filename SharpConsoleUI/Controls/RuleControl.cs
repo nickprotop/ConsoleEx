@@ -144,7 +144,7 @@ namespace SharpConsoleUI.Controls
 			_progressRatio = Math.Clamp(ratio, 0f, 1f);
 			_progressGradient = gradient;
 			_shimmerPosition = -0.15f;
-			Invalidate();
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -167,7 +167,7 @@ namespace SharpConsoleUI.Controls
 			var manager = GetAnimationManager();
 			if (manager == null)
 			{
-				Invalidate();
+				Invalidate(Invalidation.Relayout);
 				return;
 			}
 
@@ -195,7 +195,7 @@ namespace SharpConsoleUI.Controls
 				_progressRatio = 0;
 				_progressGradient = null;
 				_shimmerPosition = -0.15f;
-				Invalidate();
+				Invalidate(Invalidation.Relayout);
 				return;
 			}
 
@@ -208,7 +208,7 @@ namespace SharpConsoleUI.Controls
 				value =>
 				{
 					_progressRatio = value;
-					Invalidate();
+					Invalidate(Invalidation.Relayout);
 				},
 				() =>
 				{
@@ -216,7 +216,7 @@ namespace SharpConsoleUI.Controls
 					_progressGradient = null;
 					_shimmerPosition = -0.15f;
 					_clearAnimation = null;
-					Invalidate();
+					Invalidate(Invalidation.Relayout);
 				});
 		}
 
@@ -246,7 +246,7 @@ namespace SharpConsoleUI.Controls
 				value =>
 				{
 					_shimmerPosition = value;
-					Invalidate();
+					Invalidate(Invalidation.Relayout);
 				},
 				() =>
 				{

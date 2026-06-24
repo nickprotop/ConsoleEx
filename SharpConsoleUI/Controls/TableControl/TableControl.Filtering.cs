@@ -77,7 +77,7 @@ public partial class TableControl
 			_filteringEnabled = value;
 			OnPropertyChanged();
 			if (!value) ClearFilter();
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 	}
 
@@ -197,7 +197,7 @@ public partial class TableControl
 
 		Core.AsyncEvent.Raise(FilterApplied, FilterAppliedAsync, this, compound.RawText, Container?.GetConsoleWindowSystem?.LogService);
 		InvalidateColumnWidths();
-		Container?.Invalidate(true);
+		Container?.Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -257,7 +257,7 @@ public partial class TableControl
 
 		Core.AsyncEvent.Raise(FilterCleared, FilterClearedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 		InvalidateColumnWidths();
-		Container?.Invalidate(true);
+		Container?.Invalidate(Invalidation.Relayout);
 	}
 
 	#endregion
@@ -285,7 +285,7 @@ public partial class TableControl
 				lock (_tableLock) { _unfilteredRowCount = _rows.Count; }
 		}
 
-		Container?.Invalidate(true);
+		Container?.Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -305,7 +305,7 @@ public partial class TableControl
 				{
 					ClearFilter();
 				}
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 				return true;
 
 			case ConsoleKey.Escape:
@@ -337,7 +337,7 @@ public partial class TableControl
 				if (_filterCursorPosition > 0)
 				{
 					_filterCursorPosition--;
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Repaint);
 				}
 				return true;
 
@@ -345,18 +345,18 @@ public partial class TableControl
 				if (_filterCursorPosition < _filterBuffer.Length)
 				{
 					_filterCursorPosition++;
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Repaint);
 				}
 				return true;
 
 			case ConsoleKey.Home:
 				_filterCursorPosition = 0;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 				return true;
 
 			case ConsoleKey.End:
 				_filterCursorPosition = _filterBuffer.Length;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 				return true;
 
 			default:
@@ -400,7 +400,7 @@ public partial class TableControl
 		_selectedRowIndices.Clear();
 		FilterTextChanged?.Invoke(this, _filterBuffer);
 		InvalidateColumnWidths();
-		Container?.Invalidate(true);
+		Container?.Invalidate(Invalidation.Relayout);
 	}
 
 	#endregion

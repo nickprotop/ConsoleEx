@@ -63,7 +63,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_highlightedIndex = currentHighlight + 1;
 							EnsureHighlightedItemVisible();
-							Container?.Invalidate(true);
+							Container?.Invalidate(Invalidation.Repaint);
 							return true;
 						}
 					}
@@ -83,7 +83,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_highlightedIndex = currentHighlight - 1;
 							EnsureHighlightedItemVisible();
-							Container?.Invalidate(true);
+							Container?.Invalidate(Invalidation.Repaint);
 							return true;
 						}
 					}
@@ -94,7 +94,7 @@ namespace SharpConsoleUI.Controls
 					{
 						_highlightedIndex = 0;
 						EnsureHighlightedItemVisible();
-						Container?.Invalidate(true);
+						Container?.Invalidate(Invalidation.Repaint);
 						return true;
 					}
 					return false;
@@ -104,7 +104,7 @@ namespace SharpConsoleUI.Controls
 					{
 						_highlightedIndex = _items.Count - 1;
 						EnsureHighlightedItemVisible();
-						Container?.Invalidate(true);
+						Container?.Invalidate(Invalidation.Repaint);
 						return true;
 					}
 					return false;
@@ -115,7 +115,7 @@ namespace SharpConsoleUI.Controls
 						int newIndex = Math.Max(0, currentHighlight - _maxVisibleItems);
 						_highlightedIndex = newIndex;
 						EnsureHighlightedItemVisible();
-						Container?.Invalidate(true);
+						Container?.Invalidate(Invalidation.Repaint);
 						return true;
 					}
 					return false;
@@ -126,7 +126,7 @@ namespace SharpConsoleUI.Controls
 						int newIndex = Math.Min(_items.Count - 1, currentHighlight + _maxVisibleItems);
 						_highlightedIndex = newIndex;
 						EnsureHighlightedItemVisible();
-						Container?.Invalidate(true);
+						Container?.Invalidate(Invalidation.Repaint);
 						return true;
 					}
 					return false;
@@ -156,7 +156,7 @@ namespace SharpConsoleUI.Controls
 							{
 								_highlightedIndex = i;
 								EnsureHighlightedItemVisible();
-								Container?.Invalidate(true);
+								Container?.Invalidate(Invalidation.Repaint);
 								return true;
 							}
 						}

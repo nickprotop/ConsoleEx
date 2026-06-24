@@ -194,7 +194,7 @@ namespace SharpConsoleUI.Rendering
 				// border/title colors, but the border cache key is (width, active-state) only, so without
 				// this the cached top border keeps the OLD theme's colors after a SwitchTheme.
 				w.InvalidateBorderCache();
-				w.Invalidate(true);
+				w.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -276,7 +276,7 @@ namespace SharpConsoleUI.Rendering
 						foreach (var w in _windowSystemContext.Windows.Values)
 						{
 							if (w.State != WindowState.Minimized && w.BackgroundColor.A < 255)
-								w.Invalidate(true);
+								w.Invalidate(Invalidation.Relayout);
 						}
 					}
 				}
@@ -803,7 +803,7 @@ namespace SharpConsoleUI.Rendering
 				if (window.Width <= 0 || window.Height <= 0)
 					continue;
 
-				if (!window.IsDirty)
+				if (window.PendingWork == FrameWork.None)
 					continue;
 
 				if (IsCompletelyCovered(window))
@@ -826,7 +826,7 @@ namespace SharpConsoleUI.Rendering
 				dragState.Window.Width > 0 && dragState.Window.Height > 0 &&
 				!_windowsToRender.Contains(dragState.Window))
 			{
-				dragState.Window.Invalidate(true);
+				dragState.Window.Invalidate(Invalidation.Relayout);
 				_windowsToRender.Add(dragState.Window);
 			}
 
@@ -847,7 +847,7 @@ namespace SharpConsoleUI.Rendering
 			}
 			foreach (var w in _transparentInvalidationPool)
 			{
-				w.Invalidate(true);
+				w.Invalidate(Invalidation.Relayout);
 				_windowsToRender.Add(w);
 			}
 
@@ -910,7 +910,7 @@ namespace SharpConsoleUI.Rendering
 				if (window.State == WindowState.Minimized) continue;
 
 				// AlwaysOnTop windows render if: they're dirty, OR any other window is dirty (to stay on top)
-				if (window.IsDirty || anyWindowsDirty)
+				if (window.PendingWork != FrameWork.None || anyWindowsDirty)
 				{
 					// Skip windows with invalid dimensions
 					if (window.Width > 0 && window.Height > 0)

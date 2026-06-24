@@ -18,6 +18,11 @@ namespace SharpConsoleUI.Controls
 	{
 		private Color? _lineNumberColor;
 
+		/// <inheritdoc/>
+		/// <remarks>Never raised: the line-number width/colour is driven by the host editor's own
+		/// <c>ShowLineNumbers</c>/<c>LineNumberColor</c> setters, which invalidate directly.</remarks>
+		public event EventHandler? Invalidated;
+
 		/// <summary>
 		/// Gets or sets the foreground color for line numbers.
 		/// When null, defaults to <see cref="Color.Grey"/>.

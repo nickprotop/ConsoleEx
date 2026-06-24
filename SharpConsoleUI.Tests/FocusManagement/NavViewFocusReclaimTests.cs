@@ -75,7 +75,7 @@ public class NavViewFocusReclaimTests
 	/// <summary>
 	/// Path A — the path the bug report describes literally:
 	/// table holds focus, then <c>table.ClearRows()</c> + re-add rows, which ends
-	/// in <c>Container?.Invalidate(true)</c>. A render pass is driven afterward so
+	/// in <c>Container?.Invalidate(Invalidation.Relayout)</c>. A render pass is driven afterward so
 	/// the invalidation is fully processed.
 	///
 	/// Asserts focus STAYS on the table. If this fails (focus == nav scroll panel),

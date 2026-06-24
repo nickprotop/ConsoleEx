@@ -210,11 +210,19 @@ namespace SharpConsoleUI.Layout
 		}
 
 		/// <summary>
+		/// Test-only counter incremented on every <see cref="Measure"/> entry. Lets tests assert deterministically
+		/// whether the Measure pass ran for a frame (the paint-only-invalidation gate). Not used in production.
+		/// </summary>
+		internal static long MeasureInvocationCount;
+
+		/// <summary>
 		/// Measures this node and all its children.
 		/// Returns the desired size based on content and constraints.
 		/// </summary>
 		public LayoutSize Measure(LayoutConstraints constraints)
 		{
+			System.Threading.Interlocked.Increment(ref MeasureInvocationCount);
+
 			if (!IsVisible)
 			{
 				DesiredSize = LayoutSize.Zero;

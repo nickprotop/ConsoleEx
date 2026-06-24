@@ -156,7 +156,7 @@ namespace SharpConsoleUI.Controls
 				{
 					_isMouseInside = false;
 					MouseLeave?.Invoke(this, args);
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Repaint);
 				}
 				return false;
 			}
@@ -167,7 +167,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_isMouseInside = true;
 				MouseEnter?.Invoke(this, args);
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 
 			// Right-click.
@@ -192,7 +192,7 @@ namespace SharpConsoleUI.Controls
 				_lastClickTime = DateTime.MinValue;
 				MouseDoubleClick?.Invoke(this, args);
 				args.Handled = true;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 				return true;
 			}
 
@@ -218,7 +218,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				args.Handled = true;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 				return true;
 			}
 

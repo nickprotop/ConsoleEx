@@ -105,7 +105,7 @@ public class ConsoleBufferTests
 
 		// Act - change one character
 		control.SetContent(new List<string> { "ABAA" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		// Assert - should detect minimal change
@@ -142,7 +142,7 @@ public class ConsoleBufferTests
 
 		// Act - make a change
 		window.AddControl(new MarkupControl(new List<string> { "Modified" }));
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		// Assert - buffers should have differed before render
@@ -176,7 +176,7 @@ public class ConsoleBufferTests
 
 		// Act - change middle character
 		control.SetContent(new List<string> { "AXC" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert
@@ -214,7 +214,7 @@ public class ConsoleBufferTests
 
 		// Act - change color but keep same text
 		control.SetContent(new List<string> { "[red]Text[/]" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - color change should be detected
@@ -247,7 +247,7 @@ public class ConsoleBufferTests
 
 		// Act - change background color
 		window.BackgroundColor = Color.Blue;
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - background color change should trigger re-render
@@ -312,7 +312,7 @@ public class ConsoleBufferTests
 
 		// Act - completely different content
 		control.SetContent(new List<string> { "Totally new text!!!" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - significant output
@@ -345,7 +345,7 @@ public class ConsoleBufferTests
 
 		// Act - change only middle section
 		control.SetContent(new List<string> { "AAAA XXXX CCCC" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - should be efficient

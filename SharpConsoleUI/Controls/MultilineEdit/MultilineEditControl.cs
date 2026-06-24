@@ -138,6 +138,9 @@ namespace SharpConsoleUI.Controls
 		// Gutter renderers
 		private readonly List<IGutterRenderer> _gutterRenderers = new();
 		private LineNumberGutterRenderer? _builtInLineNumberRenderer;
+		// Total gutter width recorded at the last paint; the gutter-renderer self-invalidation handler
+		// compares the post-mutation GetGutterWidth() against this to decide Relayout vs Repaint. -1 = never painted.
+		private int _lastKnownGutterWidth = -1;
 
 		// Line numbers
 		private bool _showLineNumbers;
@@ -312,7 +315,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_backgroundColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -326,7 +329,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_borderColor = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -351,7 +354,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_focusedBackgroundColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -367,7 +370,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_focusedForegroundColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -383,7 +386,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_foregroundColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -409,7 +412,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_horizontalScrollbarVisibility = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -430,7 +433,7 @@ namespace SharpConsoleUI.Controls
 				if (_isEditing == value) return;
 				_isEditing = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 				Core.AsyncEvent.Raise(EditingModeChanged, EditingModeChangedAsync, this, _isEditing, Container?.GetConsoleWindowSystem?.LogService);
 			}
 		}
@@ -460,7 +463,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_readOnly = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -474,7 +477,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_scrollbarColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -488,7 +491,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_scrollbarThumbColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -502,7 +505,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_selectionBackgroundColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -516,7 +519,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_selectionForegroundColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -531,7 +534,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_verticalScrollbarVisibility = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -548,7 +551,7 @@ namespace SharpConsoleUI.Controls
 				{
 					_viewportHeight = validatedValue;
 					OnPropertyChanged();
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 				}
 			}
 		}
@@ -587,7 +590,7 @@ namespace SharpConsoleUI.Controls
 				_wrapMode = value;
 				OnPropertyChanged();
 				InvalidateWrappedLinesCache();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -654,7 +657,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_placeholderText = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -681,7 +684,7 @@ namespace SharpConsoleUI.Controls
 				if (_overwriteMode == value) return;
 				_overwriteMode = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 				Core.AsyncEvent.Raise(OverwriteModeChanged, OverwriteModeChangedAsync, this, _overwriteMode, Container?.GetConsoleWindowSystem?.LogService);
 			}
 		}
@@ -707,7 +710,7 @@ namespace SharpConsoleUI.Controls
 				if (_highlightCurrentLine == value) return;
 				_highlightCurrentLine = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -722,7 +725,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_currentLineHighlightColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -738,7 +741,7 @@ namespace SharpConsoleUI.Controls
 				if (_showWhitespace == value) return;
 				_showWhitespace = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -775,7 +778,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				InvalidateWrappedLinesCache();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -791,7 +794,7 @@ namespace SharpConsoleUI.Controls
 				OnPropertyChanged();
 				if (_builtInLineNumberRenderer != null)
 					_builtInLineNumberRenderer.LineNumberColor = value;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -806,8 +809,9 @@ namespace SharpConsoleUI.Controls
 		public void AddGutterRenderer(IGutterRenderer renderer)
 		{
 			lock (_contentLock) { _gutterRenderers.Add(renderer); }
+			SubscribeGutterRenderer(renderer);
 			InvalidateWrappedLinesCache();
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -816,8 +820,9 @@ namespace SharpConsoleUI.Controls
 		public void InsertGutterRenderer(int index, IGutterRenderer renderer)
 		{
 			lock (_contentLock) { _gutterRenderers.Insert(index, renderer); }
+			SubscribeGutterRenderer(renderer);
 			InvalidateWrappedLinesCache();
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -829,8 +834,9 @@ namespace SharpConsoleUI.Controls
 			lock (_contentLock) { removed = _gutterRenderers.Remove(renderer); }
 			if (removed)
 			{
+				UnsubscribeGutterRenderer(renderer);
 				InvalidateWrappedLinesCache();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 			return removed;
 		}
@@ -841,8 +847,10 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ClearGutterRenderers()
 		{
+			List<IGutterRenderer> removed;
 			lock (_contentLock)
 			{
+				removed = _gutterRenderers.ToList();
 				_gutterRenderers.Clear();
 				if (_builtInLineNumberRenderer != null)
 				{
@@ -850,8 +858,43 @@ namespace SharpConsoleUI.Controls
 					_showLineNumbers = false;
 				}
 			}
+			foreach (var r in removed)
+				UnsubscribeGutterRenderer(r);
 			InvalidateWrappedLinesCache();
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
+		}
+
+		/// <summary>
+		/// Subscribes to a renderer's <see cref="IGutterRenderer.Invalidated"/> event so that runtime state
+		/// changes in the renderer self-invalidate this editor. A renderer that never raises the event
+		/// (e.g. the built-in line-number renderer) is unaffected.
+		/// </summary>
+		private void SubscribeGutterRenderer(IGutterRenderer renderer)
+			=> renderer.Invalidated += OnGutterRendererInvalidated;
+
+		private void UnsubscribeGutterRenderer(IGutterRenderer renderer)
+			=> renderer.Invalidated -= OnGutterRendererInvalidated;
+
+		/// <summary>
+		/// Handles a self-invalidation from an attached gutter renderer. The renderer only signals that its
+		/// state changed; THIS editor derives the level from the single source of truth — the total gutter
+		/// width (<see cref="GetGutterWidth"/>, the sum of every renderer's <see cref="IGutterRenderer.GetWidth"/>).
+		/// If the gutter width changed, the text reflows (Relayout + wrapped-lines cache invalidation);
+		/// otherwise it is a paint-only redraw (Repaint).
+		/// </summary>
+		private void OnGutterRendererInvalidated(object? sender, EventArgs e)
+		{
+			int newWidth = GetGutterWidth();
+			if (newWidth != _lastKnownGutterWidth)
+			{
+				_lastKnownGutterWidth = newWidth;
+				InvalidateWrappedLinesCache();
+				Container?.Invalidate(Invalidation.Relayout);
+			}
+			else
+			{
+				Container?.Invalidate(Invalidation.Repaint);
+			}
 		}
 
 		/// <summary>
@@ -866,7 +909,7 @@ namespace SharpConsoleUI.Controls
 				if (_showEditingHints == value) return;
 				_showEditingHints = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -886,7 +929,7 @@ namespace SharpConsoleUI.Controls
 					_lineStateCache = null;
 				}
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -916,7 +959,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_lineHighlights = value ?? new();
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -930,7 +973,7 @@ namespace SharpConsoleUI.Controls
 				_lineHighlights[sourceLineIndex] = color.Value;
 			else
 				_lineHighlights.Remove(sourceLineIndex);
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Repaint);
 		}
 
 		/// <summary>
@@ -939,7 +982,7 @@ namespace SharpConsoleUI.Controls
 		public void ClearLineHighlights()
 		{
 			_lineHighlights.Clear();
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Repaint);
 		}
 
 		#endregion
@@ -974,7 +1017,7 @@ namespace SharpConsoleUI.Controls
 			if (rows == 0) return;
 			int max = Math.Max(0, GetTotalWrappedLineCount() - GetEffectiveViewportHeight());
 			_verticalScrollOffset = Math.Clamp(_verticalScrollOffset + rows, 0, max);
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <inheritdoc/>
@@ -990,7 +1033,7 @@ namespace SharpConsoleUI.Controls
 				_selectionEndX = _lines[revealed].Length;
 				_hasSelection = (_selectionStartX != _selectionEndX || _selectionStartY != _selectionEndY);
 			}
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion

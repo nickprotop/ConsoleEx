@@ -664,7 +664,7 @@ public class DecorationRenderingPipelineTests
 
 		// Update to plain text
 		markup.SetContent(new List<string> { "QQQQQQQQQQQQQQQQQQ" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		var snapshot2 = system.RenderingDiagnostics?.LastConsoleSnapshot;

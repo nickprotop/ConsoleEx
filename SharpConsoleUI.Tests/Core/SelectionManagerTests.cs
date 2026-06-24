@@ -46,7 +46,7 @@ public class SelectionManagerTests
 		public int ActualWidth => 0;
 		public int ActualHeight => 0;
 		public Size GetLogicalContentSize() => new(0, 0);
-		public void Invalidate() { }
+		public void Invalidate(Invalidation work) { }
 		public void Dispose() { }
 	}
 

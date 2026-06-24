@@ -82,7 +82,6 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Children (the grid) are painted by the DOM tree's child LayoutNodes
-			_isDirty = false;
 		}
 
 		#endregion

@@ -328,7 +328,7 @@ public class MyPopupControl : BaseControl, IInteractiveControl, IFocusableContro
         _portal?.ClearChildren();
         _portal = null;
         _portalNode = null;
-        Container?.Invalidate(true);
+        Container?.Invalidate(Invalidation.Relayout);
     }
 
     public bool ProcessKey(ConsoleKeyInfo key)

@@ -252,18 +252,34 @@ namespace SharpConsoleUI.Windows
 		/// <summary>
 		/// Performs the measure and arrange passes on the DOM tree.
 		/// </summary>
+		/// <summary>
+		/// Performs measure + arrange. Always measures — used for a fresh DOM tree where a measure is mandatory.
+		/// Equivalent to <see cref="PerformDOMLayout(int,int,FrameWork)"/> with <see cref="FrameWork.Relayout"/>.
+		/// </summary>
 		public void PerformDOMLayout(int contentWidth, int contentHeight)
+			=> PerformDOMLayout(contentWidth, contentHeight, FrameWork.Relayout);
+
+		/// <summary>
+		/// Performs the layout passes, gating Measure on the frame's pending work. On a
+		/// <see cref="FrameWork.Repaint"/> frame the Measure pass is skipped (cached <c>DesiredSize</c> reused)
+		/// UNLESS the node is structurally dirty (<c>NeedsMeasure</c>, e.g. a buffer resize). Arrange always runs
+		/// (it consumes the live scroll offset).
+		/// </summary>
+		public void PerformDOMLayout(int contentWidth, int contentHeight, FrameWork work)
 		{
 			if (_rootNode == null) return;
 
-			_logService?.LogTrace($"Performing layout for window '{_window.Title}' ({contentWidth}x{contentHeight})", "Renderer");
+			_logService?.LogTrace($"Performing layout for window '{_window.Title}' ({contentWidth}x{contentHeight}, {work})", "Renderer");
 
 			// Sync node visibility with control visibility before layout
 			SyncNodeVisibility();
 
-			// Measure pass - use Loose constraints so children can measure smaller
+			// Measure pass - use Loose constraints so children can measure smaller.
+			// Skipped on a Repaint-only frame; the NeedsMeasure OR is the backstop for size changes
+			// (buffer resize, fresh tree) that don't route through a Relayout request.
 			var constraints = LayoutConstraints.Loose(contentWidth, contentHeight);
-			_rootNode.Measure(constraints);
+			if (work == FrameWork.Relayout || _rootNode.NeedsMeasure)
+				_rootNode.Measure(constraints);
 
 			// Arrange pass
 			_rootNode.Arrange(new LayoutRect(0, 0, contentWidth, contentHeight));
@@ -467,6 +483,7 @@ namespace SharpConsoleUI.Windows
 		/// <param name="windowTop">Window top position</param>
 		/// <param name="showTitle">Whether the window shows a title bar</param>
 		/// <param name="backgroundColor">Window background color</param>
+		/// <param name="work"></param>
 		/// <returns>True if the buffer was painted; false if completely occluded.</returns>
 		public bool RebuildContentBuffer(
 			IReadOnlyList<IWindowControl> controls,
@@ -476,7 +493,8 @@ namespace SharpConsoleUI.Windows
 			int windowLeft,
 			int windowTop,
 			bool showTitle,
-			Color backgroundColor)
+			Color backgroundColor,
+			FrameWork work = FrameWork.Relayout)
 		{
 			// Ensure DOM tree exists
 			if (_rootNode == null)
@@ -491,8 +509,8 @@ namespace SharpConsoleUI.Windows
 				_rootNode?.InvalidateMeasure(); // Size changed, need to re-measure (text wrapping)
 			}
 
-			// Always perform layout (arrange pass uses scroll offset)
-			PerformDOMLayout(availableWidth, availableHeight);
+			// Always perform layout (arrange pass uses scroll offset); Measure is gated on `work`.
+			PerformDOMLayout(availableWidth, availableHeight, work);
 
 			// Calculate clip rect from visible regions (optimization to avoid painting occluded areas)
 			LayoutRect clipRect;

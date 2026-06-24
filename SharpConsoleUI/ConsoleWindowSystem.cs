@@ -653,6 +653,15 @@ namespace SharpConsoleUI
 		public event EventHandler<Core.RecoveredEventArgs>? Recovered;
 
 		/// <summary>
+		/// Raised on the UI thread after the console has been resized AND the framework has repositioned/resized
+		/// all windows. Handlers perform app-specific layout reflow by mutating controls directly (they are already
+		/// on the UI thread). The framework re-invalidates all windows after every handler returns, so a handler
+		/// MUST NOT call Invalidate itself. This is the application-facing console-resize event; prefer it over the
+		/// low-level <see cref="IConsoleDriver.ScreenResized"/>.
+		/// </summary>
+		public event EventHandler<Size>? WindowResized;
+
+		/// <summary>
 		/// Gets the rendering diagnostics system for testing and debugging.
 		/// Only available when EnableDiagnostics is true in options.
 		/// </summary>
@@ -795,6 +804,18 @@ namespace SharpConsoleUI
 
 		/// <summary>Test hook: drains pending UI actions synchronously on the calling thread.</summary>
 		internal void DrainPendingUIActionsForTest() => DrainUIActionQueue();
+
+		/// <summary>
+		/// Test hook: wires the console driver's <see cref="IConsoleDriver.ScreenResized"/> event to the
+		/// framework's resize handler exactly as <see cref="Run"/> does, without starting the blocking main
+		/// loop. Lets headless tests drive the full resize path. Idempotent within a test's lifetime.
+		/// </summary>
+		internal void WireScreenResizeForTest()
+		{
+			if (_screenResizedHandler != null) return;
+			_screenResizedHandler = HandleScreenResize;
+			_consoleDriver.ScreenResized += _screenResizedHandler;
+		}
 
 		#region Window Management
 
@@ -994,7 +1015,7 @@ namespace SharpConsoleUI
 
 						Performance.UpdateMetrics(
 							Windows.Count,
-							Windows.Values.Count(w => w.IsDirty)
+							Windows.Values.Count(w => w.PendingWork != FrameWork.None)
 						);
 					}
 
@@ -1285,11 +1306,46 @@ namespace SharpConsoleUI
 						}
 					}
 
-					window.Invalidate(true);
+					window.Invalidate(Invalidation.Relayout);
 				}
 
 				Render.InvalidateStatusCache();
 			}
+
+			// App-facing resize hook: run consumer reflow on the UI thread, then re-invalidate behind it.
+			// Queue order (FIFO on the UI thread) guarantees the re-invalidate runs after the reflow handlers.
+			// Skipped entirely when no app subscribed — apps that don't reflow pay nothing new (pass 1 covered them).
+			// NOTE: these enqueues are intentionally OUTSIDE the lock (_renderLock) block above — consumer reflow
+			// must not run under the render lock.
+			if (WindowResized != null)
+			{
+				EnqueueOnUIThread(() => RaiseWindowResized(size), "resize:reflow");
+				EnqueueOnUIThread(InvalidateAllWindows, "resize:reinvalidate");
+			}
+		}
+
+		/// <summary>
+		/// Invokes every <see cref="WindowResized"/> handler in isolation so one throwing handler can neither
+		/// break the resize nor prevent the framework's post-handler re-invalidation. Runs on the UI thread.
+		/// </summary>
+		private void RaiseWindowResized(Size size)
+		{
+			var handlers = WindowResized;
+			if (handlers == null) return;
+			foreach (var d in handlers.GetInvocationList())
+			{
+				try { ((EventHandler<Size>)d).Invoke(this, size); }
+				catch (Exception ex) { LogService?.LogError($"WindowResized handler error: {ex.Message}", ex, "System"); }
+			}
+		}
+
+		/// <summary>
+		/// Re-invalidates every window for relayout (pass 2 after a console resize reflow). Runs on the UI thread.
+		/// </summary>
+		private void InvalidateAllWindows()
+		{
+			foreach (var window in Windows.Values)
+				window.Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion
@@ -1334,7 +1390,7 @@ namespace SharpConsoleUI
 		{
 			foreach (var window in Windows.Values)
 			{
-				if (window.IsDirty) return true;
+				if (window.PendingWork != FrameWork.None) return true;
 			}
 			return false;
 		}

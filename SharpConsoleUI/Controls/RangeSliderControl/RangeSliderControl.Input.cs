@@ -33,14 +33,14 @@ namespace SharpConsoleUI.Controls
 				{
 					// Forward Tab on Low thumb → switch to High thumb
 					ActiveThumb = ActiveThumb.High;
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 					return true;
 				}
 				else if (backward && _activeThumb == ActiveThumb.High)
 				{
 					// Shift+Tab on High thumb → switch to Low thumb
 					ActiveThumb = ActiveThumb.Low;
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 					return true;
 				}
 				// Otherwise let Tab/Shift+Tab pass through to move focus to next/previous control
@@ -134,7 +134,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_isMouseDragging = false;
 				_isDragging = false;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 				args.Handled = true;
 				return true;
 			}
@@ -202,7 +202,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				args.Handled = true;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 				return true;
 			}
 

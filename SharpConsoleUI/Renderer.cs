@@ -98,7 +98,7 @@ namespace SharpConsoleUI
 				var clearRect = new Rectangle(left, top, width, height);
 				if (GeometryHelpers.DoesRectangleIntersect(windowRect, clearRect))
 				{
-					window.Invalidate(true);
+					window.Invalidate(Invalidation.Relayout);
 				}
 			}
 		}
@@ -275,7 +275,7 @@ namespace SharpConsoleUI
 			if (window.RenderLock)
 			{
 				// Trigger internal work if dirty (keeps CharacterBuffer up-to-date)
-				if (window.IsDirty)
+				if (window.PendingWork != FrameWork.None)
 				{
 					// Create dummy region covering entire window for internal rendering
 					var fullRegion = new List<Rectangle>
@@ -285,7 +285,6 @@ namespace SharpConsoleUI
 
 					// Trigger internal measure/layout/paint but don't output to screen
 					window.EnsureContentReady(fullRegion);
-					window.IsDirty = false;
 				}
 
 				return;  // Don't output to screen
@@ -306,7 +305,6 @@ namespace SharpConsoleUI
 			// Rebuild content before drawing borders so the border scrollbar reflects the
 			// current content height rather than the previous frame's (see issue #31).
 			var buffer = window.EnsureContentReady(visibleRegions);
-			window.IsDirty = false;
 
 			// Draw window borders - these might be partially hidden but the drawing functions
 			// will handle clipping against screen boundaries
@@ -339,7 +337,7 @@ namespace SharpConsoleUI
 			if (window.RenderLock)
 			{
 				// Trigger internal work if dirty (keeps CharacterBuffer up-to-date)
-				if (window.IsDirty)
+				if (window.PendingWork != FrameWork.None)
 				{
 					// Create dummy region covering entire window for internal rendering
 					var fullRegion = new List<Rectangle>
@@ -349,7 +347,6 @@ namespace SharpConsoleUI
 
 					// Trigger internal measure/layout/paint but don't output to screen
 					window.EnsureContentReady(fullRegion);
-					window.IsDirty = false;
 				}
 
 				return;  // Don't output to screen
@@ -408,7 +405,6 @@ namespace SharpConsoleUI
 			// size. After a resize that shrinks the content (e.g. restoring from a maximized
 			// OS window), that leaves a stale scrollbar drawn until the next frame (issue #31).
 			var buffer = window.EnsureContentReady(visibleRegions);
-			window.IsDirty = false;
 
 			// Draw window borders - these might be partially hidden but the drawing functions
 			// will handle clipping against screen boundaries

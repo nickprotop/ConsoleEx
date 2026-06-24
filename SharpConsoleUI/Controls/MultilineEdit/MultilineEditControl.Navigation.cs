@@ -319,7 +319,7 @@ namespace SharpConsoleUI.Controls
 				_cursorX = 0;
 			}
 			EnsureCursorVisible();
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 			CursorPositionChanged?.Invoke(this, (CurrentLine, CurrentColumn));
 		}
 
@@ -344,7 +344,7 @@ namespace SharpConsoleUI.Controls
 			EnsureCursorVisible();
 
 			// Invalidate cached content to force redraw
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion
@@ -427,7 +427,7 @@ namespace SharpConsoleUI.Controls
 			}
 			NotifySelectionActive();
 			EnsureCursorVisible();
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Repaint);
 		}
 
 		private (int startX, int startY, int endX, int endY) GetOrderedSelectionBounds()
@@ -602,7 +602,7 @@ namespace SharpConsoleUI.Controls
 			EnsureCursorVisible();
 
 			// Invalidate the control for redraw
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion

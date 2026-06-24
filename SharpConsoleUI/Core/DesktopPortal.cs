@@ -202,7 +202,7 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <inheritdoc/>
-		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
+		public void Invalidate(Invalidation work, IWindowControl? callerControl = null)
 		{
 			Portal.IsDirty = true;
 		}

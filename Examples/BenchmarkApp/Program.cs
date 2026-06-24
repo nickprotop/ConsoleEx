@@ -105,7 +105,7 @@ var benchmarkWindow = new SharpConsoleUI.Builders.WindowBuilder(windowSystem)
                     int benchRunWidth = 40;
                     win.Width = benchRunWidth;
                     win.Left = 1;
-                    win.IsDirty = true;
+                    win.Invalidate(Invalidation.Relayout);
                     int testLeft = benchRunWidth + 3;
                     testWindow = test.CreateWindow(windowSystem, testLeft, windowTop);
                     windowSystem.AddWindow(testWindow);
@@ -192,7 +192,7 @@ var benchmarkWindow = new SharpConsoleUI.Builders.WindowBuilder(windowSystem)
             {
                 win.Width = ResultsWindowWidth;
                 win.Left = Math.Max(1, (driver.ScreenSize.Width - ResultsWindowWidth) / 2);
-                win.IsDirty = true;
+                win.Invalidate(Invalidation.Relayout);
 
                 ScreenBuilder.BuildResultsScreen(win, results, system, terminal, version,
                     onRunAgain: () => resultActionTcs.TrySetResult("again"),
@@ -222,7 +222,7 @@ var benchmarkWindow = new SharpConsoleUI.Builders.WindowBuilder(windowSystem)
             {
                 win.Width = BenchmarkWindowWidth;
                 win.Left = Math.Max(1, (driver.ScreenSize.Width - BenchmarkWindowWidth) / 2);
-                win.IsDirty = true;
+                win.Invalidate(Invalidation.Relayout);
             });
         }
     })

@@ -365,9 +365,15 @@ public class GridSplitterTests
 	}
 
 	[Theory]
-	[InlineData(TK.Star, TK.Star)] [InlineData(TK.Star, TK.Auto)] [InlineData(TK.Star, TK.Fixed)]
-	[InlineData(TK.Auto, TK.Star)] [InlineData(TK.Auto, TK.Auto)] [InlineData(TK.Auto, TK.Fixed)]
-	[InlineData(TK.Fixed, TK.Star)] [InlineData(TK.Fixed, TK.Auto)] [InlineData(TK.Fixed, TK.Fixed)]
+	[InlineData(TK.Star, TK.Star)]
+	[InlineData(TK.Star, TK.Auto)]
+	[InlineData(TK.Star, TK.Fixed)]
+	[InlineData(TK.Auto, TK.Star)]
+	[InlineData(TK.Auto, TK.Auto)]
+	[InlineData(TK.Auto, TK.Fixed)]
+	[InlineData(TK.Fixed, TK.Star)]
+	[InlineData(TK.Fixed, TK.Auto)]
+	[InlineData(TK.Fixed, TK.Fixed)]
 	public void RealMouseDrag_AllColumnCombos_PreserveTypePerMatrix(TK a, TK b)
 	{
 		var (system, window, grid) = BuildGrid(
@@ -395,9 +401,15 @@ public class GridSplitterTests
 	}
 
 	[Theory]
-	[InlineData(TK.Star, TK.Star)] [InlineData(TK.Star, TK.Auto)] [InlineData(TK.Star, TK.Fixed)]
-	[InlineData(TK.Auto, TK.Star)] [InlineData(TK.Auto, TK.Auto)] [InlineData(TK.Auto, TK.Fixed)]
-	[InlineData(TK.Fixed, TK.Star)] [InlineData(TK.Fixed, TK.Auto)] [InlineData(TK.Fixed, TK.Fixed)]
+	[InlineData(TK.Star, TK.Star)]
+	[InlineData(TK.Star, TK.Auto)]
+	[InlineData(TK.Star, TK.Fixed)]
+	[InlineData(TK.Auto, TK.Star)]
+	[InlineData(TK.Auto, TK.Auto)]
+	[InlineData(TK.Auto, TK.Fixed)]
+	[InlineData(TK.Fixed, TK.Star)]
+	[InlineData(TK.Fixed, TK.Auto)]
+	[InlineData(TK.Fixed, TK.Fixed)]
 	public void RealKeyboard_AllRowCombos_PreserveTypePerMatrix(TK a, TK b)
 	{
 		var (system, window, grid) = BuildGrid(

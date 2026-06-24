@@ -120,7 +120,7 @@ namespace SharpConsoleUI.Controls
 
 			_portalNode = window.CreatePortal(this, _portalContent);
 			_isPortalOpen = true;
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -147,7 +147,7 @@ namespace SharpConsoleUI.Controls
 				_portalPreviousFocus = null;
 			}
 
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion

@@ -136,7 +136,6 @@ namespace SharpConsoleUI.Controls
 		// Null = follow the theme's WindowForegroundColor (so a theme switch recolors text);
 		// an explicit set pins the value. The public getter always returns a resolved Color.
 		private Color? _foregroundColor;
-		private bool _isDirty = true;
 
 		// Set when ScrollChildIntoView is called before viewport is ready;
 		// PaintDOM defers the scroll until first valid render.
@@ -895,7 +894,7 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => _backgroundColorValue ?? Color.Transparent;
-			set { _backgroundColorValue = value; Container?.Invalidate(true); }
+			set { _backgroundColorValue = value; Container?.Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <inheritdoc/>
@@ -904,27 +903,19 @@ namespace SharpConsoleUI.Controls
 			// Unset → resolve from the theme's window foreground so a theme switch recolors text
 			// (mirrors how BackgroundColor follows the theme). An explicit set pins the value.
 			get => ColorResolver.ResolveForeground(_foregroundColor, Container);
-			set { _foregroundColor = value; OnPropertyChanged(); Invalidate(true); }
+			set { _foregroundColor = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <inheritdoc/>
 		public ConsoleWindowSystem? GetConsoleWindowSystem => Container?.GetConsoleWindowSystem;
 
 		/// <inheritdoc/>
-		public bool IsDirty
+		public void Invalidate(Invalidation work, IWindowControl? callerControl = null)
 		{
-			get => _isDirty;
-			set { _isDirty = value; OnPropertyChanged(); }
-		}
-
-		/// <inheritdoc/>
-		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
-		{
-			_isDirty = true;
 			// Any invalidation (content/scroll/structural change) may alter the metrics; drop the
 			// per-pass ResolveContentMetrics cache so the next pass recomputes from scratch.
 			_metricsCacheValid = false;
-			Container?.Invalidate(redrawAll, this);
+			Container?.Invalidate(work, this);
 		}
 
 		/// <inheritdoc/>

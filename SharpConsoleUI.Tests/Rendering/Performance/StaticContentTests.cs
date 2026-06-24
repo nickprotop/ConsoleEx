@@ -154,7 +154,7 @@ public class StaticContentTests
 		// Act - Frame 2: Move window (should output)
 		window.Left = 20;
 		window.Top = 10;
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		var frame2Metrics = system.RenderingDiagnostics?.LastMetrics;

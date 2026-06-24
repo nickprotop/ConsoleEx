@@ -40,7 +40,7 @@ public class FullFrameRenderBenchmarks
 	[Benchmark]
 	public int FullRebuild()
 	{
-		_window.Invalidate(true); // force a full dirty render
+		_window.Invalidate(Invalidation.Relayout); // force a full dirty render
 		return _window.RenderAndGetVisibleContent().Count;
 	}
 }

@@ -273,7 +273,7 @@ private async Task UpdateFromBackgroundAsync(string newText)
     await ws.InvokeAsync(() =>
     {
         label.SetContent(new List<string> { data });
-        window.Invalidate(true);
+        window.Invalidate(Invalidation.Relayout);
     });
 }
 ```

@@ -422,7 +422,7 @@ namespace SharpConsoleUI.Controls
 							{
 								if (otherChild != child && otherChild is IFocusableControl fc && (this.GetParentWindow()?.FocusManager.IsFocused(fc) ?? false))
 								{
-									fc.Container?.Invalidate(true);
+									fc.Container?.Invalidate(Invalidation.Repaint);
 								}
 							}
 
@@ -470,7 +470,7 @@ namespace SharpConsoleUI.Controls
 						}
 						_lastInternalFocusedChild = null;
 
-						Container?.Invalidate(true);
+						Container?.Invalidate(Invalidation.Repaint);
 						return true;
 					}
 				}

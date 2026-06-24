@@ -374,7 +374,7 @@ window.AddControl(tree);
 3. **Subscribe to NodeActivated directly**: It is not exposed on the builder; attach it to the built control for leaf activation.
 4. **Choose a guide style**: Use `TreeGuide.Ascii` for terminals with limited box-drawing support.
 5. **Cap visible rows**: Use `WithMaxVisibleItems` so the tree fits its layout and gets a scrollbar.
-6. **Marshal background updates**: When modifying nodes from background threads, use `windowSystem.EnqueueOnUIThread` for UI state and `Container?.Invalidate(true)` to refresh.
+6. **Marshal background updates**: When modifying nodes from background threads, use `windowSystem.EnqueueOnUIThread` for UI state and `Container?.Invalidate(Invalidation.Relayout)` to refresh (safe to call directly from a background thread).
 
 ## See Also
 

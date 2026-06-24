@@ -109,7 +109,7 @@ namespace SharpConsoleUI.Controls
 			if (EqualityComparer<T>.Default.Equals(field, value)) return false;
 			field = value;
 			OnPropertyChanged(propertyName);
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 			return true;
 		}
 
@@ -129,7 +129,7 @@ namespace SharpConsoleUI.Controls
 			if (EqualityComparer<T>.Default.Equals(field, validated)) return false;
 			field = validated;
 			OnPropertyChanged(propertyName);
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 			return true;
 		}
 
@@ -223,10 +223,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void Invalidate()
-		{
-			Container?.Invalidate(true);
-		}
+		public void Invalidate(Invalidation work) => Container?.Invalidate(work, this);
 
 		/// <summary>
 		/// Sets the actual rendered bounds from the layout system.

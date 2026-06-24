@@ -69,7 +69,7 @@ public class FocusManager
 		if (ReferenceEquals(previous, control)) return;
 
 		// Invalidate previous control's container to trigger repaint
-		(previous as IWindowControl)?.Container?.Invalidate(true);
+		(previous as IWindowControl)?.Container?.Invalidate(Invalidation.Relayout);
 
 		FocusedControl = control;
 		FocusPath = BuildFocusPath(control);
@@ -89,7 +89,7 @@ public class FocusManager
 		}
 
 		// Invalidate new control's container to trigger repaint
-		(control as IWindowControl)?.Container?.Invalidate(true);
+		(control as IWindowControl)?.Container?.Invalidate(Invalidation.Relayout);
 
 		FocusChanged?.Invoke(this, new FocusChangedEventArgs(previous, control, reason));
 	}

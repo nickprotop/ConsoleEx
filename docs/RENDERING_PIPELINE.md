@@ -2,7 +2,7 @@
 
 ## Overview
 
-SharpConsoleUI uses a sophisticated multi-stage rendering pipeline optimized for console applications. The architecture employs **double buffering at two levels** (window and screen), **dirty tracking at three levels** (window, cell, and line), and **occlusion culling** to minimize unnecessary rendering work.
+SharpConsoleUI uses a sophisticated multi-stage rendering pipeline optimized for console applications. The architecture employs **double buffering at two levels** (window and screen), **dirty tracking at three levels** — a per-window `PendingWork` intent accumulator (`Repaint`/`Relayout`) plus per-cell and per-line dirty tracking — and **occlusion culling** to minimize unnecessary rendering work.
 
 ### High-Level Architecture
 
@@ -357,20 +357,57 @@ internal CharacterBuffer? EnsureContentReady(List<Rectangle>? visibleRegions = n
     if (_state == WindowState.Minimized) return null;
     lock (_lock)
     {
-        if (_invalidated)
+        if (PendingWork != FrameWork.None)   // the window has work to do this frame
         {
             var availableWidth = Width - 2;
             var availableHeight = Height - 2;
             RebuildContentBufferOnly(availableWidth, availableHeight, visibleRegions);
             bool isInRenderingPipeline = visibleRegions != null && visibleRegions.Count > 0;
-            if (!isInRenderingPipeline) _invalidated = true;
+            // Off-screen (no viewport yet): re-raise so the window rebuilds once it gets one.
+            if (!isInRenderingPipeline) Request(Invalidation.Repaint);
         }
         return _renderer?.Buffer;
     }
 }
 ```
 
+The window is rendered only when `PendingWork != FrameWork.None`. `RebuildContentBufferOnly`
+**consumes** the pending work — an atomic snapshot-and-clear back to `None` — so a request that
+arrives after the consume simply leaves `PendingWork` non-`None` again and is picked up on the next
+frame. See [The Invalidation Model](#the-invalidation-model) below.
+
 A convenience wrapper `RenderAndGetVisibleContent()` exists for test code and diagnostics — it calls `EnsureContentReady()` internally then serializes the buffer to ANSI strings via `buffer.ToLines()`. No separate code path exists; the buffer is always the source of truth.
+
+### The Invalidation Model
+
+A window tracks pending work with a single signal: `PendingWork`. Callers never set it directly —
+they declare an **intent** through `Invalidate`:
+
+| `Invalidation` (the request) | Meaning | Cost on the next frame |
+|---|---|---|
+| `Repaint` | Appearance only — a colour, selection, or the content of existing cells changed. Layout is unaffected. | Paint only; the Measure pass is **skipped** and the cached layout reused. |
+| `Relayout` | Size or position changed. | Full Measure + Arrange + Paint. |
+
+```csharp
+public enum Invalidation { Repaint = 1, Relayout = 2 }       // what a caller requests
+public enum FrameWork    { None = 0, Repaint = 1, Relayout = 2 } // the window's pending state
+public FrameWork Window.PendingWork { get; }                  // read-only; the render engine consults this
+```
+
+**Accumulation.** Each `Invalidate` folds its intent into `PendingWork` through a lock-free monotone
+**max-join**: `Relayout` dominates `Repaint` dominates `None`. Many invalidations in a single frame
+therefore coalesce to the strongest intent requested — a burst of `Repaint`s plus one `Relayout`
+resolves to `Relayout`, and nothing weaker can pull it back down. Because the fold is a single atomic
+operation, `Invalidate` is also the **one call safe to make directly from a background thread** (a
+playback or PTY-read loop can invalidate its control without marshalling to the UI thread).
+
+**Consume.** The render reads `PendingWork`, does the work, and atomically resets it to `None`. A
+request that races the consume either lands before it (handled this frame) or after it (leaves
+`PendingWork` non-`None`, handled next frame) — it can never be lost.
+
+**Propagation.** A control's `Invalidate(work)` calls `Container.Invalidate(work, this)`, which bubbles
+up the container hierarchy to the Window. `BaseControl.SetProperty<T>` issues this automatically on
+every property change, so self-invalidation is built in across the control library.
 
 ### The Three-Stage Layout Pipeline
 *File: `Window.cs:2500-2803`*
@@ -380,7 +417,11 @@ DOM-based rendering follows the classic layout model:
 #### Stage 1: Measure
 *File: `Window.cs:2550-2600`*
 
-Each control calculates its desired size given available space.
+Each control calculates its desired size given available space. Measure is **gated on the frame's
+intent**: it runs on a `Relayout` frame (or when a node is structurally dirty / `NeedsMeasure`) and is
+**skipped on a `Repaint` frame**, where the cached `DesiredSize` from the previous layout is reused.
+Arrange and Paint still run so the buffer stays correct. This is the payoff of the
+[invalidation model](#the-invalidation-model): an appearance-only change never pays for a re-measure.
 
 ```csharp
 private void MeasureStage(LayoutRect availableSpace)
@@ -1320,8 +1361,8 @@ WINDOW CONTENT (Window.EnsureContentReady)
 ═════════════════════════════════════════════════════════════════
   ┌────────────────────▼───────────────────────────┐
   │ 8. Rebuild DOM (if needed)                     │
-  │ if (_invalidated)                              │
-  │   RebuildContentBufferOnly()                   │
+  │ if (PendingWork != None)                       │
+  │   RebuildContentBufferOnly()  // consumes work │
   └────────────────────┬───────────────────────────┘
                        │
   ┌────────────────────▼───────────────────────────┐
@@ -1996,7 +2037,7 @@ public class ListControl : IWindowControl
     public void AddItem(string item)
     {
         _items.Add(item);
-        Container?.Invalidate(true);  // Invalidate parent window
+        Container?.Invalidate(Invalidation.Relayout);  // an added row changes size → re-layout
     }
 
     public void UpdateItem(int index, string newValue)
@@ -2005,15 +2046,17 @@ public class ListControl : IWindowControl
             return;
 
         _items[index] = newValue;
-        Container?.Invalidate(true);  // Only this window redraws
+        Container?.Invalidate(Invalidation.Relayout);  // text width may change → re-layout
     }
 }
 ```
 
 **Optimization:**
-- Batch updates: Modify multiple items, then call `Invalidate()` once
-- Use `Container?.Invalidate(false)` for minor changes (no border redraw)
-- To coalesce multiple invalidations, batch all state changes first and call `Container?.Invalidate(true)` once at the end
+- Batch updates: modify multiple items, then call `Invalidate()` once — the max-join coalesces them.
+- Use `Container?.Invalidate(Invalidation.Repaint)` for appearance-only changes (e.g. a selection or
+  colour change that doesn't move anything): the layout is reused and the Measure pass is skipped.
+- A burst of `Repaint`s plus one `Relayout` in the same frame resolves to `Relayout` — you never need
+  to track "the strongest invalidation so far" yourself; the accumulator does it.
 
 ### Pattern 4: Modal Windows
 
@@ -2064,7 +2107,8 @@ public class ClockControl : IWindowControl
         var timer = new System.Threading.Timer(_ =>
         {
             _currentTime = DateTime.Now.ToString("HH:mm:ss");
-            Container?.Invalidate(true);
+            // Fixed-width text → appearance-only; Repaint skips Measure. Safe from the timer thread.
+            Container?.Invalidate(Invalidation.Repaint);
         }, null, 0, 1000);
     }
 

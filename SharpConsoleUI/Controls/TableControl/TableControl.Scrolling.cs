@@ -30,7 +30,7 @@ public partial class TableControl
 				_scrollOffset = clamped;
 				_hoveredRowIndex = -1;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 	}
@@ -45,7 +45,7 @@ public partial class TableControl
 		{
 			_horizontalScrollOffset = Math.Max(0, value);
 			OnPropertyChanged();
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 	}
 
@@ -55,7 +55,7 @@ public partial class TableControl
 	public ScrollbarVisibility VerticalScrollbarVisibility
 	{
 		get => _verticalScrollbarVisibility;
-		set { _verticalScrollbarVisibility = value; OnPropertyChanged(); Container?.Invalidate(true); }
+		set { _verticalScrollbarVisibility = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Relayout); }
 	}
 
 	/// <summary>
@@ -64,7 +64,7 @@ public partial class TableControl
 	public ScrollbarVisibility HorizontalScrollbarVisibility
 	{
 		get => _horizontalScrollbarVisibility;
-		set { _horizontalScrollbarVisibility = value; OnPropertyChanged(); Container?.Invalidate(true); }
+		set { _horizontalScrollbarVisibility = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Relayout); }
 	}
 
 	#endregion

@@ -48,7 +48,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_portalBounds = value;
-				Invalidate();
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -69,7 +69,7 @@ namespace SharpConsoleUI.Controls
 				_children.Add(child);
 			}
 			child.Container = this;
-			Invalidate();
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -87,7 +87,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			child.Container = null;
-			Invalidate();
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -107,7 +107,7 @@ namespace SharpConsoleUI.Controls
 				child.Container = null;
 				child.Dispose();
 			}
-			Invalidate();
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -129,37 +129,30 @@ namespace SharpConsoleUI.Controls
 		#region IContainer Implementation
 
 		/// <inheritdoc/>
-		public Color BackgroundColor
+		public new Color BackgroundColor
 		{
 			get => ColorResolver.ResolveBackground(_backgroundColor, Container);
-			set { _backgroundColor = value; Invalidate(); }
+			set { _backgroundColor = value; Invalidate(Invalidation.Relayout); }
 		}
 
 		/// <inheritdoc/>
-		public Color ForegroundColor
+		public new Color ForegroundColor
 		{
 			get => _foregroundColor;
-			set { _foregroundColor = value; Invalidate(); }
+			set { _foregroundColor = value; Invalidate(Invalidation.Relayout); }
 		}
 
 		/// <inheritdoc/>
-		public ConsoleWindowSystem? GetConsoleWindowSystem => Container?.GetConsoleWindowSystem;
+		public new ConsoleWindowSystem? GetConsoleWindowSystem => Container?.GetConsoleWindowSystem;
 
 		/// <inheritdoc/>
-		public bool IsDirty
+		public void Invalidate(Invalidation work, IWindowControl? callerControl = null)
 		{
-			get => false;
-			set { /* Portal invalidation is via parent container */ }
+			Container?.Invalidate(work);
 		}
 
 		/// <inheritdoc/>
-		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
-		{
-			Container?.Invalidate(true);
-		}
-
-		/// <inheritdoc/>
-		public int? GetVisibleHeightForControl(IWindowControl control)
+		public new int? GetVisibleHeightForControl(IWindowControl control)
 		{
 			return _viewportHeight > 0 ? _viewportHeight : _portalBounds.Height;
 		}
@@ -259,7 +252,7 @@ namespace SharpConsoleUI.Controls
 		private void FocusChild(IInteractiveControl child)
 		{
 			if (_focusedChild != null && _focusedChild != child && _focusedChild is IFocusableControl oldFc)
-				oldFc.Container?.Invalidate(true);
+				oldFc.Container?.Invalidate(Invalidation.Relayout);
 
 			_focusedChild = child;
 
@@ -377,7 +370,7 @@ namespace SharpConsoleUI.Controls
 					// Clicked on empty space - unfocus children
 					PortalFocusedControl = null;
 					_focusedChild = null;
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 					return true;
 				}
 

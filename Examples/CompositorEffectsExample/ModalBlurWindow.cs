@@ -53,19 +53,19 @@ public class ModalBlurWindow : Window
 			else if (e.KeyInfo.Key == ConsoleKey.B)
 			{
 				_blurEnabled = !_blurEnabled;
-				this.Invalidate(redrawAll: true);
+				this.Invalidate(Invalidation.Relayout);
 				e.Handled = true;
 			}
 			else if (e.KeyInfo.KeyChar == '+' || e.KeyInfo.KeyChar == '=')
 			{
 				_blurRadius = Math.Min(3, _blurRadius + 1);
-				this.Invalidate(redrawAll: true);
+				this.Invalidate(Invalidation.Relayout);
 				e.Handled = true;
 			}
 			else if (e.KeyInfo.KeyChar == '-')
 			{
 				_blurRadius = Math.Max(1, _blurRadius - 1);
-				this.Invalidate(redrawAll: true);
+				this.Invalidate(Invalidation.Relayout);
 				e.Handled = true;
 			}
 		};

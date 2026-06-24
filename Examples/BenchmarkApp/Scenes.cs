@@ -253,7 +253,7 @@ public static class BenchmarkScenes
 
                 int idx = i % OverlapCount;
                 capturedWs.WindowStateService.SetActiveWindow(capturedWindows[idx]);
-                capturedWindows[idx].IsDirty = true;
+                capturedWindows[idx].Invalidate(Invalidation.Relayout);
             },
             Cleanup: ws =>
             {

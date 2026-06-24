@@ -168,7 +168,7 @@ public class MarkupControlViewportParseTests
 		window.RenderAndGetVisibleContent();
 		long afterFirst = MarkupControl.GetParseCountForTest();
 
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		window.RenderAndGetVisibleContent();
 		long afterSecond = MarkupControl.GetParseCountForTest();
 

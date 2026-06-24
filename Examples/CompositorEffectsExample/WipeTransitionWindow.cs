@@ -201,7 +201,7 @@ public class WipeTransitionWindow : Window
 					_previousContent = null;
 				}
 
-				this.Invalidate(redrawAll: true);
+				this.Invalidate(Invalidation.Relayout);
 				await Task.Delay(stepDelay, ct);
 			}
 		}

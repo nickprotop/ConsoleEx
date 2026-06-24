@@ -184,7 +184,7 @@ new WindowBuilder(ws)
         {
             await Task.Delay(1000, ct);
             clock.Text = DateTime.Now.ToString("HH:mm:ss");
-            window.Invalidate(true);
+            window.Invalidate(Invalidation.Relayout);
         }
     })
     .BuildAndShow();
@@ -220,7 +220,7 @@ window.AddControl(banner);
 
 1. **Keep text short**: FIGlet art is wide; long strings overflow quickly. Prefer single words or short phrases for banners and titles.
 2. **Use wrapping for variable text**: When the rendered width may exceed the window, set `WithWrapMode(WrapMode.WrapWords)` so the art reflows instead of clipping.
-3. **Update via the property**: For live displays like clocks, assign `clock.Text` and call `window.Invalidate(true)` rather than recreating the control — the font is cached and reused.
+3. **Update via the property**: For live displays like clocks, assign `clock.Text` and call `window.Invalidate(Invalidation.Relayout)` rather than recreating the control — the font is cached and reused. (FIGlet glyph widths vary, so a text change can change the rendered size; use `Relayout`.)
 4. **Pick the size for the space**: Use `Small()` for tight headings and `Large()` only where there is room for ~8 lines of height.
 5. **Keep custom fonts in `fonts/`**: `FontPath` only resolves files inside the application's `fonts` directory; absolute paths and `..` traversal are rejected.
 6. **Marshal updates from background work**: When updating `Text` from timers or `Task.Run`, route the change through the UI thread (e.g. `EnqueueOnUIThread`) as with any control mutation.

@@ -29,6 +29,7 @@ namespace SharpConsoleUI.Controls
 
 				tabPage = _tabPages[index];
 				_tabPages.RemoveAt(index);
+				tabPage.Owner = null; // detached — in-place mutations no longer invalidate this control
 				tabPage.Content.Dispose();
 
 				// Adjust active tab index
@@ -56,7 +57,7 @@ namespace SharpConsoleUI.Controls
 
 			Core.AsyncEvent.Raise(TabRemoved, TabRemovedAsync, this, new TabEventArgs(tabPage, index), Container?.GetConsoleWindowSystem?.LogService);
 			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -81,6 +82,7 @@ namespace SharpConsoleUI.Controls
 
 				tabPage = _tabPages[index];
 				_tabPages.RemoveAt(index);
+				tabPage.Owner = null; // detached — in-place mutations no longer invalidate this control
 
 				// Adjust active tab index (same logic as RemoveTab, without dispose)
 				if (_tabPages.Count == 0)
@@ -101,7 +103,7 @@ namespace SharpConsoleUI.Controls
 
 			Core.AsyncEvent.Raise(TabRemoved, TabRemovedAsync, this, new TabEventArgs(tabPage, index), Container?.GetConsoleWindowSystem?.LogService);
 			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 			return tabPage.Content;
 		}
 
@@ -226,7 +228,7 @@ namespace SharpConsoleUI.Controls
 					return;
 				}
 			}
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -253,7 +255,7 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion

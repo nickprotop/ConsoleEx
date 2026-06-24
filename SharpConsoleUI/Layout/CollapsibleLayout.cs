@@ -161,6 +161,26 @@ namespace SharpConsoleUI.Layout
 		/// </remarks>
 		private static int OnScreenBodyCeiling(LayoutNode node, int contentTop, int bottomBorderRows)
 		{
+			// Walk to the root, but BAIL OUT (return -1, unclamped) if we cross a SCROLLING ancestor
+			// (a ScrollLayout — i.e. an enclosing ScrollablePanelControl). Such an ancestor owns the viewport
+			// + clip: it arranges the panel at its FULL content height and scrolls by giving it a negative Y,
+			// then clips. If we clamp the body to the ROOT window viewport here, the clamped body region gets
+			// positioned at that negative Y and lands off-screen, so a scrolled panel paints nothing ("the
+			// lines exist but none are visible"). Leaving the body unclamped lets it lay out at full height and
+			// the scroll ancestor reveals the right slice.
+			//
+			// NOTE: this checks ScrollLayout specifically, NOT IRegionClippingLayout — the root
+			// WindowContentLayout is also region-clipping, and it is exactly the viewport the clamp below is
+			// SUPPOSED to use (so a panel that owns its own scroll, with no ScrollablePanel ancestor, still
+			// gets clamped to the window viewport and scrolls its own body).
+			var cur = node.Parent;
+			while (cur != null)
+			{
+				if (cur.Layout is ScrollLayout)
+					return -1; // an enclosing ScrollablePanel owns visibility — do not clamp the body here
+				cur = cur.Parent;
+			}
+
 			var root = node;
 			while (root.Parent != null)
 				root = root.Parent;

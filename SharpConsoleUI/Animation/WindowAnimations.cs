@@ -172,13 +172,13 @@ public static class WindowAnimations
 			onUpdate: intensity =>
 			{
 				currentIntensity = intensity;
-				window.Invalidate(redrawAll: true);
+				window.Invalidate(Invalidation.Repaint);
 			},
 			onComplete: () =>
 			{
 				currentIntensity = 0f;
 				window.PostBufferPaint -= FadeOverlay;
-				window.Invalidate(redrawAll: true);
+				window.Invalidate(Invalidation.Repaint);
 				onComplete?.Invoke();
 			});
 	}
@@ -221,7 +221,7 @@ public static class WindowAnimations
 			onUpdate: intensity =>
 			{
 				currentIntensity = intensity;
-				window.Invalidate(redrawAll: true);
+				window.Invalidate(Invalidation.Repaint);
 			},
 			onComplete: () =>
 			{

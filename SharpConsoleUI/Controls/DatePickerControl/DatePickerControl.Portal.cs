@@ -42,7 +42,7 @@ namespace SharpConsoleUI.Controls
 				_calendarPortal = window.CreatePortal(this, _portalContent);
 			}
 
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		private void CloseCalendar()
@@ -63,7 +63,7 @@ namespace SharpConsoleUI.Controls
 			_isCalendarOpen = false;
 			_mouseHoveredDay = -1;
 
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion

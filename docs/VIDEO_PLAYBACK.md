@@ -360,7 +360,7 @@ video.MouseClick += (sender, args) => { /* ... */ };
 ### Threading Model
 
 - **UI thread**: `PaintDOM`, property changes, overlay, resize detection — calls `sink.Paint(...)`.
-- **Background thread**: `PlaybackLoopAsync` — frame reading, calls `sink.IngestFrame(...)` which does the heavy work (cell conversion or Kitty transmission), then `Container?.Invalidate(true)`.
+- **Background thread**: `PlaybackLoopAsync` — frame reading, calls `sink.IngestFrame(...)` which does the heavy work (cell conversion or Kitty transmission), then `Container?.Invalidate(Invalidation.Relayout)`.
 - **Thread safety**: Each sink carries its own lock. Sinks must be safe against concurrent `IngestFrame` (background) / `Paint` (UI) calls.
 - **UI marshaling**: `EnqueueOnUIThread` for state changes from background (looping restart, error messages).
 

@@ -39,7 +39,6 @@ namespace SharpConsoleUI.Controls
 				PaintTabHeaders(buffer, bounds, defaultFg, defaultBg);
 
 			// Tab content painted by layout system
-			_isDirty = false;
 		}
 
 		private void PaintTabHeaders(CharacterBuffer buffer, LayoutRect bounds,

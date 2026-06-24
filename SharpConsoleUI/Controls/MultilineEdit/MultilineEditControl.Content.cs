@@ -90,7 +90,7 @@ namespace SharpConsoleUI.Controls
 			_skipUpdateScrollPositionsInRender = false;
 
 			// Force recalculation of scrollbars by invalidating
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 
 			// Go to the end of the content
 			GoToEnd();
@@ -158,7 +158,7 @@ namespace SharpConsoleUI.Controls
 			_skipUpdateScrollPositionsInRender = false;
 
 			// Force recalculation of scrollbars by invalidating
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 
 			// Go to the end of the content
 			GoToEnd();
@@ -220,7 +220,7 @@ namespace SharpConsoleUI.Controls
 			EnsureCursorVisible();
 			RefreshSearchMatches();
 
-			Container?.Invalidate(false);
+			Container?.Invalidate(Invalidation.Relayout);
 
 			_skipUpdateScrollPositionsInRender = false;
 
@@ -267,7 +267,7 @@ namespace SharpConsoleUI.Controls
 			EnsureCursorVisible();
 			RefreshSearchMatches();
 
-			Container?.Invalidate(false);
+			Container?.Invalidate(Invalidation.Relayout);
 
 			_skipUpdateScrollPositionsInRender = false;
 
@@ -297,7 +297,7 @@ namespace SharpConsoleUI.Controls
 
 			EnsureCursorVisible();
 			RefreshSearchMatches();
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 			RaiseContentChanged();
 		}
 
@@ -313,7 +313,7 @@ namespace SharpConsoleUI.Controls
 			CommitUndoAction();
 			InvalidateWrappedLinesCache();
 			EnsureCursorVisible();
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 			RaiseContentChanged();
 		}
 
@@ -339,7 +339,7 @@ namespace SharpConsoleUI.Controls
 
 			EnsureCursorVisible();
 			RefreshSearchMatches();
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 			RaiseContentChanged();
 		}
 

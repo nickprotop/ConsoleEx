@@ -46,7 +46,7 @@ public static class PropertySetterHelper
 		// Invalidate container if requested
 		if (invalidate && container != null)
 		{
-			container.Invalidate(true);
+			container.Invalidate(Invalidation.Relayout);
 		}
 
 		return true;

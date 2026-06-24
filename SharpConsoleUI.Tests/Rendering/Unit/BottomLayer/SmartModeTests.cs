@@ -35,7 +35,7 @@ public class SmartModeTests
 		system.Render.UpdateDisplay();
 
 		control.SetContent(new List<string> { "BBBB" + new string(' ', 196) });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		var metrics = system.RenderingDiagnostics?.LastMetrics;
@@ -67,7 +67,7 @@ public class SmartModeTests
 
 		// Act - Change 8 characters (should use CELL mode)
 		control.SetContent(new List<string> { "BBBBBBBB" + new string(' ', 192) });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - Should render minimal cells (CELL mode behavior)
@@ -106,7 +106,7 @@ public class SmartModeTests
 		// Act - Change 150 characters (75% coverage → should use LINE mode)
 		var newContent = new string('B', 150) + new string(' ', 50);
 		control.SetContent(new List<string> { newContent });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - Should render entire line (LINE mode behavior)
@@ -156,7 +156,7 @@ public class SmartModeTests
 						 "X" + new string(' ', 20) +
 						 "X" + new string(' ', 73);
 		control.SetContent(new List<string> { newContent });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - Should use LINE mode (too fragmented)
@@ -199,7 +199,7 @@ public class SmartModeTests
 						 "YYYY" + new string(' ', 20) +
 						 "ZZZZ" + new string(' ', 148);
 		control.SetContent(new List<string> { newContent });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - Should use CELL mode (3 regions < 5, 6% coverage < 60%)
@@ -241,7 +241,7 @@ public class SmartModeTests
 		// Act - Change exactly 120 characters (60% coverage)
 		var newContent = new string('B', 120) + new string(' ', 80);
 		control.SetContent(new List<string> { newContent });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - At exactly 60%, should still use CELL mode (threshold is ">60%", not ">=60%")
@@ -280,7 +280,7 @@ public class SmartModeTests
 		// Act - Change entire line
 		var newContent = new string('B', 200);
 		control.SetContent(new List<string> { newContent });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert - Full line dirty → should use LINE mode
@@ -329,7 +329,7 @@ public class SmartModeTests
 			new string('Y', 150) + new string(' ', 50),    // Line 1: 150 cells changed (75%) → LINE mode
 			"ZZZZ" + new string(' ', 196)               // Line 2: 4 cells changed → CELL mode
 		});
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay(); // Frame 2
 
 		// Assert

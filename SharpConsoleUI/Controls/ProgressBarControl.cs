@@ -128,7 +128,7 @@ namespace SharpConsoleUI.Controls
 				else
 					StopAnimation();
 
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -266,7 +266,7 @@ namespace SharpConsoleUI.Controls
 
 				base.Container = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -547,7 +547,7 @@ namespace SharpConsoleUI.Controls
 			if (_animationTimer == null || Container == null) return;
 
 			_pulsePosition++;
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Repaint);
 		}
 
 		#endregion

@@ -59,7 +59,7 @@ namespace SharpConsoleUI.Windows
 
 			_renderCoordinator.AddPendingDesktopClear(oldBounds);
 			window.SetPositionDirect(new Point(newLeft, newTop));  // Use direct setter to avoid recursion
-			window.Invalidate(true);
+			window.Invalidate(Invalidation.Relayout);
 
 			// Invalidate windows that were underneath (now exposed)
 			InvalidateExposedRegions(window, oldBounds);
@@ -169,7 +169,7 @@ namespace SharpConsoleUI.Windows
 
 			// Invalidate the window which will cause it to redraw at its new position
 			// (The actual position/size change happens in the calling HandleMoveInput method)
-			window.Invalidate(true);
+			window.Invalidate(Invalidation.Relayout);
 
 			// Invalidate windows that were underneath (now exposed) and at new position
 			InvalidateExposedRegions(window, oldBounds);
@@ -205,7 +205,7 @@ namespace SharpConsoleUI.Windows
 				if (GeometryHelpers.DoesRectangleOverlapWindow(oldBounds, window) ||
 					GeometryHelpers.DoesRectangleOverlapWindow(newBounds, window))
 				{
-					window.Invalidate(true);
+					window.Invalidate(Invalidation.Relayout);
 				}
 			}
 		}

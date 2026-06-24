@@ -320,7 +320,7 @@ namespace SharpConsoleUI.Core
 			foreach (var w in onTopWindows)
 			{
 				w.ZIndex = ++maxNormalZIndex;
-				w.Invalidate(true);
+				w.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -351,7 +351,7 @@ namespace SharpConsoleUI.Core
 		/// <returns>True if any window needs re-rendering; otherwise, false.</returns>
 		public bool AnyWindowDirty()
 		{
-			return _windows.Values.Any(w => w.IsDirty);
+			return _windows.Values.Any(w => w.PendingWork != FrameWork.None);
 		}
 
 		#endregion
@@ -392,7 +392,7 @@ namespace SharpConsoleUI.Core
 
 					// Invalidate window when z-order changes because visibleRegions change
 					// Window may now have more visible area and needs to repaint with new clipRect
-					window.Invalidate(true);
+					window.Invalidate(Invalidation.Relayout);
 
 					EnsureAlwaysOnTopZOrder();
 				}
@@ -705,7 +705,7 @@ namespace SharpConsoleUI.Core
 
 				// Invalidate window when z-order changes because visibleRegions change
 				// Window may now have less visible area and needs to repaint with new clipRect
-				window.Invalidate(true);
+				window.Invalidate(Invalidation.Relayout);
 
 				// If this was the active window, activate the next one
 				if (wasActive)
@@ -885,7 +885,7 @@ namespace SharpConsoleUI.Core
 				// Invalidate any window that overlaps with the moved window
 				if (Helpers.GeometryHelpers.DoesRectangleOverlapWindow(windowRect, other))
 				{
-					other.Invalidate(true);
+					other.Invalidate(Invalidation.Relayout);
 				}
 			}
 		}
@@ -1049,7 +1049,7 @@ namespace SharpConsoleUI.Core
 				// Invalidate remaining windows in case they were partially occluded
 				foreach (var w in context.Windows.Values)
 				{
-					w.Invalidate(true);
+					w.Invalidate(Invalidation.Relayout);
 				}
 
 				// BUG FIX: Removed immediate Flush() - let normal render cycle handle it
@@ -1139,7 +1139,7 @@ namespace SharpConsoleUI.Core
 				onUpdate: intensity =>
 				{
 					state.Intensity = intensity;
-					window.Invalidate(redrawAll: true);
+					window.Invalidate(Invalidation.Relayout);
 				},
 				onComplete: () =>
 				{
@@ -1204,7 +1204,7 @@ namespace SharpConsoleUI.Core
 			}
 
 			// Final invalidation to clear any remaining overlay
-			window.Invalidate(redrawAll: true);
+			window.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -1244,7 +1244,7 @@ namespace SharpConsoleUI.Core
 			if (context.ActiveWindow != null)
 			{
 				context.ActiveWindow.SetIsActive(false);
-				context.ActiveWindow.Invalidate(true);
+				context.ActiveWindow.Invalidate(Invalidation.Relayout);
 
 				// Clear ActiveWindow so clicking the same window again will re-activate it
 				var newState = CreateStateSnapshot() with { ActiveWindow = null };
@@ -1312,7 +1312,7 @@ namespace SharpConsoleUI.Core
 			var previousActiveWindow = ActiveWindow;
 
 			// Invalidate previous active window
-			previousActiveWindow?.Invalidate(true);
+			previousActiveWindow?.Invalidate(Invalidation.Relayout);
 
 			// Delegate activation to the service
 			// The service handles: SetIsActive, ZIndex update, and state tracking
@@ -1320,7 +1320,7 @@ namespace SharpConsoleUI.Core
 
 
 			// Invalidate new active window
-			windowToActivate.Invalidate(true);
+			windowToActivate.Invalidate(Invalidation.Relayout);
 
 			// Unfocus the currently focused control of other windows
 			foreach (var w in context.Windows.Values)

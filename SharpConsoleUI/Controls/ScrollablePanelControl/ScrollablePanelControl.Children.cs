@@ -38,12 +38,12 @@ namespace SharpConsoleUI.Controls
 				if (w != null)
 					w.FocusManager.SetFocus(fc, FocusReason.Programmatic);
 				else
-					fc.Container?.Invalidate(true);
+					fc.Container?.Invalidate(Invalidation.Repaint);
 			}
 			// SPC is a layout-tree participant: a new child must be built into the DOM tree
 			// (a plain Invalidate only re-measures the existing tree, which would omit it).
 			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -61,7 +61,7 @@ namespace SharpConsoleUI.Controls
 			}
 			control.Container = this;
 			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -99,7 +99,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				this.GetParentWindow()?.ForceRebuildLayout();
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -129,7 +129,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			this.GetParentWindow()?.ForceRebuildLayout();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>

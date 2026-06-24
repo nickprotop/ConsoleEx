@@ -434,7 +434,7 @@ namespace SharpConsoleUI.Controls
 						Core.AsyncEvent.Raise(SelectedValueChanged, SelectedValueChangedAsync, this, SelectedValue, log);
 					}
 				}
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -489,7 +489,7 @@ namespace SharpConsoleUI.Controls
 					EnsureSelectedItemVisible();
 				}
 
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -510,7 +510,7 @@ namespace SharpConsoleUI.Controls
 		public bool TruncationFade
 		{
 			get => _truncationFade;
-			set { _truncationFade = value; OnPropertyChanged(); Container?.Invalidate(true); }
+			set { _truncationFade = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Relayout); }
 		}
 
 		/// <summary>
@@ -543,7 +543,7 @@ namespace SharpConsoleUI.Controls
 					item.IsChecked = value;
 			}
 			Core.AsyncEvent.Raise(CheckedItemsChanged, CheckedItemsChangedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -649,7 +649,7 @@ namespace SharpConsoleUI.Controls
 						Core.AsyncEvent.Raise(SelectedValueChanged, SelectedValueChangedAsync, this, SelectedValue, log);
 					}
 				}
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -698,7 +698,7 @@ namespace SharpConsoleUI.Controls
 		{
 			lock (_itemsLock) { _items.Add(item); }
 			_textMeasurementCache.InvalidateCache(); // Clear cache when items change
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -733,7 +733,7 @@ namespace SharpConsoleUI.Controls
 			_selectedIndex = -1;
 			SetScrollOffset(0);
 
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 
 			if (_isSelectable)
 			{

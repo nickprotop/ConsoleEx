@@ -64,13 +64,13 @@ public class WindowPositioningTests
 		system.WindowStateService.AddWindow(window);
 
 		system.Render.UpdateDisplay(); // Initial render
-		Assert.False(window.IsDirty);
+		Assert.False(window.PendingWork != FrameWork.None);
 
 		// Act
 		window.Left = 50;
 
 		// Assert
-		Assert.True(window.IsDirty);
+		Assert.True(window.PendingWork != FrameWork.None);
 	}
 
 	[Fact]
@@ -82,13 +82,13 @@ public class WindowPositioningTests
 		system.WindowStateService.AddWindow(window);
 
 		system.Render.UpdateDisplay(); // Initial render
-		Assert.False(window.IsDirty);
+		Assert.False(window.PendingWork != FrameWork.None);
 
 		// Act
 		window.Width = 100;
 
 		// Assert
-		Assert.True(window.IsDirty);
+		Assert.True(window.PendingWork != FrameWork.None);
 	}
 
 	[Fact]

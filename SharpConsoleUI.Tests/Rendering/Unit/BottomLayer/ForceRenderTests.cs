@@ -89,7 +89,7 @@ public class ForceRenderTests
 		Assert.Equal(0, system.Windows.Count);
 
 		// Simulate Run() loop logic
-		bool anyWindowDirty = system.Windows.Values.Any(w => w.IsDirty);
+		bool anyWindowDirty = system.Windows.Values.Any(w => w.PendingWork != FrameWork.None);
 		bool desktopNeedsRender = system.Render.DesktopNeedsRender;
 		bool shouldRender = anyWindowDirty || desktopNeedsRender;
 

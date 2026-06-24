@@ -118,7 +118,6 @@ namespace SharpConsoleUI.Controls
 		// Null = follow the theme's WindowForegroundColor so a light theme gets dark text;
 		// an explicit set pins the value. The public getter always returns a resolved Color.
 		private Color? _foregroundColor;
-		private bool _isDirty = true;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="NavigationView"/> class.
@@ -315,7 +314,7 @@ namespace SharpConsoleUI.Controls
 				else
 					_paneHeader.SetContent(new List<string>());
 				OnPropertyChanged();
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -403,7 +402,7 @@ namespace SharpConsoleUI.Controls
 		public Padding ContentPadding
 		{
 			get => _contentPadding;
-			set { _contentPadding = value; SyncInternalControls(); OnPropertyChanged(); Invalidate(true); }
+			set { _contentPadding = value; SyncInternalControls(); OnPropertyChanged(); Invalidate(Invalidation.Relayout); }
 		}
 
 		/// <summary>
@@ -418,7 +417,7 @@ namespace SharpConsoleUI.Controls
 				_showContentHeader = value;
 				_contentHeaderGrid.Visible = value;
 				OnPropertyChanged();
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -482,7 +481,7 @@ namespace SharpConsoleUI.Controls
 				{
 					_effectiveNavWidth = value;
 					SyncInternalControls();
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				}
 			}
 		}
@@ -542,7 +541,7 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => _backgroundColorValue ?? Color.Transparent;
-			set { _backgroundColorValue = value; Container?.Invalidate(true); }
+			set { _backgroundColorValue = value; Container?.Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <inheritdoc/>
@@ -551,24 +550,16 @@ namespace SharpConsoleUI.Controls
 			// Unset → resolve from the theme's window foreground so a theme switch (e.g. to a light
 			// theme) recolors the nav text instead of leaving it stale-white. An explicit set pins it.
 			get => ColorResolver.ResolveForeground(_foregroundColor, Container);
-			set { _foregroundColor = value; OnPropertyChanged(); Invalidate(true); }
+			set { _foregroundColor = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <inheritdoc/>
 		public ConsoleWindowSystem? GetConsoleWindowSystem => Container?.GetConsoleWindowSystem;
 
 		/// <inheritdoc/>
-		public bool IsDirty
+		public void Invalidate(Invalidation work, IWindowControl? callerControl = null)
 		{
-			get => _isDirty;
-			set => _isDirty = value;
-		}
-
-		/// <inheritdoc/>
-		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
-		{
-			_isDirty = true;
-			Container?.Invalidate(redrawAll, this);
+			Container?.Invalidate(work, this);
 		}
 
 		/// <inheritdoc/>
@@ -683,7 +674,7 @@ namespace SharpConsoleUI.Controls
 			bool hasItems = _contentToolbar.Items.Any();
 			_contentToolbar.Visible = hasItems;
 			_contentHeaderToolbarColumn.Width = hasItems ? null : 0;
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion

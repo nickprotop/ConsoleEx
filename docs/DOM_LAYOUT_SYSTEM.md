@@ -350,13 +350,13 @@ public class MyControl : IWindowControl, IDOMPaintable
     public HorizontalAlignment HorizontalAlignment
     {
         get => _horizontalAlignment;
-        set { _horizontalAlignment = value; Container?.Invalidate(true); }
+        set { _horizontalAlignment = value; Container?.Invalidate(Invalidation.Relayout); }
     }
 
     public VerticalAlignment VerticalAlignment
     {
         get => _verticalAlignment;
-        set { _verticalAlignment = value; Container?.Invalidate(true); }
+        set { _verticalAlignment = value; Container?.Invalidate(Invalidation.Relayout); }
     }
 
     // IDOMPaintable implementation
@@ -422,7 +422,14 @@ Used by all controls that display markup-formatted content. Located in `Parsing/
 
 ## Invalidation
 
-Controls call `Container?.Invalidate(true)` when their properties change:
+When a property changes, a control declares the **kind of work** the change requires by calling
+`Invalidate` with an `Invalidation` intent:
+
+- `Invalidation.Repaint` — appearance only (a colour, selected state, content of existing cells). The
+  cached layout is reused and the Measure pass is skipped.
+- `Invalidation.Relayout` — size or position changed. The control needs a full Measure + Arrange + Paint.
+
+A layout-affecting property therefore uses `Relayout`:
 
 ```csharp
 public int? Width
@@ -433,13 +440,24 @@ public int? Width
         if (_width != value)
         {
             _width = value;
-            Container?.Invalidate(true);  // Triggers re-layout
+            Container?.Invalidate(Invalidation.Relayout);  // size changed → Measure + Arrange + Paint
         }
     }
 }
 ```
 
-The invalidation propagates up through the container hierarchy to the Window, which marks the layout as dirty and triggers a re-render on the next frame.
+`BaseControl.SetProperty<T>` does this for you: it detects the change, raises `PropertyChanged`, and
+calls `Container?.Invalidate(Invalidation.Relayout)` — so most controls never write the boilerplate
+above directly.
+
+The call propagates up the container hierarchy to the Window, where it folds into the window's
+`PendingWork` accumulator via a lock-free monotone max-join: `Relayout` dominates `Repaint` dominates
+`None`. Many invalidations in one frame coalesce to the strongest intent. The render engine renders a
+window only when `PendingWork != FrameWork.None`, and the render consumes the accumulator (atomic
+snapshot-and-clear back to `None`). Because the fold is lock-free and atomic, `Invalidate` is also the
+one call safe to make directly from a background thread. See
+[Rendering Pipeline → Invalidation model](RENDERING_PIPELINE.md#the-invalidation-model) for the full
+description.
 
 ---
 

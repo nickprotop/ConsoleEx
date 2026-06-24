@@ -98,9 +98,11 @@ namespace SharpConsoleUI.Controls
 		Size GetLogicalContentSize();
 
 		/// <summary>
-		/// Marks this control as needing to be re-rendered.
+		/// Marks this control as needing the specified work on the next frame.
 		/// </summary>
-		void Invalidate();
+		/// <param name="work"><see cref="Invalidation.Repaint"/> (appearance-only) or
+		/// <see cref="Invalidation.Relayout"/> (size/position-affecting).</param>
+		void Invalidate(Invalidation work);
 
 	}
 

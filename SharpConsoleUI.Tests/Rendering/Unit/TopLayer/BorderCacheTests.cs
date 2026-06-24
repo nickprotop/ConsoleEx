@@ -86,7 +86,7 @@ public class BorderCacheTests
 
 		// Act - change title
 		window.Title = "New Title";
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		// Assert - new title should appear
@@ -176,7 +176,7 @@ public class BorderCacheTests
 
 		// Act - resize window wider
 		window.Width = 40;
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		// Assert - top-right corner should move to new position

@@ -276,7 +276,7 @@ public class ParticleSystemWindow : Window
 			_lastUpdate = now;
 
 			_particles.Update(deltaTime);
-			this.Invalidate(redrawAll: true);
+			this.Invalidate(Invalidation.Relayout);
 		};
 		_updateTimer.Start();
 

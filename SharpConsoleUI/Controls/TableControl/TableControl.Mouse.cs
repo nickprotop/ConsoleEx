@@ -29,7 +29,7 @@ public partial class TableControl
 			if (_hoveredRowIndex != -1)
 			{
 				_hoveredRowIndex = -1;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 			MouseLeave?.Invoke(this, args);
 			return true;
@@ -85,7 +85,7 @@ public partial class TableControl
 				if (rowIdx != _hoveredRowIndex)
 				{
 					_hoveredRowIndex = rowIdx;
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Repaint);
 				}
 			}
 
@@ -110,7 +110,7 @@ public partial class TableControl
 					if (colIdx >= 0)
 					{
 						_selectedColumnIndex = colIdx;
-						Container?.Invalidate(true);
+						Container?.Invalidate(Invalidation.Repaint);
 					}
 				}
 			}
@@ -127,7 +127,7 @@ public partial class TableControl
 				_horizontalScrollOffset = Math.Max(0, _horizontalScrollOffset - ControlDefaults.DefaultScrollWheelLines);
 				if (_horizontalScrollOffset != oldH)
 				{
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 					return true;
 				}
 				return false; // bubble to parent
@@ -146,7 +146,7 @@ public partial class TableControl
 				_horizontalScrollOffset += ControlDefaults.DefaultScrollWheelLines;
 				if (_horizontalScrollOffset != oldH)
 				{
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 					return true;
 				}
 				return false; // bubble to parent
@@ -291,7 +291,7 @@ public partial class TableControl
 					if (colIdx >= 0)
 					{
 						_selectedColumnIndex = colIdx;
-						Container?.Invalidate(true);
+						Container?.Invalidate(Invalidation.Repaint);
 					}
 				}
 
@@ -343,7 +343,7 @@ public partial class TableControl
 						if (!_readOnly && _inlineEditingEnabled)
 						{
 							BeginCellEdit();
-							Container?.Invalidate(true);
+							Container?.Invalidate(Invalidation.Relayout);
 							MouseDoubleClick?.Invoke(this, args);
 							return true;
 						}
@@ -536,7 +536,7 @@ public partial class TableControl
 		int deltaY = args.Position.Y - _scrollbarDragStartY;
 		int newOffset = _scrollbarDragStartOffset + (int)(deltaY * (double)maxOffset / trackRange);
 		_scrollOffset = Math.Clamp(newOffset, 0, maxOffset);
-		Container?.Invalidate(true);
+		Container?.Invalidate(Invalidation.Relayout);
 	}
 
 	private int GetScrollbarContentWidth()
@@ -595,7 +595,7 @@ public partial class TableControl
 			_horizontalScrollOffset = Math.Min(maxHScroll, _horizontalScrollOffset + contentWidth);
 		}
 
-		Container?.Invalidate(true);
+		Container?.Invalidate(Invalidation.Relayout);
 	}
 
 	private void HandleHorizontalScrollbarDrag(MouseEventArgs args)
@@ -612,7 +612,7 @@ public partial class TableControl
 		int deltaX = args.Position.X - _scrollbarDragStartX;
 		int newOffset = _scrollbarDragStartOffset + (int)(deltaX * (double)maxHScroll / trackRange);
 		_horizontalScrollOffset = Math.Clamp(newOffset, 0, maxHScroll);
-		Container?.Invalidate(true);
+		Container?.Invalidate(Invalidation.Relayout);
 	}
 
 	#endregion
@@ -657,7 +657,7 @@ public partial class TableControl
 		}
 
 		InvalidateColumnWidths();
-		Container?.Invalidate(true);
+		Container?.Invalidate(Invalidation.Relayout);
 	}
 
 	#endregion

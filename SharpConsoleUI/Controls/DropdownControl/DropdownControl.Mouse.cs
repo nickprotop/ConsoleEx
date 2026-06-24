@@ -37,7 +37,7 @@ namespace SharpConsoleUI.Controls
 					_mouseHoveredIndex = -1;
 				}
 				MouseLeave?.Invoke(this, args);
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 				return true;
 			}
 
@@ -64,7 +64,7 @@ namespace SharpConsoleUI.Controls
 				if (_isDropdownOpen && args.HasFlag(MouseFlags.Button1Released))
 				{
 					IsDropdownOpen = false;
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 					return true;
 				}
 				return false;
@@ -103,7 +103,7 @@ namespace SharpConsoleUI.Controls
 						if (!HasFocus)
 							this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 
-						Container?.Invalidate(true);
+						Container?.Invalidate(Invalidation.Repaint);
 						return true;
 					}
 
@@ -115,7 +115,7 @@ namespace SharpConsoleUI.Controls
 						this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 					}
 
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Repaint);
 					return true;
 				}
 
@@ -135,7 +135,7 @@ namespace SharpConsoleUI.Controls
 					IsDropdownOpen = !_isDropdownOpen;
 
 					MouseClick?.Invoke(this, args);
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 					return true;
 				}
 
@@ -186,7 +186,7 @@ namespace SharpConsoleUI.Controls
 				if (_dropdownScrollOffset > 0)
 				{
 					SetDropdownScrollOffset(_dropdownScrollOffset - 1);
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 					args.Handled = true;
 					return true; // Consumed
 				}
@@ -201,7 +201,7 @@ namespace SharpConsoleUI.Controls
 				if (_dropdownScrollOffset < maxScroll)
 				{
 					SetDropdownScrollOffset(_dropdownScrollOffset + 1);
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 					args.Handled = true;
 					return true; // Consumed
 				}
@@ -218,7 +218,7 @@ namespace SharpConsoleUI.Controls
 				{
 					_mouseHoveredIndex = -1;
 				}
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 				return true;
 			}
 
@@ -228,7 +228,7 @@ namespace SharpConsoleUI.Controls
 				if (hitItemIndex != _mouseHoveredIndex)
 				{
 					_mouseHoveredIndex = hitItemIndex;
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Repaint);
 				}
 				return true;
 			}
@@ -246,7 +246,7 @@ namespace SharpConsoleUI.Controls
 					{
 						// Click on ▲ area - scroll up
 						SetDropdownScrollOffset(_dropdownScrollOffset - 1);
-						Container?.Invalidate(true);
+						Container?.Invalidate(Invalidation.Relayout);
 					}
 					else if (contentX >= dropdownWidth - 3)
 					{
@@ -255,7 +255,7 @@ namespace SharpConsoleUI.Controls
 						if (_dropdownScrollOffset < maxScroll)
 						{
 							SetDropdownScrollOffset(_dropdownScrollOffset + 1);
-							Container?.Invalidate(true);
+							Container?.Invalidate(Invalidation.Relayout);
 						}
 					}
 				}
@@ -268,7 +268,7 @@ namespace SharpConsoleUI.Controls
 				if (hitItemIndex >= 0)
 				{
 					_mouseHoveredIndex = hitItemIndex;
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 				}
 				return true;
 			}
@@ -284,7 +284,7 @@ namespace SharpConsoleUI.Controls
 					_mouseHoveredIndex = -1;
 
 					MouseClick?.Invoke(this, args);
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Repaint);
 				}
 				return true;
 			}

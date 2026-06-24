@@ -115,7 +115,7 @@ namespace SharpConsoleUI.Controls
 		public Size GetLogicalContentSize() => new Size(Bounds.Width, Bounds.Height);
 
 		/// <inheritdoc/>
-		public void Invalidate() => OwnerGrid?.Invalidate(true);
+		public void Invalidate(Invalidation work) => OwnerGrid?.Invalidate(work);
 
 		/// <inheritdoc/>
 		public int? ContentWidth => Bounds.Width;

@@ -62,7 +62,7 @@ internal static class GradientDemoWindow
 				{
 					$"[dim]Background direction:[/] [bold white]{DirectionLabels[directionIndex]}[/]"
 				});
-				window.Invalidate(true);
+				window.Invalidate(Invalidation.Relayout);
 			})
 			.Build();
 		cycleBtn.Margin = new Margin { Left = LeftMargin };

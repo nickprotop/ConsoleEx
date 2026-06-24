@@ -245,7 +245,7 @@ namespace SharpConsoleUI.Input
 				if (IsDragging || IsResizing)
 				{
 					// Invalidate the window that was moved/resized for a final clean redraw
-					DragWindow?.Invalidate(true);
+					DragWindow?.Invalidate(Invalidation.Relayout);
 
 					// End interaction via service
 					if (IsDragging)

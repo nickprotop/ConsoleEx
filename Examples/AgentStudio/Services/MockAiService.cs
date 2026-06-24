@@ -1,4 +1,5 @@
 using AgentStudio.Models;
+using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 
@@ -132,7 +133,7 @@ public class MockAiService
         }
 
         // AutoScroll handles scrolling to bottom automatically
-        _conversationPanel.Invalidate(true);
+        _conversationPanel.Invalidate(Invalidation.Relayout);
     }
 
     /// <summary>

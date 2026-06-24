@@ -87,5 +87,20 @@ namespace SharpConsoleUI.Controls
 		/// <param name="context">The rendering context for this row.</param>
 		/// <param name="width">The column width allocated to this renderer (from <see cref="GetWidth"/>).</param>
 		void Render(in GutterRenderContext context, int width);
+
+		/// <summary>
+		/// Raised when the renderer's state changes after it has been attached to a
+		/// <see cref="MultilineEditControl"/> (e.g. git-diff markers or breakpoints updated at runtime) so the
+		/// host editor redraws. Just signal that something changed — the editor decides the invalidation level
+		/// itself by re-querying <see cref="GetWidth"/>: if the gutter's total width changed the text reflows
+		/// (a relayout), otherwise it is a paint-only redraw. The renderer does NOT (and must not) decide the
+		/// level — that keeps the layout decision in the one place that owns it, derived from <see cref="GetWidth"/>.
+		/// </summary>
+		/// <remarks>
+		/// Raising this replaces any manual <c>editor.Container?.Invalidate(...)</c> the consumer used to call
+		/// after mutating the renderer. A renderer whose state never changes after construction (e.g. the
+		/// built-in line-number renderer) simply never raises it.
+		/// </remarks>
+		event EventHandler? Invalidated;
 	}
 }

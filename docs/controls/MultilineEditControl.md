@@ -554,7 +554,7 @@ editor.GutterClick += (s, e) =>
     if (e.SourceLineIndex >= 0)
     {
         breakpoints.ToggleBreakpoint(e.SourceLineIndex);
-        editor.Container?.Invalidate(true);
+        editor.Container?.Invalidate(Invalidation.Relayout);
     }
 };
 ```

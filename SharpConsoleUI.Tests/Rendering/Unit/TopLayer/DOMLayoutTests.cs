@@ -259,7 +259,7 @@ public class DOMLayoutTests
 
 		// Act - change content and invalidate
 		control.SetContent(new List<string> { "Updated Content" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		// Assert - updated content should render

@@ -72,7 +72,7 @@ namespace SharpConsoleUI.Controls
 				{
 					_pendingDigit = -1;
 					_focusedSegment = hitSegment;
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 				}
 
 				MouseClick?.Invoke(this, args);

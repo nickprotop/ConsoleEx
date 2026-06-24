@@ -36,7 +36,7 @@ public class IncrementalUpdateTests
 
 		// Act - Frame 2: Change 1 character
 		control.SetContent(new List<string> { "ABAA" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		var metrics = system.RenderingDiagnostics?.LastMetrics;
@@ -67,7 +67,7 @@ public class IncrementalUpdateTests
 
 		// Act - Frame 2: Change "World" to "There"
 		control.SetContent(new List<string> { "Hello There" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		var metrics = system.RenderingDiagnostics?.LastMetrics;
@@ -99,7 +99,7 @@ public class IncrementalUpdateTests
 
 		// Act - Frame 2: Update time (8 chars changed)
 		control.SetContent(new List<string> { "Status: 12:34:57" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		var metrics = system.RenderingDiagnostics?.LastMetrics;
@@ -130,7 +130,7 @@ public class IncrementalUpdateTests
 
 		// Act - Frame 2: Move cursor (change 2 cells)
 		control.SetContent(new List<string> { "Text here" }); // Remove underscore, simulates cursor move
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		var metrics = system.RenderingDiagnostics?.LastMetrics;
@@ -171,7 +171,7 @@ public class IncrementalUpdateTests
 			"Line 2: Modified",
 			"Line 3: Unchanged"
 		});
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		var metrics = system.RenderingDiagnostics?.LastMetrics;
@@ -216,13 +216,13 @@ public class IncrementalUpdateTests
 
 		// Act - Frame 2: Change 1 character in each window (3 total)
 		control1.SetContent(new List<string> { "Window 1: X" });
-		window1.Invalidate(true);
+		window1.Invalidate(Invalidation.Relayout);
 
 		control2.SetContent(new List<string> { "Window 2: Y" });
-		window2.Invalidate(true);
+		window2.Invalidate(Invalidation.Relayout);
 
 		control3.SetContent(new List<string> { "Window 3: Z" });
-		window3.Invalidate(true);
+		window3.Invalidate(Invalidation.Relayout);
 
 		system.Render.UpdateDisplay();
 
@@ -254,7 +254,7 @@ public class IncrementalUpdateTests
 
 		// Act - Frame 2: Update progress
 		control.SetContent(new List<string> { "[green]██████████[/]        [60%]" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		var metrics = system.RenderingDiagnostics?.LastMetrics;
@@ -295,7 +295,7 @@ public class IncrementalUpdateTests
 			"[red]DEF[/]",              // FG changed only
 			"[on yellow]GHI[/]"         // BG changed only
 		});
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		var metrics = system.RenderingDiagnostics?.LastMetrics;
@@ -332,7 +332,7 @@ public class IncrementalUpdateTests
 		// Act - Frame 2: Change "brown" to "BLACK" (middle of line)
 		var updatedLine = "The quick BLACK fox jumps over the lazy dog";
 		control.SetContent(new List<string> { updatedLine });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		var metrics = system.RenderingDiagnostics?.LastMetrics;

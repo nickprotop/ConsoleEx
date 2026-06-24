@@ -59,14 +59,14 @@ public class DebugInvalidateExposed
 		system.WindowStateService.AddWindow(moving);
 
 		_output.WriteLine($"After adding windows:");
-		_output.WriteLine($"  Background ZIndex: {background.ZIndex}, IsDirty: {background.IsDirty}");
-		_output.WriteLine($"  Moving ZIndex: {moving.ZIndex}, IsDirty: {moving.IsDirty}");
+		_output.WriteLine($"  Background ZIndex: {background.ZIndex}, IsDirty: {background.PendingWork != FrameWork.None}");
+		_output.WriteLine($"  Moving ZIndex: {moving.ZIndex}, IsDirty: {moving.PendingWork != FrameWork.None}");
 
 		system.Render.UpdateDisplay();
 
 		_output.WriteLine($"\nAfter first render:");
-		_output.WriteLine($"  Background ZIndex: {background.ZIndex}, IsDirty: {background.IsDirty}");
-		_output.WriteLine($"  Moving ZIndex: {moving.ZIndex}, IsDirty: {moving.IsDirty}");
+		_output.WriteLine($"  Background ZIndex: {background.ZIndex}, IsDirty: {background.PendingWork != FrameWork.None}");
+		_output.WriteLine($"  Moving ZIndex: {moving.ZIndex}, IsDirty: {moving.PendingWork != FrameWork.None}");
 
 		// Verify moving window covers position (40, 11) - in moving window content
 		var snapshot1 = system.RenderingDiagnostics?.LastConsoleSnapshot;
@@ -78,14 +78,14 @@ public class DebugInvalidateExposed
 		moving.Left = 15;
 
 		_output.WriteLine($"After moving.Left = 15 (before UpdateDisplay):");
-		_output.WriteLine($"  Background IsDirty: {background.IsDirty} (should be True if InvalidateExposedRegions worked)");
-		_output.WriteLine($"  Moving IsDirty: {moving.IsDirty}");
+		_output.WriteLine($"  Background IsDirty: {background.PendingWork != FrameWork.None} (should be True if InvalidateExposedRegions worked)");
+		_output.WriteLine($"  Moving IsDirty: {moving.PendingWork != FrameWork.None}");
 
 		system.Render.UpdateDisplay();
 
 		_output.WriteLine($"\nAfter second render:");
-		_output.WriteLine($"  Background IsDirty: {background.IsDirty}");
-		_output.WriteLine($"  Moving IsDirty: {moving.IsDirty}");
+		_output.WriteLine($"  Background IsDirty: {background.PendingWork != FrameWork.None}");
+		_output.WriteLine($"  Moving IsDirty: {moving.PendingWork != FrameWork.None}");
 
 		// Assert - CRITICAL: Exposed area shows background content (y=7 is second content row)
 		var snapshot2 = system.RenderingDiagnostics?.LastConsoleSnapshot;

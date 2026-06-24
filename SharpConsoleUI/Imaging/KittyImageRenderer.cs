@@ -89,7 +89,7 @@ namespace SharpConsoleUI.Imaging
 						var pngData = KittyProtocol.EncodePng(sourceRef);
 						_cachedPngData = pngData;
 						_isEncoding = false;
-						_container?.Invalidate(true);
+						_container?.Invalidate(Invalidation.Repaint);
 					});
 				}
 

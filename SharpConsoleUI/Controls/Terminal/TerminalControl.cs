@@ -101,7 +101,7 @@ public sealed class TerminalControl
 				// Snap viewport to bottom when new output arrives
 				_scrollOffset = 0;
 			}
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 		_log?.LogInfo($"TerminalControl.ReadLoop: EOF reached (pid={_pty.ChildProcessId}), closing window", "Terminal");
 		// EOF or backend closed — clean up and close the containing window.
@@ -167,7 +167,7 @@ public sealed class TerminalControl
 					int pageSize = Math.Max(1, _vt.Height);
 					_scrollOffset = Math.Min(_scrollOffset + pageSize, _vt.ScrollbackCount);
 				}
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 				return true;
 			}
 			if (key.Key == ConsoleKey.PageDown)
@@ -177,7 +177,7 @@ public sealed class TerminalControl
 					int pageSize = Math.Max(1, _vt.Height);
 					_scrollOffset = Math.Max(0, _scrollOffset - pageSize);
 				}
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 				return true;
 			}
 		}
@@ -188,7 +188,7 @@ public sealed class TerminalControl
 			if (_scrollOffset > 0)
 			{
 				_scrollOffset = 0;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -239,7 +239,7 @@ public sealed class TerminalControl
 					_scrollOffset = Math.Min(
 						_scrollOffset + Configuration.ControlDefaults.DefaultTerminalScrollWheelLines,
 						_vt.ScrollbackCount);
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 				return true;
 			}
 			if (args.HasFlag(MouseFlags.WheeledDown))
@@ -247,7 +247,7 @@ public sealed class TerminalControl
 				lock (_lock)
 					_scrollOffset = Math.Max(0,
 						_scrollOffset - Configuration.ControlDefaults.DefaultTerminalScrollWheelLines);
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 				return true;
 			}
 			if (args.HasFlag(MouseFlags.Button3Clicked))
@@ -358,7 +358,7 @@ public sealed class TerminalControl
 		=> new(_vt.Width, _vt.Height);
 
 	/// <inheritdoc/>
-	public void Invalidate() => Container?.Invalidate(true);
+	public void Invalidate(Invalidation work) => Container?.Invalidate(work);
 
 	// ── IDOMPaintable ────────────────────────────────────────────────────────
 

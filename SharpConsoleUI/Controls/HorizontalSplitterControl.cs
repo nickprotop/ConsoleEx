@@ -135,7 +135,7 @@ namespace SharpConsoleUI.Controls
 				// Explicit neighbors remain valid regardless of container changes.
 				if (_aboveControl == null && _belowControl == null)
 					_neighborsResolved = false;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 				var newWindow = this.GetParentWindow();
 				if (!ReferenceEquals(newWindow, _subscribedWindow))
 				{
@@ -157,7 +157,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_backgroundColorValue = value;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -172,7 +172,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_foregroundColorValue = value;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -187,7 +187,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_draggingBackgroundColorValue = value;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -202,7 +202,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_draggingForegroundColorValue = value;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -217,7 +217,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedBackgroundColorValue = value;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -232,7 +232,7 @@ namespace SharpConsoleUI.Controls
 			set
 			{
 				_focusedForegroundColorValue = value;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -317,7 +317,7 @@ namespace SharpConsoleUI.Controls
 			_aboveControl = aboveControl;
 			_belowControl = belowControl;
 			_neighborsResolved = true;
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		private void ResolveNeighbors()
@@ -512,7 +512,7 @@ namespace SharpConsoleUI.Controls
 				Core.AsyncEvent.Raise(SplitterMoved, SplitterMovedAsync, this, new HorizontalSplitterMovedEventArgs(delta, 0, newBelowHeight), Container?.GetConsoleWindowSystem?.LogService);
 			}
 
-			Invalidate();
+			Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion
@@ -629,7 +629,7 @@ namespace SharpConsoleUI.Controls
 			if (!_isDragging)
 			{
 				_isDragging = true;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 
 			MoveSplitter(delta);
@@ -709,7 +709,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_isMouseDragging = false;
 				_isDragging = false;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 				args.Handled = true;
 				return true;
 			}
@@ -720,7 +720,7 @@ namespace SharpConsoleUI.Controls
 				_isMouseDragging = true;
 				_lastMouseY = mouseY;
 				_isDragging = true;
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 				args.Handled = true;
 				return true;
 			}

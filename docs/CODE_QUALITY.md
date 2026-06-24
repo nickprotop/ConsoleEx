@@ -69,8 +69,9 @@ worked examples.
 
 Never modify `Window`/control state from a background thread (`Task.Run`, timer
 callbacks, async continuations). The render loop reads that state concurrently. Marshal
-back with `EnqueueOnUIThread(...)` / `InvokeAsync(...)`. `Container?.Invalidate(true)` is
-the only call safe to make directly from a background thread.
+back with `EnqueueOnUIThread(...)` / `InvokeAsync(...)`. `Container?.Invalidate(Invalidation work)`
+is the only call safe to make directly from a background thread — it folds into the window's
+`PendingWork` accumulator through a lock-free atomic max-join.
 
 ## 8. Other review guidance
 

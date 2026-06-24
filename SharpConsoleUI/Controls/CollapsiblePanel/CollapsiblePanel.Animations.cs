@@ -78,13 +78,13 @@ namespace SharpConsoleUI.Controls
 				onUpdate: v =>
 				{
 					_animatedBodyHeight = v;
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				},
 				onComplete: () =>
 				{
 					// Settled: expanded -> release clamp (null = natural height); collapsed -> pinned at 0.
 					_animatedBodyHeight = _isExpanded ? null : 0;
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				});
 		}
 

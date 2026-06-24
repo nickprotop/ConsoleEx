@@ -49,7 +49,7 @@ public class FadeInWindow : Window
 			if (_fadeProgress < 1.0f)
 			{
 				_fadeProgress = Math.Min(1.0f, _fadeProgress + 0.01f); // 2 seconds total
-				this.Invalidate(redrawAll: true);
+				this.Invalidate(Invalidation.Relayout);
 			}
 			else if (!_fadeComplete)
 			{
@@ -73,7 +73,7 @@ public class FadeInWindow : Window
 				_fadeProgress = 0f;
 				_fadeComplete = false;
 				_fadeTimer?.Start();
-				this.Invalidate(redrawAll: true);
+				this.Invalidate(Invalidation.Relayout);
 				e.Handled = true;
 			}
 		};

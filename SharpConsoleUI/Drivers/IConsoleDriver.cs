@@ -49,7 +49,10 @@ namespace SharpConsoleUI.Drivers
 		public event MouseEventHandler? MouseEvent;
 
 		/// <summary>
-		/// Occurs when the console screen is resized.
+		/// Occurs when the console screen is resized. Low-level driver event: fires on a background thread, before
+		/// the framework repositions windows, and requires the subscriber to marshal to the UI thread and invalidate
+		/// manually. Application code should prefer <see cref="SharpConsoleUI.ConsoleWindowSystem.WindowResized"/>,
+		/// which fires on the UI thread after reposition and re-invalidates automatically.
 		/// </summary>
 		public event EventHandler<Size>? ScreenResized;
 

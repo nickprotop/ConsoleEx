@@ -208,7 +208,7 @@ public class CellRenderingTests
 
 		// Act - update content to shorter text
 		control.SetContent(new List<string> { "New" });
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		// Assert - new content renders, old content is cleared

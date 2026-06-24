@@ -83,15 +83,15 @@ public class DebugVisibleRegions
 		// CRITICAL: Now make BOTH dirty simultaneously
 		_output.WriteLine($"\nSIMULTANEOUS UPDATE:");
 		_output.WriteLine($"  1. Invalidating background (simulating content update)...");
-		background.Invalidate(true);
+		background.Invalidate(Invalidation.Relayout);
 
 		_output.WriteLine($"  2. Moving window from Top={moving.Top} to Top=8...");
 		int oldTop = moving.Top;
 		moving.Top = 8;
 
 		_output.WriteLine($"\nBEFORE UpdateDisplay:");
-		_output.WriteLine($"  Background: IsDirty={background.IsDirty}, ZIndex={background.ZIndex}");
-		_output.WriteLine($"  Moving: IsDirty={moving.IsDirty}, ZIndex={moving.ZIndex}");
+		_output.WriteLine($"  Background: IsDirty={background.PendingWork != FrameWork.None}, ZIndex={background.ZIndex}");
+		_output.WriteLine($"  Moving: IsDirty={moving.PendingWork != FrameWork.None}, ZIndex={moving.ZIndex}");
 		_output.WriteLine($"  Moving old bounds: y={oldTop}-{oldTop + moving.Height - 1}");
 		_output.WriteLine($"  Moving new bounds: y={moving.Top}-{moving.Top + moving.Height - 1}");
 		_output.WriteLine($"  Line to check (above new moving): y={moving.Top - 1}");
@@ -112,8 +112,8 @@ public class DebugVisibleRegions
 		var snapshot = system.RenderingDiagnostics?.LastConsoleSnapshot;
 
 		_output.WriteLine($"\nAFTER UpdateDisplay:");
-		_output.WriteLine($"  Background: IsDirty={background.IsDirty}");
-		_output.WriteLine($"  Moving: IsDirty={moving.IsDirty}");
+		_output.WriteLine($"  Background: IsDirty={background.PendingWork != FrameWork.None}");
+		_output.WriteLine($"  Moving: IsDirty={moving.PendingWork != FrameWork.None}");
 
 		// Check the critical line ABOVE moving window
 		int checkY = moving.Top - 1;  // Should be y=7
@@ -199,7 +199,7 @@ public class DebugVisibleRegions
 		_output.WriteLine($"  Moving: Left={moving.Left}, Top={moving.Top}");
 
 		// SIMULTANEOUS: Background updates AND moving window moves horizontally
-		background.Invalidate(true);
+		background.Invalidate(Invalidation.Relayout);
 		moving.Left = 35;
 
 		_output.WriteLine($"\nAFTER HORIZONTAL MOVE:");

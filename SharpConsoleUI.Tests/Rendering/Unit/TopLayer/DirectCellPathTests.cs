@@ -84,7 +84,7 @@ public class DirectCellPathTests
 		// Act - add new content and invalidate
 		window.ClearControls();
 		window.AddControl(new MarkupControl(new List<string> { "Second" }));
-		window.Invalidate(true);
+		window.Invalidate(Invalidation.Relayout);
 		var buffer2 = window.EnsureContentReady();
 
 		// Assert - buffer should have new content

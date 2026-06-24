@@ -93,7 +93,7 @@ public class DebugVerticalMove
 
 		_output.WriteLine($"Moving AFTER: Top={moving.Top}, ContentTop={moving.Top + 1}");
 		_output.WriteLine($"  Content rows: y={moving.Top + 1} to y={moving.Top + 1 + 4}");
-		_output.WriteLine($"  Background IsDirty: {background.IsDirty} (should be True before UpdateDisplay)");
+		_output.WriteLine($"  Background IsDirty: {background.PendingWork != FrameWork.None} (should be True before UpdateDisplay)");
 
 		system.Render.UpdateDisplay();
 
@@ -101,7 +101,7 @@ public class DebugVerticalMove
 
 		_output.WriteLine($"\nAFTER move - checking boundary areas:");
 		_output.WriteLine($"  Moving now covers y={moving.Top} to y={moving.Top + moving.Height - 1}");
-		_output.WriteLine($"  Background IsDirty: {background.IsDirty} (should be False after render)");
+		_output.WriteLine($"  Background IsDirty: {background.PendingWork != FrameWork.None} (should be False after render)");
 
 		// Check multiple y positions in the exposed area at the BOTTOM of old position
 		// Old position was y=10-21, new position is y=8-19, so exposed area is y=20-21

@@ -288,7 +288,7 @@ public class ContentRenderingTests
 
 		// Act - Move window to the right, exposing left area
 		moving.Left = 30;
-		moving.Invalidate(true);
+		moving.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		// Assert - CRITICAL: Exposed area shows background
@@ -481,7 +481,7 @@ public class ContentRenderingTests
 
 		// Act - Move window downward, exposing top area
 		moving.Top = 16;
-		moving.Invalidate(true);
+		moving.Invalidate(Invalidation.Relayout);
 		system.Render.UpdateDisplay();
 
 		// Assert - CRITICAL: Exposed area shows background

@@ -59,7 +59,7 @@ namespace SharpConsoleUI.Core
 			{
 				var previous = ActiveSelection;
 				previous?.ClearSelection();
-				(previous as IWindowControl)?.Container?.Invalidate(true);
+				(previous as IWindowControl)?.Container?.Invalidate(Invalidation.Relayout);
 				ActiveSelection = control;
 			}
 
@@ -76,7 +76,7 @@ namespace SharpConsoleUI.Core
 			if (previous == null) return;
 
 			previous.ClearSelection();
-			(previous as IWindowControl)?.Container?.Invalidate(true);
+			(previous as IWindowControl)?.Container?.Invalidate(Invalidation.Relayout);
 			ActiveSelection = null;
 			RaiseChanged();
 		}

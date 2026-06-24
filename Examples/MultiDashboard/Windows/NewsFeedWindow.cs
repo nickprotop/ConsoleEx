@@ -77,7 +77,7 @@ public class NewsFeedWindow : IDisposable
                     }
 
                     panel.ScrollToBottom();
-                    panel.Invalidate(true);
+                    panel.Invalidate(Invalidation.Relayout);
                 }
 
                 await Task.Delay(10000, ct);

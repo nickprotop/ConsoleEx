@@ -110,7 +110,7 @@ namespace SharpConsoleUI.Controls
 			{
 				// No manager — apply the final state immediately.
 				defs[index] = RestoredEndState();
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 				return null;
 			}
 
@@ -123,13 +123,13 @@ namespace SharpConsoleUI.Controls
 				{
 					// Hold the track as Fixed for the duration of the tween.
 					defs[index] = GridLength.Cells(cells, original.Min, original.Max);
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				},
 				onComplete: () =>
 				{
 					defs[index] = RestoredEndState();
 					inFlight.Remove(index);
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				});
 
 			inFlight[index] = anim;

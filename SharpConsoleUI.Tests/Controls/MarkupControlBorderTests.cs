@@ -86,7 +86,7 @@ public class MarkupControlBorderTests
 		string? clickedLink = null;
 		m.LinkClicked += (_, e) => clickedLink = e.Url; // LinkClicked is EventHandler<LinkClickedEventArgs>; .Url exists
 		RenderLines(m, 10, 4); // arrange — populates the layout cache
-		// Content origin with Single border + no padding = control-relative (1,1). The 'X' glyph sits there.
+							   // Content origin with Single border + no padding = control-relative (1,1). The 'X' glyph sits there.
 		var click = ContainerTestHelpers.CreateClick(1, 1);
 		m.ProcessMouseEvent(click);
 		Assert.Equal("go", clickedLink);

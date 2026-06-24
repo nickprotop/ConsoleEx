@@ -38,7 +38,7 @@ namespace SharpConsoleUI
 					case WindowState.Minimized:
 						// Clear the window area before minimizing
 						_windowSystem?.Renderer?.ClearArea(Left, Top, Width, Height, _windowSystem.Theme, _windowSystem.Windows);
-						Invalidate(true);
+						Invalidate(Invalidation.Relayout);
 						break;
 
 					case WindowState.Maximized:
@@ -73,7 +73,7 @@ namespace SharpConsoleUI
 						else if (previous_state == WindowState.Minimized)
 						{
 							// Just need to redraw - position hasn't changed
-							Invalidate(true);
+							Invalidate(Invalidation.Relayout);
 						}
 						break;
 				}
@@ -219,7 +219,7 @@ namespace SharpConsoleUI
 		public void GoToBottom()
 		{
 			_scrollOffset = Math.Max(0, ContentLineCount - ContentHeight);
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -228,7 +228,7 @@ namespace SharpConsoleUI
 		public void GoToTop()
 		{
 			_scrollOffset = 0;
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -245,7 +245,7 @@ namespace SharpConsoleUI
 			{
 				// CRITICAL: Force layout update to get fresh widget positions
 				// Without this, we get stale cached bounds from before the previous scroll
-				Invalidate(true);
+				Invalidate(Invalidation.Relayout);
 
 				var bounds = _layoutManager.GetOrCreateControlBounds(control);
 				if (bounds == null) return;
@@ -272,7 +272,7 @@ namespace SharpConsoleUI
 					// Widget top is cut off - scroll up to align top with viewport top
 					int absoluteY = currentScrollOffset + contentTop;
 					ScrollOffset = Math.Max(0, absoluteY);
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				}
 				else if (bottomCutOff)
 				{
@@ -280,7 +280,7 @@ namespace SharpConsoleUI
 					int absoluteTopY = currentScrollOffset + contentTop;
 					int newOffset = Math.Min(absoluteTopY, _renderer.MaxScrollOffset);
 					ScrollOffset = Math.Max(0, newOffset);
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				}
 
 				// If neither topCutOff nor bottomCutOff, widget is already fully visible - no scroll needed
@@ -373,49 +373,14 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Marks the window as needing redraw and optionally invalidates all controls.
+		/// Marks the window as needing the given frame work on the next render. The window-level
+		/// endpoint of <see cref="IContainer.Invalidate(Invalidation, IWindowControl?)"/>.
 		/// </summary>
-		/// <param name="redrawAll">True to invalidate all controls; false for partial invalidation.</param>
-		/// <param name="callerControl">The control that initiated the invalidation, to prevent recursion.</param>
-		public void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
+		/// <param name="work">The kind of work requested (Repaint or Relayout).</param>
+		/// <param name="caller">The control that initiated the invalidation (unused at the window root).</param>
+		public void Invalidate(Invalidation work, IWindowControl? caller = null)
 		{
-			_invalidated = true;
-
-			// Use TryEnter to avoid blocking when the render thread holds the lock.
-			// If we can't acquire it, _invalidated + IsDirty are still set, so the
-			// render loop will do a full layout rebuild on the next frame.
-			if (Monitor.TryEnter(_lock))
-			{
-				try
-				{
-					if (redrawAll)
-					{
-						// Invalidate measurements without rebuilding the tree
-						// This preserves runtime state like splitter positions
-						_renderer?.InvalidateDOMLayout();
-					}
-					else if (callerControl != null)
-					{
-						// Specific control invalidation
-						var node = _renderer?.GetLayoutNode(callerControl);
-						if (node != null)
-						{
-							node.InvalidateMeasure();
-						}
-						else
-						{
-							// Fallback: invalidate entire tree
-							_renderer?.InvalidateDOMLayout();
-						}
-					}
-				}
-				finally
-				{
-					Monitor.Exit(_lock);
-				}
-			}
-
-			IsDirty = true;
+			Request(work);
 		}
 
 		/// <summary>
@@ -500,7 +465,7 @@ namespace SharpConsoleUI
 			InvalidateBorderCache();
 
 			// Invalidate window to redraw border with new active/inactive colors
-			Invalidate(false);  // Border-only invalidation (redrawAll=false)
+			Invalidate(Invalidation.Repaint);  // Border-only invalidation
 
 			var currentFocus = FocusManager.FocusedControl;
 			if (value)
@@ -568,7 +533,7 @@ namespace SharpConsoleUI
 
 			// Single invalidation pass
 			InvalidateBorderCache();
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 
 			if (_scrollOffset > ContentLineCount - ContentHeight)
 			{
@@ -603,7 +568,7 @@ namespace SharpConsoleUI
 			InvalidateBorderCache();
 
 			// IMPORTANT: Invalidate controls FIRST so they clear their caches
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 
 			// Layout will be updated lazily on next event
 

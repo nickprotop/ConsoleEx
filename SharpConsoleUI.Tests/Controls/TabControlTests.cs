@@ -1423,14 +1423,11 @@ public class TabControlTests
 
 		var (system, window, _) = CreateRenderedTabEnvironment(tab: tab);
 
-		// Reset dirty state
-		tab.IsDirty = false;
-
 		// Trigger invalidation from the content
-		content.Invalidate();
+		content.Invalidate(Invalidation.Relayout);
 
-		// TabControl should be dirty (invalidation passed through it)
-		Assert.True(tab.IsDirty);
+		// The window should have pending work (invalidation passed through the TabControl)
+		Assert.NotEqual(FrameWork.None, window.PendingWork);
 	}
 
 	#endregion

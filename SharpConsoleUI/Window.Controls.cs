@@ -324,8 +324,7 @@ namespace SharpConsoleUI
 				{
 					_controls.Remove(content);
 					_controls.Insert(newIndex, content);
-					_invalidated = true;
-					Invalidate(true);
+					Invalidate(Invalidation.Relayout);
 				}
 			}
 		}

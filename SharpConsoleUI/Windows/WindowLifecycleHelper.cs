@@ -49,7 +49,7 @@ namespace SharpConsoleUI.Windows
 			window.IsMovable = false;
 			var wasClosable = window.IsClosable;
 			window.IsClosable = false;
-			window.Invalidate(true);
+			window.Invalidate(Invalidation.Relayout);
 
 			// Start countdown timer
 			var remainingSeconds = (int)window.AsyncThreadCleanupTimeout.TotalSeconds;
@@ -67,7 +67,7 @@ namespace SharpConsoleUI.Windows
 						{
 							$"[yellow on grey11] ⏳ Waiting for thread to stop... ({remainingSeconds}s remaining) [/]"
 						});
-						window.Invalidate(true);
+						window.Invalidate(Invalidation.Relayout);
 					});
 				}
 			};
@@ -123,7 +123,7 @@ namespace SharpConsoleUI.Windows
 							{
 								"[red on yellow] ⚠ Thread did not respond - transforming to error state... [/]"
 							});
-							window.Invalidate(true);
+							window.Invalidate(Invalidation.Relayout);
 						});
 
 						await Task.Delay(ControlDefaults.ErrorTransformDelayMs); // Brief pause so user sees message
@@ -299,7 +299,7 @@ namespace SharpConsoleUI.Windows
 
 			// Bring to front
 			window._windowSystem?.WindowStateService.BringToFront(window);
-			window.Invalidate(true);
+			window.Invalidate(Invalidation.Relayout);
 		}
 	}
 }

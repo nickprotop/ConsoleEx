@@ -129,7 +129,7 @@ public interface IWindowControl : IDisposable
 
     void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect);
     Size MeasureDOM(int availableWidth);
-    void Invalidate(bool recursive = false);
+    void Invalidate(Invalidation work);
 }
 ```
 
@@ -193,8 +193,7 @@ public interface IContainer
     Color BackgroundColor { get; set; }
     Color ForegroundColor { get; set; }
     ConsoleWindowSystem? GetConsoleWindowSystem { get; }
-    bool IsDirty { get; set; }
-    void Invalidate(bool redrawAll, IWindowControl? callerControl = null);
+    void Invalidate(Invalidation work, IWindowControl? callerControl = null);
     int? GetVisibleHeightForControl(IWindowControl control);
 }
 ```

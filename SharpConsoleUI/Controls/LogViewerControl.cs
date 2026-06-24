@@ -309,7 +309,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 		_pendingEntries.Enqueue(entry);
 
 		// Trigger repaint (Invalidate is safe to call from any thread)
-		Container?.Invalidate(true);
+		Container?.Invalidate(Invalidation.Relayout);
 	}
 
 	private void OnLogsCleared(object? sender, EventArgs e)
@@ -318,7 +318,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 		_pendingClear = true;
 
 		// Trigger repaint
-		Container?.Invalidate(true);
+		Container?.Invalidate(Invalidation.Relayout);
 	}
 
 	#endregion
@@ -389,7 +389,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 			}
 		}
 
-		Container?.Invalidate(true);
+		Container?.Invalidate(Invalidation.Relayout);
 	}
 
 	#endregion

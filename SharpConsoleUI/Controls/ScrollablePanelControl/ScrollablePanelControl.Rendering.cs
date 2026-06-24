@@ -201,7 +201,6 @@ namespace SharpConsoleUI.Controls
 				DrawHorizontalScrollbar(buffer, bounds, contentWidth, fgColor, bgColor);
 			}
 
-			_isDirty = false;
 		}
 
 		#endregion

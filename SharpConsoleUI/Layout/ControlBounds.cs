@@ -308,6 +308,22 @@ namespace SharpConsoleUI.Layout
 		/// </summary>
 		public Point? TranslateLogicalCursorToWindow(Controls.IWindowControl control)
 		{
+			// Window coordinates = content coordinates + the frame/title inset.
+			var contentPos = TranslateLogicalCursorToContent(control);
+			if (contentPos == null)
+				return null;
+			return new Point(contentPos.Value.X + _window.InsetLeft, contentPos.Value.Y + _window.InsetTop);
+		}
+
+		/// <summary>
+		/// Translates a control's logical cursor position to window-CONTENT coordinates (origin at the
+		/// content area, i.e. excluding the frame/title inset) by walking up the parent container
+		/// hierarchy and accumulating offsets. This is the coordinate space portals are arranged in,
+		/// so it is the correct anchor space for a portal overlay (e.g. a completion popup) — using the
+		/// window-relative <see cref="TranslateLogicalCursorToWindow"/> here would double-count the inset.
+		/// </summary>
+		public Point? TranslateLogicalCursorToContent(Controls.IWindowControl control)
+		{
 			if (control is not Controls.ILogicalCursorProvider cursorProvider)
 				return null;
 
@@ -326,7 +342,7 @@ namespace SharpConsoleUI.Layout
 				if (hostNode == null)
 					return null;
 				var hab = hostNode.AbsoluteBounds;
-				return new Point(hab.X + hostLogical.Value.X + _window.InsetLeft, hab.Y + hostLogical.Value.Y + _window.InsetTop);
+				return new Point(hab.X + hostLogical.Value.X, hab.Y + hostLogical.Value.Y);
 			}
 
 			var logicalPosition = cursorProvider.GetLogicalCursorPosition();
@@ -369,17 +385,12 @@ namespace SharpConsoleUI.Layout
 				contentBounds = new Rectangle(ab.X, ab.Y, ab.Width, ab.Height);
 			}
 
-			// ControlContentBounds are already absolute window-content coordinates (from DOM rendering)
-			// Just add the logical position to the bounds, then add window border offset
-			var windowContentPosition = new Point(
+			// ControlContentBounds are already absolute window-content coordinates (from DOM rendering).
+			// Add the logical cursor offset — no inset (this is the content-relative result).
+			return new Point(
 				contentBounds.X + logicalPosition.Value.X,
 				contentBounds.Y + logicalPosition.Value.Y
 			);
-
-			// Add window border offset (the frame inset)
-			var finalPosition = new Point(windowContentPosition.X + _window.InsetLeft, windowContentPosition.Y + _window.InsetTop);
-
-			return finalPosition;
 		}
 
 		/// <summary>

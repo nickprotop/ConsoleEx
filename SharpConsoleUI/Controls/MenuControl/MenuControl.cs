@@ -111,7 +111,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 		{
 			_orientation = value;
 			OnPropertyChanged();
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 	}
 
@@ -150,7 +150,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 	public Color? MenuBarBackgroundColor
 	{
 		get => _menuBarBackgroundColor;
-		set { _menuBarBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
+		set { _menuBarBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
 	}
 
 	/// <summary>
@@ -159,7 +159,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 	public Color? MenuBarForegroundColor
 	{
 		get => _menuBarForegroundColor;
-		set { _menuBarForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
+		set { _menuBarForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
 	}
 
 	/// <summary>
@@ -168,7 +168,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 	public Color? MenuBarHighlightBackgroundColor
 	{
 		get => _menuBarHighlightBackgroundColor;
-		set { _menuBarHighlightBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
+		set { _menuBarHighlightBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
 	}
 
 	/// <summary>
@@ -177,7 +177,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 	public Color? MenuBarHighlightForegroundColor
 	{
 		get => _menuBarHighlightForegroundColor;
-		set { _menuBarHighlightForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
+		set { _menuBarHighlightForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
 	}
 
 	/// <summary>
@@ -186,7 +186,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 	public Color? DropdownBackgroundColor
 	{
 		get => _dropdownBackgroundColor;
-		set { _dropdownBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
+		set { _dropdownBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
 	}
 
 	/// <summary>
@@ -195,7 +195,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 	public Color? DropdownForegroundColor
 	{
 		get => _dropdownForegroundColor;
-		set { _dropdownForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
+		set { _dropdownForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
 	}
 
 	/// <summary>
@@ -204,7 +204,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 	public Color? DropdownHighlightBackgroundColor
 	{
 		get => _dropdownHighlightBackgroundColor;
-		set { _dropdownHighlightBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
+		set { _dropdownHighlightBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
 	}
 
 	/// <summary>
@@ -213,7 +213,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 	public Color? DropdownHighlightForegroundColor
 	{
 		get => _dropdownHighlightForegroundColor;
-		set { _dropdownHighlightForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(false); }
+		set { _dropdownHighlightForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
 	}
 
 	// Resolved colors with theme fallback
@@ -245,7 +245,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 	public Color BackgroundColor
 	{
 		get => ResolvedDropdownBackground;
-		set { _dropdownBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
+		set { _dropdownBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
 	}
 
 	/// <summary>
@@ -255,7 +255,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 	public Color ForegroundColor
 	{
 		get => ResolvedDropdownForeground;
-		set { _dropdownForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
+		set { _dropdownForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
 	}
 
 	/// <summary>
@@ -265,7 +265,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 	public Color HighlightColor
 	{
 		get => ResolvedDropdownHighlightBackground;
-		set { _dropdownHighlightBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
+		set { _dropdownHighlightBackgroundColor = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
 	}
 
 	/// <summary>
@@ -275,7 +275,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 	public Color HighlightForeground
 	{
 		get => ResolvedDropdownHighlightForeground;
-		set { _dropdownHighlightForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(true); }
+		set { _dropdownHighlightForegroundColor = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
 	}
 
 	#endregion
@@ -320,7 +320,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 	public bool IsEnabled
 	{
 		get => _enabled;
-		set { _enabled = value; OnPropertyChanged(); Container?.Invalidate(true); }
+		set { _enabled = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Relayout); }
 	}
 
 	/// <inheritdoc/>
@@ -403,27 +403,15 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 
 	ConsoleWindowSystem? IContainer.GetConsoleWindowSystem => Container?.GetConsoleWindowSystem;
 
-	bool IContainer.IsDirty
+	void IContainer.Invalidate(Invalidation work, IWindowControl? callerControl)
 	{
-		get => false; // Menu doesn't track dirty state
-		set { /* Menu doesn't track dirty state */ }
-	}
-
-	void IContainer.Invalidate(bool redrawAll, IWindowControl? callerControl)
-	{
-		Container?.Invalidate(redrawAll, callerControl);
+		Container?.Invalidate(work, callerControl);
 	}
 
 	int? IContainer.GetVisibleHeightForControl(IWindowControl control)
 	{
 		// Menu doesn't host child controls in the traditional sense
 		return null;
-	}
-
-	/// <inheritdoc/>
-	public void Invalidate(bool fullRender)
-	{
-		Container?.Invalidate(fullRender);
 	}
 
 	#endregion
@@ -537,7 +525,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 		// Clear hover state - dropdown items are no longer visible
 		_hoveredItem = null;
 
-		Container?.Invalidate(true);
+		Container?.Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -626,7 +614,7 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 		}
 
 		InvalidateMeasurementCache();
-		Container?.Invalidate(true);
+		Container?.Invalidate(Invalidation.Relayout);
 	}
 
 	#endregion

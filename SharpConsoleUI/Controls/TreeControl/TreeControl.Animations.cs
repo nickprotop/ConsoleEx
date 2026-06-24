@@ -69,12 +69,12 @@ public partial class TreeControl
 				// Apply SinePulse to get blend amount (0 -> 1 -> 0)
 				float blend = (float)EasingFunctions.SinePulse(fraction);
 				node.TextColor = ColorBlendHelper.BlendColor(baseColor, color, blend);
-				Invalidate();
+				Invalidate(Invalidation.Repaint);
 			},
 			onComplete: () =>
 			{
 				node.TextColor = originalColor;
-				Invalidate();
+				Invalidate(Invalidation.Repaint);
 			});
 	}
 }

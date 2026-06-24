@@ -192,7 +192,7 @@ namespace SharpConsoleUI.Controls
 						TrimSeriesData(series);
 				}
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -461,7 +461,7 @@ namespace SharpConsoleUI.Controls
 						series.LineColor = value;
 				}
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -503,7 +503,7 @@ namespace SharpConsoleUI.Controls
 			{
 				base.Container = value;
 				OnPropertyChanged();
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -584,7 +584,7 @@ namespace SharpConsoleUI.Controls
 				series.DataPoints.Clear();
 				_series.Remove(series);
 			}
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 			return true;
 		}
 
@@ -605,7 +605,7 @@ namespace SharpConsoleUI.Controls
 				series.DataPoints.Add(value);
 				TrimSeriesData(series);
 			}
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -624,7 +624,7 @@ namespace SharpConsoleUI.Controls
 				series.DataPoints.Add(value);
 				TrimSeriesData(series);
 			}
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -644,7 +644,7 @@ namespace SharpConsoleUI.Controls
 				series.DataPoints.AddRange(data);
 				TrimSeriesData(series);
 			}
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -661,7 +661,7 @@ namespace SharpConsoleUI.Controls
 				series.DataPoints.AddRange(data);
 				TrimSeriesData(series);
 			}
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -674,7 +674,7 @@ namespace SharpConsoleUI.Controls
 				foreach (var series in _series)
 					series.DataPoints.Clear();
 			}
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion
@@ -695,7 +695,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_referenceLines.Add(new ReferenceLine(value, color, lineChar, label, labelPosition));
 			}
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -707,7 +707,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_referenceLines.Clear();
 			}
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -724,7 +724,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_valueMarkers.Add(new ValueMarker(value, label, arrowColor, labelColor, side));
 			}
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -736,7 +736,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_valueMarkers.Clear();
 			}
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion

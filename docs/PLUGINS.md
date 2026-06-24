@@ -164,7 +164,7 @@ public class MyCustomControl : IWindowControl
     // Implement IWindowControl interface...
     public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect) { }
     public Size MeasureDOM(int availableWidth) => new Size(20, 5);
-    public void Invalidate(bool recursive = false) { }
+    public void Invalidate(Invalidation work) { }
     public void Dispose() { }
 }
 
@@ -650,7 +650,7 @@ public class StatusIndicatorControl : IWindowControl
     }
 
     public Size MeasureDOM(int availableWidth) => new Size(20, 1);
-    public void Invalidate(bool recursive = false) => Container?.Invalidate(recursive);
+    public void Invalidate(Invalidation work) => Container?.Invalidate(work, this);
     public void Dispose() { }
 }
 

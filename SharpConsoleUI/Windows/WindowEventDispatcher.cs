@@ -418,15 +418,13 @@ namespace SharpConsoleUI.Windows
 					if (args.HasFlag(MouseFlags.WheeledUp))
 					{
 						_window._renderer.ScrollBy(-3);
-						_window._invalidated = true;
-						_window.IsDirty = true;
+						_window.Invalidate(Invalidation.Relayout);
 						return true;
 					}
 					else if (args.HasFlag(MouseFlags.WheeledDown))
 					{
 						_window._renderer.ScrollBy(3);
-						_window._invalidated = true;
-						_window.IsDirty = true;
+						_window.Invalidate(Invalidation.Relayout);
 						return true;
 					}
 				}
@@ -796,13 +794,12 @@ namespace SharpConsoleUI.Windows
 								if (_window._renderer != null)
 								{
 									_window._renderer.ScrollBy(-1);
-									_window._invalidated = true;
 								}
 								else
 								{
 									_window._scrollOffset = Math.Max(0, _window._scrollOffset - 1);
 								}
-								_window.IsDirty = true;
+								_window.Invalidate(Invalidation.Relayout);
 								windowHandled = true;
 								break;
 
@@ -811,13 +808,12 @@ namespace SharpConsoleUI.Windows
 								if (_window._renderer != null)
 								{
 									_window._renderer.ScrollBy(1);
-									_window._invalidated = true;
 								}
 								else
 								{
 									_window._scrollOffset = Math.Min(_window.ContentLineCount - (_window.ContentHeight - _window._topStickyHeight), _window._scrollOffset + 1);
 								}
-								_window.IsDirty = true;
+								_window.Invalidate(Invalidation.Relayout);
 								windowHandled = true;
 								break;
 
@@ -826,8 +822,7 @@ namespace SharpConsoleUI.Windows
 								if (_window._renderer != null)
 								{
 									_window._renderer.PageUp();
-									_window._invalidated = true;
-									_window.IsDirty = true;
+									_window.Invalidate(Invalidation.Relayout);
 									windowHandled = true;
 								}
 								break;
@@ -837,8 +832,7 @@ namespace SharpConsoleUI.Windows
 								if (_window._renderer != null)
 								{
 									_window._renderer.PageDown();
-									_window._invalidated = true;
-									_window.IsDirty = true;
+									_window.Invalidate(Invalidation.Relayout);
 									windowHandled = true;
 								}
 								break;
@@ -847,8 +841,7 @@ namespace SharpConsoleUI.Windows
 								if ((key.Modifiers == ConsoleModifiers.None || key.Modifiers == ConsoleModifiers.Control) && _window._renderer != null)
 								{
 									_window._renderer.ScrollToTop();
-									_window._invalidated = true;
-									_window.IsDirty = true;
+									_window.Invalidate(Invalidation.Relayout);
 									windowHandled = true;
 								}
 								break;
@@ -857,8 +850,7 @@ namespace SharpConsoleUI.Windows
 								if ((key.Modifiers == ConsoleModifiers.None || key.Modifiers == ConsoleModifiers.Control) && _window._renderer != null)
 								{
 									_window._renderer.ScrollToBottom();
-									_window._invalidated = true;
-									_window.IsDirty = true;
+									_window.Invalidate(Invalidation.Relayout);
 									windowHandled = true;
 								}
 								break;
@@ -1019,7 +1011,7 @@ namespace SharpConsoleUI.Windows
 			}
 
 			// Invalidate the window to update the display
-			_window.Invalidate(true);
+			_window.Invalidate(Invalidation.Relayout);
 		}
 	}
 }

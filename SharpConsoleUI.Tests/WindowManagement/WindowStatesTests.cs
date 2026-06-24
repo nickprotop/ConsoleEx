@@ -190,13 +190,13 @@ public class WindowStatesTests
 		system.WindowStateService.AddWindow(window);
 
 		system.Render.UpdateDisplay(); // Initial render
-		Assert.False(window.IsDirty); // Clean after render
+		Assert.False(window.PendingWork != FrameWork.None); // Clean after render
 
 		// Act
 		window.Minimize();
 
 		// Assert
-		Assert.True(window.IsDirty); // Should be marked dirty
+		Assert.True(window.PendingWork != FrameWork.None); // Should be marked dirty
 	}
 
 	[Fact]

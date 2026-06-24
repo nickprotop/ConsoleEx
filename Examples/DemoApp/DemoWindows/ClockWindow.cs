@@ -31,7 +31,7 @@ internal static class ClockWindow
 				{
 					await Task.Delay(1000, ct);
 					clock.Text = DateTime.Now.ToString("HH:mm:ss");
-					window.Invalidate(true);
+					window.Invalidate(Invalidation.Relayout);
 				}
 			})
 			.OnKeyPressed((s, e) =>

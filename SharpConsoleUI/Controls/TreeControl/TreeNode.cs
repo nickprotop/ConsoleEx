@@ -30,7 +30,14 @@ namespace SharpConsoleUI.Controls
 		public event PropertyChangedEventHandler? PropertyChanged;
 
 		private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-			=> PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+		{
+			PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+			// Route the change to the owning control so it can self-invalidate without the
+			// consumer having to call tree.Invalidate() manually. Uses the Owner back-ref
+			// (set when the node is attached) rather than per-node event subscriptions,
+			// mirroring the existing CachedParent pattern.
+			Owner?.OnNodePropertyChanged(propertyName);
+		}
 
 		/// <summary>
 		/// Creates a new tree node with specified text.
@@ -113,6 +120,30 @@ namespace SharpConsoleUI.Controls
 		internal TreeNode? CachedParent { get; set; }
 
 		/// <summary>
+		/// Back-reference to the <see cref="TreeControl"/> that owns this node's tree, or null
+		/// if the node is detached. Propagated down a subtree when it is attached (via
+		/// <see cref="TreeControl.AddRootNode(TreeNode)"/> or <see cref="AddChild(TreeNode)"/>)
+		/// and cleared when detached (<see cref="RemoveChild(TreeNode)"/>/<see cref="ClearChildren()"/>).
+		/// Lets the node notify its owner of mutations so the control can self-invalidate.
+		/// </summary>
+		internal TreeControl? Owner { get; set; }
+
+		/// <summary>
+		/// Sets <see cref="Owner"/> on this node and recursively on its entire subtree.
+		/// Called when a subtree is attached to (or detached from, by passing null) a
+		/// <see cref="TreeControl"/>.
+		/// </summary>
+		/// <param name="owner">The owning control, or null to detach the subtree.</param>
+		internal void SetOwnerRecursive(TreeControl? owner)
+		{
+			Owner = owner;
+			foreach (var child in _children)
+			{
+				child.SetOwnerRecursive(owner);
+			}
+		}
+
+		/// <summary>
 		/// Adds a child node to this node.
 		/// </summary>
 		/// <param name="node">The child node to add.</param>
@@ -120,6 +151,10 @@ namespace SharpConsoleUI.Controls
 		public TreeNode AddChild(TreeNode node)
 		{
 			_children.Add(node);
+			// Propagate this node's owner onto the newly attached subtree, then notify the
+			// owner so it can rebuild its flattened cache and invalidate.
+			node.SetOwnerRecursive(Owner);
+			Owner?.OnNodeStructureChanged();
 			return node;
 		}
 
@@ -132,6 +167,9 @@ namespace SharpConsoleUI.Controls
 		{
 			var node = new TreeNode(text);
 			_children.Add(node);
+			// New leaf inherits this node's owner; notify the owner to self-invalidate.
+			node.SetOwnerRecursive(Owner);
+			Owner?.OnNodeStructureChanged();
 			return node;
 		}
 
@@ -140,7 +178,17 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public void ClearChildren()
 		{
+			if (_children.Count == 0)
+				return;
+
+			// Detach the removed subtrees (clear their owner), then notify the owner.
+			var owner = Owner;
+			foreach (var child in _children)
+			{
+				child.SetOwnerRecursive(null);
+			}
 			_children.Clear();
+			owner?.OnNodeStructureChanged();
 		}
 
 		/// <summary>
@@ -150,7 +198,14 @@ namespace SharpConsoleUI.Controls
 		/// <returns>True if the node was found and removed, false otherwise.</returns>
 		public bool RemoveChild(TreeNode node)
 		{
-			return _children.Remove(node);
+			bool removed = _children.Remove(node);
+			if (removed)
+			{
+				// Detach the removed subtree (clear its owner), then notify the owner.
+				node.SetOwnerRecursive(null);
+				Owner?.OnNodeStructureChanged();
+			}
+			return removed;
 		}
 	}
 }

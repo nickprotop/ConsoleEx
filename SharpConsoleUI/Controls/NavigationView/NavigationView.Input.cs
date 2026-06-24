@@ -407,9 +407,9 @@ namespace SharpConsoleUI.Controls
 			}
 			else
 			{
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Repaint);
 			}
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Repaint);
 		}
 
 		private void FocusContentPanel()
@@ -428,11 +428,11 @@ namespace SharpConsoleUI.Controls
 				}
 				else
 				{
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Repaint);
 				}
 			}
 
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Repaint);
 		}
 
 		#endregion

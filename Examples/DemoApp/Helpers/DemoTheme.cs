@@ -37,7 +37,7 @@ public static class DemoTheme
 		void OnThemeChanged(object? sender, SharpConsoleUI.Core.ThemeChangedEventArgs e)
 		{
 			window.BackgroundGradient = new GradientBackground(BackgroundGradient(ws), GradientDirection.Vertical);
-			window.Invalidate(true);
+			window.Invalidate(Invalidation.Relayout);
 		}
 
 		ws.ThemeStateService.ThemeChanged += OnThemeChanged;
@@ -92,7 +92,7 @@ public static class DemoTheme
 		void OnThemeChanged(object? sender, SharpConsoleUI.Core.ThemeChangedEventArgs e)
 		{
 			Apply();
-			window.Invalidate(true);
+			window.Invalidate(Invalidation.Relayout);
 		}
 
 		ws.ThemeStateService.ThemeChanged += OnThemeChanged;

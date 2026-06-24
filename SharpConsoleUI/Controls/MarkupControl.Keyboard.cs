@@ -28,7 +28,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled
 		{
 			get => _isEnabled;
-			set { if (_isEnabled == value) return; _isEnabled = value; OnPropertyChanged(); Container?.Invalidate(true); }
+			set { if (_isEnabled == value) return; _isEnabled = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <summary>Number of clickable links in the current content (cached; derived from content, not paint).</summary>
@@ -80,13 +80,13 @@ namespace SharpConsoleUI.Controls
 		{
 			// Initialize the focused link to the first VISIBLE link (R3); fall back to index 0.
 			_focusedLinkIndex = FindFirstVisibleLinkIndex();
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Repaint);
 		}
 
 		private void OnLostFocus(object? sender, EventArgs e)
 		{
 			// Keep the index (so re-entry can resume), but invalidate to clear the highlight.
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Repaint);
 		}
 
 		/// <summary>
@@ -182,7 +182,7 @@ namespace SharpConsoleUI.Controls
 		{
 			_focusedLinkIndex = i;
 			ScrollFocusedLinkIntoView(links[i].row);
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Repaint);
 		}
 
 		/// <summary>

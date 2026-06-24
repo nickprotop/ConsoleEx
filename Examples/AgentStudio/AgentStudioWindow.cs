@@ -440,7 +440,7 @@ public class AgentStudioWindow : IDisposable
         }
 
         // AutoScroll handles scrolling to bottom automatically
-        _conversationPanel.Invalidate(true);
+        _conversationPanel.Invalidate(Invalidation.Relayout);
     }
 
     private (List<string> lines, Color? bgColor, Color? fgColor) FormatMessage(Message msg)

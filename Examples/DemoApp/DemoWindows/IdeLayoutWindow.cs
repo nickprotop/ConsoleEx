@@ -185,7 +185,7 @@ public static class IdeLayoutWindow
 			sidePanelCol.Visible = sidePanelVisible;
 			sidePanelSplitter.Visible = sidePanelVisible;
 			w.ForceRebuildLayout();
-			w.Invalidate(true);
+			w.Invalidate(Invalidation.Relayout);
 		}
 
 		// Status bar

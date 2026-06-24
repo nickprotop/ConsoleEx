@@ -83,7 +83,7 @@ public class FractalWindow : Window
         {
             fractalWindow._time += 0.05;
             fractalWindow.UpdateAnimation();
-            fractalWindow.Invalidate(redrawAll: true);
+            fractalWindow.Invalidate(Invalidation.Relayout);
 
             try
             {

@@ -83,7 +83,7 @@ public class DebugSimpleMove
 		_output.WriteLine($"\nAfter move:");
 		_output.WriteLine($"Moving bounds: Left={window.Left}, Top={window.Top}, Width={window.Width}, Height={window.Height}");
 		_output.WriteLine($"Background bounds: Left={background.Left}, Top={background.Top}, Width={background.Width}, Height={background.Height}");
-		_output.WriteLine($"Background IsDirty: {background.IsDirty} (should be False after render)");
+		_output.WriteLine($"Background IsDirty: {background.PendingWork != FrameWork.None} (should be False after render)");
 		for (int x = 9; x <= 36; x += 2)
 		{
 			var c = snapshot2?.GetBack(x, 8).Character;

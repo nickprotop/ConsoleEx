@@ -456,7 +456,7 @@ class RainbowAnimationWindow : Window
 			}
 
 			// Invalidate to trigger redraw with new background
-			Invalidate(true);
+			Invalidate(Invalidation.Relayout);
 		};
 		_animationTimer.Start();
 

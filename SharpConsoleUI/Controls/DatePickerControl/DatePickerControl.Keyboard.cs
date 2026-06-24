@@ -38,7 +38,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_pendingDigit = -1;
 							_focusedSegment--;
-							Container?.Invalidate(true);
+							Container?.Invalidate(Invalidation.Relayout);
 							return true;
 						}
 					}
@@ -48,7 +48,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_pendingDigit = -1;
 							_focusedSegment++;
-							Container?.Invalidate(true);
+							Container?.Invalidate(Invalidation.Relayout);
 							return true;
 						}
 					}
@@ -59,7 +59,7 @@ namespace SharpConsoleUI.Controls
 					{
 						_pendingDigit = -1;
 						_focusedSegment++;
-						Container?.Invalidate(true);
+						Container?.Invalidate(Invalidation.Relayout);
 						return true;
 					}
 					return false;
@@ -69,7 +69,7 @@ namespace SharpConsoleUI.Controls
 					{
 						_pendingDigit = -1;
 						_focusedSegment--;
-						Container?.Invalidate(true);
+						Container?.Invalidate(Invalidation.Relayout);
 						return true;
 					}
 					return false;
@@ -151,12 +151,12 @@ namespace SharpConsoleUI.Controls
 
 				case ConsoleKey.Home:
 					_highlightedDay = 1;
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 					return true;
 
 				case ConsoleKey.End:
 					_highlightedDay = _cachedDaysInMonth;
-					Container?.Invalidate(true);
+					Container?.Invalidate(Invalidation.Relayout);
 					return true;
 
 				case ConsoleKey.T:
@@ -189,7 +189,7 @@ namespace SharpConsoleUI.Controls
 				_highlightedDay = newDay;
 			}
 
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		private void NavigateCalendarMonth(int monthDelta)
@@ -199,7 +199,7 @@ namespace SharpConsoleUI.Controls
 				_displayMonth = _displayMonth.AddMonths(monthDelta);
 				UpdateCalendarCache();
 				_highlightedDay = Math.Clamp(_highlightedDay, 1, _cachedDaysInMonth);
-				Container?.Invalidate(true);
+				Container?.Invalidate(Invalidation.Relayout);
 			}
 			catch (ArgumentOutOfRangeException)
 			{
@@ -230,7 +230,7 @@ namespace SharpConsoleUI.Controls
 			_displayMonth = new DateTime(today.Year, today.Month, 1);
 			UpdateCalendarCache();
 			_highlightedDay = today.Day;
-			Container?.Invalidate(true);
+			Container?.Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion

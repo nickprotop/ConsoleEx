@@ -54,7 +54,7 @@ public class MatrixRainWindow : Window
 		_animationTimer.Elapsed += (sender, e) =>
 		{
 			UpdateColumnPositions();
-			this.Invalidate(redrawAll: true);
+			this.Invalidate(Invalidation.Relayout);
 		};
 		_animationTimer.Start();
 

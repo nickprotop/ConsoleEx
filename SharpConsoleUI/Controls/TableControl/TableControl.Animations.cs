@@ -84,12 +84,12 @@ public partial class TableControl
 			onUpdate: intensity =>
 			{
 				entry.Intensity = intensity;
-				Invalidate();
+				Invalidate(Invalidation.Repaint);
 			},
 			onComplete: () =>
 			{
 				_rowAnimationEntries.Remove(entry);
-				Invalidate();
+				Invalidate(Invalidation.Repaint);
 			});
 	}
 
@@ -121,12 +121,12 @@ public partial class TableControl
 			onUpdate: intensity =>
 			{
 				entry.Intensity = intensity;
-				Invalidate();
+				Invalidate(Invalidation.Repaint);
 			},
 			onComplete: () =>
 			{
 				_rowAnimationEntries.Remove(entry);
-				Invalidate();
+				Invalidate(Invalidation.Repaint);
 			});
 	}
 
@@ -157,12 +157,12 @@ public partial class TableControl
 			onUpdate: intensity =>
 			{
 				entry.Intensity = intensity;
-				Invalidate();
+				Invalidate(Invalidation.Repaint);
 			},
 			onComplete: () =>
 			{
 				_rowAnimationEntries.Remove(entry);
-				Invalidate();
+				Invalidate(Invalidation.Repaint);
 			});
 	}
 
@@ -195,7 +195,7 @@ public partial class TableControl
 			onUpdate: intensity =>
 			{
 				entry.Intensity = intensity;
-				Invalidate();
+				Invalidate(Invalidation.Repaint);
 			},
 			onComplete: () =>
 			{
@@ -206,7 +206,7 @@ public partial class TableControl
 					RemoveRow(rowIndex);
 					AdjustAnimationIndicesAfterRemoval(rowIndex);
 				}
-				Invalidate();
+				Invalidate(Invalidation.Relayout);
 			});
 	}
 
@@ -251,7 +251,7 @@ public partial class TableControl
 			{
 				foreach (var entry in entries)
 					entry.Intensity = intensity;
-				Invalidate();
+				Invalidate(Invalidation.Repaint);
 			},
 			onComplete: () =>
 			{
@@ -270,7 +270,7 @@ public partial class TableControl
 				foreach (var idx in sorted)
 					AdjustAnimationIndicesAfterRemoval(idx);
 
-				Invalidate();
+				Invalidate(Invalidation.Relayout);
 			});
 	}
 
