@@ -104,6 +104,21 @@ namespace SharpConsoleUI.Controls
 		/// <see cref="Invalidation.Relayout"/> (size/position-affecting).</param>
 		void Invalidate(Invalidation work);
 
+		/// <summary>
+		/// Marks this control as needing a full re-layout on the next frame. Compatibility overload
+		/// preserving the previous parameterless signature; equivalent to
+		/// <c>Invalidate(Invalidation.Relayout)</c>.
+		/// </summary>
+		void Invalidate() => Invalidate(Invalidation.Relayout);
+
+		/// <summary>
+		/// Marks this control as needing work on the next frame. Compatibility overload preserving the
+		/// previous boolean signature: <c>true</c> maps to <see cref="Invalidation.Relayout"/>,
+		/// <c>false</c> to <see cref="Invalidation.Repaint"/>.
+		/// </summary>
+		/// <param name="redrawAll"><c>true</c> for a full re-layout, <c>false</c> for an appearance-only repaint.</param>
+		void Invalidate(bool redrawAll) => Invalidate(redrawAll ? Invalidation.Relayout : Invalidation.Repaint);
+
 	}
 
 	/// <summary>

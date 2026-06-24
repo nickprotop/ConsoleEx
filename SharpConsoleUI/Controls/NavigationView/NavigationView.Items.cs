@@ -115,6 +115,7 @@ namespace SharpConsoleUI.Controls
 			lock (_itemsLock)
 			{
 				_items.Add(item);
+				item.Owner = this;
 				_cachedReadOnlyItems = null;
 				count = _items.Count;
 
@@ -215,6 +216,7 @@ namespace SharpConsoleUI.Controls
 			{
 				index = Math.Clamp(index, 0, _items.Count);
 				_items.Insert(index, item);
+				item.Owner = this;
 				_cachedReadOnlyItems = null;
 
 				itemControl = new MarkupControl(new List<string>
@@ -274,6 +276,7 @@ namespace SharpConsoleUI.Controls
 						{
 							var childItem = _items[i];
 							var childControl = _itemControls[i];
+							childItem.Owner = null;
 							_items.RemoveAt(i);
 							_itemControls.RemoveAt(i);
 							_contentFactories.Remove(childItem);
@@ -289,6 +292,7 @@ namespace SharpConsoleUI.Controls
 
 				// Remove the item itself
 				var control = _itemControls[index];
+				item.Owner = null;
 				_items.RemoveAt(index);
 				_itemControls.RemoveAt(index);
 				_contentFactories.Remove(item);
@@ -344,6 +348,7 @@ namespace SharpConsoleUI.Controls
 				foreach (var control in _itemControls)
 					_navScrollPanel.RemoveControl(control);
 
+				foreach (var it in _items) it.Owner = null;
 				_items.Clear();
 				_itemControls.Clear();
 				_contentFactories.Clear();
@@ -369,7 +374,18 @@ namespace SharpConsoleUI.Controls
 		{
 			if (header.ItemType != NavigationItemType.Header) return;
 
+			// Flipping IsExpanded fires the setter → OnItemExpandChanged → SyncHeaderChildVisibility.
 			header.IsExpanded = !header.IsExpanded;
+		}
+
+		/// <summary>
+		/// Re-syncs the visibility of a header's child rows to its current <see cref="NavigationItem.IsExpanded"/>
+		/// state, moves the selection off any now-hidden item, and re-bakes the header's own row so its
+		/// expand/collapse indicator updates. Called when a header's expanded state changes.
+		/// </summary>
+		private void SyncHeaderChildVisibility(NavigationItem header)
+		{
+			if (header.ItemType != NavigationItemType.Header) return;
 
 			lock (_itemsLock)
 			{
@@ -430,9 +446,62 @@ namespace SharpConsoleUI.Controls
 					});
 				}
 			}
+		}
 
+		/// <summary>
+		/// Re-bakes a single item's nav-list row (and the content header if it is the selected item)
+		/// after a display property (Text/Icon/IsEnabled/HeaderColor) changes, then invalidates.
+		/// No-op if the item is not currently in this view.
+		/// </summary>
+		internal void OnItemDisplayChanged(NavigationItem item)
+		{
+			lock (_itemsLock)
+			{
+				int i = _items.IndexOf(item);
+				if (i < 0 || i >= _itemControls.Count) return;
+				bool selected = (i == _selectedIndex);
+				_itemControls[i].SetContent(new List<string> { FormatEntryForCurrentMode(item, selected) });
+				RefreshContentHeaderIfSelected(item);
+			}
+			Invalidate(Invalidation.Relayout);
+		}
+
+		/// <summary>
+		/// Refreshes the content header after a selected item's <see cref="NavigationItem.Subtitle"/>
+		/// changes (subtitle only renders in the content header, for the selected item), then invalidates.
+		/// </summary>
+		internal void OnItemSubtitleChanged(NavigationItem item)
+		{
+			lock (_itemsLock)
+			{
+				RefreshContentHeaderIfSelected(item);
+			}
+			Invalidate(Invalidation.Relayout);
+		}
+
+		/// <summary>
+		/// Re-syncs a header's child-row visibility after its <see cref="NavigationItem.IsExpanded"/>
+		/// changes, then invalidates.
+		/// </summary>
+		internal void OnItemExpandChanged(NavigationItem header)
+		{
+			SyncHeaderChildVisibility(header);
 			this.GetParentWindow()?.ForceRebuildLayout();
 			Invalidate(Invalidation.Relayout);
+		}
+
+		/// <summary>
+		/// Refreshes the content header for <paramref name="item"/> if it is the currently selected,
+		/// non-header item and the content header is shown. The content header (title + subtitle) only
+		/// renders for the selected page item.
+		/// </summary>
+		private void RefreshContentHeaderIfSelected(NavigationItem item)
+		{
+			if (_showContentHeader && _selectedIndex >= 0 && _items.IndexOf(item) == _selectedIndex
+				&& item.ItemType != NavigationItemType.Header)
+			{
+				_contentHeader.SetContent(FormatContentHeader(item));
+			}
 		}
 
 		/// <summary>
@@ -514,19 +583,24 @@ namespace SharpConsoleUI.Controls
 
 		#region Selection Helpers
 
+		/// <summary>
+		/// Formats a nav-list entry using the current display mode (Compact uses the compact
+		/// formatter; Expanded/Minimal use the full formatter).
+		/// </summary>
+		private string FormatEntryForCurrentMode(NavigationItem item, bool selected)
+			=> _currentDisplayMode == NavigationViewDisplayMode.Compact
+				? FormatNavEntryCompact(item, selected)
+				: FormatNavEntry(item, selected);
+
 		private void ApplySelection(int newIndex)
 		{
-			bool isCompact = _currentDisplayMode == NavigationViewDisplayMode.Compact;
-
 			// Update only the previously selected and newly selected item markup
 			if (_previousSelectedIndex >= 0 && _previousSelectedIndex < _items.Count
 				&& _previousSelectedIndex < _itemControls.Count)
 			{
 				_itemControls[_previousSelectedIndex].SetContent(new List<string>
 				{
-					isCompact
-						? FormatNavEntryCompact(_items[_previousSelectedIndex], false)
-						: FormatNavEntry(_items[_previousSelectedIndex], false)
+					FormatEntryForCurrentMode(_items[_previousSelectedIndex], false)
 				});
 			}
 
@@ -534,9 +608,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_itemControls[newIndex].SetContent(new List<string>
 				{
-					isCompact
-						? FormatNavEntryCompact(_items[newIndex], true)
-						: FormatNavEntry(_items[newIndex], true)
+					FormatEntryForCurrentMode(_items[newIndex], true)
 				});
 			}
 

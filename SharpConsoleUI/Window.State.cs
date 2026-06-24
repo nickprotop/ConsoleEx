@@ -384,6 +384,17 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Compatibility overload preserving the previous boolean signature: <c>true</c> maps to
+		/// <see cref="Invalidation.Relayout"/>, <c>false</c> to <see cref="Invalidation.Repaint"/>.
+		/// Declared explicitly on <see cref="Window"/> so a <c>window.Invalidate(true/false)</c> call is
+		/// unambiguous despite the boolean overload being defaulted on both <see cref="IWindowControl"/>
+		/// and <see cref="IContainer"/>.
+		/// </summary>
+		/// <param name="redrawAll"><c>true</c> for a full re-layout, <c>false</c> for an appearance-only repaint.</param>
+		public void Invalidate(bool redrawAll)
+			=> Request(redrawAll ? Invalidation.Relayout : Invalidation.Repaint);
+
+		/// <summary>
 		/// Invalidates cached border strings, forcing them to be regenerated on next render.
 		/// Called when properties affecting border rendering change (width, height, title, border style, active state).
 		/// </summary>

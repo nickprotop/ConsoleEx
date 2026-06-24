@@ -29,29 +29,55 @@ namespace SharpConsoleUI.Controls
 	public class NavigationItem
 	{
 		/// <summary>
+		/// The NavigationView that currently hosts this item, or null if detached. Set when the item is
+		/// added to a view and cleared when removed; used to self-invalidate the view on mutation.
+		/// </summary>
+		internal NavigationView? Owner { get; set; }
+
+		private string _text = string.Empty;
+		/// <summary>
 		/// Gets or sets the display text for this navigation item.
 		/// </summary>
-		public string Text { get; set; }
+		public string Text
+		{
+			get => _text;
+			set { if (_text == value) return; _text = value; Owner?.OnItemDisplayChanged(this); }
+		}
 
+		private string? _icon;
 		/// <summary>
 		/// Gets or sets an optional icon (emoji/symbol) prefix shown before the text.
 		/// </summary>
-		public string? Icon { get; set; }
+		public string? Icon
+		{
+			get => _icon;
+			set { if (_icon == value) return; _icon = value; Owner?.OnItemDisplayChanged(this); }
+		}
 
+		private string? _subtitle;
 		/// <summary>
 		/// Gets or sets an optional subtitle shown in the content header when this item is selected.
 		/// </summary>
-		public string? Subtitle { get; set; }
+		public string? Subtitle
+		{
+			get => _subtitle;
+			set { if (_subtitle == value) return; _subtitle = value; Owner?.OnItemSubtitleChanged(this); }
+		}
 
 		/// <summary>
 		/// Gets or sets custom metadata associated with this item.
 		/// </summary>
 		public object? Tag { get; set; }
 
+		private bool _isEnabled = true;
 		/// <summary>
 		/// Gets or sets whether this item is enabled and can be selected.
 		/// </summary>
-		public bool IsEnabled { get; set; } = true;
+		public bool IsEnabled
+		{
+			get => _isEnabled;
+			set { if (_isEnabled == value) return; _isEnabled = value; Owner?.OnItemDisplayChanged(this); }
+		}
 
 		/// <summary>
 		/// Gets the type of this navigation item (Item, Header, or Separator).
@@ -63,16 +89,26 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public NavigationItem? ParentHeader { get; internal set; }
 
+		private bool _isExpanded = true;
 		/// <summary>
 		/// Gets or sets whether a header's children are visible.
 		/// Only meaningful for items with <see cref="ItemType"/> == <see cref="NavigationItemType.Header"/>.
 		/// </summary>
-		public bool IsExpanded { get; set; } = true;
+		public bool IsExpanded
+		{
+			get => _isExpanded;
+			set { if (_isExpanded == value) return; _isExpanded = value; Owner?.OnItemExpandChanged(this); }
+		}
 
+		private Color? _headerColor;
 		/// <summary>
 		/// Gets or sets an optional color for header items.
 		/// </summary>
-		public Color? HeaderColor { get; set; }
+		public Color? HeaderColor
+		{
+			get => _headerColor;
+			set { if (_headerColor == value) return; _headerColor = value; Owner?.OnItemDisplayChanged(this); }
+		}
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="NavigationItem"/> class.

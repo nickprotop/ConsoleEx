@@ -33,6 +33,16 @@ namespace SharpConsoleUI.Controls
 		void Invalidate(Invalidation work, IWindowControl? callerControl = null);
 
 		/// <summary>
+		/// Marks this container as needing work on the next frame. Compatibility overload preserving the
+		/// previous boolean signature: <c>true</c> maps to <see cref="Invalidation.Relayout"/>,
+		/// <c>false</c> to <see cref="Invalidation.Repaint"/>.
+		/// </summary>
+		/// <param name="redrawAll"><c>true</c> for a full re-layout, <c>false</c> for an appearance-only repaint.</param>
+		/// <param name="callerControl">The control that triggered the invalidation, if any (cycle guard).</param>
+		void Invalidate(bool redrawAll, IWindowControl? callerControl = null)
+			=> Invalidate(redrawAll ? Invalidation.Relayout : Invalidation.Repaint, callerControl);
+
+		/// <summary>
 		/// Gets the actual visible height for a control within the container viewport.
 		/// Returns null if the control is not found or visibility cannot be determined.
 		/// </summary>

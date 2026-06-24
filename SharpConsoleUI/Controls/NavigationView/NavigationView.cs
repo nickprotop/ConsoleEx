@@ -562,6 +562,20 @@ namespace SharpConsoleUI.Controls
 			Container?.Invalidate(work, this);
 		}
 
+		/// <summary>
+		/// Compatibility overload preserving the previous parameterless signature; equivalent to
+		/// <c>Invalidate(Invalidation.Relayout)</c>. Declared here because this type's own
+		/// <see cref="Invalidate(Invalidation, IWindowControl?)"/> hides the inherited overloads.
+		/// </summary>
+		public new void Invalidate() => Invalidate(Invalidation.Relayout);
+
+		/// <summary>
+		/// Compatibility overload preserving the previous boolean signature: <c>true</c> maps to
+		/// <see cref="Invalidation.Relayout"/>, <c>false</c> to <see cref="Invalidation.Repaint"/>.
+		/// </summary>
+		/// <param name="redrawAll"><c>true</c> for a full re-layout, <c>false</c> for an appearance-only repaint.</param>
+		public new void Invalidate(bool redrawAll) => Invalidate(redrawAll ? Invalidation.Relayout : Invalidation.Repaint);
+
 		/// <inheritdoc/>
 		public int? GetVisibleHeightForControl(IWindowControl control)
 		{

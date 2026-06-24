@@ -226,6 +226,19 @@ namespace SharpConsoleUI.Controls
 		public void Invalidate(Invalidation work) => Container?.Invalidate(work, this);
 
 		/// <summary>
+		/// Compatibility overload preserving the previous parameterless signature; equivalent to
+		/// <c>Invalidate(Invalidation.Relayout)</c>.
+		/// </summary>
+		public void Invalidate() => Invalidate(Invalidation.Relayout);
+
+		/// <summary>
+		/// Compatibility overload preserving the previous boolean signature: <c>true</c> maps to
+		/// <see cref="Invalidation.Relayout"/>, <c>false</c> to <see cref="Invalidation.Repaint"/>.
+		/// </summary>
+		/// <param name="redrawAll"><c>true</c> for a full re-layout, <c>false</c> for an appearance-only repaint.</param>
+		public void Invalidate(bool redrawAll) => Invalidate(redrawAll ? Invalidation.Relayout : Invalidation.Repaint);
+
+		/// <summary>
 		/// Sets the actual rendered bounds from the layout system.
 		/// Call this at the start of <see cref="PaintDOM"/> to record the control's position.
 		/// </summary>
