@@ -19,11 +19,17 @@
   <a href="https://nickprotop.github.io/ConsoleEx/docfx/_site/tutorials/README.html">Tutorials</a>
 </p>
 
-A terminal UI framework for .NET with a real compositor engine.
+A reactive, cross-platform terminal UI framework for .NET with a real compositor engine.
 
-Per-cell alpha blending. Async windows. A portal system for dropdowns and overlays.
-A plugin architecture. A video player. NativeAOT-ready — ship a single, self-contained
-native binary with no .NET runtime and fast cold start.
+Each window runs on its own async thread, with built-in marshalling back to the UI
+thread. A DOM-based layout engine measures, arranges, and paints a tree of controls,
+including responsive panes and flexible grids with fixed, auto-sized, and proportional
+tracks, spans, and splitters. The compositor merges per-window buffers with per-cell
+alpha blending, so overlapping windows, animated backgrounds, and tween/easing
+animations all composite cleanly. A portal system for dropdowns, overlays, and toast
+notifications. 30+ controls (including an embedded PTY terminal that runs a real shell,
+a video player, data tables, tree views, and markdown), a plugin architecture, and
+NativeAOT-ready.
 
 ![SharpConsoleUI Demo](docs/images/examples/consoleex-matrix-background.gif)
 
