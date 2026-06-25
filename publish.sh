@@ -15,6 +15,7 @@ NC='\033[0m' # No Color
 VERSION_TYPE="patch"
 IS_RC=false
 FORCE=false
+RETARGET=false
 
 # Parse arguments
 for arg in "$@"; do
@@ -28,6 +29,9 @@ for arg in "$@"; do
         --force|-f)
             FORCE=true
             ;;
+        --retarget)
+            RETARGET=true
+            ;;
         --help|-h)
             echo "Usage: ./publish.sh [rc] [major|minor|patch] [--force]"
             echo ""
@@ -39,6 +43,10 @@ for arg in "$@"; do
             echo "                  major/minor/patch. Repeating 'rc' for the same target bumps"
             echo "                  the rc counter (-rc.1 -> -rc.2). Promote to stable by running"
             echo "                  the matching major/minor/patch without 'rc'."
+            echo "  --retarget      When the latest tag is an RC, bump from its base per the"
+            echo "                  requested major/minor/patch instead of promoting that RC's"
+            echo "                  version. Use to abandon an in-flight RC line and jump to a"
+            echo "                  higher version (e.g. v2.4.79-rc.N -> v2.5.0)."
             echo "  --force, -f     Skip confirmation prompt"
             echo ""
             echo "Examples:"
@@ -46,6 +54,7 @@ for arg in "$@"; do
             echo "  ./publish.sh rc minor           # First RC toward a minor (v2.4.6 -> v2.5.0-rc.1)"
             echo "  ./publish.sh rc minor           # Again: next RC (v2.5.0-rc.1 -> v2.5.0-rc.2)"
             echo "  ./publish.sh minor              # Promote: drop the suffix (v2.5.0-rc.2 -> v2.5.0)"
+            echo "  ./publish.sh minor --retarget   # Abandon RC line: v2.4.79-rc.N -> v2.5.0"
             exit 0
             ;;
         *)
@@ -169,11 +178,20 @@ LATEST_RC="${BASH_REMATCH[5]}"  # empty when the latest tag is stable
 # both the next RC and the eventual stable promotion. When the latest tag is stable, bump from it.
 echo -e "${BLUE}[3/5]${NC} Calculating new version..."
 
-if [ -n "$LATEST_RC" ]; then
+if [ -n "$LATEST_RC" ] && [ "$RETARGET" = false ]; then
     # Latest tag is an RC (e.g. v2.5.0-rc.1): the base is its own M.m.p; do NOT bump again.
     BASE_MAJOR=$MAJOR
     BASE_MINOR=$MINOR
     BASE_PATCH=$PATCH
+elif [ -n "$LATEST_RC" ] && [ "$RETARGET" = true ]; then
+    # --retarget: abandon the in-flight RC line and bump from its base per the requested type,
+    # exactly as if the RC's base were the last stable release. The RC builds are discarded; the
+    # next release jumps to the higher version (e.g. v2.4.79-rc.N --retarget minor -> v2.5.0).
+    case $VERSION_TYPE in
+        major) BASE_MAJOR=$((MAJOR + 1)); BASE_MINOR=0;            BASE_PATCH=0 ;;
+        minor) BASE_MAJOR=$MAJOR;         BASE_MINOR=$((MINOR + 1)); BASE_PATCH=0 ;;
+        patch) BASE_MAJOR=$MAJOR;         BASE_MINOR=$MINOR;         BASE_PATCH=$((PATCH + 1)) ;;
+    esac
 else
     # Latest tag is stable: bump per the requested type to get the target base.
     case $VERSION_TYPE in
@@ -187,7 +205,9 @@ NEW_VERSION="${BASE_MAJOR}.${BASE_MINOR}.${BASE_PATCH}"
 
 if [ "$IS_RC" = true ]; then
     # RC build: increment the rc counter when continuing the same target, else start at 1.
-    if [ -n "$LATEST_RC" ]; then
+    # A --retarget jumps to a fresh base, so its RC line restarts at rc.1 (the old counter
+    # belonged to the abandoned base).
+    if [ -n "$LATEST_RC" ] && [ "$RETARGET" = false ]; then
         NEW_RC=$((LATEST_RC + 1))
     else
         NEW_RC=1
