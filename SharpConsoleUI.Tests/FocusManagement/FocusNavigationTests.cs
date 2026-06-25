@@ -449,18 +449,19 @@ public class FocusNavigationTests
 
 		system.WindowStateService.AddWindow(window);
 
-		// Act & Assert - Panel should be focusable for keyboard scrolling
-		window.SwitchFocus(backward: false);
+		// The panel has no focusable children, but its content overflows the viewport, so it must be
+		// focusable as a keyboard-scroll target. The panel is an IScrollableContainer: it is bounded to
+		// the available viewport and scrolls internally, so it genuinely "needs scrolling" — it does NOT
+		// balloon to its full content height (which would make viewport == content and suppress scrolling).
+		Assert.True(panel.CanReceiveFocus);
 
-		// Panel should get focus (it needs scrolling and has no focusable children)
-		bool panelGotFocus = panel.HasFocus;
-
-		// Tab again to reach buttonAfter
+		// It participates in the focus order: initial focus lands on the panel, Tab advances to the
+		// button, and Tab cycles back to the panel.
+		Assert.True(panel.HasFocus);
 		window.SwitchFocus(backward: false);
 		Assert.True(buttonAfter.HasFocus);
-
-		// Note: Actual behavior depends on panel's NeedsScrolling() calculation
-		// This test documents expected behavior
+		window.SwitchFocus(backward: false);
+		Assert.True(panel.HasFocus);
 	}
 
 	#endregion

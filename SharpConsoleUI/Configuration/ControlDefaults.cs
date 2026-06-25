@@ -1030,6 +1030,21 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int MarkupViewportOverscanRows = 2;
 
+		#region ScrollablePanel
+
+		/// <summary>
+		/// Fallback content height (in rows) for a <see cref="Controls.ScrollablePanelControl"/> that is
+		/// measured with an effectively-unbounded height — i.e. it is neither given an explicit
+		/// <see cref="Controls.ScrollablePanelControl.Height"/> nor placed in a host that hands it a bounded
+		/// viewport. Without a cap such a panel would auto-size to its full content and let the host scroll
+		/// it; this keeps it a bounded, self-scrolling viewport. Content shorter than this still shrinks to
+		/// fit. In a normal window the panel fills the available space instead (host-provided bound), so this
+		/// only applies in genuinely unbounded contexts.
+		/// </summary>
+		public const int ScrollablePanelDefaultUnboundedHeight = 10;
+
+		#endregion
+
 		#region Toast
 
 		/// <summary>Default auto-dismiss timeout for non-error toasts, in milliseconds.</summary>

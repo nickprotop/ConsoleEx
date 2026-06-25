@@ -38,6 +38,15 @@ namespace SharpConsoleUI.Controls
 			{
 				// No explicit height - calculate from content
 				int contentHeight = CalculateContentHeight(availableWidth);
+
+				// When measured with an effectively-unbounded height, the host is giving us no viewport to
+				// fill (e.g. nested in an auto-sizing container). Auto-sizing to full content would make us
+				// balloon and hand scrolling to the host, defeating the point of a scroll viewport. Cap to a
+				// sane default so we stay bounded and self-scrolling; shorter content still shrinks to fit.
+				// In a normal window the panel is handed a bounded viewport instead, so this never triggers.
+				if (constraints.IsHeightEffectivelyUnbounded)
+					contentHeight = Math.Min(contentHeight, Configuration.ControlDefaults.ScrollablePanelDefaultUnboundedHeight);
+
 				height = contentHeight + Margin.Top + Margin.Bottom + BorderHeight + _padding.Top + _padding.Bottom;
 			}
 

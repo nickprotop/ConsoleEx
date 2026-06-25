@@ -105,16 +105,16 @@ namespace SharpConsoleUI.Layout
 
 					default: // None - scrollable
 						{
-							// Fill children without explicit height flex to share remaining space.
-							// Fill children WITH explicit height are treated as fixed (set by horizontal splitter).
-							if (child.VerticalAlignment == VerticalAlignment.Fill && child.ExplicitHeight == null)
+							// Flex children (Fill, or self-bounding scrollers) share the remaining space.
+							// Children WITH an explicit height are treated as fixed (set by horizontal splitter).
+							if (IsFlexHeight(child))
 							{
-								// Count Fill children for second pass
+								// Count flex children for second pass
 								fillChildCount++;
 							}
 							else
 							{
-								// Measure non-Fill scrollable children with unlimited height
+								// Measure non-flex scrollable children with unlimited height
 								var childConstraints = constraints.WithMaxHeight(int.MaxValue);
 								var childSize = child.Measure(childConstraints);
 								scrollableHeight += childSize.Height;
@@ -136,9 +136,9 @@ namespace SharpConsoleUI.Layout
 
 				var stickyPosition = child.Control?.StickyPosition ?? StickyPosition.None;
 
-				if (stickyPosition == StickyPosition.None && child.VerticalAlignment == VerticalAlignment.Fill && child.ExplicitHeight == null)
+				if (stickyPosition == StickyPosition.None && IsFlexHeight(child))
 				{
-					// Measure Fill children with divided remaining space
+					// Measure flex children with divided remaining space
 					var childConstraints = constraints.WithMaxHeight(fillChildHeight);
 					var childSize = child.Measure(childConstraints);
 					scrollableHeight += childSize.Height;
@@ -189,7 +189,7 @@ namespace SharpConsoleUI.Layout
 						stickyBottomHeight += child.DesiredSize.Height;
 						break;
 					default: // None - scrollable
-						if (child.VerticalAlignment == VerticalAlignment.Fill && child.ExplicitHeight == null)
+						if (IsFlexHeight(child))
 						{
 							fillChildCount++;
 						}
@@ -259,9 +259,9 @@ namespace SharpConsoleUI.Layout
 							// Position relative to scrollable area with scroll offset applied
 							int visualY = scrollableTop + currentScrollableY;
 
-							// Determine child height - fill children get remaining space
+							// Determine child height - flex children get remaining space
 							int childHeight;
-							if (child.VerticalAlignment == VerticalAlignment.Fill && child.ExplicitHeight == null)
+							if (IsFlexHeight(child))
 							{
 								childHeight = fillChildHeight + (extraHeight > 0 ? 1 : 0);
 								extraHeight--;
@@ -281,6 +281,17 @@ namespace SharpConsoleUI.Layout
 				}
 			}
 		}
+
+		/// <summary>
+		/// Whether a scrollable (non-sticky) child should flex to share the available viewport rather than
+		/// auto-size to its full content. True for explicit <see cref="VerticalAlignment.Fill"/> children and
+		/// for any <see cref="IScrollableContainer"/> (e.g. <see cref="ScrollablePanelControl"/>), which is a
+		/// self-bounding viewport that must scroll its own content inside the space it is given instead of
+		/// growing and letting the window scroll it. An explicit <c>Height</c> opts out (treated as fixed).
+		/// </summary>
+		private static bool IsFlexHeight(LayoutNode child)
+			=> child.ExplicitHeight == null
+				&& (child.VerticalAlignment == VerticalAlignment.Fill || child.Control is IScrollableContainer);
 
 		/// <summary>
 		/// Calculates the X position and width for a child based on its HorizontalAlignment.
