@@ -1045,7 +1045,7 @@ namespace SharpConsoleUI.Configuration
 		public const int ToastEdgeMargin = 1;
 
 		/// <summary>Vertical gap between stacked toasts, in rows.</summary>
-		public const int ToastGap = 1;
+		public const int ToastGap = 0;
 
 		#endregion
 	}

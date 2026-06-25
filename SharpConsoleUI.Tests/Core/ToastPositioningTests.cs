@@ -1,3 +1,4 @@
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using Xunit;
 
@@ -13,6 +14,15 @@ public class ToastPositioningTests
 		Assert.True(s1.Y < s0.Y);
 		Assert.Equal(s0.X, s1.X);
 		Assert.True(s0.X + s0.Width <= 100);
+	}
+
+	[Fact]
+	public void ConsecutiveSlots_AreOneToastHeightPlusGapApart()
+	{
+		var s0 = ToastService.ComputeToastBounds(ToastPosition.BottomRight, 0, 20, 100, 40);
+		var s1 = ToastService.ComputeToastBounds(ToastPosition.BottomRight, 1, 20, 100, 40);
+		// Each toast is s0.Height rows tall; the stride between slots is height + the configured gap.
+		Assert.Equal(s0.Height + ControlDefaults.ToastGap, s0.Y - s1.Y);
 	}
 
 	[Fact]
