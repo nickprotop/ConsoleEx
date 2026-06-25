@@ -731,31 +731,33 @@ private void DismissPortal()
 }
 ```
 
-## 17. Notifications (Toast Messages)
+## 17. Notifications
+
+Two systems — see [NOTIFICATIONS.md](NOTIFICATIONS.md) for the full guide.
+
+**Toasts** — non-blocking, single-line, auto-stacking corner overlays:
 
 ```csharp
-// Info toast (auto-dismisses after 3s)
-ws.NotificationStateService.ShowNotification(
-    "Information", "Operation completed.",
-    NotificationSeverity.Info);
+// Auto-dismisses; click to dismiss early
+ws.ToastService.Show("Saved successfully", NotificationSeverity.Success);
+ws.ToastService.Show("Sync started", NotificationSeverity.Info);
 
-// Warning toast (auto-dismisses after 5s)
-ws.NotificationStateService.ShowNotification(
-    "Warning", "Disk space is running low.",
-    NotificationSeverity.Warning);
+// Sticky (stays until clicked or dismissed) + custom position
+ws.ToastService.Show("Connection lost", NotificationSeverity.Danger,
+    new ToastOptions(Sticky: true, Position: ToastPosition.TopRight));
 
-// Persistent (user must dismiss)
-ws.NotificationStateService.ShowNotification(
-    "Error", "Connection lost.",
-    NotificationSeverity.Danger, timeout: null);
+ws.ToastService.DismissAll();
+```
 
-// Modal (blocks UI until dismissed)
+**NotificationStateService** — title + message, can block the UI:
+
+```csharp
+// Modal: blocks UI until dismissed
 ws.NotificationStateService.ShowNotification(
     "Confirm", "This action cannot be undone.",
     NotificationSeverity.Warning, blockUi: true, timeout: null);
 
-// Dismiss all
-ws.NotificationStateService.DismissAll();
+ws.NotificationStateService.DismissAllNotifications();
 ```
 
 ## 18. Table with Interactive Features

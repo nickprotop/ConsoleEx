@@ -100,6 +100,8 @@
       href: THEMES.md
     - name: State Services
       href: STATE-SERVICES.md
+    - name: Notifications
+      href: NOTIFICATIONS.md
     - name: Status System
       href: STATUS_SYSTEM.md
     - name: Registry

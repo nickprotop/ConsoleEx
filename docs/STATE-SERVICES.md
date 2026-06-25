@@ -301,123 +301,22 @@ bool isBlocked = windowSystem.ModalStateService.IsBlockedByModal(mainWindow);
 
 ## NotificationStateService
 
-Manages notification display, timeout, and dismissal.
-
-### Key Properties
+Manages title + message notifications (optionally modal/blocking), including display, timeout, and dismissal.
 
 ```csharp
-// Get current notification state
-NotificationState State { get; }
-
-// Check if there are active notifications
-bool HasNotifications => State.HasNotifications;
-
-// Get count of active notifications
-int ActiveCount => State.ActiveCount;
-```
-
-### Notification Severity
-
-```csharp
-public enum NotificationSeverity
-{
-    None,    // Gray
-    Info,    // Blue
-    Success, // Green
-    Warning, // Yellow
-    Danger   // Red
-}
-```
-
-### Key Methods
-
-```csharp
-// Show a notification
-string ShowNotification(
-    string title,
-    string message,
-    NotificationSeverity severity,
-    bool blockUi = false,
-    int? timeout = 5000,
-    Window? parentWindow = null
-);
-
-// Dismiss a notification by ID
-bool DismissNotification(string notificationId);
-
-// Dismiss all notifications
-void DismissAllNotifications();
-
-// Get notification by ID
-NotificationInfo? GetNotification(string notificationId);
-```
-
-### Events
-
-```csharp
-// Fired when a notification is shown
-event EventHandler<NotificationEventArgs>? NotificationShown;
-
-// Fired when a notification is dismissed
-event EventHandler<NotificationEventArgs>? NotificationDismissed;
-```
-
-### Usage Examples
-
-```csharp
-// Show a simple notification (auto-dismisses after 5 seconds)
+// Auto-dismisses after 5 seconds
 windowSystem.NotificationStateService.ShowNotification(
     title: "File Saved",
     message: "Your document has been saved successfully",
-    severity: NotificationSeverity.Success
-);
+    severity: NotificationSeverity.Success);
 
-// Show a blocking notification (user must dismiss)
+// Blocking + persistent — user must dismiss
 windowSystem.NotificationStateService.ShowNotification(
-    title: "Error",
-    message: "Failed to connect to database",
-    severity: NotificationSeverity.Danger,
-    blockUi: true,
-    timeout: null  // No auto-dismiss
-);
-
-// Show notification with custom timeout
-windowSystem.NotificationStateService.ShowNotification(
-    title: "Processing",
-    message: "Operation in progress...",
-    severity: NotificationSeverity.Info,
-    timeout: 10000  // 10 seconds
-);
-
-// Show notification attached to a specific window
-windowSystem.NotificationStateService.ShowNotification(
-    title: "Validation Error",
-    message: "Please fill in all required fields",
-    severity: NotificationSeverity.Warning,
-    parentWindow: formWindow
-);
-
-// Subscribe to notification events
-windowSystem.NotificationStateService.NotificationShown += (sender, e) =>
-{
-    Console.WriteLine($"Notification shown: {e.Notification.Title}");
-};
-
-windowSystem.NotificationStateService.NotificationDismissed += (sender, e) =>
-{
-    Console.WriteLine($"Notification dismissed: {e.Notification.Title}");
-};
-
-// Dismiss specific notification
-string notificationId = windowSystem.NotificationStateService.ShowNotification(
-    "Info", "Message", NotificationSeverity.Info);
-
-// Later...
-windowSystem.NotificationStateService.DismissNotification(notificationId);
-
-// Dismiss all notifications
-windowSystem.NotificationStateService.DismissAllNotifications();
+    "Error", "Failed to connect to database",
+    NotificationSeverity.Danger, blockUi: true, timeout: null);
 ```
+
+> **For the full notifications guide — including the non-blocking corner `ToastService` (`ws.ToastService`) and when to use which system — see [NOTIFICATIONS.md](NOTIFICATIONS.md).**
 
 ## ThemeStateService
 
