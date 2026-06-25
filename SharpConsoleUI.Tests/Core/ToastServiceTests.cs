@@ -41,9 +41,11 @@ public class ToastSchedulerTests
 	public void TaskScheduler_RunsCallback()
 	{
 		var sched = new TaskToastScheduler(a => a());  // synchronous post (test-only)
-		var ran = false;
-		sched.Schedule(1, () => ran = true);
-		System.Threading.Thread.Sleep(50);
+		var done = new System.Threading.ManualResetEventSlim(false);
+		sched.Schedule(1, () => done.Set());
+		// Condition-based wait — Task.Delay's continuation may run well after the requested 1ms under
+		// CI load, so poll for completion with a generous timeout instead of a fixed sleep (flaky).
+		bool ran = done.Wait(System.TimeSpan.FromSeconds(5));
 		Assert.True(ran);
 	}
 }
