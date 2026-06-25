@@ -74,24 +74,23 @@ namespace SharpConsoleUI.Controls
 			return false;
 		}
 
-		/// <summary>Paints the rounded toast box with a neutral border and an inner severity-colored accent bar.</summary>
+		/// <summary>Paints the rounded toast box with a severity-role border and a matching inner accent bar.</summary>
 		protected override void PaintPortalContent(CharacterBuffer buffer, LayoutRect bounds,
 			LayoutRect clipRect, Color defaultFg, Color defaultBg)
 		{
 			var box = BoxChars.Rounded;
 			Color back = ColorResolver.ColorRoleBackground(_colorRole, Container, outline: true) ?? defaultBg;
 			Color text = ColorResolver.ColorRoleTextOnBackground(_colorRole, Container, outline: true) ?? defaultFg;
-			Color neutralBorder = Container?.GetConsoleWindowSystem?.Theme?.ActiveBorderForegroundColor ?? defaultFg;
 			Color accent = ColorResolver.ColorRoleBorder(_colorRole, Container, outline: true) ?? text;
 
 			buffer.FillRect(bounds, ' ', text, back);
 			int x0 = bounds.X, y0 = bounds.Y, x1 = bounds.X + bounds.Width - 1, y1 = bounds.Y + bounds.Height - 1;
-			buffer.SetNarrowCell(x0, y0, box.TopLeft, neutralBorder, back);
-			buffer.SetNarrowCell(x1, y0, box.TopRight, neutralBorder, back);
-			buffer.SetNarrowCell(x0, y1, box.BottomLeft, neutralBorder, back);
-			buffer.SetNarrowCell(x1, y1, box.BottomRight, neutralBorder, back);
-			for (int x = x0 + 1; x < x1; x++) { buffer.SetNarrowCell(x, y0, box.Horizontal, neutralBorder, back); buffer.SetNarrowCell(x, y1, box.Horizontal, neutralBorder, back); }
-			for (int y = y0 + 1; y < y1; y++) { buffer.SetNarrowCell(x0, y, box.Vertical, neutralBorder, back); buffer.SetNarrowCell(x1, y, box.Vertical, neutralBorder, back); }
+			buffer.SetNarrowCell(x0, y0, box.TopLeft, accent, back);
+			buffer.SetNarrowCell(x1, y0, box.TopRight, accent, back);
+			buffer.SetNarrowCell(x0, y1, box.BottomLeft, accent, back);
+			buffer.SetNarrowCell(x1, y1, box.BottomRight, accent, back);
+			for (int x = x0 + 1; x < x1; x++) { buffer.SetNarrowCell(x, y0, box.Horizontal, accent, back); buffer.SetNarrowCell(x, y1, box.Horizontal, accent, back); }
+			for (int y = y0 + 1; y < y1; y++) { buffer.SetNarrowCell(x0, y, box.Vertical, accent, back); buffer.SetNarrowCell(x1, y, box.Vertical, accent, back); }
 
 			for (int y = y0 + 1; y < y1; y++)
 				buffer.SetNarrowCell(x0 + 1, y, '▌', accent, back);
