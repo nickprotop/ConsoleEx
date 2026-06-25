@@ -73,6 +73,7 @@ public static class LauncherWindow
 				.AddItem("Digital Clock", subtitle: "FIGlet-rendered clock", content: MakeInfoPanel("Digital Clock"))
 				.AddItem("Log Viewer", subtitle: "Real-time log display", content: MakeInfoPanel("Log Viewer"))
 				.AddItem("Notifications", subtitle: "Notification system demo", content: MakeInfoPanel("Notifications"))
+				.AddItem("Toasts", subtitle: "Non-blocking corner toasts — stack, position, sticky", content: MakeInfoPanel("Toasts"))
 				.AddItem("System Info", subtitle: "OS & runtime details", content: MakeInfoPanel("System Info"))
 				.AddItem("Terminal", subtitle: "PTY-backed terminal emulator", content: MakeInfoPanel("Terminal"))
 				.AddItem("Video Player", subtitle: "Terminal video playback with half-block rendering",
@@ -270,6 +271,7 @@ public static class LauncherWindow
 			"Digital Clock" => ClockWindow.Create(ws),
 			"Log Viewer" => LogViewerWindow.Create(ws),
 			"Notifications" => NotificationsWindow.Create(ws),
+			"Toasts" => ToastsWindow.Create(ws),
 			"System Info" => SystemInfoWindow.Create(ws),
 			"Terminal" => TerminalWindow.Create(ws),
 			"Toolbar" => ToolbarDemoWindow.Create(ws),
@@ -804,6 +806,19 @@ public static class LauncherWindow
 				"[dim]Controls used:[/]",
 				"  - ButtonControl, MarkupControl",
 				"  - NotificationStateService",
+			},
+			"Toasts" => new List<string>
+			{
+				"[bold]Toast Notifications[/]",
+				"",
+				"Lightweight, non-blocking overlays rendered as",
+				"desktop portals above all windows. They stack in",
+				"a corner, are themed by severity role, and auto-",
+				"dismiss (sticky toasts stay). Clicking dismisses.",
+				"",
+				"[dim]Controls used:[/]",
+				"  - ButtonControl, MarkupControl",
+				"  - ToastService (DesktopPortalService-backed)",
 			},
 			"System Info" => new List<string>
 			{

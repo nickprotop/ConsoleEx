@@ -94,6 +94,7 @@ namespace SharpConsoleUI
 		private readonly SettingsRegistrationService _settingsRegistrationService = new();
 		private readonly Core.DesktopPortalService _desktopPortalService;
 		private readonly Core.DesktopBackgroundService _desktopBackgroundService;
+		private readonly Core.ToastService _toastService;
 
 		// Plugin system
 		private readonly PluginStateService _pluginStateService;
@@ -373,6 +374,9 @@ namespace SharpConsoleUI
 			// Initialize notification service (needs 'this' reference)
 			_notificationStateService = new NotificationStateService(this, _logService);
 
+			// Initialize toast service (needs 'this' reference)
+			_toastService = new Core.ToastService(this, _logService);
+
 			// Initialize plugin state service
 			_pluginStateService = new PluginStateService(this, _logService);
 
@@ -569,6 +573,9 @@ namespace SharpConsoleUI
 		/// Gets the desktop portal service for managing desktop-level overlay portals.
 		/// </summary>
 		public Core.DesktopPortalService DesktopPortalService => _desktopPortalService;
+
+		/// <summary>Gets the toast notification service.</summary>
+		public Core.ToastService ToastService => _toastService;
 
 		/// <summary>
 		/// Gets the text that was piped into the application via stdin, or null if stdin is a TTY.

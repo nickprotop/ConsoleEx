@@ -1029,5 +1029,24 @@ namespace SharpConsoleUI.Configuration
 		/// so edge hit-testing and partial-row reveals are safe. Small constant — keeps paint O(viewport).
 		/// </summary>
 		public const int MarkupViewportOverscanRows = 2;
+
+		#region Toast
+
+		/// <summary>Default auto-dismiss timeout for non-error toasts, in milliseconds.</summary>
+		public const int ToastDefaultTimeoutMs = 3000;
+
+		/// <summary>Default auto-dismiss timeout for error (danger) toasts, in milliseconds.</summary>
+		public const int ToastErrorTimeoutMs = 6000;
+
+		/// <summary>Maximum width of a toast overlay, in display columns.</summary>
+		public const int ToastMaxWidth = 48;
+
+		/// <summary>Margin between the stacked toasts and the screen edge, in cells.</summary>
+		public const int ToastEdgeMargin = 1;
+
+		/// <summary>Vertical gap between stacked toasts, in rows.</summary>
+		public const int ToastGap = 1;
+
+		#endregion
 	}
 }
