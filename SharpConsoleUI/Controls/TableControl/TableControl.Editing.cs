@@ -79,6 +79,30 @@ public partial class TableControl
 		set { _columnSeparatorColor = value; OnPropertyChanged(); }
 	}
 
+	/// <summary>
+	/// When <c>true</c>, the column separator is drawn with one space on each side (<c>" │ "</c>)
+	/// for breathing room instead of flush against the adjacent cell text. Only applies when
+	/// <see cref="ColumnSeparator"/> is set and borders are disabled. Defaults to <c>false</c>,
+	/// preserving the original single-cell-wide separator.
+	/// </summary>
+	public bool ColumnSeparatorPadded
+	{
+		get => _columnSeparatorPadded;
+		set { _columnSeparatorPadded = value; OnPropertyChanged(); }
+	}
+
+	/// <summary>
+	/// When <c>true</c>, reserves a one-cell blank gutter between the column content and the
+	/// vertical scrollbar so a right-aligned final column does not sit flush against the scrollbar.
+	/// Only has effect when a vertical scrollbar is shown. Defaults to <c>false</c>, preserving the
+	/// original flush-to-scrollbar layout.
+	/// </summary>
+	public bool ScrollbarGutter
+	{
+		get => _scrollbarGutter;
+		set { _scrollbarGutter = value; OnPropertyChanged(); }
+	}
+
 	#endregion
 
 	#region Editing Methods

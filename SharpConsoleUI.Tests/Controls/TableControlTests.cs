@@ -31,6 +31,17 @@ public class TableControlTests
 			System.Text.RegularExpressions.Regex.Replace(line, @"\x1b\[[0-9;]*m", "")));
 	}
 
+	/// <summary>
+	/// Renders the window, strips ANSI, and returns the single rendered line that contains
+	/// <paramref name="needle"/>. Used to assert intra-row spacing (e.g. around a column separator)
+	/// without merging separators across multiple rows.
+	/// </summary>
+	private static string GetLineContaining(Window window, string needle)
+	{
+		var lines = StripAnsiCodes(window.RenderAndGetVisibleContent()).Split('\n');
+		return lines.First(l => l.Contains(needle));
+	}
+
 	#endregion
 
 	#region Construction Tests
@@ -953,6 +964,122 @@ public class TableControlTests
 
 		// Assert - should not crash with empty table
 		Assert.NotNull(output);
+	}
+
+	[Fact]
+	public void PaintDOM_ColumnSeparatorFlush_DrawsGlyphWithoutSurroundingSpaces()
+	{
+		// Arrange — borderless table with a flush (default) column separator.
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 20 };
+
+		var table = TableControl.Create()
+			.NoBorder()
+			.WithColumnSeparator('│')
+			.AddColumn("AAA")
+			.AddColumn("BBB")
+			.AddRow("a1", "b1")
+			.Build();
+		window.AddControl(table);
+
+		// Act
+		var headerLine = GetLineContaining(window, "AAA");
+
+		// Assert — the separator sits flush: the next column's text ("BBB") starts immediately after
+		// the glyph, and the glyph is not wrapped in spaces. The padded marker " │ " must be absent.
+		Assert.Contains('│', headerLine);
+		Assert.Contains("│BBB", headerLine);   // glyph immediately precedes the next column's text
+		Assert.DoesNotContain(" │ ", headerLine);
+	}
+
+	[Fact]
+	public void PaintDOM_ColumnSeparatorPadded_DrawsGlyphWithSurroundingSpaces()
+	{
+		// Arrange — same table, but with the padded separator opt-in.
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 20 };
+
+		var table = TableControl.Create()
+			.NoBorder()
+			.WithColumnSeparator('│', padded: true)
+			.AddColumn("AAA")
+			.AddColumn("BBB")
+			.AddRow("a1", "b1")
+			.Build();
+		window.AddControl(table);
+
+		// Act
+		var headerLine = GetLineContaining(window, "AAA");
+
+		// Assert — the glyph now has a space on each side: " │ " appears verbatim in the header row.
+		Assert.Contains(" │ ", headerLine);
+	}
+
+	[Fact]
+	public void ColumnSeparatorPadded_WidensTotalColumnsWidth_ByTwoPerSeparator()
+	{
+		// A padded separator must consume 3 cells (space-glyph-space) vs 1 for flush. Building the same
+		// table both ways and rendering each (so _renderedColumnWidths is populated) lets us read the
+		// budget back from GetTotalColumnsWidth — the single source of truth that paint and hit-testing
+		// both depend on. The "real thing" here is that the width math, not just the glyph, changed.
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+
+		TableControl Build(bool padded)
+		{
+			var window = new Window(system) { Width = 80, Height = 20 };
+			var t = TableControl.Create()
+				.NoBorder()
+				.WithColumnSeparator('│', padded: padded)
+				.AddColumn("AAA")
+				.AddColumn("BBB")
+				.AddColumn("CCC")
+				.AddRow("a1", "b1", "c1")
+				.WithVerticalAlignment(VerticalAlignment.Top)
+				.Build();
+			window.AddControl(t);
+			window.RenderAndGetVisibleContent(); // populate _renderedColumnWidths
+			return t;
+		}
+
+		var flush = Build(padded: false);
+		var padded = Build(padded: true);
+
+		int flushWidth = flush.GetTotalColumnsWidth();
+		int paddedWidth = padded.GetTotalColumnsWidth();
+
+		// 3 columns → 2 separators. Padded adds 2 extra cells (the two spaces) per separator ⇒ +4 total.
+		Assert.Equal(flushWidth + 2 * 2, paddedWidth);
+	}
+
+	[Fact]
+	public void ScrollbarGutter_KeepsRightAlignedColumnOffTheScrollbar()
+	{
+		// Real thing: a borderless table with more rows than fit, so a vertical scrollbar appears, and a
+		// right-aligned final column whose values would otherwise butt against the scrollbar glyph. With
+		// the gutter on, a blank cell must sit between the last column's text and the scrollbar.
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 40, Height = 12 };
+
+		var builder = TableControl.Create()
+			.NoBorder()
+			.ScrollbarGutter()
+			.WithHeight(6) // fewer visible rows than the 20 below → forces the vertical scrollbar
+			.AddColumn("Name", TextJustification.Left)
+			.AddColumn("Count", TextJustification.Right);
+		for (int i = 0; i < 20; i++)
+			builder.AddRow($"item-{i}", (1000 + i).ToString());
+		var table = builder.Build();
+		window.AddControl(table);
+
+		// Act — find a data row line and the scrollbar column.
+		var line = GetLineContaining(window, "item-0");
+
+		// The vertical scrollbar uses block/arrow glyphs; locate the first one on this line.
+		int sbIdx = line.IndexOfAny(new[] { '█', '▲', '▼', '░', '│' });
+		Assert.True(sbIdx > 0, $"expected a scrollbar glyph on the row, got: '{line}'");
+
+		// Assert — the cell immediately left of the scrollbar is the blank gutter, not a digit.
+		Assert.Equal(' ', line[sbIdx - 1]);
 	}
 
 	#endregion

@@ -42,6 +42,8 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 	private bool _columnResizeEnabled = false;
 	private char? _columnSeparator;
 	private Color? _columnSeparatorColor;
+	private bool _columnSeparatorPadded;
+	private bool _scrollbarGutter;
 	private bool _inlineEditingEnabled = false;
 	private bool _filteringEnabled = false;
 	private bool _fuzzyFilterEnabled = false;
@@ -573,10 +575,29 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 	/// <summary>
 	/// Sets an optional character drawn between columns when borders are disabled.
 	/// </summary>
-	public TableControlBuilder WithColumnSeparator(char separator, Color? color = null)
+	/// <param name="separator">The glyph drawn between columns (e.g. <c>'│'</c>).</param>
+	/// <param name="color">Separator color; falls back to the border color when null.</param>
+	/// <param name="padded">
+	/// When <c>true</c>, the glyph is drawn with one space on each side (<c>" │ "</c>) for breathing
+	/// room instead of flush against the adjacent cell text. Defaults to <c>false</c> (flush), which
+	/// preserves the original single-cell-wide separator.
+	/// </param>
+	public TableControlBuilder WithColumnSeparator(char separator, Color? color = null, bool padded = false)
 	{
 		_columnSeparator = separator;
 		_columnSeparatorColor = color;
+		_columnSeparatorPadded = padded;
+		return this;
+	}
+
+	/// <summary>
+	/// Reserves a one-cell blank gutter between the column content and the vertical scrollbar, so a
+	/// right-aligned final column doesn't sit flush against the scrollbar. Only has effect when a
+	/// vertical scrollbar is shown. Off by default.
+	/// </summary>
+	public TableControlBuilder ScrollbarGutter(bool enabled = true)
+	{
+		_scrollbarGutter = enabled;
 		return this;
 	}
 
@@ -715,6 +736,8 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 			ColumnResizeEnabled = _columnResizeEnabled,
 			ColumnSeparator = _columnSeparator,
 			ColumnSeparatorColor = _columnSeparatorColor,
+			ColumnSeparatorPadded = _columnSeparatorPadded,
+			ScrollbarGutter = _scrollbarGutter,
 			InlineEditingEnabled = _inlineEditingEnabled,
 			FilteringEnabled = _filteringEnabled,
 			FuzzyFilterEnabled = _fuzzyFilterEnabled,

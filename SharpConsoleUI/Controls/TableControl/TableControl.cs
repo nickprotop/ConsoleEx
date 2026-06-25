@@ -149,6 +149,28 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	// Column separator (when no borders)
 	private char? _columnSeparator;
 	private Color? _columnSeparatorColor;
+	// When true, the column separator glyph is drawn with one space on each side (" │ ")
+	// instead of flush against the adjacent cell content. Opt-in; default flush preserves
+	// the original single-cell-wide separator behaviour.
+	private bool _columnSeparatorPadded;
+	// When true, a one-cell blank gutter is reserved between the column content and the vertical
+	// scrollbar, so a right-aligned last column doesn't sit flush against the scrollbar. Opt-in;
+	// default false keeps the original flush-to-scrollbar layout.
+	private bool _scrollbarGutter;
+
+	/// <summary>
+	/// Extra cells reserved to the right of the column content, before the vertical scrollbar:
+	/// 1 when <see cref="_scrollbarGutter"/> is set and a vertical scrollbar is shown, else 0.
+	/// Single source of truth so the width budget and the scrollbar X position stay in sync.
+	/// </summary>
+	private int ScrollbarGutterWidth => (_scrollbarGutter && ShouldShowVerticalScrollbar()) ? 1 : 0;
+
+	/// <summary>
+	/// Rendered width, in cells, of a single column separator: 3 when padded (" │ "), otherwise 1.
+	/// Single source of truth for the separator's contribution to width budgeting and hit-testing,
+	/// so the render path and every layout calculation agree.
+	/// </summary>
+	private int SeparatorWidth => _columnSeparatorPadded ? 3 : 1;
 
 	// Column resizing
 	private bool _columnResizeEnabled = false;
@@ -1063,7 +1085,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 		bool hasBorder = _borderStyle != BorderStyle.None;
 		int separatorOverhead = hasBorder ? (colCount + 1)
-			: (_columnSeparator.HasValue ? Math.Max(0, colCount - 1) : 0);
+			: (_columnSeparator.HasValue ? Math.Max(0, colCount - 1) * SeparatorWidth : 0);
 		int contentWidth = availableWidth - separatorOverhead;
 		if (contentWidth < colCount) contentWidth = colCount;
 
@@ -1185,7 +1207,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 		bool hasBorder = _borderStyle != BorderStyle.None;
 		int borderOverhead = hasBorder ? (colCount + 1)
-			: (_columnSeparator.HasValue ? Math.Max(0, colCount - 1) : 0);
+			: (_columnSeparator.HasValue ? Math.Max(0, colCount - 1) * SeparatorWidth : 0);
 		int contentWidth = availableWidth - borderOverhead;
 		if (contentWidth < colCount) contentWidth = colCount;
 
@@ -1341,7 +1363,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		else if (_columnSeparator.HasValue)
 		{
 			int dataColCount = _checkboxMode ? Math.Max(0, colWidths.Length - 1) : colWidths.Length;
-			total += Math.Max(0, dataColCount - 1);
+			total += Math.Max(0, dataColCount - 1) * SeparatorWidth;
 		}
 		return total;
 	}
@@ -1359,7 +1381,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			foreach (int w in _renderedColumnWidths) total += w;
 			bool hasBorder = _borderStyle != BorderStyle.None;
 			if (hasBorder) total += _renderedColumnWidths.Length + 1;
-			else if (_columnSeparator.HasValue) total += Math.Max(0, _renderedColumnWidths.Length - 1);
+			else if (_columnSeparator.HasValue) total += Math.Max(0, _renderedColumnWidths.Length - 1) * SeparatorWidth;
 			return total;
 		}
 

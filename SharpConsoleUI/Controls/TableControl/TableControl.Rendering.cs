@@ -143,7 +143,8 @@ public partial class TableControl
 		int hScrollOffset = 0, int viewportWidth = int.MaxValue,
 		bool isSelected = false, int selectedCellIndex = -1, Color? selectedCellBg = null, Color? selectedCellFg = null,
 		int editCellIndex = -1, int editCursorPos = -1,
-		List<(int Column, int Start, int Length)>? filterMatches = null)
+		List<(int Column, int Start, int Length)>? filterMatches = null,
+		int trailingFillWidth = 0)
 	{
 		if (y < clipRect.Y || y >= clipRect.Bottom) return;
 
@@ -375,13 +376,36 @@ public partial class TableControl
 			else if (_columnSeparator.HasValue && c < colWidths.Length - 1
 				&& !(_checkboxMode && c == 0))
 			{
+				var sepColor = _columnSeparatorColor ?? borderColor;
+				// Padded separators get a leading and trailing space (" │ ") for breathing room;
+				// flush separators are just the glyph. SeparatorWidth keeps the width budget in sync.
+				if (_columnSeparatorPadded)
+				{
+					if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
+						buffer.SetNarrowCell(writeX, y, ' ', cellFg, rowBg);
+					writeX++;
+				}
 				if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
 				{
-					var sepColor = _columnSeparatorColor ?? borderColor;
 					buffer.SetNarrowCell(writeX, y, _columnSeparator.Value, sepColor, rowBg);
 				}
 				writeX++;
+				if (_columnSeparatorPadded)
+				{
+					if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
+						buffer.SetNarrowCell(writeX, y, ' ', cellFg, rowBg);
+					writeX++;
+				}
 			}
+		}
+
+		// Trailing scrollbar gutter: blank cells in the row's own background so a selected/hovered
+		// row extends cleanly up to (but not under) the scrollbar instead of stopping at the last column.
+		for (int i = 0; i < trailingFillWidth; i++)
+		{
+			if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
+				buffer.SetNarrowCell(writeX, y, ' ', rowFg, rowBg);
+			writeX++;
 		}
 	}
 
@@ -461,9 +485,9 @@ public partial class TableControl
 		int targetWidth = Width ?? constraints.MaxWidth;
 		int contentWidth = targetWidth - Margin.Left - Margin.Right;
 
-		// Reserve space for vertical scrollbar
+		// Reserve space for vertical scrollbar (+ optional gutter before it)
 		if (ShouldShowVerticalScrollbar())
-			contentWidth = Math.Max(1, contentWidth - 1);
+			contentWidth = Math.Max(1, contentWidth - 1 - ScrollbarGutterWidth);
 
 		// Reserve space for checkbox column
 		int cbWidth = _checkboxMode ? 4 : 0;
@@ -479,14 +503,14 @@ public partial class TableControl
 			colWidths = ComputeColumnWidths(dataContentWidth2, colSnapshot!, rowSnapshot!, _scrollOffset, GetVisibleRowCount());
 
 		int borderOverhead = hasBorder ? (colCount + 1)
-			: (_columnSeparator.HasValue ? Math.Max(0, colCount - 1) : 0);
+			: (_columnSeparator.HasValue ? Math.Max(0, colCount - 1) * SeparatorWidth : 0);
 		int measuredWidth = cbWidth + (cbWidth > 0 && hasBorder ? 1 : 0);
 		foreach (int w in colWidths) measuredWidth += w;
 		measuredWidth += borderOverhead;
 
-		// Add scrollbar width
+		// Add scrollbar width (+ optional gutter before it)
 		if (ShouldShowVerticalScrollbar())
-			measuredWidth++;
+			measuredWidth += 1 + ScrollbarGutterWidth;
 
 		if (!string.IsNullOrEmpty(_title))
 		{
@@ -610,13 +634,19 @@ public partial class TableControl
 			return;
 		}
 
+		// Optional gutter between the column content and the scrollbar: the columns are laid out into
+		// columnContentWidth (one cell narrower), leaving the cell at startX + columnContentWidth blank,
+		// while the scrollbar stays at startX + contentWidth on the far right.
+		int scrollbarGutter = ScrollbarGutterWidth;
+		int columnContentWidth = Math.Max(1, contentWidth - scrollbarGutter);
+
 		// Reserve space for checkbox column before computing data column widths
 		int checkboxColWidth = _checkboxMode ? 4 : 0;
-		int dataContentWidth = contentWidth;
+		int dataContentWidth = columnContentWidth;
 		if (_checkboxMode)
 		{
 			bool hasBorderForCb = _borderStyle != BorderStyle.None;
-			dataContentWidth = Math.Max(1, contentWidth - checkboxColWidth - (hasBorderForCb ? 1 : 0));
+			dataContentWidth = Math.Max(1, columnContentWidth - checkboxColWidth - (hasBorderForCb ? 1 : 0));
 		}
 
 		int[] dataColWidths;
@@ -731,7 +761,7 @@ public partial class TableControl
 				headerCells.Insert(0, "");
 
 			DrawDataRow(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
-				headerCells, renderCols, headerFg, headerBg, hasBorder);
+				headerCells, renderCols, headerFg, headerBg, hasBorder, trailingFillWidth: scrollbarGutter);
 
 			// Update column rendered positions for hit testing — skip checkbox column
 			{
@@ -751,7 +781,8 @@ public partial class TableControl
 						colSnapshot[c].RenderedWidth = dataColWidths[c];
 					}
 					bool addSep = hasBorder || (_columnSeparator.HasValue && c < colCount - 1);
-					colX += dataColWidths[c] + (addSep ? 1 : 0);
+					int sepW = hasBorder ? 1 : SeparatorWidth;
+					colX += dataColWidths[c] + (addSep ? sepW : 0);
 				}
 			}
 
@@ -911,7 +942,8 @@ public partial class TableControl
 				isSelected: isRowSel || isHovered,
 				selectedCellIndex: selectedCell, selectedCellBg: cellHighlightBg, selectedCellFg: cellHighlightFg,
 				editCellIndex: editCellIndex, editCursorPos: editCursorPos,
-				filterMatches: filterMatches);
+				filterMatches: filterMatches,
+				trailingFillWidth: scrollbarGutter);
 
 			// Update row rendered position for hit testing (for in-memory rows)
 			if (_dataSource == null && rowSnapshot != null && dataR < rowSnapshot.Count)
@@ -934,7 +966,7 @@ public partial class TableControl
 		{
 			FillSideMargins(currentY);
 			DrawDataRow(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
-				new List<string>(), renderCols, fgColor, bgColor, hasBorder);
+				new List<string>(), renderCols, fgColor, bgColor, hasBorder, trailingFillWidth: scrollbarGutter);
 			currentY++;
 		}
 
