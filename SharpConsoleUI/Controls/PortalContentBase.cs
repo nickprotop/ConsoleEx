@@ -11,6 +11,7 @@ using System.Runtime.CompilerServices;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Events;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Controls
@@ -365,6 +366,70 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		protected abstract void PaintPortalContent(CharacterBuffer buffer, LayoutRect bounds,
 			LayoutRect clipRect, Color defaultFg, Color defaultBg);
+
+		#endregion
+
+		#region Desktop-portal cursor (internal seam — NOT a window-visible cursor provider)
+
+		// IMPORTANT: PortalContentBase deliberately does NOT implement ILogicalCursorProvider /
+		// ICursorShapeProvider. A DESKTOP portal paints into its own off-window buffer and is not a
+		// participant in the window's layout tree, so its caret is surfaced ONLY through the dedicated
+		// desktop-portal seam below (ConsoleWindowSystem.TryUpdateCursorFromActivePortal), which the
+		// main loop calls for the active DesktopPortal.
+		//
+		// A WINDOW-RENDERER portal (Window.UseDesktopPortals == false, the default) is the opposite:
+		// its content IS a real window-tree node, so its focused child's caret already flows correctly
+		// through the WINDOW cursor path (ControlBounds.TranslateLogicalCursorToContent). If this class
+		// implemented ILogicalCursorProvider, that window path's FindSelfPaintingCursorHost would treat
+		// the container as the cursor authority and double-count the child's window-absolute bounds —
+		// the regression these internal-only members exist to avoid. Keep this OFF the public interface
+		// surface so the window path is never poisoned.
+
+		/// <summary>
+		/// Returns the portal-focused child's caret in this portal's BUFFER coordinate space (the space
+		/// a <see cref="Core.DesktopPortal"/> paints into and registers child bounds in), or <c>null</c>
+		/// when there is no focused child or it reports no caret. The desktop seam adds the portal's
+		/// <see cref="Core.DesktopPortal.BufferOrigin"/> to land it on screen. Only meaningful for a
+		/// desktop portal; a window-renderer portal never routes its caret through here.
+		/// </summary>
+		internal Point? GetPortalBufferCursor()
+		{
+			if (PortalFocusedControl is not ILogicalCursorProvider provider)
+				return null;
+
+			var childCursor = provider.GetLogicalCursorPosition();
+			if (childCursor == null)
+				return null;
+
+			// Offset the child's local caret by the child's top-left within the portal buffer. For a
+			// desktop portal the child's registered node bounds are already in buffer space (the portal
+			// container registers them from its buffer-space paint rect); fall back to the portal's own
+			// painted content rect origin before the child node is registered.
+			var origin = GetFocusedChildBufferOrigin();
+			return new Point(childCursor.Value.X + origin.X, childCursor.Value.Y + origin.Y);
+		}
+
+		/// <summary>The preferred caret shape of the portal's focused child, for the desktop seam.</summary>
+		internal CursorShape? PortalCursorShape =>
+			(PortalFocusedControl as ICursorShapeProvider)?.PreferredCursorShape;
+
+		/// <summary>
+		/// The focused child's top-left within this portal's BUFFER coordinate space. For a desktop
+		/// portal the child's registered node bounds are buffer-space, so they are used directly; before
+		/// the child is registered, the portal's painted content rect (<c>_contentRect</c>, also
+		/// buffer-space) is the fallback origin.
+		/// </summary>
+		private Point GetFocusedChildBufferOrigin()
+		{
+			if (PortalFocusedControl is IWindowControl childControl)
+			{
+				var renderer = ((IWindowControl)this).GetParentWindow()?.Renderer;
+				var node = renderer?.GetLayoutNode(childControl);
+				if (node != null && !node.AbsoluteBounds.IsEmpty)
+					return new Point(node.AbsoluteBounds.X, node.AbsoluteBounds.Y);
+			}
+			return new Point(_contentRect.X, _contentRect.Y);
+		}
 
 		#endregion
 	}

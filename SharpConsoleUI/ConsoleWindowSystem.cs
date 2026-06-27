@@ -1412,8 +1412,23 @@ namespace SharpConsoleUI
 
 		}
 
-		private void UpdateCursor()
+		internal void UpdateCursor()
 		{
+			// A desktop portal (e.g. a command palette) renders on top of windows and owns focus
+			// independently of the window's FocusManager. When the top portal hosts a focused text
+			// input, it — not the active window — must drive the caret. Falls through to the window
+			// path (and so restores the window's own cursor behavior) when no portal owns a cursor.
+			if (TryUpdateCursorFromActivePortal())
+			{
+				lock (_consoleLock)
+				{
+					_cursorStateService.ApplyCursorToConsole(
+						_consoleDriver.ScreenSize.Width,
+						_consoleDriver.ScreenSize.Height);
+				}
+				return;
+			}
+
 			if (ActiveWindow != null && ActiveWindow.EventDispatcher != null && ActiveWindow.EventDispatcher.HasInteractiveContent(out var cursorPosition))
 			{
 				var (absoluteLeft, absoluteTop) = GeometryHelpers.TranslateToAbsolute(ActiveWindow, new Point(cursorPosition.X, cursorPosition.Y), DesktopUpperLeft.Y);
@@ -1496,6 +1511,54 @@ namespace SharpConsoleUI
 					_consoleDriver.ScreenSize.Width,
 					_consoleDriver.ScreenSize.Height);
 			}
+		}
+
+		/// <summary>
+		/// Drives the caret from the top desktop portal's focused child when one owns a logical cursor.
+		/// Returns true when a portal owns the cursor surface (so the window cursor path is skipped),
+		/// false to let <see cref="UpdateCursor"/> fall through to the active window.
+		/// </summary>
+		/// <remarks>
+		/// Portals manage focus via <see cref="Controls.PortalContentBase.PortalFocusedControl"/>, not the
+		/// window's FocusManager, so the focused child's cursor never reaches the window cursor path. The
+		/// portal reports its child's cursor in portal-buffer space; adding the portal's
+		/// <see cref="Core.DesktopPortal.BufferOrigin"/> lands it on screen. When the top portal exposes no
+		/// cursor (no focused text input), this returns false and the window keeps its own caret behavior.
+		/// </remarks>
+		private bool TryUpdateCursorFromActivePortal()
+		{
+			var portal = _desktopPortalService.TopPortal;
+			if (portal?.Content is not Controls.PortalContentBase portalContent)
+				return false;
+
+			var portalCursor = portalContent.GetPortalBufferCursor();
+			if (portalCursor == null)
+				return false; // Portal has no focused text-input cursor — let the window path run.
+
+			int absoluteLeft = portal.BufferOrigin.X + portalCursor.Value.X;
+			int absoluteTop = portal.BufferOrigin.Y + portalCursor.Value.Y;
+
+			bool isWithinBounds =
+				absoluteLeft >= 0 && absoluteLeft < _consoleDriver.ScreenSize.Width &&
+				absoluteTop >= 0 && absoluteTop < _consoleDriver.ScreenSize.Height;
+
+			if (!isWithinBounds)
+			{
+				_cursorStateService.HideCursor();
+				return true;
+			}
+
+			var cursorShape = portalContent.PortalCursorShape ?? CursorShape.Block;
+
+			_cursorStateService.UpdateFromWindowSystem(
+				ownerWindow: ActiveWindow,
+				logicalPosition: portalCursor.Value,
+				absolutePosition: new Point(absoluteLeft, absoluteTop),
+				ownerControl: portalContent,
+				shape: cursorShape,
+				blink: _defaultCursorBlink);
+
+			return true;
 		}
 
 		private void UpdateStatusBarBounds()
