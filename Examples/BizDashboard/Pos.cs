@@ -158,6 +158,7 @@ internal static class Pos
 			.AddColumn("Price", TextJustification.Right)
 			.AddColumn("Total", TextJustification.Right)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.StretchHorizontal() // fill the cell width (distributes slack across auto columns)
 			.WithMargin(1, 0, 1, 0)
 			.Build();
 

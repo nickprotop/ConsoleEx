@@ -178,6 +178,7 @@ internal static class Pages
 			.AddColumn("Plan")
 			.AddColumn("MRR", TextJustification.Right)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.StretchHorizontal() // fill the cell width (distributes slack across auto columns)
 			.WithMargin(1, 1, 1, 1)
 			.Build();
 
@@ -257,6 +258,7 @@ internal static class Pages
 			.AddColumn("Stock", TextJustification.Right)
 			.AddColumn("Status")
 			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.StretchHorizontal() // fill the cell width (distributes slack across auto columns)
 			.WithMargin(1, 1, 1, 1)
 			.Build();
 
