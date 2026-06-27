@@ -41,6 +41,15 @@ namespace SharpConsoleUI.Configuration
 		public const int WatchdogPollIntervalMs = 500;
 
 		/// <summary>
+		/// While draining the UI-action queue, pulse the watchdog heartbeat at most this often (default:
+		/// 250ms) so a long-but-productive drain (e.g. a flood of enqueued frames) is reported as alive
+		/// rather than falsely flagged stale. Well under <see cref="WatchdogStaleThresholdMs"/> so the
+		/// loop stays live; large enough that a single action blocking longer than the stale threshold
+		/// still trips the watchdog (the pulse only fires BETWEEN actions).
+		/// </summary>
+		public const int UiDrainHeartbeatIntervalMs = 250;
+
+		/// <summary>
 		/// Debounce time before allowing portal dismiss after creation (default: 200ms).
 		/// Prevents the same click that opens a portal from immediately dismissing it.
 		/// </summary>

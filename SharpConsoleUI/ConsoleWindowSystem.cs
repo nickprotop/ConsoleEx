@@ -111,6 +111,10 @@ namespace SharpConsoleUI
 		// Main loop watchdog — detects stalled frames and provides emergency Ctrl+Q exit
 		private readonly MainLoopWatchdog _watchdog;
 
+		// Resolved interval at which a long UI-action drain pulses the heartbeat (¼ of the stale
+		// threshold, capped/floored). Set in the constructor; read by DrainUIActionQueue.
+		private readonly int _uiDrainHeartbeatIntervalMs;
+
 		// Breadcrumbs for the watchdog: which phase the main loop is in and which UI-thread "frame"
 		// (window / control / operation, or a free-form label) is currently executing. Read from the
 		// watchdog timer thread, written from the UI thread. All volatile; cross-field publication is
@@ -352,6 +356,12 @@ namespace SharpConsoleUI
 			// Build the watchdog from the resolved options (all constructors chain here).
 			var wd0 = _options.Watchdog ?? new Configuration.WatchdogOptions();
 			_watchdog = new MainLoopWatchdog(wd0.StaleThresholdMs, wd0.UnresponsiveThresholdMs, wd0.PollIntervalMs);
+
+			// How often a long UI-action drain pulses the heartbeat (see DrainUIActionQueue). Scale it to
+			// the configured stale threshold (¼ of it) so it stays effective even under an aggressive
+			// threshold, capped at the default and floored so it can never busy-pulse every action.
+			_uiDrainHeartbeatIntervalMs = Math.Max(20,
+				Math.Min(Configuration.SystemDefaults.UiDrainHeartbeatIntervalMs, wd0.StaleThresholdMs / 4));
 
 			// Initialize state services BEFORE driver.Initialize() call
 			_cursorStateService = new CursorStateService(_consoleDriver);
@@ -1368,6 +1378,16 @@ namespace SharpConsoleUI
 			_uiActionsPending = false;
 			bool anyDrained = false;
 
+			// The drain processes the WHOLE queue in this single main-loop iteration, but the heartbeat
+			// only fires once per iteration (at the loop top). A caller that floods EnqueueOnUIThread
+			// faster than the loop iterates — e.g. a frame loop whose await-continuation re-enqueues the
+			// next frame WHILE this drain is still running, so the queue never empties — would make one
+			// drain run hundreds of short actions back-to-back and falsely trip the watchdog, even though
+			// the UI thread is actively making progress. Pulse the heartbeat as the drain advances so a
+			// long-but-productive drain reads as alive. This does NOT mask a real hang: the pulse sits
+			// BETWEEN actions, so a single action that blocks longer than the threshold still stalls.
+			long lastPulse = Environment.TickCount64;
+
 			while (_uiActionQueue.TryDequeue(out var item))
 			{
 				anyDrained = true;
@@ -1381,6 +1401,13 @@ namespace SharpConsoleUI
 					{
 						LogService?.LogError($"Error in EnqueueOnUIThread action: {ex.Message}", ex, "System");
 					}
+				}
+
+				long nowTick = Environment.TickCount64;
+				if (nowTick - lastPulse >= _uiDrainHeartbeatIntervalMs)
+				{
+					_watchdog.Heartbeat();
+					lastPulse = nowTick;
 				}
 			}
 
