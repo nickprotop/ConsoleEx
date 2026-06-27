@@ -255,7 +255,14 @@ namespace SharpConsoleUI.Controls
 		{
 			int vh = viewportHeight >= 0 ? viewportHeight : _viewportHeight;
 			bool isFillChild = vh > 0 && child.VerticalAlignment == VerticalAlignment.Fill;
-			int maxChildHeight = isFillChild ? perFillHeight : int.MaxValue;
+
+			// A Fill child that reports a hard minimum when filled (IFillReportsMinimumHeight, e.g. a
+			// GridControl whose fixed rows neither shrink nor self-scroll) is measured UNBOUNDED so its
+			// true minimum is discovered; the Max below then keeps it at the slot when there is room and
+			// lets it overflow (so this panel scrolls) when the viewport is shorter than that minimum.
+			// Self-scrolling Fill children are not marked and keep measuring at the slot.
+			bool reportsMinWhenFilled = child is IFillReportsMinimumHeight;
+			int maxChildHeight = (isFillChild && !reportsMinWhenFilled) ? perFillHeight : int.MaxValue;
 
 			int measuredHeight = MeasureChildHeight(child, new LayoutConstraints(1, contentWidth, 1, maxChildHeight));
 

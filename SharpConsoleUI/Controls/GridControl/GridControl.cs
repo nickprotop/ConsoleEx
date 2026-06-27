@@ -43,7 +43,7 @@ namespace SharpConsoleUI.Controls
 	/// unexpected cell). The layout is always handed stable per-frame snapshots.
 	/// </para>
 	/// </remarks>
-	public partial class GridControl : BaseControl, IContainer, IContainerControl, IControlHost, IColorRoleableControl, IGridSource
+	public partial class GridControl : BaseControl, IContainer, IContainerControl, IControlHost, IColorRoleableControl, IGridSource, IFillReportsMinimumHeight
 	{
 		/// <summary>Default number of columns assumed when no column definitions are supplied.</summary>
 		private const int DefaultColumnCount = 1;

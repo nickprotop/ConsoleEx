@@ -138,8 +138,16 @@ namespace SharpConsoleUI.Layout
 					continue;
 				}
 
+				// A Fill child is normally measured at its Fill slot (perFillHeight). But a child that
+				// reports a hard minimum when filled (IFillReportsMinimumHeight, e.g. GridControl with
+				// fixed rows that neither shrink nor self-scroll) must be measured UNBOUNDED so its
+				// DesiredSize captures that minimum; the arrange pass then takes Max(DesiredSize,
+				// perFillHeight), so a tall viewport still fills and a short one scrolls instead of
+				// squashing. Self-scrolling Fill children (nested panels/tables) are NOT marked and keep
+				// measuring at the slot, so they stay self-scrolling.
 				bool isFill = content.Height > 0 && child.Control?.VerticalAlignment == VerticalAlignment.Fill;
-				int maxChildHeight = isFill ? perFillHeight : int.MaxValue;
+				bool reportsMinWhenFilled = child.Control is IFillReportsMinimumHeight;
+				int maxChildHeight = (isFill && !reportsMinWhenFilled) ? perFillHeight : int.MaxValue;
 				child.Measure(new LayoutConstraints(1, childLayoutWidth, 1, maxChildHeight));
 			}
 
