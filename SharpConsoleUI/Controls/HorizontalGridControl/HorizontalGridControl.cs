@@ -74,7 +74,7 @@ namespace SharpConsoleUI.Controls
 	/// not honour them: it has no single themed colour surface (it is a pure layout container).
 	/// </para>
 	/// </summary>
-	public partial class HorizontalGridControl : BaseControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IContainerControl, IFocusScope
+	public partial class HorizontalGridControl : BaseControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IContainerControl, IFocusScope, IFillReportsMinimumHeight
 	{
 		private List<ColumnContainer> _columns = new List<ColumnContainer>();
 		private readonly object _gridLock = new();
