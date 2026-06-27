@@ -36,6 +36,14 @@ namespace SharpConsoleUI.Windows
 		private CharacterBuffer? _buffer;
 		private readonly Dictionary<IWindowControl, LayoutNode> _controlToNodeMap = new();
 
+		// Live window-renderer portals, tracked independently of the layout tree. Portals are attached
+		// to _rootNode imperatively (CreatePortal), but RebuildDOMTree creates a fresh _rootNode from the
+		// window's CONTROLS only — which would orphan every open portal on any structural relayout (the
+		// exact thing the reactive model triggers constantly). Keeping the live set here lets the rebuild
+		// re-attach them, so a portal lives from CreatePortal until RemovePortal regardless of relayouts.
+		// Keyed by portal CONTENT control (stable across rebuilds; the LayoutNode is recreated each time).
+		private readonly List<(IWindowControl Owner, IWindowControl Content)> _activePortals = new();
+
 		/// <summary>
 		/// Initializes a new instance of the WindowRenderer class.
 		/// </summary>
@@ -210,6 +218,10 @@ namespace SharpConsoleUI.Windows
 				_rootNode.AddChild(node);
 				_controlToNodeMap[control] = node;
 			}
+
+			// Re-attach live portals to the fresh root so they survive this rebuild (portals are not part
+			// of the window's control collection — they were attached imperatively via CreatePortal).
+			ReattachPortals();
 
 			// Perform initial layout
 			PerformDOMLayout(contentWidth, contentHeight);
@@ -625,6 +637,22 @@ namespace SharpConsoleUI.Windows
 			// for portal creation - the portal bounds come from the portal content itself.
 			// So we allow portal creation even for nested controls.
 
+			// Track the portal so RebuildDOMTree re-attaches it after a structural relayout (otherwise a
+			// reactive state change would orphan it). Keyed by content; replace any prior entry for the
+			// same content control so a re-created portal isn't double-tracked.
+			_activePortals.RemoveAll(p => ReferenceEquals(p.Content, portalContent));
+			_activePortals.Add((ownerControl, portalContent));
+
+			return AttachPortalNode(portalContent);
+		}
+
+		/// <summary>
+		/// Builds, measures, arranges and attaches a portal content node to the current <see cref="_rootNode"/>.
+		/// Shared by <see cref="CreatePortal"/> and the rebuild path (<see cref="ReattachPortals"/>) so a
+		/// re-attached portal is positioned identically to a freshly-created one against the live tree.
+		/// </summary>
+		private LayoutNode? AttachPortalNode(IWindowControl portalContent)
+		{
 			// Connect the portal content into the invalidation chain so that
 			// child controls (e.g. ScrollablePanelControl) can trigger repaints.
 			portalContent.Container = _window;
@@ -677,21 +705,50 @@ namespace SharpConsoleUI.Windows
 		}
 
 		/// <summary>
+		/// Re-attaches every tracked live portal to the freshly-rebuilt <see cref="_rootNode"/>. Called by
+		/// <see cref="RebuildDOMTree"/> after the window's controls are added, so portals survive the
+		/// structural relayouts that reactive state changes trigger. Portals removed via
+		/// <see cref="RemovePortal"/> are no longer tracked, so they are not re-attached.
+		/// </summary>
+		private void ReattachPortals()
+		{
+			if (_activePortals.Count == 0)
+				return;
+
+			// Snapshot: AttachPortalNode does not mutate _activePortals, but guard against reentrancy.
+			var portals = _activePortals.ToList();
+			foreach (var (_, content) in portals)
+			{
+				AttachPortalNode(content);
+			}
+		}
+
+		/// <summary>
 		/// Removes a portal node from the DOM tree.
 		/// </summary>
 		/// <param name="ownerControl">The control that owns the portal</param>
 		/// <param name="portalNode">The portal node to remove</param>
 		public void RemovePortal(IWindowControl ownerControl, LayoutNode portalNode)
 		{
-			// Remove from root node (where it was added in CreatePortal)
+			// The caller may hold a STALE node handle: a rebuild between CreatePortal and RemovePortal
+			// re-creates the portal's node, so match on the content control (stable identity) and resolve
+			// the live node, falling back to the passed handle. Stop tracking it so it is not re-attached.
+			var content = portalNode.Control;
+			if (content != null)
+				_activePortals.RemoveAll(p => ReferenceEquals(p.Content, content));
+
+			var liveNode = portalNode;
+			if (content != null && _controlToNodeMap.TryGetValue(content, out var mapped))
+				liveNode = mapped;
+
 			if (_rootNode != null)
 			{
-				var removed = _rootNode.RemovePortalChild(portalNode);
-				if (portalNode.Control != null)
+				_rootNode.RemovePortalChild(liveNode);
+				if (content != null)
 				{
 					// Disconnect from invalidation chain
-					portalNode.Control.Container = null;
-					_controlToNodeMap.Remove(portalNode.Control);
+					content.Container = null;
+					_controlToNodeMap.Remove(content);
 				}
 			}
 		}
