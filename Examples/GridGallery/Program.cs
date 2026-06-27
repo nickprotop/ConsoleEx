@@ -61,6 +61,7 @@ internal class Program
 		var inputs = Pages.BuildInputsGrid();
 		var data = Pages.BuildDataGrid();
 		var text = Pages.BuildTextGrid();
+		var more = Pages.BuildMoreGrid();
 
 		var nav = Controls.NavigationView()
 			.WithNavWidth(26)
@@ -79,6 +80,7 @@ internal class Program
 				h.AddItem("Inputs", inputs, icon: "▣", subtitle: "interactive");
 				h.AddItem("Data", data, icon: "▤", subtitle: "tables · lists · trees");
 				h.AddItem("Text & Markup", text, icon: "¶", subtitle: "rich text");
+				h.AddItem("More", more, icon: "▦", subtitle: "sliders · dates · edit");
 			})
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.WithVerticalAlignment(VerticalAlignment.Fill)

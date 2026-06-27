@@ -50,10 +50,12 @@ internal static class Pages
 			.Build();
 
 	/// <summary>
-	/// Builds a tile body: a caption Markup on top and the live control below,
-	/// stacked inside a Fill ScrollablePanel so the tile flexes with its cell.
+	/// Builds a tile body: a caption Markup on top and one-or-more live controls below,
+	/// stacked inside a Fill ScrollablePanel so the tile flexes with its cell. Passing several
+	/// controls lets a tile SHOWCASE a control's range (roles, states, variations) — the way the
+	/// DemoApp demonstrates functionality rather than a single static instance.
 	/// </summary>
-	private static ScrollablePanelControl Tile(string caption, IWindowControl control)
+	private static ScrollablePanelControl Tile(string caption, params IWindowControl[] controls)
 	{
 		var stack = Controls.ScrollablePanel()
 			.WithVerticalAlignment(VerticalAlignment.Fill)
@@ -61,14 +63,19 @@ internal static class Pages
 
 		stack.AddControl(Controls.Markup($"[bold rgb({CaptionClr.R},{CaptionClr.G},{CaptionClr.B})]{caption}[/]")
 			.WithMargin(1, 1, 1, 0).Build());
-		stack.AddControl(control);
+		foreach (var c in controls)
+			stack.AddControl(c);
 		return stack;
 	}
 
-	/// <summary>Places a captioned tile into the grid and gives the cell a rounded border + tile bg.</summary>
-	private static void PlaceTile(GridControl grid, int row, int col, string caption, IWindowControl control)
+	/// <summary>A thin labelled sub-caption used inside a showcase tile to separate variations.</summary>
+	private static MarkupControl Note(string text) =>
+		Controls.Markup($"[dim]{text}[/]").WithMargin(1, 0, 1, 0).Build();
+
+	/// <summary>Places a captioned tile (one or more controls) into the grid with a rounded border + tile bg.</summary>
+	private static void PlaceTile(GridControl grid, int row, int col, string caption, params IWindowControl[] controls)
 	{
-		grid.Place(Tile(caption, control), row, col);
+		grid.Place(Tile(caption, controls), row, col);
 		grid.Cell(row, col).Border = BorderStyle.Rounded;
 		grid.Cell(row, col).Background = TileBg;
 	}
@@ -139,52 +146,72 @@ internal static class Pages
 
 	#region Inputs
 
-	/// <summary>Button, Checkbox, Dropdown, Prompt — focusable, live interactive controls.</summary>
+	/// <summary>Button, Checkbox, Dropdown, Prompt — each tile SHOWCASES the control's variations.</summary>
 	public static GridControl BuildInputsGrid()
 	{
 		var grid = NewTileGrid();
 
+		// --- ButtonControl: every ColorRole, plus an outline variant, plus live click echo. ---
 		int clicks = 0;
-		var clickEcho = Controls.Markup("[dim]not clicked yet[/]").WithMargin(1, 0, 1, 0).Build();
-		var button = Controls.Button("Click me")
-			.WithColorRole(ColorRole.Primary)
-			.WithMargin(1, 0, 1, 1)
-			.OnClick((sender, btn) =>
-			{
-				clicks++;
-				clickEcho.SetContent(new List<string> { $"[green]clicked {clicks}x[/]" });
-			})
-			.Build();
-		var buttonStack = Controls.ScrollablePanel().WithVerticalAlignment(VerticalAlignment.Fill).Build();
-		buttonStack.AddControl(Controls.Markup($"[bold rgb({CaptionClr.R},{CaptionClr.G},{CaptionClr.B})]ButtonControl[/]")
-			.WithMargin(1, 1, 1, 0).Build());
-		buttonStack.AddControl(button);
-		buttonStack.AddControl(clickEcho);
-		grid.Place(buttonStack, 0, 0);
-		grid.Cell(0, 0).Border = BorderStyle.Rounded;
-		grid.Cell(0, 0).Background = TileBg;
+		var clickEcho = Note("not clicked yet");
+		IWindowControl RoleButton(string text, ColorRole role, bool outline = false) =>
+			Controls.Button(text)
+				.WithColorRole(role)
+				.Outline(outline)
+				.WithAlignment(HorizontalAlignment.Stretch)
+				.WithMargin(1, 0, 1, 1)
+				.OnClick((sender, btn) =>
+				{
+					clicks++;
+					clickEcho.SetContent(new List<string> { $"[green]clicked {clicks}×[/] — last: {text}" });
+				})
+				.Build();
+		PlaceTile(grid, 0, 0, "ButtonControl — ColorRoles",
+			RoleButton("Primary", ColorRole.Primary),
+			RoleButton("Success", ColorRole.Success),
+			RoleButton("Warning", ColorRole.Warning),
+			RoleButton("Danger", ColorRole.Danger),
+			RoleButton("Info · outline", ColorRole.Info, outline: true),
+			clickEcho);
 
-		var checkbox = Controls.Checkbox("Enable feature")
-			.Checked()
-			.WithMargin(1, 0, 1, 1)
-			.Build();
-		PlaceTile(grid, 0, 1, "CheckboxControl", checkbox);
+		// --- CheckboxControl: checked / unchecked / roled / disabled. ---
+		PlaceTile(grid, 0, 1, "CheckboxControl — states",
+			Controls.Checkbox("Checked").Checked().WithMargin(1, 0, 1, 0).Build(),
+			Controls.Checkbox("Unchecked").WithMargin(1, 0, 1, 0).Build(),
+			Controls.Checkbox("Success role").Checked().WithColorRole(ColorRole.Success).WithMargin(1, 0, 1, 0).Build(),
+			Controls.Checkbox("Custom mark").WithCheckmark("✓", "·").Checked().WithMargin(1, 0, 1, 0).Build(),
+			DisabledCheckbox("Disabled"));
 
+		// --- DropdownControl + a custom prompt — selection echoes live. ---
+		var ddEcho = Note("selected: Apple");
 		var dropdown = Controls.Dropdown()
-			.WithPrompt("pick: ")
-			.AddItems("Apple", "Banana", "Cherry", "Date")
+			.WithPrompt("fruit: ")
+			.AddItems("Apple", "Banana", "Cherry", "Date", "Elderberry")
 			.SelectedIndex(0)
 			.WithMargin(1, 0, 1, 1)
 			.Build();
-		PlaceTile(grid, 1, 0, "DropdownControl", dropdown);
+		dropdown.SelectedIndexChanged += (s, i) =>
+			ddEcho.SetContent(new List<string> { $"[dim]selected: {dropdown.SelectedItem}[/]" });
+		PlaceTile(grid, 1, 0, "DropdownControl",
+			Note("Enter opens the list; ↑↓ to choose."),
+			dropdown,
+			ddEcho);
 
-		var prompt = Controls.Prompt("> ")
-			.WithInputWidth(24)
-			.WithMargin(1, 0, 1, 1)
-			.Build();
-		PlaceTile(grid, 1, 1, "PromptControl", prompt);
+		// --- PromptControl: a couple of prompts incl. a masked one. ---
+		PlaceTile(grid, 1, 1, "PromptControl",
+			Note("Type into the fields:"),
+			Controls.Prompt("name: ").WithInputWidth(22).WithMargin(1, 0, 1, 0).Build(),
+			Controls.Prompt("search ").WithInputWidth(22).WithMargin(1, 0, 1, 1).Build());
 
 		return grid;
+	}
+
+	/// <summary>A disabled checkbox (IsEnabled is a control property, not a builder method).</summary>
+	private static CheckboxControl DisabledCheckbox(string label)
+	{
+		var cb = Controls.Checkbox(label).WithMargin(1, 0, 1, 0).Build();
+		cb.IsEnabled = false;
+		return cb;
 	}
 
 	#endregion
@@ -202,6 +229,7 @@ internal static class Pages
 			.AddColumn("Price", TextJustification.Right)
 			.AddColumn("Chg", TextJustification.Right)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.StretchHorizontal() // fill the cell width (distributes slack across auto columns)
 			.WithMargin(1, 0, 1, 1)
 			.Build();
 		table.AddRow("AAPL", "212.40", "+1.2%");
@@ -263,26 +291,87 @@ internal static class Pages
 			.Build();
 		PlaceTile(grid, 0, 1, "Gradient markup", gradient);
 
-		var spinner = Controls.Spinner()
-			.WithStyle(SpinnerStyle.Braille)
-			.WithColorRole(ColorRole.Success)
-			.Spinning()
-			.WithMargin(1, 0, 1, 1)
-			.Build();
-		var spinStack = Controls.ScrollablePanel().WithVerticalAlignment(VerticalAlignment.Fill).Build();
-		spinStack.AddControl(Controls.Markup($"[bold rgb({CaptionClr.R},{CaptionClr.G},{CaptionClr.B})]SpinnerControl[/]")
-			.WithMargin(1, 1, 1, 0).Build());
-		spinStack.AddControl(spinner);
-		spinStack.AddControl(Controls.Markup("[dim]animating…[/]").WithMargin(1, 0, 1, 0).Build());
-		grid.Place(spinStack, 1, 0);
-		grid.Cell(1, 0).Border = BorderStyle.Rounded;
-		grid.Cell(1, 0).Background = TileBg;
+		// SpinnerControl: several animation styles + roles, all live.
+		IWindowControl Spin(SpinnerStyle style, ColorRole role) =>
+			Controls.Spinner().WithStyle(style).WithColorRole(role).Spinning().WithMargin(1, 0, 1, 0).Build();
+		PlaceTile(grid, 1, 0, "SpinnerControl — styles",
+			Note("Braille / Dots / Line / Circle, live:"),
+			Spin(SpinnerStyle.Braille, ColorRole.Success),
+			Spin(SpinnerStyle.Dots, ColorRole.Info),
+			Spin(SpinnerStyle.Line, ColorRole.Warning),
+			Spin(SpinnerStyle.Circle, ColorRole.Primary));
 
-		var styled = Controls.Markup(
-				"[bold yellow]Styled[/] markup supports [underline]decorations[/], [red]colors[/], and [link=https://github.com/nickprotop/ConsoleEx]links[/].")
-			.WithMargin(1, 0, 1, 1)
-			.Build();
-		PlaceTile(grid, 1, 1, "Styled markup", styled);
+		// Styled markup: decorations, colors, links, status helpers.
+		PlaceTile(grid, 1, 1, "Styled markup & status",
+			Controls.Markup("[bold yellow]Bold[/] · [underline]underline[/] · [italic]italic[/] · [strikethrough]strike[/]")
+				.WithMargin(1, 0, 1, 0).Build(),
+			Controls.Markup("[red]red[/] [green]green[/] [blue]blue[/] · [link=https://github.com/nickprotop/ConsoleEx]a link[/]")
+				.WithMargin(1, 0, 1, 0).Build(),
+			Margined(Controls.Info("Info: an informational message")),
+			Margined(Controls.Success("Success: it worked")),
+			Margined(Controls.Warning("Warning: heads up")),
+			Margined(Controls.Error("Error: something failed"), bottom: 1));
+
+		return grid;
+	}
+
+	/// <summary>Applies a left/right margin to a plain MarkupControl (the status helpers return a control,
+	/// not a builder, so margins are set as a property).</summary>
+	private static MarkupControl Margined(MarkupControl m, int bottom = 0)
+	{
+		m.Margin = new Margin(1, 0, 1, bottom);
+		return m;
+	}
+
+	#endregion
+
+	#region More Controls
+
+	/// <summary>Slider, RangeSlider, DatePicker, MultilineEdit — each tile showcases the control's options.</summary>
+	public static GridControl BuildMoreGrid()
+	{
+		var grid = NewTileGrid();
+
+		// SliderControl: a few sliders with different ranges/roles, value labels live.
+		PlaceTile(grid, 0, 0, "SliderControl",
+			Note("Volume"),
+			Controls.Slider().WithRange(0, 100).WithValue(70).ShowValueLabel().WithColorRole(ColorRole.Primary)
+				.WithAlignment(HorizontalAlignment.Stretch).WithMargin(1, 0, 1, 0).Build(),
+			Note("Brightness"),
+			Controls.Slider().WithRange(0, 100).WithValue(40).ShowValueLabel().WithColorRole(ColorRole.Warning)
+				.WithAlignment(HorizontalAlignment.Stretch).WithMargin(1, 0, 1, 0).Build(),
+			Note("Balance (−50…50)"),
+			Controls.Slider().WithRange(-50, 50).WithValue(0).ShowValueLabel().WithColorRole(ColorRole.Info)
+				.WithAlignment(HorizontalAlignment.Stretch).WithMargin(1, 0, 1, 1).Build());
+
+		// RangeSliderControl: a dual-handle range.
+		PlaceTile(grid, 0, 1, "RangeSliderControl",
+			Note("Price range:"),
+			Controls.RangeSlider().WithRange(0, 1000).WithValues(200, 750).ShowValueLabel()
+				.WithColorRole(ColorRole.Success)
+				.WithAlignment(HorizontalAlignment.Stretch).WithMargin(1, 0, 1, 1).Build(),
+			Note("Drag either handle (←/→ when focused)."));
+
+		// DatePickerControl: a calendar-backed picker.
+		PlaceTile(grid, 1, 0, "DatePickerControl",
+			Note("Enter opens the calendar:"),
+			Controls.DatePicker("date: ")
+				.WithFormat("yyyy-MM-dd")
+				.WithAlignment(HorizontalAlignment.Stretch)
+				.WithMargin(1, 0, 1, 1).Build());
+
+		// MultilineEditControl: an editable multi-line buffer.
+		PlaceTile(grid, 1, 1, "MultilineEditControl",
+			Controls.MultilineEdit()
+				.WithContentLines(
+					"Editable multi-line text.",
+					"Arrow keys move the caret;",
+					"type to insert, Enter for a new line.",
+					"",
+					"Try editing me.")
+				.WithWrapMode(WrapMode.Wrap)
+				.WithVerticalAlignment(VerticalAlignment.Fill)
+				.WithMargin(1, 0, 1, 1).Build());
 
 		return grid;
 	}
