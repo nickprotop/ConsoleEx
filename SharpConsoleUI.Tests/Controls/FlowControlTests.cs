@@ -486,28 +486,12 @@ public class FlowControlTests
 		// Step 1 is NOT the last step → affirmative is "Next", no Back button.
 		Assert.True(FlowTestHelpers.ClickButtonByName(system, "flow-host-btn-Next"), "step 1: Next");
 
-		// The button click resolves PresentAsync; the wizard loop continuation runs async on the thread
-		// pool and enqueues ShowStep via EnqueueOnUIThread. Yield + drain ensures it runs.
-		await Task.Delay(30);
-		system.DrainPendingUIActionsForTest();
-		system.Render.UpdateDisplay();
-
-		// Step 2 is the last step → affirmative is "Finish", Back button is present.
-		Assert.True(FlowTestHelpers.ClickButtonByName(system, "flow-host-btn-Back"), "step 2: Back");
-
-		await Task.Delay(30);
-		system.DrainPendingUIActionsForTest();
-		system.Render.UpdateDisplay();
-
-		// Back to step 1: state is preserved (step1Builds incremented again, step1Value still 10).
-		Assert.True(FlowTestHelpers.ClickButtonByName(system, "flow-host-btn-Next"), "step 1 (revisit): Next");
-
-		await Task.Delay(30);
-		system.DrainPendingUIActionsForTest();
-		system.Render.UpdateDisplay();
-
-		// Step 2 again: click Finish.
-		Assert.True(FlowTestHelpers.ClickButtonByName(system, "flow-host-btn-Finish"), "step 2 (revisit): Finish");
+		// Each step transition is async (the click resolves PresentAsync; the wizard-loop continuation
+		// runs on the thread pool and enqueues the next ShowStep via EnqueueOnUIThread). Poll until the
+		// expected button is present-and-clickable rather than guessing a fixed delay (which raced under load).
+		await FlowTestHelpers.WaitAndClickButtonAsync(system, "flow-host-btn-Back", "step 2: Back");                  // step 2 (last) → Back
+		await FlowTestHelpers.WaitAndClickButtonAsync(system, "flow-host-btn-Next", "step 1 (revisit): Next");        // back on step 1
+		await FlowTestHelpers.WaitAndClickButtonAsync(system, "flow-host-btn-Finish", "step 2 (revisit): Finish");
 
 		system.Render.UpdateDisplay();
 
@@ -674,14 +658,11 @@ public class FlowControlTests
 			FlowTestHelpers.ClickButtonByName(system, "flow-host-btn-Next"),
 			"step 1: Next button must be clickable through the panel nesting.");
 
-		await Task.Delay(30);
-		system.DrainPendingUIActionsForTest();
-		system.Render.UpdateDisplay();
-
-		// Drive step 2 → Finish.
-		Assert.True(
-			FlowTestHelpers.ClickButtonByName(system, "flow-host-btn-Finish"),
-			"step 2: Finish button must be clickable through the panel nesting.");
+		// Drive step 2 → Finish (poll until the inline step-2 transition lands the Finish button).
+		await FlowTestHelpers.WaitAndClickButtonAsync(
+			system,
+			"flow-host-btn-Finish",
+			"step 2: Finish button must be clickable through the panel nesting");
 
 		system.Render.UpdateDisplay();
 

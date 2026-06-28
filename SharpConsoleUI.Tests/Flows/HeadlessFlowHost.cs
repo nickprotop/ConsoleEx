@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Flows;
+using Xunit;
 
 namespace SharpConsoleUI.Tests.Flows;
 
@@ -118,6 +119,28 @@ public static class FlowTestHelpers
 		}
 
 		return false;
+	}
+
+	/// <summary>
+	/// Waits for a wizard/flow step transition to settle, then clicks the named host button. A step
+	/// change is asynchronous: the prior step resolves, the wizard-loop continuation runs (often on the
+	/// thread pool) and enqueues the next step's <c>ShowStep</c>/modal via <c>EnqueueOnUIThread</c>, and
+	/// the next button is named only once that has applied. Polling (drain + render) until the button is
+	/// present-and-clickable replaces a fixed <c>Task.Delay</c>, which raced under parallel test load.
+	/// Fails the test if the button never appears within the bounded timeout (~2s).
+	/// </summary>
+	public static async Task WaitAndClickButtonAsync(ConsoleWindowSystem system, string name, string because)
+	{
+		for (int i = 0; i < 200; i++)
+		{
+			system.DrainPendingUIActionsForTest();
+			system.Render.UpdateDisplay();
+			if (ClickButtonByName(system, name))
+				return;
+			await Task.Delay(10);
+		}
+
+		Assert.Fail($"{because}: button '{name}' never became clickable within the timeout.");
 	}
 }
 

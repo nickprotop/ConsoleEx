@@ -46,6 +46,7 @@ public class FlowRealThingTests
 		}
 	}
 
+
 	// -----------------------------------------------------------------------
 	// Tier-A flow E2E: Confirm → true → RunWithProgress → value 7
 	// -----------------------------------------------------------------------
@@ -181,15 +182,8 @@ public class FlowRealThingTests
 		bool clickedNext = FlowTestHelpers.ClickButtonByName(system, "flow-host-btn-Next");
 		Assert.True(clickedNext, "Expected to find and click 'flow-host-btn-Next' on step 1.");
 
-		// Drain so the step-1 modal closes and step-2 modal opens.
-		system.DrainPendingUIActionsForTest();
-		await Task.Delay(50);
-		system.Render.UpdateDisplay();
-
-		// --- Step 2: render, click Finish ---
-		// On step 2 (last step), the affirmative button is "Finish" with verdict Finish.
-		bool clickedFinish = FlowTestHelpers.ClickButtonByName(system, "flow-host-btn-Finish");
-		Assert.True(clickedFinish, "Expected to find and click 'flow-host-btn-Finish' on step 2.");
+		// --- Step 2: poll until the step-1 modal closes and the step-2 "Finish" button appears, then click. ---
+		await FlowTestHelpers.WaitAndClickButtonAsync(system, "flow-host-btn-Finish", "step 2: Finish");
 
 		system.Render.UpdateDisplay();
 
@@ -245,33 +239,12 @@ public class FlowRealThingTests
 			.Step((_) => new RecordingContent(state, s => s.Step2Value = 2))
 			.Run(system, null);
 
-		// Step 1: click Next
-		system.Render.UpdateDisplay();
-		Assert.True(FlowTestHelpers.ClickButtonByName(system, "flow-host-btn-Next"), "step 1: Next");
-
-		// Wait for step 1 modal to close and step 2 to open
-		system.DrainPendingUIActionsForTest();
-		await Task.Delay(50);
-		system.Render.UpdateDisplay();
-
-		// Step 2: click Back → returns to step 1
-		Assert.True(FlowTestHelpers.ClickButtonByName(system, "flow-host-btn-Back"), "step 2: Back");
-
-		system.DrainPendingUIActionsForTest();
-		await Task.Delay(50);
-		system.Render.UpdateDisplay();
-
-		// Step 1 again: click Next
-		Assert.True(FlowTestHelpers.ClickButtonByName(system, "flow-host-btn-Next"), "step 1 (again): Next");
-
-		system.DrainPendingUIActionsForTest();
-		await Task.Delay(50);
-		system.Render.UpdateDisplay();
-
-		// Step 2 again: click Finish
-		Assert.True(FlowTestHelpers.ClickButtonByName(system, "flow-host-btn-Finish"), "step 2 (again): Finish");
-
-		system.Render.UpdateDisplay();
+		// Each step transition is async; poll until the expected button is present-and-clickable
+		// rather than guessing a fixed delay (which raced under parallel load).
+		await FlowTestHelpers.WaitAndClickButtonAsync(system, "flow-host-btn-Next", "step 1: Next");
+		await FlowTestHelpers.WaitAndClickButtonAsync(system, "flow-host-btn-Back", "step 2: Back");        // Back → step 1
+		await FlowTestHelpers.WaitAndClickButtonAsync(system, "flow-host-btn-Next", "step 1 (again): Next");
+		await FlowTestHelpers.WaitAndClickButtonAsync(system, "flow-host-btn-Finish", "step 2 (again): Finish");
 
 		var result = await wizardTask.WaitAsync(TimeSpan.FromSeconds(10));
 
