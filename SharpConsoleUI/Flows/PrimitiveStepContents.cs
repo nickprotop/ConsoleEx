@@ -12,6 +12,7 @@ using SharpConsoleUI.Builders;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Themes;
 using Ctl = SharpConsoleUI.Builders.Controls;
@@ -31,6 +32,29 @@ namespace SharpConsoleUI.Flows
 			NotificationSeverityEnum.Danger => ColorRole.Danger,
 			_ => ColorRole.Primary,
 		};
+
+		/// <summary>
+		/// Selects the <see cref="ColorRole"/> the host frame should use for a step: the same role the top
+		/// band uses, so frame and banner never disagree. Progress steps force <see cref="ColorRole.Primary"/>.
+		/// </summary>
+		internal static ColorRole BorderRole(FlowChrome chrome)
+			=> chrome.UseProgressGlyph ? ColorRole.Primary : SeverityToRole(chrome.Severity);
+
+		/// <summary>
+		/// Resolves the active and inactive border colors for a flow window from the step's role against the
+		/// active theme. Active is the role's resolved border; inactive is a dimmed (shaded) variant so the
+		/// severity identity persists but recedes when the window is unfocused — mirroring the theme's
+		/// active/inactive border convention.
+		/// </summary>
+		/// <param name="chrome">The step chrome carrying severity / progress flag.</param>
+		/// <param name="theme">The active theme to resolve the role against.</param>
+		/// <returns>A tuple of (active, inactive) border colors.</returns>
+		internal static (Color Active, Color Inactive) ResolveBorderColors(FlowChrome chrome, ITheme theme)
+		{
+			Color active = ColorRoleResolver.Resolve(BorderRole(chrome), theme).Border;
+			Color inactive = active.Shade(ControlDefaults.FlowInactiveBorderShade);
+			return (active, inactive);
+		}
 
 		/// <summary>Returns the display glyph string for the given <see cref="NotificationSeverityEnum"/>.</summary>
 		internal static string SeverityToGlyph(NotificationSeverityEnum severity) => severity switch
