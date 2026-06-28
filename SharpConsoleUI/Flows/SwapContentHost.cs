@@ -177,7 +177,7 @@ namespace SharpConsoleUI.Flows
 			foreach (var c in FlowContentHelpers.BuildTopBand(chrome))
 				window.AddControl(c);
 
-			window.AddControl(body);
+			window.AddControl(FlowContentHelpers.WrapBody(body));
 
 			if (content is IFlowChromeBands bands)
 			{

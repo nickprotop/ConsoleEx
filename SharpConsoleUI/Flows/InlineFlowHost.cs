@@ -116,7 +116,8 @@ namespace SharpConsoleUI.Flows
 			content.StateChanged += onStateChanged;
 
 			// Swap the step into the control on the UI thread (ShowStep mutates the grid).
-			ws.EnqueueOnUIThread(() => _target.ShowStep(top, body, bottom, FlowChromeFormat.FormatTitle(chrome)));
+			var wrappedBody = FlowContentHelpers.WrapBody(body);
+			ws.EnqueueOnUIThread(() => _target.ShowStep(top, wrappedBody, bottom, FlowChromeFormat.FormatTitle(chrome)));
 
 			// Token cancellation → Cancel. No window to close: the control is reused for the next step.
 			using var ctReg = ct.Register(() =>
