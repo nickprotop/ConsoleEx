@@ -82,6 +82,11 @@ namespace SharpConsoleUI.Flows
 				.Maximizable(false)
 				.Movable(true);
 
+			// D3: tint the window frame by the step role (same role the top band uses), resolved against
+			// the active theme. Active = role border; inactive = dimmed variant so it recedes when unfocused.
+			var (activeBorder, inactiveBorder) = FlowContentHelpers.ResolveBorderColors(chrome, _ws.Theme);
+			builder.WithActiveBorderColor(activeBorder).WithInactiveBorderColor(inactiveBorder);
+
 			// Top band is ALWAYS host-built from chrome (title + accent rule), so every step — primitive,
 			// plain custom content, or wizard — shows a consistent banner. Content that supplies its own
 			// bottom band (the framework primitives) owns its ruler+buttons; otherwise the host builds the
