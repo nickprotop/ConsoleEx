@@ -103,7 +103,6 @@ namespace SharpConsoleUI.Flows
 		/// <summary>Scrollable middle band: a single-line message body that fills the available height.</summary>
 		internal static IWindowControl BuildScrollableBody(string message)
 			=> Ctl.ScrollablePanel()
-				.WithScrollbar(false)
 				.WithVerticalAlignment(VerticalAlignment.Fill)
 				.AddControl(Ctl.Markup()
 					.AddLine(EscapeMarkup(message))
@@ -275,7 +274,6 @@ namespace SharpConsoleUI.Flows
 			// Scrollable body: message + input, filling the window content height so the
 			// StickyBottom band anchors to the true window bottom (no blank rows below it).
 			return Ctl.ScrollablePanel()
-				.WithScrollbar(false)
 				.WithVerticalAlignment(VerticalAlignment.Fill)
 				.AddControl(Ctl.Markup()
 					.AddLine(FlowContentHelpers.EscapeMarkup(_message))
@@ -400,7 +398,6 @@ namespace SharpConsoleUI.Flows
 			// Scrollable body: description + live status, filling the window content height so the
 			// StickyBottom band anchors to the true window bottom (no blank rows below it).
 			return Ctl.ScrollablePanel()
-				.WithScrollbar(false)
 				.WithVerticalAlignment(VerticalAlignment.Fill)
 				.AddControl(_status)
 				.Build();
