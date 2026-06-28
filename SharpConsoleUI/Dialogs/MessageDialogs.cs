@@ -32,7 +32,7 @@ namespace SharpConsoleUI.Dialogs
 		/// <param name="ok">Label for the confirm (OK) button. Defaults to <c>"OK"</c>.</param>
 		/// <param name="cancel">Label for the dismiss (Cancel) button. Defaults to <c>"Cancel"</c>.</param>
 		/// <param name="severity">
-		/// Severity level that controls the glyph, accent rule color, and focused-button role.
+		/// Severity level that controls the glyph, accent rule color, window border tint, and focused-button role.
 		/// Defaults to <see cref="NotificationSeverityEnum.Info"/>.
 		/// </param>
 		/// <param name="parent">
@@ -75,7 +75,7 @@ namespace SharpConsoleUI.Dialogs
 		/// <param name="message">The prompt question or label displayed above the input field.</param>
 		/// <param name="initial">Optional initial text pre-filled into the input. Defaults to <c>null</c> (empty).</param>
 		/// <param name="severity">
-		/// Severity level that controls the glyph, accent rule color, and focused-button role.
+		/// Severity level that controls the glyph, accent rule color, window border tint, and focused-button role.
 		/// Defaults to <see cref="NotificationSeverityEnum.Info"/>.
 		/// </param>
 		/// <param name="parent">
@@ -191,10 +191,18 @@ namespace SharpConsoleUI.Dialogs
 				.Maximizable(false)
 				.Movable(true);
 
-			// Three-band assembly: StickyTop band, scrollable Fill body, StickyBottom band.
+			// Tint the dialog frame by the step role (the same role the top band uses), resolved against
+			// the active theme — so a standalone Dialogs.* dialog reflects its severity on the border just
+			// like the in-flow / inline host paths do. Active = role border; inactive = dimmed variant.
+			var (activeBorder, inactiveBorder) = FlowContentHelpers.ResolveBorderColors(chrome, ws.Theme);
+			builder.WithActiveBorderColor(activeBorder).WithInactiveBorderColor(inactiveBorder);
+
+			// Three-band assembly: StickyTop band, scrollable Fill body, StickyBottom band. The body is
+			// wrapped in a Fill scroll viewport (no-op when it already scrolls, e.g. the primitives) so a
+			// tall body scrolls inside the bounded window — matching the host paths.
 			foreach (var c in topBand)
 				builder.AddControl(c);
-			builder.AddControl(body);
+			builder.AddControl(FlowContentHelpers.WrapBody(body));
 			foreach (var c in bottomBand)
 				builder.AddControl(c);
 

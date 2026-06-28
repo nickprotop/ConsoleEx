@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Flows;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
@@ -179,6 +180,40 @@ public class MessageDialogsTests
 		var ruleAbove = band[band.Count - 2] as RuleControl;
 		Assert.NotNull(ruleAbove);
 		Assert.Equal(StickyPosition.Bottom, ruleAbove!.StickyPosition);
+	}
+
+	[Fact]
+	public async Task ConfirmAsync_WarningSeverity_TintsWindowBorder()
+	{
+		// Real-thing: drive the STANDALONE Dialogs.* path (not a hand-built window). It must apply the
+		// severity border just like the in-flow / inline host paths — the bug was that ShowContentModal
+		// built a default-bordered window and never resolved the role.
+		var sys = TestWindowSystemBuilder.CreateTestSystem(80, 24);
+
+		var task = DialogsApi.ConfirmAsync(sys, "Warning", "Continue?", "Continue", "Stop",
+			severity: NotificationSeverityEnum.Warning);
+
+		sys.Render.UpdateDisplay();
+
+		var win = sys.Windows.Values.Single();
+		var chrome = new FlowChrome("Warning", widthHint: 50, heightHint: 11,
+			severity: NotificationSeverityEnum.Warning);
+		var (expActive, expInactive) = FlowContentHelpers.ResolveBorderColors(chrome, sys.Theme);
+
+		Assert.Equal(expActive, win.ActiveBorderForegroundColor);
+		Assert.Equal(expInactive, win.InactiveBorderForegroundColor);
+		// Sanity: Warning is not the theme default border (otherwise the assert would be vacuous).
+		Assert.NotEqual(sys.Theme.ActiveBorderForegroundColor, win.ActiveBorderForegroundColor);
+
+		// Border survives a re-render.
+		sys.Render.UpdateDisplay();
+		Assert.Equal(expActive, win.ActiveBorderForegroundColor);
+
+		// Resolve the dialog so the test does not hang.
+		var cancel = win.FindControl<ButtonControl>("flow-confirm-cancel");
+		Assert.NotNull(cancel);
+		cancel!.PerformClickForTest();
+		await task.WaitAsync(System.TimeSpan.FromSeconds(5));
 	}
 
 	[Fact]
