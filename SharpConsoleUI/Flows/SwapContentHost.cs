@@ -100,6 +100,15 @@ namespace SharpConsoleUI.Flows
 
 			SetWindowSurface(window, content, chrome, body, buttonControls);
 
+			// D3: update the reused window's frame to this step's role each step (severity can change
+			// between steps). Border setters Invalidate(Repaint); marshal to the UI thread.
+			var (activeBorder, inactiveBorder) = FlowContentHelpers.ResolveBorderColors(chrome, _ws.Theme);
+			_ws.EnqueueOnUIThread(() =>
+			{
+				window.ActiveBorderForegroundColor = activeBorder;
+				window.InactiveBorderForegroundColor = inactiveBorder;
+			});
+
 			FlowStepPresenter.WireBodySelfResolve(content, tcs);
 
 			// Dynamic buttons: re-evaluate enabled state in place on each StateChanged.

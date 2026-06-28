@@ -105,5 +105,78 @@ namespace SharpConsoleUI.Tests.Flows
 			var outcome = await presentTask.WaitAsync(TimeSpan.FromSeconds(5));
 			Assert.Equal(FlowVerdict.Next, outcome.Verdict);
 		}
+
+		// -----------------------------------------------------------------------
+		// Real-thing: SwapContentHost — border updates per step as severity changes
+		// -----------------------------------------------------------------------
+
+		[Fact]
+		public async Task SwapContentHost_BorderChangesPerStep_SurvivesReRender()
+		{
+			// Real-thing: reused window host — present step 1 as Info (→ Primary border), assert the border,
+			// then present step 2 as Danger on the SAME window and assert the border has changed and
+			// survives a re-render. This catches any regression in the per-step EnqueueOnUIThread wiring.
+			var system = TestWindowSystemBuilder.CreateTestSystem(width: 50, height: 14);
+			using var host = new SwapContentHost(system, parent: null);
+
+			// ---- Step 1: Info → Primary border ----
+			var step1 = new TallTextStepContent(lineCount: 1);
+			var chrome1 = new FlowChrome(
+				title: "One",
+				stepIndicator: null,
+				widthHint: 40,
+				heightHint: 10,
+				buttons: new[] { new FlowButton("Next", FlowVerdict.Next) },
+				severity: NotificationSeverityEnum.Info);
+
+			var t1 = host.PresentAsync(step1, chrome1, CancellationToken.None);
+
+			// Drain the EnqueueOnUIThread border-set action then paint.
+			for (int i = 0; i < 3; i++)
+			{
+				system.DrainPendingUIActionsForTest();
+				system.Render.UpdateDisplay();
+			}
+
+			var window = system.Windows.Values.Single();
+			var expPrimary = ColorRoleResolver.Resolve(ColorRole.Primary, system.Theme).Border;
+			Assert.Equal(expPrimary, window.ActiveBorderForegroundColor);
+
+			// Resolve step 1 via button click.
+			bool clicked1 = FlowTestHelpers.ClickButtonByName(system, "flow-host-btn-Next");
+			Assert.True(clicked1, "Expected to find and click 'flow-host-btn-Next'");
+			await t1.WaitAsync(TimeSpan.FromSeconds(5));
+
+			// ---- Step 2: Danger → Danger border on the SAME reused window ----
+			var step2 = new TallTextStepContent(lineCount: 1);
+			var chrome2 = new FlowChrome(
+				title: "Two",
+				stepIndicator: null,
+				widthHint: 40,
+				heightHint: 10,
+				buttons: new[] { new FlowButton("OK", FlowVerdict.Next) },
+				severity: NotificationSeverityEnum.Danger);
+
+			var t2 = host.PresentAsync(step2, chrome2, CancellationToken.None);
+
+			// Drain the border-set action then paint.
+			for (int i = 0; i < 3; i++)
+			{
+				system.DrainPendingUIActionsForTest();
+				system.Render.UpdateDisplay();
+			}
+
+			var expDanger = ColorRoleResolver.Resolve(ColorRole.Danger, system.Theme).Border;
+			Assert.Equal(expDanger, window.ActiveBorderForegroundColor);
+
+			// Survives a re-render.
+			system.Render.UpdateDisplay();
+			Assert.Equal(expDanger, window.ActiveBorderForegroundColor);
+
+			// Resolve step 2.
+			bool clicked2 = FlowTestHelpers.ClickButtonByName(system, "flow-host-btn-OK");
+			Assert.True(clicked2, "Expected to find and click 'flow-host-btn-OK'");
+			await t2.WaitAsync(TimeSpan.FromSeconds(5));
+		}
 	}
 }
