@@ -56,6 +56,18 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public FlowControl()
 		{
+			// Fill the height the parent allots. A FlowControl's whole point is to occupy the region it is
+			// placed in (banner on top, body filling, toolbar pinned to the bottom). With the BaseControl
+			// default of Top it would collapse to its content height (1 row), so when hosted in a container
+			// that hands it a tall slot (e.g. a ScrollablePanel) it would render a single line. Fill makes it
+			// take the slot. (When added directly to a window it already received the window's content slot.)
+			VerticalAlignment = VerticalAlignment.Fill;
+
+			// One Star column so the single content column fills the control's width. GridLayout needs at
+			// least one column definition to size and arrange cells; without it colCount is 0 and the grid
+			// collapses to width 0 (cells never arranged). Cells are placed in column 0 throughout.
+			ColumnDefinitions.Add(GridLength.Star());
+
 			// Three rows: Auto top band, Star body (fills), Auto bottom band. The body's Star row is what
 			// pushes the bottom band to the control's bottom edge regardless of body height.
 			RowDefinitions.Add(GridLength.Auto());

@@ -677,4 +677,134 @@ public class FlowControlTests
 		// Inline: still exactly one window after completion.
 		Assert.Single(system.Windows.Values);
 	}
+
+	// -----------------------------------------------------------------------
+	// FlowControl-in-ScrollablePanel regression tests
+	//
+	// A FlowControl hosted inside a ScrollablePanelControl used to render BLANK: its idle Placeholder
+	// (a Markup in the grid's Star body row) had ActualHeight 0 and never appeared. Two root causes:
+	//   1. FlowControl had the BaseControl default VerticalAlignment.Top, so it collapsed to its 1-row
+	//      content height instead of filling the panel's slot.
+	//   2. FlowControl defined rows but no COLUMN, so GridLayout's colCount was 0 — the grid measured to
+	//      LayoutSize.Zero and its arrange short-circuited at the colCount==0 guard, so cells were never
+	//      laid out (width 0). The ctor now adds a single Star column and sets VerticalAlignment.Fill.
+	// These tests are the gate: they build the real SPC > FlowControl nesting at boundary sizes, drive
+	// the real input path, re-render, and assert the rendered geometry SURVIVES the re-render.
+	// -----------------------------------------------------------------------
+
+	/// <summary>
+	/// Real-thing: a <see cref="FlowControl"/> with a <see cref="FlowControl.Placeholder"/> hosted inside a
+	/// bordered <see cref="ScrollablePanelControl"/> renders its placeholder (non-zero height) AND fills the
+	/// panel's slot — and that state survives a second render pass.
+	/// </summary>
+	[Fact]
+	public void Placeholder_InScrollablePanel_RendersAndSurvivesRerender()
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem(120, 40);
+		var fc = new FlowControl();
+		var placeholder = Ctl.Markup("[dim]No operation in progress[/]").Build();
+		fc.Placeholder = placeholder;
+
+		// Real nesting + boundary-stressing short panel: a ScrollablePanel of height 9, narrower than the window.
+		var spc = Ctl.ScrollablePanel()
+			.Rounded()
+			.WithHeight(9)
+			.AddControl(fc)
+			.Build();
+
+		var win = new WindowBuilder(system)
+			.WithTitle("Host")
+			.WithSize(80, 30)
+			.AddControl(spc)
+			.Build();
+		system.AddWindow(win);
+
+		system.DrainPendingUIActionsForTest();
+		system.Render.UpdateDisplay();
+
+		// The FlowControl must fill the panel's content slot (Fill alignment), not collapse to 1 row.
+		Assert.True(fc.ActualHeight > 1,
+			$"FlowControl should fill the panel slot, not collapse to its content height. ActualHeight={fc.ActualHeight}");
+
+		// The placeholder (in the grid's Star body row) must actually be laid out with a real height.
+		Assert.True(((BaseControl)placeholder).ActualHeight > 0,
+			$"Placeholder should render inside the FlowControl-in-ScrollablePanel. ActualHeight={((BaseControl)placeholder).ActualHeight}");
+
+		// Re-render: the geometry must survive (not reset to 0 on a subsequent pass — the original bug
+		// would have it blank every frame).
+		system.Render.UpdateDisplay();
+		Assert.True(fc.ActualHeight > 1, $"FlowControl height must survive re-render. ActualHeight={fc.ActualHeight}");
+		Assert.True(((BaseControl)placeholder).ActualHeight > 0,
+			$"Placeholder height must survive re-render. ActualHeight={((BaseControl)placeholder).ActualHeight}");
+	}
+
+	/// <summary>
+	/// Real-thing E2E: a 2-step wizard runs INLINE inside a <see cref="FlowControl"/> that is hosted in a
+	/// <see cref="ScrollablePanelControl"/> (the headline "wizard in a bordered pane" use case). The step's
+	/// banner renders inline (non-zero height) and the host-rendered toolbar buttons are reachable and
+	/// clickable through the panel nesting, driving the wizard to completion with no modal window opened.
+	/// </summary>
+	[Fact]
+	public async Task Wizard_InScrollablePanel_RendersInlineAndResolves()
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem(120, 40);
+		var fc = new FlowControl();
+
+		var spc = Ctl.ScrollablePanel()
+			.Rounded()
+			.WithHeight(12)
+			.AddControl(fc)
+			.Build();
+
+		var win = new WindowBuilder(system)
+			.WithTitle("Host")
+			.WithSize(80, 30)
+			.AddControl(spc)   // panel added to window; FlowControl nested inside the panel
+			.Build();
+		system.AddWindow(win);
+
+		var state = new WizardState();
+		var wizard = Flow.Wizard<WizardState>()
+			.Seed(state)
+			.WithTitle("Panel Wizard");
+		wizard.Step((_) => new WizardStepContent(() => { state.Step1Value = 10; }));
+		wizard.Step((_) => new WizardStepContent(() => { state.Step2Value = 20; }));
+
+		var flowTask = fc.Run(wizard);
+
+		system.DrainPendingUIActionsForTest();
+		system.Render.UpdateDisplay();
+
+		// The step banner renders inline with a real height (the blank-render bug would leave it at 0).
+		var banner = win.FindControl<MarkupControl>(FlowContentHelpers.TopBandTitleName);
+		Assert.NotNull(banner);
+		Assert.Contains("Panel Wizard", banner!.Text);
+		Assert.True(((BaseControl)banner).ActualHeight > 0,
+			$"Step banner should render inline inside the panel. ActualHeight={((BaseControl)banner).ActualHeight}");
+
+		// The host-rendered Next button is reachable + clickable through the panel→FlowControl nesting.
+		var nextBtn = win.FindControl<ButtonControl>("flow-host-btn-Next");
+		Assert.NotNull(nextBtn);
+		win.FocusManager.SetFocus(nextBtn!, FocusReason.Programmatic);
+		Assert.True(win.FocusManager.IsFocused(nextBtn!),
+			"flow-host-btn-Next inside the FlowControl-in-ScrollablePanel must be focusable.");
+
+		// No extra windows — the flow is inline.
+		Assert.Single(system.Windows.Values);
+
+		// Drive step 1 → Next, then step 2 → Finish via the real click path.
+		Assert.True(FlowTestHelpers.ClickButtonByName(system, "flow-host-btn-Next"),
+			"step 1: Next must be clickable through the panel nesting.");
+		await FlowTestHelpers.WaitAndClickButtonAsync(system, "flow-host-btn-Finish",
+			"step 2: Finish must be clickable through the panel nesting.");
+
+		system.Render.UpdateDisplay();
+
+		var result = await flowTask.WaitAsync(TimeSpan.FromSeconds(10));
+
+		Assert.True(result.Completed, $"Expected Completed; Cancelled={result.Cancelled} Faulted={result.Faulted}");
+		Assert.Equal(10, state.Step1Value);
+		Assert.Equal(20, state.Step2Value);
+		Assert.Single(system.Windows.Values);
+	}
 }
