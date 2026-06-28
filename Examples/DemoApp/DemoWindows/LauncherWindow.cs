@@ -69,6 +69,7 @@ public static class LauncherWindow
 				.AddItem("Panel Config", subtitle: "Desktop panel configuration", content: MakeInfoPanel("Panel Config"))
 				.AddItem("Desktop Background", subtitle: "Desktop background configuration", content: MakeInfoPanel("Desktop Background")))
 			.AddHeader("Utilities", Color.Magenta1, header => header
+				.AddItem("Flows", subtitle: "Wizards, dialogs & multi-step flows", content: MakeInfoPanel("Flows"))
 				.AddItem("Built-in Dialogs", subtitle: "File pickers & system dialogs", content: MakeInfoPanel("Built-in Dialogs"))
 				.AddItem("Digital Clock", subtitle: "FIGlet-rendered clock", content: MakeInfoPanel("Digital Clock"))
 				.AddItem("Log Viewer", subtitle: "Real-time log display", content: MakeInfoPanel("Log Viewer"))
@@ -267,6 +268,7 @@ public static class LauncherWindow
 			"Animations" => AnimationDemoWindow.Create(ws),
 			"Image Rendering" => ImageDemoWindow.Create(ws),
 			"Image Viewer" => ImageViewerWindow.Create(ws),
+			"Flows" => FlowsDemoWindow.Create(ws),
 			"Built-in Dialogs" => DialogsWindow.Create(ws),
 			"Digital Clock" => ClockWindow.Create(ws),
 			"Log Viewer" => LogViewerWindow.Create(ws),
@@ -761,6 +763,32 @@ public static class LauncherWindow
 				"  - Resizable window with live rescaling",
 				"",
 				"[dim]Powered by SixLabors.ImageSharp[/]",
+			},
+			"Flows" => new List<string>
+			{
+				"[bold]Composable Flows[/]",
+				"",
+				"Wizards, dialogs, and multi-step flows built on the",
+				"Flows + Dialogs APIs. Each button launches one flow",
+				"and echoes its result into the page's output area.",
+				"",
+				"[dim]Standalone primitive dialogs:[/]",
+				"  - Dialogs.ConfirmAsync (Info + Danger severity)",
+				"  - Dialogs.PromptAsync (single-line input)",
+				"  - Dialogs.RunWithProgressAsync (cancellable steps)",
+				"",
+				"[dim]Composed flows:[/]",
+				"  - Flow.Run with custom IFlowStepContent",
+				"  - Flow.Wizard: 3 steps, step indicator, dynamic",
+				"    Next-enable, Stay-on-invalid, Commit + progress",
+				"  - One-step wizard (degenerate case)",
+				"",
+				"[dim]Try it:[/] Run the install wizard, then use",
+				"  Back/Next/Cancel and watch the step indicator.",
+				"",
+				"[dim]API:[/]",
+				"  - SharpConsoleUI.Dialogs.Dialogs",
+				"  - SharpConsoleUI.Flows.Flow / FlowResult / FlowVerdict",
 			},
 			"Built-in Dialogs" => new List<string>
 			{

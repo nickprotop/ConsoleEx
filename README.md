@@ -298,6 +298,8 @@ Full reference: [nickprotop.github.io/ConsoleEx/docfx/_site/CONTROLS.html](https
 | [Plugins](https://nickprotop.github.io/ConsoleEx/docfx/_site/PLUGINS.html) | Extending the framework |
 | [State Services](https://nickprotop.github.io/ConsoleEx/docfx/_site/STATE-SERVICES.html) | All 11 built-in services |
 | [Notifications](https://nickprotop.github.io/ConsoleEx/docfx/_site/NOTIFICATIONS.html) | Corner toasts (ToastService) + modal notifications |
+| [Dialogs](docs/DIALOGS.md) | Standalone Confirm / Prompt / Progress dialogs + file and system dialogs |
+| [Composable Flows](docs/FLOWS.md) | Multi-step wizards + FlowContext over the dialog primitives |
 | [Threading & Async](docs/THREADING_AND_ASYNC.md) | The UI thread model, async events, and the unresponsive watchdog |
 | [NativeAOT](docs/AOT.md) | AOT compatibility, the CI smoke gate, and the HtmlControl caveat |
 | [Clipboard, Copy & Paste](docs/CLIPBOARD.md) | OSC 52 remote copy (works over SSH), bracketed paste, and configuration |

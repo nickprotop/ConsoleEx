@@ -1063,5 +1063,27 @@ namespace SharpConsoleUI.Configuration
 		public const int ToastGap = 0;
 
 		#endregion
+
+		#region Flow severity glyphs
+
+		/// <summary>Severity glyph for <see cref="Core.NotificationSeverityEnum.Info"/> — a filled circle (U+25CF, narrow).</summary>
+		public const string FlowGlyphInfo = "●";
+
+		/// <summary>Severity glyph for <see cref="Core.NotificationSeverityEnum.Success"/> — a check mark (U+2713, narrow).</summary>
+		public const string FlowGlyphSuccess = "✓";
+
+		/// <summary>Severity glyph for <see cref="Core.NotificationSeverityEnum.Warning"/> — a warning sign (U+26A0, narrow).</summary>
+		public const string FlowGlyphWarning = "⚠";
+
+		/// <summary>Severity glyph for <see cref="Core.NotificationSeverityEnum.Danger"/> — a cross mark (U+2716, narrow).</summary>
+		public const string FlowGlyphDanger = "✖";
+
+		/// <summary>Severity glyph for <see cref="Core.NotificationSeverityEnum.None"/> — empty string.</summary>
+		public const string FlowGlyphNone = "";
+
+		/// <summary>Glyph for the Progress dialog — a clockwise open circle arrow (U+27F3, narrow).</summary>
+		public const string FlowGlyphProgress = "⟳";
+
+		#endregion
 	}
 }

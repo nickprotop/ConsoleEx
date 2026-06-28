@@ -67,6 +67,18 @@ namespace SharpConsoleUI.Controls
 			=> Core.AsyncEvent.Raise(Entered, EnteredAsync, this, _input, Container?.GetConsoleWindowSystem?.LogService);
 
 		/// <summary>
+		/// Sets the input text and raises <see cref="InputChanged"/> for unit testing without
+		/// simulating key presses. Mirrors what the user typing then triggering a change would do.
+		/// </summary>
+		/// <param name="text">The text to set as the current input value.</param>
+		internal void RaiseInputChangedForTest(string text)
+		{
+			_input = text ?? string.Empty;
+			_cursorPosition = _input.Length;
+			RaiseInputChanged();
+		}
+
+		/// <summary>
 		/// Event fired when input text changes (modern standardized event)
 		/// </summary>
 		public event EventHandler<string>? InputChanged;

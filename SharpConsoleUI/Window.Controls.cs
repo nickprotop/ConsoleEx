@@ -264,6 +264,9 @@ namespace SharpConsoleUI
 				ColumnContainer column => column.Contents,
 				ScrollablePanelControl panel => panel.Children,
 				TabControl tabControl => tabControl.TabPages.Select(tp => tp.Content),
+				// Generic container fallback (e.g. GridControl, FlowControl): recurse into the direct
+				// children any IContainerControl exposes so named controls nested in grids are found.
+				IContainerControl container => container.GetChildren(),
 				_ => null
 			};
 		}
