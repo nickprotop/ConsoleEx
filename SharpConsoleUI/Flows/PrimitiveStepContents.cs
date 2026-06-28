@@ -110,6 +110,26 @@ namespace SharpConsoleUI.Flows
 					.Build())
 				.Build();
 
+		/// <summary>
+		/// Wraps a step body in a Fill, auto-scrolling <see cref="ScrollablePanelControl"/> so a tall body
+		/// scrolls and shows a scrollbar inside the host's bounded body slot. A body that is already a
+		/// <see cref="ScrollablePanelControl"/> (the framework primitives) is returned unchanged to avoid
+		/// double-wrapping. The wrapper fills the slot between the sticky top and bottom bands: short content
+		/// sits at the top with the scrollbar hidden; tall content overflows and shows the bar.
+		/// </summary>
+		/// <param name="body">The control returned by <see cref="IFlowStepContent{TResult}.BuildContent"/>.</param>
+		/// <returns>The body unchanged if it already scrolls, otherwise a Fill scroll viewport containing it.</returns>
+		internal static IWindowControl WrapBody(IWindowControl body)
+		{
+			if (body is ScrollablePanelControl)
+				return body;
+
+			return Ctl.ScrollablePanel()
+				.WithVerticalAlignment(VerticalAlignment.Fill)
+				.AddControl(body)
+				.Build();
+		}
+
 		/// <summary>StickyBottom band: an accent ruler followed by a right-aligned toolbar of the given buttons.</summary>
 		internal static IReadOnlyList<IWindowControl> BuildBottomBand(ColorRole role, params ButtonControl[] buttons)
 		{
