@@ -138,29 +138,23 @@ namespace SharpConsoleUI.Tests.Flows
 		// Real-thing: InlineFlowHost — tall body scrolls
 		// -----------------------------------------------------------------------
 
-		// NOTE: Inline (FlowControl) scroll-viewport behavior is NOT asserted headless. In this test
-		// harness the FlowControl's Star body row resolves to a 0-height arranged slot (the SPC's
-		// arranged node never receives a bounded height), so the wrapped body's ViewportHeight stays 0
-		// and the auto-scrollbar gate cannot fire — a limitation of driving the inline render path
-		// without a live terminal, NOT of the WrapBody wiring (the modal hosts above prove the wrap
-		// scrolls correctly against a bounded slot). Inline scroll is verified by the mandatory tmux
-		// smoke-drive of `DemoApp --demo Flows` (plan Task 6). Tracked as a follow-up to find the
-		// correct headless drain/arrange sequence that gives the Star row a bounded height.
-		[Fact(Skip = "Inline FlowControl Star body row resolves to 0 height headless; verified via tmux smoke-drive (plan Task 6).")]
+		[Fact]
 		public async Task InlineFlowHost_TallCustomBody_ShowsScrollbar_SurvivesReRender()
 		{
 			// Real-thing: FlowControl hosted in a real (short) window; present a tall step via the
 			// inline host; assert the wrapping SPC in the body row scrolls and survives re-render.
 			var system = TestWindowSystemBuilder.CreateTestSystem(width: 40, height: 16);
 
-			// Build a window that contains a FlowControl taking the full content area.
+			// Build a window that contains a FlowControl taking the full content area. BuildAndShow (not
+			// Build) registers the window with the system so the render loop actually renders it — the
+			// step swap nulls the window's layout tree and only a real render rebuilds it.
 			var fc = new FlowControl();
 			var window = new WindowBuilder(system)
 				.WithTitle("Host")
 				.WithSize(38, 14)
 				.Centered()
 				.AddControl(fc)
-				.Build();
+				.BuildAndShow();
 
 			system.Render.UpdateDisplay(); // initial render so the FC is laid out
 

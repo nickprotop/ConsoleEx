@@ -63,6 +63,14 @@ namespace SharpConsoleUI.Controls
 			// take the slot. (When added directly to a window it already received the window's content slot.)
 			VerticalAlignment = VerticalAlignment.Fill;
 
+			// Stretch to fill the parent's width too. GridControl.MeasureDOM reports zero natural width
+			// (the grid sizes its tracks from the parent's allotted width, not its own desired size), so
+			// without Stretch a FlowControl added directly to a window/stack arranges at width 0 and the
+			// whole region collapses (the Star column divides nothing). Stretch makes it take the parent's
+			// width — matching StatusBar/Toolbar/ProgressBar and the other stretch-wide containers. (In the
+			// DemoApp it happened to work because a wrapping Panel handed it a width.)
+			HorizontalAlignment = HorizontalAlignment.Stretch;
+
 			// One Star column so the single content column fills the control's width. GridLayout needs at
 			// least one column definition to size and arrange cells; without it colCount is 0 and the grid
 			// collapses to width 0 (cells never arranged). Cells are placed in column 0 throughout.
