@@ -23,6 +23,13 @@ namespace SharpConsoleUI.Layout
 		public static LayoutRect Empty => new(0, 0, 0, 0);
 
 		/// <summary>
+		/// Gets an effectively unbounded rectangle, used as the initial clip for a hit-test or paint
+		/// walk that has no ancestor clip yet. Width/Height use half of <see cref="int.MaxValue"/> so
+		/// that <c>Right</c>/<c>Bottom</c> (<c>X + Width</c>) cannot overflow.
+		/// </summary>
+		public static LayoutRect Infinite => new(0, 0, int.MaxValue / 2, int.MaxValue / 2);
+
+		/// <summary>
 		/// Gets whether this rectangle has zero or negative area.
 		/// </summary>
 		public bool IsEmpty => Width <= 0 || Height <= 0;

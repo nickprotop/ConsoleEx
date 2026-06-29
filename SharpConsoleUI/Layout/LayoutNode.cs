@@ -511,22 +511,46 @@ namespace SharpConsoleUI.Layout
 		/// Performs hit testing to find the node at the specified absolute position.
 		/// </summary>
 		public virtual LayoutNode? HitTest(int x, int y)
+			=> HitTest(x, y, LayoutRect.Infinite);
+
+		/// <summary>
+		/// Hit-tests within an inherited clip rectangle that accumulates each ancestor's visible region,
+		/// mirroring the way <see cref="Paint(CharacterBuffer, LayoutRect)"/> threads a clip rect down the
+		/// tree. A node is only hittable where it is actually VISIBLE: the intersection of its own bounds
+		/// with the inherited clip. This keeps hit-testing SYMMETRIC with paint, so a child painted clipped
+		/// to its container's region (e.g. a Left-aligned control wider than its grid cell, clipped to the
+		/// cell) is also HIT only within that region — it can no longer steal a click aimed at a sibling
+		/// cell it visually overflows (the GridControl-in-HGC overlap that broke bordered-header clicks).
+		/// </summary>
+		public virtual LayoutNode? HitTest(int x, int y, LayoutRect clipRect)
 		{
-			if (!IsVisible || !AbsoluteBounds.Contains(x, y))
+			if (!IsVisible)
 				return null;
 
-			// Check portal children first (they're on top)
+			// The node's visible area is its bounds intersected with the inherited clip. A hit must land
+			// inside that visible area (matching paint's visibleBounds = AbsoluteBounds ∩ clipRect).
+			var visibleBounds = AbsoluteBounds.Intersect(clipRect);
+			if (visibleBounds.IsEmpty || !visibleBounds.Contains(x, y))
+				return null;
+
+			// Portal children clip to the full area, not our bounds (matching paint).
 			for (int i = _portalChildren.Count - 1; i >= 0; i--)
 			{
-				var hit = _portalChildren[i].HitTest(x, y);
+				var hit = _portalChildren[i].HitTest(x, y, clipRect);
 				if (hit != null)
 					return hit;
 			}
 
-			// Check children in reverse order (last painted = on top)
+			// Children in reverse order (last painted = on top). Each child inherits this node's visible
+			// region, narrowed by region-specific clipping when the layout supplies it (same call paint
+			// makes via GetPaintClipRect), so the child can never be hit outside where it can paint.
+			var regionLayout = Layout as IRegionClippingLayout;
 			for (int i = _children.Count - 1; i >= 0; i--)
 			{
-				var hit = _children[i].HitTest(x, y);
+				var childClip = regionLayout != null
+					? regionLayout.GetPaintClipRect(_children[i], visibleBounds)
+					: visibleBounds;
+				var hit = _children[i].HitTest(x, y, childClip);
 				if (hit != null)
 					return hit;
 			}

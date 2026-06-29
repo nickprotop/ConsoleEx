@@ -54,6 +54,22 @@ var grid = Controls.Grid()
     .Build();
 ```
 
+### Content-sized Star tracks (`ContentSizedStars`)
+
+A `Star` track is *defined* as a share of leftover space, so it has no intrinsic size. When a grid is measured against an **unbounded** axis — i.e. a content-sizing parent asking "how big do you *want* to be?" (an auto-height stack, or any container that measures loose to discover natural size) — there is no finite space to take a share of, so by the WinUI contract a `Star` track **collapses to 0** at measure. That is correct for a general grid, but in terminal layouts (where content usually has a real natural size) it is a frequent surprise: a Star grid placed in a content-sizing parent can render as nothing.
+
+Set `ContentSizedStars = true` to opt a grid out of that collapse: its `Star` tracks self-size to their content **at measure**, then still fan out to fill when arranged in a real, bounded box — *"content size at measure, fill at arrange."* It is **off by default** (standard WinUI behavior, unchanged for ordinary grids) and affects only the measure pass.
+
+```csharp
+var grid = Controls.Grid()
+    .Rows(GridLength.Star(1))
+    .Columns(GridLength.Star(1))
+    .Build();
+grid.ContentSizedStars = true; // self-size to content when a parent measures us unbounded
+```
+
+> `HorizontalGridControl` (a single-row grid) sets this internally — its flush column layout must self-size like the layout it replaced.
+
 ## Placement and Spanning
 
 ### Explicit placement

@@ -286,20 +286,34 @@ namespace SharpConsoleUI.Layout
 		/// Translates the hit test coordinates by the scroll offset before checking children.
 		/// </summary>
 		public override LayoutNode? HitTest(int x, int y)
+			=> HitTest(x, y, LayoutRect.Infinite);
+
+		/// <inheritdoc/>
+		public override LayoutNode? HitTest(int x, int y, LayoutRect clipRect)
 		{
-			if (!IsVisible || !AbsoluteBounds.Contains(x, y))
+			if (!IsVisible)
 				return null;
 
-			// Translate coordinates by scroll offset
-			// Mouse coordinates are in screen space, but children are positioned in content space
-			// Content space is scrolled, so we need to add the scroll offset to the mouse position
+			// The viewport's visible area is its bounds intersected with the inherited clip; the hit point
+			// must land inside it (the cursor is over THIS panel's visible window, in screen space).
+			var visibleBounds = AbsoluteBounds.Intersect(clipRect);
+			if (visibleBounds.IsEmpty || !visibleBounds.Contains(x, y))
+				return null;
+
+			// Translate coordinates by scroll offset: mouse coordinates are in screen space, but children
+			// are positioned in content (scrolled) space, so add the scroll offset to reach content space.
+			// The clip rect that bounds the children must be translated by the SAME offset so it stays the
+			// viewport's visible window in content space (keeping hit-testing symmetric with paint).
 			int contentX = x + ScrollX;
 			int contentY = y + ScrollY;
+			var contentClip = new LayoutRect(
+				visibleBounds.X + ScrollX, visibleBounds.Y + ScrollY,
+				visibleBounds.Width, visibleBounds.Height);
 
-			// Check children with translated coordinates
+			// Check children with translated coordinates and the translated viewport clip.
 			for (int i = Children.Count - 1; i >= 0; i--)
 			{
-				var hit = Children[i].HitTest(contentX, contentY);
+				var hit = Children[i].HitTest(contentX, contentY, contentClip);
 				if (hit != null)
 					return hit;
 			}

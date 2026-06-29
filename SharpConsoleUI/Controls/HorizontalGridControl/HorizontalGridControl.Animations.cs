@@ -18,7 +18,7 @@ public partial class HorizontalGridControl
 	/// <summary>
 	/// Sets the animation manager for testing purposes (bypasses window lookup).
 	/// </summary>
-	internal void SetAnimationManagerForTesting(AnimationManager manager)
+	internal new void SetAnimationManagerForTesting(AnimationManager manager)
 	{
 		_testAnimationManager = manager;
 	}
@@ -47,7 +47,7 @@ public partial class HorizontalGridControl
 	/// column index is invalid or no <see cref="AnimationManager"/> is available (in which
 	/// case the width is set immediately).
 	/// </returns>
-	public IAnimation? AnimateColumnWidth(int columnIndex, int targetWidth, TimeSpan duration, EasingFunction? easing = null)
+	public new IAnimation? AnimateColumnWidth(int columnIndex, int targetWidth, TimeSpan duration, EasingFunction? easing = null)
 	{
 		ColumnContainer? column;
 		int currentWidth;

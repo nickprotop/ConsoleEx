@@ -77,6 +77,7 @@ namespace SharpConsoleUI.Controls
 
 		private int _rowGap;
 		private int _columnGap;
+		private bool _contentSizedStars;
 		private Padding _padding = new(0);
 		private Color? _backgroundColorValue;
 		private Color? _foregroundColorValue;
@@ -205,6 +206,40 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public IReadOnlyList<(IWindowControl Control, GridPlacement Placement)> OrderedCells => BuildOrderedCells();
+
+		/// <inheritdoc/>
+		bool IGridSource.StarTracksSelfSizeToContentInMeasure => StarTracksSelfSizeToContentInMeasure;
+
+		/// <summary>
+		/// Opt-in: when <c>true</c>, this grid's <see cref="GridLength.Star"/> tracks self-size to their
+		/// cells' content when the grid is measured against an <em>unbounded</em> axis (instead of collapsing
+		/// to 0 per the WinUI contract), then still fan out to fill when arranged in a real, bounded box —
+		/// "content size at measure, fill at arrange". Defaults to <c>false</c> (standard WinUI behavior,
+		/// unchanged for ordinary grids).
+		/// </summary>
+		/// <remarks>
+		/// Set this when a Star grid placed inside a content-sizing parent (one that measures it with an
+		/// unbounded constraint to discover its natural size — e.g. an auto-height stack, or any container
+		/// that asks "how big do you want to be?") would otherwise collapse to nothing. The WinUI default
+		/// "Star-in-unbounded collapses to 0" is correct for a general grid but is a frequent surprise in
+		/// terminal layouts, where content usually has a real natural size; this property opts a specific grid
+		/// out of that collapse. <see cref="HorizontalGridControl"/> sets it internally (its flush single-row
+		/// layout must self-size like the layout it replaced). Affects the MEASURE pass only; arrange still
+		/// distributes Star tracks across the real allotted extent.
+		/// </remarks>
+		public bool ContentSizedStars
+		{
+			get => _contentSizedStars;
+			set { if (SetProperty(ref _contentSizedStars, value)) Container?.Invalidate(Invalidation.Relayout); }
+		}
+
+		/// <summary>
+		/// Backing for <see cref="IGridSource.StarTracksSelfSizeToContentInMeasure"/>. Reads the public
+		/// <see cref="ContentSizedStars"/> opt-in; a subclass whose grid must ALWAYS self-size to content when
+		/// measured unbounded (e.g. <see cref="HorizontalGridControl"/>) overrides this to force <c>true</c>.
+		/// See <see cref="ContentSizedStars"/> / the interface member for the measure/arrange semantics.
+		/// </summary>
+		protected virtual bool StarTracksSelfSizeToContentInMeasure => _contentSizedStars;
 
 		#endregion
 

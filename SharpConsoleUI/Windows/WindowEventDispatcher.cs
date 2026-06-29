@@ -328,6 +328,17 @@ namespace SharpConsoleUI.Windows
 					}
 					else
 					{
+						// Resolve the target's control-relative click position NOW, while the DOM tree is
+						// still intact. HandleClickFocus below sets focus, which can invalidate the DOM
+						// (InvalidateDOM nulls the root node + control→node map until the next render). If we
+						// deferred this translation until after focus handling, the node lookup would miss and
+						// the click would be delivered in the wrong coordinate space (e.g. a CollapsiblePanel
+						// header click landing off-header → no toggle). Computed once here, reused below.
+						Point? targetClickPosition =
+							(targetControl is Controls.IMouseAwareControl preMouseAware && preMouseAware.WantsMouseEvents)
+								? GetControlRelativePosition(targetControl, args.WindowPosition)
+								: null;
+
 						// === DISMISS PORTALS ON OUTSIDE CLICK ===
 						DismissOutsideClickPortals(args);
 
@@ -360,7 +371,10 @@ namespace SharpConsoleUI.Windows
 							if (args.HasFlag(MouseFlags.Button1Pressed))
 								_mouseCaptureControl = targetControl;
 
-							var controlPosition = GetControlRelativePosition(targetControl, args.WindowPosition);
+							// Use the position resolved BEFORE focus handling (see targetClickPosition above),
+							// which may have invalidated the DOM; recompute only if it was not captured.
+							var controlPosition = targetClickPosition
+								?? GetControlRelativePosition(targetControl, args.WindowPosition);
 							var controlArgs = args.WithPosition(controlPosition);
 
 							using var _clickScope = new Core.UiCallbackScope(_window._windowSystem, _window, targetControl, Core.UiOp.Click);

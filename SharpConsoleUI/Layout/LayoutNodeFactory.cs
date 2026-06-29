@@ -28,20 +28,6 @@ namespace SharpConsoleUI.Layout
 			{
 				return (new VerticalStackLayout(), columnContainer.Contents);
 			}
-			else if (control is HorizontalGridControl horizontalGrid)
-			{
-				var orderedChildren = new List<IWindowControl>();
-				for (int i = 0; i < horizontalGrid.Columns.Count; i++)
-				{
-					orderedChildren.Add(horizontalGrid.Columns[i]);
-					var splitter = horizontalGrid.Splitters.FirstOrDefault(s => horizontalGrid.GetSplitterLeftColumnIndex(s) == i);
-					if (splitter != null)
-					{
-						orderedChildren.Add(splitter);
-					}
-				}
-				return (new HorizontalLayout(), orderedChildren);
-			}
 			else if (control is TabControl tabControl)
 			{
 				// Build only the active tab's content into the layout tree (mirrors

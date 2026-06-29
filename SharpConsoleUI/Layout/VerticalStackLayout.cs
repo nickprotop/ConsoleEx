@@ -165,30 +165,39 @@ namespace SharpConsoleUI.Layout
 					childHeight = child.DesiredSize.Height;
 				}
 
-				// Calculate width based on horizontal alignment
+				// Calculate width based on horizontal alignment.
+				//
+				// A non-stretch (Left/Center/Right) child floats at its DESIRED width, but is never
+				// arranged WIDER than the column it sits in: an oversized child is clamped to the column
+				// width (and the column clip trims any overflow). This mirrors GridLayout.AlignAxis and the
+				// WinUI/WPF arrange contract. It is load-bearing for self-bounding scrollers: a
+				// ScrollablePanel / MultilineEdit defaults to Left alignment and can report a DesiredSize
+				// width measured against the full grid width (e.g. inside a HorizontalGrid column narrower
+				// than the grid). Without the clamp it is arranged at that too-wide desired width, so its
+				// border + scrollbar paint past the column's right edge (invisible) even though it scrolls.
 				int childWidth;
 				int childX;
 
 				switch (child.Control?.HorizontalAlignment ?? HorizontalAlignment.Stretch)
 				{
 					case HorizontalAlignment.Left:
-						childWidth = child.DesiredSize.Width;
+						childWidth = Math.Min(child.DesiredSize.Width, finalRect.Width);
 						childX = 0;
 						break;
 					case HorizontalAlignment.Center:
-						childWidth = child.DesiredSize.Width;
-						childX = (finalRect.Width - childWidth) / 2;
+						childWidth = Math.Min(child.DesiredSize.Width, finalRect.Width);
+						childX = Math.Max(0, (finalRect.Width - childWidth) / 2);
 						break;
 					case HorizontalAlignment.Right:
-						childWidth = child.DesiredSize.Width;
-						childX = finalRect.Width - childWidth;
+						childWidth = Math.Min(child.DesiredSize.Width, finalRect.Width);
+						childX = Math.Max(0, finalRect.Width - childWidth);
 						break;
 					case HorizontalAlignment.Stretch:
 					default:
-						// If control has explicit Width, honour it over full stretch
+						// If control has explicit Width, honour it over full stretch (still capped to the column).
 						if (child.Control?.Width.HasValue == true)
 						{
-							childWidth = child.DesiredSize.Width;
+							childWidth = Math.Min(child.DesiredSize.Width, finalRect.Width);
 							childX = 0;
 						}
 						else

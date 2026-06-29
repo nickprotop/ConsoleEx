@@ -612,8 +612,35 @@ namespace SharpConsoleUI.Windows
 		/// <returns>The layout node for the control, or null if not found</returns>
 		public LayoutNode? GetLayoutNode(IWindowControl control)
 		{
-			_controlToNodeMap.TryGetValue(control, out var node);
-			return node;
+			if (_controlToNodeMap.TryGetValue(control, out var node))
+				return node;
+
+			// Map miss: fall back to the authoritative layout TREE (the same _rootNode that HitTestDOM
+			// walks). The control→node map and the tree are rebuilt together, but a focus change mid
+			// mouse-dispatch can InvalidateDOM (clearing the map until the next render) after a control
+			// was already hit-tested — leaving it without a map entry. Searching the tree keeps node
+			// lookups consistent with hit-testing for the rest of that dispatch.
+			return _rootNode != null ? FindNodeInTree(_rootNode, control) : null;
+		}
+
+		/// <summary>Depth-first search for the node wrapping <paramref name="control"/> in a layout subtree.</summary>
+		private static LayoutNode? FindNodeInTree(LayoutNode node, IWindowControl control)
+		{
+			if (ReferenceEquals(node.Control, control))
+				return node;
+			foreach (var child in node.Children)
+			{
+				var found = FindNodeInTree(child, control);
+				if (found != null)
+					return found;
+			}
+			foreach (var portal in node.PortalChildren)
+			{
+				var found = FindNodeInTree(portal, control);
+				if (found != null)
+					return found;
+			}
+			return null;
 		}
 
 		/// <summary>

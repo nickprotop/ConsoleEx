@@ -51,4 +51,18 @@ public interface IGridSource
 	/// paint chrome only, never layout-tree children.
 	/// </summary>
 	IReadOnlyList<(IWindowControl Control, GridPlacement Placement)> OrderedCells { get; }
+
+	/// <summary>
+	/// When <c>true</c>, a <see cref="GridUnitType.Star"/> track measured on an <em>effectively
+	/// unbounded</em> axis self-sizes to its cells' content (like an Auto track) instead of collapsing to
+	/// 0. This affects the MEASURE pass only — arrange still distributes Star tracks across the real,
+	/// bounded extent — so the grid reports a content-based natural size to a parent that measures it
+	/// unbounded (to discover its desired height/width), yet still fills when arranged larger.
+	/// </summary>
+	/// <remarks>
+	/// The default is <c>false</c>, preserving the WinUI "Star-in-unbounded collapses to 0" contract for
+	/// ordinary grids. <see cref="Controls.HorizontalGridControl"/> opts in so its single-row, flush layout
+	/// self-sizes exactly as the retired HorizontalLayout did (content size at measure, fill at arrange).
+	/// </remarks>
+	bool StarTracksSelfSizeToContentInMeasure => false;
 }

@@ -44,7 +44,7 @@ namespace SharpConsoleUI.Controls
 		/// Gets the children of this container for Tab navigation traversal.
 		/// Required by IContainerControl interface.
 		/// </summary>
-		public IReadOnlyList<IWindowControl> GetChildren()
+		public new IReadOnlyList<IWindowControl> GetChildren()
 		{
 			var children = new List<IWindowControl>();
 
@@ -77,7 +77,13 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public Point? GetLogicalCursorPosition()
+		/// <remarks>
+		/// OVERRIDE (kept in Task 6): translates the focused column-child's cursor by the column's offset.
+		/// GridControl's base version resolves the cell origin via the child's layout node, but HGC's
+		/// focused leaf lives inside a transparent column, so the offset is computed from the owning
+		/// column's arranged position instead.
+		/// </remarks>
+		public override Point? GetLogicalCursorPosition()
 		{
 			var focusedContent = GetFocusedChildFromCoordinator();
 			if (focusedContent is ILogicalCursorProvider cursorProvider)
@@ -138,7 +144,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public void SetLogicalCursorPosition(Point position)
+		public override void SetLogicalCursorPosition(Point position)
 		{
 			// Grids don't have cursor positioning
 		}
@@ -147,6 +153,16 @@ namespace SharpConsoleUI.Controls
 		public new void Invalidate(Invalidation work)
 		{
 			AdjustColumnWidthsForVisibility();
+
+			// Re-stamp the grid tracks from the (possibly just-changed) column model — e.g. a column's
+			// Visible/Width toggled at runtime. Only on a structural/layout invalidation: a column's Visible/
+			// Width setter raises Relayout, so a re-sync here keeps the grid tracks in step. An appearance-only
+			// Repaint must NOT trigger a Sync — Sync rebuilds the cell/track state (a Relayout-level change) and
+			// would upgrade the Repaint to Relayout as it propagates to the window. Guarded against re-entry.
+			if (work == Invalidation.Relayout)
+			{
+				Sync();
+			}
 
 			List<ColumnContainer> columns;
 			List<SplitterControl> splitters;
