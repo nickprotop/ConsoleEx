@@ -182,8 +182,8 @@ else
 ### The severity parameter
 
 `ConfirmAsync` and `PromptAsync` accept a `NotificationSeverityEnum severity` parameter
-controlling three visual elements: the glyph in the banner line, the accent rule colour, and
-the color role applied to the affirmative button.
+controlling four visual elements: the glyph in the banner line, the accent rule colour, the
+window border tint, and the color role applied to the affirmative button.
 
 | `NotificationSeverityEnum` | Glyph | Color role |
 |---|---|---|
@@ -194,6 +194,13 @@ the color role applied to the affirmative button.
 
 The progress dialog always uses the `⟳` (U+27F3) glyph and `Primary` role (it has no
 `severity` parameter).
+
+### Dialog window sizing
+
+The standalone dialogs auto-size their window to the content (`AutoSizeHeight`): a short
+confirmation renders a tight window with no empty rows, while a long message grows the window
+up to a cap and then scrolls. Pass nothing to get this default; the dialogs do not take an
+explicit height.
 
 ### Cancel semantics
 

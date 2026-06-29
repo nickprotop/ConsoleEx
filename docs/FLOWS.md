@@ -375,6 +375,24 @@ public interface IFlowStepContent<TResult>
 | `HeightHint` | `int?` | Preferred host window height in rows. |
 | `Buttons` | `IReadOnlyList<FlowButton>` | The button row to render (empty for primitives that build their own). |
 | `RefreshButtons` | `Func<IReadOnlyList<FlowButton>>?` | Called by the host on `StateChanged` to update button enabled state. |
+| `AutoSizeHeight` | `bool` | When `true` and `HeightHint` is null, the host sizes the window to fit the content (clamped; scrolls beyond a cap). Default `false`. |
+| `Resizable` | `bool` | When `true`, the user can drag-resize the host window (minimize/maximize buttons stay off). Default `false`. |
+
+#### Window height: hints, auto-size, and scrolling
+
+The host picks the window height in this order:
+
+1. **Explicit `HeightHint`** — used verbatim (always wins, even if `AutoSizeHeight` is set).
+2. **`AutoSizeHeight = true`** (and `HeightHint` null) — the window fits the content:
+   `clamp(bands + content height, FlowAutoSizeMinHeight, terminalHeight − FlowAutoSizeCapMargin)`.
+   Short content gives a tight window; tall content grows to the cap, then the body scrolls.
+3. **Neither** — a fixed default height.
+
+Regardless of height, a tall step body **scrolls**: the host wraps the step body in a fill
+scroll viewport, so content taller than the slot overflows with a scrollbar. (A body that is
+already a `ScrollablePanelControl` is used as-is — see `FlowContentHelpers.WrapBody` and the
+FlowControl guide.) The framework primitives (`Confirm`/`Prompt`/`Progress`) and the standalone
+`Dialogs.*` set `AutoSizeHeight = true`, so built-in dialogs fit their content out of the box.
 
 A minimal content class that self-resolves when a list item is double-clicked:
 

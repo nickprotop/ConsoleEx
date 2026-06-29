@@ -20,7 +20,7 @@ FlowControl is a three-band container (Auto top / Star body / Auto bottom) that 
 
 **Cancel.** The user cancels via the Cancel button or the flow's cancellation token. Cancel resolves the flow as `FlowResult.Cancelled`; no modal is dismissed and no window is closed because there is no separate window.
 
-**Sizing.** Fills its slot. The top and bottom bands are `Auto`-height (sized to their content); the body row is `Star` (fills the remaining height). When the body content is taller than the available space it scrolls within the control's bounds.
+**Sizing.** Fills its slot. The top and bottom bands are `Auto`-height (sized to their content); the body row is `Star` (fills the remaining height). When the body content is taller than the available space it scrolls within the control's bounds. Any step body is wrapped in a fill scroll viewport before it is placed in the body row, so a tall custom step scrolls within the region just like the built-in primitives. (A body that is already a `ScrollablePanelControl` is used as-is, so configure your own panel to scroll if you build one.)
 
 **Re-entrant `Run`.** Calling `Run` while a flow is already running throws `InvalidOperationException` synchronously. The existing flow must be awaited or cancelled first.
 
