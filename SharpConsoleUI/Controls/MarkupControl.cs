@@ -132,7 +132,7 @@ namespace SharpConsoleUI.Controls
 			get { lock (_contentLock) { return string.Join("\n", _content); } }
 			set
 			{
-				lock (_contentLock) { _content = value.Split(["\r\n", "\r", "\n"], StringSplitOptions.None).ToList(); } // fix: handle windows newline char.
+				lock (_contentLock) { _content = SplitContentPreservingTagRegions(value); }
 				BumpContentVersion();
 				InvalidateLinkCount();
 				OnPropertyChanged();
@@ -334,6 +334,104 @@ namespace SharpConsoleUI.Controls
 		public void SetMarkdown(string markdown)
 		{
 			SetContent(new List<string> { $"[markdown]{markdown ?? string.Empty}[/]" });
+		}
+
+		/// <summary>
+		/// Sets the control's content from Markdown. Discoverable alias for <see cref="SetMarkdown"/>:
+		/// the source is wrapped in a <c>[markdown]</c> region and rendered through the markup pipeline.
+		/// </summary>
+		/// <param name="markdown">The Markdown source to render.</param>
+		public void Markdown(string markdown) => SetMarkdown(markdown);
+
+		/// <summary>
+		/// Splits an incoming <see cref="Text"/> value into content lines on newlines, but keeps each
+		/// balanced <c>[markdown]…[/]</c> region (including its embedded newlines) as a SINGLE content
+		/// entry — exactly as <see cref="SetMarkdown"/> stores it. Without this, a multi-line
+		/// <c>[markdown]</c> region would be torn across lines, so the per-line parse would never see a
+		/// complete region and would render the Markdown literally (issue #59). Text OUTSIDE markdown
+		/// regions still splits per line. The split is reversible by <see cref="Text"/>'s
+		/// <c>string.Join("\n", _content)</c> getter, so set-then-get round-trips.
+		/// <para>
+		/// Scope: only the <c>[markdown]</c> tag is treated atomically. A multi-line NON-markdown tag
+		/// (e.g. <c>[yellow]A\nB[/]</c>) is NOT made atomic here on purpose: even if its source were kept
+		/// as one entry, the render path (<c>MarkupParser.ParseLines</c>) splits each
+		/// logical line on <c>\n</c> and parses every sub-line independently, so the open tag's style does
+		/// not carry to the next line — the colour would still be lost. <c>[markdown]</c> is the exception
+		/// because <c>PreProcessMarkdownTags</c> expands it into per-line native markup BEFORE that split.
+		/// Truly fixing multi-line non-markdown tags requires threading the open-style stack across
+		/// newlines inside <c>ParseLines</c> (the frozen render path) — a separate, maintainer-gated
+		/// change. For multi-line styled blocks today, wrap in <c>[markdown]</c> or set self-closed lines.
+		/// </para>
+		/// </summary>
+		private static List<string> SplitContentPreservingTagRegions(string value)
+		{
+			if (string.IsNullOrEmpty(value) || value.IndexOf('[') < 0)
+			{
+				// Fast path: no tag at all — split per line exactly as before.
+				return value.Split(["\r\n", "\r", "\n"], StringSplitOptions.None).ToList();
+			}
+
+			// Walk the string, accumulating the current line. A balanced [tag]…[/] region (markdown,
+			// yellow, bold, link=…, etc.) is swallowed WHOLE — its embedded newlines do NOT end the
+			// current line — so the whole region lands in ONE content entry. The render path then parses
+			// that entry as a unit, carrying the open tag's style across the embedded newlines (a region
+			// torn across two entries would parse each half separately and drop the style on line 2).
+			// Newlines OUTSIDE any region end the current line as usual. Because every kept newline becomes
+			// exactly one entry boundary, string.Join("\n", result) reverses this split (it round-trips);
+			// \r\n and lone \r normalize to a single boundary, matching the previous Split behavior.
+			var result = new List<string>();
+			var line = new System.Text.StringBuilder();
+			int i = 0;
+			int len = value.Length;
+
+			while (i < len)
+			{
+				char c = value[i];
+
+				if (c == '\r' || c == '\n')
+				{
+					result.Add(line.ToString());
+					line.Clear();
+					i += (c == '\r' && i + 1 < len && value[i + 1] == '\n') ? 2 : 1; // \r\n is one newline
+					continue;
+				}
+
+				if (c == '[')
+				{
+					// Escaped [[ — a literal '[', not a tag. Emit both chars and move on (the embedded
+					// newline after a literal [[tag]] is a normal depth-0 split point).
+					if (i + 1 < len && value[i + 1] == '[')
+					{
+						line.Append("[[");
+						i += 2;
+						continue;
+					}
+
+					int tagEnd = value.IndexOf(']', i + 1);
+					if (tagEnd > i)
+					{
+						string tag = value.Substring(i + 1, tagEnd - i - 1);
+						// A real OPENING tag (non-empty, not the close "/"): swallow the whole balanced
+						// region through its matching [/] (depth-aware, mirrors how the parser reads it).
+						// Reuse MarkupParser.FindMatchingCloseTag so the escape/nesting semantics match
+						// exactly. Unclosed (no matching [/]) → keep the rest as one entry (do not tear).
+						if (!string.IsNullOrEmpty(tag) && tag != "/")
+						{
+							int closeAt = Parsing.MarkupParser.FindMatchingCloseTag(value, tagEnd + 1);
+							int regionEnd = closeAt < 0 ? len : closeAt + "[/]".Length;
+							line.Append(value, i, regionEnd - i); // whole region, embedded newlines included
+							i = regionEnd;
+							continue;
+						}
+					}
+				}
+
+				line.Append(c);
+				i++;
+			}
+
+			result.Add(line.ToString());
+			return result;
 		}
 
 		/// <summary>

@@ -716,23 +716,56 @@ namespace SharpConsoleUI.Parsing
 
 			var result = new List<List<Cell>>();
 
-			// First split on explicit newlines
-			var explicitLines = markup.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);  // fix: handle windows newline char.
-			foreach (var line in explicitLines)
+			// PARSE-THEN-CUT: parse the WHOLE markup in ONE Parse call, then cut the flat cell list into
+			// logical lines at the newline positions. Splitting BEFORE parsing (the old approach) gave each
+			// line a fresh style stack, so an open tag whose [/] was on a later line (e.g. [yellow]A\nB[/])
+			// lost its style on the second line. A single Parse carries the style/link state across the
+			// newlines naturally. To survive the parse, each newline is first swapped for a private-use
+			// ROW-BREAK sentinel (U+E000) — Parse treats it as an ordinary styled character (it is NOT
+			// flagged unsafe and is not a bracket), so it preserves the style run AND marks exactly where the
+			// line break was; we then split the cell list on the sentinel cells (dropping them). This leaves
+			// the public Parse contract and all its other callers untouched.
+			string sentinelized = markup
+				.Replace("\r\n", RowBreakSentinel)
+				.Replace("\r", RowBreakSentinel)
+				.Replace("\n", RowBreakSentinel);
+
+			var flatCells = Parse(sentinelized, defaultFg, defaultBg, out var flatSpans);
+
+			// Cut the flat cells into logical lines at each sentinel cell (the sentinel cell is dropped).
+			int lineStart = 0;
+			for (int idx = 0; idx <= flatCells.Count; idx++)
 			{
-				var cells = Parse(line, defaultFg, defaultBg, out var lineSpans);
-				if (cells.Count <= width)
+				bool isBreak = idx < flatCells.Count && flatCells[idx].Character.Value == RowBreakSentinelRune;
+				if (idx < flatCells.Count && !isBreak)
+					continue;
+
+				int lineEnd = idx; // exclusive; the sentinel (if any) is excluded
+				var lineCells = flatCells.GetRange(lineStart, lineEnd - lineStart);
+				// Re-base this logical line's link spans to line-local columns.
+				var lineSpans = new List<LinkSpan>();
+				foreach (var s in flatSpans)
 				{
-					result.Add(cells);
+					int a = Math.Max(s.StartCol, lineStart);
+					int b = Math.Min(s.EndCol, lineEnd);
+					if (b > a)
+						lineSpans.Add(new LinkSpan(a - lineStart, b - lineStart, s.Url, s.Text));
+				}
+
+				if (lineCells.Count <= width)
+				{
+					result.Add(lineCells);
 					linksPerLine.Add(lineSpans);
 				}
 				else
 				{
-					// Word-wrap this line
+					// Word-wrap this logical line — same as before, spans are already line-local.
 					int beforeRows = result.Count;
-					WrapCellLine(cells, width, result);
-					SliceSpansAcrossRows(cells, result, beforeRows, lineSpans, linksPerLine);
+					WrapCellLine(lineCells, width, result);
+					SliceSpansAcrossRows(lineCells, result, beforeRows, lineSpans, linksPerLine);
 				}
+
+				lineStart = idx + 1; // skip past the sentinel
 			}
 
 			if (result.Count == 0)
@@ -743,6 +776,16 @@ namespace SharpConsoleUI.Parsing
 
 			return result;
 		}
+
+		/// <summary>
+		/// Private-use ROW-BREAK sentinel: a single newline is swapped for this before the whole-markup
+		/// parse in <c>ParseLines</c>, then the resulting cell list is cut on these cells (which are
+		/// dropped). U+E000 is in the Unicode Private Use Area — it is not flagged unsafe by
+		/// <c>TextSanitizer</c>, is not a markup bracket, and is vanishingly unlikely in real content; if a
+		/// caller did embed a literal U+E000 it would be treated as a line break here, which is acceptable.
+		/// </summary>
+		private const string RowBreakSentinel = "\uE000";
+		private const int RowBreakSentinelRune = 0xE000;
 
 		#endregion
 
@@ -1215,7 +1258,7 @@ namespace SharpConsoleUI.Parsing
 		/// <summary>
 		/// Finds the matching [/] close tag, respecting nesting depth.
 		/// </summary>
-		private static int FindMatchingCloseTag(string markup, int startIndex)
+		internal static int FindMatchingCloseTag(string markup, int startIndex)
 		{
 			int depth = 1;
 			int i = startIndex;

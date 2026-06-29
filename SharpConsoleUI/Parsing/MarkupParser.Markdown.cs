@@ -12,7 +12,7 @@ namespace SharpConsoleUI.Parsing
 {
 	public static partial class MarkupParser
 	{
-		private const string MarkdownTagOpen = "[markdown]";
+		internal const string MarkdownTagOpen = "[markdown]";
 
 		/// <summary>
 		/// Replaces each <c>[markdown]…[/]</c> region with its native-markup translation

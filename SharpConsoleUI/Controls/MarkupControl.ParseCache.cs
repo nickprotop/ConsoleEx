@@ -41,6 +41,13 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Test-only: current content version (bumped on each content mutation).</summary>
 		internal int GetContentVersionForTest() => Volatile.Read(ref _contentVersion);
 
+		/// <summary>Test-only: a snapshot of the current logical content lines (one per <c>_content</c> entry).
+		/// Lets a test assert that a multi-line <c>[markdown]…[/]</c> region is kept as ONE entry (issue #59).</summary>
+		internal IReadOnlyList<string> GetContentLinesForTest()
+		{
+			lock (_contentLock) { return _content.ToList(); }
+		}
+
 		/// <summary>Invalidate the parse cache by advancing the content version. Call from every content mutator.</summary>
 		private void BumpContentVersion() => Interlocked.Increment(ref _contentVersion);
 
@@ -141,12 +148,18 @@ namespace SharpConsoleUI.Controls
 				}
 				else
 				{
-					foreach (var subLine in line.Split(["\r\n", "\r", "\n"], StringSplitOptions.None))
+					// Non-wrap: still parse-then-cut so an open tag carries its style across embedded
+					// newlines (e.g. a multi-line [yellow]…[/] or a [markdown] table). ParseLines does one
+					// whole-entry parse and cuts on newlines; a very large width disables word-wrap so the
+					// only row breaks are the explicit newlines. (Splitting first and parsing each sub-line
+					// separately — the old behaviour — gave each line a fresh style stack and dropped the
+					// style on line 2.)
+					CountParse();
+					var parsed = Parsing.MarkupParser.ParseLines(line, int.MaxValue, fg, bg, out var parsedLinks, md);
+					for (int w = 0; w < parsed.Count; w++)
 					{
-						CountParse();
-						var cells = Parsing.MarkupParser.Parse(subLine, fg, bg, out var lineLinks, md);
-						rows.Add(cells);
-						rowLinks.Add(lineLinks);
+						rows.Add(parsed[w]);
+						rowLinks.Add(w < parsedLinks.Count ? parsedLinks[w] : new List<Parsing.LinkSpan>());
 						rowSource.Add(sourceIndex);
 					}
 				}
