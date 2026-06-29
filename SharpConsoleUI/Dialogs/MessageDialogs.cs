@@ -181,12 +181,16 @@ namespace SharpConsoleUI.Dialogs
 			System.Action onDismiss,
 			Task completion)
 		{
+			int width = chrome.WidthHint ?? 50;
+			int height = FlowContentHelpers.ResolveWindowHeight(
+				chrome, body, width, bandRows: 6, terminalHeight: ws.DesktopDimensions.Height, fixedDefault: 12);
+
 			var builder = new WindowBuilder(ws)
 				.WithTitle(FormatTitle(chrome))
-				.WithSize(chrome.WidthHint ?? 50, chrome.HeightHint ?? 12)
+				.WithSize(width, height)
 				.Centered()
 				.AsModal()
-				.Resizable(false)
+				.Resizable(chrome.Resizable)
 				.Minimizable(false)
 				.Maximizable(false)
 				.Movable(true);

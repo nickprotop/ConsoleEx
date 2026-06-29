@@ -109,6 +109,23 @@ namespace SharpConsoleUI.Flows
 				window.InactiveBorderForegroundColor = inactiveBorder;
 			});
 
+			// D2: size the reused window to this step (per the precedence) and re-center for the new
+			// height (Centered() computed position once at build; it does NOT re-center on resize).
+			int width = chrome.WidthHint ?? 50;
+			int resolvedHeight = FlowContentHelpers.ResolveWindowHeight(
+				chrome, body, width, bandRows: 6, terminalHeight: _ws.DesktopDimensions.Height, fixedDefault: 12);
+			_ws.EnqueueOnUIThread(() =>
+			{
+				if (window.Height != resolvedHeight)
+					window.Height = resolvedHeight;
+				if (window.Width != width)
+					window.Width = width;
+				// Re-center for the (possibly new) size, mirroring WindowBuilder.Centered().
+				var desk = _ws.DesktopDimensions;
+				window.Left = System.Math.Max(0, (desk.Width - window.Width) / 2);
+				window.Top = System.Math.Max(0, (desk.Height - window.Height) / 2);
+			});
+
 			FlowStepPresenter.WireBodySelfResolve(content, tcs);
 
 			// Dynamic buttons: re-evaluate enabled state in place on each StateChanged.
@@ -146,7 +163,7 @@ namespace SharpConsoleUI.Flows
 					.WithSize(chrome.WidthHint ?? 50, chrome.HeightHint ?? 12)
 					.Centered()
 					.AsModal()
-					.Resizable(false)
+					.Resizable(chrome.Resizable)
 					.Minimizable(false)
 					.Maximizable(false)
 					.Movable(true);

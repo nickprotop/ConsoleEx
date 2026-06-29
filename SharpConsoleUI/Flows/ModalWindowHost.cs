@@ -72,12 +72,16 @@ namespace SharpConsoleUI.Flows
 			// Assemble the modal window using the canonical three-band shape. The bands are added
 			// as WINDOW children so the window's content layout honours their StickyPosition (a
 			// ScrollablePanel does not). Order: StickyTop band, scrollable Fill body, StickyBottom band.
+			int width = chrome.WidthHint ?? 50;
+			int height = FlowContentHelpers.ResolveWindowHeight(
+				chrome, body, width, bandRows: 6, terminalHeight: _ws.DesktopDimensions.Height, fixedDefault: 12);
+
 			var builder = new WindowBuilder(_ws)
 				.WithTitle(FlowChromeFormat.FormatTitle(chrome))
-				.WithSize(chrome.WidthHint ?? 50, chrome.HeightHint ?? 12)
+				.WithSize(width, height)
 				.Centered()
 				.AsModal()
-				.Resizable(false)
+				.Resizable(chrome.Resizable)
 				.Minimizable(false)
 				.Maximizable(false)
 				.Movable(true);
