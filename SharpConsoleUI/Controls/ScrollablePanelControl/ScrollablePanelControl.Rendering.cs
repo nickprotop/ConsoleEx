@@ -576,6 +576,16 @@ namespace SharpConsoleUI.Controls
 
 		#region Content Measurement
 
+		/// <summary>
+		/// Computes the total natural height (in rows) of this panel's content when laid out at the given
+		/// width, reflowing wrapped text. Pure measurement: it does NOT change the panel's arranged size or
+		/// scroll state. Intended for callers that need a content-fit height (e.g. auto-sizing a host window)
+		/// without running a full layout pass.
+		/// </summary>
+		/// <param name="viewportWidth">The width, in cells, to lay the content out against.</param>
+		/// <returns>The content's natural height in rows.</returns>
+		public int MeasureContentHeight(int viewportWidth) => CalculateContentHeight(viewportWidth);
+
 		private int CalculateContentHeight(int viewportWidth, int maxHeight = 0)
 		{
 			// Measure at full width first, then re-measure at the reduced (scrollbar) width if the content
