@@ -136,13 +136,22 @@ namespace SharpConsoleUI.Flows
 
 		/// <summary>
 		/// Wraps a step body in a Fill, auto-scrolling <see cref="ScrollablePanelControl"/> so a tall body
-		/// scrolls and shows a scrollbar inside the host's bounded body slot. A body that is already a
-		/// <see cref="ScrollablePanelControl"/> (the framework primitives) is returned unchanged to avoid
-		/// double-wrapping. The wrapper fills the slot between the sticky top and bottom bands: short content
-		/// sits at the top with the scrollbar hidden; tall content overflows and shows the bar.
+		/// scrolls and shows a scrollbar inside the host's bounded body slot. The wrapper fills the slot
+		/// between the sticky top and bottom bands: short content sits at the top with the scrollbar hidden;
+		/// tall content overflows and shows the bar.
 		/// </summary>
+		/// <remarks>
+		/// A body that is ALREADY a <see cref="ScrollablePanelControl"/> is returned unchanged (no
+		/// double-wrap). This trusts the caller's panel as-is — including its scrollbar visibility and
+		/// vertical <c>ScrollMode</c>. The framework primitives return a Fill, scroll-enabled panel, so they
+		/// scroll correctly. If you build your own step body as a <see cref="ScrollablePanelControl"/> and
+		/// want it to scroll when content overflows, configure it to scroll (leave the default scrollbar on
+		/// and use a scrolling vertical <c>ScrollMode</c>); a panel built with <c>WithScrollbar(false)</c> or
+		/// <c>ScrollMode.None</c> is returned untouched and will NOT scroll. To always get the host's
+		/// auto-scroll behaviour, return a plain (non-panel) control and let this wrap it.
+		/// </remarks>
 		/// <param name="body">The control returned by <see cref="IFlowStepContent{TResult}.BuildContent"/>.</param>
-		/// <returns>The body unchanged if it already scrolls, otherwise a Fill scroll viewport containing it.</returns>
+		/// <returns>The body unchanged if it is already a scrollable panel, otherwise a Fill scroll viewport containing it.</returns>
 		internal static IWindowControl WrapBody(IWindowControl body)
 		{
 			if (body is ScrollablePanelControl)
