@@ -69,11 +69,11 @@ namespace SharpConsoleUI.Tests.Flows
 		[Fact]
 		public void AutoSize_MidBody_FitsContentPlusBands()
 		{
-			// 5 body rows + 6 band rows = 11 natural, within [min, cap] → exactly 11.
+			// 5 body rows + 6 band rows + 1 breathing-room row = 12 natural, within [min, cap] → exactly 12.
 			var chrome = new FlowChrome("T", autoSizeHeight: true);
 			int h = FlowContentHelpers.ResolveWindowHeight(chrome, Body(5), windowWidth: 50,
 				bandRows: 6, terminalHeight: 50, fixedDefault: 13);
-			Assert.Equal(11, h);
+			Assert.Equal(12, h);
 		}
 	}
 }

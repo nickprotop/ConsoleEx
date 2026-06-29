@@ -195,7 +195,7 @@ namespace SharpConsoleUI.Flows
 				? spc.MeasureContentHeight(contentWidth)
 				: System.Math.Max(1, body.GetLogicalContentSize().Height); // defensive fallback (should not hit)
 
-			int natural = bandRows + System.Math.Max(1, bodyRows);
+			int natural = bandRows + System.Math.Max(1, bodyRows) + 1; // +1 row of breathing room below content
 			int cap = System.Math.Max(ControlDefaults.FlowAutoSizeMinHeight, terminalHeight - ControlDefaults.FlowAutoSizeCapMargin);
 			return System.Math.Clamp(natural, ControlDefaults.FlowAutoSizeMinHeight, cap);
 		}
