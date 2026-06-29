@@ -829,7 +829,13 @@ internal static class FlowsDemoWindow
 		/// <inheritdoc/>
 		public IWindowControl BuildContent(FlowChrome chrome)
 		{
-			var panel = Ctl.ScrollablePanel().WithScrollbar(false).Build();
+			// Build the prompt + one button per choice into a Fill auto-scrolling panel (scrollbar left
+			// at its default = enabled), mirroring the framework primitives (PromptContent). This fills
+			// the host's body slot and shows a scrollbar when the choice list overflows — earlier this
+			// returned a scrollbar-less, Top-aligned panel, so a tall choice list clipped with no bar.
+			var panel = Ctl.ScrollablePanel()
+				.WithVerticalAlignment(VerticalAlignment.Fill)
+				.Build();
 
 			panel.AddControl(Ctl.Markup()
 				.AddLine($"[bold]{Esc(_prompt)}[/]")
