@@ -95,6 +95,7 @@ Controls for organizing other controls.
 | **[HorizontalGridControl](controls/HorizontalGridControl.md)** | Multi-column layout | Variable-width columns, alignment, splitters |
 | **[GridControl](controls/GridControl.md)** | WinUI-style 2D grid | Fixed/Auto/Star rows & columns, row/col spans, gaps, per-cell styling, any control per cell |
 | **[FlowControl](controls/FlowControl.md)** | Renders a flow inline in a region | Embeds `Flow.Run`/`Flow.Wizard` in a pane (vs. a modal); idle/done placeholder; normal focus scope |
+| **[WizardControl](controls/WizardControl.md)** | Runs a multi-step wizard inline | A `FlowControl` named/presetted for wizards (the discoverable door); `wizard.Run(Flow.Wizard<T>()...)`; inline, not modal |
 | **SplitterControl** | Resizable divider | Drag to resize adjacent columns |
 | **[TabControl](controls/TabControl.md)** | Multi-page tab container | Tab headers, keyboard/mouse switching, state preservation |
 | **[CollapsiblePanel](controls/CollapsiblePanel.md)** | Click-to-expand container | Borderless/bordered header, markup title, custom icons, MaxContentHeight, IControlHost. Can also serve as a plain, non-collapsible panel hosting any control via `.NonCollapsible()` / `.HideHeader()` |

@@ -38,7 +38,7 @@ namespace SharpConsoleUI.Controls
 	/// inline host marshals its call via <c>ConsoleWindowSystem.EnqueueOnUIThread</c>.
 	/// </para>
 	/// </remarks>
-	public sealed class FlowControl : GridControl
+	public class FlowControl : GridControl
 	{
 		private InlineFlowHost? _host;
 		private bool _running;

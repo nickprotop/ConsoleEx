@@ -150,6 +150,10 @@ if (result.Completed)
 owns the navigation loop (Next / Back / Cancel / Finish / Stay), the step indicator, and the
 Back commit-barrier. The shared state flows through every step.
 
+> To run a wizard **inline** in a region of your UI (rather than as a modal), use the
+> [`WizardControl`](controls/WizardControl.md) — a discoverable, wizard-named `FlowControl`:
+> `var wiz = new WizardControl(); panel.AddControl(wiz); await wiz.Run(Flow.Wizard<TState>()…);`
+
 ### Building a wizard
 
 ```csharp

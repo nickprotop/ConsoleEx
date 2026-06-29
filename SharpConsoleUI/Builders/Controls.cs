@@ -296,6 +296,14 @@ public static class Controls
 	/// <returns>A new panel builder</returns>
 	public static PanelBuilder Panel() => new PanelBuilder();
 
+	/// <summary>
+	/// Creates a <see cref="WizardControl"/> — an embeddable control that runs a multi-step
+	/// <c>Flow.Wizard&lt;TState&gt;()</c> inline (in place, inside an existing window's layout) rather
+	/// than as a modal. Add it to a container, then call <c>wizard.Run(Flow.Wizard&lt;TState&gt;()...)</c>.
+	/// </summary>
+	/// <returns>A new, idle <see cref="WizardControl"/>.</returns>
+	public static WizardControl Wizard() => new WizardControl();
+
 	/// <summary>Creates a fluent builder for a CollapsiblePanel, optionally seeding the title.</summary>
 	public static CollapsiblePanelBuilder CollapsiblePanel(string? title = null)
 	{
