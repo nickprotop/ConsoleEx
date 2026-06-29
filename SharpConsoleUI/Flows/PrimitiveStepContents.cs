@@ -154,6 +154,43 @@ namespace SharpConsoleUI.Flows
 				.Build();
 		}
 
+		/// <summary>
+		/// Resolves the window height for a flow step per the D2 precedence: an explicit
+		/// <see cref="FlowChrome.HeightHint"/> wins; else when <see cref="FlowChrome.AutoSizeHeight"/> is set
+		/// the height fits the content (band rows + the body's natural content height) clamped to
+		/// <see cref="ControlDefaults.FlowAutoSizeMinHeight"/> and a cap of
+		/// <paramref name="terminalHeight"/> − <see cref="ControlDefaults.FlowAutoSizeCapMargin"/>; otherwise
+		/// the caller's <paramref name="fixedDefault"/>. The body is measured at a FIXED width
+		/// (<paramref name="windowWidth"/> minus chrome), so the window/Fill tree is never measured unbounded
+		/// and the Star-collapse hazard cannot occur.
+		/// </summary>
+		/// <param name="chrome">The step chrome carrying HeightHint / AutoSizeHeight.</param>
+		/// <param name="body">The step body (wrapped here via <see cref="WrapBody"/> before measuring).</param>
+		/// <param name="windowWidth">The resolved window width (WidthHint ?? default).</param>
+		/// <param name="bandRows">Total non-body rows the caller will render: window chrome + top band + bottom band.</param>
+		/// <param name="terminalHeight">The available terminal height for the cap.</param>
+		/// <param name="fixedDefault">The caller's fixed default height when not auto-sizing.</param>
+		internal static int ResolveWindowHeight(
+			FlowChrome chrome, IWindowControl body, int windowWidth, int bandRows, int terminalHeight, int fixedDefault)
+		{
+			if (chrome.HeightHint.HasValue)
+				return chrome.HeightHint.Value;
+
+			if (!chrome.AutoSizeHeight)
+				return fixedDefault;
+
+			// Body natural height at the fixed content width (window minus left+right chrome = 2).
+			int contentWidth = System.Math.Max(1, windowWidth - 2);
+			var wrapped = WrapBody(body);
+			int bodyRows = wrapped is ScrollablePanelControl spc
+				? spc.MeasureContentHeight(contentWidth)
+				: System.Math.Max(1, body.GetLogicalContentSize().Height); // defensive fallback (should not hit)
+
+			int natural = bandRows + System.Math.Max(1, bodyRows);
+			int cap = System.Math.Max(ControlDefaults.FlowAutoSizeMinHeight, terminalHeight - ControlDefaults.FlowAutoSizeCapMargin);
+			return System.Math.Clamp(natural, ControlDefaults.FlowAutoSizeMinHeight, cap);
+		}
+
 		/// <summary>StickyBottom band: an accent ruler followed by a right-aligned toolbar of the given buttons.</summary>
 		internal static IReadOnlyList<IWindowControl> BuildBottomBand(ColorRole role, params ButtonControl[] buttons)
 		{

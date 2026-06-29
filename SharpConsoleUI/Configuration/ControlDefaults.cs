@@ -1087,6 +1087,12 @@ namespace SharpConsoleUI.Configuration
 		/// <summary>Fraction toward black used to dim a flow window's inactive border relative to its active (role) border.</summary>
 		public const double FlowInactiveBorderShade = 0.35;
 
+		/// <summary>Absolute minimum height (rows, including chrome) for an auto-sized flow window.</summary>
+		public const int FlowAutoSizeMinHeight = 7;
+
+		/// <summary>Rows subtracted from the terminal height to form the max cap for an auto-sized flow window.</summary>
+		public const int FlowAutoSizeCapMargin = 2;
+
 		#endregion
 	}
 }
