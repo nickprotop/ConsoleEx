@@ -736,6 +736,25 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 			var cellRect = new LayoutRect(contentX, contentY, contentW, contentH);
 			_cellRects[child] = cellRect;
 
+			// HorizontalGridControl bounded-height re-measure (opt-in via StarTracksSelfSizeToContentInMeasure).
+			// HGC measures cells content-loose (StarToAuto) so the grid reports a content natural size — but
+			// that leaves each cell's DesiredSize content-sized. When the cell is then ARRANGED taller than it
+			// measured (a flex/Star column filling the real box), a Fill descendant nested behind a non-Fill
+			// wrapper never learns the true height: e.g. a Top ScrollablePanel hosting a Fill TableControl is
+			// arranged by its inner VerticalStackLayout at the panel's *content* DesiredSize, so the Fill table
+			// can only fill that content height, not the column. The retired HorizontalLayout avoided this by
+			// measuring flex columns against the column extent; reproduce that here by re-measuring the cell
+			// against its real arranged content box before alignment reads DesiredSize. Scoped to the HGC opt-in
+			// (ordinary grids never enter this branch) and only when the box is taller, so it never shrinks a
+			// cell or perturbs the content-sized golden layouts.
+			if (_source.StarTracksSelfSizeToContentInMeasure
+				&& contentH > child.DesiredSize.Height
+				&& contentW > 0
+				&& contentH > 0)
+			{
+				child.Measure(LayoutConstraints.Loose(contentW, contentH));
+			}
+
 			// Align the child within the cell's CONTENT box (border + cell-padding already removed). Do NOT
 			// pre-subtract the child's own margin here: the control's own paint (its leftInset/topInset)
 			// already accounts for its margin, and its DesiredSize already includes it. Subtracting the
