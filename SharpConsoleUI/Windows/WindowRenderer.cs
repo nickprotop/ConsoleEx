@@ -293,6 +293,13 @@ namespace SharpConsoleUI.Windows
 			if (work == FrameWork.Relayout || _rootNode.NeedsMeasure)
 				_rootNode.Measure(constraints);
 
+			// A control's Measure may mutate the tree structure (e.g. LogViewerControl flushes queued
+			// log entries into its inner panel during MeasureDOM, and the panel's AddControl calls
+			// Window.ForceRebuildLayout(), which nulls _rootNode via InvalidateDOM). When that happens
+			// there is no valid tree left to arrange this frame; the rebuild already raised a Relayout
+			// request, so the next render re-measures and arranges the fresh tree. Bail instead of NRE'ing.
+			if (_rootNode == null) return;
+
 			// Arrange pass
 			_rootNode.Arrange(new LayoutRect(0, 0, contentWidth, contentHeight));
 		}

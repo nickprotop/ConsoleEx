@@ -305,20 +305,31 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 		if (_filterCategory != null && entry.Category != _filterCategory)
 			return;
 
-		// Queue for processing on UI thread during paint
+		// Buffer on the (possibly background) event thread; apply on the UI thread.
 		_pendingEntries.Enqueue(entry);
-
-		// Trigger repaint (Invalidate is safe to call from any thread)
-		Container?.Invalidate(Invalidation.Relayout);
+		RequestDrain();
 	}
 
 	private void OnLogsCleared(object? sender, EventArgs e)
 	{
-		// Signal clear - will be processed on UI thread during paint
+		// Signal clear; apply on the UI thread.
 		_pendingClear = true;
+		RequestDrain();
+	}
 
-		// Trigger repaint
-		Container?.Invalidate(Invalidation.Relayout);
+	/// <summary>
+	/// Marshals <see cref="ProcessPendingEntries"/> onto the UI thread. Log events arrive from
+	/// background threads (the async window thread), and applying them mutates the inner panel's
+	/// child collection — which is only safe on the UI thread, and must never happen during the
+	/// measure/arrange pass. Mutating the panel here also rebuilds the layout and schedules the
+	/// redraw, so no manual Invalidate is needed (the framework is reactive). If no window system is
+	/// reachable yet (control not attached), entries stay queued and the next paint drains them.
+	/// </summary>
+	private void RequestDrain()
+	{
+		var system = Container?.GetConsoleWindowSystem;
+		if (system != null)
+			system.EnqueueOnUIThread(ProcessPendingEntries);
 	}
 
 	#endregion
@@ -389,7 +400,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 			}
 		}
 
-		Container?.Invalidate(Invalidation.Relayout);
+		RequestDrain();
 	}
 
 	#endregion
@@ -399,8 +410,11 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 	/// <inheritdoc/>
 	public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 	{
-		// Process pending entries before measuring
-		ProcessPendingEntries();
+		// Pending entries are flushed in PaintDOM, NOT here. Flushing during Measure adds child
+		// controls to the inner panel, whose AddControl calls Window.ForceRebuildLayout() and nulls
+		// the renderer's live layout tree mid-measure — the arrange pass that immediately follows then
+		// NRE'd (the "Log Stream" crash). Measure must be a pure sizing pass: it measures the panel at
+		// its current child set; the paint-time flush + its invalidation re-measures the next frame.
 
 		int contentWidth = constraints.MaxWidth - Margin.Left - Margin.Right;
 		int titleHeight = string.IsNullOrEmpty(_title) ? 0 : 1;
