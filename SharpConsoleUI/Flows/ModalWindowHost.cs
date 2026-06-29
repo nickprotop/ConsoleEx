@@ -74,7 +74,7 @@ namespace SharpConsoleUI.Flows
 			// ScrollablePanel does not). Order: StickyTop band, scrollable Fill body, StickyBottom band.
 			int width = chrome.WidthHint ?? 50;
 			int height = FlowContentHelpers.ResolveWindowHeight(
-				chrome, body, width, bandRows: 6, terminalHeight: _ws.DesktopDimensions.Height, fixedDefault: 12);
+				chrome, body, width, bandRows: 6, terminalHeight: _ws.DesktopDimensions.Height, fixedDefault: 13);
 
 			var builder = new WindowBuilder(_ws)
 				.WithTitle(FlowChromeFormat.FormatTitle(chrome))

@@ -51,7 +51,7 @@ namespace SharpConsoleUI.Dialogs
 			Window? parent = null)
 		{
 			var content = new ConfirmContent(message, ok, cancel, severity);
-			var chrome = new FlowChrome(title, widthHint: 50, heightHint: 11, severity: severity);
+			var chrome = new FlowChrome(title, widthHint: 50, severity: severity, autoSizeHeight: true);
 
 			ShowContentModal(
 				windowSystem,
@@ -94,7 +94,7 @@ namespace SharpConsoleUI.Dialogs
 			Window? parent = null)
 		{
 			var content = new PromptContent(message, initial, severity);
-			var chrome = new FlowChrome(title, widthHint: 50, heightHint: 11, severity: severity);
+			var chrome = new FlowChrome(title, widthHint: 50, severity: severity, autoSizeHeight: true);
 
 			ShowContentModal(
 				windowSystem,
@@ -143,11 +143,12 @@ namespace SharpConsoleUI.Dialogs
 				title,
 				stepIndicator: null,
 				widthHint: 54,
-				heightHint: 9,
+				heightHint: null,
 				buttons: null,
 				refreshButtons: null,
 				severity: NotificationSeverityEnum.None,
-				useProgressGlyph: true);
+				useProgressGlyph: true,
+				autoSizeHeight: true);
 
 			ShowContentModal(
 				windowSystem,
@@ -183,7 +184,7 @@ namespace SharpConsoleUI.Dialogs
 		{
 			int width = chrome.WidthHint ?? 50;
 			int height = FlowContentHelpers.ResolveWindowHeight(
-				chrome, body, width, bandRows: 6, terminalHeight: ws.DesktopDimensions.Height, fixedDefault: 12);
+				chrome, body, width, bandRows: 6, terminalHeight: ws.DesktopDimensions.Height, fixedDefault: 13);
 
 			var builder = new WindowBuilder(ws)
 				.WithTitle(FormatTitle(chrome))

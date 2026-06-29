@@ -113,7 +113,7 @@ namespace SharpConsoleUI.Flows
 			// height (Centered() computed position once at build; it does NOT re-center on resize).
 			int width = chrome.WidthHint ?? 50;
 			int resolvedHeight = FlowContentHelpers.ResolveWindowHeight(
-				chrome, body, width, bandRows: 6, terminalHeight: _ws.DesktopDimensions.Height, fixedDefault: 12);
+				chrome, body, width, bandRows: 6, terminalHeight: _ws.DesktopDimensions.Height, fixedDefault: 13);
 			_ws.EnqueueOnUIThread(() =>
 			{
 				if (window.Height != resolvedHeight)

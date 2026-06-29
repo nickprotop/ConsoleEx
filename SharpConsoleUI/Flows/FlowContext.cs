@@ -131,7 +131,7 @@ namespace SharpConsoleUI.Flows
 		{
 			// The primitive builds & owns its OK/Cancel and resolves its own Completion → empty button row.
 			var content = new ConfirmContent(message, ok, cancel, severity);
-			var chrome = new FlowChrome(title, Indicator(), widthHint: 50, heightHint: 11);
+			var chrome = new FlowChrome(title, Indicator(), widthHint: 50, autoSizeHeight: true);
 			var outcome = await _host.PresentAsync(content, chrome, Token).ConfigureAwait(false);
 			return outcome.Verdict != FlowVerdict.Cancel && outcome.Value;
 		}
@@ -151,7 +151,7 @@ namespace SharpConsoleUI.Flows
 			NotificationSeverityEnum severity = NotificationSeverityEnum.Info)
 		{
 			var content = new PromptContent(message, initial, severity);
-			var chrome = new FlowChrome(title, Indicator(), widthHint: 50, heightHint: 9);
+			var chrome = new FlowChrome(title, Indicator(), widthHint: 50, autoSizeHeight: true);
 			var outcome = await _host.PresentAsync(content, chrome, Token).ConfigureAwait(false);
 			return outcome.Verdict == FlowVerdict.Cancel ? null : outcome.Value;
 		}
@@ -172,7 +172,7 @@ namespace SharpConsoleUI.Flows
 		{
 			// The primitive owns its own Cancel button → empty button row.
 			var content = new ProgressContent<TResult>(_ws, description, work);
-			var chrome = new FlowChrome(title, Indicator(), widthHint: 54, heightHint: 9);
+			var chrome = new FlowChrome(title, Indicator(), widthHint: 54, autoSizeHeight: true);
 			var outcome = await _host.PresentAsync(content, chrome, Token).ConfigureAwait(false);
 			return outcome.Value!;
 		}

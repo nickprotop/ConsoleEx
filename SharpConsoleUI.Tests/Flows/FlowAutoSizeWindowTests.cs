@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Controls;
 using SharpConsoleUI.Flows;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
@@ -134,6 +135,40 @@ namespace SharpConsoleUI.Tests.Flows
 
 			FlowTestHelpers.ClickButtonByName(sys, "flow-host-btn-OK");
 			await t2.WaitAsync(TimeSpan.FromSeconds(5));
+		}
+
+		[Fact]
+		public async Task DialogsConfirm_AutoSizesTight_OutOfTheBox()
+		{
+			var sys = TestWindowSystemBuilder.CreateTestSystem(80, 40);
+			var task = SharpConsoleUI.Dialogs.Dialogs.ConfirmAsync(sys, "Q", "Short?", "Yes", "No");
+			sys.Render.UpdateDisplay();
+
+			var win = sys.Windows.Values.Single();
+			Assert.True(win.Height < 11, $"standalone confirm should auto-size tighter than the old 11, got {win.Height}");
+			Assert.True(win.Height >= ControlDefaults.FlowAutoSizeMinHeight);
+
+			var cancel = win.FindControl<SharpConsoleUI.Controls.ButtonControl>("flow-confirm-cancel");
+			cancel!.PerformClickForTest();
+			await task.WaitAsync(TimeSpan.FromSeconds(5));
+		}
+
+		[Fact]
+		public async Task ModalWindowHost_NoAutoSize_NullHint_UsesBumpedDefault13()
+		{
+			var sys = TestWindowSystemBuilder.CreateTestSystem(80, 40);
+			var host = new ModalWindowHost(sys, parent: null);
+			var content = new TallTextStepContent(lineCount: 1);
+			// No autoSizeHeight, no heightHint → fixed default (bumped to 13).
+			var chrome = new FlowChrome("Def", widthHint: 50,
+				buttons: new[] { new FlowButton("OK", FlowVerdict.Next) });
+
+			var task = host.PresentAsync(content, chrome, CancellationToken.None);
+			sys.Render.UpdateDisplay();
+			Assert.Equal(13, sys.Windows.Values.Single().Height);
+
+			FlowTestHelpers.ClickButtonByName(sys, "flow-host-btn-OK");
+			await task.WaitAsync(TimeSpan.FromSeconds(5));
 		}
 	}
 }
