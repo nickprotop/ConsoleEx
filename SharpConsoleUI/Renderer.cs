@@ -458,7 +458,7 @@ namespace SharpConsoleUI
 		{
 			for (var y = 0; y < bufferHeight; y++)
 			{
-				if (windowTop + y >= _consoleWindowSystem.DesktopBottomRight.Y) break;
+				if (windowTop + y >= _consoleWindowSystem.DesktopDimensions.Height) break;
 
 				foreach (var region in visibleRegions)
 				{
@@ -520,7 +520,7 @@ namespace SharpConsoleUI
 
 			for (var y = 0; y < bufferHeight; y++)
 			{
-				if (windowTop + y >= _consoleWindowSystem.DesktopBottomRight.Y) break;
+				if (windowTop + y >= _consoleWindowSystem.DesktopDimensions.Height) break;
 
 				foreach (var region in visibleRegions)
 				{

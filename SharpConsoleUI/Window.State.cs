@@ -50,7 +50,9 @@ namespace SharpConsoleUI
 						// Desktop coordinates are automatically offset by DesktopUpperLeft during rendering
 						Left = 0;
 						Top = 0;
-						// Use centralized SetSize which handles invalidation order correctly
+						// Use centralized SetSize which handles invalidation order correctly. A maximized
+						// window fills the full desktop area; the window-content blit now writes the last
+						// desktop row correctly (see Renderer's blit bound / issue #60).
 						SetSize(
 							_windowSystem?.DesktopDimensions.Width ?? 80,
 							_windowSystem?.DesktopDimensions.Height ?? 24

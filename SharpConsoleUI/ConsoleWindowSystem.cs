@@ -707,6 +707,7 @@ namespace SharpConsoleUI
 			_consoleDriver.ScreenSize.Width,
 			Math.Max(0, _consoleDriver.ScreenSize.Height - Render.GetTopStatusHeight() - Render.GetBottomStatusHeight()));
 
+
 		/// <summary>
 		/// Gets the visible regions manager for calculating window visibility.
 		/// </summary>
