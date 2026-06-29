@@ -96,6 +96,12 @@ namespace SharpConsoleUI.Flows
 		/// matching severity glyph and rule role. Additive trailing parameter — existing
 		/// <see cref="FlowChrome"/> construction is unaffected.
 		/// </param>
+		/// <param name="autoSizeHeight">When <c>true</c> and <see cref="HeightHint"/> is null, the host auto-sizes the window
+		/// height to the content (clamped to a min floor and a terminal-derived cap; it scrolls beyond the cap).
+		/// An explicit <see cref="HeightHint"/> always overrides this. Default <c>false</c>.</param>
+		/// <param name="resizable">When <c>true</c>, the host lets the user drag-resize the window (minimize/maximize
+		/// buttons stay disabled). Independent of <see cref="AutoSizeHeight"/>: the initial height is chosen by the normal
+		/// rule, and this only allows manual resize afterward. Default <c>false</c>.</param>
 		public FlowChrome(
 			string title,
 			(int Index, int? Count)? stepIndicator = null,
@@ -103,7 +109,9 @@ namespace SharpConsoleUI.Flows
 			int? heightHint = null,
 			IReadOnlyList<FlowButton>? buttons = null,
 			System.Func<IReadOnlyList<FlowButton>>? refreshButtons = null,
-			NotificationSeverityEnum severity = NotificationSeverityEnum.None)
+			NotificationSeverityEnum severity = NotificationSeverityEnum.None,
+			bool autoSizeHeight = false,
+			bool resizable = false)
 		{
 			Title = title;
 			StepIndicator = stepIndicator;
@@ -113,6 +121,8 @@ namespace SharpConsoleUI.Flows
 			RefreshButtons = refreshButtons;
 			Severity = severity;
 			UseProgressGlyph = false;
+			AutoSizeHeight = autoSizeHeight;
+			Resizable = resizable;
 		}
 
 		/// <summary>
@@ -128,7 +138,9 @@ namespace SharpConsoleUI.Flows
 			IReadOnlyList<FlowButton>? buttons,
 			System.Func<IReadOnlyList<FlowButton>>? refreshButtons,
 			NotificationSeverityEnum severity,
-			bool useProgressGlyph)
+			bool useProgressGlyph,
+			bool autoSizeHeight = false,
+			bool resizable = false)
 		{
 			Title = title;
 			StepIndicator = stepIndicator;
@@ -138,6 +150,8 @@ namespace SharpConsoleUI.Flows
 			RefreshButtons = refreshButtons;
 			Severity = severity;
 			UseProgressGlyph = useProgressGlyph;
+			AutoSizeHeight = autoSizeHeight;
+			Resizable = resizable;
 		}
 
 		/// <summary>The window or dialog title text.</summary>
@@ -186,6 +200,16 @@ namespace SharpConsoleUI.Flows
 		/// <see cref="NotificationSeverityEnum"/> member.
 		/// </summary>
 		internal bool UseProgressGlyph { get; }
+
+		/// <summary>When <c>true</c> and <see cref="HeightHint"/> is null, the host auto-sizes the window
+		/// height to the content (clamped to a min floor and a terminal-derived cap; it scrolls beyond the
+		/// cap). An explicit <see cref="HeightHint"/> always overrides this. Default <c>false</c>.</summary>
+		public bool AutoSizeHeight { get; }
+
+		/// <summary>When <c>true</c>, the host lets the user drag-resize the window (minimize/maximize
+		/// buttons stay disabled). Independent of <see cref="AutoSizeHeight"/>: the initial height is chosen
+		/// by the normal rule, and this only allows manual resize afterward. Default <c>false</c>.</summary>
+		public bool Resizable { get; }
 	}
 
 	/// <summary>
