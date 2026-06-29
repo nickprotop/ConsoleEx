@@ -57,10 +57,9 @@ public static class ToolbarDemoWindow
 			.OnClick((_, btn) => log.SetContent(new List<string> { "[yellow]Apply[/] clicked" }))
 			.Build();
 
-		var mixedLabel = new MarkupControl(new List<string> { "[dim]Ready[/]" })
-		{
-			VerticalAlignment = VerticalAlignment.Center
-		};
+		var mixedLabel = Controls.Markup("[dim]Ready[/]")
+			.WithVerticalAlignment(VerticalAlignment.Center)
+			.Build();
 
 		var mixedPlainBtn = Controls.Button()
 			.WithText("Cancel")

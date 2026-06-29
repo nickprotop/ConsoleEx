@@ -485,12 +485,11 @@ internal static class FlowsDemoWindow
 		builder.AddControl(MakeNote(
 			"[dim]Inline = ctx.* through fc's InlineFlowHost (no inline-specific API). Confirm · Prompt · Progress all here[/]"));
 
-		var fc = new FlowControl
-		{
-			Placeholder = Ctl.Markup("[dim]● Inline flow region (idle) — click a button below to run a flow here[/]")
+		var fc = Ctl.Flow()
+			.WithPlaceholder(Ctl.Markup("[dim]● Inline flow region (idle) — click a button below to run a flow here[/]")
 				.WithMargin(1, 1, 1, 1)
-				.Build(),
-		};
+				.Build())
+			.Build();
 
 		var inlineRegion = Ctl.Panel()
 			.WithHeader("Inline Flow Region")

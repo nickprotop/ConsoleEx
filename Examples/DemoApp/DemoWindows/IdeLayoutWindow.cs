@@ -141,11 +141,10 @@ public static class IdeLayoutWindow
 			.Build();
 
 		// 3-column layout with splitters (lazydotide pattern)
-		var mainContent = new HorizontalGridControl
-		{
-			HorizontalAlignment = HorizontalAlignment.Stretch,
-			VerticalAlignment = VerticalAlignment.Fill
-		};
+		var mainContent = Controls.HorizontalGrid()
+			.WithAlignment(HorizontalAlignment.Stretch)
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.Build();
 
 		var explorerCol = new ColumnContainer(mainContent)
 		{
@@ -235,15 +234,15 @@ public static class IdeLayoutWindow
 				HandleSaveFile: HandleSaveFile,
 				UpdateFileStatus: UpdateFileStatus,
 				ToggleSidePanel: () => ToggleSidePanel(window!)))
-			.AddControl(new RuleControl { StickyPosition = StickyPosition.Top })
+			.AddControl(Controls.RuleBuilder().StickyTop().Build())
 			.AddControl(BuildToolbar(
 				HandleNewFile: HandleNewFile,
 				HandleSaveFile: HandleSaveFile,
 				HandleOpen: () => { _ = FileDialogs.ShowFilePickerAsync(ws); },
 				UpdateFileStatus: UpdateFileStatus))
-			.AddControl(new RuleControl { StickyPosition = StickyPosition.Top })
+			.AddControl(Controls.RuleBuilder().StickyTop().Build())
 			.AddControl(mainContent)
-			.AddControl(new RuleControl { StickyPosition = StickyPosition.Bottom })
+			.AddControl(Controls.RuleBuilder().StickyBottom().Build())
 			.AddControl(statusBar)
 			.BuildAndShow();
 

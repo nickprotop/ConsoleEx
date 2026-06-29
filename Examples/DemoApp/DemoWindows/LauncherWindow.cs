@@ -97,7 +97,7 @@ public static class LauncherWindow
 
 		// Theme switcher dropdown in content toolbar — enumerates registered themes, applies on select.
 		var themeNames = ws.ThemeRegistryService.GetAvailableThemeNames();
-		var themeDropdown = new DropdownControl("Theme:", themeNames);
+		var themeDropdown = Controls.Dropdown("Theme:").AddItems(themeNames.ToArray()).Build();
 		var currentName = ws.ThemeStateService.CurrentTheme.Name;
 		int currentIdx = 0;
 		for (int i = 0; i < themeNames.Count; i++)

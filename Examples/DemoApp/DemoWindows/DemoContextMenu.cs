@@ -1,5 +1,6 @@
 using System.Drawing;
 using SharpConsoleUI;
+using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Events;
@@ -38,18 +39,11 @@ internal sealed class DemoContextMenuPortal : PortalContentContainer
 
 	public DemoContextMenuPortal(List<DemoMenuItem> items, int anchorX, int anchorY, int windowWidth, int windowHeight)
 	{
-		_menu = new MenuControl
-		{
-			Orientation = MenuOrientation.Vertical,
-			DropdownBackgroundColor = MenuBg,
-			DropdownForegroundColor = MenuFg,
-			DropdownHighlightBackgroundColor = SelBg,
-			DropdownHighlightForegroundColor = SelFg,
-			MenuBarBackgroundColor = MenuBg,
-			MenuBarForegroundColor = MenuFg,
-			MenuBarHighlightBackgroundColor = SelBg,
-			MenuBarHighlightForegroundColor = SelFg,
-		};
+		_menu = Controls.Menu()
+			.Vertical()
+			.WithDropdownColors(MenuBg, MenuFg, SelBg, SelFg)
+			.WithMenuBarColors(MenuBg, MenuFg, SelBg, SelFg)
+			.Build();
 
 		BackgroundColor = MenuBg;
 		ForegroundColor = MenuFg;
