@@ -58,7 +58,11 @@ public class GridSplitterTests
 			new[] { GridLength.Star(1), GridLength.Star(1) }, new[] { GridLength.Star(1) });
 		grid.AddColumnSplitterAfter(99);
 		system.Render.UpdateDisplay();
-		Assert.True(true);
+		// Inert: an out-of-range boundary renders no splitter handle (and the render above did not throw).
+		// The boundary is recorded in the model but never painted, since the gridline pass only consults
+		// splitters at real track boundaries (0..colCount-1).
+		var text = ContainerTestHelpers.StripAnsiCodes(window.RenderAndGetVisibleContent());
+		Assert.DoesNotContain("║", text);
 	}
 
 	[Fact]
