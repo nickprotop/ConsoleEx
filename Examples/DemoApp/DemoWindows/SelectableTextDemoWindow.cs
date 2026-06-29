@@ -31,12 +31,11 @@ internal static class SelectableTextDemoWindow
 			.WithSelectionEnabled()
 			.Build();
 
-		var editor = new MultilineEditControl
-		{
-			Content = "The editor shares the same selection.\nSelect here and the blocks above clear.",
-			ReadOnly = true,
-			Height = 4
-		};
+		var editor = Controls.MultilineEdit()
+			.WithContent("The editor shares the same selection.\nSelect here and the blocks above clear.")
+			.AsReadOnly()
+			.WithHeight(4)
+			.Build();
 
 		var content = Controls.ScrollablePanel()
 			.AddControl(Controls.Markup("[bold underline]Selectable Text (issue #36)[/]").Centered().Build())

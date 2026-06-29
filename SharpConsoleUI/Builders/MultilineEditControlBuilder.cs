@@ -23,6 +23,7 @@ public sealed class MultilineEditControlBuilder : IControlBuilder<MultilineEditC
 	private int _viewportHeight = Configuration.ControlDefaults.DefaultEditorViewportHeight;
 	private string? _content;
 	private int? _width;
+	private int? _height;
 	private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 	private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 	private Margin _margin = new(0, 0, 0, 0);
@@ -128,6 +129,18 @@ public sealed class MultilineEditControlBuilder : IControlBuilder<MultilineEditC
 	public MultilineEditControlBuilder WithWidth(int width)
 	{
 		_width = Math.Max(1, width);
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the control's layout height (rows). Distinct from <see cref="WithViewportHeight(int)"/>,
+	/// which sets the editor's internal viewport height.
+	/// </summary>
+	/// <param name="height">The control height in rows.</param>
+	/// <returns>The builder for chaining</returns>
+	public MultilineEditControlBuilder WithHeight(int height)
+	{
+		_height = Math.Max(1, height);
 		return this;
 	}
 
@@ -744,6 +757,7 @@ public sealed class MultilineEditControlBuilder : IControlBuilder<MultilineEditC
 			VerticalScrollbarVisibility = _verticalScrollbarVisibility,
 			StickyPosition = _stickyPosition,
 			Width = _width,
+			Height = _height,
 			Name = _name,
 			Tag = _tag,
 			TabSize = _tabSize,
