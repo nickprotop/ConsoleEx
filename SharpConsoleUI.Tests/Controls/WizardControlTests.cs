@@ -34,7 +34,26 @@ public class WizardControlTests
 	[Fact]
 	public void ControlsFactory_Wizard_ReturnsWizardControl()
 	{
-		Assert.IsType<WizardControl>(Builders.Controls.Wizard());
+		Assert.IsType<WizardControl>(Builders.Controls.Wizard().Build());
+	}
+
+	[Fact]
+	public void Builder_BuildsConfiguredControl_AndPreservesFillStretchDefaults()
+	{
+		var ph = Builders.Controls.Markup("[dim]idle[/]").Build();
+		var fc = Builders.Controls.Flow().WithName("fc1").WithPlaceholder(ph).Build();
+		Assert.IsType<FlowControl>(fc);
+		Assert.Equal("fc1", fc.Name);
+		Assert.Same(ph, fc.Placeholder);
+		// The builder must NOT clobber the control's load-bearing layout identity.
+		Assert.Equal(SharpConsoleUI.Layout.VerticalAlignment.Fill, fc.VerticalAlignment);
+		Assert.Equal(SharpConsoleUI.Layout.HorizontalAlignment.Stretch, fc.HorizontalAlignment);
+
+		var wiz = Builders.Controls.Wizard().WithName("wz1").Build();
+		Assert.IsType<WizardControl>(wiz);
+		Assert.Equal("wz1", wiz.Name);
+		Assert.NotNull(wiz.Placeholder); // wizard default placeholder kept when not overridden
+		Assert.Equal(SharpConsoleUI.Layout.VerticalAlignment.Fill, wiz.VerticalAlignment);
 	}
 
 	[Fact]
