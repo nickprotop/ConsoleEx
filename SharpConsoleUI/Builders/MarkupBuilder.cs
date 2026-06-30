@@ -104,15 +104,19 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	{
 		if (string.IsNullOrEmpty(markup)) return this;
 
-		var parts = markup.Split(["\r\n", "\r", "\n"], StringSplitOptions.None); // fix: handle windows newline char.
+		// Split on newlines but keep a balanced [tag]…[/] region (e.g. a multi-line [yellow] or [markdown]
+		// block) atomic, so the open tag is not torn from its close — otherwise only the first line renders
+		// styled (issue #59). Mirrors the Text= setter; plain multi-line text still splits per line.
+		var parts = SharpConsoleUI.Controls.MarkupControl.SplitContentPreservingTagRegions(markup);
 
-		// Ensure at least one line exists, then join the first segment onto the current last line.
+		// Ensure at least one line exists, then join the first segment onto the current last line
+		// (StringBuilder.Append / Console.Write style).
 		if (_lines.Count == 0)
 			_lines.Add(string.Empty);
 		_lines[^1] += parts[0];
 
 		// Remaining segments each start a new line.
-		for (int i = 1; i < parts.Length; i++)
+		for (int i = 1; i < parts.Count; i++)
 			_lines.Add(parts[i]);
 
 		return this;

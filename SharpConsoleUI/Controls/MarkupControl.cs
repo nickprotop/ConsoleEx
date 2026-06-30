@@ -363,7 +363,7 @@ namespace SharpConsoleUI.Controls
 		/// change. For multi-line styled blocks today, wrap in <c>[markdown]</c> or set self-closed lines.
 		/// </para>
 		/// </summary>
-		private static List<string> SplitContentPreservingTagRegions(string value)
+		internal static List<string> SplitContentPreservingTagRegions(string value)
 		{
 			if (string.IsNullOrEmpty(value) || value.IndexOf('[') < 0)
 			{
