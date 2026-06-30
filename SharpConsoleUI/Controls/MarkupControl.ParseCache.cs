@@ -130,15 +130,35 @@ namespace SharpConsoleUI.Controls
 			var rowLinks = new List<List<Parsing.LinkSpan>>();
 			var lineRowCounts = new int[snapshot.Count];
 
-			for (int sourceIndex = 0; sourceIndex < snapshot.Count; sourceIndex++)
+			// Coalesce consecutive entries that form ONE open [markdown] region into a single parse
+			// group, so a multi-line / streamed [markdown] block (built via AppendLine / AppendText /
+			// streaming, where it spans several _content entries) parses as a unit and renders correctly.
+			// The common case — an entry that does not leave a [markdown] open — forms a group of exactly
+			// one entry, identical to per-entry parsing. [markdown]-only by design (see the streaming-
+			// markdown-coalescing spec). All rows of a group are attributed to the group's FIRST entry,
+			// matching how a multi-line [markdown] set via Text= is already attributed (one source index).
+			var groups = new List<(string text, int sourceIndex)>();
+			for (int g = 0; g < snapshot.Count;)
 			{
-				string line = snapshot[sourceIndex];
+				int start = g;
+				var sb = new System.Text.StringBuilder(snapshot[g]);
+				while (Parsing.MarkupParser.HasUnclosedMarkdownRegion(sb.ToString()) && g + 1 < snapshot.Count)
+				{
+					g++;
+					sb.Append('\n').Append(snapshot[g]);
+				}
+				groups.Add((sb.ToString(), start));
+				g++;
+			}
+
+			foreach (var (text, sourceIndex) in groups)
+			{
 				int before = rows.Count;
 
 				if (wrap && renderWidth > 0)
 				{
 					CountParse();
-					var wrapped = Parsing.MarkupParser.ParseLines(line, renderWidth, fg, bg, out var wrappedLinks, md);
+					var wrapped = Parsing.MarkupParser.ParseLines(text, renderWidth, fg, bg, out var wrappedLinks, md);
 					for (int w = 0; w < wrapped.Count; w++)
 					{
 						rows.Add(wrapped[w]);
@@ -148,14 +168,10 @@ namespace SharpConsoleUI.Controls
 				}
 				else
 				{
-					// Non-wrap: still parse-then-cut so an open tag carries its style across embedded
-					// newlines (e.g. a multi-line [yellow]…[/] or a [markdown] table). ParseLines does one
-					// whole-entry parse and cuts on newlines; a very large width disables word-wrap so the
-					// only row breaks are the explicit newlines. (Splitting first and parsing each sub-line
-					// separately — the old behaviour — gave each line a fresh style stack and dropped the
-					// style on line 2.)
+					// Non-wrap: parse-then-cut so an open tag carries its style across embedded newlines
+					// (a very large width disables word-wrap so the only breaks are explicit newlines).
 					CountParse();
-					var parsed = Parsing.MarkupParser.ParseLines(line, int.MaxValue, fg, bg, out var parsedLinks, md);
+					var parsed = Parsing.MarkupParser.ParseLines(text, int.MaxValue, fg, bg, out var parsedLinks, md);
 					for (int w = 0; w < parsed.Count; w++)
 					{
 						rows.Add(parsed[w]);
@@ -164,6 +180,8 @@ namespace SharpConsoleUI.Controls
 					}
 				}
 
+				// Rows are recorded against the group's FIRST entry. Absorbed entries (2nd+ in the group)
+				// keep lineRowCounts == 0, so the RowPrefix prefix-sum stays consistent.
 				lineRowCounts[sourceIndex] = rows.Count - before;
 			}
 
