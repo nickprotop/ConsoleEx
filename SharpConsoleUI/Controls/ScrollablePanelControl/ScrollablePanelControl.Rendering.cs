@@ -105,6 +105,15 @@ namespace SharpConsoleUI.Controls
 					ScrollChildIntoView(pendingFw);
 			}
 
+			// PaintDOM runs in the PAINT phase, AFTER ScrollLayout.ArrangeChildren has already
+			// positioned the children using the offset as it stood at arrange time. Any offset change
+			// made below (deferred scroll-to-bottom or AutoScroll) therefore only takes effect on the
+			// NEXT arrange. Track whether we change it so we can schedule that arrange explicitly —
+			// otherwise the panel stays one frame stale and only settles when some unrelated event
+			// (e.g. a mouse move) forces another repaint (#62; and the "extra line until the mouse
+			// moves" report on #61).
+			int offsetBeforeAutoAdjust = _verticalScrollOffset;
+
 			// Deferred scroll-to-bottom: ScrollToBottom() was called before the viewport
 			// was laid out. Metrics are now current, so complete the one-shot scroll.
 			if (_pendingScrollToBottom && _viewportWidth > 0 && _viewportHeight > 0)
@@ -122,6 +131,14 @@ namespace SharpConsoleUI.Controls
 					_verticalScrollOffset = maxOffset;
 				}
 			}
+
+			// The offset moved during paint, so the children arranged this frame are now at a stale
+			// position. Request a relayout so the next frame re-arranges them at the new offset and
+			// settles immediately (matching ScrollToBottom()/ScrollVerticalTo, which Invalidate too).
+			// Idempotent: once at the bottom the blocks above stop changing the offset, so no further
+			// relayout is scheduled and rendering goes idle.
+			if (_verticalScrollOffset != offsetBeforeAutoAdjust)
+				Invalidate(Invalidation.Relayout);
 
 			// Reserve space for the vertical scrollbar (single source of truth). contentWidth is the
 			// VISIBLE content width children are painted into; horizontal overflow beyond it is
