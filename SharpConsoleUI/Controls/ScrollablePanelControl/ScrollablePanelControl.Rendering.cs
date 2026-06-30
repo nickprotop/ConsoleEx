@@ -203,11 +203,11 @@ namespace SharpConsoleUI.Controls
 			// Draw the scrollbars (single source of truth for visibility).
 			if (needsScrollbar)
 			{
-				DrawVerticalScrollbar(buffer, bounds, fgColor, bgColor);
+				DrawVerticalScrollbar(buffer, bounds, clipRect, fgColor, bgColor);
 			}
 			if (needsHScrollbar)
 			{
-				DrawHorizontalScrollbar(buffer, bounds, contentWidth, fgColor, bgColor);
+				DrawHorizontalScrollbar(buffer, bounds, clipRect, contentWidth, fgColor, bgColor);
 			}
 
 		}
@@ -343,7 +343,7 @@ namespace SharpConsoleUI.Controls
 			return HasFocus ? Color.Grey : Color.Grey23;
 		}
 
-		private void DrawVerticalScrollbar(CharacterBuffer buffer, LayoutRect bounds, Color fgColor, Color bgColor)
+		private void DrawVerticalScrollbar(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color fgColor, Color bgColor)
 		{
 			var (scrollbarRelX, scrollbarTop, scrollbarHeight, thumbY, thumbHeight) = GetScrollbarGeometry();
 
@@ -369,15 +369,28 @@ namespace SharpConsoleUI.Controls
 
 				Color color = isThumb ? thumbColor : trackColor;
 				char ch = isThumb ? '\u2588' : '\u2502';
-				buffer.SetNarrowCell(scrollbarX, scrollbarAbsTop + y, ch, color, bgColor);
+				PutClipped(buffer, clipRect, scrollbarX, scrollbarAbsTop + y, ch, color, bgColor);
 			}
 
 			if (!overlay)
 			{
 				// Arrows at top/bottom (non-overlay only \u2014 in overlay they'd overwrite the border corners).
-				buffer.SetNarrowCell(scrollbarX, scrollbarAbsTop, '\u25b2', thumbColor, bgColor);
-				buffer.SetNarrowCell(scrollbarX, scrollbarAbsTop + scrollbarHeight - 1, '\u25bc', thumbColor, bgColor);
+				PutClipped(buffer, clipRect, scrollbarX, scrollbarAbsTop, '\u25b2', thumbColor, bgColor);
+				PutClipped(buffer, clipRect, scrollbarX, scrollbarAbsTop + scrollbarHeight - 1, '\u25bc', thumbColor, bgColor);
 			}
+		}
+
+		/// <summary>
+		/// Writes a single narrow scrollbar cell only if it lies within <paramref name="clipRect"/>. Scrollbar
+		/// chrome must respect the same clip as the border-draw methods; without this, a nested panel scrolled
+		/// partly past its parent's viewport edge draws scrollbar TRACK cells over the parent's border row
+		/// (issue #61 \u2014 the off-top arrow lands off-buffer, but the track below it crosses the parent border).
+		/// </summary>
+		private static void PutClipped(CharacterBuffer buffer, LayoutRect clipRect, int x, int y, char ch, Color fg, Color bg)
+		{
+			if (x < clipRect.X || x >= clipRect.Right) return;
+			if (y < clipRect.Y || y >= clipRect.Bottom) return;
+			buffer.SetNarrowCell(x, y, ch, fg, bg);
 		}
 
 		/// <summary>
@@ -386,7 +399,7 @@ namespace SharpConsoleUI.Controls
 		/// sized/positioned from the shared geometry. <paramref name="trackWidth"/> is the visible
 		/// content width (excludes the vertical scrollbar columns).
 		/// </summary>
-		private void DrawHorizontalScrollbar(CharacterBuffer buffer, LayoutRect bounds, int trackWidth, Color fgColor, Color bgColor)
+		private void DrawHorizontalScrollbar(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, int trackWidth, Color fgColor, Color bgColor)
 		{
 			if (trackWidth <= 0) return;
 
@@ -410,14 +423,14 @@ namespace SharpConsoleUI.Controls
 
 				Color color = isThumb ? thumbColor : trackColor;
 				char ch = isThumb ? '\u25ac' : '\u2500'; // U+25AC thumb / U+2500 track
-				buffer.SetNarrowCell(scrollbarX + x, scrollbarY, ch, color, bgColor);
+				PutClipped(buffer, clipRect, scrollbarX + x, scrollbarY, ch, color, bgColor);
 			}
 
 			if (!overlay)
 			{
 				// Left/right arrows at the ends (non-overlay only \u2014 they'd overwrite the border corners).
-				buffer.SetNarrowCell(scrollbarX, scrollbarY, '\u25c4', thumbColor, bgColor);                 // U+25C4
-				buffer.SetNarrowCell(scrollbarX + trackWidth - 1, scrollbarY, '\u25ba', thumbColor, bgColor); // U+25BA
+				PutClipped(buffer, clipRect, scrollbarX, scrollbarY, '\u25c4', thumbColor, bgColor);                 // U+25C4
+				PutClipped(buffer, clipRect, scrollbarX + trackWidth - 1, scrollbarY, '\u25ba', thumbColor, bgColor); // U+25BA
 			}
 		}
 

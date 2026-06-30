@@ -91,4 +91,22 @@ public static class ChromeGeometry
 		char mid = CharAt(snap, (rect.X + rect.Right) / 2, rect.Bottom);
 		Assert.True(mid == '─', $"bottom border rule ─ missing mid-edge at row {rect.Bottom}; got '{mid}'. Row: {Row(snap, rect.Bottom)}");
 	}
+
+	/// <summary>
+	/// Asserts a horizontal border line is INTACT across the column span [fromX, toX] on row <paramref name="y"/>:
+	/// every cell is part of a horizontal border (─, corners, T-junctions, or spaces inside a header gap) and
+	/// none is a stray vertical-stroke character (│ ▲ ▼ █) intruding into the border. This catches #61 — a
+	/// nested scrollbar whose cells leak UP through the enclosing container's top border row when the inner
+	/// panel is scrolled partly off the top.
+	/// </summary>
+	public static void AssertHorizontalBorderIntact(CharacterBufferSnapshot snap, int y, int fromX, int toX)
+	{
+		const string intruders = "│▲▼█"; // vertical-stroke chars that must never sit on a horizontal border row
+		for (int x = fromX; x <= toX; x++)
+		{
+			char c = CharAt(snap, x, y);
+			Assert.False(intruders.IndexOf(c) >= 0,
+				$"horizontal border row {y} broken at col {x} by '{c}' (a scrollbar/vertical stroke leaked through the border). Row: {Row(snap, y)}");
+		}
+	}
 }
