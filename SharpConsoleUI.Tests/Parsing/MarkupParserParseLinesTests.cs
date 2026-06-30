@@ -118,6 +118,54 @@ namespace SharpConsoleUI.Tests.Parsing
 		}
 
 		[Fact]
+		public void ParseLines_CjkRun_BreaksBetweenCharactersToFillWidth()
+		{
+			// A short CJK token, a space, then a long spaceless CJK run. Old behavior broke at the
+			// early space (col 6), wasting the rest of the line because the run had no spaces.
+			// CJK characters are valid break points, so the first line should fill the width (#63).
+			string text = "中中中 中中中中中中中中";
+			var result = MarkupParser.ParseLines(text, 12, Fg, Bg);
+
+			Assert.True(result[0].Count >= 10,
+				$"Expected first line to fill ~12 columns via CJK breaking, but got {result[0].Count}.");
+		}
+
+		[Fact]
+		public void ParseLines_MixedCjkAndLatin_KeepsLatinWordsIntact()
+		{
+			// CJK breaks per-character, but Latin runs (no internal break points) stay whole:
+			// "Git" must never be split across rows even though it sits inside a CJK run (#63).
+			string text = "中中中中中中Git中中中中中中";
+			var result = MarkupParser.ParseLines(text, 8, Fg, Bg);
+
+			string joined = string.Concat(result.Select(CellString));
+			foreach (var line in result)
+			{
+				string s = CellString(line);
+				// "Git" is intact iff it never straddles a row boundary: each row contains either
+				// all of "Git" or none of it.
+				bool hasPartialGit = (s.Contains('G') || s.Contains('i') || s.Contains('t'))
+					&& !s.Contains("Git");
+				Assert.False(hasPartialGit, $"Latin word 'Git' was split across rows. Row: '{s.TrimEnd()}'");
+			}
+			Assert.Contains("Git", joined);
+		}
+
+		[Fact]
+		public void ParseLines_CjkRun_DoesNotSplitWideCharPair()
+		{
+			// Every wrapped row must start on a wide-char lead cell, never on a continuation cell.
+			string text = string.Concat(Enumerable.Repeat("中", 20)); // 20 CJK = 40 columns
+			var result = MarkupParser.ParseLines(text, 7, Fg, Bg);
+
+			Assert.All(result, line =>
+			{
+				if (line.Count > 0)
+					Assert.False(line[0].IsWideContinuation, "A wrapped row must not start mid wide-char pair.");
+			});
+		}
+
+		[Fact]
 		public void ParseLines_StyledTextPreservedAcrossLines()
 		{
 			// When text wraps, Parse is called per explicit line, so style from

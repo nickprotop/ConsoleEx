@@ -1055,6 +1055,27 @@ namespace SharpConsoleUI.Parsing
 		private static bool IsBreakableSpace(Cell cell)
 			=> cell.Character == new Rune(' ') && !cell.IsWideContinuation;
 
+		/// <summary>
+		/// True if a line may be broken immediately before <paramref name="idx"/> (i.e. cells [start, idx)
+		/// stay on the current row and cells[idx] starts the next). Break opportunities are:
+		/// after a space, and either side of a wide (CJK) character — CJK runs have no inter-word spaces,
+		/// so each ideograph is its own break point, letting a long run fill the available width (#63).
+		/// Never breaks inside a wide-char pair.
+		/// </summary>
+		private static bool CanBreakBefore(List<Cell> cells, int idx, int start)
+		{
+			if (idx <= start || idx >= cells.Count) return false;
+			// Never split a wide char from its continuation cell.
+			if (cells[idx].IsWideContinuation) return false;
+			// Before a space (the space ends the line and is trimmed/skipped) or after a space.
+			if (IsBreakableSpace(cells[idx]) || IsBreakableSpace(cells[idx - 1])) return true;
+			// After a wide char: cells[idx-1] is the continuation cell of a CJK ideograph.
+			if (cells[idx - 1].IsWideContinuation) return true;
+			// Before a wide char: cells[idx] leads a CJK ideograph pair.
+			if (idx + 1 < cells.Count && cells[idx + 1].IsWideContinuation) return true;
+			return false;
+		}
+
 		private static void WrapCellLine(List<Cell> cells, int width, List<List<Cell>> output)
 		{
 			int start = 0;
@@ -1067,31 +1088,29 @@ namespace SharpConsoleUI.Parsing
 					break;
 				}
 
-				// Find last word boundary within width
-				int breakAt = start + width;
+				// Largest break point that keeps the row within width: break before start + width.
+				int limit = start + width;
 
-				// Don't break inside a wide char pair (between char and its continuation)
-				if (breakAt < cells.Count && cells[breakAt].IsWideContinuation)
-					breakAt--;
-
-				int wordBreak = breakAt;
-
-				// If the character just past the width is a space, break there
-				if (breakAt < cells.Count && IsBreakableSpace(cells[breakAt]))
+				// Find the last break opportunity at or before the width limit. Spaces and CJK
+				// character boundaries both qualify, so a spaceless CJK run breaks per-character
+				// instead of collapsing back to a distant space and wasting the line.
+				int wordBreak = -1;
+				for (int j = limit; j > start; j--)
 				{
-					wordBreak = breakAt;
-				}
-				else
-				{
-					// Search backward for a space (skip continuation cells)
-					for (int j = breakAt - 1; j > start; j--)
+					if (CanBreakBefore(cells, j, start))
 					{
-						if (IsBreakableSpace(cells[j]))
-						{
-							wordBreak = j + 1; // break after space
-							break;
-						}
+						wordBreak = j;
+						break;
 					}
+				}
+
+				// No break opportunity (e.g. a long spaceless ASCII run): hard break at the width,
+				// stepping off a wide-char continuation cell so a pair is never split.
+				if (wordBreak < 0)
+				{
+					wordBreak = limit;
+					if (wordBreak < cells.Count && cells[wordBreak].IsWideContinuation)
+						wordBreak--;
 				}
 
 				int count = wordBreak - start;
