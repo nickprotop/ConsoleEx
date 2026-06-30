@@ -69,5 +69,49 @@ namespace SharpConsoleUI.Parsing
 
 			return sb.ToString();
 		}
+
+		/// <summary>
+		/// Returns true if <paramref name="text"/> contains a real <c>[markdown]</c> open whose matching
+		/// <c>[/]</c> does not appear within <paramref name="text"/> — i.e. the region continues into
+		/// following content. Mirrors <see cref="PreProcessMarkdownTags"/>'s scan: <c>[[markdown]]</c> is an
+		/// escaped literal (not a tag) and the first <c>[/]</c> after an open closes it.
+		/// </summary>
+		internal static bool HasUnclosedMarkdownRegion(string text)
+		{
+			if (string.IsNullOrEmpty(text)
+				|| text.IndexOf(MarkdownTagOpen, StringComparison.OrdinalIgnoreCase) < 0)
+				return false;
+
+			int i = 0;
+			int len = text.Length;
+			bool open = false; // whether we are currently inside an unclosed [markdown] region
+
+			while (i < len)
+			{
+				int tag = text.IndexOf(MarkdownTagOpen, i, StringComparison.OrdinalIgnoreCase);
+				if (tag < 0)
+					break;
+
+				// Escaped [[markdown]] — not a real tag.
+				if (tag > 0 && text[tag - 1] == '[')
+				{
+					i = tag + MarkdownTagOpen.Length;
+					continue;
+				}
+
+				int innerStart = tag + MarkdownTagOpen.Length;
+				int closeIdx = text.IndexOf("[/]", innerStart, StringComparison.Ordinal);
+				if (closeIdx < 0)
+				{
+					open = true; // this open has no close within the text
+					break;
+				}
+
+				open = false;     // this open was closed
+				i = closeIdx + 3; // continue scanning after the [/]
+			}
+
+			return open;
+		}
 	}
 }
