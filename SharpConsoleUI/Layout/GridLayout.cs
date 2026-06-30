@@ -91,27 +91,10 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 		int availW = Math.Max(0, constraints.MaxWidth - horizontalInset);
 		int availH = Math.Max(0, constraints.MaxHeight - verticalInset);
 
-		// Opt-in (HorizontalGridControl): a Star track self-sizes to its content during MEASURE — like an
-		// Auto track — so the grid reports a content-based natural (desired) size, then ARRANGE (below, with
-		// the real allocated extent) distributes Star normally. This reproduces the retired HorizontalLayout's
-		// measure/arrange split exactly: a content-tight parent (the window root for a Left/Center/Right grid)
-		// packs the grid to content, while a parent that hands the grid a wider box (a ScrollablePanel, a
-		// Stretch slot) lets the flex columns fan out. Without this, a Star grid measured against a bounded
-		// width would report the FULL width as desired and the window root would arrange it spread, not packed.
-		// The swap is applied BEFORE auto-content collection so the swapped tracks accumulate their cells'
-		// content size (ContributeAutoContent only feeds Auto tracks).
-		IReadOnlyList<GridLength> measureColDefs = colDefs;
-		IReadOnlyList<GridLength> measureRowDefs = rowDefs;
-		if (_source.StarTracksSelfSizeToContentInMeasure)
-		{
-			measureColDefs = StarToAuto(colDefs);
-			measureRowDefs = StarToAuto(rowDefs);
-		}
-
 		// Measure each cell's content and accumulate the content-driven size of the Auto tracks it
 		// spans. This also primes each child's DesiredSize, which the arrange pass reads back.
 		(int[] autoContentColSizes, int[] autoContentRowSizes) =
-			MeasureCellsAndCollectAutoContent(node, measureColDefs, measureRowDefs, availW, availH);
+			MeasureCellsAndCollectAutoContent(node, colDefs, rowDefs, availW, availH);
 
 		// When an axis is effectively unbounded (e.g. a Star-track grid measured for vertical
 		// stacking), there is no finite extent for Star tracks to divide. Dividing ~int.MaxValue
@@ -125,8 +108,8 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 		int columnGap = Math.Max(0, _source.ColumnGap);
 		int rowGap = Math.Max(0, _source.RowGap);
 
-		int[] colSizes = GridTrackSizer.Size(measureColDefs, autoContentColSizes, starAvailW, _source.ColumnGap);
-		int[] rowSizes = GridTrackSizer.Size(measureRowDefs, autoContentRowSizes, starAvailH, _source.RowGap);
+		int[] colSizes = GridTrackSizer.Size(colDefs, autoContentColSizes, starAvailW, _source.ColumnGap);
+		int[] rowSizes = GridTrackSizer.Size(rowDefs, autoContentRowSizes, starAvailH, _source.RowGap);
 
 		// PASS 2: re-measure each content cell against its REAL cell extent (the actual column width
 		// computed in pass 1) so wrapping controls reflow to their column rather than reporting a single
@@ -134,13 +117,13 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 		// inner width makes a Wrap=true control report a taller height; the Auto row sizes are then
 		// recomputed from those wrapped heights below. Column widths drove the wrap, so they are not
 		// re-derived (wrapping does not change how wide a column is, only how tall the cell becomes).
-		bool anyReflow = RemeasureCellsAgainstCellExtent(node, measureColDefs, measureRowDefs, colSizes, rowSizes, columnGap, rowGap);
+		bool anyReflow = RemeasureCellsAgainstCellExtent(node, colDefs, rowDefs, colSizes, rowSizes, columnGap, rowGap);
 
 		if (anyReflow)
 		{
 			// Recompute ROW auto-content from the NEW (wrapped) DesiredSize heights so Auto rows grow to
 			// fit the reflowed text. Columns are unaffected, so colSizes is reused as-is.
-			int[] autoContentRowSizes2 = new int[measureRowDefs.Count];
+			int[] autoContentRowSizes2 = new int[rowDefs.Count];
 			var cells = _source.OrderedCells;
 			IReadOnlyList<LayoutNode> children = node.Children;
 			int pairCount = Math.Min(children.Count, cells.Count);
@@ -153,10 +136,10 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 				}
 
 				GridPlacement p = cells[i].Placement;
-				ContributeAutoContent(autoContentRowSizes2, measureRowDefs, p.Row, p.RowSpan, child.DesiredSize.Height);
+				ContributeAutoContent(autoContentRowSizes2, rowDefs, p.Row, p.RowSpan, child.DesiredSize.Height);
 			}
 
-			rowSizes = GridTrackSizer.Size(measureRowDefs, autoContentRowSizes2, starAvailH, _source.RowGap);
+			rowSizes = GridTrackSizer.Size(rowDefs, autoContentRowSizes2, starAvailH, _source.RowGap);
 		}
 
 		int colGaps = colCount > 1 ? (colCount - 1) * Math.Max(0, _source.ColumnGap) : 0;
@@ -483,134 +466,11 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 	}
 
 	/// <summary>
-	/// Returns a copy of <paramref name="defs"/> with every <see cref="GridUnitType.Star"/> track replaced
-	/// by an <see cref="GridUnitType.Auto"/> track (carrying the same Min/Max). Used by the measure pass when
-	/// the source opts into content self-sizing (see
-	/// <see cref="IGridSource.StarTracksSelfSizeToContentInMeasure"/>). Non-Star tracks pass through unchanged.
-	/// </summary>
-	private static IReadOnlyList<GridLength> StarToAuto(IReadOnlyList<GridLength> defs)
-	{
-		var result = new GridLength[defs.Count];
-		for (int i = 0; i < defs.Count; i++)
-		{
-			result[i] = defs[i].Type == GridUnitType.Star
-				? GridLength.Auto(defs[i].Min, defs[i].Max)
-				: defs[i];
-		}
-		return result;
-	}
-
-	/// <summary>
-	/// Returns a copy of <paramref name="defs"/> in which each single-track <see cref="GridUnitType.Star"/>
-	/// track's <see cref="GridLength.Min"/> is raised to its cell's content size along the given axis, so the
-	/// arrange-time Star split keeps each flex track at its own content width and divides only the genuine
-	/// surplus — reproducing HorizontalLayout's "base content + proportional extra". The floors are applied
-	/// ONLY when they fit: if the Star tracks' content floors plus the Fixed/Auto consumption and gaps would
-	/// exceed <paramref name="available"/>, the original (un-floored) defs are returned so the plain even Star
-	/// split runs instead — the right behaviour for fill-content children that cannot all be shown at content
-	/// width (flooring them would pin every track to its full content and push later tracks off-screen).
-	/// </summary>
-	private static IReadOnlyList<GridLength> ApplyStarContentFloor(
-		IReadOnlyList<GridLength> defs,
-		LayoutNode node,
-		IReadOnlyList<(IWindowControl Control, GridPlacement Placement)> cells,
-		int pairCount,
-		int available,
-		int gap,
-		int[] autoContentSizes,
-		bool isColumn)
-	{
-		int count = defs.Count;
-		int[] floor = new int[count];
-		IReadOnlyList<LayoutNode> children = node.Children;
-		for (int i = 0; i < pairCount; i++)
-		{
-			LayoutNode child = children[i];
-			if (!child.IsVisible)
-			{
-				continue;
-			}
-
-			GridPlacement p = cells[i].Placement;
-			int start = isColumn ? p.Col : p.Row;
-			int span = isColumn ? p.ColSpan : p.RowSpan;
-			// Only single-track cells contribute a per-track floor; a spanning cell's content is shared across
-			// its tracks and must not pin any one of them to the whole content size.
-			if (span != 1 || start < 0 || start >= count || defs[start].Type != GridUnitType.Star)
-			{
-				continue;
-			}
-
-			int content = isColumn ? child.DesiredSize.Width : child.DesiredSize.Height;
-			if (content > floor[start])
-			{
-				floor[start] = content;
-			}
-		}
-
-		// Sum the Fixed/Auto consumption + gaps + Star floors. If that exceeds the allocation, the floors
-		// over-subscribe (fill children that don't fit) — keep the plain even Star split.
-		int gapTotal = count > 1 ? (count - 1) * Math.Max(0, gap) : 0;
-		int consumedPlusFloors = gapTotal;
-		for (int i = 0; i < count; i++)
-		{
-			GridLength def = defs[i];
-			if (def.Type == GridUnitType.Star)
-			{
-				consumedPlusFloors += floor[i];
-			}
-			else if (def.Type == GridUnitType.Fixed)
-			{
-				consumedPlusFloors += ClampTrack(def.Value, def.Min, def.Max);
-			}
-			else if (def.Type == GridUnitType.Auto)
-			{
-				// An Auto track also consumes the space it sizes to (its cells' content along this axis),
-				// which the over-subscription check must count alongside the Star floors and Fixed tracks.
-				// autoContentSizes[i] is the per-track Auto content the arrange pass already collected
-				// (0 for non-Auto tracks). Including it makes the guard correct for a ContentSizedStars grid
-				// that mixes Auto + Star tracks whose content together over-subscribes the allocation —
-				// previously omitted because no HGC layout hits that combination, but ContentSizedStars is
-				// now a public opt-in, so a caller can enable it on exactly such a grid.
-				consumedPlusFloors += (i < autoContentSizes.Length) ? autoContentSizes[i] : 0;
-			}
-		}
-		if (consumedPlusFloors > available)
-		{
-			return defs;
-		}
-
-		var result = new GridLength[count];
-		for (int i = 0; i < count; i++)
-		{
-			GridLength def = defs[i];
-			if (def.Type == GridUnitType.Star && floor[i] > 0)
-			{
-				int min = def.Min.HasValue ? System.Math.Max(def.Min.Value, floor[i]) : floor[i];
-				result[i] = GridLength.Star(def.Weight, min, def.Max);
-			}
-			else
-			{
-				result[i] = def;
-			}
-		}
-		return result;
-	}
-
-	/// <summary>Clamps a track size to its optional Min/Max and floors it at 0.</summary>
-	private static int ClampTrack(int value, int? min, int? max)
-	{
-		if (min.HasValue && value < min.Value) value = min.Value;
-		if (max.HasValue && value > max.Value) value = max.Value;
-		return Math.Max(0, value);
-	}
-
-	/// <summary>
 	/// Arranges the grid's cells into their assigned track rectangles. The local area is inset by the
 	/// grid's margin then padding to form the track area; tracks are sized exactly as in the measure
 	/// pass; each cell is positioned at its track offset, inset by the child's own margin, then aligned
 	/// within the resulting inner box per the child's horizontal and vertical alignment (mirroring
-	/// <c>HorizontalLayout.ArrangeChildren</c>). Invisible children are skipped.
+	/// <see cref="HorizontalLayout.ArrangeChildren"/>). Invisible children are skipped.
 	/// </summary>
 	/// <remarks>
 	/// <paramref name="finalRect"/> is node-local (origin 0,0); cell rectangles are therefore computed
@@ -669,23 +529,8 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 		int columnGap = Math.Max(0, _source.ColumnGap);
 		int rowGap = Math.Max(0, _source.RowGap);
 
-		// Opt-in (HorizontalGridControl): when the grid is arranged at (about) its content extent, each flex
-		// track should keep its OWN content width and only the genuine surplus is split by weight — reproducing
-		// HorizontalLayout's "base content + proportional extra" so tight content packs at its own width rather
-		// than being re-divided evenly (which shifts cell boundaries and truncates). This is applied as a
-		// per-Star content FLOOR (Min = the track's single-cell content size). It is SKIPPED when the floors
-		// would over-subscribe the allocation (fill-content children whose contents sum past the available
-		// space): there the plain even Star split is correct and the floors would push later tracks off-screen.
-		IReadOnlyList<GridLength> arrangeColDefs = colDefs;
-		IReadOnlyList<GridLength> arrangeRowDefs = rowDefs;
-		if (_source.StarTracksSelfSizeToContentInMeasure)
-		{
-			arrangeColDefs = ApplyStarContentFloor(colDefs, node, cells, pairCount, trackAreaW, columnGap, autoContentColSizes, isColumn: true);
-			arrangeRowDefs = ApplyStarContentFloor(rowDefs, node, cells, pairCount, trackAreaH, rowGap, autoContentRowSizes, isColumn: false);
-		}
-
-		int[] colSizes = GridTrackSizer.Size(arrangeColDefs, autoContentColSizes, trackAreaW, columnGap);
-		int[] rowSizes = GridTrackSizer.Size(arrangeRowDefs, autoContentRowSizes, trackAreaH, rowGap);
+		int[] colSizes = GridTrackSizer.Size(colDefs, autoContentColSizes, trackAreaW, columnGap);
+		int[] rowSizes = GridTrackSizer.Size(rowDefs, autoContentRowSizes, trackAreaH, rowGap);
 
 		int[] colOffsets = ComputeOffsets(colSizes, originX, columnGap);
 		int[] rowOffsets = ComputeOffsets(rowSizes, originY, rowGap);
@@ -735,25 +580,6 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 
 			var cellRect = new LayoutRect(contentX, contentY, contentW, contentH);
 			_cellRects[child] = cellRect;
-
-			// HorizontalGridControl bounded-height re-measure (opt-in via StarTracksSelfSizeToContentInMeasure).
-			// HGC measures cells content-loose (StarToAuto) so the grid reports a content natural size — but
-			// that leaves each cell's DesiredSize content-sized. When the cell is then ARRANGED taller than it
-			// measured (a flex/Star column filling the real box), a Fill descendant nested behind a non-Fill
-			// wrapper never learns the true height: e.g. a Top ScrollablePanel hosting a Fill TableControl is
-			// arranged by its inner VerticalStackLayout at the panel's *content* DesiredSize, so the Fill table
-			// can only fill that content height, not the column. The retired HorizontalLayout avoided this by
-			// measuring flex columns against the column extent; reproduce that here by re-measuring the cell
-			// against its real arranged content box before alignment reads DesiredSize. Scoped to the HGC opt-in
-			// (ordinary grids never enter this branch) and only when the box is taller, so it never shrinks a
-			// cell or perturbs the content-sized golden layouts.
-			if (_source.StarTracksSelfSizeToContentInMeasure
-				&& contentH > child.DesiredSize.Height
-				&& contentW > 0
-				&& contentH > 0)
-			{
-				child.Measure(LayoutConstraints.Loose(contentW, contentH));
-			}
 
 			// Align the child within the cell's CONTENT box (border + cell-padding already removed). Do NOT
 			// pre-subtract the child's own margin here: the control's own paint (its leftInset/topInset)
@@ -892,7 +718,7 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 
 	/// <summary>
 	/// Resolves a child's horizontal start and extent, mirroring the switch shape in
-	/// <c>HorizontalLayout.ArrangeChildren</c> (Stretch fills; Left/Center/Right float).
+	/// <see cref="HorizontalLayout.ArrangeChildren"/> (Stretch fills; Left/Center/Right float).
 	/// </summary>
 	private static (int Start, int Extent) AlignHorizontal(HorizontalAlignment alignment, int innerStart, int innerExtent, int desiredExtent)
 	{
@@ -908,7 +734,7 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 
 	/// <summary>
 	/// Resolves a child's vertical start and extent, mirroring the switch shape in
-	/// <c>HorizontalLayout.ArrangeChildren</c> (Fill fills; Top/Center/Bottom float).
+	/// <see cref="HorizontalLayout.ArrangeChildren"/> (Fill fills; Top/Center/Bottom float).
 	/// </summary>
 	private static (int Start, int Extent) AlignVertical(VerticalAlignment alignment, int innerStart, int innerExtent, int desiredExtent)
 	{

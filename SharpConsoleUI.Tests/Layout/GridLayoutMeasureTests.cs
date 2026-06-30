@@ -28,7 +28,6 @@ public class GridLayoutMeasureTests
 		public Padding Padding { get; init; }
 		public IReadOnlyList<(IWindowControl Control, GridPlacement Placement)> OrderedCells { get; init; }
 			= Array.Empty<(IWindowControl, GridPlacement)>();
-		public bool StarTracksSelfSizeToContentInMeasure { get; init; }
 	}
 
 	/// <summary>
@@ -184,46 +183,6 @@ public class GridLayoutMeasureTests
 		// Desired height is the Auto row's content (2 lines) only; the Star row contributed 0 — no
 		// int.MaxValue blowup.
 		Assert.Equal(2, desired.Height);
-	}
-
-	[Fact]
-	public void UnboundedHeight_WithContentSizedStars_StarRowSelfSizesToContent()
-	{
-		// Same grid as UnboundedHeight_StarRowsCollapseToZero, but the source opts into content-sized
-		// Star tracks (GridControl.ContentSizedStars / HorizontalGridControl). The Star row now reports
-		// its cell's content height at measure instead of collapsing to 0.
-		var autoCell = Cell("line1", "line2");
-		var starCell = Cell("a", "b", "c"); // 3 lines of content
-
-		var source = new FakeGridSource
-		{
-			ColumnDefinitions = new[] { GridLength.Cells(10) },
-			RowDefinitions = new[] { GridLength.Auto(), GridLength.Star(1) },
-			StarTracksSelfSizeToContentInMeasure = true,
-			OrderedCells = new (IWindowControl, GridPlacement)[]
-			{
-				(autoCell, new GridPlacement(0, 0)),
-				(starCell, new GridPlacement(1, 0)),
-			},
-		};
-
-		var layout = new GridLayout(source);
-		var node = BuildNode(layout, source);
-
-		var desired = layout.MeasureChildren(node, LayoutConstraints.Unbounded);
-
-		// Auto row (2 lines) + Star row self-sized to its content (3 lines) = 5 — NOT 2 (collapse) and
-		// NOT an int.MaxValue blowup.
-		Assert.Equal(5, desired.Height);
-	}
-
-	[Fact]
-	public void ContentSizedStars_PublicProperty_DefaultsFalse_AndIsSettable()
-	{
-		var grid = new GridControl();
-		Assert.False(grid.ContentSizedStars); // default = WinUI collapse-to-0 behavior, non-breaking
-		grid.ContentSizedStars = true;
-		Assert.True(grid.ContentSizedStars);
 	}
 
 	[Fact]

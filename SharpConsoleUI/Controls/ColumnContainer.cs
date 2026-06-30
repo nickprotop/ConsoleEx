@@ -645,19 +645,10 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			// ColumnContainer doesn't process keys directly, delegate to the focused content.
-			// The focused control may be a deep descendant (e.g. a slider inside a panel inside this
-			// column), so match either the directly-focused child OR a child that is an ancestor of
-			// the focused control via the FocusManager's FocusPath. This mirrors the routing the parent
-			// grid relies on when it forwards keys to this column (see GridControl.ProcessKey).
+			// ColumnContainer doesn't process keys directly, delegate to focused content
 			var focusManager = (this as IWindowControl).GetParentWindow()?.FocusManager;
-			if (focusManager == null)
-				return false;
-
 			var focusedContent = GetInteractiveContents()
-				.FirstOrDefault(c =>
-					(c is IFocusableControl fc && focusManager.IsFocused(fc))
-					|| (c is IWindowControl wc && focusManager.IsInFocusPath(wc)));
+				.FirstOrDefault(c => c is IFocusableControl fc && (focusManager?.IsFocused(fc) ?? false));
 
 			return focusedContent?.ProcessKey(key) ?? false;
 		}

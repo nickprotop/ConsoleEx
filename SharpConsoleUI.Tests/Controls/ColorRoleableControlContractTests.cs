@@ -16,9 +16,6 @@ public class ColorRoleableControlContractTests
 		Assert.True(new ScrollablePanelControl() is IColorRoleableControl);
 		Assert.True(new ListControl() is IColorRoleableControl);
 		Assert.True(new ProgressBarControl() is IColorRoleableControl);
-		// HorizontalGridControl is now a single-row GridControl, so it inherits GridControl's real
-		// IColorRoleableControl support — a legitimate roleable control via inheritance, not a fake facade.
-		Assert.True(new HorizontalGridControl() is IColorRoleableControl);
 	}
 
 	[Fact]
@@ -26,6 +23,7 @@ public class ColorRoleableControlContractTests
 	{
 		Assert.False(new CanvasControl() is IColorRoleableControl);
 		Assert.False(new HtmlControl() is IColorRoleableControl);
+		Assert.False(new HorizontalGridControl() is IColorRoleableControl);
 	}
 
 	[Fact]

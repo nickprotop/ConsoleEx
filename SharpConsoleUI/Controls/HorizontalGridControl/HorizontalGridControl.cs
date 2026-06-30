@@ -65,22 +65,16 @@ namespace SharpConsoleUI.Controls
 	///
 	/// <para><b>ARCHITECTURE NOTE:</b></para>
 	/// <para>
-	/// This control is a single-row <see cref="GridControl"/>. Each <see cref="ColumnContainer"/>
-	/// is translated into a grid column track via <c>Sync()</c>: an explicit <see cref="ColumnContainer.Width"/>
-	/// becomes a Fixed track, a positive <see cref="ColumnContainer.FlexFactor"/> becomes a Star track,
-	/// and otherwise the column is Auto-sized. Splitters are interleaved as fixed-width tracks.
-	/// Alignment normalization: <c>Sync()</c> force-sets each column's
-	/// <see cref="ColumnContainer.HorizontalAlignment"/> to <c>Stretch</c> and
-	/// <see cref="ColumnContainer.VerticalAlignment"/> to <c>Fill</c> so that the column fills its
-	/// grid cell exactly; reading these properties back after <see cref="AddColumn"/> may therefore
-	/// return <c>Stretch</c>/<c>Fill</c> regardless of the value originally set.
+	/// This control uses <see cref="HorizontalLayout"/> internally for measuring
+	/// and arranging columns. The layout algorithm is assigned automatically by
+	/// Window.cs during tree building. Users don't interact with HorizontalLayout directly.
 	/// </para>
 	/// <para>
-	/// As a <see cref="GridControl"/> subclass, this control inherits <see cref="IColorRoleableControl"/>:
-	/// it has a semantic <c>ColorRole</c>/<c>Outline</c> surface exactly like the grid it now is.
+	/// This control does not implement <see cref="IColorRoleableControl"/>, so it has no semantic role and does
+	/// not honour them: it has no single themed colour surface (it is a pure layout container).
 	/// </para>
 	/// </summary>
-	public partial class HorizontalGridControl : GridControl
+	public partial class HorizontalGridControl : BaseControl, IInteractiveControl, IFocusableControl, ILogicalCursorProvider, IMouseAwareControl, ICursorShapeProvider, IContainerControl, IFocusScope
 	{
 		private List<ColumnContainer> _columns = new List<ColumnContainer>();
 		private readonly object _gridLock = new();
@@ -89,6 +83,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public IInteractiveControl? FocusedContent => GetFocusedChildFromCoordinator();
 		private Dictionary<IInteractiveControl, ColumnContainer> _interactiveContents = new Dictionary<IInteractiveControl, ColumnContainer>();
+		private bool _isEnabled = true;
 		private Dictionary<IInteractiveControl, int> _splitterControls = new Dictionary<IInteractiveControl, int>();
 		private List<SplitterControl> _splitters = new List<SplitterControl>();
 		private Dictionary<ColumnContainer, int?> _savedColumnWidths = new Dictionary<ColumnContainer, int?>();
@@ -98,10 +93,6 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public HorizontalGridControl()
 		{
-			// HGC columns are flush — the inner grid never gaps. Splitters are real fixed-width
-			// columns (see Sync), not gaps.
-			ColumnGap = 0;
-			RowGap = 0;
 		}
 
 		#region Factory Methods
@@ -200,29 +191,14 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public override HorizontalAlignment HorizontalAlignment
-		{ get => base.HorizontalAlignment; set { base.HorizontalAlignment = value; Sync(); } }
+		{ get => base.HorizontalAlignment; set { base.HorizontalAlignment = value; } }
 
 		/// <inheritdoc/>
 		public override VerticalAlignment VerticalAlignment
-		{ get => base.VerticalAlignment; set { base.VerticalAlignment = value; Sync(); } }
-
-		// Nullable-color shadow: HGC's public BackgroundColor has a Color? contract (callers do
-		// `hgc.BackgroundColor ?? fallback`). GridControl's is non-nullable Color backed by a Color?.
-		// We keep our own nullable copy for an exact round-trip getter, but FORWARD the setter into the
-		// base so the value actually reaches GridControl's paint (which fills from the base backing) —
-		// otherwise setting HGC.BackgroundColor would be a silent no-op (the bespoke PaintDOM that used
-		// to read it was removed when HGC moved to rendering through GridLayout).
-		private Color? _bgColorShadow;
+		{ get => base.VerticalAlignment; set { base.VerticalAlignment = value; } }
 
 		/// <inheritdoc/>
-		public new Color? BackgroundColor
-		{
-			get => _bgColorShadow;
-			// Forward into the base so the value reaches GridControl's paint. A null shadow becomes
-			// Color.Default — the framework's "unset" sentinel that ColorResolver.Coalesce treats as
-			// no-explicit-value (it resolves to no background fill), rather than a literal color.
-			set { _bgColorShadow = value; base.BackgroundColor = value ?? Color.Default; }
-		}
+		public Color? BackgroundColor { get; set; }
 
 		/// <summary>
 		/// Gets the list of columns contained in this grid.
@@ -282,20 +258,23 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		// Nullable-color shadow with setter forwarded into the base (see BackgroundColor above).
-		private Color? _fgColorShadow;
+		/// <inheritdoc/>
+		public Color? ForegroundColor { get; set; }
 
 		/// <inheritdoc/>
-		public new Color? ForegroundColor
+		public bool HasFocus
 		{
-			get => _fgColorShadow;
-			// Forward into the base so the value reaches paint. A null shadow becomes Color.Default — the
-			// "unset" sentinel ColorResolver.ResolveForeground treats as no-explicit-value, so it resolves
-			// to the container/theme foreground (NOT Color.Transparent, which is meaningless for text).
-			set { _fgColorShadow = value; base.ForegroundColor = value ?? Color.Default; }
+			// For containers, HasFocus means "this container or a descendant is focused"
+			// (i.e., is in the focus path). This preserves rendering/keyboard-routing semantics.
+			get => ComputeIsInFocusPath();
 		}
 
-		// HasFocus / IsEnabled retired — HGC inherits GridControl's identical implementations (Task 6).
+		/// <inheritdoc/>
+		public bool IsEnabled
+		{
+			get => _isEnabled;
+			set => SetProperty(ref _isEnabled, value);
+		}
 
 		/// <inheritdoc/>
 		public override bool Visible
@@ -312,24 +291,29 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		// WantsMouseEvents / CanFocusWithMouse / CanReceiveFocus / PreferredCursorShape retired — HGC
-		// inherits GridControl's implementations. PreferredCursorShape calls the (virtual) coordinator,
-		// which HGC overrides below, so the focused-column child's cursor shape still surfaces (Task 6).
+		/// <inheritdoc/>
+		public bool WantsMouseEvents => IsEnabled;
+
+		/// <inheritdoc/>
+		public bool CanFocusWithMouse => IsEnabled;
+
+		/// <inheritdoc/>
+		/// <summary>
+		/// HorizontalGridControl is a layout container and should not be directly focusable.
+		/// Focus should go to the controls within the columns instead.
+		/// </summary>
+		public bool CanReceiveFocus => false;
+
+		/// <inheritdoc/>
+		public CursorShape? PreferredCursorShape =>
+			(GetFocusedChildFromCoordinator() as ICursorShapeProvider)?.PreferredCursorShape;
 
 		/// <summary>
 		/// Gets the currently focused child using FocusManager.
 		/// Returns null if no child is focused.
 		/// Uses FocusPath for ancestry detection to correctly handle nested scopes.
 		/// </summary>
-		/// <remarks>
-		/// OVERRIDE (kept in Task 6): HGC's columns are transparent <see cref="ColumnContainer"/> cell
-		/// children, and <see cref="Core.FocusManager"/> collapses a column out of the focus path (a column
-		/// never appears in it). GridControl's base coordinator only matches a cell child that is itself
-		/// focused or present in the path, so it cannot attribute a focused column-content to its column.
-		/// This override walks HGC's column model directly to find the focused leaf, which the inherited
-		/// ProcessKey / cursor / Tab logic then route through correctly.
-		/// </remarks>
-		protected override IInteractiveControl? GetFocusedChildFromCoordinator()
+		private IInteractiveControl? GetFocusedChildFromCoordinator()
 		{
 			var window = (this as IWindowControl).GetParentWindow();
 			if (window == null) return null;
@@ -368,8 +352,29 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
-		// Mouse events (MouseClick/DoubleClick/RightClick/Enter/Leave/Move) retired — HGC inherits
-		// GridControl's events (Task 6).
+		#region Events
+
+#pragma warning disable CS0067  // Event never raised (interface requirement)
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseClick;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseDoubleClick;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseRightClick;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseEnter;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseLeave;
+
+		/// <inheritdoc/>
+		public event EventHandler<MouseEventArgs>? MouseMove;
+#pragma warning restore CS0067
+
+		#endregion
 
 		#region Column/Splitter Management
 
@@ -384,8 +389,6 @@ namespace SharpConsoleUI.Controls
 			{
 				_columns.Add(column);
 			}
-
-			Sync();
 
 			// Force DOM rebuild for runtime addition
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
@@ -433,8 +436,6 @@ namespace SharpConsoleUI.Controls
 				// Subscribe to splitter's move event
 				splitter.SplitterMoved += OnSplitterMoved;
 
-				Sync();
-
 				// Force DOM rebuild for runtime addition
 				(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
 
@@ -475,8 +476,6 @@ namespace SharpConsoleUI.Controls
 
 			// Subscribe to splitter's move event
 			splitterControl.SplitterMoved += OnSplitterMoved;
-
-			Sync();
 
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
 			Invalidate(Invalidation.Relayout);
@@ -601,8 +600,6 @@ namespace SharpConsoleUI.Controls
 				s.SplitterMoved -= OnSplitterMoved;
 			}
 
-			Sync();
-
 			// Force DOM rebuild for runtime removal
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
 
@@ -629,8 +626,6 @@ namespace SharpConsoleUI.Controls
 				s.SplitterMoved -= OnSplitterMoved;
 			}
 
-			Sync();
-
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
 			Invalidate(Invalidation.Relayout);
 		}
@@ -641,11 +636,15 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		/// <remarks>
-		/// HorizontalGridControl does not restore a saved focus position when re-entered:
-		/// <see cref="GetInitialFocus"/> always returns the first or last focusable child, ignoring the
-		/// inherited <see cref="GridControl.SavedFocus"/>.
+		/// HorizontalGridControl does not restore a saved focus position when re-entered.
+		/// This property is required by the IFocusScope interface but is intentionally ignored
+		/// by <see cref="GetInitialFocus"/>. The grid always returns the first or last focusable
+		/// child based on the <c>backward</c> parameter.
 		/// </remarks>
-		public override IFocusableControl? GetInitialFocus(bool backward)
+		public IFocusableControl? SavedFocus { get; set; }
+
+		/// <inheritdoc/>
+		public IFocusableControl? GetInitialFocus(bool backward)
 		{
 			// HGrid does not restore saved focus — always enter at first or last child.
 			SavedFocus = null;
@@ -654,65 +653,13 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public override IFocusableControl? GetNextFocus(IFocusableControl current, bool backward)
+		public IFocusableControl? GetNextFocus(IFocusableControl current, bool backward)
 		{
 			var children = GetFocusableChildren();
 			var index = children.FindIndex(c => ReferenceEquals(c, current));
-			if (index < 0)
-			{
-				// current is not a direct Tab stop — it is a nested transparent flattenable scope (an
-				// inner HGrid/GridControl in a column) whose descendants were spliced into this grid's
-				// leaf list by CollectFocusableContent. Step out of it: forward → the stop after its last
-				// descendant; backward → the stop before its first. Returns null at the list edges.
-				return AdvancePastNestedScope(current, children, backward);
-			}
+			if (index < 0) return GetInitialFocus(backward);
 			var nextIndex = backward ? index - 1 : index + 1;
 			return (nextIndex >= 0 && nextIndex < children.Count) ? children[nextIndex] : null;
-		}
-
-		/// <summary>
-		/// When <paramref name="current"/> is a nested flattenable scope whose descendants were spliced
-		/// into <paramref name="children"/>, returns the Tab stop immediately AFTER its last descendant
-		/// (forward) or BEFORE its first descendant (backward), or <c>null</c> at the list edges. Falls
-		/// back to <see cref="GetInitialFocus"/> when <paramref name="current"/> has no descendants in the
-		/// list (a genuinely stale reference).
-		/// </summary>
-		private IFocusableControl? AdvancePastNestedScope(IFocusableControl current, List<IFocusableControl> children, bool backward)
-		{
-			if (current is not IWindowControl currentWc)
-				return GetInitialFocus(backward);
-
-			int first = -1, last = -1;
-			for (int i = 0; i < children.Count; i++)
-			{
-				if (IsFocusDescendantOf(children[i], currentWc))
-				{
-					if (first < 0) first = i;
-					last = i;
-				}
-			}
-
-			if (first < 0)
-				return GetInitialFocus(backward); // no descendants in list — stale reference
-
-			int nextIndex = backward ? first - 1 : last + 1;
-			return (nextIndex >= 0 && nextIndex < children.Count) ? children[nextIndex] : null;
-		}
-
-		/// <summary>
-		/// Returns true if <paramref name="control"/> is <paramref name="ancestor"/> or a descendant of it,
-		/// walking parents via the same resolution the FocusManager uses (so transparent
-		/// ColumnContainer / HGrid hops are honoured).
-		/// </summary>
-		private static bool IsFocusDescendantOf(IFocusableControl control, IWindowControl ancestor)
-		{
-			IWindowControl? cursor = control as IWindowControl;
-			while (cursor != null)
-			{
-				if (ReferenceEquals(cursor, ancestor)) return true;
-				cursor = Core.FocusManager.ResolveParentWindowControl(cursor);
-			}
-			return false;
 		}
 
 		/// <summary>
@@ -721,7 +668,7 @@ namespace SharpConsoleUI.Controls
 		/// are promoted into the list. SplitterControls are leaf focusable Tab stops.
 		/// Ordering: [col0 focusables..., splitter0, col1 focusables..., splitter1, col2 focusables..., ...]
 		/// </summary>
-		protected override List<IFocusableControl> GetFocusableChildren()
+		private List<IFocusableControl> GetFocusableChildren()
 		{
 			var result = new List<IFocusableControl>();
 			foreach (var child in GetChildren())
@@ -766,29 +713,13 @@ namespace SharpConsoleUI.Controls
 				return;
 			}
 
-			// IFocusScope cell content. Two kinds:
-			//   - Opaque scope (CanReceiveFocus=true, e.g. ScrollablePanelControl): one Tab stop; the
-			//     scope owns its internal traversal (FocusManager.EnterOrFocus delegates to
-			//     scope.GetInitialFocus() when focus reaches it).
-			//   - Transparent flattenable scope (CanReceiveFocus=false, e.g. a nested HGrid): splice its
-			//     full ordered Tab-stop list in verbatim so its leaf controls participate in this grid's
-			//     flat order. Adding it opaque would hand back a non-focusable container (CanReceiveFocus
-			//     =false) as a Tab stop, which the FocusManager cannot focus — that broke nested-HGrid
-			//     auto-focus and cross-grid Tab cycling.
+			// IFocusScope (e.g. ScrollablePanelControl, nested HGrid): opaque single stop.
+			// The scope handles its own internal traversal; FocusManager.EnterOrFocus
+			// will delegate to scope.GetInitialFocus() when focus reaches it.
 			if (control is IFocusScope && control is IFocusableControl scopeFc
 				&& control is IContainerControl scopeContainer)
 			{
-				if (scopeFc.CanReceiveFocus)
-				{
-					result.Add(scopeFc);
-					return;
-				}
-				if (control is IFlattenableFocusScope flattenable)
-				{
-					result.AddRange(flattenable.GetOrderedTabStops());
-					return;
-				}
-				if (HasAnyFocusableDescendant(scopeContainer))
+				if (scopeFc.CanReceiveFocus || HasAnyFocusableDescendant(scopeContainer))
 				{
 					result.Add(scopeFc);
 					return;

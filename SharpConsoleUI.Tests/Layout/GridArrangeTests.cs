@@ -33,7 +33,6 @@ public class GridArrangeTests
 		public Padding Padding { get; init; }
 		public IReadOnlyList<(IWindowControl Control, GridPlacement Placement)> OrderedCells { get; init; }
 			= Array.Empty<(IWindowControl, GridPlacement)>();
-		public bool StarTracksSelfSizeToContentInMeasure { get; init; }
 	}
 
 	/// <summary>
@@ -376,44 +375,5 @@ public class GridArrangeTests
 		var child = node.Children[0];
 		// Cell inner start is 0 (no grid margin/padding, no child margin); X must not go negative.
 		Assert.True(child.Bounds.X >= 0, $"expected X >= 0 but was {child.Bounds.X}");
-	}
-
-	[Fact]
-	public void ContentSizedStars_AutoPlusStarOverSubscribed_FallsBackToEvenSplit()
-	{
-		// ContentSizedStars + an Auto column with content width 20 next to a Star column whose content
-		// (30) exceeds the remainder, in a 40-wide box. The Star's content floor (30) on its own is <= 40,
-		// so the OLD guard (which counted only Star floors + Fixed, not the Auto track's consumption)
-		// applied it and pinned the Star to 30 — total 20 + 30 = 50, over-subscribing the 40-wide box.
-		// With the Auto term added, the guard sees 20 (Auto) + 30 (Star floor) = 50 > 40 and bails to the
-		// plain Star split, giving the Star the genuine remainder (40 - 20 = 20). The tracks now fit.
-		var auto = new MarkupControl(new List<string> { new string('A', 20) });
-		var star = new MarkupControl(new List<string> { new string('S', 30) });
-
-		var source = new FakeGridSource
-		{
-			ColumnDefinitions = new[] { GridLength.Auto(), GridLength.Star(1) },
-			RowDefinitions = new[] { GridLength.Star() },
-			StarTracksSelfSizeToContentInMeasure = true,
-			OrderedCells = new (IWindowControl, GridPlacement)[]
-			{
-				(auto, new GridPlacement(0, 0)),
-				(star, new GridPlacement(0, 1)),
-			},
-		};
-
-		var layout = new GridLayout(source);
-		var node = BuildNode(layout, source);
-		// Use the full measure path (node.Measure) so children get DesiredSizes, then arrange — mirroring
-		// the real render path. (The MeasureArrange helper calls MeasureChildren directly, which skips
-		// child measurement and would not reproduce the Auto+Star content interaction.)
-		node.Measure(new LayoutConstraints(0, 40, 0, 10));
-		node.Arrange(new LayoutRect(0, 0, 40, 10));
-
-		int autoWidth = node.Children[0].Bounds.Width;
-		int starWidth = node.Children[1].Bounds.Width;
-		Assert.Equal(20, autoWidth);
-		Assert.Equal(20, starWidth); // genuine remainder, NOT the 30-wide content floor
-		Assert.True(autoWidth + starWidth <= 40, $"tracks over-subscribed: {autoWidth}+{starWidth} > 40");
 	}
 }
