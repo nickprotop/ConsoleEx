@@ -1067,13 +1067,29 @@ namespace SharpConsoleUI.Parsing
 			if (idx <= start || idx >= cells.Count) return false;
 			// Never split a wide char from its continuation cell.
 			if (cells[idx].IsWideContinuation) return false;
-			// Before a space (the space ends the line and is trimmed/skipped) or after a space.
+
+			// WrapCellLine uses break-before-space semantics (it skips the space via the start-advance loop).
+			// A break point AT a space character (or just after one) is always valid; handle this explicitly
+			// so the UAX #14 engine's LB7 "never break before space" rule does not suppress it.
 			if (IsBreakableSpace(cells[idx]) || IsBreakableSpace(cells[idx - 1])) return true;
-			// After a wide char: cells[idx-1] is the continuation cell of a CJK ideograph.
-			if (cells[idx - 1].IsWideContinuation) return true;
-			// Before a wide char: cells[idx] leads a CJK ideograph pair.
-			if (idx + 1 < cells.Count && cells[idx + 1].IsWideContinuation) return true;
-			return false;
+
+			// Delegate the break-opportunity decision to the UAX #14 engine, classifying the base runes on
+			// each side of the candidate break point. WrapCellLine still owns width fitting, trailing-space
+			// trim, and the hard-break-at-width fallback for unbreakable runs.
+			var prev = Helpers.LineBreakClassifier.Classify(BaseRuneOf(cells, idx - 1));
+			var next = Helpers.LineBreakClassifier.Classify(BaseRuneOf(cells, idx));
+			return Helpers.LineBreaker.MayBreakBetween(prev, next);
+		}
+
+		/// <summary>
+		/// Returns the base <see cref="Rune"/> of the cell at <paramref name="idx"/>, stepping back over a
+		/// wide-char continuation cell to its lead cell so classification sees the real character.
+		/// </summary>
+		private static System.Text.Rune BaseRuneOf(List<Cell> cells, int idx)
+		{
+			if (idx > 0 && cells[idx].IsWideContinuation)
+				idx--;
+			return cells[idx].Character;
 		}
 
 		private static void WrapCellLine(List<Cell> cells, int width, List<List<Cell>> output)
