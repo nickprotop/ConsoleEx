@@ -512,8 +512,6 @@ public partial class TableControl
 		if (ShouldShowVerticalScrollbar())
 			measuredWidth += 1 + ScrollbarGutterWidth;
 
-		Diag("Measure", targetWidth, colWidths);
-
 		if (!string.IsNullOrEmpty(_title))
 		{
 			int titleWidth = _measurementCache.GetCachedLength(_title);
@@ -672,7 +670,6 @@ public partial class TableControl
 
 		int totalColumnsWidth = GetTotalColumnsWidth(colWidths);
 		bool showHScrollbar = ShouldShowHorizontalScrollbar(totalColumnsWidth, contentWidth);
-		Diag("Paint", bounds.Width, colWidths);
 
 		int startX = bounds.X + Margin.Left;
 		int currentY = bounds.Y + Margin.Top;

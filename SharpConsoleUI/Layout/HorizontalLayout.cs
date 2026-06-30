@@ -5,6 +5,8 @@
 // Email: nikolaos.protopapas@gmail.com
 // License: MIT
 // -----------------------------------------------------------------------
+using System;
+using System.IO;
 using SharpConsoleUI.Controls;
 
 namespace SharpConsoleUI.Layout
@@ -143,8 +145,6 @@ namespace SharpConsoleUI.Layout
 			// Calculate width for flex children
 			int remainingWidth = Math.Max(0, contentWidth - fixedWidth);
 
-			DiagArrange(node, finalRect, contentWidth, fixedWidth, flexCount, totalFlexFactor, remainingWidth);
-
 			// Calculate base widths for flex children (their measured content sizes)
 			int totalBaseWidth = 0;
 			foreach (var child in node.Children)
@@ -237,36 +237,6 @@ namespace SharpConsoleUI.Layout
 
 				child.Arrange(new LayoutRect(currentX, childY, childWidth, childHeight));
 				currentX += childWidth;
-			}
-		}
-
-		// TEMPORARY diagnostics for the HGC flex-column width oscillation (#62-adjacent). Gated by the
-		// SCUI_TABLE_DIAG env var (a file path). Logs only the wide 3-pane grid (contentWidth > 50) to
-		// skip the tiny pageNav grid. Shows each term feeding the flex remainder so the swinging value
-		// is identifiable across frames. Remove once root-caused.
-		private static readonly string? _diagPath = Environment.GetEnvironmentVariable("SCUI_TABLE_DIAG");
-
-		private static void DiagArrange(LayoutNode node, LayoutRect finalRect, int contentWidth, int fixedWidth, int flexCount, double totalFlexFactor, int remainingWidth)
-		{
-			if (string.IsNullOrEmpty(_diagPath) || contentWidth <= 50) return;
-			try
-			{
-				var parts = new System.Collections.Generic.List<string>();
-				foreach (var child in node.Children)
-				{
-					if (!child.IsVisible) continue;
-					string kind = (child.ExplicitWidth == null && child.FlexFactor > 0) ? "flex" : "fixed";
-					parts.Add($"{(child.Control?.GetType().Name ?? "?")}({kind} exW={child.ExplicitWidth?.ToString() ?? "-"} flex={child.FlexFactor} desW={child.DesiredSize.Width})");
-				}
-				string line =
-					$"HArrange grid={node.Control?.Name ?? "?"} rectW={finalRect.Width} contentW={contentWidth} " +
-					$"fixedW={fixedWidth} flexCount={flexCount} totFlex={totalFlexFactor} remaining={remainingWidth} " +
-					$"children=[{string.Join("; ", parts)}]" + Environment.NewLine;
-				File.AppendAllText(_diagPath, line);
-			}
-			catch
-			{
-				// Diagnostics must never affect layout.
 			}
 		}
 	}

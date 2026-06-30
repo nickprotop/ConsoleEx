@@ -586,32 +586,7 @@ namespace SharpConsoleUI.Controls
 			_metricsCacheContentHeight = _contentHeight;
 			_metricsCacheContentWidth = _contentWidth;
 
-			DiagMetrics(outerBounds, result);
 			return result;
-		}
-
-		// TEMPORARY diagnostics for the table-width oscillation (#62-adjacent). Gated by SCUI_TABLE_DIAG
-		// (a file path). Logs only mid-width panels (outerBounds.Width 50..200) to catch the left pane
-		// and skip tiny/huge boxes. Shows whether the panel reserves the vertical-scrollbar columns and
-		// what content width it hands its children. Remove once root-caused.
-		private static readonly string? _spcDiagPath = Environment.GetEnvironmentVariable("SCUI_TABLE_DIAG");
-
-		private void DiagMetrics(LayoutRect outerBounds, LayoutRect result)
-		{
-			if (string.IsNullOrEmpty(_spcDiagPath) || outerBounds.Width < 50 || outerBounds.Width > 200) return;
-			try
-			{
-				string line =
-					$"SPCMetrics name={Name ?? "?"} outerW={outerBounds.Width} viewportW={_viewportWidth} " +
-					$"vMode={_verticalScrollMode} showSb={_showScrollbar} contentH={_contentHeight} " +
-					$"viewportH={_viewportHeight} needVSb={NeedsVerticalScrollbar} resultW={result.Width}" +
-					Environment.NewLine;
-				File.AppendAllText(_spcDiagPath, line);
-			}
-			catch
-			{
-				// Diagnostics must never affect layout.
-			}
 		}
 
 		/// <summary>
