@@ -72,8 +72,17 @@ namespace SharpConsoleUI.Parsing
 					break;
 
 				case ThematicBreakBlock:
-					sb.Append(new string('─', ControlDefaults.MarkdownRuleWidth)).Append('\n');
-					break;
+					{
+						// Fill the available render width (minus indent) so the rule spans the panel, like a
+						// real Markdown horizontal rule. When width is unbounded (non-wrap Parse path) there is
+						// no width to fill, so fall back to the fixed default. (Issue #59.)
+						int ruleWidth = availableWidth == int.MaxValue
+							? ControlDefaults.MarkdownRuleWidth
+							: Math.Max(1, availableWidth - indent);
+						Indent(sb, indent);
+						sb.Append(new string('─', ruleWidth)).Append('\n');
+						break;
+					}
 
 				case ListBlock list:
 					{

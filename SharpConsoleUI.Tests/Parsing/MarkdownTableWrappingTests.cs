@@ -215,4 +215,24 @@ public class MarkdownTableWrappingTests
 	// Render to CELL rows (not strings) so decoration/colour can be inspected.
 	private static List<List<Cell>> ParseLines2(string md, int width)
 		=> MarkupParser.ParseLines($"[markdown]{md}[/]", width, Color.White, Color.Black, out _);
+
+	[Fact]
+	public void HorizontalRule_FillsTheRenderWidth()
+	{
+		// A markdown horizontal rule (---) must fill the available render width, not a fixed 40 columns
+		// (issue #59 — changlv: "horizontal rules cannot fill the full width").
+		var rows = Render("before\n\n---\n\nafter", 60);
+		var ruleRow = rows.FirstOrDefault(r => r.Length > 0 && r.All(ch => ch == '─'));
+		Assert.NotNull(ruleRow);
+		Assert.Equal(60, ruleRow!.Length);
+	}
+
+	[Fact]
+	public void HorizontalRule_Unbounded_UsesDefaultWidth()
+	{
+		// With no width budget (non-wrap Parse path), the rule keeps a sensible fixed default (unchanged).
+		var cells = MarkupParser.Parse("[markdown]a\n\n---\n\nb[/]", Color.White, Color.Black);
+		string all = string.Concat(cells.Where(c => !c.IsWideContinuation).Select(c => c.Character.ToString()));
+		Assert.Contains(new string('─', 40), all); // default MarkdownRuleWidth
+	}
 }
