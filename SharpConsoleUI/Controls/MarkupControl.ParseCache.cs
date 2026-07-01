@@ -70,6 +70,7 @@ namespace SharpConsoleUI.Controls
 		{
 			public required List<List<Cell>> Rows { get; init; }
 			public required List<int> RowSourceLine { get; init; }
+			public required List<bool> RowIsSoftWrapContinuation { get; init; }
 			public required List<List<Parsing.LinkSpan>> RowLinks { get; init; }
 			public required int[] LineRowCounts { get; init; }
 			public required int[] RowPrefix { get; init; } // RowPrefix[i] = sum(LineRowCounts[0..i)); length = LineRowCounts.Length + 1
@@ -127,6 +128,7 @@ namespace SharpConsoleUI.Controls
 
 			var rows = new List<List<Cell>>();
 			var rowSource = new List<int>();
+			var rowSoftWrap = new List<bool>();
 			var rowLinks = new List<List<Parsing.LinkSpan>>();
 			var lineRowCounts = new int[snapshot.Count];
 
@@ -158,12 +160,13 @@ namespace SharpConsoleUI.Controls
 				if (wrap && renderWidth > 0)
 				{
 					CountParse();
-					var wrapped = Parsing.MarkupParser.ParseLines(text, renderWidth, fg, bg, out var wrappedLinks, md);
+					var wrapped = Parsing.MarkupParser.ParseLines(text, renderWidth, fg, bg, out var wrappedLinks, out var wrappedSoft, md);
 					for (int w = 0; w < wrapped.Count; w++)
 					{
 						rows.Add(wrapped[w]);
 						rowLinks.Add(w < wrappedLinks.Count ? wrappedLinks[w] : new List<Parsing.LinkSpan>());
 						rowSource.Add(sourceIndex);
+						rowSoftWrap.Add(w < wrappedSoft.Count && wrappedSoft[w]);
 					}
 				}
 				else
@@ -171,12 +174,13 @@ namespace SharpConsoleUI.Controls
 					// Non-wrap: parse-then-cut so an open tag carries its style across embedded newlines
 					// (a very large width disables word-wrap so the only breaks are explicit newlines).
 					CountParse();
-					var parsed = Parsing.MarkupParser.ParseLines(text, int.MaxValue, fg, bg, out var parsedLinks, md);
+					var parsed = Parsing.MarkupParser.ParseLines(text, int.MaxValue, fg, bg, out var parsedLinks, out var parsedSoft, md);
 					for (int w = 0; w < parsed.Count; w++)
 					{
 						rows.Add(parsed[w]);
 						rowLinks.Add(w < parsedLinks.Count ? parsedLinks[w] : new List<Parsing.LinkSpan>());
 						rowSource.Add(sourceIndex);
+						rowSoftWrap.Add(w < parsedSoft.Count && parsedSoft[w]);
 					}
 				}
 
@@ -193,6 +197,7 @@ namespace SharpConsoleUI.Controls
 			{
 				Rows = rows,
 				RowSourceLine = rowSource,
+				RowIsSoftWrapContinuation = rowSoftWrap,
 				RowLinks = rowLinks,
 				LineRowCounts = lineRowCounts,
 				RowPrefix = prefix,

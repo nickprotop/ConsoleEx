@@ -786,11 +786,23 @@ namespace SharpConsoleUI.Parsing
 		/// <param name="markdownStyle">Style for any <c>[markdown]</c> regions; <c>null</c> uses the default.</param>
 		/// <returns>List of cell lists, one per wrapped line.</returns>
 		public static List<List<Cell>> ParseLines(string markup, int width, Color defaultFg, Color defaultBg, out List<List<LinkSpan>> linksPerLine, Configuration.MarkdownStyle? markdownStyle = null)
+			=> ParseLines(markup, width, defaultFg, defaultBg, out linksPerLine, out _, markdownStyle);
+
+		/// <summary>
+		/// As <see cref="ParseLines(string, int, Color, Color, out List{List{LinkSpan}}, Configuration.MarkdownStyle?)"/>,
+		/// but also reports, per returned row, whether that row is a word-wrap CONTINUATION of the previous
+		/// row (<c>true</c>) versus the start of a new HARD line — a source newline boundary (<c>false</c>).
+		/// Used by copy to place newlines only at hard breaks. <paramref name="softWrapContinuation"/> has
+		/// exactly one entry per returned row.
+		/// </summary>
+		public static List<List<Cell>> ParseLines(string markup, int width, Color defaultFg, Color defaultBg, out List<List<LinkSpan>> linksPerLine, out List<bool> softWrapContinuation, Configuration.MarkdownStyle? markdownStyle = null)
 		{
 			linksPerLine = new List<List<LinkSpan>>();
+			softWrapContinuation = new List<bool>();
 			if (string.IsNullOrEmpty(markup) || width <= 0)
 			{
 				linksPerLine.Add(new List<LinkSpan>());
+				softWrapContinuation.Add(false);
 				return new List<List<Cell>> { new List<Cell>() };
 			}
 
@@ -840,6 +852,7 @@ namespace SharpConsoleUI.Parsing
 				{
 					result.Add(lineCells);
 					linksPerLine.Add(lineSpans);
+					softWrapContinuation.Add(false); // single row of a hard logical line
 				}
 				else
 				{
@@ -847,6 +860,9 @@ namespace SharpConsoleUI.Parsing
 					int beforeRows = result.Count;
 					WrapCellLine(lineCells, width, result);
 					SliceSpansAcrossRows(lineCells, result, beforeRows, lineSpans, linksPerLine);
+					// The first wrapped row starts the hard line (false); the rest are continuations (true).
+					for (int wrow = beforeRows; wrow < result.Count; wrow++)
+						softWrapContinuation.Add(wrow == beforeRows ? false : true);
 				}
 
 				lineStart = idx + 1; // skip past the sentinel
@@ -856,6 +872,7 @@ namespace SharpConsoleUI.Parsing
 			{
 				result.Add(new List<Cell>());
 				linksPerLine.Add(new List<LinkSpan>());
+				softWrapContinuation.Add(false);
 			}
 
 			return result;

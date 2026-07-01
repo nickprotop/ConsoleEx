@@ -704,6 +704,7 @@ namespace SharpConsoleUI.Controls
 			var renderedCellLines = parsed.Rows;
 			var renderedLinkLines = parsed.RowLinks;
 			var rowSourceLineIndex = parsed.RowSourceLine;
+			var rowSoftWrapFlags = parsed.RowIsSoftWrapContinuation;
 
 			// Calculate content width for alignment (Center/Right). Derived from the parsed rows (already in
 			// display columns) so it stays consistent with what is painted.
@@ -720,7 +721,7 @@ namespace SharpConsoleUI.Controls
 			// NOTE: mouse coordinates delivered to ProcessMouseEvent are CONTROL-RELATIVE
 			// (content top-left = (0,0)), so the cache stores origins relative to the control
 			// (Margin.Top / Margin.Left + alignOffset), NOT the absolute buffer bounds.
-			UpdateSelectionLayoutCache(renderedCellLines, rowSourceLineIndex, leftInset, topInset, targetWidth);
+			UpdateSelectionLayoutCache(renderedCellLines, rowSourceLineIndex, rowSoftWrapFlags, leftInset, topInset, targetWidth);
 			UpdateLinkLayoutCache(renderedLinkLines);
 			UpdateLinkVisibilityCache(renderedCellLines.Count, startY, clipRect.Y, clipRect.Bottom);
 

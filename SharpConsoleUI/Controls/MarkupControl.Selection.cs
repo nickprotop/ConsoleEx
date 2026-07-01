@@ -52,6 +52,7 @@ namespace SharpConsoleUI.Controls
 		private readonly object _selectionLock = new();
 		private List<List<Cell>> _cachedRows = new();
 		private List<int> _cachedRowSourceLine = new();
+		private List<bool> _cachedRowIsSoftWrapContinuation = new();
 		private int[] _cachedRowPaintX = System.Array.Empty<int>();
 		private int _cachedOriginY = 0;
 
@@ -139,15 +140,40 @@ namespace SharpConsoleUI.Controls
 			return true;
 		}
 
+		/// <summary>Builds the whole-control copy text per <see cref="CopyMode"/>: rendered visible text
+		/// (markdown expanded, hard newlines kept, soft-wraps joined) or the raw markup source with newlines.
+		/// Exposed for tests; <see cref="CopyToClipboard"/> sends this to the clipboard.</summary>
+		internal string CopyToClipboardText()
+		{
+			if (_copyMode == MarkupCopyMode.Source)
+			{
+				List<string> snapshot;
+				lock (_contentLock) { snapshot = _content.ToList(); }
+				return string.Join("\n", snapshot);
+			}
+
+			int rowCount = System.Math.Max(_cachedRows.Count, _cached?.TotalRows ?? 0);
+			if (rowCount == 0)
+			{
+				// Copy-all can be called before the control has ever painted (no cached rows). Parse the
+				// content on demand at a large width — one row per hard line, no soft-wrapping — so a
+				// rendered copy still works without a prior paint. EnsureParsed populates _cached, which
+				// RenderRowsToText/GetRowCellsForCopy then read.
+				var (fg, bg) = ResolveParseColors();
+				var parsed = EnsureParsed(int.MaxValue, fg, bg, ResolveMarkdownStyle(), _wrap);
+				rowCount = parsed.TotalRows;
+				if (rowCount == 0) return string.Empty;
+			}
+			return RenderRowsToText(0, 0, rowCount - 1, int.MaxValue);
+		}
+
 		/// <summary>
 		/// Copies the control's entire content (plain text, markup stripped) to the clipboard,
 		/// regardless of the current selection. Returns <c>true</c> if something was copied.
 		/// </summary>
 		public bool CopyToClipboard()
 		{
-			List<string> snapshot;
-			lock (_contentLock) { snapshot = _content.ToList(); }
-			var plain = string.Join("\n", snapshot.Select(line => Parsing.MarkupParser.Remove(line)));
+			string plain = CopyToClipboardText();
 			if (string.IsNullOrEmpty(plain)) return false;
 			Helpers.ClipboardHelper.SetText(plain);
 			return true;
@@ -203,41 +229,7 @@ namespace SharpConsoleUI.Controls
 				if (_copyMode == MarkupCopyMode.Source)
 					return GetSelectedSourceText(startRow, endRow);
 
-				var sb = new StringBuilder();
-				int? previousSourceLine = null;
-
-				for (int row = startRow; row <= endRow; row++)
-				{
-					var cells = GetRowCellsForCopy(row);
-					int from = (row == startRow) ? startCol : 0;
-					int to = (row == endRow) ? endCol : cells.Count;
-					from = Math.Clamp(from, 0, cells.Count);
-					to = Math.Clamp(to, 0, cells.Count);
-
-					int sourceLine;
-					if (row < _cachedRowSourceLine.Count)
-						sourceLine = _cachedRowSourceLine[row];
-					else if (_cached != null && row < _cached.RowSourceLine.Count)
-						sourceLine = _cached.RowSourceLine[row];
-					else
-						sourceLine = row;
-					if (previousSourceLine != null)
-					{
-						// New logical line → real newline; same logical line (soft wrap) → no break.
-						if (sourceLine != previousSourceLine.Value)
-							sb.Append('\n');
-					}
-					previousSourceLine = sourceLine;
-
-					for (int c = from; c < to; c++)
-					{
-						var cell = cells[c];
-						if (cell.IsWideContinuation) continue;
-						sb.Append(cell.Character.ToString());
-					}
-				}
-
-				return sb.ToString();
+				return RenderRowsToText(startRow, startCol, endRow, endCol);
 			}
 		}
 
@@ -277,6 +269,18 @@ namespace SharpConsoleUI.Controls
 				first = false;
 			}
 			return sb.ToString();
+		}
+
+		/// <summary>True if display row <paramref name="row"/> is a word-wrap continuation of the previous
+		/// row (so copy must NOT put a newline before it). Reads the paint-time cache, then the parse cache;
+		/// defaults to false (treat as a hard-line start) when unknown.</summary>
+		private bool IsSoftWrapContinuation(int row)
+		{
+			if (row >= 0 && row < _cachedRowIsSoftWrapContinuation.Count)
+				return _cachedRowIsSoftWrapContinuation[row];
+			if (_cached != null && row >= 0 && row < _cached.RowIsSoftWrapContinuation.Count)
+				return _cached.RowIsSoftWrapContinuation[row];
+			return false;
 		}
 
 		/// <summary>
@@ -400,15 +404,43 @@ namespace SharpConsoleUI.Controls
 			RaiseSelectionChanged(GetSelectedText());
 		}
 
+		/// <summary>Renders display rows [<paramref name="startRow"/>..<paramref name="endRow"/>] to plain
+		/// text (markup stripped), honoring column bounds on the first/last row. Emits '\n' before any row
+		/// after the first whose row is NOT a soft-wrap continuation (i.e. it starts a new hard line), so a
+		/// rendered markdown block keeps its line breaks while a word-wrapped paragraph stays one line.</summary>
+		private string RenderRowsToText(int startRow, int startCol, int endRow, int endCol)
+		{
+			var sb = new StringBuilder();
+			for (int row = startRow; row <= endRow; row++)
+			{
+				if (row > startRow && !IsSoftWrapContinuation(row))
+					sb.Append('\n');
+
+				var cells = GetRowCellsForCopy(row);
+				int from = (row == startRow) ? startCol : 0;
+				int to = (row == endRow) ? endCol : cells.Count;
+				from = Math.Clamp(from, 0, cells.Count);
+				to = Math.Clamp(to, 0, cells.Count);
+				for (int c = from; c < to; c++)
+				{
+					var cell = cells[c];
+					if (cell.IsWideContinuation) continue;
+					sb.Append(cell.Character.ToString());
+				}
+			}
+			return sb.ToString();
+		}
+
 		#region Layout cache (populated by PaintDOM)
 
 		/// <summary>Stores the rendered grid + paint origin from PaintDOM so mouse events can hit-test.</summary>
-		private void UpdateSelectionLayoutCache(List<List<Cell>> rows, List<int> rowSourceLine, int originX, int originY, int contentWidth)
+		private void UpdateSelectionLayoutCache(List<List<Cell>> rows, List<int> rowSourceLine, List<bool> rowSoftWrap, int originX, int originY, int contentWidth)
 		{
 			lock (_selectionLock)
 			{
 				_cachedRows = rows;
 				_cachedRowSourceLine = rowSourceLine;
+				_cachedRowIsSoftWrapContinuation = rowSoftWrap;
 				_cachedRowPaintX = new int[rows.Count];
 				for (int i = 0; i < rows.Count; i++)
 					_cachedRowPaintX[i] = originX; // refined per-row via SetRowPaintOffset (alignment)
