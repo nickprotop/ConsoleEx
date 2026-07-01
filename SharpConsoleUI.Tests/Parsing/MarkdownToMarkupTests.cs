@@ -222,5 +222,70 @@ namespace SharpConsoleUI.Tests.Parsing
 			Assert.Contains(cells, c => c.Foreground == MarkdownStyle.Default.QuoteColor
 				&& c.Character.ToString().Trim().Length > 0);
 		}
+
+		[Theory]
+		[InlineData("a<br>b")]
+		[InlineData("a<br/>b")]
+		[InlineData("a<br />b")]
+		public void HtmlBr_BecomesNewline(string md)
+		{
+			// changlv #59: <br> / <br/> / <br /> is a hard line break, not dropped text. Markdig parses it
+			// as an HtmlInline (not a LineBreakInline), so it must be translated to '\n' explicitly.
+			string markup = MarkdownToMarkup.Convert(md);
+			Assert.Contains("\n", markup);
+			Assert.Equal("a\nb", markup);
+		}
+
+		[Fact]
+		public void OtherHtmlInline_StillDropped()
+		{
+			// Only <br> is line-break HTML; other inline HTML tags remain stripped (unchanged behavior).
+			string markup = MarkdownToMarkup.Convert("a<span>x</span>b");
+			Assert.DoesNotContain("<span", markup);
+			Assert.Contains("a", markup);
+			Assert.Contains("b", markup);
+		}
+
+		[Fact]
+		public void TableRowSeparators_Off_ByDefault_HeaderRuleOnly()
+		{
+			// Default: a rule under the header, none between body rows (standard markdown). Exactly one
+			// mid-rule (├) plus the top (┌) and bottom (└).
+			string md = "| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n| 5 | 6 |";
+			string markup = MarkdownToMarkup.Convert(md);
+			Assert.Equal(1, markup.Count(ch => ch == '├')); // header separator only
+			Assert.Equal(1, markup.Count(ch => ch == '┌'));
+			Assert.Equal(1, markup.Count(ch => ch == '└'));
+		}
+
+		[Fact]
+		public void TableRowSeparators_On_DrawsRuleBetweenEveryBodyRow()
+		{
+			// Opt-in: a rule under the header AND between each pair of body rows (not after the last).
+			// 3 body rows -> header rule + 2 inter-row rules = 3 total '├'.
+			string md = "| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n| 5 | 6 |";
+			var style = MarkdownStyle.Default with { TableRowSeparators = true };
+			string markup = MarkdownToMarkup.Convert(md, style);
+			Assert.Equal(3, markup.Count(ch => ch == '├')); // header + 2 between the 3 body rows
+			Assert.Equal(1, markup.Count(ch => ch == '┌')); // still one top
+			Assert.Equal(1, markup.Count(ch => ch == '└')); // still one bottom
+		}
+
+		[Fact]
+		public void HtmlBr_InsideTableCell_RendersAsTwoLines()
+		{
+			// changlv #59: <br> inside a table cell must split the cell across two rendered lines
+			// (previously "line1<br>line2" collapsed to "line1line2"). The multi-line cell renderer
+			// already emits one terminal line per '\n' in the cell content.
+			string md = "| Name | Note |\n|---|---|\n| Alice | line1<br>line2 |";
+			var rows = MarkupParser.ParseLines($"[markdown]{md}", 40, Fg, Bg, out _);
+			var visible = rows
+				.Select(r => string.Concat(r.Where(c => !c.IsWideContinuation).Select(c => c.Character.ToString())))
+				.ToList();
+			// The concatenated bug string must NOT appear; the two fragments appear on separate rows.
+			Assert.DoesNotContain(visible, l => l.Contains("line1line2"));
+			Assert.Contains(visible, l => l.Contains("line1") && !l.Contains("line2"));
+			Assert.Contains(visible, l => l.Contains("line2") && !l.Contains("line1"));
+		}
 	}
 }

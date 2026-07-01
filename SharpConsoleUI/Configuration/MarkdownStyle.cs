@@ -37,6 +37,13 @@ namespace SharpConsoleUI.Configuration
 		public Color BorderColor { get; init; }
 
 		/// <summary>
+		/// When true, draws a horizontal rule between every body row of a Markdown table (spreadsheet-style
+		/// grid). Default <c>false</c> — a table draws a rule under the header only, matching standard
+		/// Markdown renderers (GitHub etc.). Opt in for full grid lines.
+		/// </summary>
+		public bool TableRowSeparators { get; init; } = false;
+
+		/// <summary>
 		/// Per-style language→highlighter overrides for fenced code blocks. Checked BEFORE the global
 		/// <see cref="SharpConsoleUI.Highlighting.SyntaxHighlighters"/> registry. Empty by default
 		/// (falls through to the registry, then to a flat shaded block).

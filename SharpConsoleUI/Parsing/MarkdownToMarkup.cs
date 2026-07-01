@@ -206,6 +206,19 @@ namespace SharpConsoleUI.Parsing
 			for (int i = 0; i < spaces; i++) sb.Append(' ');
 		}
 
+		/// <summary>True for a <c>&lt;br&gt;</c> / <c>&lt;br/&gt;</c> / <c>&lt;br /&gt;</c> line-break tag
+		/// (case-insensitive, tolerant of inner spaces), false for any other inline HTML.</summary>
+		private static bool IsBrTag(string? tag)
+		{
+			if (string.IsNullOrEmpty(tag)) return false;
+			// Strip the angle brackets and any trailing '/', collapse to lowercase, and compare to "br".
+			string inner = tag.Trim();
+			if (inner.StartsWith("<")) inner = inner.Substring(1);
+			if (inner.EndsWith(">")) inner = inner.Substring(0, inner.Length - 1);
+			inner = inner.TrimEnd('/').Trim();
+			return string.Equals(inner, "br", System.StringComparison.OrdinalIgnoreCase);
+		}
+
 		private static void WriteInlines(ContainerInline? container, StringBuilder sb, MarkdownStyle style)
 		{
 			if (container == null) return;
@@ -266,6 +279,14 @@ namespace SharpConsoleUI.Parsing
 
 				case LineBreakInline:
 					sb.Append('\n');
+					break;
+
+				case HtmlInline html:
+					// A <br> / <br/> / <br /> inline-HTML tag is a hard line break (Markdig parses it as
+					// HtmlInline, not LineBreakInline). Translate it to a newline; inside a table cell this
+					// splits the cell across lines. Other inline HTML tags are dropped as before. (#59)
+					if (IsBrTag(html.Tag))
+						sb.Append('\n');
 					break;
 
 				default:
@@ -395,7 +416,12 @@ namespace SharpConsoleUI.Parsing
 					}
 					sb.Append(border).Append('│').Append("[/]\n");
 				}
-				if (ri == 0) Rule('├', '┼', '┤');
+				// The header is always underlined. Body rows get separators between them only when the
+				// opt-in TableRowSeparators is on (default off = standard compact markdown look). (#59)
+				if (ri == 0)
+					Rule('├', '┼', '┤');
+				else if (style.TableRowSeparators && ri < rows.Count - 1)
+					Rule('├', '┼', '┤');
 			}
 			Rule('└', '┴', '┘');
 		}
