@@ -44,6 +44,7 @@ public class LineBreakerRuleTests
 	[InlineData(LineBreakClass.PR, LineBreakClass.AL)] // prefix currency before a letter — keep together
 	[InlineData(LineBreakClass.CL, LineBreakClass.CL)] // )] runs — closers don't start a new line by default
 	[InlineData(LineBreakClass.CM, LineBreakClass.AL)] // combining then letter — default no-break
+	[InlineData(LineBreakClass.HY, LineBreakClass.NU)] // -27 in 2026-05-27: hyphen glued to a digit binds (like NU:NU). #63
 	internal void NoBreak(LineBreakClass a, LineBreakClass b) => Assert.False(B(a, b));
 
 	// BREAK-ALLOWED pairs.

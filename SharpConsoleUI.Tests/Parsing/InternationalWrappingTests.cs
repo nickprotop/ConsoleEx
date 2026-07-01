@@ -112,4 +112,45 @@ public class InternationalWrappingTests
 		Assert.True(rows.Count >= 4);              // forced progress
 		Assert.All(rows, r => Assert.True(r.Length <= 8));
 	}
+
+	[Fact]
+	public void IsoDate_NotSplitAtInternalHyphen()
+	{
+		// changlv #63 follow-up: an ISO date's internal hyphens are digit-separators, not prose hyphens,
+		// so "2026-05-27" must NOT break at "2026-05-" | "27". A hyphen between digits binds like the ':'
+		// in a time already does (03:41:30 stays whole). Widths must be wide enough for the date to fit
+		// ("date=2026-05-27" is 15 cols) — narrower than the token forces a legitimate hard break.
+		foreach (int w in new[] { 16, 20, 26 })
+		{
+			var rows = Wrap("date=2026-05-27 end", w);
+			AssertNoMidTokenSplit("date=2026-05-27 end", rows);
+			// The full date appears intact on exactly one row.
+			Assert.Contains(rows, r => r.Contains("2026-05-27"));
+		}
+	}
+
+	[Fact]
+	public void ProseHyphenatedWord_StillBreaksAtHyphen()
+	{
+		// Regression: a hyphen between LETTERS (prose) must STILL be a break opportunity — the date fix
+		// only binds hyphen-before-DIGIT. "state-of-the-art" may break after a hyphen.
+		var rows = Wrap("state-of-the-art design", 8);
+		Assert.True(rows.Count >= 2);
+		Assert.All(rows, r => Assert.True(r.Length <= 8, "prose hyphenation must wrap within width"));
+	}
+
+	[Fact]
+	public void ChangvlJsonResult_DateAndNumbersIntact()
+	{
+		// changlv's exact reported string (#63). The date must stay whole and no number/word splits.
+		string s = " * result: {\"entries\":[{\"name\":\"Git base usage.md\",\"type\":\"File\",\"length\":4204,"
+			+ "\"last_write_time\":\"2026-05-27T03:41:30.3094599+08:00\",\"is_text\":true}]}";
+		foreach (int w in new[] { 40, 60, 80 })
+		{
+			var rows = Wrap(s, w);
+			AssertNoMidTokenSplit(s, rows);
+			Assert.Contains(rows, r => r.Contains("4204"));
+			Assert.Contains(rows, r => r.Contains("2026-05-27T03:41:30.3094599+08:00"));
+		}
+	}
 }

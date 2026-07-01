@@ -53,6 +53,12 @@ namespace SharpConsoleUI.Helpers
 				|| next == LineBreakClass.IS || next == LineBreakClass.SY)
 				return false;
 
+			// A hyphen glued to a following digit is a digit-separator (ISO date 2026-05-27, ranges 1-2,
+			// signed numbers), NOT a prose hyphen — it binds like the ':' in a time (03:41:30) already
+			// does via NU↔IS. Must come BEFORE LB21 so the break-after-hyphen rule doesn't split a date.
+			// (#63 — changlv. Prose HY→AL like "state-of-the-art" still breaks below.)
+			if (prev == LineBreakClass.HY && next == LineBreakClass.NU) return false;
+
 			// LB21: break after a hyphen or break-after class.
 			if (prev == LineBreakClass.HY || prev == LineBreakClass.BA) return true;
 
