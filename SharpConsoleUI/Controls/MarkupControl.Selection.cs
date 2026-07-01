@@ -99,6 +99,19 @@ namespace SharpConsoleUI.Controls
 			set { _copyEnabled = value; OnPropertyChanged(); }
 		}
 
+		private MarkupCopyMode _copyMode = MarkupCopyMode.Rendered;
+
+		/// <summary>
+		/// Gets or sets what a copy returns: the visible <see cref="MarkupCopyMode.Rendered"/> text (default)
+		/// or the original <see cref="MarkupCopyMode.Source"/> markup (raw <c>[markdown]…[/]</c> lines with
+		/// their newlines). See <see cref="MarkupCopyMode"/>.
+		/// </summary>
+		public MarkupCopyMode CopyMode
+		{
+			get => _copyMode;
+			set { _copyMode = value; OnPropertyChanged(); }
+		}
+
 		/// <summary>Gets or sets the key that triggers a copy. Default: <see cref="ConsoleKey.C"/>.</summary>
 		public ConsoleKey CopyKey
 		{
@@ -183,6 +196,13 @@ namespace SharpConsoleUI.Controls
 				startRow = Math.Clamp(startRow, 0, rowCount - 1);
 				endRow = Math.Clamp(endRow, 0, rowCount - 1);
 
+				// Source mode: return the ORIGINAL markup of each logical (_content) line the selection
+				// touches, joined by newlines — the raw [markdown]…[/] the user set, with its line breaks,
+				// rather than the rendered glyphs. Selection is whole-line in source mode (slicing source
+				// markup by rendered columns is ill-defined).
+				if (_copyMode == MarkupCopyMode.Source)
+					return GetSelectedSourceText(startRow, endRow);
+
 				var sb = new StringBuilder();
 				int? previousSourceLine = null;
 
@@ -219,6 +239,44 @@ namespace SharpConsoleUI.Controls
 
 				return sb.ToString();
 			}
+		}
+
+		/// <summary>
+		/// Source-mode copy: the original <c>_content</c> markup of each logical line the selected display
+		/// rows [<paramref name="startRow"/>, <paramref name="endRow"/>] map to (via the parse cache's
+		/// row→source-line index), in order and de-duplicated, joined by newlines. Returns the raw markup the
+		/// control was given, with its embedded line breaks, rather than the rendered glyphs.
+		/// </summary>
+		private string GetSelectedSourceText(int startRow, int endRow)
+		{
+			// Resolve each selected display row to its source (_content) index.
+			var sourceIndices = new List<int>();
+			for (int row = startRow; row <= endRow; row++)
+			{
+				int sourceLine;
+				if (row < _cachedRowSourceLine.Count)
+					sourceLine = _cachedRowSourceLine[row];
+				else if (_cached != null && row < _cached.RowSourceLine.Count)
+					sourceLine = _cached.RowSourceLine[row];
+				else
+					sourceLine = row;
+				if (sourceIndices.Count == 0 || sourceIndices[^1] != sourceLine)
+					sourceIndices.Add(sourceLine);
+			}
+
+			List<string> snapshot;
+			lock (_contentLock) { snapshot = _content.ToList(); }
+
+			var sb = new StringBuilder();
+			bool first = true;
+			foreach (int idx in sourceIndices)
+			{
+				if (idx < 0 || idx >= snapshot.Count) continue;
+				if (!first) sb.Append('\n');
+				sb.Append(snapshot[idx]);
+				first = false;
+			}
+			return sb.ToString();
 		}
 
 		/// <summary>

@@ -34,6 +34,7 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	private Color? _selectionForegroundColor;
 	private Color? _selectionBackgroundColor;
 	private bool _copyEnabled = true;
+	private SharpConsoleUI.Controls.MarkupCopyMode _copyMode = SharpConsoleUI.Controls.MarkupCopyMode.Rendered;
 	private ConsoleKey _copyKey = ConsoleKey.C;
 	private ConsoleModifiers _copyModifiers = ConsoleModifiers.Control;
 	private Func<Configuration.MarkdownStyle, Configuration.MarkdownStyle>? _markdownStyleConfig;
@@ -458,6 +459,20 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 	}
 
 	/// <summary>
+	/// Sets what a copy returns: <see cref="SharpConsoleUI.Controls.MarkupCopyMode.Rendered"/> (default)
+	/// copies the visible text; <see cref="SharpConsoleUI.Controls.MarkupCopyMode.Source"/> copies the
+	/// original markup (raw [markdown]…[/] with newlines). Implies <see cref="WithSelectionEnabled"/>.
+	/// </summary>
+	/// <param name="mode">The copy mode.</param>
+	/// <returns>The builder for chaining</returns>
+	public MarkupBuilder WithCopyMode(SharpConsoleUI.Controls.MarkupCopyMode mode)
+	{
+		_copyMode = mode;
+		_enableSelection = true;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the handler raised when a rendered link is clicked.
 	/// </summary>
 	/// <param name="handler">The LinkClicked event handler.</param>
@@ -550,6 +565,7 @@ public sealed class MarkupBuilder : IControlBuilder<MarkupControl>
 			SelectionForegroundColor = _selectionForegroundColor,
 			SelectionBackgroundColor = _selectionBackgroundColor,
 			CopyEnabled = _copyEnabled,
+			CopyMode = _copyMode,
 			CopyKey = _copyKey,
 			CopyModifiers = _copyModifiers,
 			FocusedLinkForegroundColor = _focusedLinkForegroundColor,
