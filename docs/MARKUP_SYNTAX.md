@@ -359,10 +359,23 @@ Markdown is *structural*: emphasis and headings emit colorless tags that inherit
 | `QuoteColor` | Blockquote text and the quote bar glyph |
 | `LinkColor` | Link text |
 | `BorderColor` | Table border (box-drawing) characters |
+| `TableRowSeparators` | `false` (default): a table draws a rule under the header only, like GitHub. `true`: draws a rule between every body row (full spreadsheet-style grid) |
 | `BulletGlyph` | Bullet list marker (default `•`) |
 | `ListIndent` | Spaces of indentation per nested level (default `2`) |
 | `QuoteGlyph` | Blockquote vertical bar (default `│`) |
 | `H1Color` … `H6Color` | Optional per-heading color; `null` = colorless (structural weight only) |
+
+Table rows are grouped under the header by default (the compact Markdown look). For a fully gridded
+table, opt in to a rule between every body row:
+
+```csharp
+var control = Controls.Markdown("| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |")
+    .WithMarkdownStyle(s => s with { TableRowSeparators = true })
+    .Build();
+```
+
+A `<br>` (or `<br/>` / `<br />`) inside a table cell renders as a hard line break within that cell,
+so a cell can span multiple lines.
 
 Override **globally** by assigning `MarkdownStyle.Default`:
 
