@@ -4,7 +4,12 @@ Display rich formatted text using SharpConsoleUI markup syntax.
 
 ## Overview
 
-MarkupControl displays multi-line text with rich formatting using SharpConsoleUI's markup syntax. Supports colors, styles (bold, italic, underline), and more.
+MarkupControl displays multi-line rich text using SharpConsoleUI's markup syntax. It supports colors
+and styles (bold, italic, underline, …), RGB/hex colors, inline gradients and animated spinners,
+clickable + keyboard-navigable links, and inline **Markdown** — including syntax-highlighted fenced
+code, and tables that fit the width and wrap their cells. Text is Unicode-correct (emoji/ZWJ/CJK) and
+wraps by the Unicode line-breaking rules. Selection + copy are opt-in, with a choice of copying the
+rendered text or the original markup source.
 
 ## Properties
 
@@ -19,6 +24,7 @@ MarkupControl displays multi-line text with rich formatting using SharpConsoleUI
 | `SelectionBackgroundColor` | `Color?` | `null` | Background color for selected text |
 | `HasSelection` | `bool` | `false` | (read-only) Whether text is currently selected |
 | `CopyEnabled` | `bool` | `true` | Whether the keyboard copy shortcut is active |
+| `CopyMode` | `MarkupCopyMode` | `Rendered` | What a copy returns: `Rendered` (visible text, markup/markdown stripped) or `Source` (the raw markup you set, with newlines). See [Copy: rendered vs source](#copy-rendered-vs-source) |
 | `CopyKey` | `ConsoleKey` | `C` | Key that triggers a copy |
 | `CopyModifiers` | `ConsoleModifiers` | `Control` | Modifiers required for the copy shortcut |
 | `MarkdownStyle` | `MarkdownStyle?` | `null` | Per-control style for `[markdown]` content; `null` uses `MarkdownStyle.Default` (see [Markdown](#markdown)) |
@@ -38,10 +44,11 @@ MarkupControl displays multi-line text with rich formatting using SharpConsoleUI
 |--------|-------------|
 | `SetContent(List<string>)` | Replaces all content |
 | `SetMarkdown(string)` | Replaces the content with rendered Markdown (see [Markdown](#markdown)) |
+| `Markdown(string)` | Alias for `SetMarkdown(string)` |
 | `AppendLine(string)` | Appends a single markup line |
 | `AppendLines(IEnumerable<string>)` | Appends multiple markup lines |
-| `AppendText(string)` | Appends text, splitting on `\n` |
-| `GetSelectedText()` | Returns the current selection as plain text (markup stripped) |
+| `AppendText(string)` | Appends text. Splits on `\n`, but keeps a `[tag]…[/]` region (e.g. a multi-line `[markdown]` or `[yellow]` block) together so its style spans the newlines |
+| `GetSelectedText()` | Returns the current selection. `CopyMode.Rendered` (default) returns plain visible text; `CopyMode.Source` returns the raw markup you set (see [Copy: rendered vs source](#copy-rendered-vs-source)) |
 | `ClearSelection()` | Clears the current selection |
 | `CopySelectionToClipboard()` | Copies the selection to the clipboard; returns `true` if anything was copied |
 | `CopyToClipboard()` | Copies the entire content (plain text) to the clipboard |
@@ -184,8 +191,10 @@ mouse-selectable. The user can then:
 - **Triple-click** to select a line
 - Press **Ctrl+C** to copy the selection to the clipboard
 
-The copied text is always **plain text** — all markup tags are stripped automatically. When a
-selected line is soft-wrapped across multiple display rows, it is copied back as a single line.
+By default the copied text is **plain text** — all markup tags are stripped automatically, and a
+selected line soft-wrapped across multiple display rows is copied back as a single line. To copy the
+**original markup source** instead (e.g. the raw `[markdown]…[/]` you set, with its line breaks), set
+`CopyMode = MarkupCopyMode.Source` — see [Copy: rendered vs source](#copy-rendered-vs-source).
 
 Selection is coordinated **per window**: only one control can hold the active selection at a time,
 so starting a selection in one control clears any selection in another. **Ctrl+C** is handled at the
@@ -271,12 +280,37 @@ Controls.Markup("...")
     .Build();
 ```
 
+### Copy: rendered vs source
+
+By default a copy returns the **rendered** text — markup and Markdown are expanded to plain
+characters (`[markdown]# Title[/]` copies as `Title`, a table copies as its visible glyphs). For
+tools that want the **original markup back** — an agent/IDE copying a rendered Markdown block, for
+example — set `CopyMode = MarkupCopyMode.Source`:
+
+```csharp
+// Property
+label.CopyMode = MarkupCopyMode.Source;
+
+// Or via the builder (implies selection):
+Controls.Markup()
+    .Markdown("# Title\n\n- one\n- two")
+    .WithCopyMode(MarkupCopyMode.Source)
+    .Build();
+```
+
+In `Source` mode, copying returns the raw markup the control was given — the `[markdown]…[/]` /
+`[yellow]…[/]` lines the selection touches — **with their newlines intact**, rather than the rendered
+glyphs. The default (`Rendered`) is unchanged, so existing apps are unaffected.
+
+> `MarkupCopyMode` has two values: `Rendered` (default) and `Source`. Source-mode selection is
+> whole-line — a selection touching a markup block copies that block's full source.
+
 ### Appending Content
 
 ```csharp
 markup.AppendLine("[green]New line[/]");
 markup.AppendLines(new[] { "line 2", "line 3" });
-markup.AppendText("multi\nline\ntext");   // splits on \n
+markup.AppendText("multi\nline\ntext");   // splits on \n (a [tag]…[/] block stays together)
 ```
 
 ### Right-Click Context Menu
@@ -632,7 +666,7 @@ if (markup != null)
 3. **Consistent colors**: Use same colors for same meaning (red = error, green = success)
 4. **Test readability**: Ensure text is readable with different themes
 5. **Escape brackets**: Use `[[` and `]]` to display literal brackets
-6. **Keep lines reasonable**: Very long lines may cause wrapping issues
+6. **Let it wrap**: With `Wrap = true` (default), long lines wrap correctly following the Unicode line-breaking rules — words and numbers are never split mid-token, CJK/wide text breaks per character to fill the line, and mixed scripts wrap correctly. You don't need to pre-break lines
 7. **Update efficiently**: Use `SetContent()` instead of recreating controls
 
 ## Common Patterns
@@ -775,14 +809,38 @@ practice).
 
 ## Markdown
 
-MarkupControl content may contain the `[markdown]…[/]` tag, which parses its inner text as Markdown (headings, lists, emphasis, code blocks, blockquotes, links, tables) and renders it as native markup. Markdown links (`[text](url)`) and autolinks become clickable `[link=…]` spans — see [Links](#links). Copied text stays plain.
+MarkupControl content may contain the `[markdown]…[/]` tag, which parses its inner text as Markdown (headings, lists, emphasis, code blocks, blockquotes, links, tables) and renders it as native markup. Markdown links (`[text](url)`) and autolinks become clickable `[link=…]` spans — see [Links](#links). By default copied text is the rendered plain text; use `CopyMode.Source` to copy the Markdown source back (see [Copy: rendered vs source](#copy-rendered-vs-source)).
 
 ```csharp
 var c = Controls.Markdown("# Report\n\n**Status:** OK\n\n- one\n- two").Build();
-c.SetMarkdown("# Updated\n\nNew content");   // live update
+c.SetMarkdown("# Updated\n\nNew content");   // live update  (Markdown(...) is an alias)
 ```
 
 Styling is controlled by `MarkdownStyle` (per-control via `MarkupControl.MarkdownStyle` or builder `.WithMarkdownStyle(...)`, globally via `MarkdownStyle.Default`). See [Markup Syntax → Markdown](../MARKUP_SYNTAX.md#markdown) for the full reference.
+
+**Fenced code blocks are syntax-highlighted.** A fenced block with a language tag is tokenized and
+coloured (highlighting carries across multi-line constructs like block comments and strings). Built-in
+languages: C#, JavaScript, JSON, YAML, XML, HTML, CSS, Bash, Dockerfile, Razor, SLN, Diff, Markdown.
+You can register your own highlighter for a language via `MarkdownStyle.CodeHighlighters`.
+
+**Tables fit the available width.** A Markdown table is fitted to the render width — columns are
+capped (only over-long columns shrink; short columns keep their natural width) and long cell content
+**wraps onto multiple lines within its column**, so the box stays intact instead of overflowing.
+Inline styling inside a cell is preserved on every wrapped line.
+
+**Streaming / progressive rendering.** You do **not** need to wait for the closing `[/]`: an open,
+unclosed `[markdown]` block renders as Markdown as soon as content arrives and keeps re-rendering as
+more is appended. This works when you set `Text` at once **or** stream it in with
+`AppendLine`/`AppendText` — useful for an agent/LLM UI that streams a Markdown response token by
+token:
+
+```csharp
+label.AppendLine("[markdown]# Streaming Response");
+label.AppendLine("");
+label.AppendLine("- first point");
+label.AppendLine("- second point");
+// …no [/] yet — it already renders progressively as a heading + list…
+```
 
 ## See Also
 
