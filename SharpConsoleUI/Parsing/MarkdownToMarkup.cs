@@ -32,8 +32,10 @@ namespace SharpConsoleUI.Parsing
 		/// </summary>
 		/// <param name="markdown">The Markdown source.</param>
 		/// <param name="style">Style overrides; defaults to <see cref="MarkdownStyle.Default"/>.</param>
+		/// <param name="availableWidth">Display columns available for rendering; tables are fitted/wrapped to
+		/// this width. <see cref="int.MaxValue"/> (the default) means unbounded — tables render at natural width.</param>
 		/// <returns>A native-markup string suitable for <see cref="MarkupParser.Parse(string, Color, Color)"/>.</returns>
-		public static string Convert(string markdown, MarkdownStyle? style = null)
+		public static string Convert(string markdown, MarkdownStyle? style = null, int availableWidth = int.MaxValue)
 		{
 			if (string.IsNullOrEmpty(markdown))
 				return string.Empty;
@@ -41,20 +43,20 @@ namespace SharpConsoleUI.Parsing
 			style ??= MarkdownStyle.Default;
 			var doc = Markdown.Parse(markdown, Pipeline);
 			var sb = new StringBuilder(markdown.Length);
-			WriteBlocks(doc, sb, style);
+			WriteBlocks(doc, sb, style, availableWidth);
 			return sb.ToString().TrimEnd('\n');
 		}
 
-		private static void WriteBlocks(IEnumerable<Block> blocks, StringBuilder sb, MarkdownStyle style)
-			=> WriteBlocks(blocks, sb, style, 0);
+		private static void WriteBlocks(IEnumerable<Block> blocks, StringBuilder sb, MarkdownStyle style, int availableWidth)
+			=> WriteBlocks(blocks, sb, style, 0, availableWidth);
 
-		private static void WriteBlocks(IEnumerable<Block> blocks, StringBuilder sb, MarkdownStyle style, int indent)
+		private static void WriteBlocks(IEnumerable<Block> blocks, StringBuilder sb, MarkdownStyle style, int indent, int availableWidth = int.MaxValue)
 		{
 			foreach (var block in blocks)
-				WriteBlock(block, sb, style, indent);
+				WriteBlock(block, sb, style, indent, availableWidth);
 		}
 
-		private static void WriteBlock(Block block, StringBuilder sb, MarkdownStyle style, int indent)
+		private static void WriteBlock(Block block, StringBuilder sb, MarkdownStyle style, int indent, int availableWidth = int.MaxValue)
 		{
 			switch (block)
 			{
@@ -106,13 +108,13 @@ namespace SharpConsoleUI.Parsing
 						}
 						else
 						{
-							WriteBlock(child, sb, style, indent + style.ListIndent);
+							WriteBlock(child, sb, style, indent + style.ListIndent, availableWidth);
 						}
 					}
 					break;
 
 				case Markdig.Extensions.Tables.Table table:
-					WriteTable(table, sb, style, indent);
+					WriteTable(table, sb, style, indent, availableWidth);
 					break;
 
 				case CodeBlock codeBlock:
@@ -265,7 +267,7 @@ namespace SharpConsoleUI.Parsing
 			}
 		}
 
-		private static void WriteTable(Markdig.Extensions.Tables.Table table, StringBuilder sb, MarkdownStyle style, int indent)
+		private static void WriteTable(Markdig.Extensions.Tables.Table table, StringBuilder sb, MarkdownStyle style, int indent, int availableWidth)
 		{
 			var rows = new List<List<string>>();
 			foreach (var rowObj in table)
@@ -291,6 +293,57 @@ namespace SharpConsoleUI.Parsing
 				for (int c = 0; c < r.Count; c++)
 					widths[c] = Math.Max(widths[c], VisibleWidth(r[c]));
 
+			// Fit the columns to the available width. Chrome = (cols+1) separators + cols*2 pad spaces.
+			int tableBudget = availableWidth == int.MaxValue ? int.MaxValue : Math.Max(1, availableWidth - indent);
+			if (tableBudget != int.MaxValue)
+			{
+				// Each column needs ≥1 content char + 3 chrome chars (1 separator + 2 padding), plus the
+				// leading '│': min_table_width_for_n_cols = 4n+1. Cap cols so the table fits the budget.
+				int maxFittingCols = Math.Max(1, (tableBudget - 1) / 4);
+				if (cols > maxFittingCols)
+				{
+					cols = maxFittingCols;
+					var cappedWidths = new int[cols];
+					Array.Copy(widths, cappedWidths, cols);
+					widths = cappedWidths;
+				}
+
+				int chrome = (cols + 1) + cols * 2;
+				int contentBudget = tableBudget - chrome;
+				if (contentBudget < cols)
+				{
+					// Degenerate: too narrow for even 1 char per column — give 1 each (the outer clip trims
+					// any residual). MarkdownToMarkup is static/pure (no logger), so this is silent.
+					for (int c = 0; c < cols; c++) widths[c] = 1;
+				}
+				else
+				{
+					int naturalTotal = widths.Sum();
+					if (naturalTotal > contentBudget)
+					{
+						int overflow = naturalTotal - contentBudget;
+						int fairShare = Math.Max(1, contentBudget / cols);
+						int excessTotal = 0;
+						for (int c = 0; c < cols; c++)
+							if (widths[c] > fairShare) excessTotal += widths[c] - fairShare;
+						if (excessTotal > 0)
+						{
+							for (int c = 0; c < cols; c++)
+								if (widths[c] > fairShare)
+									widths[c] -= (int)Math.Round((double)overflow * (widths[c] - fairShare) / excessTotal);
+						}
+						for (int c = 0; c < cols; c++) widths[c] = Math.Max(1, widths[c]);
+						// Correct any rounding drift so the columns sum exactly to the content budget.
+						int drift = widths.Sum() - contentBudget;
+						for (int c = 0; drift != 0 && c < cols; c++)
+						{
+							int adj = drift > 0 ? -1 : 1;
+							if (widths[c] + adj >= 1) { widths[c] += adj; drift += adj > 0 ? 1 : -1; }
+						}
+					}
+				}
+			}
+
 			string border = $"[{ColorWord(style.BorderColor)}]";
 			void Rule(char left, char mid, char right)
 			{
@@ -307,17 +360,32 @@ namespace SharpConsoleUI.Parsing
 			Rule('┌', '┬', '┐');
 			for (int ri = 0; ri < rows.Count; ri++)
 			{
-				Indent(sb, indent);
+				// Wrap each cell to its capped width (style-preserving). rowHeight = tallest cell.
+				var wrapped = new List<List<string>>(cols);
+				int rowHeight = 1;
 				for (int c = 0; c < cols; c++)
 				{
 					string raw = c < rows[ri].Count ? rows[ri][c] : "";
-					int pad = widths[c] - VisibleWidth(raw);
-					sb.Append(border).Append('│').Append("[/] ");
-					if (ri == 0) sb.Append("[bold]").Append(raw).Append("[/]");
-					else sb.Append(raw);
-					sb.Append(new string(' ', Math.Max(0, pad))).Append(' ');
+					var lines = MarkupParser.WrapMarkupLines(raw, widths[c]);
+					wrapped.Add(lines);
+					rowHeight = Math.Max(rowHeight, lines.Count);
 				}
-				sb.Append(border).Append('│').Append("[/]\n");
+
+				for (int k = 0; k < rowHeight; k++)
+				{
+					Indent(sb, indent);
+					for (int c = 0; c < cols; c++)
+					{
+						string lineMarkup = k < wrapped[c].Count ? wrapped[c][k] : "";
+						int vis = VisibleWidth(lineMarkup);
+						int pad = Math.Max(0, widths[c] - vis);
+						sb.Append(border).Append('│').Append("[/] ");
+						if (ri == 0) sb.Append("[bold]").Append(lineMarkup).Append("[/]");
+						else sb.Append(lineMarkup);
+						sb.Append(new string(' ', pad)).Append(' ');
+					}
+					sb.Append(border).Append('│').Append("[/]\n");
+				}
 				if (ri == 0) Rule('├', '┼', '┤');
 			}
 			Rule('└', '┴', '┘');

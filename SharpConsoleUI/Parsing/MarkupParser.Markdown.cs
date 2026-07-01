@@ -20,7 +20,7 @@ namespace SharpConsoleUI.Parsing
 		/// Content without the tag is returned unchanged (fast path). An unclosed tag renders
 		/// everything after the opening tag as Markdown to end-of-string.
 		/// </summary>
-		private static string PreProcessMarkdownTags(string markup, Configuration.MarkdownStyle? style = null)
+		private static string PreProcessMarkdownTags(string markup, Configuration.MarkdownStyle? style = null, int availableWidth = int.MaxValue)
 		{
 			// Null → the built-in default (preserves prior behavior for callers that don't pass a style).
 			style ??= Configuration.MarkdownStyle.Default;
@@ -57,12 +57,12 @@ namespace SharpConsoleUI.Parsing
 				if (closeIdx < 0)
 				{
 					// Unclosed [markdown]: treat everything after the tag as Markdown to end-of-string.
-					sb.Append(MarkdownToMarkup.Convert(markup.Substring(innerStart), style));
+					sb.Append(MarkdownToMarkup.Convert(markup.Substring(innerStart), style, availableWidth));
 					break;
 				}
 
 				string inner = markup.Substring(innerStart, closeIdx - innerStart);
-				sb.Append(MarkdownToMarkup.Convert(inner, style));
+				sb.Append(MarkdownToMarkup.Convert(inner, style, availableWidth));
 
 				i = closeIdx + 3; // skip past the closing [/]
 			}

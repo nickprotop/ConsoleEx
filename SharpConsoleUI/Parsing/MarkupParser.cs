@@ -378,6 +378,90 @@ namespace SharpConsoleUI.Parsing
 		}
 
 		/// <summary>
+		/// Serializes a row of cells back into a markup string that re-parses (via <see cref="Parse(string,
+		/// Color, Color)"/> with the same defaults) to equal cells. A styled run opens
+		/// <c>[#RRGGBB on #RRGGBB &lt;decorations&gt;]</c> and closes with <c>[/]</c>; a run whose style equals the
+		/// defaults emits no tags. Wide-continuation cells are skipped (their lead cell carries the wide rune).
+		/// Used to re-emit wrapped table-cell lines without losing inline style.
+		/// </summary>
+		internal static string CellsToMarkup(List<Cell> cells, Color defaultFg, Color defaultBg)
+		{
+			var sb = new System.Text.StringBuilder();
+			bool open = false;
+			Color curFg = defaultFg, curBg = defaultBg;
+			TextDecoration curDec = TextDecoration.None;
+
+			foreach (var cell in cells)
+			{
+				if (cell.IsWideContinuation) continue;
+
+				bool styled = cell.Foreground != defaultFg || cell.Background != defaultBg
+					|| cell.Decorations != TextDecoration.None;
+
+				// Close the current run if the style changed (or we're leaving a styled run for a plain one).
+				if (open && (cell.Foreground != curFg || cell.Background != curBg || cell.Decorations != curDec))
+				{
+					sb.Append("[/]");
+					open = false;
+				}
+
+				if (styled && !open)
+				{
+					sb.Append('[').Append('#').Append(ColorHex(cell.Foreground));
+					if (cell.Background != defaultBg)
+						sb.Append(" on #").Append(ColorHex(cell.Background));
+					AppendDecorations(sb, cell.Decorations);
+					sb.Append(']');
+					open = true;
+					curFg = cell.Foreground; curBg = cell.Background; curDec = cell.Decorations;
+				}
+
+				// Escape a literal '[' so it is not read as a tag on re-parse.
+				var s = cell.Character.ToString();
+				if (s == "[") sb.Append("[[");
+				else sb.Append(s);
+			}
+
+			if (open) sb.Append("[/]");
+			return sb.ToString();
+		}
+
+		private static string ColorHex(Color c) => $"{c.R:X2}{c.G:X2}{c.B:X2}";
+
+		private static void AppendDecorations(System.Text.StringBuilder sb, TextDecoration dec)
+		{
+			if ((dec & TextDecoration.Bold) != 0) sb.Append(" bold");
+			if ((dec & TextDecoration.Italic) != 0) sb.Append(" italic");
+			if ((dec & TextDecoration.Underline) != 0) sb.Append(" underline");
+			if ((dec & TextDecoration.Dim) != 0) sb.Append(" dim");
+			if ((dec & TextDecoration.Strikethrough) != 0) sb.Append(" strikethrough");
+			if ((dec & TextDecoration.Invert) != 0) sb.Append(" reverse");
+			if ((dec & TextDecoration.Blink) != 0) sb.Append(" blink");
+		}
+
+		/// <summary>
+		/// Wraps a markup string to <paramref name="width"/> display columns using the UAX #14 line-break
+		/// engine, returning one self-contained markup string per wrapped line. Inline style is preserved on
+		/// every line (each line re-emits its run tags via <see cref="CellsToMarkup"/>). A line's visible
+		/// width (tags excluded) is ≤ <paramref name="width"/>.
+		/// </summary>
+		internal static List<string> WrapMarkupLines(string markup, int width)
+		{
+			var result = new List<string>();
+			if (string.IsNullOrEmpty(markup) || width <= 0)
+			{
+				result.Add(string.Empty);
+				return result;
+			}
+
+			var rows = ParseLines(markup, width, Color.White, Color.Black, out _);
+			foreach (var row in rows)
+				result.Add(CellsToMarkup(row, Color.White, Color.Black));
+			if (result.Count == 0) result.Add(string.Empty);
+			return result;
+		}
+
+		/// <summary>
 		/// Counts the number of clickable links in a markup string without building cells.
 		/// Expands any <c>[markdown]…[/]</c> regions first so that Markdown-style links
 		/// (converted to <c>[link=…]…[/]</c>) are included in the count.
@@ -712,7 +796,7 @@ namespace SharpConsoleUI.Parsing
 
 			// Expand any [markdown]…[/] regions before splitting on newlines,
 			// otherwise a multi-line region would be torn apart by the split.
-			markup = PreProcessMarkdownTags(markup, markdownStyle);
+			markup = PreProcessMarkdownTags(markup, markdownStyle, width);
 
 			var result = new List<List<Cell>>();
 
