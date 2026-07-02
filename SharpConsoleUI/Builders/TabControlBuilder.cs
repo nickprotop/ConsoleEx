@@ -330,6 +330,38 @@ public sealed class TabControlBuilder : IControlBuilder<TabControl>
 		return this;
 	}
 
+	/// <summary>Sets the foreground/background colors of the ACTIVE tab while the control is focused.</summary>
+	public TabControlBuilder WithActiveFocusedColors(Color foreground, Color background)
+	{
+		_control.ActiveFocusedForegroundColor = foreground;
+		_control.ActiveFocusedBackgroundColor = background;
+		return this;
+	}
+
+	/// <summary>Sets the foreground/background colors of the ACTIVE tab while the control is not focused.</summary>
+	public TabControlBuilder WithActiveUnfocusedColors(Color foreground, Color background)
+	{
+		_control.ActiveUnfocusedForegroundColor = foreground;
+		_control.ActiveUnfocusedBackgroundColor = background;
+		return this;
+	}
+
+	/// <summary>Sets the foreground/background colors of an INACTIVE tab while the control is focused.</summary>
+	public TabControlBuilder WithInactiveFocusedColors(Color foreground, Color background)
+	{
+		_control.InactiveFocusedForegroundColor = foreground;
+		_control.InactiveFocusedBackgroundColor = background;
+		return this;
+	}
+
+	/// <summary>Sets the foreground/background colors of an INACTIVE tab while the control is not focused.</summary>
+	public TabControlBuilder WithInactiveUnfocusedColors(Color foreground, Color background)
+	{
+		_control.InactiveUnfocusedForegroundColor = foreground;
+		_control.InactiveUnfocusedBackgroundColor = background;
+		return this;
+	}
+
 	/// <summary>
 	/// Builds the tab control
 	/// </summary>

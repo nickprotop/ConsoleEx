@@ -53,6 +53,20 @@ public partial class TableControl
 	/// <summary>Async counterpart of <see cref="CellActivated"/>.</summary>
 	public event Core.AsyncEventHandler<(int Row, int Column)>? CellActivatedAsync;
 
+	/// <summary>Occurs when a column header is LEFT-clicked; the payload is the column index. Fires after
+	/// the built-in sort (when sorting is enabled) and also when sorting is disabled.</summary>
+	public event EventHandler<int>? HeaderClicked;
+
+	/// <summary>Async counterpart of <see cref="HeaderClicked"/>.</summary>
+	public event Core.AsyncEventHandler<int>? HeaderClickedAsync;
+
+	/// <summary>Occurs when a column header is RIGHT-clicked; the payload is the column index. Intended for a
+	/// header context menu. The generic <see cref="MouseRightClick"/> still fires as well.</summary>
+	public event EventHandler<int>? HeaderRightClicked;
+
+	/// <summary>Async counterpart of <see cref="HeaderRightClicked"/>.</summary>
+	public event Core.AsyncEventHandler<int>? HeaderRightClickedAsync;
+
 	#endregion
 
 	#region Selection Properties

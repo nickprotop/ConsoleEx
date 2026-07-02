@@ -150,6 +150,22 @@ For portals that need to host arbitrary child controls with full layout, focus, 
 
 - **`PortalContentContainer`** — Hosts any combination of controls (ListControl, ButtonControl, ScrollablePanelControl, etc.) with automatic vertical stack layout.
 
+### Hosting a single control — `Content`
+
+To place **one** standard control (a list, table, menu, etc.) inside a portal, set
+`PortalContentBase.Content = yourControl`. The framework measures and paints the child through its own
+layout pipeline (`MeasureDOM`/`PaintDOM`) and routes focus and mouse to it — you do **not** need to
+override `PaintPortalContent` or cast to `IDOMPaintable`:
+
+```csharp
+var list = new ListControl { /* … */ };
+var portal = new MyPortal { Content = list };   // MyPortal : PortalContentBase
+window.CreatePortal(ownerControl, portal);
+```
+
+Override `PaintPortalContent` only for fully custom, non-control overlay content that you draw to the
+buffer directly.
+
 ## PortalContentBase
 
 Abstract base class providing default implementations of `IWindowControl`, `IDOMPaintable`, `IMouseAwareControl`, and `IHasPortalBounds`.

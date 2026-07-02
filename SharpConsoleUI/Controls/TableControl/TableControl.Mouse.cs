@@ -115,6 +115,15 @@ public partial class TableControl
 				}
 			}
 			MouseRightClick?.Invoke(this, args);
+			if (IsClickOnHeader(args))
+			{
+				int headerCol = GetColumnIndexAtX(args.Position.X);
+				if (headerCol >= 0)
+				{
+					var log = Container?.GetConsoleWindowSystem?.LogService;
+					Core.AsyncEvent.Raise(HeaderRightClicked, HeaderRightClickedAsync, this, headerCol, log);
+				}
+			}
 			return true;
 		}
 
@@ -217,13 +226,15 @@ public partial class TableControl
 			// Check if clicking on header (for sorting)
 			if (IsClickOnHeader(args))
 			{
-				if (_sortingEnabled)
-				{
-					int colIdx = GetColumnIndexAtX(args.Position.X);
-					if (colIdx >= 0)
-						SortByColumn(colIdx);
-				}
+				int colIdx = GetColumnIndexAtX(args.Position.X);
+				if (colIdx >= 0 && _sortingEnabled)
+					SortByColumn(colIdx);
 				MouseClick?.Invoke(this, args);
+				if (colIdx >= 0)
+				{
+					var log = Container?.GetConsoleWindowSystem?.LogService;
+					Core.AsyncEvent.Raise(HeaderClicked, HeaderClickedAsync, this, colIdx, log);
+				}
 				return true;
 			}
 
@@ -416,13 +427,31 @@ public partial class TableControl
 		return relativeX >= checkboxStart && relativeX < checkboxEnd;
 	}
 
-	private bool IsClickOnHeader(MouseEventArgs args)
+	private bool IsClickOnHeader(MouseEventArgs args) => IsOnHeaderRow(args.Position.Y);
+
+	private bool IsOnHeaderRow(int y)
 	{
 		if (!_showHeader) return false;
 		int headerY = Margin.Top;
 		if (!string.IsNullOrEmpty(_title)) headerY++;
 		if (_borderStyle != BorderStyle.None) headerY++;
-		return args.Position.Y == headerY;
+		return y == headerY;
+	}
+
+	/// <summary>The column index at display X (accounting for horizontal scroll), or -1 if X is past the
+	/// last column. Lets a consumer resolve the column for a click handled via MouseClick/MouseRightClick.</summary>
+	public int GetColumnIndexAt(int x) => GetColumnIndexAtX(x);
+
+	/// <summary>True if (x, y) is on the header row.</summary>
+	public bool IsOnHeader(int x, int y) => IsOnHeaderRow(y);
+
+	/// <summary>Returns the Y coordinate of the header row, for unit-testing header hit detection.</summary>
+	internal int HeaderRowYForTest()
+	{
+		int hy = Margin.Top;
+		if (!string.IsNullOrEmpty(_title)) hy++;
+		if (_borderStyle != BorderStyle.None) hy++;
+		return hy;
 	}
 
 	private bool IsClickOnVerticalScrollbar(MouseEventArgs args)
