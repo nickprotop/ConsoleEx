@@ -610,6 +610,23 @@ namespace SharpConsoleUI.Controls
 
 		#endregion
 
+		#region Dispose
+
+		/// <summary>
+		/// Disposes the grid's child controls so their own cleanup (event unsubscription, resource
+		/// release) runs. Child <see cref="System.IDisposable.Dispose"/> is idempotent, so this is safe
+		/// even if a child is shared or already disposed.
+		/// </summary>
+		protected override void OnDisposing()
+		{
+			List<IWindowControl> snapshot;
+			lock (_cellsLock) { snapshot = _cells.Where(c => c.Control != null).Select(c => c.Control!).ToList(); }
+			foreach (var control in snapshot)
+				control.Dispose();
+		}
+
+		#endregion
+
 		/// <summary>
 		/// Drops the ordered-cells cache, forces a layout rebuild on the owning window, and invalidates.
 		/// This is the common reaction to any structural change (cells added/removed/replaced, or track
