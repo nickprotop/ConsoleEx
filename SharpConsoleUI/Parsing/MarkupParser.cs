@@ -1235,6 +1235,22 @@ namespace SharpConsoleUI.Parsing
 				while (count > 0 && IsBreakableSpace(cells[start + count - 1]))
 					count--;
 
+				// Guaranteed forward progress. When width < the leading grapheme's display width (e.g.
+				// width 1 and a 2-column CJK char, which happens when a column is squeezed to 1), the
+				// hard-break above steps wordBreak back onto `start`, leaving count == 0 — the loop would
+				// then never advance (infinite loop / UI freeze; #65). A grapheme cannot be split to fit,
+				// so emit the whole leading grapheme (its lead cell plus any wide/combining continuation
+				// cells) on its own row even though it overflows, and advance past it.
+				if (count == 0)
+				{
+					count = 1;
+					while (start + count < cells.Count && cells[start + count].IsWideContinuation)
+						count++;
+					output.Add(cells.GetRange(start, count));
+					start += count;
+					continue;
+				}
+
 				output.Add(cells.GetRange(start, count));
 
 				// Skip leading spaces on next line
