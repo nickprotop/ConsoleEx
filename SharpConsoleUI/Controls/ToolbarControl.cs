@@ -472,10 +472,10 @@ namespace SharpConsoleUI.Controls
 					{
 						if (_focusedItem != null && _focusedItem != interactive)
 						{
-							SetItemFocus(_focusedItem, false);
+							SetItemFocus(_focusedItem, false, FocusReason.Mouse);
 						}
 						_focusedItem = interactive;
-						SetItemFocus(interactive, true);
+						SetItemFocus(interactive, true, FocusReason.Mouse);
 					}
 				}
 
@@ -1065,7 +1065,10 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		private void SetItemFocus(IInteractiveControl item, bool focus)
+		// reason defaults to Keyboard so keyboard navigation (Tab/arrow) keeps scroll-into-view; a mouse
+		// click passes Mouse so it does NOT scroll — the clicked item is, by definition, already visible
+		// (you cannot click what you cannot see), so a mouse-focus must never move the viewport (#66).
+		private void SetItemFocus(IInteractiveControl item, bool focus, FocusReason reason = FocusReason.Keyboard)
 		{
 			if (item is IFocusableControl focusable)
 			{
@@ -1073,9 +1076,9 @@ namespace SharpConsoleUI.Controls
 				if (window != null)
 				{
 					if (focus)
-						window.FocusManager.SetFocus(focusable, FocusReason.Keyboard);
+						window.FocusManager.SetFocus(focusable, reason);
 					else if (window.FocusManager.IsFocused(focusable))
-						window.FocusManager.SetFocus(null, FocusReason.Keyboard);
+						window.FocusManager.SetFocus(null, reason);
 				}
 				else
 					(item as IWindowControl)?.Container?.Invalidate(Invalidation.Repaint);
