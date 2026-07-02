@@ -250,7 +250,6 @@ namespace SharpConsoleUI.Controls
 			List<string> snapshot;
 			lock (_contentLock) { snapshot = _content.ToList(); }
 
-			int natural = 0;
 			for (int i = 0; i < snapshot.Count; i++)
 			{
 				// A [markdown] region restructures into a block whose RENDERED width is not its source
@@ -260,10 +259,31 @@ namespace SharpConsoleUI.Controls
 				// repaint still hits its own cache, which is the path that matters for #42).
 				if (snapshot[i].Contains("[markdown]", StringComparison.Ordinal))
 					return availableContentWidth;
-				natural = Math.Max(natural, Parsing.MarkupParser.StripLength(snapshot[i]));
 			}
 
-			return Math.Min(natural, availableContentWidth);
+			// Natural width from the REAL parse, not StripLength. StripLength strips any [..] as a tag, but
+			// literal brackets (JSON, [INFO] logs, array[0]) render as text — StripLength under-measured
+			// them, collapsing the fit-clamp to a tiny width and wrapping the label to ~1 token per line
+			// (#63). A cheap scan can't be render-consistent (deciding tag-vs-literal needs ParseTag), so
+			// use the parse. Keyed at int.MaxValue → one stable cache entry, independent of the frame's
+			// available width, so a stable repaint still re-parses nothing.
+			return Math.Min(NaturalContentWidth(), availableContentWidth);
+		}
+
+		/// <summary>
+		/// The rendered natural (unwrapped) content width in display columns: the max row width of the
+		/// content parsed at an unconstrained width. Render-consistent (literal brackets counted, real tags
+		/// consumed, CJK = 2 cols, [markdown] expanded). Backs both <see cref="ComputeParseWidth"/> and
+		/// <see cref="ContentWidth"/>. Uses the LRU parse cache, so repeated reads don't re-parse.
+		/// </summary>
+		private int NaturalContentWidth()
+		{
+			var (fg, bg) = ResolveParseColors();
+			var parsed = EnsureParsed(int.MaxValue, fg, bg, ResolveMarkdownStyle(), _wrap);
+			int max = 0;
+			foreach (var row in parsed.Rows)
+				if (row.Count > max) max = row.Count;
+			return max;
 		}
 
 		/// <summary>Test-only: drive EnsureParsed with default colors/style to exercise the cache.</summary>

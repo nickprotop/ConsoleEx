@@ -107,14 +107,14 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
-				List<string> snapshot;
-				lock (_contentLock) { snapshot = _content.ToList(); }
-				int maxLength = 0;
-				foreach (var line in snapshot)
-				{
-					int length = Parsing.MarkupParser.StripLength(line);
-					if (length > maxLength) maxLength = length;
-				}
+				// Measure the width the content actually RENDERS to (matching the paint path), not
+				// StripLength — StripLength strips any [..] as a tag, but Parse renders unknown/literal
+				// brackets (JSON, [INFO] logs, array[0]) as literal text, so StripLength under-measured and
+				// the label was allotted a too-small width and wrapped to a tiny column count (#63). Parse
+				// UNCONSTRAINED (int.MaxValue = one row per hard line, no soft-wrap) for the natural content
+				// width; EnsureParsed is LRU-cached so repeated reads of this hot getter don't re-parse.
+				int maxLength = NaturalContentWidth();
+
 				// Include the optional border + inner padding so auto-sizing (TabLayout / column
 				// autofit) reserves room for the frame. Zero when borderless with no padding, so the
 				// returned width is unchanged from the plain-text path.
