@@ -55,39 +55,13 @@ namespace SharpConsoleUI.Controls
 		private readonly object _childrenLock = new();
 		private int _verticalScrollOffset = 0;
 
-		// TODO(#61-diagnostic): TEMPORARY — remove before the next stable release. Opt-in scroll tracing to
-		// diagnose #61 ("nested panel scrolls up when selecting"), which reproduces only in the reporter's
-		// real app. When SHARPCONSOLEUI_SCROLL_TRACE is set, every change to the vertical scroll offset is
-		// logged with WHAT triggered it plus a short stack, so the reporter's log names the exact path.
-		// Zero cost when unset. The SetVerticalScrollOffset choke-point may be kept; only the trace is temp.
-		private static readonly bool ScrollTraceEnabled =
-			!string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("SHARPCONSOLEUI_SCROLL_TRACE"));
-
-		/// <summary>Single write choke-point for <see cref="_verticalScrollOffset"/>. Assigns the value and,
-		/// when scroll tracing is enabled, logs old→new + the reason + a short stack (#61 diagnostic).</summary>
+		/// <summary>Single write choke-point for <see cref="_verticalScrollOffset"/>. Keeping every offset
+		/// mutation funneled through one setter makes the scroll paths easy to reason about (and to
+		/// instrument when diagnosing scroll bugs). The <paramref name="reason"/> documents the caller.</summary>
 		private void SetVerticalScrollOffset(int value, string reason)
 		{
-			int old = _verticalScrollOffset;
+			_ = reason;
 			_verticalScrollOffset = value;
-			if (old != value && ScrollTraceEnabled)
-			{
-				var log = GetConsoleWindowSystem?.LogService;
-				// LogWarning (not LogInfo) so it clears the default Warning min-level without the user also
-				// having to set SHARPCONSOLEUI_DEBUG_LEVEL — the trace env var alone is enough.
-				log?.LogWarning($"[SCROLLTRACE] {Name ?? "SPC"} {old}->{value} ({reason}) {ScrollTraceStack()}", "Scroll");
-			}
-		}
-
-		// TODO(#61-diagnostic): TEMPORARY — remove with SetVerticalScrollOffset's trace. First few
-		// SharpConsoleUI frames of the current stack, enough to name the caller (focus scroll-into-view /
-		// drag-autoscroll / relayout clamp / AutoScroll-to-bottom).
-		private static string ScrollTraceStack()
-		{
-			var frames = System.Environment.StackTrace.Split('\n')
-				.Where(f => f.Contains("SharpConsoleUI") && !f.Contains("ScrollTraceStack") && !f.Contains("SetVerticalScrollOffset"))
-				.Take(6)
-				.Select(f => f.Trim().Replace("at SharpConsoleUI.", ""));
-			return "| " + string.Join(" <- ", frames);
 		}
 		private int _horizontalScrollOffset = 0;
 		private int _contentHeight = 0;
