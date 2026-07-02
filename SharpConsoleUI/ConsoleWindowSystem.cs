@@ -766,6 +766,15 @@ namespace SharpConsoleUI
 			_wakeSignal.Set();
 		}
 
+		/// <summary>Test-only: synchronously runs all queued UI-thread actions. Not for production use.</summary>
+		internal void DrainUiThreadQueueForTests()
+		{
+			while (_uiActionQueue.TryDequeue(out var item))
+			{
+				try { item.Action(); } catch { /* swallow in tests */ }
+			}
+		}
+
 		/// <summary>True when the caller is on the main-loop (UI) thread.</summary>
 		public bool IsOnUIThread => Environment.CurrentManagedThreadId == _uiThreadId;
 

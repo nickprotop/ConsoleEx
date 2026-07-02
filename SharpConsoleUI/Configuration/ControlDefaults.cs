@@ -1094,5 +1094,24 @@ namespace SharpConsoleUI.Configuration
 		public const int FlowAutoSizeCapMargin = 2;
 
 		#endregion
+
+		#region Log Viewer
+
+		/// <summary>Width of the log viewer Time column (HH:mm:ss).</summary>
+		public const int LogViewerTimeColumnWidth = 8;
+
+		/// <summary>Width of the log viewer Level column.</summary>
+		public const int LogViewerLevelColumnWidth = 11;
+
+		/// <summary>Width of the log viewer Category column.</summary>
+		public const int LogViewerCategoryColumnWidth = 14;
+
+		/// <summary>File dialog filter used by the log viewer export action.</summary>
+		public const string LogViewerExportFilter = "Log files (*.log)|*.log|Text files (*.txt)|*.txt|All files (*.*)|*.*";
+
+		/// <summary>Default file name suggested by the log viewer export dialog.</summary>
+		public const string LogViewerExportDefaultFileName = "export.log";
+
+		#endregion
 	}
 }

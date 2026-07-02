@@ -75,6 +75,14 @@ namespace SharpConsoleUI.Layout
 				// grid's PaintDOM can read the per-cell rectangles the arrange pass recorded.
 				return (gridControl.LayoutAlgorithm, gridControl.OrderedCells.Select(c => c.Control).ToList());
 			}
+			else if (control is LogViewerControl logViewer)
+			{
+				// Tree-participating container: the log viewer composes a GridControl (hosting the
+				// virtualized log TableControl). Building the grid in as a single Fill child lets the real
+				// engine measure/arrange/paint the table's rows — the OLD control hand-painted an inner
+				// panel and rendered EMPTY. VerticalStackLayout gives the Fill/Stretch grid the full area.
+				return (new VerticalStackLayout(), new IWindowControl[] { logViewer.InnerGrid });
+			}
 			else if (control is PortalContentContainer)
 			{
 				// Self-painting container - owns its layout
