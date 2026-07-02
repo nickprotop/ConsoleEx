@@ -38,6 +38,7 @@ public static class LauncherWindow
 				.AddItem("List View", subtitle: "NuGet-style package browser", content: MakeInfoPanel("List View"))
 				.AddItem("Disabled States", subtitle: "Enabled vs. disabled controls — compare theme rendering", content: MakeInfoPanel("Disabled States"))
 				.AddItem("Control Roles", subtitle: "Semantic roles (Danger/Success…) — solid & outline, per theme", content: MakeInfoPanel("Control Roles"))
+					.AddItem("Radio Buttons", subtitle: "Grouped single-select — typed values, wrap, alignment, grid grouping", content: MakeInfoPanel("Radio Buttons"))
 				.AddItem("Table", subtitle: "Interactive employee directory", content: MakeInfoPanel("Table"))
 				.AddItem("DataGrid", subtitle: "Virtual DataGrid with 10K rows", content: MakeInfoPanel("DataGrid"))
 				.AddItem("Nerd Fonts", subtitle: "NerdFont icon showcase", content: MakeInfoPanel("Nerd Fonts"))
@@ -250,6 +251,7 @@ public static class LauncherWindow
 			"List View" => ListViewWindow.Create(ws),
 			"Disabled States" => DisabledStatesWindow.Create(ws),
 			"Control Roles" => ControlRolesWindow.Create(ws),
+			"Radio Buttons" => RadioDemoWindow.Create(ws),
 			"Table" => TableDemoWindow.Create(ws),
 			"DataGrid" => DataGridWindow.Create(ws),
 			"Nerd Fonts" => NerdFontWindow.Create(ws),
@@ -1115,6 +1117,31 @@ public static class LauncherWindow
 				"    re-derive from each palette.",
 				"",
 				"[dim]API:[/] .WithColorRole(ColorRole.Danger).Outline()",
+			},
+			"Radio Buttons" => new List<string>
+			{
+				"[bold]Radio Buttons[/]",
+				"",
+				"Single-select groups: a RadioGroup coordinates a set",
+				"of radios so exactly one is chosen. Works over string",
+				"or typed (enum) values.",
+				"",
+				"[dim]Shown here:[/]",
+				"  - A. String group with a live current-value label",
+				"  - B. Enum group, Required (can't clear once set)",
+				"  - C. AllowDeselect (click the chosen one to clear)",
+				"  - D. Long label wraps with a hanging indent; L/C/R",
+				"       alignment within the panel",
+				"  - E. Disabled — incl. greyed-but-selected",
+				"  - F. One group with members in two grid columns —",
+				"       proves grouping crosses the layout tree",
+				"",
+				"[dim]Try it:[/] Tab to a radio, Space/Enter selects;",
+				"  arrows move within a group. In F, pick a col-1",
+				"  radio and watch a col-0 same-group radio clear.",
+				"",
+				"[dim]API:[/] Controls.RadioGroup<T>().Required() +",
+				"  Controls.Radio(group, value, label)",
 			},
 			_ => null
 		};

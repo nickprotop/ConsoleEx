@@ -439,4 +439,32 @@ public static class Controls
 	/// </summary>
 	/// <returns>A new range slider builder.</returns>
 	public static RangeSliderBuilder RangeSlider() => new RangeSliderBuilder();
+
+	/// <summary>
+	/// Creates a new <see cref="RadioGroupBuilder{T}"/> for coordinating a set of radio controls.
+	/// </summary>
+	/// <typeparam name="T">The value type each radio in the group represents.</typeparam>
+	/// <returns>A new radio group builder.</returns>
+	public static RadioGroupBuilder<T> RadioGroup<T>() => new RadioGroupBuilder<T>();
+
+	/// <summary>
+	/// Creates a new <see cref="RadioBuilder{T}"/> for a radio control with the given group, value, and label.
+	/// </summary>
+	/// <typeparam name="T">The value type this radio represents.</typeparam>
+	/// <param name="group">The coordinating group.</param>
+	/// <param name="value">The value this radio represents.</param>
+	/// <param name="label">The text label displayed next to the radio.</param>
+	/// <returns>A new radio builder.</returns>
+	public static RadioBuilder<T> Radio<T>(SharpConsoleUI.Controls.RadioGroup<T> group, T value, string label = "") =>
+		new RadioBuilder<T>(group, value, label);
+
+	/// <summary>
+	/// Creates a new <see cref="RadioBuilder{T}"/> for string values where the label doubles as the value.
+	/// Equivalent to <c>Radio&lt;string&gt;(group, label, label)</c>.
+	/// </summary>
+	/// <param name="group">The coordinating string group.</param>
+	/// <param name="label">The label text, which is also the option value.</param>
+	/// <returns>A new radio builder.</returns>
+	public static RadioBuilder<string> Radio(SharpConsoleUI.Controls.RadioGroup<string> group, string label) =>
+		new RadioBuilder<string>(group, label, label);
 }

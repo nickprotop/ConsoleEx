@@ -291,6 +291,31 @@ try
 				.Build())
 		is { } e5f) return Fail(e5f);
 
+	// 5f1. RadioControl<T> / RadioGroup<T> — first generic controls; exercise a concrete enum
+	//      instantiation so NativeAOT instantiates the generic + its paint/measure path
+	//      (a trim/reflection failure surfaces here, not in the xUnit suite).
+	{
+		var radioGroup = Controls.RadioGroup<SmokeRadioValue>()
+			.Required()
+			.OnSelectionChanged(_ => { })
+			.Build();
+		var rWindow = new Window(system) { Title = "AOT radios", Left = 1, Top = 1, Width = 24, Height = 6 };
+		var rSmall = Controls.Radio(radioGroup, SmokeRadioValue.Small, "Small").Build();
+		var rLarge = Controls.Radio(radioGroup, SmokeRadioValue.Large, "Large").Wrap(true).Build();
+		rWindow.AddControl(rSmall);
+		rWindow.AddControl(rLarge);
+		rSmall.Select();                                  // exercises the group coordination path
+		// also a string-valued group (label-as-value overload) to instantiate a second concrete T:
+		var themeGroup = Controls.RadioGroup<string>().Build();
+		var rLight = Controls.Radio(themeGroup, "Light").Build();
+		rWindow.AddControl(rLight);
+		rLight.Select();
+		system.AddWindow(rWindow);
+		for (int i = 0; i < 3; i++) system.ProcessOnce();
+		system.CloseWindow(rWindow, force: true);
+		controlCount += 3;
+	}
+
 	// 5g. Figlet + LogViewer + splitter chrome.
 	LogViewerControl logViewer;
 	try
@@ -582,6 +607,11 @@ static TreeNode[] MakeTree()
 	root.AddChild(b);
 	return new[] { root };
 }
+
+// Value enum for the RadioControl<T> / RadioGroup<T> AOT exercise (section 5f1).
+// A concrete enum T forces NativeAOT to instantiate RadioGroup<SmokeRadioValue> and
+// RadioControl<SmokeRadioValue> — a generic-instantiation trim failure surfaces here.
+enum SmokeRadioValue { Small, Large }
 
 // Minimal INotifyPropertyChanged view-model for the data-binding section (11). Standard
 // hand-rolled INPC — nothing framework-specific — so the Bind/BindTwoWay engine is the

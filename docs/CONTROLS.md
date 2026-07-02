@@ -54,6 +54,7 @@ Controls for selecting items from lists or hierarchies.
 | **[TableControl](controls/TableControl.md)** | Interactive data grid | Virtual data, sorting, filtering (AND/OR), inline editing, multi-select, cell navigation, scrollbars |
 | **[TreeControl](controls/TreeControl.md)** | Hierarchical tree view | Expand/collapse nodes, selection, keyboard navigation |
 | **[DropdownControl](controls/DropdownControl.md)** | Dropdown selection list | Click to expand, keyboard navigation, portal rendering |
+| **[RadioControl](controls/RadioControl.md)** | Single-select radio group | Typed `RadioGroup<T>` coordination, `Required`/`AllowDeselect` policies, label wrap, cross-layout grouping |
 | **[MenuControl](controls/MenuControl.md)** | Menu bar with dropdowns | Horizontal/vertical menus, submenus, separators, keyboard shortcuts |
 
 ## Display Controls
