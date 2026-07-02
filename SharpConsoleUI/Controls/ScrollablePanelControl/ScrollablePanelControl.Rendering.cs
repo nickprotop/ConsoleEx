@@ -92,7 +92,7 @@ namespace SharpConsoleUI.Controls
 			// (viewport may have grown or content may have shrunk since last frame).
 			int maxScrollOffset = Math.Max(0, _contentHeight - contentViewportHeight);
 			if (_verticalScrollOffset > maxScrollOffset)
-				_verticalScrollOffset = maxScrollOffset;
+				SetVerticalScrollOffset(maxScrollOffset, "paint-clamp-max");
 			if (_horizontalScrollOffset > MaxHorizontalScrollOffset)
 				_horizontalScrollOffset = MaxHorizontalScrollOffset;
 
@@ -119,7 +119,7 @@ namespace SharpConsoleUI.Controls
 			if (_pendingScrollToBottom && _viewportWidth > 0 && _viewportHeight > 0)
 			{
 				_pendingScrollToBottom = false;
-				_verticalScrollOffset = Math.Max(0, _contentHeight - contentViewportHeight);
+				SetVerticalScrollOffset(Math.Max(0, _contentHeight - contentViewportHeight), "pending-scroll-bottom");
 			}
 
 			// AutoScroll: scroll to bottom on any repaint when enabled
@@ -128,7 +128,7 @@ namespace SharpConsoleUI.Controls
 				int maxOffset = Math.Max(0, _contentHeight - contentViewportHeight);
 				if (_verticalScrollOffset < maxOffset)
 				{
-					_verticalScrollOffset = maxOffset;
+					SetVerticalScrollOffset(maxOffset, "autoscroll-bottom");
 				}
 			}
 

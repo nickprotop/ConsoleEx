@@ -126,7 +126,7 @@ namespace SharpConsoleUI.Controls
 
 			int oldOffset = _verticalScrollOffset;
 			int maxOffset = Math.Max(0, _contentHeight - _viewportHeight);
-			_verticalScrollOffset = Math.Clamp(_verticalScrollOffset + lines, 0, maxOffset);
+			SetVerticalScrollOffset(Math.Clamp(_verticalScrollOffset + lines, 0, maxOffset), "ScrollVerticalBy");
 
 			// AutoScroll state tracking
 			if (_autoScroll && lines < 0 && _verticalScrollOffset < maxOffset)
@@ -148,7 +148,7 @@ namespace SharpConsoleUI.Controls
 		private void ScrollVerticalTo(int offset)
 		{
 			int oldOffset = _verticalScrollOffset;
-			_verticalScrollOffset = Math.Clamp(offset, 0, Math.Max(0, _contentHeight - _viewportHeight));
+			SetVerticalScrollOffset(Math.Clamp(offset, 0, Math.Max(0, _contentHeight - _viewportHeight)), "ScrollVerticalTo");
 
 			if (oldOffset != _verticalScrollOffset)
 			{
