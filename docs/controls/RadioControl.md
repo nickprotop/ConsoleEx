@@ -84,6 +84,34 @@ var group = Controls.RadioGroup<MyEnum>()
 | `Clear()`, `Required = true`, `HasSelection = true` | No-op. |
 | New group (any `Required` setting) | Starts with no selection. `Required` does not force an initial selection. |
 
+### ⚠️ Choosing the type parameter `T` — equality matters
+
+Selection is matched with **`EqualityComparer<T>.Default`** (an AOT-safe choice — no reflection). Every
+"is this radio selected?" check compares `Group.SelectedValue` to a radio's `Value` this way. That means
+**how `T` implements equality directly determines whether selection works**:
+
+- **`enum`, primitive, `string`, `record`, or a `struct`** → structural (value) equality by default. Everything
+  "just works": `group.SelectedValue = MyEnum.Large` matches the radio whose `Value` is `MyEnum.Large`,
+  even a freshly-read one.
+- **A plain `class` that does not override `Equals`/`GetHashCode`** → **reference equality**. Two *different
+  instances* that represent the same option are considered **not equal**. So this fails silently:
+
+  ```csharp
+  // BAD: Option is a plain class with no Equals override
+  var g = new RadioGroup<Option>();
+  var r = new RadioControl<Option>(g, new Option("A"), "A");
+  g.SelectedValue = new Option("A");   // a DIFFERENT instance
+  // r.Checked == false  — no radio lights up, no exception, just "nothing selected"
+  ```
+
+  This is a common source of "my radio won't select" head-scratching, especially when the value comes from
+  deserialization, a database row, or a `.Select(...)` projection that builds fresh instances.
+
+**Recommendation:** prefer an `enum`, a `record`, or a value type for `T`. If you must use a reference
+type, either reuse the *same instances* you gave the radios (e.g. select via `radio.Select()` or
+`group.SelectedValue = existingRadio.Value`) **or** give the type real structural equality
+(a `record`, or override `Equals`/`GetHashCode`).
+
 ## RadioControl API
 
 ### Builder
