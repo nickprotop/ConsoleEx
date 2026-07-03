@@ -52,9 +52,13 @@ public class RenderingDiagnostics
 	public int CurrentFrameNumber => _frameNumber;
 
 	/// <summary>
-	/// Gets the most recent CharacterBuffer snapshot.
+	/// Gets the most recent CharacterBuffer snapshot. Falls back to the latest earlier frame that
+	/// captured a buffer when the current frame did not render one (e.g. a no-op
+	/// <c>UpdateDisplay()</c> that advanced the frame counter without repainting), so callers always
+	/// see the last painted screen rather than a transient null.
 	/// </summary>
-	public CharacterBufferSnapshot? LastBufferSnapshot => GetSnapshot<CharacterBufferSnapshot>(_frameNumber);
+	public CharacterBufferSnapshot? LastBufferSnapshot =>
+		GetSnapshot<CharacterBufferSnapshot>(_frameNumber) ?? GetLatestBufferSnapshot();
 
 	/// <summary>
 	/// Gets the most recent ANSI lines snapshot.
@@ -285,6 +289,24 @@ public class RenderingDiagnostics
 			return _outputSnapshots.GetValueOrDefault(frameNumber) as T;
 
 		return null;
+	}
+
+	/// <summary>
+	/// Returns the buffer snapshot from the highest-numbered frame that captured one, or
+	/// <c>null</c> if no buffer has been captured. Used as a fallback so <see cref="LastBufferSnapshot"/>
+	/// survives trailing no-op frames that advanced the counter without repainting.
+	/// </summary>
+	private CharacterBufferSnapshot? GetLatestBufferSnapshot()
+	{
+		if (_bufferSnapshots.Count == 0)
+			return null;
+
+		int latest = int.MinValue;
+		foreach (var frame in _bufferSnapshots.Keys)
+			if (frame > latest)
+				latest = frame;
+
+		return _bufferSnapshots.GetValueOrDefault(latest);
 	}
 
 	/// <summary>
