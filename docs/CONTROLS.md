@@ -1,6 +1,6 @@
 # Controls Reference
 
-SharpConsoleUI provides 40 built-in UI controls for building rich console applications.
+SharpConsoleUI provides 41 built-in UI controls for building rich console applications.
 
 > **New to SharpConsoleUI?** Start with the [Tutorials](tutorials/README.md) — step-by-step guides that build real apps from scratch.
 
@@ -43,6 +43,7 @@ Controls for user input and interaction.
 | **[MultilineEditControl](controls/MultilineEditControl.md)** | Multi-line text editor | [Syntax highlighting](SYNTAX_HIGHLIGHTING.md) (13 built-in languages via `SyntaxHighlighters.For(...)`), pluggable gutter, find/replace, undo/redo, word wrap |
 | **[SliderControl](controls/SliderControl.md)** | Value slider with thumb | Horizontal/vertical, step/large-step, keyboard/mouse drag |
 | **[RangeSliderControl](controls/RangeSliderControl.md)** | Dual-thumb range slider | MinRange enforcement, tab to switch thumbs, range events |
+| **[FormControl](controls/FormControl.md)** | Labeled-input form | Two-column grid (label \| editor), typed field overloads (text/multiline/checkbox/dropdown/radio/slider), custom `AddField`, sections with collapse, row packing, validation, `GetValues`/`Submit`/`Submitted` |
 
 ## Selection Controls
 

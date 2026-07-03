@@ -473,4 +473,11 @@ public static class Controls
 	/// <returns>A new radio builder.</returns>
 	public static RadioBuilder<string> Radio(SharpConsoleUI.Controls.RadioGroup<string> group, string label) =>
 		new RadioBuilder<string>(group, label, label);
+
+	/// <summary>
+	/// Creates a fluent builder for a <see cref="FormControl"/> — a labeled-input form composed
+	/// from real input controls in a two-column grid.
+	/// </summary>
+	/// <returns>A new <see cref="FormBuilder"/>.</returns>
+	public static FormBuilder Form() => new FormBuilder();
 }

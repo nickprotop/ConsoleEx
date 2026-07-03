@@ -40,6 +40,7 @@ public static class LauncherWindow
 				.AddItem("Control Roles", subtitle: "Semantic roles (Danger/Success…) — solid & outline, per theme", content: MakeInfoPanel("Control Roles"))
 					.AddItem("Chat Transcript", subtitle: "Agent chat - role styles, streaming, collapsible tool msgs, gradient/alpha/animation", content: MakeInfoPanel("Chat Transcript"))
 					.AddItem("Radio Buttons", subtitle: "Grouped single-select — typed values, wrap, alignment, grid grouping", content: MakeInfoPanel("Radio Buttons"))
+					.AddItem("Form", subtitle: "Labeled inputs, validation, sections, hints", content: MakeInfoPanel("Form"))
 				.AddItem("Table", subtitle: "Interactive employee directory", content: MakeInfoPanel("Table"))
 				.AddItem("DataGrid", subtitle: "Virtual DataGrid with 10K rows", content: MakeInfoPanel("DataGrid"))
 				.AddItem("Nerd Fonts", subtitle: "NerdFont icon showcase", content: MakeInfoPanel("Nerd Fonts"))
@@ -254,6 +255,7 @@ public static class LauncherWindow
 			"Control Roles" => ControlRolesWindow.Create(ws),
 			"Chat Transcript" => ChatTranscriptDemoWindow.Create(ws),
 			"Radio Buttons" => RadioDemoWindow.Create(ws),
+			"Form" => FormDemoWindow.Create(ws),
 			"Table" => TableDemoWindow.Create(ws),
 			"DataGrid" => DataGridWindow.Create(ws),
 			"Nerd Fonts" => NerdFontWindow.Create(ws),
@@ -1170,6 +1172,34 @@ public static class LauncherWindow
 				"",
 				"[dim]API:[/] Controls.RadioGroup<T>().Required() +",
 				"  Controls.Radio(group, value, label)",
+			},
+			"Form" => new List<string>
+			{
+				"[bold]Form[/]",
+				"",
+				"A labeled-input form: a two-column (label | editor) grid",
+				"that composes real input controls. Fields carry hints,",
+				"required/custom validation, and collapsible sections.",
+				"",
+				"[dim]Shown here — a connection dialog:[/]",
+				"  - Connection: Host (required), Port (int validator),",
+				"    Driver dropdown — each with a dim hint line",
+				"  - Advanced (collapsed): SSL checkbox, Mode radios,",
+				"    Timeout slider — click ▸ to expand",
+				"  - OK / Cancel button row; OK validates then submits",
+				"",
+				"[dim]Try it:[/] Click OK with Host empty (inline error),",
+				"  type a bad Port, expand Advanced, then submit to see",
+				"  the collected values in the result panel.",
+				"",
+				"[dim]API:[/] Controls.Form().AddText(...).AddDropdown(...)",
+				"  .AddSection(\"Advanced\", collapsible: true) .WithButtons()",
+				"  .OnSubmit(values => ...)",
+				"",
+				"[dim]Controls used:[/]",
+				"  - FormControl (subclasses GridControl)",
+				"  - PromptControl, DropdownControl, CheckboxControl",
+				"  - RadioGroup, SliderControl, MarkupControl",
 			},
 			_ => null
 		};

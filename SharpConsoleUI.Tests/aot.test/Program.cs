@@ -621,6 +621,46 @@ try
 		return Fail($"ChatTranscriptControl: {ex.GetType().Name}: {ex.Message}");
 	}
 
+	// 14. FormControl — exercises the builder API, field types, section collapsing, validation,
+	//     and Submit() all under NativeAOT. FormControl is a GridControl subclass (no custom
+	//     paint/measure), so the risk surface is the builder's generic AddRadio<T> instantiation
+	//     and the plain-delegate value-getter pattern used by GetValues().
+	try
+	{
+		var form = Controls.Form()
+			.AddText("a", "A:")
+			.AddRadio("b", "B:", "x", "y")
+			.AddDropdown("c", "C:", new[] { "1", "2" })
+			.AddSection("Adv", collapsible: true)
+			.AddCheckbox("d", "D")
+			.WithButtons()
+			.Build();
+
+		var formWindow = new Window(system) { Width = 60, Height = 20, Top = 1, Left = 1, Title = "form" };
+		formWindow.AddControl(form);
+		system.AddWindow(formWindow);
+		for (int i = 0; i < 3; i++) system.ProcessOnce();
+
+		// GetValues() exercises every plain getter delegate under AOT.
+		var values = form.GetValues();
+		if (values == null)
+			return Fail("FormControl.GetValues() returned null");
+
+		// Submit() runs Validate() then fires Submitted (no required fields → always passes).
+		form.Submit();
+
+		for (int i = 0; i < 2; i++) system.ProcessOnce();
+		system.CloseWindow(formWindow, force: true);
+		controlCount++;
+		Console.Error.WriteLine("AOT SMOKE NOTE: FormControl (builder, AddRadio<T>, GetValues, Submit) exercised");
+	}
+	catch (Exception ex)
+	{
+		if (IsAotFailure(ex))
+			return Fail($"FormControl AOT failure: {ex}");
+		return Fail($"FormControl: {ex.GetType().Name}: {ex.Message}");
+	}
+
 }
 catch (Exception ex)
 {
@@ -640,6 +680,7 @@ Console.Error.WriteLine(
 	$"markdown+highlighters+spectre+image AOT-clean; " +
 	$"HtmlControl exercised (AngleSharp + CSS calc(); IL2072 cleared via scoped suppression); " +
 	$"ChatTranscriptControl (thinking/streaming/gradient/alpha) exercised; " +
+	$"FormControl (builder, AddRadio<T>, GetValues, Submit) exercised; " +
 	$"{driver.ScreenSize.Width}x{driver.ScreenSize.Height} rendered.");
 return 0;
 
