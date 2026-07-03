@@ -311,6 +311,12 @@ public static class Controls
 	/// <returns>A new <see cref="WizardControlBuilder"/>.</returns>
 	public static WizardControlBuilder Wizard() => new WizardControlBuilder();
 
+	/// <summary>
+	/// Creates a new chat transcript builder.
+	/// </summary>
+	/// <returns>A new chat transcript builder.</returns>
+	public static ChatTranscriptBuilder ChatTranscript() => new ChatTranscriptBuilder();
+
 	/// <summary>Creates a fluent builder for a CollapsiblePanel, optionally seeding the title.</summary>
 	public static CollapsiblePanelBuilder CollapsiblePanel(string? title = null)
 	{

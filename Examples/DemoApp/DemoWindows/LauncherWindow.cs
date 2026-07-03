@@ -38,6 +38,7 @@ public static class LauncherWindow
 				.AddItem("List View", subtitle: "NuGet-style package browser", content: MakeInfoPanel("List View"))
 				.AddItem("Disabled States", subtitle: "Enabled vs. disabled controls — compare theme rendering", content: MakeInfoPanel("Disabled States"))
 				.AddItem("Control Roles", subtitle: "Semantic roles (Danger/Success…) — solid & outline, per theme", content: MakeInfoPanel("Control Roles"))
+					.AddItem("Chat Transcript", subtitle: "Agent chat - role styles, streaming, collapsible tool msgs, gradient/alpha/animation", content: MakeInfoPanel("Chat Transcript"))
 					.AddItem("Radio Buttons", subtitle: "Grouped single-select — typed values, wrap, alignment, grid grouping", content: MakeInfoPanel("Radio Buttons"))
 				.AddItem("Table", subtitle: "Interactive employee directory", content: MakeInfoPanel("Table"))
 				.AddItem("DataGrid", subtitle: "Virtual DataGrid with 10K rows", content: MakeInfoPanel("DataGrid"))
@@ -251,6 +252,7 @@ public static class LauncherWindow
 			"List View" => ListViewWindow.Create(ws),
 			"Disabled States" => DisabledStatesWindow.Create(ws),
 			"Control Roles" => ControlRolesWindow.Create(ws),
+			"Chat Transcript" => ChatTranscriptDemoWindow.Create(ws),
 			"Radio Buttons" => RadioDemoWindow.Create(ws),
 			"Table" => TableDemoWindow.Create(ws),
 			"DataGrid" => DataGridWindow.Create(ws),
@@ -1117,6 +1119,32 @@ public static class LauncherWindow
 				"    re-derive from each palette.",
 				"",
 				"[dim]API:[/] .WithColorRole(ColorRole.Danger).Outline()",
+			},
+			"Chat Transcript" => new List<string>
+			{
+					"[bold]Chat Transcript[/]",
+					"",
+					"An agent-style chat transcript: an ordered list of",
+					"role-tagged messages built from real collapsible panels,",
+					"each with markdown bodies, streaming and thinking states.",
+					"",
+					"[dim]Polish features shown:[/]",
+					"  - Gradient Assistant header (teal to violet sweep)",
+					"  - Semi-transparent User bubble (alpha-blended bg)",
+					"  - Token-by-token streaming (marshalled to UI thread)",
+					"  - Collapsible tool/system messages animate open/closed",
+					"  - Thinking spinner that clears on the first token",
+					"",
+					"[dim]Try it:[/] Watch the assistant stream in, then click",
+					"  a tool or System header to expand its collapsed body.",
+					"",
+					"[dim]API:[/] Controls.ChatTranscript().AnimateMessages()",
+					"  .WithRoleStyle(role, style) +",
+					"  chat.AddMessage / Append / UpdateMessage",
+					"",
+					"[dim]Controls used:[/]",
+					"  - ChatTranscriptControl (subclasses ScrollablePanel)",
+					"  - CollapsiblePanel, MarkupControl, SpinnerControl",
 			},
 			"Radio Buttons" => new List<string>
 			{

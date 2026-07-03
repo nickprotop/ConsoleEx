@@ -575,6 +575,52 @@ try
 		return Fail($"gradient markup: {ex.GetType().Name}: {ex.Message}");
 	}
 
+	// 13. ChatTranscriptControl — exercises the composition paths (CollapsiblePanel children,
+	//     SpinnerControl thinking indicator, MarkupControl body, streaming Append, gradient
+	//     header, alpha background) under NativeAOT.  The control is an honest subclass of
+	//     ScrollablePanelControl so no new rendering code is exercised — only the child-hosting
+	//     and role-style wiring is unique to ChatTranscriptControl.
+	try
+	{
+		var chat = Controls.ChatTranscript().AnimateMessages(true).Build();
+
+		// User message — plain non-thinking path.
+		chat.AddMessage(ChatRole.User, "hi");
+
+		// Assistant message — thinking spinner path, then first Append clears the spinner.
+		var thinkingId = chat.AddMessage(ChatRole.Assistant, "", thinking: true);
+		chat.Append(thinkingId, "token");   // clears spinner, creates MarkupControl body
+
+		// Tool message — collapsible path (starts collapsed per the default Tool style).
+		chat.AddMessage(ChatRole.Tool, "tool output");
+
+		// SetRoleStyle — gradient header path (hex-encoded gradient wraps the header markup).
+		chat.SetRoleStyle(ChatRole.Assistant, new ChatRoleStyle
+		{
+			HeaderGradient = (Color.Cyan, Color.Magenta)
+		});
+
+		// SetRoleStyle — alpha background path (Color.WithAlpha produces a blended background).
+		chat.SetRoleStyle(ChatRole.User, new ChatRoleStyle
+		{
+			Background = Color.Blue.WithAlpha(160)
+		});
+
+		var chatWindow = new Window(system) { Width = 80, Height = 24, Top = 1, Left = 1, Title = "chat" };
+		chatWindow.AddControl(chat);
+		system.AddWindow(chatWindow);
+		for (int i = 0; i < 3; i++) system.ProcessOnce();
+		system.CloseWindow(chatWindow, force: true);
+		controlCount++;
+		Console.Error.WriteLine("AOT SMOKE NOTE: ChatTranscriptControl (thinking/streaming/gradient/alpha paths) exercised");
+	}
+	catch (Exception ex)
+	{
+		if (IsAotFailure(ex))
+			return Fail($"ChatTranscriptControl AOT failure: {ex}");
+		return Fail($"ChatTranscriptControl: {ex.GetType().Name}: {ex.Message}");
+	}
+
 }
 catch (Exception ex)
 {
@@ -593,6 +639,7 @@ Console.Error.WriteLine(
 	$"data binding (Bind/BindTwoWay via Expression interpreter) + [gradient=...] markup (typeof(Color).GetProperty) exercised; " +
 	$"markdown+highlighters+spectre+image AOT-clean; " +
 	$"HtmlControl exercised (AngleSharp + CSS calc(); IL2072 cleared via scoped suppression); " +
+	$"ChatTranscriptControl (thinking/streaming/gradient/alpha) exercised; " +
 	$"{driver.ScreenSize.Width}x{driver.ScreenSize.Height} rendered.");
 return 0;
 
