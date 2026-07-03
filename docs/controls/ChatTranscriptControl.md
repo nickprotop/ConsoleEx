@@ -247,7 +247,7 @@ Marshal calls via `windowSystem.EnqueueOnUIThread`:
 ws.EnqueueOnUIThread(() => chat.Append(id, token));
 ```
 
-`Container?.Invalidate(...)` is the only call that is thread-safe from a background thread.
+You don't need to invalidate or repaint after these calls — mutating a message self-invalidates through the reactive framework, so the transcript redraws on the next frame. (Should you ever need to force a redraw from a background thread directly, `Container?.Invalidate(...)` is the one call that is safe to make off the UI thread.)
 
 ## Markdown Mid-Stream
 
@@ -335,7 +335,6 @@ var window = new WindowBuilder(ws)
             ChatRole.Tool,
             "```\ndiff(dirty=1274 cells, skipped=3826)\nlatency=1.8ms\n```",
             author: "🔧 diff_engine"));
-        win.Invalidate(Invalidation.Relayout);
         await Task.Delay(600, ct);
 
         // 3. Stream the final answer into the thinking message.
@@ -346,7 +345,6 @@ var window = new WindowBuilder(ws)
         {
             ct.ThrowIfCancellationRequested();
             ws.EnqueueOnUIThread(() => chat.Append(thinkId, token));
-            win.Invalidate(Invalidation.Relayout);
             await Task.Delay(90, ct);
         }
     })
