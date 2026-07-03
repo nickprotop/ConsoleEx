@@ -43,7 +43,7 @@ Controls for user input and interaction.
 | **[MultilineEditControl](controls/MultilineEditControl.md)** | Multi-line text editor | [Syntax highlighting](SYNTAX_HIGHLIGHTING.md) (13 built-in languages via `SyntaxHighlighters.For(...)`), pluggable gutter, find/replace, undo/redo, word wrap |
 | **[SliderControl](controls/SliderControl.md)** | Value slider with thumb | Horizontal/vertical, step/large-step, keyboard/mouse drag |
 | **[RangeSliderControl](controls/RangeSliderControl.md)** | Dual-thumb range slider | MinRange enforcement, tab to switch thumbs, range events |
-| **[FormControl](controls/FormControl.md)** | Labeled-input form | Two-column grid (label \| editor), typed field overloads (text/multiline/checkbox/dropdown/radio/slider), custom `AddField`, sections with collapse, row packing, validation, `GetValues`/`Submit`/`Submitted` |
+| **[FormControl](controls/FormControl.md)** | Labeled-input form | Two-column grid (label \| editor), typed field overloads (text/multiline/checkbox/dropdown/radio/slider), custom `AddField`, sections with collapse, row packing, validation, `GetValues`/`Submit`/`Submitted`, declarative [XML loader](FORM_XML.md) |
 
 ## Selection Controls
 

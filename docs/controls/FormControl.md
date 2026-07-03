@@ -11,10 +11,10 @@ Column 0 is `GridLength.Auto` (sized to the widest label); column 1 is `GridLeng
 Value access is AOT-safe: each field carries a plain `Func<string?>` delegate — no reflection. `GetValues()` invokes every getter to produce a name→value snapshot.
 
 The primary entry point is `Controls.Form()` which returns a `FormBuilder` for fluent configuration.
+A form can also be described declaratively in XML and built with `FormXml` — see
+[Loading forms from XML](#loading-forms-from-xml).
 
-> **Note:** A JSON declarative loader (load a form from a descriptor file) is a planned follow-on (Spec #2) — it is not available yet.
-
-See also: [CheckboxControl](CheckboxControl.md), [DropdownControl](DropdownControl.md), [RadioControl](RadioControl.md), [GridControl](GridControl.md)
+See also: [CheckboxControl](CheckboxControl.md), [DropdownControl](DropdownControl.md), [RadioControl](RadioControl.md), [GridControl](GridControl.md), [Form XML reference](../FORM_XML.md)
 
 ## Quick Start
 
@@ -305,6 +305,28 @@ Raises `Cancelled` directly, without validation.
 | `.Build()` | Returns the configured `FormControl` |
 
 `FormBuilder` also carries an implicit conversion to `FormControl`, so you can pass a builder directly where a `FormControl` is expected.
+
+## Loading forms from XML
+
+Instead of imperative builder calls, a form can be described in a small XML document and built with
+`FormXml`:
+
+```csharp
+using SharpConsoleUI.Controls.Forms;
+
+var form = FormXml.FromXml(@"
+<form>
+  <text name='name'  label='Name:'  required='true'/>
+  <text name='email' label='Email:' pattern='^[^@]+@[^@]+$'/>
+  <buttons/>
+</form>");
+```
+
+`FormXml.FromXml(xml)` / `FromXmlFile(path)` parse the XML and drive this same `FormControl` API —
+elements map to the `Add*` methods, and `<text>` fields support declarative validation attributes plus
+a `rule='name'` registry hook. It adds no dependency and is AOT-safe.
+
+→ **Full schema and validation reference:** [FORM_XML.md](../FORM_XML.md)
 
 ## Layout Properties
 

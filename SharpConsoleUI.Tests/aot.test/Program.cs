@@ -305,7 +305,7 @@ try
 		rWindow.AddControl(rSmall);
 		rWindow.AddControl(rLarge);
 		rSmall.Select();                                  // exercises the group coordination path
-		// also a string-valued group (label-as-value overload) to instantiate a second concrete T:
+														  // also a string-valued group (label-as-value overload) to instantiate a second concrete T:
 		var themeGroup = Controls.RadioGroup<string>().Build();
 		var rLight = Controls.Radio(themeGroup, "Light").Build();
 		rWindow.AddControl(rLight);
@@ -661,6 +661,38 @@ try
 		return Fail($"FormControl: {ex.GetType().Name}: {ex.Message}");
 	}
 
+	// 15. FormXml — builds a FormControl from a declarative XML string. This exercises the two AOT
+	//     "watch" paths the loader introduces: XDocument parsing (System.Xml.Linq) and a runtime
+	//     `new Regex(pattern)` (interpreted, not source-generated) from a `pattern=` attribute — plus
+	//     the `type=int` numeric validator. FormXml is a thin call-through onto the same FormControl
+	//     API already exercised above, so the loader itself is the only new surface.
+	try
+	{
+		var xmlForm = SharpConsoleUI.Controls.Forms.FormXml.FromXml(
+			"<form><text name='a' label='A:' type='int'/><text name='b' pattern='^\\d+$'/>" +
+			"<section title='Adv' collapsible='true'><checkbox name='c' label='C'/></section><buttons/></form>");
+
+		var xmlWindow = new Window(system) { Width = 60, Height = 20, Top = 1, Left = 1, Title = "formxml" };
+		xmlWindow.AddControl(xmlForm);
+		system.AddWindow(xmlWindow);
+		for (int i = 0; i < 3; i++) system.ProcessOnce();
+
+		// Validate() runs the composed validators (int parse + compiled-at-runtime Regex) under AOT.
+		xmlForm.Validate();
+		xmlForm.GetValues();
+
+		for (int i = 0; i < 2; i++) system.ProcessOnce();
+		system.CloseWindow(xmlWindow, force: true);
+		controlCount++;
+		Console.Error.WriteLine("AOT SMOKE NOTE: FormXml (XDocument parse + runtime Regex validator) exercised");
+	}
+	catch (Exception ex)
+	{
+		if (IsAotFailure(ex))
+			return Fail($"FormXml AOT failure: {ex}");
+		return Fail($"FormXml: {ex.GetType().Name}: {ex.Message}");
+	}
+
 }
 catch (Exception ex)
 {
@@ -681,6 +713,7 @@ Console.Error.WriteLine(
 	$"HtmlControl exercised (AngleSharp + CSS calc(); IL2072 cleared via scoped suppression); " +
 	$"ChatTranscriptControl (thinking/streaming/gradient/alpha) exercised; " +
 	$"FormControl (builder, AddRadio<T>, GetValues, Submit) exercised; " +
+	$"FormXml (XDocument parse + runtime Regex validator) exercised; " +
 	$"{driver.ScreenSize.Width}x{driver.ScreenSize.Height} rendered.");
 return 0;
 
