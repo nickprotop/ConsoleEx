@@ -349,6 +349,16 @@ var window = new WindowBuilder(ws)
     .BuildAndShow();
 ```
 
+> **Dropping the marshalling.** The `EnqueueOnUIThread` wrappers above are required because the async window thread runs on a background `Task` by default, so its mutations must be marshalled to the UI thread. If you opt into `ConsoleWindowSystemOptions.InstallSynchronizationContext = true`, every `await` inside the window thread resumes **on the UI thread** — so any mutation that runs *after* an `await` can be called directly, no wrapper:
+>
+> ```csharp
+> // With InstallSynchronizationContext = true:
+> await Task.Delay(1200, ct);
+> chat.AddMessage(ChatRole.Tool, "…", author: "🔧 diff_engine");   // safe — resumed on the UI thread
+> ```
+>
+> One caveat: code *before the first `await`* still runs on the background thread the `Task` started on, so seed the opening message synchronously (before the window is built, as done above) rather than as the delegate's first line. `InstallSynchronizationContext` is a global, opt-in setting — leave it off if any of your synchronous input/click handlers block on async (`.Result` / `.GetAwaiter().GetResult()`), which would deadlock under it. See [Threading & Async](../THREADING_AND_ASYNC.md).
+
 ## Best Practices
 
 1. **Always marshal mutations to the UI thread.** Streaming tokens arrive on background threads; wrap every `Append`, `AddMessage`, `UpdateMessage`, and `RemoveMessage` call in `windowSystem.EnqueueOnUIThread(...)`.
