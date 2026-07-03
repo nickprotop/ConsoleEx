@@ -996,19 +996,29 @@ namespace SharpConsoleUI.Windows
 					int visibleTop = _window._scrollOffset + _window._topStickyHeight;
 					int visibleBottom = _window._scrollOffset + (_window.ContentHeight - _window._bottomStickyHeight);
 
-					if (contentTop < visibleTop)
-					{
-						// Ensure we never set a negative scroll offset
-						_window._scrollOffset = Math.Max(0, contentTop - _window._topStickyHeight);
-					}
-					else if (contentBottom > visibleBottom)
-					{
-						// Calculate how much we need to scroll to show the bottom of the content
-						int newOffset = contentBottom - (_window.ContentHeight - _window._bottomStickyHeight);
+					int visibleHeight = _window.ContentHeight - _window._topStickyHeight - _window._bottomStickyHeight;
+					bool intersects = contentTop < visibleBottom && contentBottom > visibleTop;
 
-						// Ensure we don't scroll beyond the maximum available content
-						int maxOffset = Math.Max(0, _window.ContentLineCount - (_window.ContentHeight - _window._topStickyHeight));
-						_window._scrollOffset = Math.Min(newOffset, maxOffset);
+					// A focused region taller than the visible window that already overlaps it is maximally
+					// visible; aligning to its top would push the focused element off-screen. Its own content
+					// / inner viewport reveals what's focused inside it. (#67 — window-level twin of the
+					// ScrollRangeIntoView guard.)
+					if (!(contentHeight >= visibleHeight && intersects))
+					{
+						if (contentTop < visibleTop)
+						{
+							// Ensure we never set a negative scroll offset
+							_window._scrollOffset = Math.Max(0, contentTop - _window._topStickyHeight);
+						}
+						else if (contentBottom > visibleBottom)
+						{
+							// Calculate how much we need to scroll to show the bottom of the content
+							int newOffset = contentBottom - (_window.ContentHeight - _window._bottomStickyHeight);
+
+							// Ensure we don't scroll beyond the maximum available content
+							int maxOffset = Math.Max(0, _window.ContentLineCount - (_window.ContentHeight - _window._topStickyHeight));
+							_window._scrollOffset = Math.Min(newOffset, maxOffset);
+						}
 					}
 				}
 

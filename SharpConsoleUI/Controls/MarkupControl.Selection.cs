@@ -348,8 +348,13 @@ namespace SharpConsoleUI.Controls
 
 			if (scroller != null && directChild != null)
 			{
-				int revealRow = Math.Max(0, _selEndRow + rows);
-				scroller.ScrollChildRegionIntoView(directChild, revealRow, 1);
+				// Translate the selection edge row (this control's own display-row space) into the
+				// directChild's coordinate space, exactly as ScrollFocusedLinkIntoView does — otherwise a
+				// label-relative row is wrongly applied against an outer container's slot, jumping the panel
+				// to content-top on drag-select in nested layouts (#67).
+				int selAbsoluteY = ActualY + Margin.Top + Math.Max(0, _selEndRow + rows);
+				int regionTop = selAbsoluteY - directChild.ActualY;
+				scroller.ScrollChildRegionIntoView(directChild, regionTop, 1);
 				return;
 			}
 
@@ -553,15 +558,23 @@ namespace SharpConsoleUI.Controls
 			if (args.HasFlag(MouseFlags.Button1Dragged) && _isDragging)
 			{
 				// Store the drag Y in CLIP-RELATIVE rows (relative to the visible viewport top), so
-				// autoscroll edge detection is host-agnostic. args.Position.Y is control-relative in
-				// content space; for a control hosted directly in a SCROLLED window the control's
-				// AbsoluteBounds.Y (ActualY) is shifted by -ScrollOffset, so the raw value is offset by
-				// the scroll amount. Converting to absolute (+ActualY +Margin.Top) then subtracting the
-				// cached clip top (_lastClipRectY) yields a value measured from the visible viewport
-				// top. For SPC-hosted controls ActualY == clip top, so this is a no-op there. (#45-adjacent)
+				// autoscroll edge detection is host-agnostic. args.Position.Y is the mouse Y measured from
+				// the control's BOUNDS top (hit-testing does row = Position.Y - _cachedOriginY, where
+				// _cachedOriginY == topInset = Margin.Top + border + padding). So the absolute screen Y of
+				// the drag point is simply ActualY + Position.Y: content display-row r sits at screen Y
+				// (ActualY + topInset + r) and Position.Y == topInset + r, so the topInset (incl. Margin.Top)
+				// cancels — it must NOT be added again. Subtracting the cached clip top (_lastClipRectY)
+				// yields the drag Y measured from the visible viewport top. For a control hosted directly in
+				// a SCROLLED window, ActualY is shifted by -ScrollOffset while the clip stays at the content
+				// top, so this conversion is what makes edge detection host-agnostic; for an unscrolled/
+				// SPC-direct control ActualY == clip top, so it reduces to Position.Y. Previously this line
+				// added Margin.Top a second time, which double-counted for a MARGINED, non-SPC-direct control
+				// (e.g. issue #67's nested label): an in-bounds drag on the visible row reported drag Y ==
+				// ViewportHeightRows, which ComputeStep read as "past the bottom edge" → runaway autoscroll
+				// (selection jitter + a later click extending instead of clearing). (#67 follow-on)
 				lock (_selectionLock)
 				{
-					_lastDragRelativeY = args.Position.Y + ActualY + Margin.Top - _lastClipRectY;
+					_lastDragRelativeY = args.Position.Y + ActualY - _lastClipRectY;
 				}
 				ExtendSelectionTo(args.Position.X, args.Position.Y);
 				NotifySelectionActive();

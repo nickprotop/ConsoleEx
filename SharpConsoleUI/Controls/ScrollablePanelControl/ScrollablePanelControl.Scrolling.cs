@@ -58,6 +58,7 @@ namespace SharpConsoleUI.Controls
 			if (!TryGetChildSlotBounds(child, out int top, out int _))
 				return; // Not our child (or not visible)
 
+
 			ScrollRangeIntoView(top + Math.Max(0, childRelativeTop), Math.Max(1, regionHeight));
 		}
 
@@ -88,6 +89,18 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void ScrollRangeIntoView(int regionTop, int regionHeight)
 		{
+			int viewTop = _verticalScrollOffset;
+			int viewBottom = _verticalScrollOffset + VisibleContentHeight;
+			bool intersectsViewport = regionTop < viewBottom && regionTop + regionHeight > viewTop;
+
+
+			// A child region taller than the viewport that already overlaps it is maximally visible:
+			// scrolling to reveal its top would only push its bottom (and the focused element within it)
+			// off-screen. Its own content / inner scroll viewport reveals whatever is focused inside it.
+			// Leaving it put fixes the nested-scroll "jump to top on focus" bug (#67).
+			if (regionHeight >= VisibleContentHeight && intersectsViewport)
+				return;
+
 			if (regionTop < _verticalScrollOffset)
 			{
 				_autoScroll = false; // Detach: focus-driven scroll overrides autoScroll
