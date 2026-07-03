@@ -406,7 +406,7 @@ namespace SharpConsoleUI.Controls
 			{
 				return _disabledForegroundColorValue
 					?? ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
-					?? Container?.GetConsoleWindowSystem?.Theme?.CheckboxDisabledForegroundColor ?? Color.DarkSlateGray1;
+					?? Container?.GetConsoleWindowSystem?.Theme?.CheckboxDisabledForegroundColor ?? Color.Grey50;
 			}
 			if (state == ColorRoleState.Focused)
 			{
@@ -502,8 +502,10 @@ namespace SharpConsoleUI.Controls
 			checkboxWidth = Math.Min(Math.Max(minWidth, checkboxWidth), targetWidth);
 			string checkboxContent;
 
-			// Build checkmark display with optional color markup
-			string checkmarkDisplay = _checked
+			// Build checkmark display with optional color markup. Only tint with CheckmarkColor when
+			// ENABLED: a disabled+checked checkbox must dim its mark to the resolved (grey) disabled
+			// foreground like its label, not paint a vivid CheckmarkColor glyph that looks active.
+			string checkmarkDisplay = _checked && _isEnabled
 				? $"[{CheckmarkColor.ToMarkup()}]{checkmark}[/]"
 				: checkmark;
 

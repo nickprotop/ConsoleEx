@@ -8,6 +8,7 @@
 
 using System.Xml;
 using System.Xml.Linq;
+using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Controls.Forms
 {
@@ -186,7 +187,9 @@ namespace SharpConsoleUI.Controls.Forms
 				Attr(el, "initial") ?? "",
 				validate,
 				required,
-				Attr(el, "hint"));
+				Attr(el, "hint"),
+				NullableIntAttr(el, "width"),
+				NullableAlignAttr(el));
 		}
 
 		/// <summary>
@@ -327,7 +330,7 @@ namespace SharpConsoleUI.Controls.Forms
 
 		/// <summary>
 		/// Adds a single-select dropdown from a comma-separated <c>options</c> list. The convenience
-		/// <see cref="FormControl.AddDropdown(string, string, System.Collections.Generic.IEnumerable{string}, string?, string?)"/>
+		/// <see cref="FormControl.AddDropdown(string, string, System.Collections.Generic.IEnumerable{string}, string?, string?, int?, SharpConsoleUI.Layout.HorizontalAlignment?)"/>
 		/// overload has no <c>validate</c>/<c>required</c> parameter, so declarative validation attributes are
 		/// not applied here — a dropdown always holds one of its options, so it is inherently "required".
 		/// </summary>
@@ -339,7 +342,9 @@ namespace SharpConsoleUI.Controls.Forms
 				Attr(el, "label") ?? "",
 				opts,
 				Attr(el, "initial"),
-				Attr(el, "hint"));
+				Attr(el, "hint"),
+				NullableIntAttr(el, "width"),
+				NullableAlignAttr(el));
 		}
 
 		/// <summary>
@@ -347,7 +352,9 @@ namespace SharpConsoleUI.Controls.Forms
 		/// <c>initial</c> attribute is present, selects it via the typed <see cref="RadioGroup{T}"/> editor.
 		/// The <see cref="FormControl.AddRadio(string, string, string[])"/> overload has no
 		/// <c>validate</c>/<c>required</c> parameter, so declarative validation attributes are not applied — a
-		/// radio group always resolves to one of its options.
+		/// radio group always resolves to one of its options. The params-string overload also takes no
+		/// <c>width</c>, so a <c>width</c> attribute is not honoured for <c>&lt;radio&gt;</c> (radios keep their
+		/// natural, left-packed width).
 		/// </summary>
 		private static void AddRadioField(FormControl form, XElement el)
 		{
@@ -361,7 +368,7 @@ namespace SharpConsoleUI.Controls.Forms
 		}
 
 		/// <summary>
-		/// Adds a numeric slider. The <see cref="FormControl.AddSlider(string, string, double, double, double, string?)"/>
+		/// Adds a numeric slider. The <see cref="FormControl.AddSlider(string, string, double, double, double, string?, int?, SharpConsoleUI.Layout.HorizontalAlignment?)"/>
 		/// overload has no <c>validate</c>/<c>required</c> parameter and the slider already clamps to its
 		/// <c>min</c>/<c>max</c> range, so declarative validation attributes are not applied here.
 		/// </summary>
@@ -373,12 +380,14 @@ namespace SharpConsoleUI.Controls.Forms
 				DoubleAttr(el, "min", 0),
 				DoubleAttr(el, "max", 100),
 				DoubleAttr(el, "initial", 0),
-				Attr(el, "hint"));
+				Attr(el, "hint"),
+				NullableIntAttr(el, "width"),
+				NullableAlignAttr(el));
 		}
 
 		/// <summary>
 		/// Adds a multi-line text field. The
-		/// <see cref="FormControl.AddMultilineEdit(string, string, string, int, string?)"/> overload has no
+		/// <see cref="FormControl.AddMultilineEdit(string, string, string, int, string?, int?, SharpConsoleUI.Layout.HorizontalAlignment?)"/> overload has no
 		/// <c>validate</c>/<c>required</c> parameter, so multi-line fields are unvalidated in this version.
 		/// </summary>
 		private static void AddMultilineField(FormControl form, XElement el)
@@ -388,7 +397,9 @@ namespace SharpConsoleUI.Controls.Forms
 				Attr(el, "label") ?? "",
 				Attr(el, "initial") ?? "",
 				IntAttr(el, "height", 3),
-				Attr(el, "hint"));
+				Attr(el, "hint"),
+				NullableIntAttr(el, "width"),
+				NullableAlignAttr(el));
 		}
 
 		/// <summary>Returns the value of a required attribute, or throws with line context if it is missing.</summary>
@@ -445,6 +456,44 @@ namespace SharpConsoleUI.Controls.Forms
 				return value;
 			throw new FormXmlException(
 				$"<{el.Name.LocalName}> attribute '{name}' is not a valid number: '{raw}'{At(el)}.");
+		}
+
+		/// <summary>
+		/// Returns an optional integer attribute's value using the invariant culture: <c>null</c> when the
+		/// attribute is absent, the parsed value when present and valid. A present-but-unparseable value throws
+		/// a <see cref="FormXmlException"/> with line context (consistent with <see cref="IntAttr"/>).
+		/// </summary>
+		private static int? NullableIntAttr(XElement el, string name)
+		{
+			var raw = Attr(el, name);
+			if (raw == null)
+				return null;
+			if (int.TryParse(raw, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int value))
+				return value;
+			throw new FormXmlException(
+				$"<{el.Name.LocalName}> attribute '{name}' is not a valid integer: '{raw}'{At(el)}.");
+		}
+
+		/// <summary>
+		/// Returns the optional <c>align</c> attribute parsed to a <see cref="HorizontalAlignment"/>: <c>null</c>
+		/// when the attribute is absent, otherwise the value parsed case-insensitively from
+		/// <c>left</c>/<c>center</c>/<c>right</c>/<c>stretch</c>. A present-but-invalid value throws a
+		/// <see cref="FormXmlException"/> with line context (consistent with the other typed attribute readers).
+		/// </summary>
+		private static HorizontalAlignment? NullableAlignAttr(XElement el)
+		{
+			var raw = Attr(el, "align");
+			if (raw == null)
+				return null;
+			return raw.Trim().ToLowerInvariant() switch
+			{
+				"left" => HorizontalAlignment.Left,
+				"center" => HorizontalAlignment.Center,
+				"right" => HorizontalAlignment.Right,
+				"stretch" => HorizontalAlignment.Stretch,
+				_ => throw new FormXmlException(
+					$"<{el.Name.LocalName}> attribute 'align' is not a valid alignment (left|center|right|stretch): '{raw}'{At(el)}."),
+			};
 		}
 
 		/// <summary>Reads an integer attribute if present; returns <c>false</c> when absent or unparseable.</summary>

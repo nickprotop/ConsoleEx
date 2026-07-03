@@ -138,7 +138,7 @@ namespace SharpConsoleUI.Controls
 		private int GetRadioWidth()
 		{
 			string mark = Parsing.MarkupParser.Escape(Checked ? _selectedCharacter : _unselectedCharacter);
-			string content = $" ({mark}) {Parsing.MarkupParser.Escape(_label)} ";
+			string content = $"{mark} {Parsing.MarkupParser.Escape(_label)} ";
 
 			int minWidth = Parsing.MarkupParser.StripLength(content);
 			return Width ?? minWidth;
@@ -419,7 +419,7 @@ namespace SharpConsoleUI.Controls
 			{
 				return _disabledForegroundColorValue
 					?? ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, state, mode: ColorRoleMode)
-					?? Container?.GetConsoleWindowSystem?.Theme?.CheckboxDisabledForegroundColor ?? Color.DarkSlateGray1;
+					?? Container?.GetConsoleWindowSystem?.Theme?.CheckboxDisabledForegroundColor ?? Color.Grey50;
 			}
 			if (state == ColorRoleState.Focused)
 			{
@@ -459,13 +459,14 @@ namespace SharpConsoleUI.Controls
 		#region IDOMPaintable Implementation
 
 		/// <summary>
-		/// Builds the marker prefix markup (<c>" (mark) "</c>) for an explicit selection state,
-		/// escaping the marker glyph so it is treated as a literal.
+		/// Builds the marker prefix markup (<c>"mark "</c>) for an explicit selection state,
+		/// escaping the marker glyph so it is treated as a literal. The round marker glyph itself
+		/// conveys selection, so no surrounding brackets are drawn.
 		/// </summary>
 		private string BuildMarkerPrefix(bool selected)
 		{
 			string mark = Parsing.MarkupParser.Escape(selected ? _selectedCharacter : _unselectedCharacter);
-			return $" ({mark}) ";
+			return $"{mark} ";
 		}
 
 		/// <summary>
@@ -560,13 +561,17 @@ namespace SharpConsoleUI.Controls
 			int targetWidth = bounds.Width - Margin.Left - Margin.Right;
 			if (targetWidth <= 0) return;
 
-			// Build the marker prefix (" (mark) ") and its display-column width. The prefix width is
+			// Build the marker prefix ("mark ") and its display-column width. The prefix width is
 			// measured from parsed cells, so a wide marker glyph shifts the label right by its real width.
 			string mark = Parsing.MarkupParser.Escape(Checked ? _selectedCharacter : _unselectedCharacter);
-			string markDisplay = Checked
+			// Only tint the selected mark with CheckmarkColor when ENABLED. A disabled radio must dim its
+			// mark to the same (grey) foreground as its label — otherwise a disabled+selected radio paints a
+			// vivid CheckmarkColor (cyan) glyph that looks active. Leaving the mark un-tinted lets it inherit
+			// the resolved disabled foreground applied by the surrounding paint.
+			string markDisplay = Checked && _isEnabled
 				? $"[{CheckmarkColor.ToMarkup()}]{mark}[/]"
 				: mark;
-			string markerPrefix = $" ({markDisplay}) ";
+			string markerPrefix = $"{markDisplay} ";
 			int markerPrefixWidth = MeasureMarkerPrefixWidth();
 
 			// Wrap the label to the columns remaining after the marker prefix (when Wrap is enabled).

@@ -39,9 +39,9 @@ public class RadioInGridInPanelRealThingTest
 
 	/// <summary>
 	/// Mouse-input X of a radio's marker cell: the window-mouse pipeline maps content-relative ActualX
-	/// through the window border (window.Left + 1), landing on the marker at content-col 2.
+	/// through the window border (window.Left + 1), landing on the marker at content-col 0.
 	/// </summary>
-	private static int ClickX(Window window, int actualX) => window.Left + 1 + actualX + 2;
+	private static int ClickX(Window window, int actualX) => window.Left + 1 + actualX + 0;
 
 	/// <summary>Mouse-input Y of a radio's single content row (through the window border).</summary>
 	private static int ClickY(Window window, int actualY) => window.Top + 1 + actualY;
@@ -138,11 +138,10 @@ public class RadioInGridInPanelRealThingTest
 		Assert.Equal(Grp.B3, groupB.SelectedValue);
 
 		// ── Geometry inside the REAL nested layout ─────────────────────────────────────────────────
-		// After a render, each radio's painted marker glyph must sit at content-column 2 within its own
-		// arranged bounds (the " (mark) " prefix: space col 0, '(' col 1, marker col 2). In the composited
-		// buffer a control's ActualX/ActualY ARE its content-origin coordinates, so we anchor on the
-		// painted '(' at ActualX+1 and confirm the marker sits one column to its right — proving the
-		// geometry contract holds through grid + panel nesting.
+		// After a render, each radio's painted marker glyph must sit at content-column 0 within its own
+		// arranged bounds (the "mark " prefix: marker col 0, trailing space col 1). In the composited
+		// buffer a control's ActualX/ActualY ARE its content-origin coordinates, so we assert the marker
+		// glyph directly at ActualX — proving the geometry contract holds through grid + panel nesting.
 		// Force a dirty frame so the diagnostics layer captures a snapshot for this frame number
 		// (a clean no-op frame produces no snapshot).
 		panel.Invalidate(Invalidation.Relayout);
@@ -210,39 +209,29 @@ public class RadioInGridInPanelRealThingTest
 
 	/// <summary>
 	/// Verifies a radio's painted marker geometry inside the real nested layout: on the radio's arranged
-	/// content row, the opening paren <c>'('</c> of the <c>" (mark) "</c> prefix is found, and the marker
-	/// glyph sits at content-column 2 — i.e. exactly one column to the right of that paren, followed by the
-	/// closing <c>')'</c>. The paren is located from the buffer (the ScrollablePanel viewport can inset the
-	/// content origin relative to a naive <see cref="BaseControl.ActualX"/> mapping, so anchoring on the
-	/// painted paren keeps the geometry assertion robust while still proving the marker-at-col-2 contract).
+	/// content row, the marker glyph sits at content-column 0 (i.e. at <c>ActualX</c>) and is followed
+	/// by a space at content-column 1. The new prefix is <c>"mark "</c> — glyph + trailing space, no
+	/// surrounding parentheses. Anchoring on the radio's <c>ActualX</c> in the composited buffer and
+	/// asserting the glyph there proves the marker-at-col-0 contract through the real nested layout.
 	/// </summary>
 	private static void AssertMarkerGlyph<T>(CharacterBufferSnapshot snap, RadioControl<T> radio, char expected)
 	{
 		// In the composited window/desktop buffer, a control's arranged ActualX/ActualY ARE the buffer
-		// coordinates of its content origin (this window is at 0,0). The " (mark) " prefix then lays out
-		// leading-space at ActualX, '(' at ActualX+1, marker at ActualX+2.
+		// coordinates of its content origin (this window is at 0,0). The "mark " prefix lays out
+		// the marker glyph at ActualX (content-col 0) and a trailing space at ActualX+1.
 		int y = radio.ActualY;
 		Assert.True(y >= 0 && y < snap.Height,
 			$"Radio '{radio.Label}' content row (buffer y={y}) is outside the {snap.Width}x{snap.Height} buffer.");
 
-		// Anchor at the radio's arranged X, then locate the '(' of the marker prefix on that row.
-		int anchor = radio.ActualX;
-		int parenX = -1;
-		for (int x = Math.Max(0, anchor - 2); x < Math.Min(snap.Width, anchor + 6); x++)
-		{
-			if (CharAt(snap, x, y) == '(') { parenX = x; break; }
-		}
-		Assert.True(parenX >= 0,
-			$"Radio '{radio.Label}' marker-prefix '(' not found near screen x={anchor} on row {y} " +
-			$"(row='{Row(snap, y)}').");
-
-		char marker = CharAt(snap, parenX + 1, y);   // content-col 2 == one column right of '('
-		char close = CharAt(snap, parenX + 2, y);
+		int markerX = radio.ActualX;
+		char marker = CharAt(snap, markerX, y);
+		char space = CharAt(snap, markerX + 1, y);
 		Assert.True(marker == expected,
-			$"Radio '{radio.Label}' expected marker '{expected}' at content-col 2 (screen {parenX + 1},{y}) " +
+			$"Radio '{radio.Label}' expected marker '{expected}' at content-col 0 (screen {markerX},{y}) " +
 			$"but found '{marker}' (row='{Row(snap, y)}').");
-		Assert.True(close == ')',
-			$"Radio '{radio.Label}' expected ')' closing the marker prefix at screen {parenX + 2},{y} but found '{close}'.");
+		Assert.True(space == ' ',
+			$"Radio '{radio.Label}' expected trailing space at screen {markerX + 1},{y} but found '{space}' " +
+			$"(row='{Row(snap, y)}').");
 	}
 
 	/// <summary>Renders a composited-screen row as a string for diagnostics.</summary>

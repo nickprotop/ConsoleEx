@@ -219,7 +219,9 @@ namespace SharpConsoleUI.Controls
 					ColorRole = ColorRole.Danger,
 					Visible = false,
 				};
-				Place(errorView, errorRow, labelCol, colSpan: 2);
+				// The error is a clean full-width row from column 0, spanning every form column — even
+				// for a field packed at a nonzero label column — so errors line up under the whole form.
+				Place(errorView, errorRow, 0, colSpan: Math.Max(1, ColumnDefinitions.Count));
 				_nextRow++;
 
 				group.FieldIndex++;
@@ -255,7 +257,8 @@ namespace SharpConsoleUI.Controls
 					ColorRole = ColorRole.Danger,
 					Visible = false,
 				};
-				Place(errorView, errorRow, 0, colSpan: 2);
+				// A clean full-width error row from column 0, spanning every form column.
+				Place(errorView, errorRow, 0, colSpan: Math.Max(1, ColumnDefinitions.Count));
 				_nextRow++;
 			}
 
@@ -301,6 +304,15 @@ namespace SharpConsoleUI.Controls
 		/// <param name="validate">Optional validator run on the field's current text.</param>
 		/// <param name="required">Whether the field is required (empty text fails validation).</param>
 		/// <param name="hint">Optional dim hint text shown beneath the editor.</param>
+		/// <param name="width">
+		/// Optional fixed input width in columns. When <c>null</c> (the default), the editor stretches to fill
+		/// the star editor cell; when set, the input area is fixed at this width and does not stretch.
+		/// </param>
+		/// <param name="align">
+		/// Optional explicit horizontal alignment that overrides the field's default (text stretches to fill).
+		/// When <c>null</c> (the default), the smart default applies. When set, it wins over the stretch default;
+		/// an explicit <paramref name="width"/> may be combined with it (e.g. a fixed width, right-aligned).
+		/// </param>
 		/// <returns>This form, for fluent chaining.</returns>
 		public FormControl AddText(
 			string name,
@@ -308,10 +320,21 @@ namespace SharpConsoleUI.Controls
 			string initial = "",
 			Func<string?, string?>? validate = null,
 			bool required = false,
-			string? hint = null)
+			string? hint = null,
+			int? width = null,
+			HorizontalAlignment? align = null)
 		{
 			var prompt = new PromptControl();
 			prompt.SetInput(initial);
+			// An explicit width fixes the input area and wins over fill; otherwise the form's editors
+			// stretch to fill the star editor cell instead of sitting content-sized and left-aligned.
+			if (width.HasValue)
+				prompt.InputWidth = width.Value;
+			else if (!align.HasValue)
+				prompt.HorizontalAlignment = HorizontalAlignment.Stretch;
+			// An explicit align overrides the smart default (and combines with a fixed width when both are given).
+			if (align.HasValue)
+				prompt.HorizontalAlignment = align.Value;
 			return AddField(name, label, prompt, () => prompt.Input, validate, required, hint);
 		}
 
@@ -321,10 +344,33 @@ namespace SharpConsoleUI.Controls
 		/// <param name="initial">The initial content.</param>
 		/// <param name="height">The editor's viewport height in rows.</param>
 		/// <param name="hint">Optional dim hint text shown beneath the editor.</param>
+		/// <param name="width">
+		/// Optional fixed editor width in columns. When <c>null</c> (the default), the editor stretches to
+		/// fill the star editor cell; when set, the editor width is fixed at this value and does not stretch.
+		/// </param>
+		/// <param name="align">
+		/// Optional explicit horizontal alignment that overrides the field's default (multiline stretches to
+		/// fill). When <c>null</c> (the default), the smart default applies. When set, it wins over the stretch
+		/// default; an explicit <paramref name="width"/> may be combined with it.
+		/// </param>
 		/// <returns>This form, for fluent chaining.</returns>
-		public FormControl AddMultilineEdit(string name, string label, string initial = "", int height = 3, string? hint = null)
+		public FormControl AddMultilineEdit(string name, string label, string initial = "", int height = 3, string? hint = null, int? width = null, HorizontalAlignment? align = null)
 		{
 			var mle = new MultilineEditControl(initial, height);
+			// An explicit width fixes the editor and wins over fill; otherwise stretch to fill the star
+			// editor cell instead of sitting content-sized and left-aligned.
+			if (width.HasValue)
+			{
+				mle.Width = width.Value;
+				mle.HorizontalAlignment = HorizontalAlignment.Left;
+			}
+			else if (!align.HasValue)
+			{
+				mle.HorizontalAlignment = HorizontalAlignment.Stretch;
+			}
+			// An explicit align overrides the smart default (and combines with a fixed width when both are given).
+			if (align.HasValue)
+				mle.HorizontalAlignment = align.Value;
 			return AddField(name, label, mle, () => mle.Content, hint: hint);
 		}
 
@@ -350,8 +396,18 @@ namespace SharpConsoleUI.Controls
 		/// <param name="options">The selectable options.</param>
 		/// <param name="initial">The initially selected option, or <c>null</c> for none.</param>
 		/// <param name="hint">Optional dim hint text shown beneath the editor.</param>
+		/// <param name="width">
+		/// Optional fixed editor width in columns. When <c>null</c> (the default), the dropdown auto-fits to
+		/// its content (the ▾ arrow sits snug after the selected value); when set, its width is fixed at this
+		/// value.
+		/// </param>
+		/// <param name="align">
+		/// Optional explicit horizontal alignment that overrides the field's default (dropdown auto-fits, i.e.
+		/// left-aligned at natural width). When <c>null</c> (the default), the smart default applies. When set,
+		/// it wins over the auto-fit default (e.g. <see cref="HorizontalAlignment.Stretch"/> to fill the cell).
+		/// </param>
 		/// <returns>This form, for fluent chaining.</returns>
-		public FormControl AddDropdown(string name, string label, IEnumerable<string> options, string? initial = null, string? hint = null)
+		public FormControl AddDropdown(string name, string label, IEnumerable<string> options, string? initial = null, string? hint = null, int? width = null, HorizontalAlignment? align = null)
 		{
 			// The form's col-0 label already labels this field; passing the form label as the dropdown's
 			// own prompt would render it twice ("Driver  Driver PostgreSQL"). Use an empty prompt so the
@@ -359,6 +415,13 @@ namespace SharpConsoleUI.Controls
 			var dropdown = new DropdownControl(string.Empty, options);
 			if (initial != null)
 				dropdown.SelectedValue = initial;
+			// A dropdown AUTO-FITS to its content by default: stretching it flushes the ▾ arrow to the
+			// far cell edge, leaving a dead gap between the selected value and the arrow. Left-align at
+			// natural width so the arrow sits snug after the value. An explicit align overrides this default.
+			dropdown.HorizontalAlignment = align ?? HorizontalAlignment.Left;
+			// An explicit width still fixes the editor (the arrow is intentionally flush-right within it).
+			if (width.HasValue)
+				dropdown.Width = width.Value;
 			return AddField(name, label, dropdown, () => dropdown.SelectedValue, hint: hint);
 		}
 
@@ -373,11 +436,29 @@ namespace SharpConsoleUI.Controls
 		/// <param name="label">The label text.</param>
 		/// <param name="options">The (value, display-label) option pairs.</param>
 		/// <param name="hint">Optional dim hint text shown beneath the editor.</param>
+		/// <param name="width">
+		/// Optional fixed width in columns for the hosting radio panel. When <c>null</c> (the default), the
+		/// radio group takes its natural (left-packed) width — radios are not stretched to fill, as a filled
+		/// radio group reads oddly. When set, the hosting panel width is fixed at this value.
+		/// </param>
+		/// <param name="align">
+		/// Optional explicit horizontal alignment that overrides the field's default (radio panel keeps its
+		/// natural, left-packed width). When <c>null</c> (the default), the smart default applies. When set,
+		/// it is applied to the hosting panel (e.g. <see cref="HorizontalAlignment.Stretch"/> to fill the cell);
+		/// an explicit <paramref name="width"/> may be combined with it.
+		/// </param>
 		/// <returns>This form, for fluent chaining.</returns>
-		public FormControl AddRadio<T>(string name, string label, IEnumerable<(T Value, string Label)> options, string? hint = null)
+		public FormControl AddRadio<T>(string name, string label, IEnumerable<(T Value, string Label)> options, string? hint = null, int? width = null, HorizontalAlignment? align = null)
 		{
 			var group = new RadioGroup<T>();
 			var panel = new PanelControl { BorderStyle = BorderStyle.None };
+			// Radios are left-packed by nature; a filled radio group reads oddly, so the group keeps its
+			// natural width by default. An explicit width fixes the hosting panel's width as a constraint.
+			if (width.HasValue)
+				panel.Width = width.Value;
+			// An explicit align overrides the natural-width default (and combines with a fixed width).
+			if (align.HasValue)
+				panel.HorizontalAlignment = align.Value;
 			foreach (var (value, optionLabel) in options)
 				panel.AddControl(new RadioControl<T>(group, value, optionLabel));
 
@@ -411,10 +492,33 @@ namespace SharpConsoleUI.Controls
 		/// <param name="max">The slider maximum.</param>
 		/// <param name="initial">The initial value.</param>
 		/// <param name="hint">Optional dim hint text shown beneath the editor.</param>
+		/// <param name="width">
+		/// Optional fixed editor width in columns. When <c>null</c> (the default), the slider stretches to
+		/// fill the star editor cell; when set, its width is fixed at this value and does not stretch.
+		/// </param>
+		/// <param name="align">
+		/// Optional explicit horizontal alignment that overrides the field's default (slider stretches to fill).
+		/// When <c>null</c> (the default), the smart default applies. When set, it wins over the stretch default;
+		/// an explicit <paramref name="width"/> may be combined with it.
+		/// </param>
 		/// <returns>This form, for fluent chaining. The value is the number's string form.</returns>
-		public FormControl AddSlider(string name, string label, double min, double max, double initial, string? hint = null)
+		public FormControl AddSlider(string name, string label, double min, double max, double initial, string? hint = null, int? width = null, HorizontalAlignment? align = null)
 		{
 			var slider = new SliderControl { MinValue = min, MaxValue = max, Value = initial };
+			// SliderControl defaults to Stretch, so an explicit width must also switch off stretch (to Left)
+			// for the fixed width to win; otherwise the slider keeps its stretch-to-fill behaviour.
+			if (width.HasValue)
+			{
+				slider.Width = width.Value;
+				slider.HorizontalAlignment = HorizontalAlignment.Left;
+			}
+			else if (!align.HasValue)
+			{
+				slider.HorizontalAlignment = HorizontalAlignment.Stretch;
+			}
+			// An explicit align overrides the smart default (and combines with a fixed width when both are given).
+			if (align.HasValue)
+				slider.HorizontalAlignment = align.Value;
 			return AddField(name, label, slider, () => slider.Value.ToString(), hint: hint);
 		}
 
@@ -747,6 +851,20 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>Returns the given field's column-0 label control (test seam).</summary>
 		internal MarkupControl GetLabelForTest(string name) => _fieldsByName[name].Label;
+
+		/// <summary>Returns the grid placement of the given field's error line (test seam).</summary>
+		internal Layout.GridPlacement? ErrorPlacementForTest(string name)
+		{
+			var view = _fieldsByName[name].ErrorView;
+			if (view is null)
+				return null;
+			foreach (var (control, placement) in OrderedCells)
+			{
+				if (ReferenceEquals(control, view))
+					return placement;
+			}
+			return null;
+		}
 
 		/// <summary>Returns the given field's current error text, or <c>null</c> when hidden (test seam).</summary>
 		internal string? ErrorTextForTest(string name)

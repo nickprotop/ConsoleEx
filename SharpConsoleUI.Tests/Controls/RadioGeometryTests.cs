@@ -35,13 +35,13 @@ public class RadioGeometryTests
 		return -1;
 	}
 
-	// Content string is " (mark) label " with default marker "○"/"●", so for label "Small"
-	// (width 20, margin 0): first glyph '(' at col 1, marker at col 2, label 'S' at col 5,
-	// content block = marker-prefix (5) + "Small" (5) = 10 columns wide.
+	// Content string is "mark label " with default marker "○"/"●", so for label "Small"
+	// (width 20, margin 0): marker glyph at col 0, space at col 1, label 'S' at col 2,
+	// content block = marker-prefix (2) + "Small" (5) = 7 columns wide.
 	[Theory]
-	[InlineData(HorizontalAlignment.Left, 1)]     // content starts col 0; first glyph is '(' at col 1
-	[InlineData(HorizontalAlignment.Center, 6)]   // alignOffset 5 → '(' at 6
-	[InlineData(HorizontalAlignment.Right, 11)]   // alignOffset 10 → '(' at 11
+	[InlineData(HorizontalAlignment.Left, 0)]     // content starts col 0; marker glyph is at col 0
+	[InlineData(HorizontalAlignment.Center, 6)]   // alignOffset (20-7)/2=6 → marker at 6
+	[InlineData(HorizontalAlignment.Right, 13)]   // alignOffset 20-7=13 → marker at 13
 	public void HorizontalAlignment_PlacesContentBlock(HorizontalAlignment h, int expectedFirstGlyphCol)
 	{
 		var r = Radio(h);
@@ -59,11 +59,10 @@ public class RadioGeometryTests
 		var bounds = new LayoutRect(0, 0, 20, 1);
 		r.PaintDOM(buf, bounds, bounds, Color.White, Color.Black);
 
-		// prefix " (○) " → '(' col1, marker col2, ')' col3, space col4, label 'S' col5
-		Assert.Equal('(', (char)buf.GetCell(1, 0).Character.Value);
-		Assert.Equal('○', (char)buf.GetCell(2, 0).Character.Value);
-		Assert.Equal(')', (char)buf.GetCell(3, 0).Character.Value);
-		Assert.Equal('S', (char)buf.GetCell(5, 0).Character.Value);
+		// prefix "○ " → marker col0, space col1, label 'S' col2
+		Assert.Equal('○', (char)buf.GetCell(0, 0).Character.Value);
+		Assert.Equal(' ', (char)buf.GetCell(1, 0).Character.Value);
+		Assert.Equal('S', (char)buf.GetCell(2, 0).Character.Value);
 	}
 
 	[Fact]
@@ -71,7 +70,7 @@ public class RadioGeometryTests
 	{
 		var g = new RadioGroup<Size>();
 		var r = new RadioControl<Size>(g, Size.Small, "Use the system default color") { Wrap = true };
-		// narrow width forces wrap: prefix 5 + label wraps into remaining columns
+		// narrow width forces wrap: prefix 2 + label wraps into remaining columns
 		var size = r.MeasureDOM(new LayoutConstraints(0, 14, 0, 10));
 		Assert.True(size.Height > 1);
 	}
@@ -92,17 +91,17 @@ public class RadioGeometryTests
 		// Two words that will wrap onto separate lines within the label column.
 		var r = new RadioControl<Size>(g, Size.Small, "Hello World") { Wrap = true };
 		var buf = new CharacterBuffer(11, 4);
-		// width 11: margin 0, prefix 5 → label column width = 6 → "Hello" fits, "World" wraps to row 1
+		// width 11: margin 0, prefix 2 → label column width = 9 → "Hello" fits, "World" wraps to row 1
 		var bounds = new LayoutRect(0, 0, 11, 3);
 		r.PaintDOM(buf, bounds, bounds, Color.White, Color.Black);
 
-		int prefixWidth = MarkupParser.Parse(" (○) ", Color.White, Color.Black).Count;
+		int prefixWidth = MarkupParser.Parse("○ ", Color.White, Color.Black).Count;
 
-		int row0First = FirstGlyphCol(buf, 0, 11); // '(' of the marker prefix at col 1
+		int row0First = FirstGlyphCol(buf, 0, 11); // marker glyph "○" at col 0
 		int row1First = FirstGlyphCol(buf, 1, 11); // continuation label, indented under the label column
 
-		Assert.Equal(1, row0First);
-		// Continuation line hangs at the label column: startX(0) + prefixWidth(5).
+		Assert.Equal(0, row0First);
+		// Continuation line hangs at the label column: startX(0) + prefixWidth(2).
 		Assert.Equal(prefixWidth, row1First);
 		Assert.Equal('W', (char)buf.GetCell(prefixWidth, 1).Character.Value);
 	}
@@ -120,10 +119,10 @@ public class RadioGeometryTests
 		var bounds = new LayoutRect(0, 0, 20, 1);
 		r.PaintDOM(buf, bounds, bounds, Color.White, Color.Black);
 
-		// prefix " (🔘) " occupies: space(0) '('(1) marker(2)+continuation(3) ')'(4) space(5) → label at col 6.
-		// Compared to the narrow "○" case (label at col 5) the label is shifted +1.
-		int prefixWidth = MarkupParser.Parse(" (🔘) ", Color.White, Color.Black).Count;
-		Assert.Equal(6, prefixWidth); // 1 wider than the narrow prefix (5)
+		// prefix "🔘 " occupies: wide-marker(0+1) space(2) → label at col 3.
+		// Compared to the narrow "○" case (label at col 2) the label is shifted +1.
+		int prefixWidth = MarkupParser.Parse("🔘 ", Color.White, Color.Black).Count;
+		Assert.Equal(3, prefixWidth); // 1 wider than the narrow prefix (2)
 		Assert.Equal('S', (char)buf.GetCell(prefixWidth, 0).Character.Value);
 	}
 

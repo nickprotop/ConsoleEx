@@ -86,6 +86,8 @@ Single-line text field (backed by `PromptControl`). Supports all [validation att
 | `label` | string | `""` | Label text |
 | `initial` | string | `""` | Initial text |
 | `hint` | string | — | Dim hint below the editor |
+| `width` | int | — | Fixed input width in columns. Omit to stretch-fill the editor cell (default). |
+| `align` | `left`\|`center`\|`right`\|`stretch` | — | Overrides the field's default alignment (text stretch-fills). Omit for the smart default. Combines with `width`. |
 | *(validation attrs)* | — | — | See [Validation attributes](#validation-attributes) |
 
 ### `<multiline>`
@@ -103,6 +105,8 @@ Multi-line editor (backed by `MultilineEditControl`).
 | `initial` | string | `""` | Initial content |
 | `height` | int | `3` | Editor viewport height in rows |
 | `hint` | string | — | Dim hint |
+| `width` | int | — | Fixed editor width in columns. Omit to stretch-fill the editor cell (default). |
+| `align` | `left`\|`center`\|`right`\|`stretch` | — | Overrides the field's default alignment (multiline stretch-fills). Omit for the smart default. Combines with `width`. |
 
 > Validation attributes on `<multiline>` are **ignored** in this version — see [non-goals](#v1-non-goals).
 
@@ -138,6 +142,8 @@ list.
 | `options` | comma-separated | `""` | Selectable options (empty entries dropped) |
 | `initial` | string | — | Initially selected value |
 | `hint` | string | — | Dim hint |
+| `width` | int | — | Fixed editor width in columns. Omit to stretch-fill the editor cell (default). |
+| `align` | `left`\|`center`\|`right`\|`stretch` | — | Overrides the field's default alignment (dropdown auto-fits to content, i.e. `left`). Use `stretch` to fill the cell. Omit for the smart default. |
 
 > Validation attributes on `<dropdown>` are **ignored** — a dropdown always holds one of its options.
 
@@ -158,6 +164,10 @@ Single-select radio group. Options come from a comma-separated `options` list; `
 
 > Validation attributes on `<radio>` are **ignored** — a radio group always resolves to an option.
 
+> `width` and `align` attributes are **not honoured** for `<radio>` — radios keep their natural, left-packed
+> width (a filled radio group reads oddly). The imperative typed `AddRadio<T>(…, width:, align:)` overload
+> accepts both, but the XML path uses the params-string overload, which takes neither.
+
 ### `<slider>`
 
 Numeric slider (backed by `SliderControl`). The slider clamps to its `min`/`max` range.
@@ -174,6 +184,8 @@ Numeric slider (backed by `SliderControl`). The slider clamps to its `min`/`max`
 | `max` | number | `100` | Maximum value |
 | `initial` | number | `0` | Initial value |
 | `hint` | string | — | Dim hint |
+| `width` | int | — | Fixed editor width in columns. Omit to stretch-fill the editor cell (default). |
+| `align` | `left`\|`center`\|`right`\|`stretch` | — | Overrides the field's default alignment (slider stretch-fills). Omit for the smart default. Combines with `width`. |
 
 > Validation attributes on `<slider>` are **ignored** — the slider already clamps to its range.
 
