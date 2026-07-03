@@ -204,7 +204,8 @@ form.AddRow(
 );
 ```
 
-`MinFieldWidth` (default from `ControlDefaults.FormDefaultMinFieldWidth`) is the documented threshold a host can read to decide whether to stack rows on narrow windows: when the arranged form width is less than `N × MinFieldWidth` for an N-field row, that row is a candidate for stacking. The packed layout is always built.
+Fields added with `AddRow` stay packed side by side regardless of window width. Responsive stacking on
+narrow terminals is a planned follow-up (a wrap layout the form will compose).
 
 ## Buttons
 
@@ -313,7 +314,6 @@ Because `FormControl` inherits `GridControl`, you can also set:
 |----------|------|---------|-------------|
 | `ColumnGap` | `int` | `0` | Space between label and editor columns |
 | `RowGap` | `int` | `0` | Space between rows |
-| `MinFieldWidth` | `int` | `ControlDefaults.FormDefaultMinFieldWidth` | Width threshold per field for narrow-wrap hinting |
 
 ## Examples
 

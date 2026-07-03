@@ -21,12 +21,6 @@ namespace SharpConsoleUI.Configuration
 		public const int DefaultMinimumVisibleItems = 3;
 
 		/// <summary>
-		/// Default minimum column width (in cells) below which a <see cref="SharpConsoleUI.Controls.FormControl"/>
-		/// multi-field row would fall back to stacked placement (default: 20).
-		/// </summary>
-		public const int FormDefaultMinFieldWidth = 20;
-
-		/// <summary>
 		/// Default number of visible items in lists/trees (default: 10)
 		/// </summary>
 		public const int DefaultVisibleItems = 10;

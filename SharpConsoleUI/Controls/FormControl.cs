@@ -7,7 +7,6 @@
 // -----------------------------------------------------------------------
 
 using System.Collections.ObjectModel;
-using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
 using SharpConsoleUI.Themes;
@@ -100,7 +99,6 @@ namespace SharpConsoleUI.Controls
 		private bool _validateOnChange;
 		private int _currentSectionId = -1;
 		private int _nextSectionId;
-		private int _minFieldWidth = ControlDefaults.FormDefaultMinFieldWidth;
 
 		/// <summary>
 		/// The active multi-field row-packing context, or <c>null</c> when fields are placed one-per-row.
@@ -490,22 +488,6 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// The column width (in cells) below which a multi-field <see cref="AddRow"/> row would fall back to
-		/// stacked (one-field-per-row) placement rather than packing its fields side by side.
-		/// </summary>
-		/// <remarks>
-		/// In v1 the wide (packed) case is always built. This threshold is the documented, width-driven
-		/// signal a host can read to decide narrow-wrap: when the arranged form width is less than
-		/// <c>N × MinFieldWidth</c> for an N-field row, that row is a candidate for stacking. Stored via
-		/// <see cref="BaseControl.SetProperty{T}(ref T, T, string?)"/>, so changing it auto-invalidates the control.
-		/// </remarks>
-		public int MinFieldWidth
-		{
-			get => _minFieldWidth;
-			set => SetProperty(ref _minFieldWidth, value);
-		}
-
-		/// <summary>
 		/// Adds several fields onto a single grid row, packed side by side. Each adder runs against this form
 		/// while a row-packing context is active, so the field it adds is placed on the shared row in the next
 		/// label/editor column pair (field <c>i</c> → columns <c>2*i</c>/<c>2*i+1</c>) instead of a new row.
@@ -514,9 +496,9 @@ namespace SharpConsoleUI.Controls
 		/// This is the only path that widens the grid beyond its two base columns: extra
 		/// <see cref="GridLength.Auto"/> label / <see cref="GridLength.Star"/> editor column pairs are added as
 		/// needed. After all adders run, single-field-per-row placement is restored and the row advances. The
-		/// packed fields are tracked as one row-group (see <see cref="RowGroupCountForTest"/>). The wide (packed)
-		/// case is always built; <see cref="MinFieldWidth"/> is the documented, width-driven signal for a host to
-		/// decide narrow-wrap.
+		/// packed fields are tracked as one row-group (see <see cref="RowGroupCountForTest"/>). Fields stay packed
+		/// side by side regardless of width; responsive stacking on narrow terminals is a planned follow-up (a
+		/// wrap layout the form will compose).
 		/// </remarks>
 		/// <param name="fieldAdders">The per-field add callbacks (e.g. <c>f =&gt; f.AddText(...)</c>), one per column.</param>
 		/// <returns>This form, for fluent chaining.</returns>
