@@ -312,8 +312,6 @@ var chat = Controls.ChatTranscript()
     .WithMargin(1, 1, 1, 1)
     .Build();
 
-window.AddControl(chat);
-
 // Seed the opening turn synchronously (we are on the UI thread here)
 chat.AddMessage(ChatRole.User, "How does the diff engine work?");
 
