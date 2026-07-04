@@ -69,6 +69,7 @@ ChatTranscriptControl chat = Controls.ChatTranscript()
 | `AnimateMessages` | `bool` | `true` | When `true`, collapsible message panels use `CollapsibleAnimationMode.Height` so they expand/collapse with a height tween instead of snapping. Non-collapsible panels are unaffected. Only affects messages added after the value changes. |
 | `ThinkingSpinnerStyle` | `SpinnerStyle` | `SpinnerStyle.Dots` | Spinner style for thinking messages. Only affects thinking messages added after the change. |
 | `MessageIds` | `IReadOnlyList<ChatMessageId>` | — | Read-only. The ids of all messages currently in the transcript, in display order. |
+| `MessagesSelectable` | `bool` | `true` | Control-wide baseline for whether message text can be selected (and, since `MarkupControl.CopyEnabled` is `true` by default, copied). Acts as the master switch: setting it re-applies to existing message bodies. A per-role `ChatRoleStyle.Selectable` can override it in either direction — see below. |
 | `AutoScroll` | `bool` | `true` | Inherited from `ScrollablePanelControl`. When `true`, the transcript scrolls to the bottom on new content — but only while already near the bottom. |
 
 ## Message API
@@ -169,6 +170,7 @@ Defines the visual presentation of messages for a given role. All properties are
 | `Header` | `Func<ChatRole, string?, string>?` | `null` | Factory producing the header text from `(role, author)`. When `null`, a built-in label is used ("You", "Assistant", etc.). |
 | `Margin` | `Margin` | `new(0, 0, 0, 1)` | Outer margin applied to each message panel. The default leaves one blank line below each message. |
 | `Markdown` | `bool` | `true` | Whether the message body is rendered as Markdown. When `false`, content is rendered as plain text. |
+| `Selectable` | `bool?` | `null` | Per-role override for text selection. `null` inherits the control's `MessagesSelectable` baseline; `true` forces selection **on** for this role even when the master is off; `false` forces it **off** even when the master is on. A body resolves to `role.Selectable ?? MessagesSelectable`, so the two compose symmetrically (e.g. master off but `Assistant`/`Tool` output still selectable). |
 | `HeaderGradient` | `(Color From, Color To)?` | `null` | Optional gradient sweep applied to the header text. When non-`null`, the header is rendered with a color transition from `From` to `To`. |
 | `Background` | `Color?` | `null` | Optional background color for the message body area. Accepts colors with an alpha channel (via `Color.WithAlpha`) so the compositor blends the bubble over the window background. |
 
