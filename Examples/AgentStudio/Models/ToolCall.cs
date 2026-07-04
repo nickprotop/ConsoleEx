@@ -5,9 +5,9 @@ namespace AgentStudio.Models;
 /// </summary>
 public enum ToolStatus
 {
-    Running,
-    Complete,
-    Error
+	Running,
+	Complete,
+	Error
 }
 
 /// <summary>
@@ -15,12 +15,12 @@ public enum ToolStatus
 /// </summary>
 public enum ToolType
 {
-    ReadFile,
-    WriteFile,
-    RunCommand,
-    Analyze,
-    Diff,
-    Test
+	ReadFile,
+	WriteFile,
+	RunCommand,
+	Analyze,
+	Diff,
+	Test
 }
 
 /// <summary>
@@ -33,12 +33,12 @@ public enum ToolType
 /// <param name="Status">Current execution status</param>
 /// <param name="ExecutionTime">Time taken to execute in seconds</param>
 public record ToolCall(
-    ToolType Type,
-    string Name,
-    string Parameters,
-    string? Output = null,
-    ToolStatus Status = ToolStatus.Running,
-    double? ExecutionTime = null
+	ToolType Type,
+	string Name,
+	string Parameters,
+	string? Output = null,
+	ToolStatus Status = ToolStatus.Running,
+	double? ExecutionTime = null
 );
 
 /// <summary>
@@ -46,10 +46,10 @@ public record ToolCall(
 /// </summary>
 public enum Severity
 {
-    Low,
-    Medium,
-    High,
-    Critical
+	Low,
+	Medium,
+	High,
+	Critical
 }
 
 /// <summary>
@@ -59,7 +59,7 @@ public enum Severity
 /// <param name="Title">Short title/description</param>
 /// <param name="Location">File location (e.g., "line 23")</param>
 public record Finding(
-    Severity Severity,
-    string Title,
-    string? Location = null
+	Severity Severity,
+	string Title,
+	string? Location = null
 );

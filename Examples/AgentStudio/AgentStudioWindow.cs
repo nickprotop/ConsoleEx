@@ -2,12 +2,11 @@
 // AgentStudioWindow - Main showcase window with full declarative UI
 // -----------------------------------------------------------------------
 
+using AgentStudio.Models;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
-using AgentStudio.Models;
-using AgentStudio.Data;
 
 namespace AgentStudio;
 
@@ -16,472 +15,443 @@ namespace AgentStudio;
 /// </summary>
 public class AgentStudioWindow : IDisposable
 {
-    private readonly ConsoleWindowSystem _windowSystem;
-    private Window? _window;
-    private volatile bool _disposed = false;
+	private readonly ConsoleWindowSystem _windowSystem;
+	private Window? _window;
+	private volatile bool _disposed = false;
 
-    // Named controls for runtime access
-    private MarkupControl? _topStatusLeft;
-    private MarkupControl? _topStatusRight;
-    private MarkupControl? _bottomModeInfo;
-    private ScrollablePanelControl? _conversationPanel;
-    private MultilineEditControl? _inputArea;
+	// Named controls for runtime access
+	private StatusBarItem? _sessionItem;
+	private StatusBarItem? _clockItem;
+	private StatusBarItem? _modeItem;
+	private ChatTranscriptControl? _transcript;
+	private MultilineEditControl? _inputArea;
+	private ProgressBarControl? _tokenBar;
+	private ProgressBarControl? _responseBar;
 
-    // State
-    private string _currentMode = "Build";
-    private string _currentSession = "demo-1";
-    private readonly List<Message> _messages = new();
-    private Services.MockAiService? _mockAiService;
+	// State
+	private string _currentMode = "Build";
+	private string _currentSession = "demo-1";
+	private Services.MockAiService? _mockAiService;
 
-    public AgentStudioWindow(ConsoleWindowSystem windowSystem)
-    {
-        _windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
-        BuildUI();
-        SetupEventHandlers();
-        AddWelcomeMessages();
-    }
+	public AgentStudioWindow(ConsoleWindowSystem windowSystem)
+	{
+		_windowSystem = windowSystem ?? throw new ArgumentNullException(nameof(windowSystem));
+		BuildUI();
+		SetupEventHandlers();
+		AddWelcomeMessages();
+	}
 
-    public void Show()
-    {
-        if (_window != null)
-        {
-            _windowSystem.AddWindow(_window);
-        }
-    }
+	public void Show()
+	{
+		if (_window != null)
+		{
+			_windowSystem.AddWindow(_window);
+		}
+	}
 
-    /// <summary>
-    /// Build the entire UI declaratively using fluent builders
-    /// </summary>
-    private void BuildUI()
-    {
-        _window = new WindowBuilder(_windowSystem)
-            .WithTitle("AgentStudio")
-            .WithColors(Color.Grey93, Color.Grey11)
-            .AtPosition(0, 0)
-            .WithSize(80, 24)
-            .WithAsyncWindowThread(WindowThreadMethodAsync)
-            .Borderless()
-            .Resizable(false)
-            .Movable(false)
-            .Closable(false)
-            .Minimizable(false)
-            .Maximizable(false)
-            .Maximized()
-            .Build();
+	/// <summary>
+	/// Build the entire UI declaratively using fluent builders
+	/// </summary>
+	private void BuildUI()
+	{
+		_window = new WindowBuilder(_windowSystem)
+			.WithTitle("AgentStudio")
+			.WithColors(Color.Grey93, Color.Grey11)
+			.AtPosition(0, 0)
+			.WithSize(80, 24)
+			.WithAsyncWindowThread(WindowThreadMethodAsync)
+			.Borderless()
+			.Resizable(false)
+			.Movable(false)
+			.Closable(false)
+			.Minimizable(false)
+			.Maximizable(false)
+			.Maximized()
+			.Build();
 
-        // Top status bar
-        _topStatusLeft = Controls.Markup($"[grey50]Session: [/][cyan1]{_currentSession}[/]")
-            .WithAlignment(HorizontalAlignment.Left)
-            .WithMargin(1, 0, 0, 0)
-            .Build();
+		// Top status bar (native StatusBarControl): Session on the left, live clock on the right.
+		var topBar = Controls.StatusBar()
+			.WithBackgroundColor(Color.Grey15)
+			.WithForegroundColor(Color.Grey93)
+			.Build();
+		_sessionItem = topBar.AddLeftText($"[grey50]Session: [/][cyan1]{_currentSession}[/]");
+		_clockItem = topBar.AddRightText("[grey70]--:--:--[/]");
 
-        _topStatusRight = Controls.Markup("[grey70]--:--:--[/]")
-            .WithAlignment(HorizontalAlignment.Right)
-            .WithMargin(0, 0, 1, 0)
-            .Build();
+		// Main content area - two columns
+		_transcript = new ChatTranscriptControl
+		{
+			VerticalAlignment = VerticalAlignment.Fill,
+			HorizontalAlignment = HorizontalAlignment.Stretch,
+			Name = "Conversation"
+		};
 
-        var topStatusBar = Controls.HorizontalGrid()
-            .StickyTop()
-            .WithAlignment(HorizontalAlignment.Stretch)
-            .Column(col => col.Add(_topStatusLeft))
-            .Column(col => col.Add(_topStatusRight))
-            .Build();
-        topStatusBar.BackgroundColor = Color.Grey15;
-        topStatusBar.ForegroundColor = Color.Grey93;
+		// Keep the app's look: cyan assistant header, dim italic-style system messages.
+		// Content uses the library's [color] markup tags, so keep Markdown off (markdown mode would
+		// escape the tags and render them literally).
+		_transcript.SetRoleStyle(ChatRole.Assistant, new ChatRoleStyle
+		{
+			Markdown = false,
+			Header = (_, author) => $"[cyan1]{author ?? "AI"}[/]",
+			Background = Color.Grey15,
+			Margin = new Margin(1, 0, 1, 1)
+		});
+		_transcript.SetRoleStyle(ChatRole.User, new ChatRoleStyle
+		{
+			Markdown = false,
+			Header = (_, author) => $"[silver]{author ?? "User"}[/]",
+			Background = Color.Grey19,
+			Margin = new Margin(1, 0, 1, 1)
+		});
+		_transcript.SetRoleStyle(ChatRole.System, new ChatRoleStyle
+		{
+			Markdown = false,
+			ShowHeader = false,
+			Margin = new Margin(1, 0, 1, 1)
+		});
+		_transcript.SetRoleStyle(ChatRole.Tool, new ChatRoleStyle
+		{
+			Markdown = false,
+			Header = (_, author) => $"[cyan1]{author ?? "Tool"}[/]",
+			Margin = new Margin(1, 0, 1, 1)
+		});
 
-        _window.AddControl(topStatusBar);
+		_mockAiService = new Services.MockAiService(_windowSystem, _transcript);
 
-        _window.AddControl(Controls.RuleBuilder()
-            .StickyTop()
-            .WithColor(Color.Grey23)
-            .Build());
+		// Right-hand Session Info sidebar. The stat bars are now native ProgressBarControls
+		// (Token Usage = cyan, Response Time = green) stacked with their markup labels inside a
+		// ScrollablePanel. Field refs (_tokenBar/_responseBar) allow later updates from session stats.
+		var sidebarHeader = Controls.Markup()
+			.AddEmptyLine()
+			.AddLine("[cyan1 bold]Session Info[/]")
+			.AddEmptyLine()
+			.AddLine("[grey70 bold]Model[/]")
+			.AddLine("[cyan1]claude-sonnet-4-5[/]")
+			.AddEmptyLine()
+			.AddLine("[grey70 bold]Messages[/]")
+			.AddLine("[grey50]0 total[/]")
+			.AddLine("[grey35]━━━━━━━━━━━━━━━━━━━━━━[/]")
+			.AddEmptyLine()
+			.AddEmptyLine()
+			.WithForegroundColor(Color.Grey93)
+			.WithBackgroundColor(Color.Grey19)
+			.WithMargin(1, 0, 1, 0)
+			.Build();
 
-        // Main content area - two columns
-        _conversationPanel = Controls.ScrollablePanel()
-            .WithVerticalScroll(ScrollMode.Scroll)
-            .WithScrollbar(true)
-            .WithMouseWheel(true)
-            .WithAutoScroll(true)
-            .WithVerticalAlignment(VerticalAlignment.Fill)
-            .WithColors(Color.Grey93, Color.Grey11)
-            .Build();
+		var tokenLabel = Controls.Markup()
+			.AddLine("[grey70 bold]Token Usage[/]")
+			.WithForegroundColor(Color.Grey93)
+			.WithBackgroundColor(Color.Grey19)
+			.WithMargin(1, 0, 1, 0)
+			.Build();
+		// Token Usage: 2.5K / 10K = 25%
+		_tokenBar = Controls.ProgressBar()
+			.WithValue(2.5)
+			.WithMaxValue(10)
+			.ShowPercentage()
+			.WithFilledColor(Color.Cyan1)
+			.WithUnfilledColor(Color.Grey35)
+			.WithBackgroundColor(Color.Grey19)
+			.WithMargin(1, 0, 1, 0)
+			.Build();
+		var tokenSubLabel = Controls.Markup()
+			.AddLine("[grey50]2.5K / 10K tokens[/]")
+			.AddEmptyLine()
+			.AddEmptyLine()
+			.WithForegroundColor(Color.Grey93)
+			.WithBackgroundColor(Color.Grey19)
+			.WithMargin(1, 0, 1, 0)
+			.Build();
 
-        _mockAiService = new Services.MockAiService(_conversationPanel, _messages);
+		var responseLabel = Controls.Markup()
+			.AddLine("[grey70 bold]Response Time[/]")
+			.WithForegroundColor(Color.Grey93)
+			.WithBackgroundColor(Color.Grey19)
+			.WithMargin(1, 0, 1, 0)
+			.Build();
+		// Response Time: 45%
+		_responseBar = Controls.ProgressBar()
+			.WithValue(45)
+			.WithMaxValue(100)
+			.ShowPercentage()
+			.WithFilledColor(Color.Green)
+			.WithUnfilledColor(Color.Grey35)
+			.WithBackgroundColor(Color.Grey19)
+			.WithMargin(1, 0, 1, 0)
+			.Build();
+		var responseSubLabel = Controls.Markup()
+			.AddLine("[grey50]avg 0.8s[/]")
+			.WithForegroundColor(Color.Grey93)
+			.WithBackgroundColor(Color.Grey19)
+			.WithMargin(1, 0, 1, 0)
+			.Build();
 
-        var mainGrid = Controls.HorizontalGrid()
-            .WithVerticalAlignment(VerticalAlignment.Fill)
-            .WithAlignment(HorizontalAlignment.Stretch)
-            .Column(col => col
-                .Add(Controls.Markup("[cyan1 bold]Conversation & Tool Outputs[/]")
-                    .WithMargin(1, 0, 0, 0)
-                    .WithBackgroundColor(Color.Grey11)
-                    .Build())
-                .Add(_conversationPanel))
-            .Column(col => col.Width(1)) // Spacing
-            .Column(col => col
-                .Width(30)
-                .Add(Controls.Markup()
-                    .AddEmptyLine()
-                    .AddLine("[cyan1 bold]Session Info[/]")
-                    .WithMargin(2, 0, 0, 0)
-                    .Build())
-                .Add(Controls.Markup()
-                    .AddEmptyLine()
-                    .AddLine("[grey70 bold]Model[/]")
-                    .AddLine("[cyan1]claude-sonnet-4-5[/]")
-                    .AddEmptyLine()
-                    .AddLine("[grey70 bold]Messages[/]")
-                    .AddLine("[grey50]0 total[/]")
-                    .AddLine("[grey35]━━━━━━━━━━━━━━━━━━━━━━[/]")
-                    .AddEmptyLine()
-                    .AddEmptyLine()
-                    .AddLine("[grey70 bold]Token Usage[/]")
-                    .AddLine("[cyan1]█████[/][grey35]░░░░░░░░░░░░░░░[/] 25%")
-                    .AddLine("[grey50]2.5K / 10K tokens[/]")
-                    .AddEmptyLine()
-                    .AddEmptyLine()
-                    .AddLine("[grey70 bold]Response Time[/]")
-                    .AddLine("[green]█████████[/][grey35]░░░░░░░░░░░[/] 45%")
-                    .AddLine("[grey50]avg 0.8s[/]")
-                    .WithAlignment(HorizontalAlignment.Stretch)
-                    .WithForegroundColor(Color.Grey93)
-                    .WithMargin(2, 1, 1, 1)
-                    .Build()))
-            .Build();
+		var sidebar = Controls.ScrollablePanel()
+			.AddControl(sidebarHeader)
+			.AddControl(tokenLabel)
+			.AddControl(_tokenBar)
+			.AddControl(tokenSubLabel)
+			.AddControl(responseLabel)
+			.AddControl(_responseBar)
+			.AddControl(responseSubLabel)
+			.WithVerticalScroll()
+			.WithAlignment(HorizontalAlignment.Stretch)
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.WithColors(Color.Grey93, Color.Grey19)
+			.WithMargin(2, 1, 1, 1)
+			.Build();
 
-        // Set the right column background
-        if (mainGrid.Columns.Count > 2)
-        {
-            mainGrid.Columns[2].BackgroundColor = Color.Grey19;
-        }
+		// Input area
+		_inputArea = Controls.MultilineEdit()
+			.WithViewportHeight(3)
+			.WithWrapMode(WrapMode.Wrap)
+			.WithFocusedColors(Color.White, Color.Grey27)
+			.WithColors(Color.Grey70, Color.Grey19)
+			.WithMargin(1, 0, 1, 0)
+			.Build();
 
-        _window.AddControl(mainGrid);
+		// Bottom hint bar (native StatusBarControl): clickable shortcuts wired to the same actions
+		// as the key bindings, plus static Mode/Model context on the left.
+		var hintBar = Controls.StatusBar()
+			.WithBackgroundColor(Color.Grey15)
+			.WithForegroundColor(Color.Grey70)
+			.Build();
+		_modeItem = hintBar.AddLeftText($"[cyan1]{_currentMode}[/]");
+		hintBar.AddLeftSeparator();
+		hintBar.AddLeftText("[grey50]Model: [/][cyan1]claude-sonnet-4-5[/]");
+		hintBar.AddCenter("Ctrl+Space", "Mode", ToggleMode);
+		hintBar.AddCenter("Ctrl+J", "Sessions", OpenSessions);
+		hintBar.AddCenter("Ctrl+P", "Commands", OpenCommands);
+		hintBar.AddCenter("Ctrl+S", "Send", HandleSendMessage);
 
-        // Input separator
-        _window.AddControl(Controls.RuleBuilder()
-            .StickyBottom()
-            .WithColor(Color.Grey23)
-            .Build());
+		// The whole window is ONE flat 2D GridControl (no nesting):
+		//   columns: [0] conversation (Star) | [1] sidebar (30 cells)
+		//   rows:    [0] top status bar (Auto) — spans both columns
+		//            [1] main content (Star)   — conversation (col 0) + sidebar (col 1)
+		//            [2] input area (Auto)      — spans both columns
+		//            [3] bottom hint bar (Auto) — spans both columns
+		// ColumnSplitterAfter(0) makes the conversation|sidebar split user-resizable.
+		// The grid's row layout + the two StatusBarControls carry the section framing
+		// (top bar / content / input / bottom bar) — no separator controls needed.
+		var root = Controls.Grid()
+			.Columns(GridLength.Star(1), GridLength.Cells(30))
+			.Rows(GridLength.Auto(), GridLength.Star(1), GridLength.Auto(), GridLength.Auto())
+			.RowGap(1)
+			.ColumnGap(1)
+			.ColumnSplitterAfter(0)
+			.Place(topBar, 0, 0, colSpan: 2)
+			.Place(_transcript!, 1, 0)
+			.Place(sidebar, 1, 1)
+			.Place(_inputArea!, 2, 0, colSpan: 2)
+			.Place(hintBar, 3, 0, colSpan: 2)
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.WithAlignment(HorizontalAlignment.Stretch)
+			.Build();
 
-        // Input area
-        _inputArea = Controls.MultilineEdit()
-            .WithViewportHeight(3)
-            .WithWrapMode(WrapMode.Wrap)
-            .WithFocusedColors(Color.White, Color.Grey27)
-            .WithColors(Color.Grey70, Color.Grey19)
-            .WithStickyPosition(StickyPosition.Bottom)
-            .WithMargin(1, 0, 1, 0)
-            .Build();
+		// Fill the whole Session Info cell with the sidebar background so the panel's margin and its
+		// children's margins sit on a matching colour instead of exposing the darker window background.
+		var sidebarCell = root[1, 1];
+		sidebarCell.Background = Color.Grey19;
 
-        _window.AddControl(_inputArea);
+		_window.AddControl(root);
+	}
 
-        // Separator between input and hint
-        _window.AddControl(Controls.RuleBuilder()
-            .StickyBottom()
-            .WithColor(Color.Grey23)
-            .Build());
+	/// <summary>Toggles between Build and Plan modes and refreshes the hint bar's mode indicator.</summary>
+	private void ToggleMode()
+	{
+		_currentMode = _currentMode == "Build" ? "Plan" : "Build";
+		if (_modeItem != null)
+			_modeItem.Label = $"[cyan1]{_currentMode}[/]";
+	}
 
-        // Bottom hint bar
-        _bottomModeInfo = Controls.Markup($"[cyan1]{_currentMode}[/] [grey50]| Model: [/][cyan1]claude-sonnet-4-5[/] [grey50]| [/][grey70]Ctrl+Space:Mode  Ctrl+J:Sessions  Ctrl+P:Commands  Ctrl+S:Send[/]")
-            .WithAlignment(HorizontalAlignment.Left)
-            .WithMargin(1, 0, 0, 0)
-            .Build();
+	/// <summary>Opens the session manager modal and syncs the top status bar's session label.</summary>
+	private void OpenSessions()
+	{
+		Modals.SessionManagerModal.Show(_windowSystem, _currentSession, selected =>
+		{
+			if (selected != null)
+			{
+				_currentSession = selected;
+				if (_sessionItem != null)
+					_sessionItem.Label = $"[grey50]Session: [/][cyan1]{_currentSession}[/]";
+			}
+		});
+	}
 
-        var hintGrid = Controls.HorizontalGrid()
-            .StickyBottom()
-            .WithAlignment(HorizontalAlignment.Stretch)
-            .Column(col => col.Add(_bottomModeInfo))
-            .Column(col => col
-                .Width(12)
-                .Add(Controls.Button("Send")
-                    .WithAlignment(HorizontalAlignment.Right)
-                    .WithMargin(0, 0, 1, 0)
-                    .OnClick((s, e) => HandleSendMessage())
-                    .Build()))
-            .Build();
-        hintGrid.BackgroundColor = Color.Grey15;
-        hintGrid.ForegroundColor = Color.Grey70;
+	/// <summary>Opens the command palette modal and drops the chosen command into the input area.</summary>
+	private void OpenCommands()
+	{
+		Modals.CommandPaletteModal.Show(_windowSystem, command =>
+		{
+			if (command != null)
+			{
+				_inputArea?.SetContent(command);
+			}
+		});
+	}
 
-        _window.AddControl(hintGrid);
-    }
+	/// <summary>
+	/// Window thread for live clock updates
+	/// </summary>
+	private async Task WindowThreadMethodAsync(Window window, CancellationToken ct)
+	{
+		// Wait for window to become active (it's not active until AddWindow is called)
+		while (!window.GetIsActive() && !ct.IsCancellationRequested && !_disposed)
+		{
+			await Task.Delay(100, ct);
+		}
 
-    /// <summary>
-    /// Window thread for live clock updates
-    /// </summary>
-    private async Task WindowThreadMethodAsync(Window window, CancellationToken ct)
-    {
-        // Wait for window to become active (it's not active until AddWindow is called)
-        while (!window.GetIsActive() && !ct.IsCancellationRequested && !_disposed)
-        {
-            await Task.Delay(100, ct);
-        }
+		// Main clock update loop
+		while (!ct.IsCancellationRequested && !_disposed)
+		{
+			try
+			{
+				// Update clock (setting the item's Label invalidates the status bar)
+				if (_clockItem != null)
+				{
+					var timeStr = DateTime.Now.ToString("HH:mm:ss");
+					_clockItem.Label = $"[grey70]{timeStr}[/]";
+				}
 
-        // Main clock update loop
-        while (!ct.IsCancellationRequested && !_disposed)
-        {
-            try
-            {
-                // Update clock
-                if (_topStatusRight != null)
-                {
-                    var timeStr = DateTime.Now.ToString("HH:mm:ss");
-                    _topStatusRight.SetContent(new List<string>
-                    {
-                        $"[grey70]{timeStr}[/]"
-                    });
-                }
+				await Task.Delay(1000, ct);
+			}
+			catch (OperationCanceledException)
+			{
+				break;
+			}
+			catch
+			{
+				break;
+			}
+		}
+	}
 
-                await Task.Delay(1000, ct);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch
-            {
-                break;
-            }
-        }
-    }
+	private void SetupEventHandlers()
+	{
+		if (_window == null) return;
 
-    private void SetupEventHandlers()
-    {
-        if (_window == null) return;
+		_window.KeyPressed += (sender, e) =>
+		{
+			// Don't process keys already handled by controls or window
+			if (e.AlreadyHandled)
+			{
+				e.Handled = true; // Acknowledge
+				return;
+			}
 
-        _window.KeyPressed += (sender, e) =>
-        {
-            // Don't process keys already handled by controls or window
-            if (e.AlreadyHandled)
-            {
-                e.Handled = true; // Acknowledge
-                return;
-            }
+			if (e.KeyInfo.Key == ConsoleKey.Spacebar && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
+			{
+				// Ctrl+Space to switch mode
+				ToggleMode();
+				e.Handled = true;
+			}
+			else if (e.KeyInfo.Key == ConsoleKey.S && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
+			{
+				// Ctrl+S to send message
+				HandleSendMessage();
+				e.Handled = true;
+			}
+			else if (e.KeyInfo.Key == ConsoleKey.J && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
+			{
+				// Ctrl+J to open session manager
+				OpenSessions();
+				e.Handled = true;
+			}
+			else if (e.KeyInfo.Key == ConsoleKey.P && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
+			{
+				// Ctrl+P to open command palette
+				OpenCommands();
+				e.Handled = true;
+			}
+			else if (e.KeyInfo.Key == ConsoleKey.Enter && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Alt))
+			{
+				// Alt+Enter test - could be used as alternative send key if it works
+				e.Handled = true;
+			}
+		};
+	}
 
-            if (e.KeyInfo.Key == ConsoleKey.Spacebar && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
-            {
-                // Ctrl+Space to switch mode
-                _currentMode = _currentMode == "Build" ? "Plan" : "Build";
-                _bottomModeInfo?.SetContent(new List<string>
-                {
-                    $"[cyan1]{_currentMode}[/] [grey50]| Model: [/][cyan1]claude-sonnet-4-5[/] [grey50]| [/][grey70]Ctrl+Space:Mode  Ctrl+J:Sessions  Ctrl+P:Commands  Ctrl+S:Send[/]"
-                });
-                e.Handled = true;
-            }
-            else if (e.KeyInfo.Key == ConsoleKey.S && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
-            {
-                // Ctrl+S to send message
-                HandleSendMessage();
-                e.Handled = true;
-            }
-            else if (e.KeyInfo.Key == ConsoleKey.J && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
-            {
-                // Ctrl+J to open session manager
-                Modals.SessionManagerModal.Show(_windowSystem, _currentSession, selected =>
-                {
-                    if (selected != null)
-                    {
-                        _currentSession = selected;
-                        _topStatusLeft?.SetContent(new List<string> { $"[grey50]Session: [/][cyan1]{_currentSession}[/]" });
-                    }
-                });
-                e.Handled = true;
-            }
-            else if (e.KeyInfo.Key == ConsoleKey.P && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
-            {
-                // Ctrl+P to open command palette
-                Modals.CommandPaletteModal.Show(_windowSystem, command =>
-                {
-                    if (command != null)
-                    {
-                        // Simulate user typing the command
-                        _inputArea?.SetContent(command);
-                    }
-                });
-                e.Handled = true;
-            }
-            else if (e.KeyInfo.Key == ConsoleKey.Enter && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Alt))
-            {
-                // Alt+Enter test - could be used as alternative send key if it works
-                e.Handled = true;
-            }
-        };
-    }
+	private void AddWelcomeMessages()
+	{
+		PostMessage(
+			MessageRole.System,
+			"[grey50 italic]Welcome to AgentStudio! This is a showcase of SharpConsoleUI's TUI capabilities.[/]"
+		);
 
-    private void AddWelcomeMessages()
-    {
-        AddMessage(new Message(
-            MessageRole.System,
-            "[grey50 italic]Welcome to AgentStudio! This is a showcase of SharpConsoleUI's TUI capabilities.[/]",
-            DateTime.Now
-        ));
+		PostMessage(
+			MessageRole.System,
+			"[grey50 italic]Welcome! Try these demo commands: [/][cyan1]/analyze[/][grey50], [/][cyan1]/diff[/][grey50], or [/][cyan1]/test[/]"
+		);
+	}
 
-        AddMessage(new Message(
-            MessageRole.System,
-            "[grey50 italic]Welcome! Try these demo commands: [/][cyan1]/analyze[/][grey50], [/][cyan1]/diff[/][grey50], or [/][cyan1]/test[/]",
-            DateTime.Now
-        ));
-    }
+	private void HandleSendMessage()
+	{
+		if (_inputArea == null || _mockAiService == null) return;
 
-    private void HandleSendMessage()
-    {
-        if (_inputArea == null || _mockAiService == null) return;
+		var content = _inputArea.Content.Trim();
+		if (string.IsNullOrWhiteSpace(content))
+			return;
 
-        var content = _inputArea.Content.Trim();
-        if (string.IsNullOrWhiteSpace(content))
-            return;
+		// Clear input
+		_inputArea.SetContent("");
 
-        // Clear input
-        _inputArea.SetContent("");
+		// Add user message immediately
+		PostMessage(MessageRole.User, content);
 
-        // Add user message immediately
-        AddMessage(new Message(MessageRole.User, content, DateTime.Now));
+		// Check for demo commands and run scenarios with animation
+		if (content.Contains("/analyze"))
+		{
+			var scenario = Data.SampleConversations.SecurityAnalysisScenario();
+			_ = _mockAiService.AddScenarioAsync(scenario);
+			return;
+		}
 
-        // Check for demo commands and run scenarios with animation
-        if (content.Contains("/analyze"))
-        {
-            var scenario = Data.SampleConversations.SecurityAnalysisScenario();
-            _ = _mockAiService.AddScenarioAsync(scenario);
-            return;
-        }
+		if (content.Contains("/diff"))
+		{
+			var scenario = Data.SampleConversations.CodeDiffScenario();
+			_ = _mockAiService.AddScenarioAsync(scenario);
+			return;
+		}
 
-        if (content.Contains("/diff"))
-        {
-            var scenario = Data.SampleConversations.CodeDiffScenario();
-            _ = _mockAiService.AddScenarioAsync(scenario);
-            return;
-        }
+		if (content.Contains("/test"))
+		{
+			var scenario = Data.SampleConversations.TestExecutionScenario();
+			_ = _mockAiService.AddScenarioAsync(scenario);
+			return;
+		}
 
-        if (content.Contains("/test"))
-        {
-            var scenario = Data.SampleConversations.TestExecutionScenario();
-            _ = _mockAiService.AddScenarioAsync(scenario);
-            return;
-        }
+		// For other messages, show help response
+		var helpScenario = new List<Message>
+		{
+			new Message(
+				MessageRole.Assistant,
+				"[grey70]This is a demo showcase. Try: [/][cyan1]/analyze[/][grey70], [/][cyan1]/diff[/][grey70], or [/][cyan1]/test[/]",
+				DateTime.Now,
+				0.3
+			)
+		};
+		_ = _mockAiService.AddScenarioAsync(helpScenario);
+	}
 
-        // For other messages, show help response
-        var helpScenario = new List<Message>
-        {
-            new Message(
-                MessageRole.Assistant,
-                "[grey70]This is a demo showcase. Try: [/][cyan1]/analyze[/][grey70], [/][cyan1]/diff[/][grey70], or [/][cyan1]/test[/]",
-                DateTime.Now,
-                0.3
-            )
-        };
-        _ = _mockAiService.AddScenarioAsync(helpScenario);
-    }
+	/// <summary>
+	/// Posts a message to the native chat transcript, mapping the app's message role to the
+	/// transcript's <see cref="ChatRole"/>.
+	/// </summary>
+	private void PostMessage(MessageRole role, string content)
+	{
+		if (_transcript == null) return;
 
-    private void AddMessage(Message message)
-    {
-        _messages.Add(message);
-        RenderMessages();
-    }
+		var chatRole = role switch
+		{
+			MessageRole.User => ChatRole.User,
+			MessageRole.Assistant => ChatRole.Assistant,
+			_ => ChatRole.System,
+		};
 
+		_transcript.AddMessage(chatRole, content);
+	}
 
-    private void RenderMessages()
-    {
-        if (_conversationPanel == null) return;
-
-        // Clear existing
-        var existing = _conversationPanel.Children.ToList();
-        foreach (var control in existing)
-        {
-            _conversationPanel.RemoveControl(control);
-        }
-
-        // Render all messages
-        for (int i = 0; i < _messages.Count; i++)
-        {
-            var msg = _messages[i];
-            var (lines, bgColor, fgColor) = FormatMessage(msg);
-
-            var markupBuilder = Controls.Markup()
-                .WithMargin(1, 0, 1, 1)
-                .WithAlignment(HorizontalAlignment.Stretch);
-
-            foreach (var line in lines)
-            {
-                markupBuilder.AddLine(line);
-            }
-
-            if (bgColor.HasValue)
-                markupBuilder.WithBackgroundColor(bgColor.Value);
-            if (fgColor.HasValue)
-                markupBuilder.WithForegroundColor(fgColor.Value);
-
-            var markup = markupBuilder.Build();
-            markup.Wrap = true;
-
-            _conversationPanel.AddControl(markup);
-
-            // Add tool call panel if present
-            if (msg.ToolCall != null)
-            {
-                var toolPanel = Components.ToolCallPanel.CreatePanel(msg.ToolCall);
-                _conversationPanel.AddControl(toolPanel);
-            }
-
-            // Add analysis panel if present
-            if (msg.Findings != null && msg.Findings.Count > 0)
-            {
-                var analysisPanel = Components.AnalysisPanel.CreatePanel(msg.Findings);
-                _conversationPanel.AddControl(analysisPanel);
-            }
-
-            // Add separator line after AI responses
-            if (msg.Role == MessageRole.Assistant)
-            {
-                _conversationPanel.AddControl(Controls.RuleBuilder()
-                    .WithColor(Color.Grey23)
-                    .WithAlignment(HorizontalAlignment.Stretch)
-                    .WithMargin(1, 1, 1, 0)
-                    .Build());
-            }
-        }
-
-        // AutoScroll handles scrolling to bottom automatically
-        _conversationPanel.Invalidate(Invalidation.Relayout);
-    }
-
-    private (List<string> lines, Color? bgColor, Color? fgColor) FormatMessage(Message msg)
-    {
-        var timestamp = msg.Timestamp.ToString("HH:mm:ss");
-
-        return msg.Role switch
-        {
-            MessageRole.User => (
-                new List<string> { $"[silver]User[/] [grey50]{timestamp}[/]" }
-                    .Concat(msg.Content.Split('\n'))
-                    .ToList(),
-                Color.Grey19,
-                Color.Grey93
-            ),
-
-            MessageRole.Assistant => (
-                new List<string>
-                {
-                    msg.ResponseTime.HasValue
-                        ? $"[grey78]AI[/] [grey50]{timestamp} • {msg.ResponseTime.Value:F1}s[/]"
-                        : $"[grey78]AI[/] [grey50]{timestamp}[/]"
-                }
-                .Concat(msg.Content.Split('\n'))
-                .ToList(),
-                Color.Grey15,
-                Color.Grey89
-            ),
-
-            MessageRole.System => (
-                new List<string> { msg.Content },
-                null,
-                null
-            ),
-
-            _ => (msg.Content.Split('\n').ToList(), null, null)
-        };
-    }
-
-    public void Dispose()
-    {
-        _disposed = true;
-    }
+	public void Dispose()
+	{
+		_disposed = true;
+	}
 }
