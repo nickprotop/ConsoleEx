@@ -27,7 +27,7 @@ public class WizardControlTests
 		var wiz = new WizardControl();
 		Assert.IsAssignableFrom<FlowControl>(wiz);     // honest IS-A, not a wrapper
 		Assert.NotNull(wiz.Placeholder);               // wizard-friendly default placeholder
-		// Idle: the placeholder is hosted as a child.
+													   // Idle: the placeholder is hosted as a child.
 		Assert.Contains(wiz.GetChildren(), c => ReferenceEquals(c, wiz.Placeholder));
 	}
 

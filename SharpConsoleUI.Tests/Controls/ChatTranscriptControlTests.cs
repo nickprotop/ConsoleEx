@@ -88,4 +88,83 @@ public class ChatTranscriptControlTests
 		chat.Append(id, "first token");
 		Assert.False(chat.IsThinking(id));
 	}
+
+	[Fact]
+	public void RoleStyle_SelectableDefaultsNull_InheritsMasterTrue_BodyIsSelectable()
+	{
+		var chat = Build();
+		var id = chat.AddMessage(ChatRole.Assistant, "hello");
+		// Built-in role styles leave Selectable null → inherit the master (default true).
+		Assert.Null(chat.GetRoleStyle(ChatRole.Assistant).Selectable);
+		Assert.True(chat.MessagesSelectable);
+		Assert.Equal(true, chat.BodySelectionEnabledForTest(id));
+	}
+
+	[Fact]
+	public void RoleStyle_SelectableFalse_ForcesOff_EvenWhenMasterOn()
+	{
+		var chat = Build();
+		// Opt a single role out of selection via SetRoleStyle; other (null) roles inherit master (on).
+		chat.SetRoleStyle(ChatRole.System, new ChatRoleStyle { Selectable = false });
+		var sys = chat.AddMessage(ChatRole.System, "notice");
+		var asst = chat.AddMessage(ChatRole.Assistant, "answer");
+		Assert.Equal(false, chat.BodySelectionEnabledForTest(sys));
+		Assert.Equal(true, chat.BodySelectionEnabledForTest(asst));
+	}
+
+	[Fact]
+	public void MessagesSelectable_DefaultsTrue()
+	{
+		Assert.True(Build().MessagesSelectable);
+	}
+
+	[Fact]
+	public void MessagesSelectable_MasterFalse_NullRole_InheritsOff()
+	{
+		// Master off + role null (inherit) → body not selectable.
+		var chat = new ChatTranscriptControl { MessagesSelectable = false };
+		var asst = chat.AddMessage(ChatRole.Assistant, "answer");
+		Assert.Null(chat.GetRoleStyle(ChatRole.Assistant).Selectable);
+		Assert.Equal(false, chat.BodySelectionEnabledForTest(asst));
+	}
+
+	[Fact]
+	public void MessagesSelectable_MasterFalse_RoleTrue_OptsInRegardlessOfMaster()
+	{
+		// The key symmetry case: master off, but a role forces Selectable = true → body IS selectable,
+		// while a null-role body (inheriting the off master) is not.
+		var chat = new ChatTranscriptControl { MessagesSelectable = false };
+		chat.SetRoleStyle(ChatRole.Assistant, new ChatRoleStyle { Selectable = true });
+		var optedIn = chat.AddMessage(ChatRole.Assistant, "keep me copyable");
+		var inherits = chat.AddMessage(ChatRole.User, "echo");
+		Assert.Equal(true, chat.BodySelectionEnabledForTest(optedIn));
+		Assert.Equal(false, chat.BodySelectionEnabledForTest(inherits));
+	}
+
+	[Fact]
+	public void MessagesSelectable_ToggleAfterAdd_ReAppliesRespectingRoleOverrides()
+	{
+		var chat = Build();
+		// System forced off; Assistant forced on; User inherits the master.
+		chat.SetRoleStyle(ChatRole.System, new ChatRoleStyle { Selectable = false });
+		chat.SetRoleStyle(ChatRole.Assistant, new ChatRoleStyle { Selectable = true });
+		var sys = chat.AddMessage(ChatRole.System, "notice");
+		var asst = chat.AddMessage(ChatRole.Assistant, "answer");
+		var usr = chat.AddMessage(ChatRole.User, "echo");
+		Assert.Equal(false, chat.BodySelectionEnabledForTest(sys));
+		Assert.Equal(true, chat.BodySelectionEnabledForTest(asst));
+		Assert.Equal(true, chat.BodySelectionEnabledForTest(usr));
+
+		// Master off → only the inheriting (null) role flips off; the forced roles keep their override.
+		chat.MessagesSelectable = false;
+		Assert.Equal(false, chat.BodySelectionEnabledForTest(sys));   // forced off
+		Assert.Equal(true, chat.BodySelectionEnabledForTest(asst));   // forced on, ignores master
+		Assert.Equal(false, chat.BodySelectionEnabledForTest(usr));   // inherits off
+
+		// Master back on → inheriting role returns to on; overrides unchanged.
+		chat.MessagesSelectable = true;
+		Assert.Equal(false, chat.BodySelectionEnabledForTest(sys));
+		Assert.Equal(true, chat.BodySelectionEnabledForTest(asst));
+		Assert.Equal(true, chat.BodySelectionEnabledForTest(usr));
+	}
 }

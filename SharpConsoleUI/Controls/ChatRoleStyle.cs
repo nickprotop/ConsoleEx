@@ -146,5 +146,13 @@ namespace SharpConsoleUI.Controls
 		/// When <c>null</c> the panel's default background is used.
 		/// </summary>
 		public Color? Background { get; init; }
+
+		/// <summary>
+		/// Per-role override for whether this role's message body allows text selection.
+		/// <c>null</c> (default) inherits the control-level <see cref="ChatTranscriptControl.MessagesSelectable"/>;
+		/// <c>true</c> forces selection on for this role even when the control master is off;
+		/// <c>false</c> forces it off even when the master is on.
+		/// </summary>
+		public bool? Selectable { get; init; }
 	}
 }

@@ -84,7 +84,33 @@ namespace SharpConsoleUI.Controls
 		#region Polish properties
 
 		private bool _animateMessages = true;
+		private bool _messagesSelectable = true;
 		private SpinnerStyle _thinkingSpinnerStyle = SpinnerStyle.Dots;
+
+		/// <summary>
+		/// Gets or sets the control-level baseline controlling whether message bodies in this transcript
+		/// can be selected (and, with copy enabled, copied). Defaults to <c>true</c>. Each message resolves
+		/// its selectability as <c>role.Selectable ?? MessagesSelectable</c>: a role whose
+		/// <see cref="ChatRoleStyle.Selectable"/> is <c>null</c> inherits this baseline, while a role that
+		/// sets it to <c>true</c> or <c>false</c> overrides the baseline in either direction. Changing this
+		/// value updates existing message bodies (respecting each role's override) as well as any added
+		/// afterwards.
+		/// </summary>
+		public bool MessagesSelectable
+		{
+			get => _messagesSelectable;
+			set
+			{
+				if (!SetProperty(ref _messagesSelectable, value))
+					return;
+
+				foreach (var entry in _order)
+				{
+					if (entry.Body != null)
+						entry.Body.EnableSelection = GetRoleStyle(entry.Role).Selectable ?? value;
+				}
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets whether message panels animate their expand/collapse (height tween). When
@@ -279,7 +305,7 @@ namespace SharpConsoleUI.Controls
 			}
 			else
 			{
-				var body = new MarkupControl(new List<string>());
+				var body = new MarkupControl(new List<string>()) { EnableSelection = style.Selectable ?? MessagesSelectable };
 				panel.AddControl(body);
 				entry = new MessageEntry(id, role, author, panel, body: body, spinner: null, thinking: false);
 				entry.Buffer.Append(content);
@@ -400,6 +426,9 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Returns the child <see cref="CollapsiblePanel"/> for the message with the given id (test-only observation seam).</summary>
 		internal CollapsiblePanel PanelForTest(ChatMessageId id) => Require(id).Panel;
 
+		/// <summary>Returns the message body's <see cref="MarkupControl.EnableSelection"/> flag, or <c>null</c> when no body exists yet (test-only seam).</summary>
+		internal bool? BodySelectionEnabledForTest(ChatMessageId id) => Require(id).Body?.EnableSelection;
+
 		/// <summary>
 		/// Returns the on-screen row, in this transcript's own content-viewport space (0 == the first
 		/// visible row), of the top (header) of the message panel with the given id — or <c>-1</c> when
@@ -473,7 +502,7 @@ namespace SharpConsoleUI.Controls
 
 			if (entry.Body == null)
 			{
-				var body = new MarkupControl(new List<string>());
+				var body = new MarkupControl(new List<string>()) { EnableSelection = GetRoleStyle(entry.Role).Selectable ?? MessagesSelectable };
 				entry.Panel.AddControl(body);
 				entry.Body = body;
 			}
