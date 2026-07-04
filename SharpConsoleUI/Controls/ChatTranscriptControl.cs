@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System.Text;
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Controls
@@ -31,7 +32,7 @@ namespace SharpConsoleUI.Controls
 	/// by default.
 	/// </para>
 	/// </remarks>
-	public class ChatTranscriptControl : ScrollablePanelControl
+	public partial class ChatTranscriptControl : ScrollablePanelControl
 	{
 		#region Message tracking
 
@@ -66,6 +67,24 @@ namespace SharpConsoleUI.Controls
 			public SpinnerControl? Spinner { get; set; }
 
 			public bool Thinking { get; set; }
+
+			/// <summary>
+			/// The message's actions toolbar row, or <c>null</c> when the message has no actions row.
+			/// </summary>
+			public ToolbarControl? ActionsToolbar { get; set; }
+
+			/// <summary>The message's status row, or <c>null</c> when the message has no status.</summary>
+			public StatusBarControl? StatusBar { get; set; }
+
+			/// <summary>The message's declared actions, in display order.</summary>
+			public List<ChatMessageAction> Actions { get; } = new();
+
+			/// <summary>
+			/// Whether this message currently has a footer (an actions row and/or a status row) rendered
+			/// as siblings of the panel. There is no separate footer container control — the two rows are
+			/// inserted directly after the panel — so footer-presence is derived from the two row fields.
+			/// </summary>
+			public bool HasFooter => ActionsToolbar != null || StatusBar != null;
 		}
 
 		private readonly List<MessageEntry> _order = new();
@@ -316,6 +335,42 @@ namespace SharpConsoleUI.Controls
 			_byId[id] = entry;
 
 			AddControl(panel);
+
+			// Seed per-role default actions (an explicit AddMessage(..., actions, ...) overload overrides these).
+			if (style.DefaultActions is { Count: > 0 } defaults)
+				SetActions(id, defaults);
+
+			return id;
+		}
+
+		/// <summary>
+		/// Adds a new message and seeds its footer actions and/or status row at creation time.
+		/// </summary>
+		/// <remarks>
+		/// This overload delegates to <see cref="AddMessage(ChatRole, string, string?, bool)"/> (which already
+		/// seeds the role's <see cref="ChatRoleStyle.DefaultActions"/>). When <paramref name="actions"/> is non-<c>null</c>
+		/// it replaces those defaults; when <c>null</c> the role defaults are kept. When <paramref name="status"/> is
+		/// non-<c>null</c> the message's status row is set.
+		/// <para>
+		/// Like the other reactive methods, this must be called on the UI thread; background callers should marshal via
+		/// <c>windowSystem.EnqueueOnUIThread(...)</c> — see CLAUDE.md Rule 13.
+		/// </para>
+		/// </remarks>
+		/// <param name="role">The role of the message author.</param>
+		/// <param name="content">The initial message content (markdown or plain text per the role style).</param>
+		/// <param name="author">An optional author name that overrides the role's default header label.</param>
+		/// <param name="actions">
+		/// Explicit footer actions for this message. When non-<c>null</c> these override the role's
+		/// <see cref="ChatRoleStyle.DefaultActions"/>; when <c>null</c> the role defaults are kept.
+		/// </param>
+		/// <param name="status">An optional initial status row for this message. <c>null</c> adds no status row.</param>
+		/// <returns>The id of the newly added message.</returns>
+		public ChatMessageId AddMessage(ChatRole role, string content, string? author,
+			System.Collections.Generic.IEnumerable<ChatMessageAction>? actions, ChatMessageStatus? status)
+		{
+			var id = AddMessage(role, content, author); // existing overload — already seeds role DefaultActions
+			if (actions != null) SetActions(id, actions); // explicit actions override the role defaults
+			if (status != null) SetStatus(id, status);
 			return id;
 		}
 
@@ -418,7 +473,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>
 		/// Returns the accumulated body text for the message with the given id — the exact string that
-		/// has been streamed into it via <see cref="AddMessage"/>/<see cref="Append(ChatMessageId, string)"/>/<see cref="UpdateMessage"/>.
+		/// has been streamed into it via <see cref="AddMessage(ChatRole, string, string?, bool)"/>/<see cref="Append(ChatMessageId, string)"/>/<see cref="UpdateMessage"/>.
 		/// Used by tests to verify per-message (multi-in-flight) streaming independently of markdown rendering.
 		/// </summary>
 		internal string BodyTextForTest(ChatMessageId id) => Require(id).Buffer.ToString();
@@ -458,7 +513,7 @@ namespace SharpConsoleUI.Controls
 		/// Returns the child panel's explicit background color for the message with the given id.
 		/// The value is <c>null</c> when no explicit background was set; otherwise it carries the
 		/// exact <see cref="Color"/> (including any alpha channel) assigned by
-		/// <see cref="AddMessage"/>.
+		/// <see cref="AddMessage(ChatRole, string, string?, bool)"/>.
 		/// </summary>
 		internal Color? BackgroundForTest(ChatMessageId id)
 		{

@@ -154,5 +154,12 @@ namespace SharpConsoleUI.Controls
 		/// <c>false</c> forces it off even when the master is on.
 		/// </summary>
 		public bool? Selectable { get; init; }
+
+		/// <summary>
+		/// Optional actions seeded onto every message of this role at creation time (unless the
+		/// <c>AddMessage</c> call supplies its own explicit actions, which override these).
+		/// <c>null</c> (default) seeds no actions.
+		/// </summary>
+		public System.Collections.Generic.IReadOnlyList<ChatMessageAction>? DefaultActions { get; init; }
 	}
 }

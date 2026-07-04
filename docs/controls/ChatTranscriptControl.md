@@ -125,6 +125,98 @@ ChatRoleStyle GetRoleStyle(ChatRole role)              // Retrieve the current s
 
 Role styles take effect for messages added **after** the call. Already-added messages keep the style they were built with.
 
+## Message Actions & Status
+
+Each message can carry a **footer** made of two optional rows: an **actions row** (a toolbar of buttons) and a **status row** (a single tinted status line). The footer is an *honest composition* — the two rows are real `ToolbarControl` / `StatusBarControl` children inserted into the transcript **as siblings of the message's `CollapsiblePanel`, not as children of it**. Because of that, **the footer survives collapsing the message body**: click to collapse a verbose tool message and its Copy / 👍 buttons and status line stay put.
+
+### `ChatMessageAction`
+
+A `sealed record` describing one footer button. The host owns what the action *does* (via `OnClick` / `OnClickAsync`); the control renders and dispatches it.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `Id` | `string` (required) | — | Stable identifier — used for state updates, toggle restore, and removal. |
+| `Label` | `string` (required) | — | Button text (markup allowed). |
+| `Icon` | `string?` | `null` | Optional leading glyph, prepended to the label. |
+| `Variant` | `ChatActionVariant` | `Default` | Visual variant — see below. `Toggle` makes it a stateful on/off button. |
+| `IsPressed` | `bool` | `false` | For `Toggle`: the initial pressed state. |
+| `Enabled` | `bool` | `true` | Whether the button is enabled. |
+| `AfterPress` | `ChatActionAfterPress` | `None` | For non-toggle actions: what happens to the actions row after a press. |
+| `Group` | `string?` | `null` | Optional grouping key; a separator is drawn between adjacent groups. |
+| `OnClick` | `Action<ChatActionContext>?` | `null` | Synchronous click handler. |
+| `OnClickAsync` | `Func<ChatActionContext, Task>?` | `null` | Asynchronous click handler (fire-and-forget; the host owns awaiting/marshaling). |
+
+**`ChatActionVariant`** — `Default` (neutral), `Primary` (accent, the recommended action), `Danger` (destructive, e.g. delete/stop), `Toggle` (stateful on/off — the control tracks the pressed state, flips it on click, restyles the button to an accent role when pressed, and raises `ActionToggled`).
+
+**`ChatActionAfterPress`** — `None` leaves the actions row in place; `Hide` removes the actions row after a non-toggle press (ignored for `Toggle`, which stays so it can be flipped back).
+
+**Groups** — set `Group` on several actions to draw a separator between adjacent groups (e.g. a "Copy | Retry" group and a "👍 👎" reaction group).
+
+**`ChatActionContext`** — the argument passed to a handler. It exposes `MessageId`, `Action`, and three helpers: `SetStatus(text, severity?)` (update this message's status row), `HideActions()` (remove the actions row), and `SetPressed(bool)` (drive a toggle from inside its own handler).
+
+### Reactive API
+
+All of these must run on the UI thread (like the other mutators); background callers marshal via `windowSystem.EnqueueOnUIThread(...)`.
+
+```csharp
+void SetActions(ChatMessageId id, IEnumerable<ChatMessageAction> actions)  // Replace the whole actions row (empty clears it)
+void AddAction(ChatMessageId id, ChatMessageAction action)                 // Append one action (creates the row if needed)
+void RemoveAction(ChatMessageId id, string actionId)                       // Remove action(s) by id (removes the row if it empties)
+void ClearActions(ChatMessageId id)                                        // Remove the actions row entirely
+void SetActionEnabled(ChatMessageId id, string actionId, bool enabled)     // Enable/disable an action in place
+void SetActionState(ChatMessageId id, string actionId, bool pressed)       // Set a Toggle action's pressed state (does not run OnClick)
+
+void SetStatus(ChatMessageId id, string text, NotificationSeverity? severity = null)  // Set/replace the status row
+void SetStatus(ChatMessageId id, ChatMessageStatus status)                            // Full status (text + severity + left/center/right items)
+void ClearStatus(ChatMessageId id)                                                    // Remove the status row
+```
+
+The status row is a non-sticky, transparent, borderless `StatusBarControl`. Its severity tints the text: `Success` → green, `Warning` → yellow, `Danger` → red, others → theme default. A `ChatMessageStatus` also accepts optional `Left` / `Center` / `Right` `StatusBarItem` lists for richer status bars.
+
+### Seeding actions at creation
+
+```csharp
+ChatMessageId AddMessage(ChatRole role, string content, string? author,
+    IEnumerable<ChatMessageAction>? actions, ChatMessageStatus? status)
+```
+
+This overload seeds a message's footer at creation. When `actions` is non-`null` it overrides the role's `ChatRoleStyle.DefaultActions`; when `null` the role defaults are kept. When `status` is non-`null` the status row is set.
+
+Alternatively, set `ChatRoleStyle.DefaultActions` so **every** message of a role gets the same footer buttons automatically (e.g. every assistant reply gets Copy / Retry).
+
+### Events
+
+```csharp
+event EventHandler<ChatActionEventArgs>? ActionInvoked;         // A non-toggle action was dispatched (its handler ran)
+event EventHandler<ChatActionToggledEventArgs>? ActionToggled;  // A Toggle action's pressed state changed
+```
+
+`ChatActionEventArgs` carries `MessageId` and `Action`. `ChatActionToggledEventArgs` (derived) adds `IsPressed` — the new pressed state. `ActionToggled` fires whether the change came from a click, a handler's `SetPressed`, or a programmatic `SetActionState`.
+
+### Example — assistant reply with Copy / Retry and a 👍 toggle
+
+```csharp
+var id = chat.AddMessage(ChatRole.Assistant, "Here's the summary you asked for.");
+
+chat.SetActions(id, new[]
+{
+    new ChatMessageAction { Id = "copy",  Label = "Copy",  Group = "ops",
+        OnClick = ctx => { Clipboard.Set(...); ctx.SetStatus("Copied", NotificationSeverity.Success); } },
+    new ChatMessageAction { Id = "retry", Label = "Retry", Group = "ops",
+        OnClick = ctx => RegenerateReply(ctx.MessageId) },
+    new ChatMessageAction { Id = "like",  Label = "👍",     Group = "react",
+        Variant = ChatActionVariant.Toggle,
+        OnClick = ctx => RecordVote(ctx.MessageId, ctx.Action.IsPressed) },
+});
+
+chat.SetStatus(id, "generated in 1.8 s", NotificationSeverity.Success);
+
+chat.ActionInvoked += (_, e) => Log($"action {e.Action.Id} on {e.MessageId}");
+chat.ActionToggled += (_, e) => Log($"{e.Action.Id} -> {e.IsPressed}");
+```
+
+> **The footer survives collapse.** Because the actions and status rows are siblings of the message panel (not children), collapsing a verbose Tool/System message keeps its footer visible — the buttons and status line do not disappear with the body. This is verified end-to-end by `ChatMessageFooterRealThingTest`.
+
 ## ChatRole
 
 ```csharp
@@ -173,6 +265,7 @@ Defines the visual presentation of messages for a given role. All properties are
 | `Selectable` | `bool?` | `null` | Per-role override for text selection. `null` inherits the control's `MessagesSelectable` baseline; `true` forces selection **on** for this role even when the master is off; `false` forces it **off** even when the master is on. A body resolves to `role.Selectable ?? MessagesSelectable`, so the two compose symmetrically (e.g. master off but `Assistant`/`Tool` output still selectable). |
 | `HeaderGradient` | `(Color From, Color To)?` | `null` | Optional gradient sweep applied to the header text. When non-`null`, the header is rendered with a color transition from `From` to `To`. |
 | `Background` | `Color?` | `null` | Optional background color for the message body area. Accepts colors with an alpha channel (via `Color.WithAlpha`) so the compositor blends the bubble over the window background. |
+| `DefaultActions` | `IReadOnlyList<ChatMessageAction>?` | `null` | Footer actions seeded on every message of this role at creation. `null` (the default) adds no actions. An explicit `AddMessage(..., actions:, ...)` overload overrides these per message. See [Message Actions & Status](#message-actions--status). |
 
 ## Themed Defaults
 
