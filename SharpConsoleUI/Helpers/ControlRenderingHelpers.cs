@@ -80,13 +80,22 @@ namespace SharpConsoleUI.Helpers
 			}
 		}
 
-		/// <summary>Fills the entire <paramref name="rect"/> with spaces using the given colors.</summary>
+		/// <summary>
+		/// Fills the entire <paramref name="rect"/> with spaces using the given colors. A fully transparent
+		/// <paramref name="background"/> (alpha 0) is a no-op: the buffer is left untouched, preserving whatever
+		/// is already there (character included).
+		/// </summary>
 		public static void FillRect(
 			CharacterBuffer buffer,
 			LayoutRect rect,
 			Color foreground,
 			Color background)
 		{
+			// A fully transparent background must preserve whatever is already in the buffer — the character
+			// too, not just the background color. (The compositor already keeps the destination for src.A == 0;
+			// the space-write here is a pre-compositor relic that violated this method's documented contract.)
+			if (background.A == 0)
+				return;
 			buffer.FillRect(rect, ' ', foreground, background);
 		}
 
