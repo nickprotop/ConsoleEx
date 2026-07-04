@@ -156,6 +156,8 @@ namespace SharpConsoleUI.Controls
 
 			RebuildStatusBar(entry.StatusBar, status);
 			ApplyFooterSpacer(entry);
+			ApplyFooterSeparator(entry);
+			ApplyGutter(entry);
 			Invalidate(Invalidation.Relayout);
 		}
 
@@ -173,6 +175,8 @@ namespace SharpConsoleUI.Controls
 			RemoveControl(entry.StatusBar);
 			entry.StatusBar = null;
 			ApplyFooterSpacer(entry);
+			ApplyFooterSeparator(entry);
+			ApplyGutter(entry);
 			Invalidate(Invalidation.Relayout);
 		}
 
@@ -240,6 +244,30 @@ namespace SharpConsoleUI.Controls
 				bc.Margin = WithBottom(bc.Margin, 1);
 		}
 
+		/// <summary>
+		/// Shows a dim separator line above each footer row (the actions toolbar and the status row) — a subtle
+		/// divider between the message content and its footer, and between the actions and status. The line
+		/// color is the same dim, theme-derived role color as the message rail, so divider and rail are
+		/// cohesive. Recomputed each call.
+		/// </summary>
+		private void ApplyFooterSeparator(MessageEntry entry)
+		{
+			if (!entry.HasFooter)
+				return;
+
+			Color lineColor = ResolveRailColor(entry);
+			if (entry.ActionsToolbar != null)
+			{
+				entry.ActionsToolbar.ShowAboveLine = true;
+				entry.ActionsToolbar.AboveLineColor = lineColor;
+			}
+			if (entry.StatusBar != null)
+			{
+				entry.StatusBar.ShowAboveLine = true;
+				entry.StatusBar.AboveLineColor = lineColor;
+			}
+		}
+
 		/// <summary>Returns a copy of <paramref name="m"/> with its bottom margin replaced by <paramref name="bottom"/>.</summary>
 		private static Margin WithBottom(Margin m, int bottom) => new Margin(m.Left, m.Top, m.Right, bottom);
 
@@ -261,11 +289,16 @@ namespace SharpConsoleUI.Controls
 			{
 				// No actions row; nothing else to add. Footer presence is derived (status may remain).
 				ApplyFooterSpacer(entry);
+				ApplyFooterSeparator(entry);
+				ApplyGutter(entry);
 				Invalidate(Invalidation.Relayout);
 				return;
 			}
 
-			var toolbar = new ToolbarControl();
+			// Wrap so a message with more action buttons than fit the width flows them onto additional rows
+			// instead of clipping (hiding) the overflow. The message rail's height-based span covers the
+			// extra rows automatically.
+			var toolbar = new ToolbarControl { Wrap = true };
 
 			string? lastGroup = null;
 			bool first = true;
@@ -293,6 +326,8 @@ namespace SharpConsoleUI.Controls
 			entry.ActionsToolbar = toolbar;
 			InsertActionsRow(entry, toolbar);
 			ApplyFooterSpacer(entry);
+			ApplyFooterSeparator(entry);
+			ApplyGutter(entry);
 			Invalidate(Invalidation.Relayout);
 		}
 
@@ -303,19 +338,26 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void InsertActionsRow(MessageEntry entry, ToolbarControl toolbar)
 		{
+			// Actions sit below the message's header area (panel + any collapsed peek row) and above the
+			// status row.
+			InsertControl(FooterBaseIndex(entry) + 1, toolbar);
+		}
+
+		/// <summary>
+		/// Returns the child index of the LAST row in a message's header area — its <see cref="MessageEntry.Panel"/>,
+		/// or its collapsed peek row when one is present (the peek sits directly under the header, above the
+		/// footer). Footer rows insert after this so the order is panel → peek → actions → status.
+		/// </summary>
+		private int FooterBaseIndex(MessageEntry entry)
+		{
 			var children = Children; // fresh list
-			int panelIndex = -1;
+			int panelIndex = -1, peekIndex = -1;
 			for (int i = 0; i < children.Count; i++)
 			{
-				if (ReferenceEquals(children[i], entry.Panel))
-				{
-					panelIndex = i;
-					break;
-				}
+				if (ReferenceEquals(children[i], entry.Panel)) panelIndex = i;
+				else if (entry.PeekRow != null && ReferenceEquals(children[i], entry.PeekRow)) peekIndex = i;
 			}
-
-			// Actions sit directly below the panel and above the status row.
-			InsertControl(panelIndex + 1, toolbar);
+			return peekIndex > panelIndex ? peekIndex : panelIndex;
 		}
 
 		/// <summary>
@@ -438,22 +480,14 @@ namespace SharpConsoleUI.Controls
 		private void InsertStatusRow(MessageEntry entry, StatusBarControl bar)
 		{
 			var children = Children; // fresh list
-			int panelIndex = -1;
-			for (int i = 0; i < children.Count; i++)
-			{
-				if (ReferenceEquals(children[i], entry.Panel))
-				{
-					panelIndex = i;
-					break;
-				}
-			}
 
-			// Status sits below the actions row (inserted immediately after the panel); place it after the
-			// actions row when present, otherwise directly after the panel.
-			int insertIndex = panelIndex + 1;
+			// Status sits below the actions row when present, otherwise directly below the header area
+			// (panel + any collapsed peek row).
+			int baseIndex = FooterBaseIndex(entry);
+			int insertIndex = baseIndex + 1;
 			if (entry.ActionsToolbar != null)
 			{
-				for (int i = panelIndex + 1; i < children.Count; i++)
+				for (int i = baseIndex + 1; i < children.Count; i++)
 				{
 					if (ReferenceEquals(children[i], entry.ActionsToolbar))
 					{

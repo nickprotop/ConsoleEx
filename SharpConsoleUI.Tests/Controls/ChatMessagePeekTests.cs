@@ -70,5 +70,29 @@ namespace SharpConsoleUI.Tests.Controls
 			Assert.NotNull(chat.PeekRowForTest(id));
 			Assert.StartsWith("streamed first line", chat.PeekTextForTest(id)!);
 		}
+
+		[Fact]
+		public void CollapsedMessage_WithPeekAndFooter_OrdersPeekAboveFooter()
+		{
+			// A collapsed message that has BOTH a fade-peek and a footer must lay out as
+			// panel → peek → actions → status (the peek previews the hidden content directly under the
+			// header; the footer sits below it) — not footer-then-peek.
+			var chat = Build();
+			var id = chat.AddMessage(ChatRole.Tool, "hidden first line\nsecond\nthird"); // collapsed → peek
+			chat.SetActions(id, new[] { new ChatMessageAction { Id = "copy", Label = "Copy" } });
+			chat.SetStatus(id, "ok");
+
+			var children = chat.Children;
+			int Idx(object? c) => System.Linq.Enumerable.ToList(children).FindIndex(x => ReferenceEquals(x, c));
+			int panel = Idx(chat.PanelForTest(id));
+			int peek = Idx(chat.PeekRowForTest(id));
+			int actions = Idx(chat.ActionsToolbarForTest(id));
+			int status = Idx(chat.StatusBarForTest(id));
+
+			Assert.True(panel >= 0 && peek >= 0 && actions >= 0 && status >= 0, "all four rows must be present");
+			Assert.True(panel < peek, "peek must be below the panel/header");
+			Assert.True(peek < actions, "actions must be below the peek");
+			Assert.True(actions < status, "status must be below the actions");
+		}
 	}
 }

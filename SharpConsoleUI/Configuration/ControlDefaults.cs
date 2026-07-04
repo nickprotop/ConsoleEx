@@ -452,6 +452,15 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int ChatCollapsedPreviewFadeWidth = 10;
 
+		/// <summary>The glyph painted down a railed message's left gutter (default: <c>'│'</c>, U+2502).</summary>
+		public const char ChatMessageRailGlyph = '│';
+
+		/// <summary>The reserved left gutter width, in columns, for a railed message — rail glyph plus gap (default: 2).</summary>
+		public const int ChatMessageRailGutterWidth = 2;
+
+		/// <summary>Alpha applied to a railed message's role color before blending toward the background, dimming the rail ~50% (default: 0x80).</summary>
+		public const byte ChatMessageRailDimAlpha = 0x80;
+
 		#endregion
 
 		// DatePicker defaults

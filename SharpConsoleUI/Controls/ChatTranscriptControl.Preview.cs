@@ -87,6 +87,7 @@ namespace SharpConsoleUI.Controls
 				InsertControl(panelIndex + 1, peek);
 			}
 
+			ApplyGutter(entry); // inset the peek + collapse the panel's bottom gap now that it has a peek
 			Invalidate(Invalidation.Relayout);
 		}
 
@@ -98,6 +99,7 @@ namespace SharpConsoleUI.Controls
 
 			RemoveControl(entry.PeekRow);
 			entry.PeekRow = null;
+			ApplyGutter(entry); // restore the panel's bottom margin if nothing else follows it
 			Invalidate(Invalidation.Relayout);
 		}
 

@@ -59,5 +59,27 @@ namespace SharpConsoleUI.Tests.Controls
 			Assert.Equal(1, chat.FooterBottomMarginForTest(id));
 			Assert.Equal(1, chat.ActionsToolbarForTest(id)!.Margin.Bottom);
 		}
+
+		[Fact]
+		public void FooterSeparator_OnBothFooterRows_ThemeDerivedColor()
+		{
+			// A dim separator line sits above EVERY footer row (actions toolbar AND status row), in a
+			// theme-derived color (not a hardcoded literal).
+			var chat = Build();
+
+			// Status only → the status row carries the separator.
+			var s = chat.AddMessage(ChatRole.Assistant, "a");
+			chat.SetStatus(s, "ok");
+			Assert.True(chat.StatusBarForTest(s)!.ShowAboveLine);
+			Assert.NotNull(chat.StatusBarForTest(s)!.AboveLineColor); // a resolved (theme-derived) color, not null
+
+			// Actions + status → BOTH rows carry the separator.
+			var b = chat.AddMessage(ChatRole.Assistant, "b");
+			chat.SetActions(b, new[] { new ChatMessageAction { Id = "copy", Label = "Copy" } });
+			chat.SetStatus(b, "ok");
+			Assert.True(chat.ActionsToolbarForTest(b)!.ShowAboveLine);
+			Assert.True(chat.StatusBarForTest(b)!.ShowAboveLine);
+			Assert.NotNull(chat.ActionsToolbarForTest(b)!.AboveLineColor);
+		}
 	}
 }

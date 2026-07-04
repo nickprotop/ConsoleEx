@@ -73,6 +73,10 @@ ChatTranscriptControl chat = Controls.ChatTranscript()
 | `AutoScroll` | `bool` | `true` | Inherited from `ScrollablePanelControl`. When `true`, the transcript scrolls to the bottom on new content — but only while already near the bottom. |
 | `CollapsedPreview` | `bool` | `true` | When `true`, a collapsed message shows a one-line **peek** preview row directly below its header — the first line of its hidden content, faded left→right into a dim, clickable `expand…` cue. Clicking the peek row expands the message. When `false`, collapsed messages show only their header. Affects messages that collapse/expand after the value changes. |
 | `CollapsedPreviewFadeWidth` | `int` | `10` | The number of trailing columns over which a collapsed-message peek row fades its preview text from opaque to transparent before the dim `expand…` cue. Affects peek rows built afterwards. |
+| `MessageRailEnabled` | `bool` | `true` | When `true`, a message that has a footer shows a dim, role-tinted left rail (`│`) down its body and footer. Footer-gated: plain (no-footer) messages are unaffected. Set to `false` to disable the rail entirely. See [Message Rail](#message-rail). |
+| `MessageRailGlyph` | `char` | `'│'` | The glyph painted down a railed message's left gutter (U+2502 by default). |
+| `MessageRailGutterWidth` | `int` | `2` | The reserved left gutter width, in columns, for a railed message (rail glyph plus gap). The message's body, actions, and status rows are inset by this amount; the header stays flush at column 0. |
+| `MessageRailColor` | `Color?` | `null` | Explicit rail color. When `null` (the default), the rail derives a dimmed version of the message's role color. |
 
 ## Message API
 
@@ -228,6 +232,10 @@ Two small polish features keep a collapsed transcript legible and evenly spaced.
 **Footer spacer.** A message that carries a footer (an actions row and/or a status row) gets a 1-line trailing spacer on its bottommost footer row, so a single blank line separates a footer'd message from the next one. The spacer self-corrects as rows come and go.
 
 Both features are verified end-to-end together by `ChatMessagePeekRealThingTest` (peek shown when collapsed → survives re-render → removed on expand → the footer spacer coexists).
+
+## Message Rail
+
+A message that carries a footer (an actions row and/or a status row) shows a dim, role-tinted left rail (`│`) down its body and footer, bracketing the message together with its actions. The header stays flush at column 0 — the rail begins one header-height below the panel top and runs to the bottom of the last footer row. The rail is **footer-gated**: a plain message with no footer shows no rail. It is **on by default** (`MessageRailEnabled = true`); set `MessageRailEnabled = false` to disable it. The rail survives the collapse/expand transition and re-computes its span from the live layout — when a collapsible Tool/System message is collapsed the rail shrinks to just the footer rows, and expanding it extends the rail back over the body (verified end-to-end by `ChatMessageRailRealThingTest`). `MessageRailGlyph`, `MessageRailGutterWidth`, and `MessageRailColor` tune the glyph, gutter inset, and color.
 
 ## ChatRole
 
