@@ -71,6 +71,8 @@ ChatTranscriptControl chat = Controls.ChatTranscript()
 | `MessageIds` | `IReadOnlyList<ChatMessageId>` | — | Read-only. The ids of all messages currently in the transcript, in display order. |
 | `MessagesSelectable` | `bool` | `true` | Control-wide baseline for whether message text can be selected (and, since `MarkupControl.CopyEnabled` is `true` by default, copied). Acts as the master switch: setting it re-applies to existing message bodies. A per-role `ChatRoleStyle.Selectable` can override it in either direction — see below. |
 | `AutoScroll` | `bool` | `true` | Inherited from `ScrollablePanelControl`. When `true`, the transcript scrolls to the bottom on new content — but only while already near the bottom. |
+| `CollapsedPreview` | `bool` | `true` | When `true`, a collapsed message shows a one-line **peek** preview row directly below its header — the first line of its hidden content, faded left→right into a dim, clickable `expand…` cue. Clicking the peek row expands the message. When `false`, collapsed messages show only their header. Affects messages that collapse/expand after the value changes. |
+| `CollapsedPreviewFadeWidth` | `int` | `10` | The number of trailing columns over which a collapsed-message peek row fades its preview text from opaque to transparent before the dim `expand…` cue. Affects peek rows built afterwards. |
 
 ## Message API
 
@@ -216,6 +218,16 @@ chat.ActionToggled += (_, e) => Log($"{e.Action.Id} -> {e.IsPressed}");
 ```
 
 > **The footer survives collapse.** Because the actions and status rows are siblings of the message panel (not children), collapsing a verbose Tool/System message keeps its footer visible — the buttons and status line do not disappear with the body. This is verified end-to-end by `ChatMessageFooterRealThingTest`.
+
+## Collapsed Preview & Footer Spacing
+
+Two small polish features keep a collapsed transcript legible and evenly spaced.
+
+**Collapsed peek preview.** When `CollapsedPreview` is `true` (the default), a collapsed message shows a one-line **peek** row directly below its header: the first line of its hidden content, faded left→right into a dim, clickable `expand…` cue. Clicking the peek row expands the message. The peek is a real child `MarkupControl` inserted as a sibling of the message panel — it is added and removed automatically as the panel collapses and expands, and it survives a re-render. Set `CollapsedPreview = false` to show only the header for collapsed messages. `CollapsedPreviewFadeWidth` (default `10`) controls how many trailing columns the preview text fades over before the cue. Both properties affect peek rows built after the value changes.
+
+**Footer spacer.** A message that carries a footer (an actions row and/or a status row) gets a 1-line trailing spacer on its bottommost footer row, so a single blank line separates a footer'd message from the next one. The spacer self-corrects as rows come and go.
+
+Both features are verified end-to-end together by `ChatMessagePeekRealThingTest` (peek shown when collapsed → survives re-render → removed on expand → the footer spacer coexists).
 
 ## ChatRole
 

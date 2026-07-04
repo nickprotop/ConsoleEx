@@ -76,6 +76,12 @@ namespace SharpConsoleUI.Controls
 			/// <summary>The message's status row, or <c>null</c> when the message has no status.</summary>
 			public StatusBarControl? StatusBar { get; set; }
 
+			/// <summary>
+			/// The collapsed-message preview ("peek") row shown as a sibling immediately after the panel while
+			/// the message is collapsed and <see cref="CollapsedPreview"/> is enabled; <c>null</c> otherwise.
+			/// </summary>
+			public MarkupControl? PeekRow { get; set; }
+
 			/// <summary>The message's declared actions, in display order.</summary>
 			public List<ChatMessageAction> Actions { get; } = new();
 
@@ -336,6 +342,12 @@ namespace SharpConsoleUI.Controls
 
 			AddControl(panel);
 
+			// Collapsed fade-peek: keep a preview row in sync with the panel's expanded state, and seed it now
+			// when the message starts collapsed.
+			entry.Panel.ExpandedChanged += (_, expanded) => OnMessageExpandedChanged(entry, expanded);
+			if (!entry.Panel.IsExpanded)
+				MaybeAddPeek(entry);
+
 			// Seed per-role default actions (an explicit AddMessage(..., actions, ...) overload overrides these).
 			if (style.DefaultActions is { Count: > 0 } defaults)
 				SetActions(id, defaults);
@@ -410,6 +422,7 @@ namespace SharpConsoleUI.Controls
 			EnsureTextBody(entry);
 			entry.Buffer.Append(token);
 			RenderBody(entry, GetRoleStyle(entry.Role));
+			RefreshPeek(entry);
 		}
 
 		/// <summary>
@@ -431,6 +444,7 @@ namespace SharpConsoleUI.Controls
 			entry.Buffer.Clear();
 			entry.Buffer.Append(content);
 			RenderBody(entry, GetRoleStyle(entry.Role));
+			RefreshPeek(entry);
 		}
 
 		/// <summary>

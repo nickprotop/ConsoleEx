@@ -155,6 +155,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			RebuildStatusBar(entry.StatusBar, status);
+			ApplyFooterSpacer(entry);
 			Invalidate(Invalidation.Relayout);
 		}
 
@@ -171,6 +172,7 @@ namespace SharpConsoleUI.Controls
 
 			RemoveControl(entry.StatusBar);
 			entry.StatusBar = null;
+			ApplyFooterSpacer(entry);
 			Invalidate(Invalidation.Relayout);
 		}
 
@@ -189,6 +191,14 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>Returns the number of action buttons currently in the message's actions row (0 when there is none) (test-only seam).</summary>
 		internal int ActionButtonCountForTest(ChatMessageId id) => Require(id).ActionsToolbar?.Items.Count ?? 0;
+
+		/// <summary>Returns the bottom margin of the message's bottommost footer row (status row when present, else actions row, else 0) (test-only seam).</summary>
+		internal int FooterBottomMarginForTest(ChatMessageId id)
+		{
+			var entry = Require(id);
+			var bottom = (IWindowControl?)entry.StatusBar ?? entry.ActionsToolbar;
+			return bottom is BaseControl bc ? bc.Margin.Bottom : 0;
+		}
 
 		/// <summary>Dispatches the action with the given action id as if its button were clicked (test-only seam that drives the real dispatch path).</summary>
 		internal void InvokeActionForTest(ChatMessageId id, string actionId)
@@ -211,6 +221,29 @@ namespace SharpConsoleUI.Controls
 		#region Footer helpers
 
 		/// <summary>
+		/// Applies the footer spacer: a 1-line bottom margin on the message's <em>bottommost</em> footer row
+		/// (the status row when present, else the actions row), with the other footer row cleared to 0. This
+		/// keeps a single blank line between a footer'd message and the next one, and self-corrects as rows
+		/// come and go — if the status row is later removed, the actions row picks up the spacer on the next
+		/// footer mutation. Recomputed from the current rows on each call.
+		/// </summary>
+		private void ApplyFooterSpacer(MessageEntry entry)
+		{
+			// Clear both, then set the bottommost so only the last row carries the spacer.
+			if (entry.ActionsToolbar != null)
+				entry.ActionsToolbar.Margin = WithBottom(entry.ActionsToolbar.Margin, 0);
+			if (entry.StatusBar != null)
+				entry.StatusBar.Margin = WithBottom(entry.StatusBar.Margin, 0);
+
+			var bottom = (IWindowControl?)entry.StatusBar ?? entry.ActionsToolbar;
+			if (bottom is BaseControl bc)
+				bc.Margin = WithBottom(bc.Margin, 1);
+		}
+
+		/// <summary>Returns a copy of <paramref name="m"/> with its bottom margin replaced by <paramref name="bottom"/>.</summary>
+		private static Margin WithBottom(Margin m, int bottom) => new Margin(m.Left, m.Top, m.Right, bottom);
+
+		/// <summary>
 		/// Rebuilds (or removes) a message's actions toolbar from its declared <see cref="MessageEntry.Actions"/>.
 		/// The toolbar is a sibling of the panel, inserted immediately after it and <em>above</em> any status
 		/// row. When there are no actions the toolbar is removed and the footer collapsed if empty.
@@ -227,6 +260,7 @@ namespace SharpConsoleUI.Controls
 			if (entry.Actions.Count == 0)
 			{
 				// No actions row; nothing else to add. Footer presence is derived (status may remain).
+				ApplyFooterSpacer(entry);
 				Invalidate(Invalidation.Relayout);
 				return;
 			}
@@ -258,6 +292,7 @@ namespace SharpConsoleUI.Controls
 
 			entry.ActionsToolbar = toolbar;
 			InsertActionsRow(entry, toolbar);
+			ApplyFooterSpacer(entry);
 			Invalidate(Invalidation.Relayout);
 		}
 

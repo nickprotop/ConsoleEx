@@ -444,6 +444,16 @@ namespace SharpConsoleUI.Configuration
 
 		#endregion
 
+		#region ChatTranscript
+
+		/// <summary>
+		/// Number of trailing columns over which a collapsed-message preview row fades its foreground
+		/// (opaque left → transparent right) before the dim <c>expand…</c> cue (default: 10).
+		/// </summary>
+		public const int ChatCollapsedPreviewFadeWidth = 10;
+
+		#endregion
+
 		// DatePicker defaults
 
 		/// <summary>
