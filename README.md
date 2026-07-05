@@ -19,7 +19,11 @@
   <a href="https://nickprotop.github.io/ConsoleEx/docfx/_site/tutorials/README.html">Tutorials</a>
 </p>
 
-A reactive, cross-platform terminal UI framework for .NET with a real compositor engine.
+A Terminal Application Framework for .NET — the terminal, as an application surface.
+
+Build complete applications with overlapping windows, a real compositor, and reactive
+component UI, rendered efficiently to any modern terminal. (The runtime ships as the
+`SharpConsoleUI` NuGet package.)
 
 Each window runs on its own async thread, with built-in marshalling back to the UI
 thread. A DOM-based layout engine measures, arranges, and paints a tree of controls,
