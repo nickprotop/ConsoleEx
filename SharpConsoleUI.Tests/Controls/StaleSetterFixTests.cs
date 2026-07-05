@@ -37,28 +37,36 @@ namespace SharpConsoleUI.Tests.Controls
 			System.GC.KeepAlive(window);
 		}
 
-		[Fact] public void TabControl_ShowTabHeader_Invalidates()
+		[Fact]
+		public void TabControl_ShowTabHeader_Invalidates()
 		{ var c = new TabControl(); AssertMutationDirties(c, () => c.ShowTabHeader = false, "ShowTabHeader"); }
 
-		[Fact] public void MultilineEdit_TabSize_Invalidates()
+		[Fact]
+		public void MultilineEdit_TabSize_Invalidates()
 		{ var c = new MultilineEditControl(); AssertMutationDirties(c, () => c.TabSize = 8, "TabSize"); }
 
-		[Fact] public void Table_ColumnSeparator_Invalidates()
+		[Fact]
+		public void Table_ColumnSeparator_Invalidates()
 		{ var c = new TableControl(); AssertMutationDirties(c, () => c.ColumnSeparator = '|', "ColumnSeparator"); }
 
-		[Fact] public void Table_ColumnSeparatorColor_Invalidates()
+		[Fact]
+		public void Table_ColumnSeparatorColor_Invalidates()
 		{ var c = new TableControl(); AssertMutationDirties(c, () => c.ColumnSeparatorColor = new Color(1, 2, 3), "ColumnSeparatorColor"); }
 
-		[Fact] public void Table_ColumnSeparatorPadded_Invalidates()
+		[Fact]
+		public void Table_ColumnSeparatorPadded_Invalidates()
 		{ var c = new TableControl(); AssertMutationDirties(c, () => c.ColumnSeparatorPadded = true, "ColumnSeparatorPadded"); }
 
-		[Fact] public void Table_ScrollbarGutter_Invalidates()
+		[Fact]
+		public void Table_ScrollbarGutter_Invalidates()
 		{ var c = new TableControl(); AssertMutationDirties(c, () => c.ScrollbarGutter = true, "ScrollbarGutter"); }
 
-		[Fact] public void Table_ColumnResizeEnabled_Invalidates()
+		[Fact]
+		public void Table_ColumnResizeEnabled_Invalidates()
 		{ var c = new TableControl(); AssertMutationDirties(c, () => c.ColumnResizeEnabled = true, "ColumnResizeEnabled"); }
 
-		[Fact] public void Canvas_AutoSize_Invalidates()
+		[Fact]
+		public void Canvas_AutoSize_Invalidates()
 		{ var c = new CanvasControl(); AssertMutationDirties(c, () => c.AutoSize = true, "AutoSize"); }
 	}
 }
