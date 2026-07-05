@@ -225,23 +225,28 @@ namespace SharpConsoleUI.Controls
 		#region Footer helpers
 
 		/// <summary>
-		/// Applies the footer spacer: a 1-line bottom margin on the message's <em>bottommost</em> footer row
-		/// (the status row when present, else the actions row), with the other footer row cleared to 0. This
-		/// keeps a single blank line between a footer'd message and the next one, and self-corrects as rows
-		/// come and go — if the status row is later removed, the actions row picks up the spacer on the next
-		/// footer mutation. Recomputed from the current rows on each call.
+		/// Applies the trailing spacer: a 1-line bottom margin on the message's <em>bottommost</em> sibling row
+		/// below the panel — the status row, else the actions row, else the collapsed peek row — with the others
+		/// cleared to 0. This provides the single blank line between this message and the next whenever the
+		/// panel's own bottom margin is collapsed to 0 (which <see cref="ApplyGutter"/> does whenever a footer OR
+		/// a peek row follows the panel). Without this, a collapsed message that has a peek but no footer would
+		/// have neither the panel margin nor a spacer, and no blank line below it. Self-corrects as rows come and
+		/// go; recomputed from the current rows on each call.
 		/// </summary>
 		private void ApplyFooterSpacer(MessageEntry entry)
 		{
-			// Clear both, then set the bottommost so only the last row carries the spacer.
+			// Clear all candidates, then set the bottommost so only the last row carries the spacer.
 			if (entry.ActionsToolbar != null)
 				entry.ActionsToolbar.Margin = WithBottom(entry.ActionsToolbar.Margin, 0);
 			if (entry.StatusBar != null)
 				entry.StatusBar.Margin = WithBottom(entry.StatusBar.Margin, 0);
+			if (entry.PeekRow != null)
+				entry.PeekRow.Margin = WithBottom(entry.PeekRow.Margin, 0);
 
-			var bottom = (IWindowControl?)entry.StatusBar ?? entry.ActionsToolbar;
-			if (bottom is BaseControl bc)
-				bc.Margin = WithBottom(bc.Margin, 1);
+			// Bottommost sibling below the panel: status → actions → peek.
+			BaseControl? bottom = (BaseControl?)entry.StatusBar ?? entry.ActionsToolbar ?? (BaseControl?)entry.PeekRow;
+			if (bottom != null)
+				bottom.Margin = WithBottom(bottom.Margin, 1);
 		}
 
 		/// <summary>

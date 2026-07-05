@@ -87,7 +87,8 @@ namespace SharpConsoleUI.Controls
 				InsertControl(panelIndex + 1, peek);
 			}
 
-			ApplyGutter(entry); // inset the peek + collapse the panel's bottom gap now that it has a peek
+			ApplyGutter(entry);        // inset the peek + collapse the panel's bottom gap now that it has a peek
+			ApplyFooterSpacer(entry);  // when there's no footer, the peek is bottommost and owns the trailing blank line
 			Invalidate(Invalidation.Relayout);
 		}
 
@@ -99,7 +100,8 @@ namespace SharpConsoleUI.Controls
 
 			RemoveControl(entry.PeekRow);
 			entry.PeekRow = null;
-			ApplyGutter(entry); // restore the panel's bottom margin if nothing else follows it
+			ApplyGutter(entry);        // restore the panel's bottom margin if nothing else follows it
+			ApplyFooterSpacer(entry);  // move the trailing spacer back to the footer (or nowhere) now the peek is gone
 			Invalidate(Invalidation.Relayout);
 		}
 
