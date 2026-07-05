@@ -97,7 +97,7 @@ namespace SharpConsoleUI.Controls
 				if (_hoveredIndex != -1)
 				{
 					_hoveredIndex = -1;
-					Container?.Invalidate(Invalidation.Repaint);
+					Invalidate(Invalidation.Repaint);
 				}
 				MouseLeave?.Invoke(this, args);
 				return true;
@@ -118,7 +118,7 @@ namespace SharpConsoleUI.Controls
 						sbContentHeight, thumbHeight, _flattenedNodes.Count, effectiveMaxVisibleItems);
 					_scrollOffset = Math.Clamp(newOffset, 0, maxOffset);
 				}
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				args.Handled = true;
 				return true;
 			}
@@ -157,12 +157,12 @@ namespace SharpConsoleUI.Controls
 					if (!mouseOnScrollbar && nodeIndex != _hoveredIndex)
 					{
 						_hoveredIndex = nodeIndex;
-						Container?.Invalidate(Invalidation.Repaint);
+						Invalidate(Invalidation.Repaint);
 					}
 					else if (mouseOnScrollbar && _hoveredIndex != -1)
 					{
 						_hoveredIndex = -1;
-						Container?.Invalidate(Invalidation.Repaint);
+						Invalidate(Invalidation.Repaint);
 					}
 				}
 
@@ -172,7 +172,7 @@ namespace SharpConsoleUI.Controls
 					if (_scrollOffset > 0)
 					{
 						_scrollOffset = Math.Max(0, _scrollOffset - ControlDefaults.DefaultScrollWheelLines);
-						Container?.Invalidate(Invalidation.Relayout);
+						Invalidate(Invalidation.Relayout);
 						args.Handled = true;
 						return true;
 					}
@@ -188,7 +188,7 @@ namespace SharpConsoleUI.Controls
 					if (_scrollOffset < maxScroll)
 					{
 						_scrollOffset = Math.Min(maxScroll, _scrollOffset + ControlDefaults.DefaultScrollWheelLines);
-						Container?.Invalidate(Invalidation.Relayout);
+						Invalidate(Invalidation.Relayout);
 						args.Handled = true;
 						return true;
 					}
@@ -207,7 +207,7 @@ namespace SharpConsoleUI.Controls
 						if (_selectOnRightClick)
 						{
 							SelectNodeNoScroll(nodeIndex);
-							Container?.Invalidate(Invalidation.Repaint);
+							Invalidate(Invalidation.Repaint);
 						}
 					}
 					else
@@ -247,7 +247,7 @@ namespace SharpConsoleUI.Controls
 						}
 
 						fireMouseDoubleClick = args;
-						Container?.Invalidate(Invalidation.Relayout);
+						Invalidate(Invalidation.Relayout);
 						args.Handled = true;
 						result = true;
 					}
@@ -273,7 +273,7 @@ namespace SharpConsoleUI.Controls
 							_scrollbarDragStartOffset = _scrollOffset;
 							break;
 					}
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 					args.Handled = true;
 					result = true;
 				}
@@ -311,7 +311,7 @@ namespace SharpConsoleUI.Controls
 								_scrollOffset = Math.Min(maxOffset, _scrollOffset + effectiveVis);
 								break;
 						}
-						Container?.Invalidate(Invalidation.Relayout);
+						Invalidate(Invalidation.Relayout);
 						args.Handled = true;
 						result = true;
 					}
@@ -379,7 +379,7 @@ namespace SharpConsoleUI.Controls
 							}
 						}
 
-						Container?.Invalidate(Invalidation.Relayout);
+						Invalidate(Invalidation.Relayout);
 					}
 
 					args.Handled = true;

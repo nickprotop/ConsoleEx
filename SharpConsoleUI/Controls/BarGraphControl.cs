@@ -233,7 +233,7 @@ namespace SharpConsoleUI.Controls
 					_colorThresholds = thresholds.OrderBy(t => t.Threshold).ToList();
 				}
 			}
-			Container?.Invalidate(Invalidation.Repaint);
+			Invalidate(Invalidation.Repaint);
 		}
 
 		/// <summary>
@@ -245,7 +245,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_colorThresholds = null;
 			}
-			Container?.Invalidate(Invalidation.Repaint);
+			Invalidate(Invalidation.Repaint);
 		}
 
 		/// <summary>
@@ -273,7 +273,7 @@ namespace SharpConsoleUI.Controls
 			{
 				base.Container = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 

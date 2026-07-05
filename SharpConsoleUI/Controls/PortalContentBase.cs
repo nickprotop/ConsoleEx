@@ -205,7 +205,7 @@ namespace SharpConsoleUI.Controls
 				if (_content != null) _content.Container = null;
 				_content = value;
 				if (_content != null) _content.Container = this; // child → this(IContainer) → window
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -240,7 +240,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void Invalidate(Invalidation work)
 		{
-			Container?.Invalidate(work);
+			Container?.Invalidate(work, this);
 		}
 
 		/// <inheritdoc/>

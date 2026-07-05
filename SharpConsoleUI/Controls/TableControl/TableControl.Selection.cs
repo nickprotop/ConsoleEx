@@ -108,7 +108,7 @@ public partial class TableControl
 			int colCount = ColumnCount;
 			_selectedColumnIndex = Math.Clamp(value, -1, colCount - 1);
 			OnPropertyChanged();
-			Container?.Invalidate(Invalidation.Repaint);
+			Invalidate(Invalidation.Repaint);
 		}
 	}
 
@@ -123,7 +123,7 @@ public partial class TableControl
 			_cellNavigationEnabled = value;
 			OnPropertyChanged();
 			if (!value) _selectedColumnIndex = -1;
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 	}
 
@@ -133,7 +133,7 @@ public partial class TableControl
 	public bool HoverEnabled
 	{
 		get => _hoverEnabled;
-		set { _hoverEnabled = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
+		set { _hoverEnabled = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 	}
 
 	/// <summary>
@@ -151,7 +151,7 @@ public partial class TableControl
 				_selectedRowIndices.Clear();
 				_checkboxMode = false;
 			}
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 	}
 
@@ -167,7 +167,7 @@ public partial class TableControl
 			_checkboxMode = value;
 			OnPropertyChanged();
 			if (value) _multiSelectEnabled = true;
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 	}
 
@@ -253,7 +253,7 @@ public partial class TableControl
 			Core.AsyncEvent.Raise(SelectedRowItemChanged, SelectedRowItemChangedAsync, this, row, Container?.GetConsoleWindowSystem?.LogService);
 		}
 
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -270,7 +270,7 @@ public partial class TableControl
 			if (_checkboxMode)
 				SyncCheckboxState(i);
 		}
-		Container?.Invalidate(Invalidation.Repaint);
+		Invalidate(Invalidation.Repaint);
 		Core.AsyncEvent.Raise(MultiSelectionChanged, MultiSelectionChangedAsync, this, _selectedRowIndices.Count, Container?.GetConsoleWindowSystem?.LogService);
 	}
 
@@ -288,7 +288,7 @@ public partial class TableControl
 			}
 		}
 		_selectedRowIndices.Clear();
-		Container?.Invalidate(Invalidation.Repaint);
+		Invalidate(Invalidation.Repaint);
 		Core.AsyncEvent.Raise(MultiSelectionChanged, MultiSelectionChangedAsync, this, 0, Container?.GetConsoleWindowSystem?.LogService);
 	}
 
@@ -346,7 +346,7 @@ public partial class TableControl
 		if (_checkboxMode)
 			SyncCheckboxState(displayIndex);
 
-		Container?.Invalidate(Invalidation.Repaint);
+		Invalidate(Invalidation.Repaint);
 		Core.AsyncEvent.Raise(MultiSelectionChanged, MultiSelectionChangedAsync, this, _selectedRowIndices.Count, Container?.GetConsoleWindowSystem?.LogService);
 	}
 
@@ -364,7 +364,7 @@ public partial class TableControl
 			if (_checkboxMode)
 				SyncCheckboxState(i);
 		}
-		Container?.Invalidate(Invalidation.Repaint);
+		Invalidate(Invalidation.Repaint);
 		Core.AsyncEvent.Raise(MultiSelectionChanged, MultiSelectionChangedAsync, this, _selectedRowIndices.Count, Container?.GetConsoleWindowSystem?.LogService);
 	}
 

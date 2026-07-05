@@ -66,7 +66,7 @@ public partial class MenuControl
 			}
 		}
 
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	private void OpenSubmenu(MenuItem item)
@@ -107,7 +107,7 @@ public partial class MenuControl
 			_focusedItem = firstItem;
 		}
 
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	private void CloseLastOpenMenu()
@@ -130,7 +130,7 @@ public partial class MenuControl
 			}
 
 			_openDropdowns.RemoveAt(_openDropdowns.Count - 1);
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 	}
 

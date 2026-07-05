@@ -155,7 +155,7 @@ namespace SharpConsoleUI.Controls
 				{
 					_isMouseInside = false;
 					MouseLeave?.Invoke(this, args);
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 				}
 				return true;
 			}
@@ -165,7 +165,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_isMouseInside = true;
 				MouseEnter?.Invoke(this, args);
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 
 			// Handle right-click
@@ -192,7 +192,7 @@ namespace SharpConsoleUI.Controls
 
 				MouseDoubleClick?.Invoke(this, args);
 				args.Handled = true;
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				return true;
 			}
 
@@ -221,7 +221,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				args.Handled = true;
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				return true;
 			}
 
@@ -279,7 +279,7 @@ namespace SharpConsoleUI.Controls
 		public void SetRenderable(IRenderable renderable)
 		{
 			_renderable = renderable;
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		#region IDOMPaintable Implementation

@@ -87,7 +87,7 @@ namespace SharpConsoleUI.Controls
 				// If currently playing, restart playback.
 				if (_playbackState == VideoPlaybackState.Playing)
 					RestartPlayback();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -168,7 +168,7 @@ namespace SharpConsoleUI.Controls
 				if (_errorMessage == value) return;
 				_errorMessage = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 

@@ -903,7 +903,7 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => _backgroundColorValue ?? Color.Transparent;
-			set { _backgroundColorValue = value; Container?.Invalidate(Invalidation.Repaint); }
+			set { _backgroundColorValue = value; Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <inheritdoc/>
@@ -924,7 +924,7 @@ namespace SharpConsoleUI.Controls
 			// Any invalidation (content/scroll/structural change) may alter the metrics; drop the
 			// per-pass ResolveContentMetrics cache so the next pass recomputes from scratch.
 			_metricsCacheValid = false;
-			Container?.Invalidate(work, this);
+			Container?.Invalidate(work, callerControl ?? this);
 		}
 
 		/// <inheritdoc/>

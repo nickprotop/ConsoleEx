@@ -100,7 +100,7 @@ namespace SharpConsoleUI.Controls
 				{
 					_hoveredIndex = -1;
 					ItemHovered?.Invoke(this, -1);
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 				}
 				MouseLeave?.Invoke(this, args);
 				return true;
@@ -145,7 +145,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_hoveredIndex = hoveredIndex;
 				ItemHovered?.Invoke(this, hoveredIndex);
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 
 			// Handle mouse wheel scrolling (no impact on selection/highlight)
@@ -154,7 +154,7 @@ namespace SharpConsoleUI.Controls
 				if (_scrollOffset > 0)
 				{
 					_scrollOffset = Math.Max(0, _scrollOffset - _mouseWheelScrollSpeed);
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 					args.Handled = true;
 					return true; // Consumed
 				}
@@ -169,7 +169,7 @@ namespace SharpConsoleUI.Controls
 				if (_scrollOffset < maxScroll)
 				{
 					_scrollOffset = Math.Min(maxScroll, _scrollOffset + _mouseWheelScrollSpeed);
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 					args.Handled = true;
 					return true; // Consumed
 				}
@@ -185,7 +185,7 @@ namespace SharpConsoleUI.Controls
 				if (_selectOnRightClick && hoveredIndex >= 0 && hoveredIndex < _items.Count)
 				{
 					SelectedIndex = hoveredIndex;
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 				}
 				MouseRightClick?.Invoke(this, args);
 				return true;
@@ -216,7 +216,7 @@ namespace SharpConsoleUI.Controls
 						ItemActivated?.Invoke(this, item);
 					}
 
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 					args.Handled = true;
 					return true;
 				}
@@ -263,7 +263,7 @@ namespace SharpConsoleUI.Controls
 							{
 								_items[clickedIndex].IsChecked = !_items[clickedIndex].IsChecked;
 								CheckedItemsChanged?.Invoke(this, EventArgs.Empty);
-								Container?.Invalidate(Invalidation.Relayout);
+								Invalidate(Invalidation.Relayout);
 								args.Handled = true;
 								return true;
 							}
@@ -306,7 +306,7 @@ namespace SharpConsoleUI.Controls
 							MouseClick?.Invoke(this, args);
 						}
 
-						Container?.Invalidate(Invalidation.Relayout);
+						Invalidate(Invalidation.Relayout);
 					}
 				}
 
@@ -440,7 +440,7 @@ namespace SharpConsoleUI.Controls
 					break;
 			}
 
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		private void HandleScrollbarDrag(MouseEventArgs args)
@@ -458,7 +458,7 @@ namespace SharpConsoleUI.Controls
 				scrollbarHeight, thumbHeight,
 				_items.Count, effectiveMaxVisibleItems);
 
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion

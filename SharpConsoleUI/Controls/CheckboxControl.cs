@@ -151,7 +151,7 @@ namespace SharpConsoleUI.Controls
 				{
 					_checked = value;
 					OnPropertyChanged();
-					Container?.Invalidate(Invalidation.Repaint);
+					Invalidate(Invalidation.Repaint);
 					Core.AsyncEvent.Raise(CheckedChanged, CheckedChangedAsync, this, _checked, Container?.GetConsoleWindowSystem?.LogService);
 				}
 			}
@@ -360,7 +360,7 @@ namespace SharpConsoleUI.Controls
 
 				// Mark event as handled and trigger re-render
 				args.Handled = true;
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 
 				return true;
 			}

@@ -68,7 +68,7 @@ namespace SharpConsoleUI.Controls
 				_secondaryDataPoints.Add(value);
 				TrimSecondaryDataPoints();
 			}
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -80,7 +80,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_secondaryDataPoints.Clear();
 			}
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -93,7 +93,7 @@ namespace SharpConsoleUI.Controls
 				_secondaryDataPoints = new List<double>(dataPoints);
 				TrimSecondaryDataPoints();
 			}
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -109,7 +109,7 @@ namespace SharpConsoleUI.Controls
 				TrimDataPoints();
 				TrimSecondaryDataPoints();
 			}
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion

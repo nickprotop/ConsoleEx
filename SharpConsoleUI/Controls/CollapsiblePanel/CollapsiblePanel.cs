@@ -361,14 +361,14 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => ColorResolver.ResolveBackground(_backgroundColorValue, Container);
-			set { _backgroundColorValue = value; Container?.Invalidate(Invalidation.Repaint); }
+			set { _backgroundColorValue = value; Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <inheritdoc/>
 		public Color ForegroundColor
 		{
 			get => ColorResolver.ResolveForeground(_foregroundColorValue, Container);
-			set { _foregroundColorValue = value; Container?.Invalidate(Invalidation.Repaint); }
+			set { _foregroundColorValue = value; Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <summary>
@@ -381,7 +381,7 @@ namespace SharpConsoleUI.Controls
 		internal void SetBackgroundColorNullable(Color? value)
 		{
 			_backgroundColorValue = value;
-			Container?.Invalidate(Invalidation.Repaint);
+			Invalidate(Invalidation.Repaint);
 		}
 
 		/// <summary>
@@ -392,7 +392,7 @@ namespace SharpConsoleUI.Controls
 		internal void SetForegroundColorNullable(Color? value)
 		{
 			_foregroundColorValue = value;
-			Container?.Invalidate(Invalidation.Repaint);
+			Invalidate(Invalidation.Repaint);
 		}
 
 		/// <inheritdoc/>
@@ -401,7 +401,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void Invalidate(Invalidation work, IWindowControl? callerControl = null)
 		{
-			Container?.Invalidate(work, callerControl);
+			Container?.Invalidate(work, callerControl ?? this);
 		}
 
 		/// <inheritdoc/>

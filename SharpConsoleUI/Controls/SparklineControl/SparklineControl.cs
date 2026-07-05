@@ -271,7 +271,7 @@ namespace SharpConsoleUI.Controls
 					TrimDataPoints();
 				}
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -417,7 +417,7 @@ namespace SharpConsoleUI.Controls
 			{
 				base.Container = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -467,7 +467,7 @@ namespace SharpConsoleUI.Controls
 				_dataPoints.Add(value);
 				TrimDataPoints();
 			}
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -479,7 +479,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_dataPoints.Clear();
 			}
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -492,7 +492,7 @@ namespace SharpConsoleUI.Controls
 				_dataPoints = new List<double>(dataPoints);
 				TrimDataPoints();
 			}
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion

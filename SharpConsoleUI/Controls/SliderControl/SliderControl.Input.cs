@@ -103,7 +103,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_isMouseDragging = false;
 				_isDragging = false;
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				args.Handled = true;
 				return true;
 			}
@@ -140,7 +140,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				args.Handled = true;
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				return true;
 			}
 

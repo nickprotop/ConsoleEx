@@ -41,7 +41,7 @@ namespace SharpConsoleUI.Controls
 				_renderer?.OnSourceChanged();
 				OnPropertyChanged();
 				InvalidateRenderCache();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -55,7 +55,7 @@ namespace SharpConsoleUI.Controls
 				_scaleMode = value;
 				OnPropertyChanged();
 				InvalidateRenderCache();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -71,7 +71,7 @@ namespace SharpConsoleUI.Controls
 				if (_minimumWidth == value) return;
 				_minimumWidth = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -87,7 +87,7 @@ namespace SharpConsoleUI.Controls
 				if (_minimumHeight == value) return;
 				_minimumHeight = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 

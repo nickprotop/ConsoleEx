@@ -63,7 +63,7 @@ namespace SharpConsoleUI.Controls
 					else
 					{
 						// Legacy path: manually unfocus child and keep panel focused
-						Container?.Invalidate(Invalidation.Repaint);
+						Invalidate(Invalidation.Repaint);
 					}
 					return true;
 				}
@@ -87,7 +87,7 @@ namespace SharpConsoleUI.Controls
 						(this as IWindowControl).GetParentWindow()?.FocusManager.SetFocus(restoreFc, FocusReason.Keyboard);
 					if (restoreChild is IWindowControl focusedWindow)
 						ScrollChildIntoView(focusedWindow);
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 					return true;
 				}
 
@@ -130,7 +130,7 @@ namespace SharpConsoleUI.Controls
 					if (newChild is IWindowControl scrollTarget)
 						ScrollChildIntoView(scrollTarget);
 
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 					return true;
 				}
 			}

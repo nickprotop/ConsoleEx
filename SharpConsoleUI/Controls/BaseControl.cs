@@ -109,7 +109,7 @@ namespace SharpConsoleUI.Controls
 			if (EqualityComparer<T>.Default.Equals(field, value)) return false;
 			field = value;
 			OnPropertyChanged(propertyName);
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 			return true;
 		}
 
@@ -129,7 +129,7 @@ namespace SharpConsoleUI.Controls
 			if (EqualityComparer<T>.Default.Equals(field, validated)) return false;
 			field = validated;
 			OnPropertyChanged(propertyName);
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 			return true;
 		}
 

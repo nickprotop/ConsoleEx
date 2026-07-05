@@ -60,7 +60,7 @@ public partial class MenuControl
 			if (!HasFocus)
 			{
 				_hoveredItem = null;
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 			MouseLeave?.Invoke(this, args);
 			return true;
@@ -124,7 +124,7 @@ public partial class MenuControl
 				{
 					ItemHovered?.Invoke(this, hitItem);
 				}
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 			// Same item as before — check if pending submenu delay has elapsed
 			else if (_pendingSubmenuItem != null && hitItem == _pendingSubmenuItem)
@@ -190,7 +190,7 @@ public partial class MenuControl
 				}
 			}
 
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 			return true;
 		}
 
@@ -266,7 +266,7 @@ public partial class MenuControl
 			}
 
 			MouseClick?.Invoke(this, args);
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 			return true;
 		}
 
@@ -290,14 +290,14 @@ public partial class MenuControl
 		if (args.HasFlag(MouseFlags.WheeledUp))
 		{
 			dropdown.ScrollUp();
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 			return true;
 		}
 
 		if (args.HasFlag(MouseFlags.WheeledDown))
 		{
 			dropdown.ScrollDown();
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 			return true;
 		}
 
@@ -327,7 +327,7 @@ public partial class MenuControl
 				_hoveredItem = null;
 			}
 			MouseLeave?.Invoke(this, args);
-			Container?.Invalidate(Invalidation.Repaint);
+			Invalidate(Invalidation.Repaint);
 			return true;
 		}
 
@@ -388,7 +388,7 @@ public partial class MenuControl
 				{
 					ItemHovered?.Invoke(this, hitItem);
 				}
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 			// Same item — check pending delays
 			else if (_pendingSubmenuItem != null && hitItem == _pendingSubmenuItem)
@@ -422,7 +422,7 @@ public partial class MenuControl
 			}
 
 			_pressedItem = hitItem;
-			Container?.Invalidate(Invalidation.Repaint);
+			Invalidate(Invalidation.Repaint);
 			return true;
 		}
 
@@ -434,7 +434,7 @@ public partial class MenuControl
 
 			if (pressedItem == null || hitItem == null || hitItem != pressedItem)
 			{
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				return true;
 			}
 
@@ -458,7 +458,7 @@ public partial class MenuControl
 			}
 
 			MouseClick?.Invoke(this, args);
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 			return true;
 		}
 

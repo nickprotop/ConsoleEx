@@ -176,7 +176,7 @@ namespace SharpConsoleUI.Controls
 		public bool ShowTabHeader
 		{
 			get => _showTabHeader;
-			set { _showTabHeader = value; OnPropertyChanged(); }
+			set => SetProperty(ref _showTabHeader, value);
 		}
 
 		/// <summary>
@@ -497,7 +497,7 @@ namespace SharpConsoleUI.Controls
 					throw new ArgumentException("TabControl minimum height is 2 (1 header + 1 content line)");
 				_height = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -558,7 +558,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void Invalidate(Invalidation work, IWindowControl? callerControl = null)
 		{
-			Container?.Invalidate(work, this);
+			Container?.Invalidate(work, callerControl ?? this);
 		}
 
 		/// <inheritdoc/>

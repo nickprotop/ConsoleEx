@@ -419,21 +419,21 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 	public Color BackgroundColor
 	{
 		get => _backgroundColor;
-		set { _backgroundColor = value; Container?.Invalidate(Invalidation.Repaint); }
+		set { _backgroundColor = value; Invalidate(Invalidation.Repaint); }
 	}
 
 	/// <inheritdoc/>
 	public Color ForegroundColor
 	{
 		get => _foregroundColor;
-		set { _foregroundColor = value; Container?.Invalidate(Invalidation.Repaint); }
+		set { _foregroundColor = value; Invalidate(Invalidation.Repaint); }
 	}
 
 	/// <inheritdoc/>
 	public ConsoleWindowSystem? GetConsoleWindowSystem => Container?.GetConsoleWindowSystem;
 
 	/// <inheritdoc/>
-	public void Invalidate(Invalidation work, IWindowControl? callerControl = null) => Container?.Invalidate(work, this);
+	public void Invalidate(Invalidation work, IWindowControl? callerControl = null) => Container?.Invalidate(work, callerControl ?? this);
 
 	/// <inheritdoc/>
 	public int? GetVisibleHeightForControl(IWindowControl control) => Container?.GetVisibleHeightForControl(control);

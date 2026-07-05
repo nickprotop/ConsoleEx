@@ -99,7 +99,7 @@ namespace SharpConsoleUI.Controls
 				_currentMatchIndex = -1;
 			}
 
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 
 			if (oldCount != newCount)
 				MatchCountChanged?.Invoke(this, newCount);
@@ -117,7 +117,7 @@ namespace SharpConsoleUI.Controls
 
 			_currentMatchIndex = (_currentMatchIndex + 1) % _searchMatches.Count;
 			NavigateToCurrentMatch();
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 			return true;
 		}
 
@@ -131,7 +131,7 @@ namespace SharpConsoleUI.Controls
 
 			_currentMatchIndex = (_currentMatchIndex - 1 + _searchMatches.Count) % _searchMatches.Count;
 			NavigateToCurrentMatch();
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 			return true;
 		}
 
@@ -195,7 +195,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			EnsureCursorVisible();
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 
 			if (oldCount != newCount)
@@ -257,7 +257,7 @@ namespace SharpConsoleUI.Controls
 			_currentMatchIndex = _searchMatches.Count > 0 ? 0 : -1;
 
 			EnsureCursorVisible();
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 			Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 
 			if (oldCount != newCount)
@@ -280,7 +280,7 @@ namespace SharpConsoleUI.Controls
 
 			if (hadSearch)
 			{
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 				if (oldCount > 0)
 					MatchCountChanged?.Invoke(this, 0);
 			}

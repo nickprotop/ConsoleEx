@@ -253,7 +253,7 @@ namespace SharpConsoleUI.Controls
 		public bool HoverEnabled
 		{
 			get => _hoverEnabled;
-			set { _hoverEnabled = value; if (!value) _hoveredIndex = -1; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
+			set { _hoverEnabled = value; if (!value) _hoveredIndex = -1; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <summary>
@@ -324,7 +324,7 @@ namespace SharpConsoleUI.Controls
 								eventArgs = new TreeNodeEventArgs(selectedNode);
 							}
 							EnsureSelectedItemVisible();
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 						}
 					}
 				}
@@ -370,7 +370,7 @@ namespace SharpConsoleUI.Controls
 			}
 			if (_deferredSelectionChanged != null)
 				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -390,7 +390,7 @@ namespace SharpConsoleUI.Controls
 			}
 			if (_deferredSelectionChanged != null)
 				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 			return node;
 		}
 
@@ -419,7 +419,7 @@ namespace SharpConsoleUI.Controls
 			}
 			if (_deferredSelectionChanged != null)
 				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -446,12 +446,12 @@ namespace SharpConsoleUI.Controls
 				}
 				if (_deferredSelectionChanged != null)
 					Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 			else
 			{
 				// Text/colour/tag: same node count, no re-flatten needed.
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -478,7 +478,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			if (fireEvent) Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, new TreeNodeEventArgs(null), Container?.GetConsoleWindowSystem?.LogService);
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -494,7 +494,7 @@ namespace SharpConsoleUI.Controls
 			}
 			if (_deferredSelectionChanged != null)
 				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <inheritdoc/>
@@ -549,7 +549,7 @@ namespace SharpConsoleUI.Controls
 					}
 
 					UpdateFlattenedNodes();
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 					result = true;
 				}
 			}
@@ -572,7 +572,7 @@ namespace SharpConsoleUI.Controls
 			}
 			if (_deferredSelectionChanged != null)
 				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -677,7 +677,7 @@ namespace SharpConsoleUI.Controls
 				Core.AsyncEvent.Raise(SelectedNodeChanged, SelectedNodeChangedAsync, this, _deferredSelectionChanged, Container?.GetConsoleWindowSystem?.LogService);
 			if (result)
 			{
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 			return result;
 		}
@@ -707,7 +707,7 @@ namespace SharpConsoleUI.Controls
 						eventArgs = new TreeNodeEventArgs(node);
 					}
 					EnsureSelectedItemVisible();
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 					result = true;
 				}
 				else
@@ -737,7 +737,7 @@ namespace SharpConsoleUI.Controls
 								eventArgs = new TreeNodeEventArgs(selectedNode);
 							}
 							EnsureSelectedItemVisible();
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 							result = true;
 						}
 					}

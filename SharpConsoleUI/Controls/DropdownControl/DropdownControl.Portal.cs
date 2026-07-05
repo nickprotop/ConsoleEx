@@ -46,7 +46,7 @@ namespace SharpConsoleUI.Controls
 				_dropdownPortal = window.CreatePortal(this, _portalContent);
 			}
 
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -71,7 +71,7 @@ namespace SharpConsoleUI.Controls
 			_isDropdownOpen = false;
 			_mouseHoveredIndex = -1;
 
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>

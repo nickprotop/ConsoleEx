@@ -165,7 +165,7 @@ namespace SharpConsoleUI.Controls
 				_hoveredLinkLineIndex = -1;
 				_hoveredLinkIndex = -1;
 				LinkHover?.Invoke(this, new LinkHoverEventArgs(null, null));
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -251,7 +251,7 @@ namespace SharpConsoleUI.Controls
 					_hoveredLinkLineIndex = link.Value.LineIndex;
 					_hoveredLinkIndex = link.Value.LinkIndex;
 					LinkHover?.Invoke(this, new LinkHoverEventArgs(link.Value.Url, link.Value.Text));
-					Container?.Invalidate(Invalidation.Repaint);
+					Invalidate(Invalidation.Repaint);
 				}
 			}
 			else
@@ -312,7 +312,7 @@ namespace SharpConsoleUI.Controls
 				if (links[i].lineIndex == clicked.LineIndex && links[i].linkIndex == clicked.LinkIndex)
 				{
 					_focusedLinkIndex = i;
-					Container?.Invalidate(Invalidation.Repaint);
+					Invalidate(Invalidation.Repaint);
 					return;
 				}
 			}

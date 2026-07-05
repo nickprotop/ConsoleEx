@@ -135,7 +135,7 @@ namespace SharpConsoleUI.Controls
 		public Color BackgroundColor
 		{
 			get => _backgroundColorValue ?? Color.Transparent;
-			set { _backgroundColorValue = value; Container?.Invalidate(Invalidation.Repaint); }
+			set { _backgroundColorValue = value; Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <summary>
@@ -145,7 +145,7 @@ namespace SharpConsoleUI.Controls
 		public Color ForegroundColor
 		{
 			get => ColorResolver.ResolveForeground(_foregroundColorValue, Container);
-			set { _foregroundColorValue = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
+			set { _foregroundColorValue = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <summary>
@@ -168,21 +168,21 @@ namespace SharpConsoleUI.Controls
 		public int RowGap
 		{
 			get => _rowGap;
-			set { if (SetProperty(ref _rowGap, value)) Container?.Invalidate(Invalidation.Relayout); }
+			set { if (SetProperty(ref _rowGap, value)) Invalidate(Invalidation.Relayout); }
 		}
 
 		/// <summary>Gets or sets the gap, in cells, between adjacent columns. Defaults to 0.</summary>
 		public int ColumnGap
 		{
 			get => _columnGap;
-			set { if (SetProperty(ref _columnGap, value)) Container?.Invalidate(Invalidation.Relayout); }
+			set { if (SetProperty(ref _columnGap, value)) Invalidate(Invalidation.Relayout); }
 		}
 
 		/// <summary>Gets or sets the grid's own inner padding. Defaults to <see cref="Padding.None"/>.</summary>
 		public Padding Padding
 		{
 			get => _padding;
-			set { if (SetProperty(ref _padding, value)) Container?.Invalidate(Invalidation.Relayout); }
+			set { if (SetProperty(ref _padding, value)) Invalidate(Invalidation.Relayout); }
 		}
 
 		#endregion
@@ -583,7 +583,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void Invalidate(Invalidation work, IWindowControl? callerControl = null)
 		{
-			Container?.Invalidate(work, this);
+			Container?.Invalidate(work, callerControl ?? this);
 		}
 
 		/// <inheritdoc/>

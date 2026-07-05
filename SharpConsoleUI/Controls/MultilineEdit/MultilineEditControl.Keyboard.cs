@@ -47,7 +47,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_horizontalScrollOffset--;
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 							return true;
 						}
 						return false;
@@ -61,7 +61,7 @@ namespace SharpConsoleUI.Controls
 							{
 								_skipUpdateScrollPositionsInRender = true;
 								_horizontalScrollOffset++;
-								Container?.Invalidate(Invalidation.Relayout);
+								Invalidate(Invalidation.Relayout);
 								return true;
 							}
 						}
@@ -73,7 +73,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset--;
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 							return true;
 						}
 						return false;
@@ -85,7 +85,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset++;
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 							return true;
 						}
 						return false;
@@ -97,7 +97,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset -= pageUpAmount;
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 							return true;
 						}
 						return false;
@@ -111,7 +111,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset += pageDownAmount;
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 							return true;
 						}
 						return false;
@@ -123,7 +123,7 @@ namespace SharpConsoleUI.Controls
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset = 0;
 							_horizontalScrollOffset = 0;
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 							return true;
 						}
 						return false;
@@ -135,7 +135,7 @@ namespace SharpConsoleUI.Controls
 						{
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset = endOffset;
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 							return true;
 						}
 						return false;
@@ -587,7 +587,7 @@ namespace SharpConsoleUI.Controls
 						if (_hasSelection)
 						{
 							ClearSelection();
-							Container?.Invalidate(Invalidation.Repaint);
+							Invalidate(Invalidation.Repaint);
 							return true;
 						}
 						if (_isEditing && EscapeExitsEditMode)
@@ -678,7 +678,7 @@ namespace SharpConsoleUI.Controls
 										_selectionEndY = _lines.Count - 1;
 										_cursorX = _selectionEndX;
 										_cursorY = _selectionEndY;
-										Container?.Invalidate(Invalidation.Repaint);
+										Invalidate(Invalidation.Repaint);
 									}
 									return true;
 
@@ -697,7 +697,7 @@ namespace SharpConsoleUI.Controls
 										CommitUndoAction();
 										InvalidateWrappedLinesCache();
 										EnsureCursorVisible();
-										Container?.Invalidate(Invalidation.Relayout);
+										Invalidate(Invalidation.Relayout);
 										Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 									}
 									return true;
@@ -713,7 +713,7 @@ namespace SharpConsoleUI.Controls
 										ClearSelection();
 										_isModified = _savedContent != action.OldText;
 										EnsureCursorVisible();
-										Container?.Invalidate(Invalidation.Relayout);
+										Invalidate(Invalidation.Relayout);
 										Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 									}
 									return true;
@@ -763,7 +763,7 @@ namespace SharpConsoleUI.Controls
 										ClearSelection();
 										_isModified = _savedContent != action.NewText;
 										EnsureCursorVisible();
-										Container?.Invalidate(Invalidation.Relayout);
+										Invalidate(Invalidation.Relayout);
 										Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 									}
 									return true;
@@ -814,7 +814,7 @@ namespace SharpConsoleUI.Controls
 				{
 					_selectionEndX = _cursorX;
 					_selectionEndY = _cursorY;
-					Container?.Invalidate(Invalidation.Repaint);
+					Invalidate(Invalidation.Repaint);
 				}
 
 				// If content changed, invalidate caches and commit undo BEFORE ensuring cursor visibility
@@ -830,7 +830,7 @@ namespace SharpConsoleUI.Controls
 				if (_cursorX != oldCursorX || _cursorY != oldCursorY)
 				{
 					EnsureCursorVisible();
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 				}
 
 				// Only consume the key if we actually did something with it
@@ -845,7 +845,7 @@ namespace SharpConsoleUI.Controls
 			// Fire events outside the lock to avoid potential deadlocks
 			if (contentChanged)
 			{
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				Core.AsyncEvent.Raise(ContentChanged, ContentChangedAsync, this, GetContent(), Container?.GetConsoleWindowSystem?.LogService);
 			}
 

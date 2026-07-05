@@ -461,7 +461,7 @@ namespace SharpConsoleUI.Controls
 						Core.AsyncEvent.Raise(SelectedValueChanged, SelectedValueChangedAsync, this, newSel >= 0 && newSel < _items.Count ? GetItemValue(_items[newSel]) : null, log);
 					}
 				}
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -500,7 +500,7 @@ namespace SharpConsoleUI.Controls
 					_selectedIndex = value;
 					_highlightedIndex = value;
 					OnPropertyChanged();
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 
 					// Ensure selected item is visible when dropdown is open
 					if (_isDropdownOpen && value >= 0)
@@ -607,7 +607,7 @@ namespace SharpConsoleUI.Controls
 						Core.AsyncEvent.Raise(SelectedValueChanged, SelectedValueChangedAsync, this, newSel >= 0 && newSel < _items.Count ? GetItemValue(_items[newSel]) : null, log);
 					}
 				}
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -635,7 +635,7 @@ namespace SharpConsoleUI.Controls
 				Core.AsyncEvent.Raise(SelectedItemChanged, SelectedItemChangedAsync, this, item, log);
 				Core.AsyncEvent.Raise(SelectedValueChanged, SelectedValueChangedAsync, this, GetItemValue(item), log);
 			}
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -673,7 +673,7 @@ namespace SharpConsoleUI.Controls
 			// Clear scroll state
 			_dropdownScrollOffset = 0;
 
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 
 			if (oldIndex != -1)
 			{

@@ -169,7 +169,7 @@ namespace SharpConsoleUI.Controls
 					_currentTime = _frameCount * spf;
 
 					// Signal repaint
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 
 					// Sleep until next frame target time
 					double nextTarget = _frameCount * spf;

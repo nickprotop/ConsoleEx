@@ -58,7 +58,7 @@ public partial class TableControl
 	public bool ColumnResizeEnabled
 	{
 		get => _columnResizeEnabled;
-		set { _columnResizeEnabled = value; OnPropertyChanged(); }
+		set => SetProperty(ref _columnResizeEnabled, value);
 	}
 
 	/// <summary>
@@ -67,7 +67,7 @@ public partial class TableControl
 	public char? ColumnSeparator
 	{
 		get => _columnSeparator;
-		set { _columnSeparator = value; OnPropertyChanged(); }
+		set => SetProperty(ref _columnSeparator, value);
 	}
 
 	/// <summary>
@@ -76,7 +76,7 @@ public partial class TableControl
 	public Color? ColumnSeparatorColor
 	{
 		get => _columnSeparatorColor;
-		set { _columnSeparatorColor = value; OnPropertyChanged(); }
+		set { if (_columnSeparatorColor == value) return; _columnSeparatorColor = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 	}
 
 	/// <summary>
@@ -88,7 +88,7 @@ public partial class TableControl
 	public bool ColumnSeparatorPadded
 	{
 		get => _columnSeparatorPadded;
-		set { _columnSeparatorPadded = value; OnPropertyChanged(); }
+		set => SetProperty(ref _columnSeparatorPadded, value);
 	}
 
 	/// <summary>
@@ -100,7 +100,7 @@ public partial class TableControl
 	public bool ScrollbarGutter
 	{
 		get => _scrollbarGutter;
-		set { _scrollbarGutter = value; OnPropertyChanged(); }
+		set => SetProperty(ref _scrollbarGutter, value);
 	}
 
 	#endregion
@@ -139,7 +139,7 @@ public partial class TableControl
 		_editBuffer = Parsing.MarkupParser.Remove(currentValue);
 		_editCursorPosition = _editBuffer.Length;
 		_isEditing = true;
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -188,7 +188,7 @@ public partial class TableControl
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCachedEntry(committedValue);
 		Core.AsyncEvent.Raise(CellEditCompleted, CellEditCompletedAsync, this, (_selectedRowIndex, _selectedColumnIndex, oldValue, committedValue), Container?.GetConsoleWindowSystem?.LogService);
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -201,7 +201,7 @@ public partial class TableControl
 		_editBuffer = string.Empty;
 		_editCursorPosition = 0;
 		Core.AsyncEvent.Raise(CellEditCancelled, CellEditCancelledAsync, this, (_selectedRowIndex, _selectedColumnIndex), Container?.GetConsoleWindowSystem?.LogService);
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>Inserts pasted text into the inline cell editor (IPasteTarget). No-op unless editing a cell.</summary>
@@ -211,7 +211,7 @@ public partial class TableControl
 		text = text.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
 		_editBuffer = _editBuffer.Insert(_editCursorPosition, text);
 		_editCursorPosition += text.Length;
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -228,19 +228,19 @@ public partial class TableControl
 			{
 				case ConsoleKey.A: // move to start (no selection model in inline editor)
 					_editCursorPosition = 0;
-					Container?.Invalidate(Invalidation.Repaint);
+					Invalidate(Invalidation.Repaint);
 					return true;
 
 				case ConsoleKey.E: // move to end
 					_editCursorPosition = _editBuffer.Length;
-					Container?.Invalidate(Invalidation.Repaint);
+					Invalidate(Invalidation.Repaint);
 					return true;
 
 				case ConsoleKey.K: // kill to end
 					if (_editCursorPosition < _editBuffer.Length)
 					{
 						_editBuffer = _editBuffer.Substring(0, _editCursorPosition);
-						Container?.Invalidate(Invalidation.Relayout);
+						Invalidate(Invalidation.Relayout);
 					}
 					return true;
 
@@ -249,7 +249,7 @@ public partial class TableControl
 					{
 						_editBuffer = _editBuffer.Substring(_editCursorPosition);
 						_editCursorPosition = 0;
-						Container?.Invalidate(Invalidation.Relayout);
+						Invalidate(Invalidation.Relayout);
 					}
 					return true;
 
@@ -261,7 +261,7 @@ public partial class TableControl
 						while (i > 0 && !char.IsWhiteSpace(_editBuffer[i - 1])) i--;
 						_editBuffer = _editBuffer.Remove(i, _editCursorPosition - i);
 						_editCursorPosition = i;
-						Container?.Invalidate(Invalidation.Relayout);
+						Invalidate(Invalidation.Relayout);
 					}
 					return true;
 
@@ -276,7 +276,7 @@ public partial class TableControl
 						Helpers.ClipboardHelper.SetText(_editBuffer);
 						_editBuffer = string.Empty;
 						_editCursorPosition = 0;
-						Container?.Invalidate(Invalidation.Relayout);
+						Invalidate(Invalidation.Relayout);
 					}
 					return true;
 
@@ -287,7 +287,7 @@ public partial class TableControl
 						while (i > 0 && char.IsWhiteSpace(_editBuffer[i])) i--;
 						while (i > 0 && !char.IsWhiteSpace(_editBuffer[i - 1])) i--;
 						_editCursorPosition = i;
-						Container?.Invalidate(Invalidation.Repaint);
+						Invalidate(Invalidation.Repaint);
 					}
 					return true;
 
@@ -298,7 +298,7 @@ public partial class TableControl
 						while (i < _editBuffer.Length && !char.IsWhiteSpace(_editBuffer[i])) i++;
 						while (i < _editBuffer.Length && char.IsWhiteSpace(_editBuffer[i])) i++;
 						_editCursorPosition = i;
-						Container?.Invalidate(Invalidation.Repaint);
+						Invalidate(Invalidation.Repaint);
 					}
 					return true;
 			}
@@ -320,7 +320,7 @@ public partial class TableControl
 				{
 					_editBuffer = _editBuffer.Remove(_editCursorPosition - 1, 1);
 					_editCursorPosition--;
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 				}
 				return true;
 
@@ -328,7 +328,7 @@ public partial class TableControl
 				if (_editCursorPosition < _editBuffer.Length)
 				{
 					_editBuffer = _editBuffer.Remove(_editCursorPosition, 1);
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 				}
 				return true;
 
@@ -336,7 +336,7 @@ public partial class TableControl
 				if (_editCursorPosition > 0)
 				{
 					_editCursorPosition--;
-					Container?.Invalidate(Invalidation.Repaint);
+					Invalidate(Invalidation.Repaint);
 				}
 				return true;
 
@@ -344,18 +344,18 @@ public partial class TableControl
 				if (_editCursorPosition < _editBuffer.Length)
 				{
 					_editCursorPosition++;
-					Container?.Invalidate(Invalidation.Repaint);
+					Invalidate(Invalidation.Repaint);
 				}
 				return true;
 
 			case ConsoleKey.Home:
 				_editCursorPosition = 0;
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 				return true;
 
 			case ConsoleKey.End:
 				_editCursorPosition = _editBuffer.Length;
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 				return true;
 
 			default:
@@ -363,7 +363,7 @@ public partial class TableControl
 				{
 					_editBuffer = _editBuffer.Insert(_editCursorPosition, key.KeyChar.ToString());
 					_editCursorPosition++;
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 					return true;
 				}
 				return false; // let unrecognized keys bubble up

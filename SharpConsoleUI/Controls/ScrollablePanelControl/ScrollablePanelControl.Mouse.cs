@@ -470,7 +470,7 @@ namespace SharpConsoleUI.Controls
 						}
 						_lastInternalFocusedChild = null;
 
-						Container?.Invalidate(Invalidation.Repaint);
+						Invalidate(Invalidation.Repaint);
 						return true;
 					}
 				}

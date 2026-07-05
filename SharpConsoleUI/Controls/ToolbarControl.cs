@@ -975,7 +975,7 @@ namespace SharpConsoleUI.Controls
 			_focusedItem = focusableItems[newIndex];
 			SetItemFocus(_focusedItem, true);
 
-			Container?.Invalidate(Invalidation.Repaint);
+			Invalidate(Invalidation.Repaint);
 			return true;
 		}
 
@@ -1032,7 +1032,7 @@ namespace SharpConsoleUI.Controls
 			if (_focusedItem != null)
 				SetItemFocus(_focusedItem, true);
 
-			Container?.Invalidate(Invalidation.Repaint);
+			Invalidate(Invalidation.Repaint);
 			return true;
 		}
 

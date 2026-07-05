@@ -58,7 +58,7 @@ namespace SharpConsoleUI.Controls
 		public bool Sticky { get => _sticky; set => SetProperty(ref _sticky, value); }
 
 		/// <summary>Set by ToastService from the toast's stacking slot.</summary>
-		public void SetBounds(Rectangle bounds) { _bounds = bounds; Container?.Invalidate(Invalidation.Repaint); }
+		public void SetBounds(Rectangle bounds) { _bounds = bounds; Invalidate(Invalidation.Repaint); }
 
 		/// <inheritdoc/>
 		public override Rectangle GetPortalBounds() => _bounds;
@@ -106,7 +106,7 @@ namespace SharpConsoleUI.Controls
 			if (EqualityComparer<T>.Default.Equals(field, value)) return false;
 			field = value;
 			PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-			Container?.Invalidate(Invalidation.Repaint);
+			Invalidate(Invalidation.Repaint);
 			return true;
 		}
 	}

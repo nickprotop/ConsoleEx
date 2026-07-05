@@ -539,7 +539,7 @@ public class StatusBarControl : BaseControl, IMouseAwareControl, IColorRoleableC
 		finally
 		{
 			_isBatchUpdating = false;
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 	}
 
@@ -700,7 +700,7 @@ public class StatusBarControl : BaseControl, IMouseAwareControl, IColorRoleableC
 	internal void OnItemChanged()
 	{
 		if (!_isBatchUpdating)
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 	}
 
 	#endregion

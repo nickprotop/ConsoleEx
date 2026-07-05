@@ -315,7 +315,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_backgroundColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -329,7 +329,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_borderColor = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -354,7 +354,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_focusedBackgroundColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -370,7 +370,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_focusedForegroundColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -386,7 +386,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_foregroundColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -412,7 +412,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_horizontalScrollbarVisibility = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -433,7 +433,7 @@ namespace SharpConsoleUI.Controls
 				if (_isEditing == value) return;
 				_isEditing = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 				Core.AsyncEvent.Raise(EditingModeChanged, EditingModeChangedAsync, this, _isEditing, Container?.GetConsoleWindowSystem?.LogService);
 			}
 		}
@@ -463,7 +463,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_readOnly = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -477,7 +477,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_scrollbarColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -491,7 +491,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_scrollbarThumbColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -505,7 +505,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_selectionBackgroundColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -519,7 +519,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_selectionForegroundColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -534,7 +534,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_verticalScrollbarVisibility = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -551,7 +551,7 @@ namespace SharpConsoleUI.Controls
 				{
 					_viewportHeight = validatedValue;
 					OnPropertyChanged();
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 				}
 			}
 		}
@@ -590,7 +590,7 @@ namespace SharpConsoleUI.Controls
 				_wrapMode = value;
 				OnPropertyChanged();
 				InvalidateWrappedLinesCache();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -600,7 +600,7 @@ namespace SharpConsoleUI.Controls
 		public int TabSize
 		{
 			get => _tabSize;
-			set { _tabSize = Math.Clamp(value, 1, ControlDefaults.MaxTabSize); OnPropertyChanged(); }
+			set => SetProperty(ref _tabSize, value, v => Math.Clamp(v, 1, ControlDefaults.MaxTabSize));
 		}
 
 		/// <summary>
@@ -657,7 +657,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_placeholderText = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -684,7 +684,7 @@ namespace SharpConsoleUI.Controls
 				if (_overwriteMode == value) return;
 				_overwriteMode = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 				Core.AsyncEvent.Raise(OverwriteModeChanged, OverwriteModeChangedAsync, this, _overwriteMode, Container?.GetConsoleWindowSystem?.LogService);
 			}
 		}
@@ -710,7 +710,7 @@ namespace SharpConsoleUI.Controls
 				if (_highlightCurrentLine == value) return;
 				_highlightCurrentLine = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -725,7 +725,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_currentLineHighlightColorValue = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -741,7 +741,7 @@ namespace SharpConsoleUI.Controls
 				if (_showWhitespace == value) return;
 				_showWhitespace = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -778,7 +778,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				InvalidateWrappedLinesCache();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -794,7 +794,7 @@ namespace SharpConsoleUI.Controls
 				OnPropertyChanged();
 				if (_builtInLineNumberRenderer != null)
 					_builtInLineNumberRenderer.LineNumberColor = value;
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -811,7 +811,7 @@ namespace SharpConsoleUI.Controls
 			lock (_contentLock) { _gutterRenderers.Add(renderer); }
 			SubscribeGutterRenderer(renderer);
 			InvalidateWrappedLinesCache();
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -822,7 +822,7 @@ namespace SharpConsoleUI.Controls
 			lock (_contentLock) { _gutterRenderers.Insert(index, renderer); }
 			SubscribeGutterRenderer(renderer);
 			InvalidateWrappedLinesCache();
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -836,7 +836,7 @@ namespace SharpConsoleUI.Controls
 			{
 				UnsubscribeGutterRenderer(renderer);
 				InvalidateWrappedLinesCache();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 			return removed;
 		}
@@ -861,7 +861,7 @@ namespace SharpConsoleUI.Controls
 			foreach (var r in removed)
 				UnsubscribeGutterRenderer(r);
 			InvalidateWrappedLinesCache();
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -889,11 +889,11 @@ namespace SharpConsoleUI.Controls
 			{
 				_lastKnownGutterWidth = newWidth;
 				InvalidateWrappedLinesCache();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 			else
 			{
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -909,7 +909,7 @@ namespace SharpConsoleUI.Controls
 				if (_showEditingHints == value) return;
 				_showEditingHints = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -929,7 +929,7 @@ namespace SharpConsoleUI.Controls
 					_lineStateCache = null;
 				}
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -959,7 +959,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_lineHighlights = value ?? new();
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -973,7 +973,7 @@ namespace SharpConsoleUI.Controls
 				_lineHighlights[sourceLineIndex] = color.Value;
 			else
 				_lineHighlights.Remove(sourceLineIndex);
-			Container?.Invalidate(Invalidation.Repaint);
+			Invalidate(Invalidation.Repaint);
 		}
 
 		/// <summary>
@@ -982,7 +982,7 @@ namespace SharpConsoleUI.Controls
 		public void ClearLineHighlights()
 		{
 			_lineHighlights.Clear();
-			Container?.Invalidate(Invalidation.Repaint);
+			Invalidate(Invalidation.Repaint);
 		}
 
 		#endregion
@@ -1017,7 +1017,7 @@ namespace SharpConsoleUI.Controls
 			if (rows == 0) return;
 			int max = Math.Max(0, GetTotalWrappedLineCount() - GetEffectiveViewportHeight());
 			_verticalScrollOffset = Math.Clamp(_verticalScrollOffset + rows, 0, max);
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <inheritdoc/>
@@ -1033,7 +1033,7 @@ namespace SharpConsoleUI.Controls
 				_selectionEndX = _lines[revealed].Length;
 				_hasSelection = (_selectionStartX != _selectionEndX || _selectionStartY != _selectionEndY);
 			}
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion

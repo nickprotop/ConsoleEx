@@ -29,30 +29,30 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>Draws a vertical rule between every adjacent column. Combine with per-boundary
 		/// <see cref="AddGridlineAfterColumn"/> (the two union). Enabling this bumps the column gap to at least 1.</summary>
-		public bool ShowColumnGridlines { get => _showColumnGridlines; set { _showColumnGridlines = value; Container?.Invalidate(Invalidation.Relayout); } }
+		public bool ShowColumnGridlines { get => _showColumnGridlines; set { _showColumnGridlines = value; Invalidate(Invalidation.Relayout); } }
 
 		/// <summary>Draws a horizontal rule between every adjacent row. Bumps the row gap to at least 1.</summary>
-		public bool ShowRowGridlines { get => _showRowGridlines; set { _showRowGridlines = value; Container?.Invalidate(Invalidation.Relayout); } }
+		public bool ShowRowGridlines { get => _showRowGridlines; set { _showRowGridlines = value; Invalidate(Invalidation.Relayout); } }
 
 		/// <summary>The box-drawing style for gridlines. Default <see cref="BorderStyle.Single"/> (│ ─ ┼).</summary>
-		public BorderStyle GridlineStyle { get => _gridlineStyle; set { _gridlineStyle = value; Container?.Invalidate(Invalidation.Repaint); } }
+		public BorderStyle GridlineStyle { get => _gridlineStyle; set { _gridlineStyle = value; Invalidate(Invalidation.Repaint); } }
 
 		/// <summary>Explicit gridline glyph colour. Null resolves to the grid's role border colour, shaded
 		/// dimmer (so a rule is lighter than a full border); set this for full border-weight colour.</summary>
-		public Color? GridlineColor { get => _gridlineColor; set { _gridlineColor = value; Container?.Invalidate(Invalidation.Repaint); } }
+		public Color? GridlineColor { get => _gridlineColor; set { _gridlineColor = value; Invalidate(Invalidation.Repaint); } }
 
 		/// <summary>Adds a vertical rule at the boundary after column <paramref name="index"/> (between it and
 		/// index+1). Idempotent. Out-of-range indices are stored but never painted.</summary>
-		public void AddGridlineAfterColumn(int index) { if (_colGridlines.Add(index)) Container?.Invalidate(Invalidation.Relayout); }
+		public void AddGridlineAfterColumn(int index) { if (_colGridlines.Add(index)) Invalidate(Invalidation.Relayout); }
 
 		/// <summary>Adds a horizontal rule at the boundary after row <paramref name="index"/>.</summary>
-		public void AddGridlineAfterRow(int index) { if (_rowGridlines.Add(index)) Container?.Invalidate(Invalidation.Relayout); }
+		public void AddGridlineAfterRow(int index) { if (_rowGridlines.Add(index)) Invalidate(Invalidation.Relayout); }
 
 		/// <summary>Removes the per-boundary column gridline after <paramref name="index"/> (no effect on <see cref="ShowColumnGridlines"/>).</summary>
-		public void RemoveGridlineAfterColumn(int index) { if (_colGridlines.Remove(index)) Container?.Invalidate(Invalidation.Relayout); }
+		public void RemoveGridlineAfterColumn(int index) { if (_colGridlines.Remove(index)) Invalidate(Invalidation.Relayout); }
 
 		/// <summary>Removes the per-boundary row gridline after <paramref name="index"/>.</summary>
-		public void RemoveGridlineAfterRow(int index) { if (_rowGridlines.Remove(index)) Container?.Invalidate(Invalidation.Relayout); }
+		public void RemoveGridlineAfterRow(int index) { if (_rowGridlines.Remove(index)) Invalidate(Invalidation.Relayout); }
 
 		/// <summary>True if a per-boundary column gridline exists after <paramref name="index"/>.</summary>
 		public bool HasGridlineAfterColumn(int index) => _colGridlines.Contains(index);
@@ -66,7 +66,7 @@ namespace SharpConsoleUI.Controls
 			if (_colGridlines.Count == 0 && _rowGridlines.Count == 0) return;
 			_colGridlines.Clear();
 			_rowGridlines.Clear();
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>True when any vertical gridline should be considered for painting (grid-level or per-boundary).</summary>

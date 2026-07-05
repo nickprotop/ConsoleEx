@@ -52,7 +52,7 @@ namespace SharpConsoleUI.Controls
 							effectiveMaxVisibleItems,
 							DeferSelectionChanged))
 						{
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 							result = true;
 						}
 						break;
@@ -66,7 +66,7 @@ namespace SharpConsoleUI.Controls
 							effectiveMaxVisibleItems,
 							DeferSelectionChanged))
 						{
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 							result = true;
 						}
 						break;
@@ -83,7 +83,7 @@ namespace SharpConsoleUI.Controls
 								effectiveMaxVisibleItems,
 								DeferSelectionChanged))
 							{
-								Container?.Invalidate(Invalidation.Relayout);
+								Invalidate(Invalidation.Relayout);
 								result = true;
 							}
 							break;
@@ -101,7 +101,7 @@ namespace SharpConsoleUI.Controls
 								effectiveMaxVisibleItems,
 								DeferSelectionChanged))
 							{
-								Container?.Invalidate(Invalidation.Relayout);
+								Invalidate(Invalidation.Relayout);
 								result = true;
 							}
 							break;
@@ -115,7 +115,7 @@ namespace SharpConsoleUI.Controls
 								selNode.IsExpanded = true;
 								_deferredExpandCollapse = new TreeNodeEventArgs(selNode);
 								UpdateFlattenedNodes();
-								Container?.Invalidate(Invalidation.Relayout);
+								Invalidate(Invalidation.Relayout);
 								result = true;
 							}
 							break;
@@ -132,7 +132,7 @@ namespace SharpConsoleUI.Controls
 									selNode.IsExpanded = false;
 									_deferredExpandCollapse = new TreeNodeEventArgs(selNode);
 									UpdateFlattenedNodes();
-									Container?.Invalidate(Invalidation.Relayout);
+									Invalidate(Invalidation.Relayout);
 									result = true;
 								}
 							}
@@ -157,7 +157,7 @@ namespace SharpConsoleUI.Controls
 									// Activate leaf node (open file)
 									_deferredNodeActivated = new TreeNodeEventArgs(selNode);
 								}
-								Container?.Invalidate(Invalidation.Relayout);
+								Invalidate(Invalidation.Relayout);
 								result = true;
 							}
 							break;
@@ -172,7 +172,7 @@ namespace SharpConsoleUI.Controls
 							effectiveMaxVisibleItems,
 							DeferSelectionChanged))
 						{
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 							result = true;
 						}
 						break;
@@ -186,7 +186,7 @@ namespace SharpConsoleUI.Controls
 							effectiveMaxVisibleItems,
 							DeferSelectionChanged))
 						{
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 							result = true;
 						}
 						break;

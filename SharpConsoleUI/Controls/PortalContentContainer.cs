@@ -148,7 +148,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public void Invalidate(Invalidation work, IWindowControl? callerControl = null)
 		{
-			Container?.Invalidate(work);
+			Container?.Invalidate(work, callerControl ?? this);
 		}
 
 		/// <inheritdoc/>
@@ -370,7 +370,7 @@ namespace SharpConsoleUI.Controls
 					// Clicked on empty space - unfocus children
 					PortalFocusedControl = null;
 					_focusedChild = null;
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 					return true;
 				}
 

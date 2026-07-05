@@ -58,7 +58,7 @@ namespace SharpConsoleUI.Controls
 				newOffset = Math.Clamp(newOffset, 0, maxScroll);
 				_skipUpdateScrollPositionsInRender = true;
 				_verticalScrollOffset = newOffset;
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				return true;
 			}
 
@@ -74,7 +74,7 @@ namespace SharpConsoleUI.Controls
 					(int)(deltaX * (double)maxScroll / trackRange);
 				newOffset = Math.Clamp(newOffset, 0, maxScroll);
 				_horizontalScrollOffset = newOffset;
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				return true;
 			}
 
@@ -111,14 +111,14 @@ namespace SharpConsoleUI.Controls
 							// Arrow up
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset = Math.Max(0, _verticalScrollOffset - ControlDefaults.DefaultScrollWheelLines);
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 						}
 						else if (relY == trackHeight - 1 && _verticalScrollOffset < maxScroll)
 						{
 							// Arrow down
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset = Math.Min(maxScroll, _verticalScrollOffset + ControlDefaults.DefaultScrollWheelLines);
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 						}
 						else if (relY >= sbThumbY && relY < sbThumbY + sbThumbHeight)
 						{
@@ -132,14 +132,14 @@ namespace SharpConsoleUI.Controls
 							// Track above thumb: page up
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset = Math.Max(0, _verticalScrollOffset - effectiveViewport);
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 						}
 						else
 						{
 							// Track below thumb: page down
 							_skipUpdateScrollPositionsInRender = true;
 							_verticalScrollOffset = Math.Min(maxScroll, _verticalScrollOffset + effectiveViewport);
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 						}
 						return true;
 					}
@@ -160,13 +160,13 @@ namespace SharpConsoleUI.Controls
 						{
 							// Arrow left
 							_horizontalScrollOffset = Math.Max(0, _horizontalScrollOffset - ControlDefaults.DefaultScrollWheelLines);
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 						}
 						else if (relX == trackWidth - 1 && _horizontalScrollOffset < maxScroll)
 						{
 							// Arrow right
 							_horizontalScrollOffset = Math.Min(maxScroll, _horizontalScrollOffset + ControlDefaults.DefaultScrollWheelLines);
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 						}
 						else if (relX >= sbThumbX && relX < sbThumbX + sbThumbWidth)
 						{
@@ -179,13 +179,13 @@ namespace SharpConsoleUI.Controls
 						{
 							// Track left of thumb: page left
 							_horizontalScrollOffset = Math.Max(0, _horizontalScrollOffset - _effectiveWidth);
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 						}
 						else
 						{
 							// Track right of thumb: page right
 							_horizontalScrollOffset = Math.Min(maxScroll, _horizontalScrollOffset + _effectiveWidth);
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 						}
 						return true;
 					}
@@ -252,7 +252,7 @@ namespace SharpConsoleUI.Controls
 					PositionCursorFromMouseCore(args.Position.X, args.Position.Y);
 					ClearSelection();
 					EnsureCursorVisible();
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 				}
 				MouseRightClick?.Invoke(this, args);
 				return true;
@@ -276,7 +276,7 @@ namespace SharpConsoleUI.Controls
 						_cursorX = _lines[_cursorY].Length;
 					}
 					NotifySelectionActive();
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 				}
 				return true;
 			}
@@ -300,7 +300,7 @@ namespace SharpConsoleUI.Controls
 						_cursorX = wordEnd;
 					}
 					NotifySelectionActive();
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 				}
 				MouseDoubleClick?.Invoke(this, args);
 				return true;
@@ -318,7 +318,7 @@ namespace SharpConsoleUI.Controls
 				_hasSelection = (_selectionStartX != _selectionEndX || _selectionStartY != _selectionEndY);
 				NotifySelectionActive();
 				EnsureCursorVisible();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				return true;
 			}
 
@@ -362,7 +362,7 @@ namespace SharpConsoleUI.Controls
 					}
 					NotifySelectionActive();
 					EnsureCursorVisible();
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 				}
 				return true;
 			}
@@ -381,7 +381,7 @@ namespace SharpConsoleUI.Controls
 						_selectionEndY = _cursorY;
 						_hasSelection = (_selectionStartX != _selectionEndX || _selectionStartY != _selectionEndY);
 						EnsureCursorVisible();
-						Container?.Invalidate(Invalidation.Relayout);
+						Invalidate(Invalidation.Relayout);
 					}
 					else
 					{
@@ -413,7 +413,7 @@ namespace SharpConsoleUI.Controls
 					_scrollbarInteracted = true;
 					_skipUpdateScrollPositionsInRender = true;
 					_verticalScrollOffset -= scrollAmount;
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 					return true;
 				}
 				return false; // at top, bubble to parent
@@ -430,7 +430,7 @@ namespace SharpConsoleUI.Controls
 					_scrollbarInteracted = true;
 					_skipUpdateScrollPositionsInRender = true;
 					_verticalScrollOffset += scrollAmount;
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 					return true;
 				}
 				return false; // at bottom, bubble to parent
@@ -494,7 +494,7 @@ namespace SharpConsoleUI.Controls
 			PositionCursorFromMouseCore(mouseX, mouseY);
 			ClearSelection();
 			EnsureCursorVisible();
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 	}
 }

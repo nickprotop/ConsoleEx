@@ -59,7 +59,7 @@ namespace SharpConsoleUI.Controls
 							if (_pendingLayoutWidth > 0 && _pendingLayoutWidth != _lastLayoutWidth)
 								RunLayout(_pendingLayoutWidth);
 						}
-						Container?.Invalidate(Invalidation.Relayout);
+						Invalidate(Invalidation.Relayout);
 					};
 				}
 				_resizeDebounceTimer.Stop();

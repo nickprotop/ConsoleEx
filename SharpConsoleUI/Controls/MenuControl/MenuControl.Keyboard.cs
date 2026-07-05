@@ -317,7 +317,7 @@ public partial class MenuControl
 						OpenDropdownInternal(_focusedItem);
 				}
 
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				return;
 			}
 		}
@@ -375,7 +375,7 @@ public partial class MenuControl
 						OpenDropdownInternal(_focusedItem);
 				}
 
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				return;
 			}
 		}
@@ -407,7 +407,7 @@ public partial class MenuControl
 			{
 				_focusedItem = item;
 				currentDropdown.EnsureItemVisible(item);
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 				return;
 			}
 		}
@@ -439,7 +439,7 @@ public partial class MenuControl
 			{
 				_focusedItem = item;
 				currentDropdown.EnsureItemVisible(item);
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 				return;
 			}
 		}
@@ -470,7 +470,7 @@ public partial class MenuControl
 				_openDropdowns[_openDropdowns.Count - 1].EnsureItemVisible(firstItem);
 			}
 
-			Container?.Invalidate(Invalidation.Repaint);
+			Invalidate(Invalidation.Repaint);
 		}
 	}
 
@@ -498,7 +498,7 @@ public partial class MenuControl
 				_openDropdowns[_openDropdowns.Count - 1].EnsureItemVisible(lastItem);
 			}
 
-			Container?.Invalidate(Invalidation.Repaint);
+			Invalidate(Invalidation.Repaint);
 		}
 	}
 
@@ -532,7 +532,7 @@ public partial class MenuControl
 				_openDropdowns[_openDropdowns.Count - 1].EnsureItemVisible(targetItem);
 			}
 
-			Container?.Invalidate(Invalidation.Repaint);
+			Invalidate(Invalidation.Repaint);
 			return true;
 		}
 
@@ -556,7 +556,7 @@ public partial class MenuControl
 			}
 		}
 
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	private static char GetFirstDisplayChar(string text)

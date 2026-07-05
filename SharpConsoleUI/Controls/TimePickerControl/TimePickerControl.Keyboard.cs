@@ -88,7 +88,7 @@ namespace SharpConsoleUI.Controls
 				return false;
 
 			_focusedSegment = next;
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 			return true;
 		}
 
@@ -134,7 +134,7 @@ namespace SharpConsoleUI.Controls
 					if (nextSeg < segCount)
 					{
 						_focusedSegment = nextSeg;
-						Container?.Invalidate(Invalidation.Relayout);
+						Invalidate(Invalidation.Relayout);
 					}
 				}
 				else
@@ -154,7 +154,7 @@ namespace SharpConsoleUI.Controls
 						if (nextSeg < SegmentCount)
 						{
 							_focusedSegment = nextSeg;
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 						}
 					}
 					else

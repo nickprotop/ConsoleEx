@@ -66,7 +66,7 @@ public class SpinnerControl : BaseControl, IColorRoleableControl
 	public SpinnerStyle Style
 	{
 		get => _style;
-		set { if (_style == value) return; _style = value; RestartAnimation(); OnPropertyChanged(); Container?.Invalidate(Invalidation.Relayout); }
+		set { if (_style == value) return; _style = value; RestartAnimation(); OnPropertyChanged(); Invalidate(Invalidation.Relayout); }
 	}
 
 	/// <summary>Gets or sets custom frames (overrides <see cref="Style"/> when non-empty). May contain markup.</summary>
@@ -78,7 +78,7 @@ public class SpinnerControl : BaseControl, IColorRoleableControl
 			var arr = value?.Where(f => !string.IsNullOrWhiteSpace(f)).ToArray();
 			_customFrames = (arr is { Length: > 0 }) ? arr : null;
 			RestartAnimation();
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 	}
 
@@ -97,7 +97,7 @@ public class SpinnerControl : BaseControl, IColorRoleableControl
 	public Color? Color
 	{
 		get => _color;
-		set { if (Nullable.Equals(_color, value)) return; _color = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
+		set { if (Nullable.Equals(_color, value)) return; _color = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 	}
 
 	/// <summary>Gets or sets whether the spinner is animating.</summary>
@@ -211,7 +211,7 @@ public class SpinnerControl : BaseControl, IColorRoleableControl
 		_animation = new FrameCycleAnimation(
 			EffectiveFrames.Count,
 			TimeSpan.FromMilliseconds(IntervalMs),
-			i => { _currentFrameIndex = i; Container?.Invalidate(Invalidation.Repaint); });
+			i => { _currentFrameIndex = i; Invalidate(Invalidation.Repaint); });
 		manager.Add(_animation);
 	}
 

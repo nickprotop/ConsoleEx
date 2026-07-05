@@ -222,7 +222,7 @@ namespace SharpConsoleUI.Controls
 		public bool IsEnabled
 		{
 			get => _isEnabled;
-			set { if (_isEnabled == value) return; _isEnabled = value; Container?.Invalidate(Invalidation.Repaint); }
+			set { if (_isEnabled == value) return; _isEnabled = value; Invalidate(Invalidation.Repaint); }
 		}
 
 		/// <summary>
@@ -384,7 +384,7 @@ namespace SharpConsoleUI.Controls
 						if (cursorPos < _input.Length)
 						{
 							_input = _input.Substring(0, cursorPos);
-							Container?.Invalidate(Invalidation.Relayout);
+							Invalidate(Invalidation.Relayout);
 							RaiseInputChanged();
 						}
 						return true;
@@ -434,7 +434,7 @@ namespace SharpConsoleUI.Controls
 					_cursorPosition = 0;
 					this.GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Keyboard);
 				}
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				return true;
 			}
 			else if (key.Key == ConsoleKey.Backspace)
@@ -464,7 +464,7 @@ namespace SharpConsoleUI.Controls
 				if (cursorPos < _input.Length)
 				{
 					_input = _input.Remove(cursorPos, 1);
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 					RaiseInputChanged();
 				}
 				return true;
@@ -545,7 +545,7 @@ namespace SharpConsoleUI.Controls
 			else if (key.Key == ConsoleKey.Escape)
 			{
 				this.GetParentWindow()?.FocusManager.SetFocus(null, FocusReason.Keyboard);
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				return true;
 			}
 			else if (!char.IsControl(key.KeyChar))
@@ -612,7 +612,7 @@ namespace SharpConsoleUI.Controls
 				SetScrollOffset(position);
 			else if (position >= scrollOffset + effectiveWidth)
 				SetScrollOffset(position - effectiveWidth + 1);
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -687,7 +687,7 @@ namespace SharpConsoleUI.Controls
 			_cursorPosition = newCursorPos;
 			_horizontalScrollOffset = 0;
 
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 			RaiseInputChanged();
 		}
 
@@ -737,7 +737,7 @@ namespace SharpConsoleUI.Controls
 				int charPos = clickX + _horizontalScrollOffset;
 				charPos = Math.Clamp(charPos, 0, _input.Length);
 				_cursorPosition = charPos;
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				args.Handled = true;
 				return true;
 			}

@@ -26,7 +26,7 @@ namespace SharpConsoleUI.Controls
 			if (args.HasFlag(MouseFlags.MouseLeave))
 			{
 				MouseLeave?.Invoke(this, args);
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				return true;
 			}
 
@@ -51,7 +51,7 @@ namespace SharpConsoleUI.Controls
 				if (_isCalendarOpen && args.HasFlag(MouseFlags.Button1Released))
 				{
 					CloseCalendar();
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 					return true;
 				}
 				return false;
@@ -76,7 +76,7 @@ namespace SharpConsoleUI.Controls
 					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 
 				_isHeaderPressed = true;
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				return true;
 			}
 
@@ -127,7 +127,7 @@ namespace SharpConsoleUI.Controls
 				}
 
 				MouseClick?.Invoke(this, args);
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				return true;
 			}
 
@@ -163,7 +163,7 @@ namespace SharpConsoleUI.Controls
 			if (args.HasFlag(MouseFlags.MouseLeave))
 			{
 				_mouseHoveredDay = -1;
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				return true;
 			}
 
@@ -202,7 +202,7 @@ namespace SharpConsoleUI.Controls
 							if (_mouseHoveredDay != dayNumber)
 							{
 								_mouseHoveredDay = dayNumber;
-								Container?.Invalidate(Invalidation.Relayout);
+								Invalidate(Invalidation.Relayout);
 							}
 							return true;
 						}

@@ -65,7 +65,7 @@ namespace SharpConsoleUI.Controls
 		{
 			// Resolution chain: explicit → Transparent (children use alpha blending, no container fallback needed)
 			get => _backgroundColorValue ?? Color.Transparent;
-			set { _backgroundColorValue = value; Container?.Invalidate(Invalidation.Repaint); }
+			set { _backgroundColorValue = value; Invalidate(Invalidation.Repaint, this); }
 		}
 
 		/// <inheritdoc/>
@@ -75,7 +75,7 @@ namespace SharpConsoleUI.Controls
 			get => _foregroundColorValue ?? _horizontalGridContent?.ForegroundColor
 				?? _horizontalGridContent?.Container?.ForegroundColor
 				?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
-			set { _foregroundColorValue = value; Container?.Invalidate(Invalidation.Repaint); }
+			set { _foregroundColorValue = value; Invalidate(Invalidation.Repaint, this); }
 		}
 
 		private bool _propagatingWindowSystem = false;
@@ -125,7 +125,7 @@ namespace SharpConsoleUI.Controls
 				{
 					control.Invalidate(Invalidation.Relayout);
 				}
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout, this);
 			}
 		}
 
@@ -140,7 +140,7 @@ namespace SharpConsoleUI.Controls
 				_horizontalGridContent = value;
 				_consoleWindowSystem = value.Container?.GetConsoleWindowSystem;
 
-				_horizontalGridContent.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout, this);
 			}
 		}
 
@@ -509,29 +509,28 @@ namespace SharpConsoleUI.Controls
 
 		private static readonly ThreadLocal<HashSet<ColumnContainer>> _invalidatingContainers = new(() => new HashSet<ColumnContainer>());
 
+		/// <summary>
+		/// Runs <paramref name="body"/> guarded by the per-thread re-entrancy set: if this container is already
+		/// mid-invalidation on the current thread, the call is skipped (breaks invalidation cycles). This is the
+		/// single source of the re-entrancy protection shared by <see cref="Invalidate(Invalidation, IWindowControl?)"/> and
+		/// <see cref="InvalidateOnlyColumnContents"/>.
+		/// </summary>
+		private void RunGuarded(System.Action body)
+		{
+			if (_invalidatingContainers.Value!.Contains(this))
+				return;
+			_invalidatingContainers.Value!.Add(this);
+			try { body(); }
+			finally { _invalidatingContainers.Value!.Remove(this); }
+		}
+
 		/// <inheritdoc/>
 		public void Invalidate(Invalidation work, IWindowControl? callerControl = null)
 		{
-			// Prevent infinite recursion by tracking if this container is already being invalidated
-			if (_invalidatingContainers.Value!.Contains(this))
-			{
+			// Notify the parent grid (guarded against invalidation cycles), unless the grid is the caller.
+			if (callerControl == _horizontalGridContent || _horizontalGridContent == null)
 				return;
-			}
-
-			// Only invalidate parent grid if we're not being called from it
-			// This prevents infinite recursion in invalidation chains
-			if (callerControl != _horizontalGridContent && _horizontalGridContent != null)
-			{
-				_invalidatingContainers.Value!.Add(this);
-				try
-				{
-					_horizontalGridContent.Invalidate(work);
-				}
-				finally
-				{
-					_invalidatingContainers.Value!.Remove(this);
-				}
-			}
+			RunGuarded(() => _horizontalGridContent.Invalidate(work));
 		}
 
 		/// <inheritdoc/>
@@ -547,36 +546,21 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Invalidates only the child controls within this column without triggering parent invalidation.
 		/// </summary>
-		/// <param name="work"></param>
+		/// <param name="work">The invalidation work level to push to each child.</param>
 		/// <param name="callerControl">Optional caller control to exclude from invalidation.</param>
 		public void InvalidateOnlyColumnContents(Invalidation work, IWindowControl? callerControl = null)
 		{
-			// Prevent infinite recursion by tracking if this container is already being invalidated
-			if (_invalidatingContainers.Value!.Contains(this))
-			{
-				return;
-			}
-
-			_invalidatingContainers.Value!.Add(this);
-			try
+			RunGuarded(() =>
 			{
 				List<IWindowControl> snapshot;
 				lock (_contentsLock) { snapshot = new List<IWindowControl>(_contents); }
 				foreach (var content in snapshot)
 				{
-					// Prevent infinite recursion by not invalidating:
-					// 1. The horizontal grid content if it's the caller
-					// 2. The caller control passed as parameter
+					// Skip the grid content and the caller to avoid echoing the invalidation back.
 					if (content != _horizontalGridContent && content != callerControl)
-					{
 						content.Invalidate(work);
-					}
 				}
-			}
-			finally
-			{
-				_invalidatingContainers.Value!.Remove(this);
-			}
+			});
 		}
 
 		/// <summary>

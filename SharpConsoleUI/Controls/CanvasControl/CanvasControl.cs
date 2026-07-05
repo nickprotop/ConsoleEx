@@ -99,7 +99,7 @@ namespace SharpConsoleUI.Controls
 				_canvasWidth = clamped;
 				OnPropertyChanged();
 				RecreateInternalBuffer();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -117,7 +117,7 @@ namespace SharpConsoleUI.Controls
 				_canvasHeight = clamped;
 				OnPropertyChanged();
 				RecreateInternalBuffer();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -139,7 +139,7 @@ namespace SharpConsoleUI.Controls
 		public bool AutoSize
 		{
 			get => _autoSize;
-			set { _autoSize = value; OnPropertyChanged(); }
+			set => SetProperty(ref _autoSize, value);
 		}
 
 		/// <summary>
@@ -191,14 +191,14 @@ namespace SharpConsoleUI.Controls
 		public void EndPaint()
 		{
 			Monitor.Exit(_bufferLock);
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
 		/// Triggers a repaint without painting.
 		/// </summary>
 		public void Refresh()
-			=> Container?.Invalidate(Invalidation.Relayout);
+			=> Invalidate(Invalidation.Relayout);
 
 		/// <summary>
 		/// Clears the internal buffer with the control's background color.
@@ -209,7 +209,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_internalBuffer.Clear(BackgroundColor);
 			}
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
@@ -222,7 +222,7 @@ namespace SharpConsoleUI.Controls
 			{
 				_internalBuffer.Clear(bg);
 			}
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion

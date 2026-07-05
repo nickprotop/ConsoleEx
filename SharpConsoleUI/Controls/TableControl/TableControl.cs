@@ -268,7 +268,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			{
 				_readOnly = value;
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Repaint);
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 	}
@@ -392,7 +392,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	public bool TruncationFade
 	{
 		get => _truncationFade;
-		set { _truncationFade = value; OnPropertyChanged(); Container?.Invalidate(Invalidation.Repaint); }
+		set { _truncationFade = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 	}
 
 	/// <summary>
@@ -446,7 +446,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			_filterMode = FilterMode.None;
 			_filterBuffer = string.Empty;
 			_activeFilter = null;
-			Container?.Invalidate(Invalidation.Relayout);
+			Invalidate(Invalidation.Relayout);
 		}
 	}
 
@@ -461,7 +461,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		}
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	#endregion
@@ -531,7 +531,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		}
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -544,7 +544,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		lock (_tableLock) { column.Owner = this; _columns.Add(column); }
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -564,7 +564,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		}
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -580,7 +580,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		}
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -596,7 +596,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 				return;
 		}
 		InvalidateColumnWidths();
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -611,7 +611,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			else
 				return;
 		}
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	#endregion
@@ -630,7 +630,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		_filterIndexMap = null;
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -645,7 +645,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		_filterIndexMap = null;
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -667,7 +667,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		_filterIndexMap = null;
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -704,7 +704,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		_filterIndexMap = null;
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -733,7 +733,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		_filterIndexMap = null;
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -793,7 +793,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		_filterIndexMap = null;
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -820,7 +820,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		SelectedRowChanged?.Invoke(this, -1);
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -837,7 +837,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		}
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCachedEntry(value);
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
@@ -883,7 +883,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		_sortIndexMap = null;
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
-		Container?.Invalidate(Invalidation.Relayout);
+		Invalidate(Invalidation.Relayout);
 	}
 
 	#endregion

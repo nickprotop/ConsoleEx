@@ -154,7 +154,7 @@ namespace SharpConsoleUI.Controls
 				_selectedDate = ClampDate(value);
 				OnPropertyChanged();
 				Core.AsyncEvent.Raise(SelectedDateChanged, SelectedDateChangedAsync, this, _selectedDate, Container?.GetConsoleWindowSystem?.LogService);
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -188,7 +188,7 @@ namespace SharpConsoleUI.Controls
 				_culture = value ?? CultureInfo.CurrentCulture;
 				RebuildSegments();
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -204,7 +204,7 @@ namespace SharpConsoleUI.Controls
 				_dateFormatOverride = value;
 				RebuildSegments();
 				OnPropertyChanged();
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 			}
 		}
 
@@ -482,7 +482,7 @@ namespace SharpConsoleUI.Controls
 				{
 					// First digit for month/day
 					_pendingDigit = digit;
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 					return;
 				}
 			}
@@ -502,7 +502,7 @@ namespace SharpConsoleUI.Controls
 				if (seg.DisplayWidth == 2 && _focusedSegment < _segments.Length - 1)
 				{
 					_focusedSegment++;
-					Container?.Invalidate(Invalidation.Relayout);
+					Invalidate(Invalidation.Relayout);
 				}
 			}
 			catch (ArgumentOutOfRangeException)

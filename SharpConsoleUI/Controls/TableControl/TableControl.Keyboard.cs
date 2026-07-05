@@ -122,14 +122,14 @@ public partial class TableControl
 						return false; // Let tab move to next control
 					}
 				}
-				Container?.Invalidate(Invalidation.Relayout);
+				Invalidate(Invalidation.Relayout);
 				return true;
 
 			case ConsoleKey.LeftArrow when _cellNavigationEnabled:
 				if (_selectedColumnIndex > 0)
 				{
 					_selectedColumnIndex--;
-					Container?.Invalidate(Invalidation.Repaint);
+					Invalidate(Invalidation.Repaint);
 					return true;
 				}
 				return false;
@@ -138,7 +138,7 @@ public partial class TableControl
 				if (_selectedColumnIndex < ColumnCount - 1)
 				{
 					_selectedColumnIndex++;
-					Container?.Invalidate(Invalidation.Repaint);
+					Invalidate(Invalidation.Repaint);
 					return true;
 				}
 				return false;
@@ -154,7 +154,7 @@ public partial class TableControl
 				if (_cellNavigationEnabled && _selectedColumnIndex >= 0)
 				{
 					_selectedColumnIndex = -1;
-					Container?.Invalidate(Invalidation.Repaint);
+					Invalidate(Invalidation.Repaint);
 					return true;
 				}
 				return false;
