@@ -63,20 +63,33 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Builds the content-header lines (title + optional subtitle) for the selected item, in the
-		/// theme foreground (not a hardcoded white, which is invisible on light themes). Shared by the
-		/// selection-changed and display-mode update paths so they stay consistent.
+		/// Sets the content-header title (in the toolbar-sharing grid row) and the subtitle (a full-width row
+		/// below the grid) for the selected item, in the theme foreground (not a hardcoded white, which is
+		/// invisible on light themes). The subtitle is a separate control so a long subtitle wraps at the whole
+		/// pane width rather than the reduced title-column width. Shared by the selection-changed and
+		/// display-mode update paths so they stay consistent.
 		/// </summary>
-		private List<string> FormatContentHeader(NavigationItem item)
+		private void ApplyContentHeader(NavigationItem item)
+		{
+			_contentHeader.SetContent(FormatContentTitle(item));
+			_contentSubtitle.SetContent(FormatContentSubtitle(item));
+		}
+
+		/// <summary>Builds the title line for the content-header grid row (hamburger-prefixed in Minimal mode).</summary>
+		private List<string> FormatContentTitle(NavigationItem item)
 		{
 			string title = _currentDisplayMode == NavigationViewDisplayMode.Minimal
 				? $"{ControlDefaults.NavigationViewHamburgerChar} {item.Text}"
 				: item.Text;
+			return new List<string> { $"[bold {Rgb(ItemForeground)}]{title}[/]" };
+		}
 
-			var lines = new List<string> { $"[bold {Rgb(ItemForeground)}]{title}[/]" };
-			if (item.Subtitle != null)
-				lines.Add($"[dim]{item.Subtitle}[/]");
-			return lines;
+		/// <summary>Builds the full-width subtitle row (empty when the item has no subtitle, so it collapses).</summary>
+		private List<string> FormatContentSubtitle(NavigationItem item)
+		{
+			return item.Subtitle != null
+				? new List<string> { $"[dim]{item.Subtitle}[/]" }
+				: new List<string>();
 		}
 
 		private string FormatNavItem(NavigationItem item, bool selected)

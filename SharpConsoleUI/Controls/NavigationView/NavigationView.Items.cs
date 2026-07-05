@@ -357,7 +357,7 @@ namespace SharpConsoleUI.Controls
 			}
 
 			_contentPanel.ClearContents();
-			_contentHeader.SetContent(new List<string>());
+			_contentHeader.SetContent(new List<string>()); _contentSubtitle.SetContent(new List<string>());
 
 			this.GetParentWindow()?.ForceRebuildLayout();
 			Invalidate(Invalidation.Relayout);
@@ -500,7 +500,7 @@ namespace SharpConsoleUI.Controls
 			if (_showContentHeader && _selectedIndex >= 0 && _items.IndexOf(item) == _selectedIndex
 				&& item.ItemType != NavigationItemType.Header)
 			{
-				_contentHeader.SetContent(FormatContentHeader(item));
+				ApplyContentHeader(item);
 			}
 		}
 
@@ -627,7 +627,7 @@ namespace SharpConsoleUI.Controls
 				&& _items[newIndex].ItemType != NavigationItemType.Header)
 			{
 				var item = _items[newIndex];
-				_contentHeader.SetContent(FormatContentHeader(item));
+				ApplyContentHeader(item);
 			}
 
 			// Switch content — direct control (bypasses SPC) or SPC populate factory.

@@ -222,7 +222,7 @@ namespace SharpConsoleUI.Controls
 				if (_selectedIndex >= 0 && _selectedIndex < _items.Count)
 				{
 					var item = _items[_selectedIndex];
-					_contentHeader.SetContent(FormatContentHeader(item));
+					ApplyContentHeader(item);
 				}
 			}
 		}

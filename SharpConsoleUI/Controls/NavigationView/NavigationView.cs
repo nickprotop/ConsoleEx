@@ -62,6 +62,7 @@ namespace SharpConsoleUI.Controls
 		private readonly MarkupControl _paneHeader;
 		private readonly ScrollablePanelControl _navScrollPanel;
 		private readonly MarkupControl _contentHeader;
+		private readonly MarkupControl _contentSubtitle;
 		private readonly ScrollablePanelControl _contentPanel;
 		private IWindowControl _contentColumnBody = null!;
 
@@ -148,6 +149,15 @@ namespace SharpConsoleUI.Controls
 			_contentHeader = new MarkupControl(new List<string>());
 			_contentHeader.Margin = new Margin(0, 0, 0, 0);
 
+			// The subtitle is a full-width row BELOW the header grid (not inside the title column), so a long
+			// subtitle wraps at the whole pane width instead of the title-column width (which is reduced by the
+			// toolbar column on the same row). Stretch so it fills the available width.
+			_contentSubtitle = new MarkupControl(new List<string>())
+			{
+				HorizontalAlignment = HorizontalAlignment.Stretch
+			};
+			_contentSubtitle.Margin = new Margin(0, 0, 0, 0);
+
 			_contentPanel = new ScrollablePanelControl
 			{
 				BorderStyle = _contentBorderStyle,
@@ -181,6 +191,7 @@ namespace SharpConsoleUI.Controls
 			_navColumn.AddContent(_paneHeader);
 			_navColumn.AddContent(_navScrollPanel);
 			_contentColumn.AddContent(_contentHeaderGrid);
+			_contentColumn.AddContent(_contentSubtitle);
 			_contentColumn.AddContent(_contentPanel);
 			_contentColumnBody = _contentPanel;
 
@@ -416,6 +427,7 @@ namespace SharpConsoleUI.Controls
 				if (_showContentHeader == value) return;
 				_showContentHeader = value;
 				_contentHeaderGrid.Visible = value;
+				_contentSubtitle.Visible = value;
 				OnPropertyChanged();
 				Invalidate(Invalidation.Relayout);
 			}
