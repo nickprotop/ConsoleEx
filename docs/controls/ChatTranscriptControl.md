@@ -472,7 +472,9 @@ var window = new WindowBuilder(ws)
 > chat.AddMessage(ChatRole.Tool, "…", author: "🔧 diff_engine");   // safe — resumed on the UI thread
 > ```
 >
-> One caveat: code *before the first `await`* still runs on the background thread the `Task` started on, so seed the opening message synchronously (before the window is built, as done above) rather than as the delegate's first line. `InstallSynchronizationContext` is a global, opt-in setting — leave it off if any of your synchronous input/click handlers block on async (`.Result` / `.GetAwaiter().GetResult()`), which would deadlock under it. See [Threading & Async](../THREADING_AND_ASYNC.md).
+> One caveat: code *before the first `await`* still runs on the background thread the `Task` started on, so seed the opening message synchronously (before the window is built, as done above) rather than as the delegate's first line. `InstallSynchronizationContext` is a global, opt-in setting — leave it off if any of your synchronous input/click handlers block on async (`.Result` / `.GetAwaiter().GetResult()`), which would deadlock under it.
+>
+> For a **per-window, scoped** alternative that needs no global flag, build the window with `WithWindowThreadOnUI(...)` instead — the whole delegate runs on the UI thread (including before the first `await`), so no mutation needs marshalling. See [Threading & Async](../THREADING_AND_ASYNC.md).
 
 ## Best Practices
 

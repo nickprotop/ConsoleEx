@@ -53,6 +53,7 @@ public sealed class WindowBuilder
 	private Window? _parentWindow;
 	private readonly List<IWindowControl> _controls = new();
 	private Window.WindowThreadDelegateAsync? _asyncWindowThread;
+	private Window.WindowThreadDelegateAsync? _uiWindowThread;
 	private bool _alwaysOnTop = false;
 	private bool _showInTaskbar = true;
 	private bool _closeOnDeactivate = false;
@@ -592,6 +593,23 @@ public sealed class WindowBuilder
 	}
 
 	/// <summary>
+	/// Sets an asynchronous window thread that runs on the UI thread while the window is open.
+	/// Control mutations inside it need no <see cref="ConsoleWindowSystem.EnqueueOnUIThread(System.Action)"/>
+	/// marshalling. The delegate must never block the UI thread (no <c>.Result</c> / <c>.Wait()</c> /
+	/// <c>.GetAwaiter().GetResult()</c>; keep synchronous stretches between <c>await</c>s short). For
+	/// CPU-bound or blocking work use <see cref="WithAsyncWindowThread"/> instead. A window may have only
+	/// one window thread; calling both this and <see cref="WithAsyncWindowThread"/> throws at
+	/// <see cref="Build"/>.
+	/// </summary>
+	/// <param name="uiThreadMethod">The async delegate to execute on the UI thread.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithWindowThreadOnUI(Window.WindowThreadDelegateAsync uiThreadMethod)
+	{
+		_uiWindowThread = uiThreadMethod;
+		return this;
+	}
+
+	/// <summary>
 	/// Configures the window to always render on top of normal windows.
 	/// AlwaysOnTop windows are rendered after all normal windows regardless of ZIndex.
 	/// </summary>
@@ -750,8 +768,18 @@ public sealed class WindowBuilder
 	{
 		Window window;
 
+		if (_asyncWindowThread != null && _uiWindowThread != null)
+		{
+			throw new InvalidOperationException(
+				"A window can have only one window thread; call either WithAsyncWindowThread or WithWindowThreadOnUI, not both.");
+		}
+
 		// Create window based on configured thread method
-		if (_asyncWindowThread != null)
+		if (_uiWindowThread != null)
+		{
+			window = new Window(_windowSystem, _uiWindowThread, onUIThread: true, _parentWindow);
+		}
+		else if (_asyncWindowThread != null)
 		{
 			window = new Window(_windowSystem, _asyncWindowThread, _parentWindow);
 		}

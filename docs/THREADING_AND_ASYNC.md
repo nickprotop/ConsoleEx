@@ -28,6 +28,22 @@ Everything that reads or writes UI state runs on this thread:
 | Window lifecycle — `Activated`, `OnResize`, and similar handlers | |
 | Actions marshalled via `EnqueueOnUIThread` / `InvokeAsync` | |
 
+### UI-affine window thread (`WithWindowThreadOnUI`)
+
+By default a window's async thread runs on a background `Task`, so control mutations must be
+marshalled with `EnqueueOnUIThread`. If you instead build the window with
+`WithWindowThreadOnUI(...)`, the delegate runs **on the UI thread**: its `await` continuations
+resume on the UI thread and its control mutations need no marshalling.
+
+This is a per-window, opt-in setting — it does **not** require (or enable) the global
+`InstallSynchronizationContext`, so it is safe to use even in apps that keep that flag off.
+
+The trade: the delegate must **never block the UI thread**. Keep synchronous stretches between
+`await`s short, and never call `.Result` / `.Wait()` / `.GetAwaiter().GetResult()` inside it — that
+deadlocks the loop. For CPU-bound or blocking work, use `WithAsyncWindowThread` (background) and
+marshal mutations with `EnqueueOnUIThread`. A window may have only one window thread; setting both
+throws at `Build()`.
+
 A `SynchronizationContext` tied to the UI thread can be installed for the lifetime
 of `Run()` by opting in with `ConsoleWindowSystemOptions.InstallSynchronizationContext = true`
 (see [below](#opting-in-installsynchronizationcontext)). With it installed, if you write

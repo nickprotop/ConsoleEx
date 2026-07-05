@@ -172,11 +172,11 @@ namespace SharpConsoleUI
 
 		private static int _nextCreationOrder = 0;
 		private static readonly object _creationOrderLock = new();
-		private readonly int _creationOrder;
+		private int _creationOrder;
 
-		private readonly Window? _parentWindow;
-		internal readonly WindowLayoutManager _layoutManager;
-		private readonly Windows.WindowContentManager _contentManager;
+		private Window? _parentWindow;
+		internal WindowLayoutManager _layoutManager;
+		private Windows.WindowContentManager _contentManager;
 		private Color? _activeBorderForegroundColor;
 		private Color? _activeTitleForegroundColor;
 		internal int _bottomStickyHeight;
@@ -190,7 +190,7 @@ namespace SharpConsoleUI
 		/// </summary>
 		internal int ContentLineCount => _renderer?.Buffer?.Height ?? 0;
 
-		private string _guid;
+		private string _guid = string.Empty;
 		private Color? _inactiveBorderForegroundColor;
 		private Color? _inactiveTitleForegroundColor;
 		private bool _isActive;
@@ -266,6 +266,33 @@ namespace SharpConsoleUI
 		/// <param name="parentWindow">Optional parent window for positioning and modal behavior.</param>
 		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegateAsync windowThreadMethod, Window? parentWindow = null)
 		{
+			InitializeCore(windowSystem, parentWindow);
+			StartWindowThread(windowThreadMethod, onUIThread: false);
+		}
+
+		/// <summary>
+		/// Initializes a new instance of the <see cref="Window"/> class with an async thread that runs on
+		/// the UI thread when <paramref name="onUIThread"/> is true.
+		/// </summary>
+		/// <param name="windowSystem">The console window system that manages this window.</param>
+		/// <param name="windowThreadMethod">The async delegate to run for this window.</param>
+		/// <param name="onUIThread">
+		/// When true, the delegate runs on the UI thread: its control mutations need no
+		/// <see cref="ConsoleWindowSystem.EnqueueOnUIThread(System.Action)"/> marshalling, but it must never
+		/// block the UI thread (no <c>.Result</c> / <c>.Wait()</c> / <c>.GetAwaiter().GetResult()</c>, and
+		/// keep synchronous stretches between <c>await</c>s short). When false, the delegate runs on a
+		/// background thread (same as the other delegate constructor).
+		/// </param>
+		/// <param name="parentWindow">Optional parent window for positioning and modal behavior.</param>
+		public Window(ConsoleWindowSystem windowSystem, WindowThreadDelegateAsync windowThreadMethod, bool onUIThread, Window? parentWindow = null)
+		{
+			InitializeCore(windowSystem, parentWindow);
+			StartWindowThread(windowThreadMethod, onUIThread);
+		}
+
+		[System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_layoutManager), nameof(_contentManager))]
+		private void InitializeCore(ConsoleWindowSystem windowSystem, Window? parentWindow)
+		{
 			_guid = System.Guid.NewGuid().ToString();
 
 			lock (_creationOrderLock)
@@ -277,53 +304,95 @@ namespace SharpConsoleUI
 			_windowSystem = windowSystem;
 			_layoutManager = new WindowLayoutManager(this);
 
-			// Initialize renderer for DOM-based layout
 			_renderer = new Windows.WindowRenderer(
 				this,
 				_windowSystem?.LogService);
 
-			// Initialize content manager for control collection management
 			_contentManager = new Windows.WindowContentManager(
 				() => Title,
 				_windowSystem?.LogService,
 				() => Invalidate(Invalidation.Relayout),
 				() => _renderer?.InvalidateDOM());
 
-			// Initialize border renderer
 			_borderRenderer = new Windows.BorderRenderer(
 				this,
 				() => _windowSystem?.ConsoleDriver!,
 				() => _windowSystem?.DesktopUpperLeft ?? Point.Empty,
 				() => _windowSystem?.DesktopBottomRight ?? Point.Empty);
 
-			// Initialize event dispatcher, root scope and focus manager
 			_eventDispatcher = new Windows.WindowEventDispatcher(this);
 			RootScope = new Core.WindowRootScope(this);
 			FocusManager = new Core.FocusManager(this);
 			SelectionManager = new Core.SelectionManager(this);
 
-			// Set position relative to parent if this is a subwindow
 			SetupInitialPosition();
+		}
 
+		/// <summary>
+		/// Starts the window's async thread. When <paramref name="onUIThread"/> is false the delegate
+		/// runs on a background <see cref="System.Threading.Tasks.Task"/> (default); when true it starts on
+		/// the UI loop thread under a UI-affine <see cref="Core.ConsoleUISynchronizationContext"/> so its
+		/// <c>await</c> continuations resume on the UI thread (see WithWindowThreadOnUI).
+		/// </summary>
+		private void StartWindowThread(WindowThreadDelegateAsync windowThreadMethod, bool onUIThread)
+		{
 			_windowThreadMethodAsync = windowThreadMethod;
 			_windowThreadCts = new CancellationTokenSource();
 			var token = _windowThreadCts.Token;
-			_windowTask = Task.Run(async () =>
+
+			if (!onUIThread)
 			{
+				_windowTask = Task.Run(() => RunWindowThreadAsync(windowThreadMethod, token));
+				return;
+			}
+
+			// UI-affine: start the delegate on the UI loop thread under a UI-affine SynchronizationContext.
+			// The synchronous prologue (up to the first await) runs on the UI thread; the async flow
+			// captures the context so continuations Post back to the loop and resume on the UI thread.
+			var system = _windowSystem;
+			if (system == null)
+			{
+				// No system yet; fall back to background so the delegate still runs.
+				_windowTask = Task.Run(() => RunWindowThreadAsync(windowThreadMethod, token));
+				return;
+			}
+
+			system.EnqueueOnUIThread(() =>
+			{
+				// If the window was closed during the gap between enqueue and drain, don't start the
+				// delegate on a closed window (the close path may not have cancelled the CTS because
+				// _windowTask was still null at close time).
+				if (_isClosing || token.IsCancellationRequested)
+					return;
+
+				var previous = SynchronizationContext.Current;
+				SynchronizationContext.SetSynchronizationContext(
+					new Core.ConsoleUISynchronizationContext(system.EnqueueOnUIThread, () => system.IsOnUIThread));
 				try
 				{
-					await windowThreadMethod(this, token);
+					_windowTask = RunWindowThreadAsync(windowThreadMethod, token);
 				}
-				catch (OperationCanceledException)
+				finally
 				{
-					// Normal cancellation, ignore
+					SynchronizationContext.SetSynchronizationContext(previous);
 				}
-				catch (Exception ex)
-				{
-					// Log error to LogService if available, but don't crash
-					_windowSystem?.LogService?.LogError($"Window thread error: {ex.Message}", ex, "Window");
-				}
-			});
+			}, "WindowThreadOnUI:start");
+		}
+
+		private async Task RunWindowThreadAsync(WindowThreadDelegateAsync windowThreadMethod, CancellationToken token)
+		{
+			try
+			{
+				await windowThreadMethod(this, token);
+			}
+			catch (OperationCanceledException)
+			{
+				// Normal cancellation, ignore
+			}
+			catch (Exception ex)
+			{
+				_windowSystem?.LogService?.LogError($"Window thread error: {ex.Message}", ex, "Window");
+			}
 		}
 
 		/// <summary>
@@ -333,44 +402,7 @@ namespace SharpConsoleUI
 		/// <param name="parentWindow">Optional parent window for positioning and modal behavior.</param>
 		public Window(ConsoleWindowSystem windowSystem, Window? parentWindow = null)
 		{
-			_guid = System.Guid.NewGuid().ToString();
-
-			lock (_creationOrderLock)
-			{
-				_creationOrder = _nextCreationOrder++;
-			}
-
-			_windowSystem = windowSystem;
-			_parentWindow = parentWindow;
-			_layoutManager = new WindowLayoutManager(this);
-
-			// Initialize renderer for DOM-based layout
-			_renderer = new Windows.WindowRenderer(
-				this,
-				_windowSystem?.LogService);
-
-			// Initialize content manager for control collection management
-			_contentManager = new Windows.WindowContentManager(
-				() => Title,
-				_windowSystem?.LogService,
-				() => Invalidate(Invalidation.Relayout),
-				() => _renderer?.InvalidateDOM());
-
-			// Initialize border renderer
-			_borderRenderer = new Windows.BorderRenderer(
-				this,
-				() => _windowSystem?.ConsoleDriver!,
-				() => _windowSystem?.DesktopUpperLeft ?? Point.Empty,
-				() => _windowSystem?.DesktopBottomRight ?? Point.Empty);
-
-			// Initialize event dispatcher, root scope and focus manager
-			_eventDispatcher = new Windows.WindowEventDispatcher(this);
-			RootScope = new Core.WindowRootScope(this);
-			FocusManager = new Core.FocusManager(this);
-			SelectionManager = new Core.SelectionManager(this);
-
-			// Set position relative to parent if this is a subwindow
-			SetupInitialPosition();
+			InitializeCore(windowSystem, parentWindow);
 		}
 
 		/// <summary>
