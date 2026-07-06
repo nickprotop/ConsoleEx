@@ -86,7 +86,7 @@ namespace SharpConsoleUI.Controls
 		/// I-beam), so a control in a cell shows the same cursor it would in any other container.
 		/// Returns <c>null</c> (the default shape) when no cell child supplies one.
 		/// </remarks>
-		public CursorShape? PreferredCursorShape =>
+		public virtual CursorShape? PreferredCursorShape =>
 			(GetFocusedChildFromCoordinator() as ICursorShapeProvider)?.PreferredCursorShape;
 
 		/// <summary>
@@ -94,7 +94,7 @@ namespace SharpConsoleUI.Controls
 		/// or <c>null</c> when no cell child is focused. Uses the focus path so a focused control nested
 		/// inside a cell's own container is reported as its owning cell child.
 		/// </summary>
-		private IInteractiveControl? GetFocusedChildFromCoordinator()
+		protected virtual IInteractiveControl? GetFocusedChildFromCoordinator()
 		{
 			var window = (this as IWindowControl).GetParentWindow();
 			if (window == null) return null;
@@ -119,7 +119,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public bool ProcessKey(ConsoleKeyInfo key)
+		public virtual bool ProcessKey(ConsoleKeyInfo key)
 		{
 			if (!IsEnabled) return false;
 
@@ -186,7 +186,7 @@ namespace SharpConsoleUI.Controls
 		/// There is no scroll offset to subtract and no viewport to clip against, so this is a plain
 		/// translation. Returns <c>null</c> when no cell child is focused or the child reports no cursor.
 		/// </remarks>
-		public Point? GetLogicalCursorPosition()
+		public virtual Point? GetLogicalCursorPosition()
 		{
 			var focused = GetFocusedChildFromCoordinator();
 			if (focused is ILogicalCursorProvider cursorProvider && focused is IWindowControl wc)
@@ -203,7 +203,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		/// <remarks>The inverse of <see cref="GetLogicalCursorPosition"/>: removes the cell origin and
 		/// forwards the child-relative position to the focused cell child.</remarks>
-		public void SetLogicalCursorPosition(Point position)
+		public virtual void SetLogicalCursorPosition(Point position)
 		{
 			var focused = GetFocusedChildFromCoordinator();
 			if (focused is ILogicalCursorProvider cursorProvider && focused is IWindowControl wc)
@@ -355,7 +355,7 @@ namespace SharpConsoleUI.Controls
 		/// nested focus-scope cell that appears earlier in Tab order, in which case the saved value is
 		/// discarded. The grid has no scroll mode, so there is no self-sentinel branch.
 		/// </remarks>
-		public IFocusableControl? GetInitialFocus(bool backward)
+		public virtual IFocusableControl? GetInitialFocus(bool backward)
 		{
 			// Build the focusable Tab-stop list once; both the SavedFocus skip-check and the
 			// first/last selection reuse it (CLAUDE.md rule 11 — avoid the double traversal).
@@ -377,7 +377,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public IFocusableControl? GetNextFocus(IFocusableControl current, bool backward)
+		public virtual IFocusableControl? GetNextFocus(IFocusableControl current, bool backward)
 		{
 			var children = GetFocusableChildren();
 			var index = children.FindIndex(c => ReferenceEquals(c, current));
@@ -400,7 +400,7 @@ namespace SharpConsoleUI.Controls
 		/// so Tab flows left-to-right, top-to-bottom and splitters slot in at their boundaries. Only handles
 		/// with a valid, visible boundary (non-empty Bounds → CanReceiveFocus) participate.
 		/// </summary>
-		private List<IFocusableControl> GetFocusableChildren()
+		protected virtual List<IFocusableControl> GetFocusableChildren()
 		{
 			var result = new List<IFocusableControl>();
 			var cells = OrderedCells;

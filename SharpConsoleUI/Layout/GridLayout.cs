@@ -108,8 +108,37 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 		int columnGap = Math.Max(0, _source.ColumnGap);
 		int rowGap = Math.Max(0, _source.RowGap);
 
-		int[] colSizes = GridTrackSizer.Size(colDefs, autoContentColSizes, starAvailW, _source.ColumnGap);
-		int[] rowSizes = GridTrackSizer.Size(rowDefs, autoContentRowSizes, starAvailH, _source.RowGap);
+		// Opt-in (ContentSizedStars): a Star track on an effectively-unbounded axis normally collapses to 0
+		// (WinUI contract, above). When the source opts in, instead give each single-track Star cell a content
+		// FLOOR so the track self-sizes to the child that was already measured at its provisional allocation:
+		//   - the child's DesiredSize on this axis WAS measured above (at the estimated per-track width, and at
+		//     the unbounded extent along this axis — a stable content measure that does NOT depend on any Star
+		//     division, so it is a fixed point across re-renders);
+		//   - the floor is fed as the Star track's Min while starAvail stays 0, so GridTrackSizer clamps the
+		//     Star track up to exactly that content (no division of ~int.MaxValue, no oscillation).
+		// ARRANGE (below) still distributes Star across the real, bounded extent. The bounded axis is untouched
+		// (its existing Star split already sizes correctly), so this branch is measure-only and unbounded-only.
+		IReadOnlyList<GridLength> measureColDefs = colDefs;
+		IReadOnlyList<GridLength> measureRowDefs = rowDefs;
+		if (_source.StarTracksSelfSizeToContentInMeasure)
+		{
+			// Report the content-PACKED size on both axes (mirroring master's HorizontalGridControl.MeasureDOM,
+			// which always sums column content regardless of alignment or the parent's finite width) so a
+			// content-tight parent - the window root for a Left/Center/Right grid - packs the cluster, while a
+			// wider parent (a Stretch slot or a ScrollablePanel viewport) still lets the flex columns fan out at
+			// ARRANGE. Each single-track Star cell gets a content FLOOR (its already-measured DesiredSize, a
+			// stable fixed point that does not depend on any Star division) AND the Star pool is forced to 0
+			// below, so GridTrackSizer pins every Star to exactly its floor. This runs on the bounded axis too
+			// (needed for the window-root Left case), not only the unbounded axis of the original WinUI
+			// contract. ARRANGE is untouched and still fans Star out across the real arranged extent.
+			measureColDefs = ApplyStarContentFloor(colDefs, node, availW, columnGap, isColumn: true);
+			measureRowDefs = ApplyStarContentFloor(rowDefs, node, availH, rowGap, isColumn: false);
+			starAvailW = 0;
+			starAvailH = 0;
+		}
+
+		int[] colSizes = GridTrackSizer.Size(measureColDefs, autoContentColSizes, starAvailW, _source.ColumnGap);
+		int[] rowSizes = GridTrackSizer.Size(measureRowDefs, autoContentRowSizes, starAvailH, _source.RowGap);
 
 		// PASS 2: re-measure each content cell against its REAL cell extent (the actual column width
 		// computed in pass 1) so wrapping controls reflow to their column rather than reporting a single
@@ -123,7 +152,7 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 		{
 			// Recompute ROW auto-content from the NEW (wrapped) DesiredSize heights so Auto rows grow to
 			// fit the reflowed text. Columns are unaffected, so colSizes is reused as-is.
-			int[] autoContentRowSizes2 = new int[rowDefs.Count];
+			int[] autoContentRowSizes2 = new int[measureRowDefs.Count];
 			var cells = _source.OrderedCells;
 			IReadOnlyList<LayoutNode> children = node.Children;
 			int pairCount = Math.Min(children.Count, cells.Count);
@@ -136,10 +165,10 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 				}
 
 				GridPlacement p = cells[i].Placement;
-				ContributeAutoContent(autoContentRowSizes2, rowDefs, p.Row, p.RowSpan, child.DesiredSize.Height);
+				ContributeAutoContent(autoContentRowSizes2, measureRowDefs, p.Row, p.RowSpan, child.DesiredSize.Height);
 			}
 
-			rowSizes = GridTrackSizer.Size(rowDefs, autoContentRowSizes2, starAvailH, _source.RowGap);
+			rowSizes = GridTrackSizer.Size(measureRowDefs, autoContentRowSizes2, starAvailH, _source.RowGap);
 		}
 
 		int colGaps = colCount > 1 ? (colCount - 1) * Math.Max(0, _source.ColumnGap) : 0;
@@ -463,6 +492,113 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 			total += values[i];
 		}
 		return total;
+	}
+
+	/// <summary>
+	/// Measure-pass helper for the <see cref="IGridSource.StarTracksSelfSizeToContentInMeasure"/> opt-in on an
+	/// effectively-unbounded axis. Returns a copy of <paramref name="defs"/> in which each single-track
+	/// <see cref="GridUnitType.Star"/> track's <see cref="GridLength.Min"/> is raised to its cell's already-measured
+	/// content size along the given axis. Because the caller passes <c>starAvail = 0</c> to
+	/// <see cref="GridTrackSizer"/> on an unbounded axis, the floor is what actually sizes the Star track: the
+	/// track-sizer clamps it up from 0 to exactly the content size — so the grid reports a content-based desired
+	/// size instead of collapsing the Star track to 0, WITHOUT dividing ~int.MaxValue among the stars.
+	/// <para>
+	/// The content size is read from each child's <see cref="LayoutNode.DesiredSize"/>, which the measure pass
+	/// already computed at the child's provisional per-track allocation and at the axis's unbounded extent. That
+	/// measure does not depend on any Star division, so it is a stable fixed point: measure width/height equals
+	/// the width/height the child is later arranged at, so a content-dependent child (e.g. a table) converges
+	/// across re-renders rather than oscillating.
+	/// </para>
+	/// <para>
+	/// Over-subscription guard: if the Star content floors plus the Fixed/gap consumption on this axis would
+	/// exceed <paramref name="available"/>, the original (un-floored) defs are returned so the plain even Star
+	/// split runs instead. Only single-track (non-spanning) Star cells contribute a floor, since a spanning
+	/// cell's content is shared across its tracks and must not pin any one of them.
+	/// </para>
+	/// </summary>
+	private IReadOnlyList<GridLength> ApplyStarContentFloor(
+		IReadOnlyList<GridLength> defs,
+		LayoutNode node,
+		int available,
+		int gap,
+		bool isColumn)
+	{
+		int count = defs.Count;
+		int[] floor = new int[count];
+
+		var cells = _source.OrderedCells;
+		IReadOnlyList<LayoutNode> children = node.Children;
+		int pairCount = Math.Min(children.Count, cells.Count);
+
+		for (int i = 0; i < pairCount; i++)
+		{
+			LayoutNode child = children[i];
+			if (!child.IsVisible)
+			{
+				continue;
+			}
+
+			GridPlacement p = cells[i].Placement;
+			int start = isColumn ? p.Col : p.Row;
+			int span = isColumn ? p.ColSpan : p.RowSpan;
+			// Only single-track cells contribute a per-track floor; a spanning cell's content is shared across
+			// its tracks and must not pin any one of them to the whole content size.
+			if (span != 1 || start < 0 || start >= count || defs[start].Type != GridUnitType.Star)
+			{
+				continue;
+			}
+
+			int content = isColumn ? child.DesiredSize.Width : child.DesiredSize.Height;
+			if (content > floor[start])
+			{
+				floor[start] = content;
+			}
+		}
+
+		// Over-subscription guard: sum Fixed consumption + gaps + Star floors. If they exceed the available
+		// extent, the floors cannot all be honoured inside the allocation, so keep the plain even Star split.
+		int gapTotal = count > 1 ? (count - 1) * Math.Max(0, gap) : 0;
+		int consumedPlusFloors = gapTotal;
+		for (int i = 0; i < count; i++)
+		{
+			GridLength def = defs[i];
+			if (def.Type == GridUnitType.Star)
+			{
+				consumedPlusFloors += floor[i];
+			}
+			else if (def.Type == GridUnitType.Fixed)
+			{
+				consumedPlusFloors += ClampTrack(def.Value, def.Min, def.Max);
+			}
+		}
+		if (consumedPlusFloors > available)
+		{
+			return defs;
+		}
+
+		var result = new GridLength[count];
+		for (int i = 0; i < count; i++)
+		{
+			GridLength def = defs[i];
+			if (def.Type == GridUnitType.Star && floor[i] > 0)
+			{
+				int min = def.Min.HasValue ? Math.Max(def.Min.Value, floor[i]) : floor[i];
+				result[i] = GridLength.Star(def.Weight, min, def.Max);
+			}
+			else
+			{
+				result[i] = def;
+			}
+		}
+		return result;
+	}
+
+	/// <summary>Clamps a track size to its optional Min/Max and floors it at 0.</summary>
+	private static int ClampTrack(int value, int? min, int? max)
+	{
+		if (min.HasValue && value < min.Value) value = min.Value;
+		if (max.HasValue && value > max.Value) value = max.Value;
+		return Math.Max(0, value);
 	}
 
 	/// <summary>

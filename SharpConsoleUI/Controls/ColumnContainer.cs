@@ -31,7 +31,7 @@ namespace SharpConsoleUI.Controls
 		private List<IWindowControl> _contents = new List<IWindowControl>();
 		private readonly object _contentsLock = new();
 		private Color? _foregroundColorValue;
-		private HorizontalGridControl _horizontalGridContent;
+		private IColumnGridOwner? _owner;
 		private bool _isEnabled = true;
 		private Margin _margin = new Margin(0, 0, 0, 0);
 		private StickyPosition _stickyPosition = StickyPosition.None;
@@ -56,8 +56,20 @@ namespace SharpConsoleUI.Controls
 		/// <param name="horizontalGridContent">The parent horizontal grid that contains this column.</param>
 		public ColumnContainer(HorizontalGridControl horizontalGridContent)
 		{
-			_horizontalGridContent = horizontalGridContent;
+			_owner = horizontalGridContent;
 			_consoleWindowSystem = horizontalGridContent.Container?.GetConsoleWindowSystem;
+		}
+
+		/// <summary>
+		/// Initializes a new instance of the <see cref="ColumnContainer"/> class owned by an
+		/// arbitrary <see cref="IColumnGridOwner"/> (e.g. a grid-backed horizontal strip), not
+		/// necessarily a concrete <see cref="HorizontalGridControl"/>.
+		/// </summary>
+		/// <param name="owner">The grid strip that owns this column.</param>
+		public ColumnContainer(IColumnGridOwner owner)
+		{
+			_owner = owner;
+			_consoleWindowSystem = owner.Container?.GetConsoleWindowSystem;
 		}
 
 		/// <inheritdoc/>
@@ -72,8 +84,8 @@ namespace SharpConsoleUI.Controls
 		public Color ForegroundColor
 		{
 			// Resolution chain: explicit → grid's fg → grid's parent (Window) → theme
-			get => _foregroundColorValue ?? _horizontalGridContent?.ForegroundColor
-				?? _horizontalGridContent?.Container?.ForegroundColor
+			get => _foregroundColorValue ?? _owner?.ForegroundColor
+				?? _owner?.Container?.ForegroundColor
 				?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
 			set { _foregroundColorValue = value; Invalidate(Invalidation.Repaint, this); }
 		}
@@ -132,17 +144,27 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets or sets the parent horizontal grid control.
 		/// </summary>
+		/// <remarks>
+		/// The getter is non-null only when the owner is a concrete <see cref="HorizontalGridControl"/>
+		/// (the common case). For a column owned by a non-HGC <see cref="IColumnGridOwner"/> this is null;
+		/// use <see cref="OwnerControl"/> for owner-agnostic access.
+		/// </remarks>
 		public HorizontalGridControl HorizontalGridContent
 		{
-			get => _horizontalGridContent;
+			get => (_owner as HorizontalGridControl)!;
 			set
 			{
-				_horizontalGridContent = value;
+				_owner = value;
 				_consoleWindowSystem = value.Container?.GetConsoleWindowSystem;
 
 				Invalidate(Invalidation.Relayout, this);
 			}
 		}
+
+		/// <summary>
+		/// Gets the control that owns this column (the horizontal grid strip), owner-agnostic.
+		/// </summary>
+		public IWindowControl? OwnerControl => _owner;
 
 		/// <inheritdoc/>
 		public int? Width
@@ -340,7 +362,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public IContainer? Container
 		{
-			get => _container ?? _horizontalGridContent?.Container;
+			get => _container ?? _owner?.Container;
 			set
 			{
 				_container = value;
@@ -528,9 +550,9 @@ namespace SharpConsoleUI.Controls
 		public void Invalidate(Invalidation work, IWindowControl? callerControl = null)
 		{
 			// Notify the parent grid (guarded against invalidation cycles), unless the grid is the caller.
-			if (callerControl == _horizontalGridContent || _horizontalGridContent == null)
+			if (callerControl == _owner || _owner == null)
 				return;
-			RunGuarded(() => _horizontalGridContent.Invalidate(work));
+			RunGuarded(() => _owner!.Invalidate(work));
 		}
 
 		/// <inheritdoc/>
@@ -538,8 +560,8 @@ namespace SharpConsoleUI.Controls
 		{
 			// ColumnContainer doesn't clip its children, so delegate to parent
 			// Navigate through HorizontalGridControl to reach the Window
-			// Note: _container may not be set, but _horizontalGridContent.Container should point to Window
-			var parentContainer = _horizontalGridContent?.Container;
+			// Note: _container may not be set, but _owner.Container should point to Window
+			var parentContainer = _owner?.Container;
 			return parentContainer?.GetVisibleHeightForControl(control);
 		}
 
@@ -557,7 +579,7 @@ namespace SharpConsoleUI.Controls
 				foreach (var content in snapshot)
 				{
 					// Skip the grid content and the caller to avoid echoing the invalidation back.
-					if (content != _horizontalGridContent && content != callerControl)
+					if (content != _owner && content != callerControl)
 						content.Invalidate(work);
 				}
 			});

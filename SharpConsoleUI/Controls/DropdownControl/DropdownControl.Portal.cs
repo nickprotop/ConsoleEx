@@ -282,7 +282,7 @@ namespace SharpConsoleUI.Controls
 				{
 					if (currentContainer is ColumnContainer columnContainer)
 					{
-						currentContainer = columnContainer.HorizontalGridContent.Container;
+						currentContainer = columnContainer.OwnerControl?.Container;
 					}
 					else
 					{

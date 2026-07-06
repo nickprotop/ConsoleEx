@@ -294,9 +294,9 @@ public class FocusManager
 		// Use HorizontalGridContent to include HGrid in the path.
 		if (container is Controls.ColumnContainer cc)
 		{
-			var hgrid = cc.HorizontalGridContent;
-			if (hgrid != null)
-				return hgrid;
+			var owner = cc.OwnerControl;
+			if (owner != null)
+				return owner;
 		}
 
 		return container as IWindowControl;

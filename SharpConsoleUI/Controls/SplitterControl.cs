@@ -72,6 +72,7 @@ namespace SharpConsoleUI.Controls
 		private ColumnContainer? _leftColumn;
 
 		private HorizontalGridControl? _parentGrid;
+		private IColumnGridOwner? _ownerGrid;
 		private ColumnContainer? _rightColumn;
 
 		/// <summary>
@@ -229,6 +230,7 @@ namespace SharpConsoleUI.Controls
 			get => _foregroundColorValue
 				?? ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, mode: ColorRoleMode)
 				?? _parentGrid?.ForegroundColor
+				?? _ownerGrid?.ForegroundColor
 				?? Container?.ForegroundColor
 				?? Container?.GetConsoleWindowSystem?.Theme?.WindowForegroundColor ?? Color.White;
 			set
@@ -523,6 +525,20 @@ namespace SharpConsoleUI.Controls
 			_leftColumn = leftColumn;
 			_rightColumn = rightColumn;
 			_parentGrid = parentGrid;
+			Invalidate(Invalidation.Relayout);
+		}
+
+		/// <summary>
+		/// Sets the columns that this splitter will resize, with an owner-agnostic grid strip.
+		/// </summary>
+		/// <param name="leftColumn">Column to the left of the splitter</param>
+		/// <param name="rightColumn">Column to the right of the splitter</param>
+		/// <param name="owner">The grid strip that owns this splitter (may be a non-HGC <see cref="IColumnGridOwner"/>).</param>
+		public void SetColumns(ColumnContainer leftColumn, ColumnContainer rightColumn, IColumnGridOwner? owner)
+		{
+			_leftColumn = leftColumn;
+			_rightColumn = rightColumn;
+			_ownerGrid = owner;
 			Invalidate(Invalidation.Relayout);
 		}
 

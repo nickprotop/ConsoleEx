@@ -33,6 +33,7 @@ public class GridClipTests
 		public Padding Padding { get; init; }
 		public IReadOnlyList<(IWindowControl Control, GridPlacement Placement)> OrderedCells { get; init; }
 			= Array.Empty<(IWindowControl, GridPlacement)>();
+		public bool StarTracksSelfSizeToContentInMeasure { get; init; }
 	}
 
 	/// <summary>

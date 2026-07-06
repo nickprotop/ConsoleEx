@@ -1442,7 +1442,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			if (currentContainer is IWindowControl control)
 				currentContainer = control.Container;
 			else if (currentContainer is ColumnContainer columnContainer)
-				currentContainer = columnContainer.HorizontalGridContent.Container;
+				currentContainer = columnContainer.OwnerControl?.Container;
 			else
 				break;
 

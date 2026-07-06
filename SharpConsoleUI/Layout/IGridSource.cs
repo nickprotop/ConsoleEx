@@ -51,4 +51,11 @@ public interface IGridSource
 	/// paint chrome only, never layout-tree children.
 	/// </summary>
 	IReadOnlyList<(IWindowControl Control, GridPlacement Placement)> OrderedCells { get; }
+
+	/// <summary>
+	/// When <c>true</c>, a <see cref="GridUnitType.Star"/> track measured on an effectively unbounded axis
+	/// self-sizes to its cells'content (reporting a content-based desired size) instead of collapsing to 0;
+	/// ARRANGE still distributes Star across the real allocation. Default <c>false</c> (WinUI contract).
+	/// </summary>
+	bool StarTracksSelfSizeToContentInMeasure { get; }
 }

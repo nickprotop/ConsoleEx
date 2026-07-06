@@ -558,8 +558,11 @@ public class NavigationViewTests
 		var nav = new NavigationView();
 		var children = nav.GetChildren();
 
+		// GetChildren() exposes exactly one root child to the layout/focus system. The child's CONCRETE type
+		// is an internal implementation detail (the horizontal-grid engine may be swapped); assert only the
+		// contract — one child, an IWindowControl — not the concrete class.
 		Assert.Single(children);
-		Assert.IsType<HorizontalGridControl>(children[0]);
+		Assert.IsAssignableFrom<IWindowControl>(children[0]);
 	}
 
 	[Fact]

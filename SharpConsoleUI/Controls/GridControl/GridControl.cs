@@ -203,6 +203,26 @@ namespace SharpConsoleUI.Controls
 		/// </remarks>
 		IReadOnlyList<GridLength> IGridSource.ColumnDefinitions => _columnDefinitions.Snapshot();
 
+		private bool _contentSizedStars;
+
+		/// <summary>
+		/// When <c>true</c>, Star tracks measured on an effectively unbounded axis self-size to content instead
+		/// of collapsing to 0 (arrange still distributes Star across the real extent). Default <c>false</c> — the
+		/// WinUI contract, unchanged for ordinary grids. A grid living in a bounded slot but sometimes measured
+		/// unbounded opts in so it reports a sensible desired size.
+		/// </summary>
+		public bool ContentSizedStars
+		{
+			get => _contentSizedStars;
+			set { if (SetProperty(ref _contentSizedStars, value)) Invalidate(Invalidation.Relayout); }
+		}
+
+		/// <summary>Backing for <see cref="IGridSource.StarTracksSelfSizeToContentInMeasure"/>; a subclass whose
+		/// grid must always self-size Star to content when measured unbounded overrides to force <c>true</c>.</summary>
+		protected virtual bool StarTracksSelfSizeToContentInMeasure => _contentSizedStars;
+
+		bool IGridSource.StarTracksSelfSizeToContentInMeasure => StarTracksSelfSizeToContentInMeasure;
+
 		/// <inheritdoc/>
 		public IReadOnlyList<(IWindowControl Control, GridPlacement Placement)> OrderedCells => BuildOrderedCells();
 
