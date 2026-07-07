@@ -308,12 +308,14 @@ namespace SharpConsoleUI.Controls
 
 					// Determine cell color based on whether the character is "empty"
 					bool isEmpty = useBraille ? displayChar == BRAILLE_CHARS[0] : displayChar == ' ';
-					Color cellColor;
+					// The content area's background was already painted by the fill pass above, so an
+					// empty cell needs no glyph — skip it. (Stamping a blank braille char here would
+					// overwrite the fill, breaking a transparent background where the desktop / window
+					// beneath must show through.)
 					if (isEmpty)
-					{
-						cellColor = Color.Grey19;
-					}
-					else if (_gradient != null)
+						continue;
+					Color cellColor;
+					if (_gradient != null)
 					{
 						// Vertical gradient: color based on row position (bottom to top)
 						double rowHeightNormalized = (double)(y + 1) / graphHeight;
@@ -374,12 +376,12 @@ namespace SharpConsoleUI.Controls
 
 						char displayChar = GetBarChar(barHeight, y, useBraille);
 						bool isEmpty = useBraille ? displayChar == BRAILLE_CHARS[0] : displayChar == ' ';
-						Color cellColor;
+						// Empty cell: the background fill pass already covered it — skip (never stamp a blank
+						// glyph, which would overwrite a transparent background).
 						if (isEmpty)
-						{
-							cellColor = Color.Grey19;
-						}
-						else if (_gradient != null)
+							continue;
+						Color cellColor;
+						if (_gradient != null)
 						{
 							double rowHeightNormalized = (double)(y + 1) / topHalfHeight;
 							cellColor = _gradient.Interpolate(rowHeightNormalized);
@@ -409,12 +411,12 @@ namespace SharpConsoleUI.Controls
 						// For downward bars, we use inverted block chars (▔▀ style) or just fill from top
 						char displayChar = GetBarCharInverted(barHeight, y, useBraille);
 						bool isEmpty = useBraille ? displayChar == BRAILLE_CHARS[0] : displayChar == ' ';
-						Color cellColor;
+						// Empty cell: the background fill pass already covered it — skip (never stamp a blank
+						// glyph, which would overwrite a transparent background).
 						if (isEmpty)
-						{
-							cellColor = Color.Grey19;
-						}
-						else if (_secondaryGradient != null)
+							continue;
+						Color cellColor;
+						if (_secondaryGradient != null)
 						{
 							// Secondary has its own gradient
 							double rowHeightNormalized = (double)(y + 1) / bottomHalfHeight;
