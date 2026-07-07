@@ -220,6 +220,12 @@ namespace SharpConsoleUI
 		private TimeSpan _asyncThreadCleanupTimeout = TimeSpan.FromSeconds(Configuration.ControlDefaults.AsyncCleanupTimeoutSeconds);
 		private int _left;
 		private int _top;
+		private Layout.Placement? _placement;
+
+		// Guard: true only while ApplyPlacement is pushing bounds via SetSize/SetPosition. It stops the
+		// manual-interaction clear (WindowStateService.StartDrag/StartResize) from mistaking the placement's
+		// own bound-set for a user grab, and lets the resize re-resolve stay sticky.
+		internal bool _applyingPlacement;
 
 		// DOM-based layout system (delegated to WindowRenderer)
 		internal Windows.WindowRenderer? _renderer;
@@ -931,6 +937,63 @@ namespace SharpConsoleUI
 				}
 			}
 		}
+
+		/// <summary>
+		/// Gets or sets the declarative <see cref="Layout.Placement"/> of this window against the live usable
+		/// desktop. Setting a non-null value immediately snaps the window to the resolved bounds and makes the
+		/// placement <em>sticky</em>: a subsequent desktop resize re-resolves it to the new geometry (mirroring
+		/// how a maximized window re-fits). Beginning a manual drag or resize detaches the window
+		/// (<see cref="Placement"/> becomes <c>null</c>, leaving it free-floating). Set to <c>null</c> to detach
+		/// programmatically.
+		/// </summary>
+		/// <remarks>
+		/// Placement is orthogonal to <see cref="WindowState"/>: a placed window stays <see cref="WindowState.Normal"/>.
+		/// The concrete bounds are computed by <see cref="Core.WindowPlacementService.Resolve"/> against the current
+		/// desktop, so identical placements re-resolve correctly across resizes.
+		/// </remarks>
+		public Layout.Placement? Placement
+		{
+			get => _placement;
+			set
+			{
+				if (Nullable.Equals(_placement, value)) return;
+				_placement = value;
+				if (value is Layout.Placement p && _windowSystem != null)
+				{
+					ApplyPlacement(p);
+				}
+				Invalidate(Invalidation.Relayout);
+			}
+		}
+
+		/// <summary>
+		/// Resolves <paramref name="p"/> to concrete bounds and applies them via <see cref="SetSize"/> /
+		/// <see cref="SetPosition"/>, guarded by <see cref="_applyingPlacement"/> so the framework does not
+		/// mistake the placement's own bound-set for a manual interaction and clear it.
+		/// </summary>
+		private void ApplyPlacement(Layout.Placement p)
+		{
+			if (_windowSystem == null) return;
+
+			_applyingPlacement = true;
+			try
+			{
+				var r = _windowSystem.WindowPlacementService.Resolve(p);
+				SetSize(r.Width, r.Height);
+				SetPosition(new Point(r.X, r.Y));
+			}
+			finally
+			{
+				_applyingPlacement = false;
+			}
+		}
+
+		/// <summary>
+		/// Gets whether the window is mid-apply of its <see cref="Placement"/> (bounds being pushed by the
+		/// framework). Manual drag/resize handlers check this so the placement's own bound-set does not
+		/// self-clear the placement.
+		/// </summary>
+		internal bool IsApplyingPlacement => _applyingPlacement;
 
 		/// <summary>
 		/// Gets the total number of content lines including sticky headers.

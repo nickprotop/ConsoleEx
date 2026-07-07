@@ -14,6 +14,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Parsing;
 using SharpConsoleUI.Themes;
 using Ctl = SharpConsoleUI.Builders.Controls;
 
@@ -66,10 +67,6 @@ namespace SharpConsoleUI.Flows
 			_ => ControlDefaults.FlowGlyphNone,
 		};
 
-		/// <summary>Escapes markup bracket characters so text is rendered literally.</summary>
-		internal static string EscapeMarkup(string text)
-			=> text.Replace("[", "[[").Replace("]", "]]");
-
 		// --- Standardized dialog layout (canonical three-band shape) -----------------------------
 		// Every flow dialog (primitives AND host steps) uses ONE layout, assembled from these
 		// helpers and added as WINDOW children so the window's content layout honours sticky:
@@ -105,8 +102,8 @@ namespace SharpConsoleUI.Flows
 			if (!string.IsNullOrEmpty(title))
 			{
 				var bannerLine = string.IsNullOrEmpty(glyph)
-					? $"[bold]{EscapeMarkup(title)}[/]"
-					: $"{glyph}  [bold]{EscapeMarkup(title)}[/]";
+					? $"[bold]{MarkupParser.Escape(title)}[/]"
+					: $"{glyph}  [bold]{MarkupParser.Escape(title)}[/]";
 
 				band.Add(Ctl.Markup()
 					.WithName(TopBandTitleName)
@@ -125,11 +122,16 @@ namespace SharpConsoleUI.Flows
 		}
 
 		/// <summary>Scrollable middle band: a single-line message body that fills the available height.</summary>
-		internal static IWindowControl BuildScrollableBody(string message)
+		/// <param name="message">The message body text. Rendered as markup by default.</param>
+		/// <param name="literal">
+		/// When <c>true</c>, the message brackets are escaped so the text renders verbatim; when <c>false</c>
+		/// (the default) the message is passed through as markup.
+		/// </param>
+		internal static IWindowControl BuildScrollableBody(string message, bool literal = false)
 			=> Ctl.ScrollablePanel()
 				.WithVerticalAlignment(VerticalAlignment.Fill)
 				.AddControl(Ctl.Markup()
-					.AddLine(EscapeMarkup(message))
+					.AddLine(literal ? MarkupParser.Escape(message) : message)
 					.WithMargin(1, 1, 1, 1)
 					.Build())
 				.Build();
@@ -228,6 +230,7 @@ namespace SharpConsoleUI.Flows
 		private readonly string _okLabel;
 		private readonly string _cancelLabel;
 		private readonly NotificationSeverityEnum _severity;
+		private readonly bool _literal;
 
 		/// <summary>
 		/// Initializes a new <see cref="ConfirmContent"/>.
@@ -236,16 +239,22 @@ namespace SharpConsoleUI.Flows
 		/// <param name="ok">Label for the OK/confirm button.</param>
 		/// <param name="cancel">Label for the Cancel button.</param>
 		/// <param name="severity">Severity that controls the glyph and button color role.</param>
+		/// <param name="literal">
+		/// When <c>true</c>, the message is rendered verbatim (brackets escaped); when <c>false</c>
+		/// (the default) the message is rendered as markup.
+		/// </param>
 		public ConfirmContent(
 			string message,
 			string ok,
 			string cancel,
-			NotificationSeverityEnum severity = NotificationSeverityEnum.Info)
+			NotificationSeverityEnum severity = NotificationSeverityEnum.Info,
+			bool literal = false)
 		{
 			_message = message;
 			_okLabel = ok;
 			_cancelLabel = cancel;
 			_severity = severity;
+			_literal = literal;
 		}
 
 		/// <inheritdoc/>
@@ -267,7 +276,7 @@ namespace SharpConsoleUI.Flows
 		/// toolbar), which keeps the chrome flush and the spacing consistent across dialogs.
 		/// </remarks>
 		public IWindowControl BuildContent(FlowChrome chrome)
-			=> FlowContentHelpers.BuildScrollableBody(_message);
+			=> FlowContentHelpers.BuildScrollableBody(_message, _literal);
 
 		/// <summary>StickyBottom band: ruler + right-aligned button toolbar (OK/Cancel).</summary>
 		public IReadOnlyList<IWindowControl> BuildBottomBand(FlowChrome chrome)
@@ -303,6 +312,7 @@ namespace SharpConsoleUI.Flows
 		private readonly string _message;
 		private readonly string? _initial;
 		private readonly NotificationSeverityEnum _severity;
+		private readonly bool _literal;
 		private string _currentText;
 
 		/// <summary>
@@ -311,15 +321,21 @@ namespace SharpConsoleUI.Flows
 		/// <param name="message">The prompt question or label to display above the input.</param>
 		/// <param name="initial">Optional initial value pre-filled into the input field.</param>
 		/// <param name="severity">Severity that controls the glyph and button color role.</param>
+		/// <param name="literal">
+		/// When <c>true</c>, the message is rendered verbatim (brackets escaped); when <c>false</c>
+		/// (the default) the message is rendered as markup.
+		/// </param>
 		public PromptContent(
 			string message,
 			string? initial = null,
-			NotificationSeverityEnum severity = NotificationSeverityEnum.Info)
+			NotificationSeverityEnum severity = NotificationSeverityEnum.Info,
+			bool literal = false)
 		{
 			_message = message;
 			_initial = initial;
 			_currentText = initial ?? string.Empty;
 			_severity = severity;
+			_literal = literal;
 		}
 
 		/// <inheritdoc/>
@@ -366,7 +382,7 @@ namespace SharpConsoleUI.Flows
 			return Ctl.ScrollablePanel()
 				.WithVerticalAlignment(VerticalAlignment.Fill)
 				.AddControl(Ctl.Markup()
-					.AddLine(FlowContentHelpers.EscapeMarkup(_message))
+					.AddLine(_literal ? MarkupParser.Escape(_message) : _message)
 					.WithMargin(1, 1, 1, 0)
 					.Build())
 				.AddControl(promptCtrl)
@@ -456,13 +472,13 @@ namespace SharpConsoleUI.Flows
 		{
 			// Live status line fed by IProgress<string>
 			_status = Ctl.Markup()
-				.AddLine(FlowContentHelpers.EscapeMarkup(_description))
+				.AddLine(MarkupParser.Escape(_description))
 				.WithMargin(1, 1, 1, 1)
 				.Build();
 
 			// Progress reporter: marshals status updates to the UI thread
 			var progress = new Progress<string>(msg => _ws.EnqueueOnUIThread(() =>
-				_status!.SetContent(new System.Collections.Generic.List<string> { FlowContentHelpers.EscapeMarkup(msg) })));
+				_status!.SetContent(new System.Collections.Generic.List<string> { MarkupParser.Escape(msg) })));
 
 			// Start work on a background thread
 			_ = Task.Run(async () =>
@@ -505,5 +521,145 @@ namespace SharpConsoleUI.Flows
 
 			return FlowContentHelpers.BuildBottomBand(role, cancelBtn);
 		}
+	}
+
+	/// <summary>
+	/// A message-dialog body: displays a message with a single acknowledgement button (default label OK).
+	/// Completes with <see cref="FlowVerdict.Ok"/> when the user clicks the button, or
+	/// <see cref="FlowVerdict.None"/> on dismiss.
+	/// </summary>
+	internal sealed class MessageContent : IFlowStepContent<FlowVerdict>, IFlowChromeBands
+	{
+		private readonly TaskCompletionSource<FlowVerdict> _tcs = new();
+		private readonly string _message;
+		private readonly string _okLabel;
+		private readonly NotificationSeverityEnum _severity;
+		private readonly bool _literal;
+
+		/// <summary>
+		/// Initializes a new <see cref="MessageContent"/>.
+		/// </summary>
+		/// <param name="message">The message to display.</param>
+		/// <param name="ok">Label for the acknowledgement button.</param>
+		/// <param name="severity">Severity that controls the glyph and button color role.</param>
+		/// <param name="literal">
+		/// When <c>true</c>, the message is rendered verbatim (brackets escaped); when <c>false</c>
+		/// (the default) the message is rendered as markup.
+		/// </param>
+		public MessageContent(
+			string message,
+			string ok,
+			NotificationSeverityEnum severity = NotificationSeverityEnum.Info,
+			bool literal = false)
+		{
+			_message = message;
+			_okLabel = ok;
+			_severity = severity;
+			_literal = literal;
+		}
+
+		/// <inheritdoc/>
+		public Task<FlowVerdict> Completion => _tcs.Task;
+
+		/// <summary>The result task exposed to <see cref="SharpConsoleUI.Dialogs.Dialogs.MessageAsync"/>.</summary>
+		internal Task<FlowVerdict> Result => _tcs.Task;
+
+		/// <inheritdoc/>
+		public event System.Action? StateChanged;
+
+		/// <inheritdoc/>
+		public IWindowControl BuildContent(FlowChrome chrome)
+			=> FlowContentHelpers.BuildScrollableBody(_message, _literal);
+
+		/// <summary>StickyBottom band: ruler + right-aligned toolbar holding the single OK button.</summary>
+		public IReadOnlyList<IWindowControl> BuildBottomBand(FlowChrome chrome)
+		{
+			var role = FlowContentHelpers.SeverityToRole(_severity);
+
+			var okBtn = Ctl.Button(_okLabel)
+				.WithName("flow-message-ok")
+				.WithColorRole(role)
+				.Build();
+			okBtn.Click += (_, _) => _tcs.TrySetResult(FlowVerdict.Ok);
+
+			return FlowContentHelpers.BuildBottomBand(role, okBtn);
+		}
+
+		/// <summary>Resolves the content as dismissed (<see cref="FlowVerdict.None"/>) when the host window is dismissed.</summary>
+		internal void CancelFromDismiss() => _tcs.TrySetResult(FlowVerdict.None);
+	}
+
+	/// <summary>
+	/// A custom-button dialog body: displays a message with one button per supplied <see cref="FlowButton"/>.
+	/// Completes with the clicked button's <see cref="FlowButton.Verdict"/>, or <see cref="FlowVerdict.None"/>
+	/// on dismiss. Disabled buttons (<see cref="FlowButton.Enabled"/> is <c>false</c>) are rendered inactive.
+	/// </summary>
+	internal sealed class ShowContent : IFlowStepContent<FlowVerdict>, IFlowChromeBands
+	{
+		private readonly TaskCompletionSource<FlowVerdict> _tcs = new();
+		private readonly string _message;
+		private readonly IReadOnlyList<FlowButton> _buttons;
+		private readonly NotificationSeverityEnum _severity;
+		private readonly bool _literal;
+
+		/// <summary>
+		/// Initializes a new <see cref="ShowContent"/>.
+		/// </summary>
+		/// <param name="message">The message to display.</param>
+		/// <param name="buttons">The ordered button set; the first is tinted as the primary action.</param>
+		/// <param name="severity">Severity that controls the glyph and primary-button color role.</param>
+		/// <param name="literal">
+		/// When <c>true</c>, the message is rendered verbatim (brackets escaped); when <c>false</c>
+		/// (the default) the message is rendered as markup.
+		/// </param>
+		public ShowContent(
+			string message,
+			IReadOnlyList<FlowButton> buttons,
+			NotificationSeverityEnum severity = NotificationSeverityEnum.Info,
+			bool literal = false)
+		{
+			_message = message;
+			_buttons = buttons;
+			_severity = severity;
+			_literal = literal;
+		}
+
+		/// <inheritdoc/>
+		public Task<FlowVerdict> Completion => _tcs.Task;
+
+		/// <summary>The result task exposed to <see cref="SharpConsoleUI.Dialogs.Dialogs.ShowAsync"/>.</summary>
+		internal Task<FlowVerdict> Result => _tcs.Task;
+
+		/// <inheritdoc/>
+		public event System.Action? StateChanged;
+
+		/// <inheritdoc/>
+		public IWindowControl BuildContent(FlowChrome chrome)
+			=> FlowContentHelpers.BuildScrollableBody(_message, _literal);
+
+		/// <summary>StickyBottom band: ruler + right-aligned toolbar with one button per <see cref="FlowButton"/>.</summary>
+		public IReadOnlyList<IWindowControl> BuildBottomBand(FlowChrome chrome)
+		{
+			var role = FlowContentHelpers.SeverityToRole(_severity);
+
+			var controls = new ButtonControl[_buttons.Count];
+			for (int i = 0; i < _buttons.Count; i++)
+			{
+				var fb = _buttons[i];
+				var verdict = fb.Verdict;
+				// The first button is the primary/affirmative action → tinted with the severity role.
+				var builder = Ctl.Button(fb.Label).WithName($"flow-show-{i}").Enabled(fb.Enabled);
+				if (i == 0)
+					builder = builder.WithColorRole(role);
+				var btn = builder.Build();
+				btn.Click += (_, _) => _tcs.TrySetResult(verdict);
+				controls[i] = btn;
+			}
+
+			return FlowContentHelpers.BuildBottomBand(role, controls);
+		}
+
+		/// <summary>Resolves the content as dismissed (<see cref="FlowVerdict.None"/>) when the host window is dismissed.</summary>
+		internal void CancelFromDismiss() => _tcs.TrySetResult(FlowVerdict.None);
 	}
 }

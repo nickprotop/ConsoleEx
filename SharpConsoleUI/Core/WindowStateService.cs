@@ -560,6 +560,11 @@ namespace SharpConsoleUI.Core
 			if (window == null)
 				return;
 
+			// User grabbed the window → detach any sticky placement (mirrors restoring a maximized window on
+			// drag). Skip while the placement is mid-apply so its own bound-set does not self-clear.
+			if (!window.IsApplyingPlacement && window.Placement != null)
+				window.Placement = null;
+
 			lock (_lock)
 			{
 				var newInteraction = InteractionState.StartDrag(
@@ -616,6 +621,11 @@ namespace SharpConsoleUI.Core
 		{
 			if (window == null || !window.IsResizable)
 				return;
+
+			// User grabbed a resize edge → detach any sticky placement. Skip while mid-apply so the
+			// placement's own bound-set does not self-clear.
+			if (!window.IsApplyingPlacement && window.Placement != null)
+				window.Placement = null;
 
 			lock (_lock)
 			{

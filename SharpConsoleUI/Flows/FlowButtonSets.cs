@@ -57,6 +57,26 @@ namespace SharpConsoleUI.Flows
 			{
 				new FlowButton("Cancel", FlowVerdict.Cancel),
 			},
+			FlowButtons.Ok => new[]
+			{
+				new FlowButton("OK", FlowVerdict.Ok),
+			},
+			FlowButtons.YesNo => new[]
+			{
+				new FlowButton("Yes", FlowVerdict.Yes),
+				new FlowButton("No", FlowVerdict.No),
+			},
+			FlowButtons.YesNoCancel => new[]
+			{
+				new FlowButton("Yes", FlowVerdict.Yes),
+				new FlowButton("No", FlowVerdict.No),
+				new FlowButton("Cancel", FlowVerdict.Cancel),
+			},
+			FlowButtons.RetryCancel => new[]
+			{
+				new FlowButton("Retry", FlowVerdict.Retry),
+				new FlowButton("Cancel", FlowVerdict.Cancel),
+			},
 			FlowButtons.None => Array.Empty<FlowButton>(),
 			_ => Array.Empty<FlowButton>(),
 		};

@@ -206,6 +206,9 @@ namespace SharpConsoleUI.Flows
 					if (ctx.Committed)
 						commitBarrier = Math.Max(commitBarrier, i + 1);
 
+					// Non-exhaustive navigation switch: only the flow-navigation verdicts are handled here.
+					// The dialog-answer verdicts (Ok/Yes/No/Retry/Abort/Ignore/None) are consumed by the
+					// dialog layer, never emitted by a wizard step, so an unlisted value is a safe no-op.
 					switch (verdict)
 					{
 						case FlowVerdict.Next:

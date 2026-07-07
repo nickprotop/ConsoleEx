@@ -43,9 +43,11 @@ public class ToastSchedulerTests
 		var sched = new TaskToastScheduler(a => a());  // synchronous post (test-only)
 		var done = new System.Threading.ManualResetEventSlim(false);
 		sched.Schedule(1, () => done.Set());
-		// Condition-based wait — Task.Delay's continuation may run well after the requested 1ms under
-		// CI load, so poll for completion with a generous timeout instead of a fixed sleep (flaky).
-		bool ran = done.Wait(System.TimeSpan.FromSeconds(5));
+		// Condition-based wait — Task.Delay's continuation runs on the thread pool and may be starved well
+		// past the requested 1ms when the pool is saturated (e.g. a full parallel test run), so wait with a
+		// generous timeout rather than a fixed sleep. 30s tolerates heavy pool pressure while still failing
+		// fast if the callback genuinely never runs.
+		bool ran = done.Wait(System.TimeSpan.FromSeconds(30));
 		Assert.True(ran);
 	}
 }

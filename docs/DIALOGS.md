@@ -29,20 +29,43 @@ SharpConsoleUI provides built-in dialog windows for common tasks. This guide cov
 
 ## Message Dialogs
 
-`Dialogs` (`SharpConsoleUI.Dialogs`) provides three typed, themed modal dialogs — confirm,
+`Dialogs` (`SharpConsoleUI.Dialogs`) provides typed, themed modal dialogs — message, confirm,
 prompt, and progress — that work from any async button handler without requiring any flow
 composition setup.
+
+**Message bodies render markup by default.** Consistent with the rest of the framework, the
+`message` you pass is parsed as markup (`[green]…[/]`, `[bold]…[/]`, etc.). For untrusted text that
+may contain literal `[` / `]` (file paths, exception messages), pass `literal: true` to escape it —
+or escape it yourself with `MarkupParser.Escape(...)`.
 
 ```csharp
 using SharpConsoleUI.Dialogs;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Flows;   // FlowButton, FlowButtons, FlowVerdict
+
+// Message (one button, markup body)
+await Dialogs.MessageAsync(ws, "Saved", "Your changes were [green]saved[/] to [bold]config.json[/].");
 
 // Confirm
 bool ok = await Dialogs.ConfirmAsync(ws, "Save changes", "Save before closing?");
 
+// Confirm with a standardized button preset
+bool yes = await Dialogs.ConfirmAsync(ws, "Delete", "Delete this item?", FlowButtons.YesNo);
+
+// Custom buttons — returns the clicked button's FlowVerdict
+FlowVerdict choice = await Dialogs.ShowAsync(ws, "Unsaved changes", "Save your work?", new[]
+{
+    new FlowButton("Save", FlowVerdict.Yes),
+    new FlowButton("Discard", FlowVerdict.No),
+    new FlowButton("Cancel", FlowVerdict.Cancel),
+});
+
 // Prompt
 string? name = await Dialogs.PromptAsync(ws, "Your name", "What should we call you?",
     initial: "World");
+
+// Literal (untrusted) body — brackets rendered verbatim
+await Dialogs.MessageAsync(ws, "Path", someFilePathWithBrackets, literal: true);
 
 // Progress
 string? result = await Dialogs.RunWithProgressAsync<string>(ws,
@@ -55,6 +78,53 @@ string? result = await Dialogs.RunWithProgressAsync<string>(ws,
     });
 ```
 
+### MessageAsync
+
+```csharp
+public static Task Dialogs.MessageAsync(
+    ConsoleWindowSystem windowSystem,
+    string title,
+    string message,
+    string ok = "OK",
+    NotificationSeverityEnum severity = NotificationSeverityEnum.Info,
+    Window? parent = null,
+    bool literal = false)
+```
+
+A one-button info/acknowledgement dialog (the framework's message-box primitive). The `message`
+renders as markup unless `literal: true`. The returned `Task` completes when the user clicks the
+button or dismisses the dialog.
+
+### ShowAsync
+
+```csharp
+public static Task<FlowVerdict> Dialogs.ShowAsync(
+    ConsoleWindowSystem windowSystem,
+    string title,
+    string message,
+    IReadOnlyList<FlowButton> buttons,
+    NotificationSeverityEnum severity = NotificationSeverityEnum.Info,
+    Window? parent = null,
+    bool literal = false)
+```
+
+Shows a modal dialog with a **custom set of buttons** and returns the clicked button's
+`FlowVerdict`, or `FlowVerdict.None` on dismiss (Esc / title-bar close). Each button is a
+`FlowButton(string Label, FlowVerdict Verdict, bool Enabled = true)` — you choose the verdict each
+button returns and `switch` on the result. Disabled buttons render inactive.
+
+```csharp
+var verdict = await Dialogs.ShowAsync(ws, "Conflict", "The file changed on disk.", new[]
+{
+    new FlowButton("Reload", FlowVerdict.Yes),
+    new FlowButton("Overwrite", FlowVerdict.No),
+    new FlowButton("Cancel", FlowVerdict.Cancel),
+});
+switch (verdict) { case FlowVerdict.Yes: /* reload */ break; /* … */ }
+```
+
+`FlowButton`, `FlowButtons`, and `FlowVerdict` live in `SharpConsoleUI.Flows` and are public.
+
 ### ConfirmAsync
 
 ```csharp
@@ -65,21 +135,34 @@ public static Task<bool> Dialogs.ConfirmAsync(
     string ok = "OK",
     string cancel = "Cancel",
     NotificationSeverityEnum severity = NotificationSeverityEnum.Info,
-    Window? parent = null)
+    Window? parent = null,
+    bool literal = false)
+
+// Overload — a standardized button preset instead of ok/cancel labels:
+public static Task<bool> Dialogs.ConfirmAsync(
+    ConsoleWindowSystem windowSystem,
+    string title,
+    string message,
+    FlowButtons buttons,   // Ok, OkCancel, YesNo, YesNoCancel, RetryCancel
+    NotificationSeverityEnum severity = NotificationSeverityEnum.Info,
+    Window? parent = null,
+    bool literal = false)
 ```
 
-Shows a modal dialog with `message` and two buttons. Returns `true` when the user clicks the
-affirmative button, `false` on Cancel or dismiss (Esc, title-bar close).
+Shows a modal dialog with `message` and two buttons (or a `FlowButtons` preset). Returns `true`
+when the user clicks the affirmative (first) button, `false` on any other button or dismiss (Esc,
+title-bar close).
 
 | Parameter | Default | Description |
 |---|---|---|
 | `windowSystem` | — | The `ConsoleWindowSystem` to host the dialog in. |
 | `title` | — | Title in the window chrome and the bold glyph banner. |
-| `message` | — | Body text shown to the user. |
+| `message` | — | Body text shown to the user (rendered as markup unless `literal`). |
 | `ok` | `"OK"` | Label for the affirmative button. |
 | `cancel` | `"Cancel"` | Label for the dismiss button. |
 | `severity` | `Info` | Glyph, accent rule colour, and button color role. |
 | `parent` | `null` | When provided, the dialog is modal to that window only. |
+| `literal` | `false` | When `true`, the message brackets are escaped and rendered verbatim. |
 
 ```csharp
 bool confirmed = await Dialogs.ConfirmAsync(

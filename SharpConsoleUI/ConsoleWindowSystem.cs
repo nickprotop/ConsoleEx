@@ -86,6 +86,7 @@ namespace SharpConsoleUI
 		private readonly CursorStateService _cursorStateService;
 		private readonly WindowStateService _windowStateService;
 		private readonly ModalStateService _modalStateService;
+		private readonly Core.WindowPlacementService _windowPlacementService;
 		private readonly ThemeStateService _themeStateService;
 		private readonly Core.ThemeRegistryStateService _themeRegistryStateService;
 		private readonly InputStateService _inputStateService;
@@ -366,6 +367,7 @@ namespace SharpConsoleUI
 			// Initialize state services BEFORE driver.Initialize() call
 			_cursorStateService = new CursorStateService(_consoleDriver);
 			_modalStateService = new ModalStateService(_logService);
+			_windowPlacementService = new Core.WindowPlacementService(() => this);
 			_themeRegistryStateService = new Core.ThemeRegistryStateService();
 			_themeStateService = new ThemeStateService(_theme, _logService);
 			_inputStateService = new InputStateService();
@@ -535,6 +537,12 @@ namespace SharpConsoleUI
 		/// Gets the modal state service for managing modal window behavior.
 		/// </summary>
 		public ModalStateService ModalStateService => _modalStateService;
+
+		/// <summary>
+		/// Gets the window placement service that resolves declarative <see cref="Layout.Placement"/>
+		/// values into absolute window bounds against the live usable desktop.
+		/// </summary>
+		public Core.WindowPlacementService WindowPlacementService => _windowPlacementService;
 
 		/// <summary>
 		/// Gets the theme state service for managing theme application.
@@ -1320,6 +1328,15 @@ namespace SharpConsoleUI
 					{
 						window.SetSize(desktopSize.Width, desktopSize.Height);
 						window.SetPosition(new Point(0, 0));
+					}
+					else if (window.Placement is Layout.Placement placement)
+					{
+						// Sticky placement: re-resolve against the new usable desktop (like Maximized re-fits).
+						// Plain SetSize/SetPosition is safe here — the manual-clear only fires from
+						// StartDrag/StartResize (user interaction), not from these bound-sets.
+						var r = WindowPlacementService.Resolve(placement);
+						window.SetSize(r.Width, r.Height);
+						window.SetPosition(new Point(r.X, r.Y));
 					}
 					else
 					{

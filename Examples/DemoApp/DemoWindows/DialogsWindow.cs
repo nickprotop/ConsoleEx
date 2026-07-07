@@ -11,7 +11,7 @@ public static class DialogsWindow
 	#region Constants
 
 	private const int WindowWidth = 65;
-	private const int WindowHeight = 24;
+	private const int WindowHeight = 30;
 	private const int ButtonWidth = 25;
 	private const int ButtonLeftMargin = 2;
 	private const int SectionTopMargin = 1;
@@ -117,6 +117,70 @@ public static class DialogsWindow
 
 		#endregion
 
+		#region Message Dialog Buttons
+
+		var messageSectionLabel = Controls.Label("[bold]Message Dialogs[/]");
+		messageSectionLabel.Margin = new Margin { Left = SectionLabelLeftMargin, Top = SectionTopMargin };
+
+		// MessageAsync — a one-button info dialog whose body renders MARKUP (the framework advertises
+		// markup everywhere; dialogs now honor it).
+		var messageBtn = Controls.Button("Message (markup)")
+			.WithWidth(ButtonWidth)
+			.OnClick((_, _) =>
+			{
+				_ = Task.Run(async () =>
+				{
+					await Dialogs.MessageAsync(ws, "Saved",
+						"Your changes were [green]saved successfully[/] to [bold]config.json[/].");
+					resultDisplay.SetContent(new List<string> { "[green]Message acknowledged[/]" });
+				});
+			})
+			.Build();
+		messageBtn.Margin = new Margin { Left = ButtonLeftMargin };
+
+		// ShowAsync — arbitrary buttons; returns the clicked button's FlowVerdict.
+		var showBtn = Controls.Button("Custom Buttons")
+			.WithWidth(ButtonWidth)
+			.OnClick((_, _) =>
+			{
+				_ = Task.Run(async () =>
+				{
+					var verdict = await Dialogs.ShowAsync(ws, "Unsaved changes",
+						"You have [yellow]unsaved changes[/]. What would you like to do?",
+						new[]
+						{
+							new SharpConsoleUI.Flows.FlowButton("Save", SharpConsoleUI.Flows.FlowVerdict.Yes),
+							new SharpConsoleUI.Flows.FlowButton("Discard", SharpConsoleUI.Flows.FlowVerdict.No),
+							new SharpConsoleUI.Flows.FlowButton("Cancel", SharpConsoleUI.Flows.FlowVerdict.Cancel),
+						});
+					resultDisplay.SetContent(new List<string> { $"[cyan]You chose:[/] {verdict}" });
+				});
+			})
+			.Build();
+		showBtn.Margin = new Margin { Left = ButtonLeftMargin };
+
+		// ConfirmAsync with a standardized preset (Yes/No).
+		var confirmBtn = Controls.Button("Confirm (Yes/No)")
+			.WithWidth(ButtonWidth)
+			.OnClick((_, _) =>
+			{
+				_ = Task.Run(async () =>
+				{
+					var yes = await Dialogs.ConfirmAsync(ws, "Delete item",
+						"Delete [red]report-2026.pdf[/]? This [bold]cannot be undone[/].",
+						SharpConsoleUI.Flows.FlowButtons.YesNo,
+						severity: SharpConsoleUI.Core.NotificationSeverityEnum.Warning);
+					resultDisplay.SetContent(new List<string>
+					{
+						yes ? "[red]Deleted[/]" : "[dim]Kept[/]"
+					});
+				});
+			})
+			.Build();
+		confirmBtn.Margin = new Margin { Left = ButtonLeftMargin };
+
+		#endregion
+
 		#region Window Assembly
 
 		Window? window = null;
@@ -144,6 +208,10 @@ public static class DialogsWindow
 			.AddControl(settingsBtn)
 			.AddControl(performanceBtn)
 			.AddControl(themeBtn)
+			.AddControl(messageSectionLabel)
+			.AddControl(messageBtn)
+			.AddControl(showBtn)
+			.AddControl(confirmBtn)
 			.AddControl(resultDisplay)
 			.BuildAndShow();
 

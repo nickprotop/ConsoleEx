@@ -173,7 +173,9 @@ namespace SharpConsoleUI.Flows
 			var outcome = await ctx.PresentStep(content, title, initialButtons, refresh).ConfigureAwait(false);
 
 			// Map the chosen button verdict to the matching callback (if any); the callback's return
-			// drives the loop. With no callback, the button's own verdict is used.
+			// drives the loop. With no callback, the button's own verdict is used. The dialog-answer
+			// verdicts (Ok/Yes/No/Retry/Abort/Ignore/None) are consumed by the dialog layer, not flow
+			// navigation, and fall through the default arm here unchanged.
 			switch (outcome.Verdict)
 			{
 				case FlowVerdict.Next:

@@ -32,6 +32,30 @@ namespace SharpConsoleUI.Flows
 
 		/// <summary>Keep the current step open (e.g. after failed validation).</summary>
 		Stay,
+
+		// Dialog-answer verdicts (appended after the navigation verdicts so existing numeric
+		// values are unchanged). Consumed by the dialog layer, not by flow navigation.
+
+		/// <summary>Dialog answer: the user accepted (OK button).</summary>
+		Ok,
+
+		/// <summary>Dialog answer: the user answered affirmatively (Yes button).</summary>
+		Yes,
+
+		/// <summary>Dialog answer: the user answered negatively (No button).</summary>
+		No,
+
+		/// <summary>Dialog answer: the user chose to retry the operation (Retry button).</summary>
+		Retry,
+
+		/// <summary>Dialog answer: the user chose to abort the operation (Abort button).</summary>
+		Abort,
+
+		/// <summary>Dialog answer: the user chose to ignore the condition and continue (Ignore button).</summary>
+		Ignore,
+
+		/// <summary>Dismiss sentinel: no answer was chosen (e.g. the dialog was dismissed via Esc).</summary>
+		None,
 	}
 
 	/// <summary>
@@ -61,6 +85,18 @@ namespace SharpConsoleUI.Flows
 
 		/// <summary>Only a Cancel button.</summary>
 		CancelOnly,
+
+		/// <summary>A single OK button (dialog preset). Affirmative verdict <see cref="FlowVerdict.Ok"/>.</summary>
+		Ok,
+
+		/// <summary>Yes and No buttons (dialog preset). Verdicts <see cref="FlowVerdict.Yes"/> / <see cref="FlowVerdict.No"/>.</summary>
+		YesNo,
+
+		/// <summary>Yes, No, and Cancel buttons (dialog preset).</summary>
+		YesNoCancel,
+
+		/// <summary>Retry and Cancel buttons (dialog preset).</summary>
+		RetryCancel,
 
 		/// <summary>No button row; the step body resolves itself via <see cref="IFlowStepContent{TResult}.Completion"/>.</summary>
 		None,

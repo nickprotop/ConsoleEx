@@ -73,6 +73,7 @@ public sealed class WindowBuilder
 	private Color? _activeBorderColor;
 	private Color? _inactiveBorderColor;
 	private GradientBackground? _backgroundGradient;
+	private Layout.Placement? _placement;
 	private Rendering.TransparencyBrush? _transparencyBrush;
 
 	/// <summary>
@@ -160,6 +161,19 @@ public sealed class WindowBuilder
 	public WindowBuilder WithSize(int width, int height)
 	{
 		_bounds = _bounds?.WithSize(width, height) ?? new WindowBounds(0, 0, width, height);
+		return this;
+	}
+
+	/// <summary>
+	/// Sets a declarative <see cref="Layout.Placement"/> for the window (e.g. a snap zone, anchor, or centered
+	/// size preset). The placement is resolved against the live usable desktop when the window is built and
+	/// re-resolves on desktop resize; a manual drag/resize detaches it. Overrides any explicit size/position.
+	/// </summary>
+	/// <param name="placement">The declarative placement to apply to the window.</param>
+	/// <returns>The current builder instance for method chaining.</returns>
+	public WindowBuilder WithPlacement(Layout.Placement placement)
+	{
+		_placement = placement;
 		return this;
 	}
 
@@ -837,6 +851,11 @@ public sealed class WindowBuilder
 
 		if (_transparencyBrush != null)
 			window.TransparencyBrush = _transparencyBrush;
+
+		// Applied last so a declarative placement overrides any explicit WithSize/AtPosition.
+		// Setting window.Placement resolves it against the live desktop and sizes/positions the window.
+		if (_placement is Layout.Placement placement)
+			window.Placement = placement;
 
 		// DOM layout is now always enabled - no need to set
 

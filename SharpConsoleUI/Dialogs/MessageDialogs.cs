@@ -35,6 +35,10 @@ namespace SharpConsoleUI.Dialogs
 		/// Severity level that controls the glyph, accent rule color, window border tint, and focused-button role.
 		/// Defaults to <see cref="NotificationSeverityEnum.Info"/>.
 		/// </param>
+		/// <param name="literal">
+		/// When <c>true</c>, the message brackets are escaped so the text renders verbatim; when <c>false</c>
+		/// (the default) the message is rendered as markup.
+		/// </param>
 		/// <param name="parent">
 		/// Optional parent window. When provided the dialog is modal to that window only.
 		/// </param>
@@ -48,9 +52,152 @@ namespace SharpConsoleUI.Dialogs
 			string ok = "OK",
 			string cancel = "Cancel",
 			NotificationSeverityEnum severity = NotificationSeverityEnum.Info,
-			Window? parent = null)
+			Window? parent = null,
+			bool literal = false)
 		{
-			var content = new ConfirmContent(message, ok, cancel, severity);
+			var content = new ConfirmContent(message, ok, cancel, severity, literal);
+			var chrome = new FlowChrome(title, widthHint: 50, severity: severity, autoSizeHeight: true);
+
+			ShowContentModal(
+				windowSystem,
+				FlowContentHelpers.BuildTopBand(chrome),
+				content.BuildContent(chrome),
+				content.BuildBottomBand(chrome),
+				chrome,
+				parent,
+				onDismiss: content.CancelFromDismiss,
+				completion: content.Result);
+
+			return content.Result;
+		}
+
+		/// <summary>
+		/// Shows a modal confirmation dialog whose button row is a standardized <see cref="FlowButtons"/>
+		/// preset (e.g. <see cref="FlowButtons.YesNo"/>) and returns <c>true</c> when the FIRST (affirmative)
+		/// button is clicked, or <c>false</c> for any other button or a dismiss — matching the boolean
+		/// <see cref="ConfirmAsync(ConsoleWindowSystem, string, string, string, string, NotificationSeverityEnum, Window, bool)"/>
+		/// semantics.
+		/// </summary>
+		/// <param name="windowSystem">The window system to host the dialog in.</param>
+		/// <param name="title">Title displayed in the dialog window chrome.</param>
+		/// <param name="message">The confirmation question or statement to display.</param>
+		/// <param name="buttons">
+		/// The standardized button-set preset. The first button in the resolved set is treated as
+		/// affirmative (returns <c>true</c>); all other buttons return <c>false</c>.
+		/// </param>
+		/// <param name="severity">
+		/// Severity level that controls the glyph, accent rule color, window border tint, and focused-button role.
+		/// Defaults to <see cref="NotificationSeverityEnum.Info"/>.
+		/// </param>
+		/// <param name="literal">
+		/// When <c>true</c>, the message brackets are escaped so the text renders verbatim; when <c>false</c>
+		/// (the default) the message is rendered as markup.
+		/// </param>
+		/// <param name="parent">
+		/// Optional parent window. When provided the dialog is modal to that window only.
+		/// </param>
+		/// <returns>
+		/// A <see cref="Task{TResult}"/> that completes with <c>true</c> when the first/affirmative button is
+		/// clicked, or <c>false</c> for any other button or a dismiss.
+		/// </returns>
+		public static async Task<bool> ConfirmAsync(
+			ConsoleWindowSystem windowSystem,
+			string title,
+			string message,
+			FlowButtons buttons,
+			NotificationSeverityEnum severity = NotificationSeverityEnum.Info,
+			Window? parent = null,
+			bool literal = false)
+		{
+			var set = FlowButtonSets.For(buttons);
+			var affirmative = set.Count > 0 ? set[0].Verdict : FlowVerdict.None;
+
+			var verdict = await ShowAsync(windowSystem, title, message, set, severity, parent: parent, literal: literal)
+				.ConfigureAwait(false);
+
+			return verdict == affirmative && affirmative != FlowVerdict.None;
+		}
+
+		/// <summary>
+		/// Shows a modal message (acknowledgement) dialog with a single button and completes when the
+		/// user clicks it or dismisses the dialog. This is the framework's info/message-box primitive.
+		/// </summary>
+		/// <param name="windowSystem">The window system to host the dialog in.</param>
+		/// <param name="title">Title displayed in the dialog window chrome.</param>
+		/// <param name="message">The message body to display.</param>
+		/// <param name="ok">Label for the acknowledgement button. Defaults to <c>"OK"</c>.</param>
+		/// <param name="severity">
+		/// Severity level that controls the glyph, accent rule color, window border tint, and focused-button role.
+		/// Defaults to <see cref="NotificationSeverityEnum.Info"/>.
+		/// </param>
+		/// <param name="literal">
+		/// When <c>true</c>, the message brackets are escaped so the text renders verbatim; when <c>false</c>
+		/// (the default) the message is rendered as markup.
+		/// </param>
+		/// <param name="parent">
+		/// Optional parent window. When provided the dialog is modal to that window only.
+		/// </param>
+		/// <returns>A <see cref="Task"/> that completes when the dialog is acknowledged or dismissed.</returns>
+		public static Task MessageAsync(
+			ConsoleWindowSystem windowSystem,
+			string title,
+			string message,
+			string ok = "OK",
+			NotificationSeverityEnum severity = NotificationSeverityEnum.Info,
+			Window? parent = null,
+			bool literal = false)
+		{
+			var content = new MessageContent(message, ok, severity, literal);
+			var chrome = new FlowChrome(title, widthHint: 50, severity: severity, autoSizeHeight: true);
+
+			ShowContentModal(
+				windowSystem,
+				FlowContentHelpers.BuildTopBand(chrome),
+				content.BuildContent(chrome),
+				content.BuildBottomBand(chrome),
+				chrome,
+				parent,
+				onDismiss: content.CancelFromDismiss,
+				completion: content.Result);
+
+			return content.Result;
+		}
+
+		/// <summary>
+		/// Shows a modal dialog with a custom set of buttons and returns the clicked button's
+		/// <see cref="FlowVerdict"/>, or <see cref="FlowVerdict.None"/> when the dialog is dismissed
+		/// (Esc / title-bar close). Disabled buttons (<see cref="FlowButton.Enabled"/> is <c>false</c>)
+		/// are rendered inactive.
+		/// </summary>
+		/// <param name="windowSystem">The window system to host the dialog in.</param>
+		/// <param name="title">Title displayed in the dialog window chrome.</param>
+		/// <param name="message">The message body to display.</param>
+		/// <param name="buttons">The ordered button set; the first button is tinted as the primary action.</param>
+		/// <param name="severity">
+		/// Severity level that controls the glyph, accent rule color, window border tint, and primary-button role.
+		/// Defaults to <see cref="NotificationSeverityEnum.Info"/>.
+		/// </param>
+		/// <param name="literal">
+		/// When <c>true</c>, the message brackets are escaped so the text renders verbatim; when <c>false</c>
+		/// (the default) the message is rendered as markup.
+		/// </param>
+		/// <param name="parent">
+		/// Optional parent window. When provided the dialog is modal to that window only.
+		/// </param>
+		/// <returns>
+		/// A <see cref="Task{TResult}"/> that completes with the clicked button's <see cref="FlowVerdict"/>,
+		/// or <see cref="FlowVerdict.None"/> on dismiss.
+		/// </returns>
+		public static Task<FlowVerdict> ShowAsync(
+			ConsoleWindowSystem windowSystem,
+			string title,
+			string message,
+			IReadOnlyList<FlowButton> buttons,
+			NotificationSeverityEnum severity = NotificationSeverityEnum.Info,
+			Window? parent = null,
+			bool literal = false)
+		{
+			var content = new ShowContent(message, buttons, severity, literal);
 			var chrome = new FlowChrome(title, widthHint: 50, severity: severity, autoSizeHeight: true);
 
 			ShowContentModal(
@@ -78,6 +225,10 @@ namespace SharpConsoleUI.Dialogs
 		/// Severity level that controls the glyph, accent rule color, window border tint, and focused-button role.
 		/// Defaults to <see cref="NotificationSeverityEnum.Info"/>.
 		/// </param>
+		/// <param name="literal">
+		/// When <c>true</c>, the message brackets are escaped so the text renders verbatim; when <c>false</c>
+		/// (the default) the message is rendered as markup.
+		/// </param>
 		/// <param name="parent">
 		/// Optional parent window. When provided the dialog is modal to that window only.
 		/// </param>
@@ -91,9 +242,10 @@ namespace SharpConsoleUI.Dialogs
 			string message,
 			string? initial = null,
 			NotificationSeverityEnum severity = NotificationSeverityEnum.Info,
-			Window? parent = null)
+			Window? parent = null,
+			bool literal = false)
 		{
-			var content = new PromptContent(message, initial, severity);
+			var content = new PromptContent(message, initial, severity, literal);
 			var chrome = new FlowChrome(title, widthHint: 50, severity: severity, autoSizeHeight: true);
 
 			ShowContentModal(

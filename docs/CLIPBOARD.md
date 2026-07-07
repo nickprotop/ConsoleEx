@@ -26,6 +26,19 @@ string text = ClipboardHelper.GetText(); // read back (local tool / in-process b
 
 `SetText` never throws — clipboard operations are best-effort.
 
+## Opening URLs
+
+`SharpConsoleUI.Helpers.UrlLauncher` opens a URL in the platform's default browser — the natural
+companion to the clickable links you can embed in markup and markdown:
+
+```csharp
+UrlLauncher.Open("https://example.com");
+```
+
+Cross-platform (uses the OS shell, falling back to `xdg-open` / `open`), **best-effort, and never
+throws** — a `null`/whitespace URL is a safe no-op, and a failed launch is swallowed. Wire it into a
+link click or an "Open in browser" action.
+
 ## How copy works
 
 `SetText` does two things, in order:

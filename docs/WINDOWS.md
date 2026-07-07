@@ -52,6 +52,34 @@ windowSystem.AddWindow(window);
 Positions are in **desktop coordinates** (the area inside any top/bottom status bars). The desktop
 automatically excludes the status bars; a hidden bar reclaims its row (see [STATUS_SYSTEM.md](STATUS_SYSTEM.md)).
 
+## Placement (snap zones)
+
+`Window.Placement` (nullable `SharpConsoleUI.Layout.Placement`) is a Windows-11-style declarative
+placement that resolves to bounds against the live usable desktop. It is **sticky live state**:
+
+- Setting it snaps the window to the resolved zone/anchor.
+- On a **desktop resize** the placement **re-resolves** (a `LeftHalf` window stays the left half at
+  the new size) — the same auto-refit behaviour `Maximized` windows already have.
+- A **manual drag or resize detaches it** — the window becomes free-floating `Normal` again (exactly
+  as dragging a maximized window restores it).
+
+```csharp
+using SharpConsoleUI.Layout;
+
+window.Placement = Placement.Snap(SnapZone.LeftHalf);   // fills the left half
+window.Placement = Placement.Maximized;                 // == Snap(SnapZone.Full)
+window.Placement = Placement.Center(SizePreset.Medium); // 60% of the desktop, centered
+window.Placement = Placement.Anchor(Anchor.TopRight, 40, 12, margin: 1);
+window.Placement = null;                                // detach → free-floating
+```
+
+Build-time (declarative): `new WindowBuilder(ws).WithPlacement(Placement.Snap(SnapZone.RightHalf))`.
+
+**Tier-1 `SnapZone`s (9):** `Full`, `LeftHalf`, `RightHalf`, `TopHalf`, `BottomHalf`, `TopLeft`,
+`TopRight`, `BottomLeft`, `BottomRight`. On odd desktop sizes the remainder cell goes to the
+left/top zone. Placement is orthogonal to `WindowState` — a placed window stays `Normal`. Bounds are
+resolved by the `WindowPlacementService` (see [STATE-SERVICES.md](STATE-SERVICES.md)).
+
 ## Border styles
 
 `BorderStyle` controls the window frame. Set it via `.WithBorderStyle(style)`, the `.Borderless()` /

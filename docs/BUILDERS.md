@@ -37,7 +37,13 @@ var window = new WindowBuilder(windowSystem)
 .AtPosition(x, y)                  // Set window position
 .Centered()                        // Center on screen
 .WithMinimumSize(width, height)    // Set minimum size constraints
+.WithPlacement(placement)          // Snap/anchor/center via a Layout.Placement (overrides size/position)
 ```
+
+`WithPlacement` takes a `SharpConsoleUI.Layout.Placement` (e.g. `Placement.Snap(SnapZone.LeftHalf)`,
+`Placement.Maximized`, `Placement.Center(SizePreset.Medium)`). It resolves against the live desktop
+at build time, re-resolves on desktop resize, and detaches on a manual drag/resize. See
+[WINDOWS.md → Placement](WINDOWS.md#placement-snap-zones).
 
 #### Appearance
 

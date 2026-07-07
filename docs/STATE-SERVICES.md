@@ -8,6 +8,7 @@ SharpConsoleUI includes built-in state management services for managing differen
 - [PanelStateService](#panelstateservice)
 - [DesktopBackgroundService](#desktopbackgroundservice)
 - [WindowStateService](#windowstateservice)
+- [WindowPlacementService](#windowplacementservice)
 - [FocusManager](#focusmanager)
 - [ModalStateService](#modalstateservice)
 - [NotificationStateService](#notificationstateservice)
@@ -123,6 +124,21 @@ windowSystem.DesktopBackground = null;
 ```
 
 Changes are applied automatically on the next frame.
+
+## WindowPlacementService
+
+Resolves a `SharpConsoleUI.Layout.Placement` to absolute window bounds against the live **usable**
+desktop (status-bar-aware). It backs `Window.Placement` and `WindowBuilder.WithPlacement`, and
+re-resolves placed windows on desktop resize.
+
+```csharp
+// Resolve a placement to a Rectangle (left, top, width, height) against the current desktop
+System.Drawing.Rectangle bounds = windowSystem.WindowPlacementService
+    .Resolve(Placement.Snap(SnapZone.RightHalf));
+```
+
+Most code sets `Window.Placement` (or `WithPlacement`) rather than calling `Resolve` directly — see
+[WINDOWS.md → Placement](WINDOWS.md#placement-snap-zones).
 
 ## WindowStateService
 

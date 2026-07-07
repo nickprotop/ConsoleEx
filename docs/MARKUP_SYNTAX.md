@@ -548,6 +548,25 @@ List<List<Cell>> lines = MarkupParser.ParseLines("[bold]Long text that wraps...[
 - [Theme System](THEMES.md) - Color themes and customization
 - [Rendering Pipeline](RENDERING_PIPELINE.md) - How markup flows through the render pipeline
 
+## Programmatic helpers
+
+Use the framework's own `MarkupParser` helpers instead of hand-rolling regex — they are
+display-width-correct (they account for wide/combining characters, which `string.Length` does not):
+
+```csharp
+using SharpConsoleUI.Parsing;
+
+// Escape arbitrary/untrusted text so its brackets render literally inside markup:
+string safe = MarkupParser.Escape(userText);   // "a[b]" -> "a[[b]]"
+
+// Measure the *rendered* display width of a markup string (tags stripped, wide chars counted):
+int width = MarkupParser.StripLength("[green]hello[/]");   // 5
+```
+
+Prefer these over a `[...]`-stripping regex + `.Length`: the latter miscounts emoji, CJK, and
+combining marks. (Dialog message bodies render markup by default — pass `literal: true`, or
+`MarkupParser.Escape` the text yourself, when the content is untrusted. See [DIALOGS.md](DIALOGS.md).)
+
 ---
 
 [Back to Main Documentation](../README.md)
