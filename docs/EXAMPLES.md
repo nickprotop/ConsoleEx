@@ -396,7 +396,6 @@ dotnet run --project Examples/DemoApp
 A flagship multi-window desktop: a Control Center hub that opens live dashboard windows on a
 gradient "Ocean Dots" desktop, each fed by its own async update thread.
 
-<!-- Screenshot regenerated for the modernized showcase — capture a fresh frame of the running app. -->
 ![MultiDashboard](images/examples/multidashboard.png)
 
 ```bash
