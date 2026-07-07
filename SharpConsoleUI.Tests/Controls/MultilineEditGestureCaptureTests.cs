@@ -174,5 +174,22 @@ namespace SharpConsoleUI.Tests.Controls
 
 		private static int GetInt(MultilineEditControl c, string field) =>
 			(int)typeof(MultilineEditControl).GetField(field, Npi)!.GetValue(c)!;
+		[Fact]
+		public void BareButton1Clicked_NoPriorPress_PlacesCaret()
+		{
+			// Some drivers/tests deliver a self-contained Button1Clicked with no separate Button1Pressed.
+			// MouseGestureCapture only captures on a press, so the control must synthesize a click (Down+Up)
+			// for a bare Button1Clicked — otherwise a plain click would be silently dropped.
+			var (system, _, control) = Build();
+			int gutterWidth = control.GutterWidth;
+			int textX = gutterWidth + 6;
+
+			control.ProcessMouseEvent(new MouseEventArgs(
+				new List<MouseFlags> { MouseFlags.Button1Clicked }, new Point(textX, 3), new Point(textX, 3), new Point(textX, 3)));
+
+			// The caret moved to the clicked row (row 3 of the viewport, offset 0).
+			Assert.Equal(3, control.GetLogicalCursorPosition()!.Value.Y);
+		}
+
 	}
 }

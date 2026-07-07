@@ -175,15 +175,21 @@ namespace SharpConsoleUI.Controls
 				MouseFlags.Button1Released, MouseFlags.Button1Clicked))
 			{
 				var route = _gesture.Route(args, HitTestRegion);
+
+				// A bare Button1Clicked with no captured press (some drivers/tests deliver a click without a
+				// separate Button1Pressed). MouseGestureCapture only captures on a press, so Route yields None;
+				// synthesize a collapsed press+release by hit-testing fresh and dispatching Down then Up to that
+				// region, so a plain click still places the caret / does the region's discrete action.
+				if (route.Phase == Helpers.GesturePhase.None && args.HasFlag(MouseFlags.Button1Clicked))
+				{
+					var region = HitTestRegion(args);
+					DispatchGesture(Helpers.GesturePhase.Down, region, args);
+					return DispatchGesture(Helpers.GesturePhase.Up, region, args);
+				}
+
 				if (route.Phase != Helpers.GesturePhase.None)
 				{
-					return route.Region switch
-					{
-						MleGestureRegion.VScrollbar => HandleVScrollbar(route.Phase, args),
-						MleGestureRegion.HScrollbar => HandleHScrollbar(route.Phase, args),
-						MleGestureRegion.Gutter => HandleGutter(route.Phase, args),
-						_ => HandleTextGesture(route.Phase, args),
-					};
+					return DispatchGesture(route.Phase, route.Region, args);
 				}
 			}
 
@@ -196,6 +202,16 @@ namespace SharpConsoleUI.Controls
 
 			return false;
 		}
+
+		/// <summary>Routes a resolved gesture (region + phase) to its region handler.</summary>
+		private bool DispatchGesture(Helpers.GesturePhase phase, MleGestureRegion region, MouseEventArgs args) =>
+			region switch
+			{
+				MleGestureRegion.VScrollbar => HandleVScrollbar(phase, args),
+				MleGestureRegion.HScrollbar => HandleHScrollbar(phase, args),
+				MleGestureRegion.Gutter => HandleGutter(phase, args),
+				_ => HandleTextGesture(phase, args),
+			};
 
 		// --- Per-region gesture handlers (built from the pre-capture bodies) ---
 
