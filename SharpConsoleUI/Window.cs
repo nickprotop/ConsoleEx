@@ -978,9 +978,18 @@ namespace SharpConsoleUI
 			_applyingPlacement = true;
 			try
 			{
+				int oldWidth = Width, oldHeight = Height;
+				int oldLeft = Left, oldTop = Top;
+
 				var r = _windowSystem.WindowPlacementService.Resolve(p);
 				SetSize(r.Width, r.Height);
 				SetPosition(new Point(r.X, r.Y));
+
+				// If the window moved or shrank, the desktop region it vacated still shows the old
+				// frame. Repaint the desktop so those ghosts clear (the same thing a terminal resize
+				// does). Only when the footprint actually changed, to avoid needless full redraws.
+				if (r.Width != oldWidth || r.Height != oldHeight || r.X != oldLeft || r.Y != oldTop)
+					_windowSystem.ForceFullRedraw();
 			}
 			finally
 			{
