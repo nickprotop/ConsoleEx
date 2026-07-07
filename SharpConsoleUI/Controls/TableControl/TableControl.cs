@@ -21,6 +21,28 @@ using SharpConsoleUI.Themes;
 namespace SharpConsoleUI.Controls;
 
 /// <summary>
+/// Sub-region gesture ownership for <see cref="TableControl"/> mouse handling. A fresh Button1 press
+/// hit-tests one of these regions and captures it; every subsequent resent press/drag routes to the
+/// captured region without re-hit-testing (SGR re-sends Button1Pressed on motion). This stops a
+/// column-resize drag whose pointer wanders off the border, or a cell drag crossing a column border,
+/// from being re-hit-tested into the wrong handler.
+/// </summary>
+internal enum TableGestureRegion
+{
+	/// <summary>Data/header cells (click, selection, sort-header, cell navigation).</summary>
+	Cells,
+
+	/// <summary>A column border being dragged to resize the column.</summary>
+	ColumnResize,
+
+	/// <summary>The vertical scrollbar column.</summary>
+	VScrollbar,
+
+	/// <summary>The horizontal scrollbar row.</summary>
+	HScrollbar
+}
+
+/// <summary>
 /// A table control that renders tabular data directly to CharacterBuffer.
 /// Supports both read-only display and interactive mode with selection,
 /// keyboard navigation, scrolling, sorting, multi-selection, column resizing,
@@ -117,9 +139,17 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private ScrollbarVisibility _verticalScrollbarVisibility = ScrollbarVisibility.Auto;
 	private ScrollbarVisibility _horizontalScrollbarVisibility = ScrollbarVisibility.Auto;
 
+	// Mouse gesture capture: a fresh Button1 press captures one sub-region; every subsequent resent
+	// press/drag routes to it without re-hit-testing (SGR re-sends Button1Pressed on motion). Replaces
+	// the former _isVerticalScrollbarDragging / _isHorizontalScrollbarDragging / _isResizingColumn flags.
+	private readonly MouseGestureCapture<TableGestureRegion> _gesture = new();
+
+	// Thumb-drag latches: set only when a scrollbar Down landed on the thumb, so a subsequent Move
+	// applies a thumb drag. An arrow/track-page Down leaves these false, so its Moves do nothing.
+	private bool _vThumbDragging = false;
+	private bool _hThumbDragging = false;
+
 	// Scrollbar dragging state
-	private bool _isVerticalScrollbarDragging = false;
-	private bool _isHorizontalScrollbarDragging = false;
 	private int _scrollbarDragStartY = 0;
 	private int _scrollbarDragStartX = 0;
 	private int _scrollbarDragStartOffset = 0;
@@ -174,7 +204,6 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 	// Column resizing
 	private bool _columnResizeEnabled = false;
-	private bool _isResizingColumn = false;
 	private int _resizingColumnIndex = -1;
 	private int _resizeDragStartX = 0;
 	private int _resizeDragStartWidth = 0;
@@ -1472,6 +1501,11 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// <inheritdoc/>
 	protected override void OnDisposing()
 	{
+		// Abandon any captured mouse gesture so a half-finished resize/scrollbar drag cannot linger past disposal.
+		_gesture.Reset();
+		_vThumbDragging = false;
+		_hThumbDragging = false;
+
 		if (_dataSource != null)
 			_dataSource.CollectionChanged -= OnDataSourceCollectionChanged;
 

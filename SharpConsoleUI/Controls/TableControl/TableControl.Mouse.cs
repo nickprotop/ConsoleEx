@@ -10,10 +10,33 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
 namespace SharpConsoleUI.Controls;
 
 public partial class TableControl
 {
+	/// <summary>
+	/// Maps a fresh Button1 press position to the sub-region that should own the resulting gesture, in the
+	/// same priority order the handler used before capture: vertical scrollbar, then horizontal scrollbar,
+	/// then a column border (only when column-resize is enabled and not read-only), else the cells area.
+	/// Called ONLY on a fresh press by <see cref="MouseGestureCapture{TRegion}"/>; never re-invoked mid-
+	/// gesture, which is what stops a resent-press-on-motion from leaking a resize/cell drag into the wrong
+	/// handler when the pointer crosses a different border/scrollbar.
+	/// </summary>
+	private TableGestureRegion HitTestRegion(MouseEventArgs args)
+	{
+		if (IsClickOnVerticalScrollbar(args))
+			return TableGestureRegion.VScrollbar;
+
+		if (IsClickOnHorizontalScrollbar(args))
+			return TableGestureRegion.HScrollbar;
+
+		if (!_readOnly && _columnResizeEnabled && IsClickOnColumnBorder(args))
+			return TableGestureRegion.ColumnResize;
+
+		return TableGestureRegion.Cells;
+	}
+
 	/// <inheritdoc/>
 	public bool ProcessMouseEvent(MouseEventArgs args)
 	{
@@ -33,47 +56,6 @@ public partial class TableControl
 			}
 			MouseLeave?.Invoke(this, args);
 			return true;
-		}
-
-		// Handle drag-in-progress (must be checked early)
-		// Button1Dragged = real mouse movement; Button1Pressed = synthetic continuous-press repeats
-		if (args.HasAnyFlag(MouseFlags.Button1Dragged, MouseFlags.Button1Pressed))
-		{
-			if (_isVerticalScrollbarDragging)
-			{
-				HandleVerticalScrollbarDrag(args);
-				return true;
-			}
-
-			if (_isHorizontalScrollbarDragging)
-			{
-				HandleHorizontalScrollbarDrag(args);
-				return true;
-			}
-
-			if (_isResizingColumn)
-			{
-				HandleColumnResizeDrag(args);
-				return true;
-			}
-		}
-
-		// Handle scrollbar drag end
-		if (args.HasFlag(MouseFlags.Button1Released))
-		{
-			if (_isVerticalScrollbarDragging || _isHorizontalScrollbarDragging)
-			{
-				_isVerticalScrollbarDragging = false;
-				_isHorizontalScrollbarDragging = false;
-				return true;
-			}
-			if (_isResizingColumn)
-			{
-				_isResizingColumn = false;
-				return true;
-			}
-			// Don't return false here — the event may also contain Button1Clicked
-			// which must be processed by handlers below (Unix SGR sends both flags together)
 		}
 
 		// Hover tracking
@@ -167,170 +149,8 @@ public partial class TableControl
 			return _scrollOffset != oldOffset; // bubble if didn't scroll
 		}
 
-		// Button1Pressed: handle operations that need immediate response (drag initiation)
-		if (args.HasFlag(MouseFlags.Button1Pressed))
-		{
-			// Cancel any active cell edit before changing selection
-			if (_isEditing)
-				CancelEdit();
-
-			// Set focus on click
-			if (!HasFocus && CanFocusWithMouse)
-				this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
-
-			// Scrollbar thumb drag initiation
-			if (IsClickOnVerticalScrollbar(args))
-			{
-				HandleVerticalScrollbarThumbPress(args);
-				return true;
-			}
-
-			if (IsClickOnHorizontalScrollbar(args))
-			{
-				HandleHorizontalScrollbarThumbPress(args);
-				return true;
-			}
-
-			// Column resize initiation (only when not read-only)
-			if (!_readOnly && _columnResizeEnabled && IsClickOnColumnBorder(args))
-			{
-				BeginColumnResize(args);
-				return true;
-			}
-		}
-
-		// Button1Clicked: handle discrete click actions (arrows, track, sorting, selection)
-		if (args.HasFlag(MouseFlags.Button1Clicked))
-		{
-			// Cancel any active cell edit before changing selection
-			if (_isEditing)
-				CancelEdit();
-
-			// Set focus on click
-			if (!HasFocus && CanFocusWithMouse)
-				this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
-
-			// Scrollbar arrow/track clicks
-			if (IsClickOnVerticalScrollbar(args))
-			{
-				HandleVerticalScrollbarClick(args);
-				return true;
-			}
-
-			if (IsClickOnHorizontalScrollbar(args))
-			{
-				HandleHorizontalScrollbarClick(args);
-				return true;
-			}
-
-			// Check if clicking on header (for sorting)
-			if (IsClickOnHeader(args))
-			{
-				int colIdx = GetColumnIndexAtX(args.Position.X);
-				if (colIdx >= 0 && _sortingEnabled)
-					SortByColumn(colIdx);
-				MouseClick?.Invoke(this, args);
-				if (colIdx >= 0)
-				{
-					var log = Container?.GetConsoleWindowSystem?.LogService;
-					Core.AsyncEvent.Raise(HeaderClicked, HeaderClickedAsync, this, colIdx, log);
-				}
-				return true;
-			}
-
-			// Click on data row
-			int rowIdx = GetRowIndexAtY(args.Position.Y);
-			bool isClick = args.HasFlag(MouseFlags.Button1Clicked);
-			if (rowIdx < 0 && _clearSelectionOnEmptyClick)
-			{
-				// Empty data area click: clear selection entirely.
-				if (_multiSelectEnabled)
-					_selectedRowIndices.Clear();
-				SetSelectedRow(-1);
-				MouseClick?.Invoke(this, args);
-				return true;
-			}
-			if (rowIdx >= 0)
-			{
-				// Multi-select toggling only on Button1Clicked to avoid
-				// double-toggle from Button1Pressed + Button1Clicked pair
-				if (!isClick)
-				{
-					// Button1Pressed: just move cursor, don't touch multi-select state
-					SetSelectedRow(rowIdx);
-				}
-				else if (_multiSelectEnabled && args.HasFlag(MouseFlags.ButtonCtrl))
-				{
-					ToggleRowSelection(rowIdx);
-					SetSelectedRow(rowIdx);
-				}
-				else if (_multiSelectEnabled && args.HasFlag(MouseFlags.ButtonShift))
-				{
-					int anchor = _selectedRowIndex >= 0 ? _selectedRowIndex : 0;
-					_selectedRowIndices.Clear();
-					SelectRange(anchor, rowIdx);
-					SetSelectedRow(rowIdx);
-				}
-				else if (_checkboxMode && IsClickOnCheckbox(args.Position.X))
-				{
-					// Click on checkbox column — toggle without clearing other selections
-					ToggleRowSelection(rowIdx);
-					SetSelectedRow(rowIdx);
-				}
-				else
-				{
-					if (_multiSelectEnabled)
-					{
-						// Clear checkboxes when clicking outside checkbox column
-						if (_checkboxMode && _dataSource == null)
-						{
-							lock (_tableLock)
-							{
-								foreach (var row in _rows)
-									row.IsChecked = false;
-							}
-						}
-						_selectedRowIndices.Clear();
-					}
-					SetSelectedRow(rowIdx);
-				}
-
-				// Cell navigation: select column
-				if (_cellNavigationEnabled)
-				{
-					int colIdx = GetColumnIndexAtX(args.Position.X);
-					if (colIdx >= 0)
-					{
-						_selectedColumnIndex = colIdx;
-						Invalidate(Invalidation.Repaint);
-					}
-				}
-
-				// Double-click detection
-				lock (_clickLock)
-				{
-					var now = DateTime.Now;
-					if (_lastClickRowIndex == rowIdx &&
-						(now - _lastClickTime).TotalMilliseconds < _doubleClickThresholdMs)
-					{
-						Core.AsyncEvent.Raise(RowActivated, RowActivatedAsync, this, rowIdx, Container?.GetConsoleWindowSystem?.LogService);
-						MouseDoubleClick?.Invoke(this, args);
-						_lastClickTime = DateTime.MinValue;
-						_lastClickRowIndex = -1;
-					}
-					else
-					{
-						_lastClickTime = now;
-						_lastClickRowIndex = rowIdx;
-					}
-				}
-			}
-
-			MouseClick?.Invoke(this, args);
-			return true;
-		}
-
-		// Double-click (from driver)
+		// Double-click (from driver): arrives as its own flag (not Button1Pressed), so it is handled before
+		// the gesture router (which only recognises press/drag/release/click). Acts on the cells area.
 		if (args.HasFlag(MouseFlags.Button1DoubleClicked))
 		{
 			// Cancel any active edit before starting a new one
@@ -367,9 +187,271 @@ public partial class TableControl
 			return true;
 		}
 
+		// Button1 gesture routing (press / drag / release / click).
+		// A fresh press hit-tests one of { VScrollbar, HScrollbar, ColumnResize, Cells } and captures it;
+		// every subsequent resent press/drag routes to the captured region WITHOUT re-hit-testing. This is
+		// what stops a column-resize drag whose pointer wanders off the border (or a cell drag crossing a
+		// column border/scrollbar) from being re-hit-tested into the wrong handler.
+		if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Dragged,
+			MouseFlags.Button1Released, MouseFlags.Button1Clicked))
+		{
+			var route = _gesture.Route(args, HitTestRegion);
+			if (route.Phase != GesturePhase.None)
+			{
+				return DispatchGesture(route.Phase, route.Region, args);
+			}
+
+			// A bare Button1Clicked with no prior captured press (some drivers/tests deliver a click without a
+			// separate Button1Pressed). Synthesize a full click: hit-test the region fresh and dispatch Down
+			// then Up, so discrete click actions (header sort, row selection, scrollbar arrow/track) still fire.
+			if (args.HasFlag(MouseFlags.Button1Clicked))
+			{
+				var region = HitTestRegion(args);
+				DispatchGesture(GesturePhase.Down, region, args);
+				return DispatchGesture(GesturePhase.Up, region, args);
+			}
+		}
+
 		// Let scroll events bubble
 		return false;
 	}
+
+	#region Per-region gesture handlers
+
+	/// <summary>Routes a gesture phase to the handler for the given region.</summary>
+	private bool DispatchGesture(GesturePhase phase, TableGestureRegion region, MouseEventArgs args) => region switch
+	{
+		TableGestureRegion.VScrollbar => HandleVScrollbarGesture(phase, args),
+		TableGestureRegion.HScrollbar => HandleHScrollbarGesture(phase, args),
+		TableGestureRegion.ColumnResize => HandleColumnResizeGesture(phase, args),
+		_ => HandleCellsGesture(phase, args),
+	};
+
+	/// <summary>
+	/// Vertical scrollbar gesture: Down = arrow / thumb-start / track-page; Move = apply the thumb-drag
+	/// delta if a thumb drag was started on Down; Up = end.
+	/// </summary>
+	private bool HandleVScrollbarGesture(GesturePhase phase, MouseEventArgs args)
+	{
+		switch (phase)
+		{
+			case GesturePhase.Down:
+				if (_isEditing)
+					CancelEdit();
+				if (!HasFocus && CanFocusWithMouse)
+					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+				_vThumbDragging = false;
+				HandleVerticalScrollbarThumbPress(args);
+				if (!_vThumbDragging)
+					HandleVerticalScrollbarClick(args);
+				return true;
+
+			case GesturePhase.Move:
+				// Only a thumb-drag (not an arrow/track-page Down) tracks subsequent motion. The captured
+				// region keeps the drag glued to the scrollbar even when the pointer leaves the track column.
+				if (_vThumbDragging)
+					HandleVerticalScrollbarDrag(args);
+				return true;
+
+			default: // Up
+				_vThumbDragging = false;
+				return true;
+		}
+	}
+
+	/// <summary>
+	/// Horizontal scrollbar gesture: Down = arrow / thumb-start / track-page; Move = apply the thumb-drag
+	/// delta if a thumb drag was started on Down; Up = end.
+	/// </summary>
+	private bool HandleHScrollbarGesture(GesturePhase phase, MouseEventArgs args)
+	{
+		switch (phase)
+		{
+			case GesturePhase.Down:
+				if (_isEditing)
+					CancelEdit();
+				if (!HasFocus && CanFocusWithMouse)
+					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+				_hThumbDragging = false;
+				HandleHorizontalScrollbarThumbPress(args);
+				if (!_hThumbDragging)
+					HandleHorizontalScrollbarClick(args);
+				return true;
+
+			case GesturePhase.Move:
+				if (_hThumbDragging)
+					HandleHorizontalScrollbarDrag(args);
+				return true;
+
+			default: // Up
+				_hThumbDragging = false;
+				return true;
+		}
+	}
+
+	/// <summary>
+	/// Column-resize gesture: Down begins the resize on the pressed border; Move applies the resize delta
+	/// (the captured region keeps resizing the ORIGINAL column even if the pointer wanders off the border or
+	/// past the next column); Up ends it.
+	/// </summary>
+	private bool HandleColumnResizeGesture(GesturePhase phase, MouseEventArgs args)
+	{
+		switch (phase)
+		{
+			case GesturePhase.Down:
+				if (_isEditing)
+					CancelEdit();
+				if (!HasFocus && CanFocusWithMouse)
+					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+				BeginColumnResize(args);
+				return true;
+
+			case GesturePhase.Move:
+				HandleColumnResizeDrag(args);
+				return true;
+
+			default: // Up
+				return true;
+		}
+	}
+
+	/// <summary>
+	/// Cells gesture: Down cancels any edit, sets focus and moves the cursor to the pressed row; Up (the
+	/// Button1Clicked) performs the discrete click actions (header sort, selection / multi-select toggling,
+	/// cell navigation, double-click detection); Move is consumed so a cell drag stays owned by the cells
+	/// area even when it crosses a column border or scrollbar.
+	/// </summary>
+	private bool HandleCellsGesture(GesturePhase phase, MouseEventArgs args)
+	{
+		if (phase == GesturePhase.Down)
+		{
+			// Cancel any active cell edit before changing selection
+			if (_isEditing)
+				CancelEdit();
+
+			// Set focus on click
+			if (!HasFocus && CanFocusWithMouse)
+				this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+
+			// Fresh press over a data row: just move the cursor, don't touch multi-select state
+			// (multi-select toggling happens on the Button1Clicked / Up phase to avoid double-toggle).
+			int pressRow = GetRowIndexAtY(args.Position.Y);
+			if (pressRow >= 0)
+				SetSelectedRow(pressRow);
+			return true;
+		}
+
+		if (phase == GesturePhase.Move)
+		{
+			// A cell drag stays owned by the cells area; nothing to extend here.
+			return true;
+		}
+
+		// Up phase: the Button1Clicked discrete actions. If the release did not carry Button1Clicked
+		// (e.g. a bare Button1Released ending a press) there is nothing further to do.
+		if (!args.HasFlag(MouseFlags.Button1Clicked))
+			return true;
+
+		// Header sort
+		if (IsClickOnHeader(args))
+		{
+			int headerColIdx = GetColumnIndexAtX(args.Position.X);
+			if (headerColIdx >= 0 && _sortingEnabled)
+				SortByColumn(headerColIdx);
+			MouseClick?.Invoke(this, args);
+			if (headerColIdx >= 0)
+			{
+				var log = Container?.GetConsoleWindowSystem?.LogService;
+				Core.AsyncEvent.Raise(HeaderClicked, HeaderClickedAsync, this, headerColIdx, log);
+			}
+			return true;
+		}
+
+		// Click on data row
+		int rowIdx = GetRowIndexAtY(args.Position.Y);
+		if (rowIdx < 0 && _clearSelectionOnEmptyClick)
+		{
+			// Empty data area click: clear selection entirely.
+			if (_multiSelectEnabled)
+				_selectedRowIndices.Clear();
+			SetSelectedRow(-1);
+			MouseClick?.Invoke(this, args);
+			return true;
+		}
+		if (rowIdx >= 0)
+		{
+			if (_multiSelectEnabled && args.HasFlag(MouseFlags.ButtonCtrl))
+			{
+				ToggleRowSelection(rowIdx);
+				SetSelectedRow(rowIdx);
+			}
+			else if (_multiSelectEnabled && args.HasFlag(MouseFlags.ButtonShift))
+			{
+				int anchor = _selectedRowIndex >= 0 ? _selectedRowIndex : 0;
+				_selectedRowIndices.Clear();
+				SelectRange(anchor, rowIdx);
+				SetSelectedRow(rowIdx);
+			}
+			else if (_checkboxMode && IsClickOnCheckbox(args.Position.X))
+			{
+				// Click on checkbox column — toggle without clearing other selections
+				ToggleRowSelection(rowIdx);
+				SetSelectedRow(rowIdx);
+			}
+			else
+			{
+				if (_multiSelectEnabled)
+				{
+					// Clear checkboxes when clicking outside checkbox column
+					if (_checkboxMode && _dataSource == null)
+					{
+						lock (_tableLock)
+						{
+							foreach (var row in _rows)
+								row.IsChecked = false;
+						}
+					}
+					_selectedRowIndices.Clear();
+				}
+				SetSelectedRow(rowIdx);
+			}
+
+			// Cell navigation: select column
+			if (_cellNavigationEnabled)
+			{
+				int colIdx = GetColumnIndexAtX(args.Position.X);
+				if (colIdx >= 0)
+				{
+					_selectedColumnIndex = colIdx;
+					Invalidate(Invalidation.Repaint);
+				}
+			}
+
+			// Double-click detection
+			lock (_clickLock)
+			{
+				var now = DateTime.Now;
+				if (_lastClickRowIndex == rowIdx &&
+					(now - _lastClickTime).TotalMilliseconds < _doubleClickThresholdMs)
+				{
+					Core.AsyncEvent.Raise(RowActivated, RowActivatedAsync, this, rowIdx, Container?.GetConsoleWindowSystem?.LogService);
+					MouseDoubleClick?.Invoke(this, args);
+					_lastClickTime = DateTime.MinValue;
+					_lastClickRowIndex = -1;
+				}
+				else
+				{
+					_lastClickTime = now;
+					_lastClickRowIndex = rowIdx;
+				}
+			}
+		}
+
+		MouseClick?.Invoke(this, args);
+		return true;
+	}
+
+	#endregion
 
 	#region Hit Testing
 
@@ -515,7 +597,7 @@ public partial class TableControl
 
 		if (relY >= thumbY && relY < thumbY + thumbHeight)
 		{
-			_isVerticalScrollbarDragging = true;
+			_vThumbDragging = true;
 			_scrollbarDragStartY = args.Position.Y;
 			_scrollbarDragStartOffset = _scrollOffset;
 		}
@@ -587,7 +669,7 @@ public partial class TableControl
 
 		if (relX >= thumbX && relX < thumbX + thumbWidth)
 		{
-			_isHorizontalScrollbarDragging = true;
+			_hThumbDragging = true;
 			_scrollbarDragStartX = args.Position.X;
 			_scrollbarDragStartOffset = _horizontalScrollOffset;
 		}
@@ -655,7 +737,6 @@ public partial class TableControl
 			int colEnd = _renderedColumnX[c] - ActualX + _renderedColumnWidths[c];
 			if (Math.Abs(args.Position.X - colEnd) <= 1)
 			{
-				_isResizingColumn = true;
 				_resizingColumnIndex = c;
 				_resizeDragStartX = args.Position.X;
 				_resizeDragStartWidth = _renderedColumnWidths[c];
