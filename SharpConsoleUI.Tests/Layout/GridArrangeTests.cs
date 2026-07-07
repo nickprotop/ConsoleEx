@@ -15,7 +15,7 @@ namespace SharpConsoleUI.Tests.Layout;
 /// <summary>
 /// Parity suite for <see cref="GridLayout.ArrangeChildren"/>. These tests assert that grid
 /// margin/padding insetting, per-cell child-margin insetting, and horizontal/vertical alignment
-/// behave identically to the established <see cref="HorizontalLayout"/> arrange contract.
+/// behave identically to the established <c>HorizontalLayout</c> arrange contract.
 /// </summary>
 public class GridArrangeTests
 {

@@ -65,7 +65,7 @@ namespace SharpConsoleUI.Tests.Layout
 		// interior), so the collapse-to-0 / content-sized-Star branch never actually fires — the plain
 		// bounded Star split handles it. This test nests the grid inside a ScrollablePanelControl, which
 		// measures its content with an UNBOUNDED height (int.MaxValue). That is the real
-		// GridBackedHGrid usage path and the ONLY one that exercises the ContentSizedStars measure branch:
+		// HorizontalGridControl usage path and the ONLY one that exercises the ContentSizedStars measure branch:
 		// with the flag on, the Star ROW self-sizes to the table's content height (measured at its
 		// provisional allocation) instead of collapsing to 0. This asserts that path CONVERGES — the table
 		// renders identically across re-renders (measure height == arrange height == content, a fixed point),

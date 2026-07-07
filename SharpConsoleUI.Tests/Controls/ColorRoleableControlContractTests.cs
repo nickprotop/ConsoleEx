@@ -16,6 +16,8 @@ public class ColorRoleableControlContractTests
 		Assert.True(new ScrollablePanelControl() is IColorRoleableControl);
 		Assert.True(new ListControl() is IColorRoleableControl);
 		Assert.True(new ProgressBarControl() is IColorRoleableControl);
+		// HorizontalGridControl is now grid-backed (: GridControl), so it inherits color-role support.
+		Assert.True(new HorizontalGridControl() is IColorRoleableControl);
 	}
 
 	[Fact]
@@ -23,7 +25,6 @@ public class ColorRoleableControlContractTests
 	{
 		Assert.False(new CanvasControl() is IColorRoleableControl);
 		Assert.False(new HtmlControl() is IColorRoleableControl);
-		Assert.False(new HorizontalGridControl() is IColorRoleableControl);
 	}
 
 	[Fact]

@@ -154,7 +154,7 @@ namespace SharpConsoleUI
 		// Returns (offsetWithinParent, controlHeight) or (-1, 0) if not found
 		private (int Offset, int Height) FindNestedControlPosition(IWindowControl container, IWindowControl target)
 		{
-			if (container is HorizontalGridControl grid)
+			if (container is IColumnGridOwner grid)
 			{
 				// For HorizontalGridControl, controls are in columns side by side
 				// We need to find which column contains the control and its vertical offset
@@ -215,7 +215,7 @@ namespace SharpConsoleUI
 		// Check if a container control contains the target control
 		private bool ContainsControl(IWindowControl container, IWindowControl target)
 		{
-			if (container is HorizontalGridControl grid)
+			if (container is IColumnGridOwner grid)
 			{
 				foreach (var column in grid.Columns)
 				{

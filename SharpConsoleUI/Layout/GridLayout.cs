@@ -606,7 +606,7 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 	/// grid's margin then padding to form the track area; tracks are sized exactly as in the measure
 	/// pass; each cell is positioned at its track offset, inset by the child's own margin, then aligned
 	/// within the resulting inner box per the child's horizontal and vertical alignment (mirroring
-	/// <see cref="HorizontalLayout.ArrangeChildren"/>). Invisible children are skipped.
+	/// <c>HorizontalLayout.ArrangeChildren</c>). Invisible children are skipped.
 	/// </summary>
 	/// <remarks>
 	/// <paramref name="finalRect"/> is node-local (origin 0,0); cell rectangles are therefore computed
@@ -854,7 +854,7 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 
 	/// <summary>
 	/// Resolves a child's horizontal start and extent, mirroring the switch shape in
-	/// <see cref="HorizontalLayout.ArrangeChildren"/> (Stretch fills; Left/Center/Right float).
+	/// <c>HorizontalLayout.ArrangeChildren</c> (Stretch fills; Left/Center/Right float).
 	/// </summary>
 	private static (int Start, int Extent) AlignHorizontal(HorizontalAlignment alignment, int innerStart, int innerExtent, int desiredExtent)
 	{
@@ -870,7 +870,7 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 
 	/// <summary>
 	/// Resolves a child's vertical start and extent, mirroring the switch shape in
-	/// <see cref="HorizontalLayout.ArrangeChildren"/> (Fill fills; Top/Center/Bottom float).
+	/// <c>HorizontalLayout.ArrangeChildren</c> (Fill fills; Top/Center/Bottom float).
 	/// </summary>
 	private static (int Start, int Extent) AlignVertical(VerticalAlignment alignment, int innerStart, int innerExtent, int desiredExtent)
 	{

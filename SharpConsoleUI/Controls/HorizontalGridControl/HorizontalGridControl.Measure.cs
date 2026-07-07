@@ -12,10 +12,10 @@ using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Controls
 {
-	public partial class GridBackedHGrid
+	public partial class HorizontalGridControl
 	{
 		/// <summary>
-		/// Content-summing measure for callers that invoke <c>GridBackedHGrid.MeasureDOM</c> DIRECTLY
+		/// Content-summing measure for callers that invoke <c>HorizontalGridControl.MeasureDOM</c> DIRECTLY
 		/// as a sizing helper — most notably <see cref="NavigationView"/>, which calls
 		/// <c>_grid.MeasureDOM(...).Height</c> to size its content area. This is NOT the render-path measure:
 		/// when the grid is wired into the layout tree it has a <see cref="GridLayout"/> and children, so

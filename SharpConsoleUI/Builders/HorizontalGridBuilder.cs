@@ -13,7 +13,8 @@ using SharpConsoleUI.Layout;
 namespace SharpConsoleUI.Builders
 {
 	/// <summary>
-	/// Fluent builder for constructing HorizontalGridControl instances with a concise, chainable API.
+	/// Fluent builder for constructing <see cref="HorizontalGridControl"/> instances with a concise, chainable API.
+	/// Mirrors <see cref="HorizontalGridBuilder"/> but produces a grid-backed horizontal strip.
 	/// </summary>
 	/// <example>
 	/// <code>
@@ -28,7 +29,7 @@ namespace SharpConsoleUI.Builders
 	public class HorizontalGridBuilder : IControlBuilder<HorizontalGridControl>
 	{
 		private readonly HorizontalGridControl _grid = new();
-		private readonly List<ColumnConfiguration> _columns = new();
+		private readonly List<HorizontalGridBuilder.ColumnConfiguration> _columns = new();
 		private readonly List<int> _splitterIndices = new();
 		private HorizontalAlignment? _alignment;
 		private VerticalAlignment? _verticalAlignment;
@@ -185,7 +186,7 @@ namespace SharpConsoleUI.Builders
 		}
 
 		/// <summary>
-		/// Builds the HorizontalGridControl with all configured columns and splitters.
+		/// Builds the <see cref="HorizontalGridControl"/> with all configured columns and splitters.
 		/// </summary>
 		/// <returns>The configured HorizontalGridControl.</returns>
 		public HorizontalGridControl Build()
@@ -232,7 +233,8 @@ namespace SharpConsoleUI.Builders
 				_grid.StickyPosition = _stickyPosition.Value;
 			}
 
-			// Create and add all columns
+			// Create and add all columns. The grid is an IColumnGridOwner, so the columns bind via the
+			// ColumnContainer(IColumnGridOwner) constructor.
 			foreach (var config in _columns)
 			{
 				var column = new ColumnContainer(_grid);
@@ -250,9 +252,6 @@ namespace SharpConsoleUI.Builders
 			return _grid;
 		}
 
-		/// <summary>
-		/// Internal configuration for a column.
-		/// </summary>
 		internal class ColumnConfiguration
 		{
 			public int? Width { get; set; }
@@ -276,9 +275,7 @@ namespace SharpConsoleUI.Builders
 		}
 	}
 
-	/// <summary>
-	/// Fluent builder for configuring a single column within a HorizontalGridControl.
-	/// </summary>
+	/// <inheritdoc/>
 	public class ColumnBuilder
 	{
 		private readonly HorizontalGridBuilder.ColumnConfiguration _config = new();
@@ -433,4 +430,5 @@ namespace SharpConsoleUI.Builders
 		/// <returns>The column configuration.</returns>
 		internal HorizontalGridBuilder.ColumnConfiguration Build() => _config;
 	}
+
 }

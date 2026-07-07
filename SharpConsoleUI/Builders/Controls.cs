@@ -231,13 +231,6 @@ public static class Controls
 	public static HorizontalGridBuilder HorizontalGrid() => new HorizontalGridBuilder();
 
 	/// <summary>
-	/// Creates a new grid-backed horizontal grid builder. Produces a <see cref="GridBackedHGrid"/> — a
-	/// grid-backed, drop-in equivalent of <see cref="HorizontalGrid"/>'s <see cref="HorizontalGridControl"/>.
-	/// </summary>
-	/// <returns>A new grid-backed horizontal grid builder</returns>
-	public static GridBackedHGridBuilder GridBackedHGrid() => new GridBackedHGridBuilder();
-
-	/// <summary>
 	/// Creates a new grid builder for two-dimensional row/column layouts.
 	/// </summary>
 	/// <returns>A new grid builder</returns>

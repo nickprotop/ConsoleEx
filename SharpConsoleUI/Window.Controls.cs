@@ -260,7 +260,7 @@ namespace SharpConsoleUI
 			return control switch
 			{
 				ToolbarControl toolbar => toolbar.Items,
-				HorizontalGridControl grid => grid.Columns.SelectMany(c => c.Contents),
+				IColumnGridOwner grid => grid.Columns.SelectMany(c => c.Contents),
 				ColumnContainer column => column.Contents,
 				ScrollablePanelControl panel => panel.Children,
 				TabControl tabControl => tabControl.TabPages.Select(tp => tp.Content),

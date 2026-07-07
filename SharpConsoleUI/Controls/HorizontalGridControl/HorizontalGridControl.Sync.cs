@@ -8,11 +8,12 @@
 
 using System;
 using System.Collections.Generic;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Controls
 {
-	public partial class GridBackedHGrid
+	public partial class HorizontalGridControl
 	{
 		/// <summary>
 		/// Re-entrancy guard for <see cref="Sync"/>. A splitter-drag writeback (Task 7) mutates
@@ -38,6 +39,49 @@ namespace SharpConsoleUI.Controls
 		/// content width; FlexFactor==0&#8594;Auto, honoring Min/Max), interleaving splitters as real fixed-width
 		/// columns. Idempotent; guarded against re-entrancy.
 		/// </summary>
+		// Signature of the column model as last stamped into the grid. Sync() rebuilds the grid tracks/cells
+		// only when this changes — a child-content Relayout propagating up (typing, cursor blink, syntax
+		// repaint) leaves the column model identical, so it must NOT tear down and re-Place every column each
+		// frame (the flicker / "recreates columns every frame" regression). Structural changes (add/remove
+		// column or splitter, a column's Width/FlexFactor/Visible toggle, an alignment change) shift the
+		// signature and trigger a real rebuild.
+		private string? _lastSyncSignature;
+
+		// Test-observable count of ACTUAL grid rebuilds (signature-miss), not skipped Sync() calls.
+		internal int SyncRebuildCount { get; private set; }
+
+		private string ComputeModelSignature(List<ColumnContainer> columns, List<SplitterControl> splitters)
+		{
+			var sb = new System.Text.StringBuilder();
+			sb.Append(VerticalAlignment == VerticalAlignment.Fill ? 'F' : '_').Append('|');
+			foreach (var c in columns)
+			{
+				sb.Append(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(c))
+				  .Append(':').Append(c.Visible ? '1' : '0')
+				  .Append(':').Append(c.Width?.ToString() ?? "_")
+				  .Append(':').Append(c.MinWidth?.ToString() ?? "_")
+				  .Append(':').Append(c.MaxWidth?.ToString() ?? "_")
+				  .Append(':').Append(c.FlexFactor.ToString("R"))
+				  // The SET of a column's child controls is structure Sync() Places into the grid: a control
+				  // added to or removed from a column must re-Place so the grid re-measures. A child whose
+				  // CONTENT changes in place (same instance, new text) leaves this signature unchanged, so
+				  // per-frame content updates still skip the rebuild (the flicker fix).
+				  .Append(':').Append(c.Contents.Count).Append('#');
+				foreach (var content in c.Contents)
+					sb.Append(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(content)).Append(',');
+				sb.Append(';');
+			}
+			sb.Append('|');
+			foreach (var s in splitters)
+			{
+				sb.Append(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(s))
+				  .Append(':').Append(GetSplitterLeftColumnIndex(s))
+				  .Append(':').Append(s.Width?.ToString() ?? "_")
+				  .Append(';');
+			}
+			return sb.ToString();
+		}
+
 		private void Sync()
 		{
 			if (_syncing) return;
@@ -51,6 +95,22 @@ namespace SharpConsoleUI.Controls
 					columns = new List<ColumnContainer>(_columns);
 					splitters = new List<SplitterControl>(_splitters);
 				}
+
+				// Skip the structural rebuild when the column model is unchanged since the last stamp: a
+				// child-content Relayout (typing, cursor blink, syntax repaint) propagating up must NOT tear
+				// down and re-Place every column. Each ClearControls/RowDefinitions.Clear/ColumnDefinitions.Add/
+				// Place internally calls RebuildAndInvalidate -> ForceRebuildLayout (a full WINDOW layout-tree
+				// rebuild); running the whole teardown every frame issued dozens of window rebuilds per frame
+				// (the flicker / "recreates columns each frame" regression). On skip we still force ONE window
+				// layout rebuild so the propagating Relayout re-measures cleanly (the grid caches layout nodes
+				// that a Relayout must refresh) — one rebuild, not the teardown storm.
+				string signature = ComputeModelSignature(columns, splitters);
+				if (signature == _lastSyncSignature)
+				{
+					return;
+				}
+				_lastSyncSignature = signature;
+				SyncRebuildCount++;
 
 				// Clear the inherited grid state (cells + track defs) and re-stamp HGC's flush layout.
 				ClearControls();

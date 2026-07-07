@@ -16,13 +16,13 @@ using Xunit;
 
 namespace SharpConsoleUI.Tests.Rendering
 {
-	// Differential golden-render parity: GridBackedHGrid (grid-backed drop-in) must render IDENTICALLY
+	// Differential golden-render parity: HorizontalGridControl (grid-backed drop-in) must render IDENTICALLY
 	// to the real HorizontalGridControl (HGC) — HGC is the oracle. For each scenario we build the SAME
 	// column config into both controls, render each at a fixed 80x24 size via the headless harness, and
 	// assert the rendered cell strings are byte-identical. This is the exact test net whose absence let a
 	// flex-column oscillation ship + get reverted. Part 2 adds multi-frame stability that static goldens
 	// cannot catch.
-	public class GridBackedHGridParityTests
+	public class HorizontalGridControlParityTests
 	{
 		private const int Width = 80;
 		private const int Height = 24;
@@ -53,7 +53,7 @@ namespace SharpConsoleUI.Tests.Rendering
 			return sb.ToString();
 		}
 
-		// Helper: assert HGC output == GridBackedHGrid output for two build funcs producing the same config.
+		// Helper: assert HGC output == HorizontalGridControl output for two build funcs producing the same config.
 		private static void AssertParity(Func<IWindowControl> hgc, Func<IWindowControl> gridBacked)
 		{
 			var expected = RenderControl(hgc);
@@ -83,7 +83,7 @@ namespace SharpConsoleUI.Tests.Rendering
 		{
 			AssertParity(
 				() => HorizontalGridControl.ButtonRow(Button("OK"), Button("Cancel"), Button("Apply")),
-				() => GridBackedHGrid.ButtonRow(Button("OK"), Button("Cancel"), Button("Apply")));
+				() => HorizontalGridControl.ButtonRow(Button("OK"), Button("Cancel"), Button("Apply")));
 		}
 
 		[Fact]
@@ -91,7 +91,7 @@ namespace SharpConsoleUI.Tests.Rendering
 		{
 			AssertParity(
 				() => HorizontalGridControl.FromControls(Markup("left"), Markup("right")),
-				() => GridBackedHGrid.FromControls(Markup("left"), Markup("right")));
+				() => HorizontalGridControl.FromControls(Markup("left"), Markup("right")));
 		}
 
 		[Fact]
@@ -114,7 +114,7 @@ namespace SharpConsoleUI.Tests.Rendering
 				},
 				() =>
 				{
-					var grid = new GridBackedHGrid();
+					var grid = new HorizontalGridControl();
 					var fixedCol = new ColumnContainer(grid) { Width = 20 };
 					fixedCol.AddContent(Markup("fixed20"));
 					grid.AddColumn(fixedCol);
@@ -146,7 +146,7 @@ namespace SharpConsoleUI.Tests.Rendering
 				},
 				() =>
 				{
-					var grid = new GridBackedHGrid();
+					var grid = new HorizontalGridControl();
 					var c1 = new ColumnContainer(grid) { FlexFactor = 1 };
 					c1.AddContent(Markup("first"));
 					grid.AddColumn(c1);
@@ -179,7 +179,7 @@ namespace SharpConsoleUI.Tests.Rendering
 				},
 				() =>
 				{
-					var grid = new GridBackedHGrid();
+					var grid = new HorizontalGridControl();
 					var c1 = new ColumnContainer(grid) { FlexFactor = 1 };
 					c1.AddContent(Markup("one"));
 					grid.AddColumn(c1);
@@ -208,7 +208,7 @@ namespace SharpConsoleUI.Tests.Rendering
 				},
 				() =>
 				{
-					var grid = new GridBackedHGrid();
+					var grid = new HorizontalGridControl();
 					var c1 = new ColumnContainer(grid) { FlexFactor = 1 };
 					c1.AddContent(Markup("only"));
 					grid.AddColumn(c1);
@@ -221,7 +221,7 @@ namespace SharpConsoleUI.Tests.Rendering
 		{
 			AssertParity(
 				() => new HorizontalGridControl(),
-				() => new GridBackedHGrid());
+				() => new HorizontalGridControl());
 		}
 
 		[Fact]
@@ -244,7 +244,7 @@ namespace SharpConsoleUI.Tests.Rendering
 				},
 				() =>
 				{
-					var grid = new GridBackedHGrid();
+					var grid = new HorizontalGridControl();
 					var c1 = new ColumnContainer(grid) { FlexFactor = 1 };
 					c1.AddContent(Markup("scrolled-left"));
 					grid.AddColumn(c1);
@@ -274,7 +274,7 @@ namespace SharpConsoleUI.Tests.Rendering
 				},
 				() =>
 				{
-					var grid = new GridBackedHGrid();
+					var grid = new HorizontalGridControl();
 					var flexCol = new ColumnContainer(grid) { FlexFactor = 1 };
 					flexCol.AddContent(BuildTable());
 					grid.AddColumn(flexCol);
@@ -293,7 +293,7 @@ namespace SharpConsoleUI.Tests.Rendering
 			var system = TestWindowSystemBuilder.CreateTestSystem(Width, Height);
 			var window = new Window(system) { Left = 0, Top = 0, Width = Width, Height = Height };
 
-			var grid = new GridBackedHGrid();
+			var grid = new HorizontalGridControl();
 			var flexCol = new ColumnContainer(grid) { FlexFactor = 1 };
 			flexCol.AddContent(BuildTable());
 			grid.AddColumn(flexCol);

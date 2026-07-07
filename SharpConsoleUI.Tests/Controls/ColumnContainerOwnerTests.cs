@@ -27,6 +27,7 @@ public class ColumnContainerOwnerTests
 	private sealed class FakeOwner : IColumnGridOwner
 	{
 		public SharpConsoleUI.Color? ForegroundColor => null;
+		public System.Collections.Generic.List<ColumnContainer> Columns { get; } = new();
 
 		public int? ContentWidth => null;
 		public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.Left;

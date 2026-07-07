@@ -114,9 +114,9 @@ namespace SharpConsoleUI.Controls
 						lock (_contentsLock) { snapshot = new List<IWindowControl>(_contents); }
 						foreach (IWindowControl control in snapshot)
 						{
-							if (control is HorizontalGridControl nestedGrid)
+							if (control is IColumnGridOwner nestedGrid)
 							{
-								// Update nested grid's columns
+								// Update nested grid's columns (any column-grid owner — HGC or HorizontalGridControl)
 								foreach (var column in nestedGrid.Columns)
 								{
 									column.GetConsoleWindowSystem = value;
