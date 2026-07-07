@@ -20,6 +20,24 @@ using Size = SharpConsoleUI.Helpers.Size;
 namespace SharpConsoleUI.Controls
 {
 	/// <summary>
+	/// The sub-region of a <see cref="MultilineEditControl"/> that owns a captured mouse gesture.
+	/// </summary>
+	internal enum MleGestureRegion
+	{
+		/// <summary>The text area (selection / caret placement / drag-select).</summary>
+		Text,
+
+		/// <summary>The vertical scrollbar column.</summary>
+		VScrollbar,
+
+		/// <summary>The horizontal scrollbar row.</summary>
+		HScrollbar,
+
+		/// <summary>The gutter column (line numbers / breakpoints).</summary>
+		Gutter
+	}
+
+	/// <summary>
 	/// A multiline text editing control with support for text selection, scrolling, and word wrap.
 	/// Provides full cursor navigation, cut/copy/paste-like operations, and configurable scrollbars.
 	/// </summary>
@@ -92,16 +110,26 @@ namespace SharpConsoleUI.Controls
 		private int _verticalScrollOffset = 0;
 		private int _viewportHeight;
 		private WrapMode _wrapMode = WrapMode.Wrap;
-		private bool _isDragging = false;
 		private int _lastDragRelativeY = 0;
-		private bool _gutterPressed = false;
 
-		// Scrollbar drag state
+		// Sub-region gesture ownership: a fresh Button1 press hit-tests one of the four regions (text /
+		// vertical scrollbar / horizontal scrollbar / gutter) and captures it; every subsequent resent
+		// press/drag routes to the captured region without re-hit-testing (SGR re-sends Button1Pressed on
+		// motion). Replaces the former _isDragging / _gutterPressed / _isVerticalScrollbarDragging /
+		// _isHorizontalScrollbarDragging flags.
+		private readonly Helpers.MouseGestureCapture<MleGestureRegion> _gesture = new();
+
+		// A thumb-drag is in progress only while the pointer started on the scrollbar thumb (not an arrow /
+		// page-track press). Latched on the thumb-Down phase, cleared on Up.
+		private bool _vThumbDragging = false;
+		private bool _hThumbDragging = false;
+
+		// Scrollbar drag state. _scrollbarInteracted is read OUTSIDE the mouse handler
+		// (Rendering.cs suppresses the cursor-follow scroll update on the frame after a scrollbar
+		// interaction; Keyboard.cs clears it on a keypress), so it is preserved.
 		private bool _scrollbarInteracted = false;
-		private bool _isVerticalScrollbarDragging = false;
 		private int _verticalScrollbarDragStartY = 0;
 		private int _verticalScrollbarDragStartOffset = 0;
-		private bool _isHorizontalScrollbarDragging = false;
 		private int _horizontalScrollbarDragStartX = 0;
 		private int _horizontalScrollbarDragStartOffset = 0;
 
@@ -992,6 +1020,11 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		protected override void OnDisposing()
 		{
+			// Abandon any captured mouse gesture so a half-finished drag/thumb interaction cannot
+			// linger past disposal.
+			_gesture.Reset();
+			_vThumbDragging = false;
+			_hThumbDragging = false;
 			// No additional cleanup needed; base clears Container.
 		}
 
@@ -1000,7 +1033,7 @@ namespace SharpConsoleUI.Controls
 		#region IDragAutoScrollTarget
 
 		/// <inheritdoc/>
-		bool IDragAutoScrollTarget.IsDragSelecting => _isDragging;
+		bool IDragAutoScrollTarget.IsDragSelecting => _gesture.CapturedRegion == MleGestureRegion.Text;
 
 		/// <inheritdoc/>
 		bool IDragAutoScrollTarget.IsViewportReady => GetEffectiveViewportHeight() > 0;
