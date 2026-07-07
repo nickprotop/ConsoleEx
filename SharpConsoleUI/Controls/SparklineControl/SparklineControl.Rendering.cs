@@ -94,16 +94,22 @@ namespace SharpConsoleUI.Controls
 			int contentWidth = bounds.Width - Margin.Left - Margin.Right;
 			int contentHeight = _graphHeight + (borderSize * 2) + titleHeight + baselineHeight;
 
-			// Fill content area with control background
-			for (int y = startY; y < startY + contentHeight && y < bounds.Bottom; y++)
+			// Fill content area with the control background. A fully transparent background (A == 0) must
+			// preserve what is beneath — do NOT stamp filler spaces over it (that would overwrite the
+			// desktop / window showing through). A semi-transparent background (0 < A < 255) still fills,
+			// so its space cells blend as a tint over whatever is beneath.
+			if (bgColor.A != 0)
 			{
-				if (y >= clipRect.Y && y < clipRect.Bottom)
+				for (int y = startY; y < startY + contentHeight && y < bounds.Bottom; y++)
 				{
-					int fillX = Math.Max(startX, clipRect.X);
-					int fillWidth = Math.Min(startX + contentWidth, clipRect.Right) - fillX;
-					if (fillWidth > 0)
+					if (y >= clipRect.Y && y < clipRect.Bottom)
 					{
-						buffer.FillRect(new LayoutRect(fillX, y, fillWidth, 1), ' ', fgColor, bgColor);
+						int fillX = Math.Max(startX, clipRect.X);
+						int fillWidth = Math.Min(startX + contentWidth, clipRect.Right) - fillX;
+						if (fillWidth > 0)
+						{
+							buffer.FillRect(new LayoutRect(fillX, y, fillWidth, 1), ' ', fgColor, bgColor);
+						}
 					}
 				}
 			}
