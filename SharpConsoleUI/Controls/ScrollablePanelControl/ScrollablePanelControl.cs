@@ -109,12 +109,11 @@ namespace SharpConsoleUI.Controls
 		private DateTime _lastClickTime;
 		private System.Drawing.Point _lastClickPosition;
 
-		// Scrollbar drag state (vertical)
-		private bool _isScrollbarDragging = false;
+		// Scrollbar thumb-drag anchor state (vertical). The drag-in-progress flag was replaced by the
+		// gesture-capture model (see ScrollablePanelControl.Mouse.cs: _gesture + _vThumbDragging).
 		private int _scrollbarDragStartY = 0;
 		private int _scrollbarDragStartThumbPos = 0;
-		// Scrollbar drag state (horizontal)
-		private bool _isHScrollbarDragging = false;
+		// Scrollbar thumb-drag anchor state (horizontal).
 		private int _scrollbarDragStartX = 0;
 		private int _hScrollbarDragStartThumbPos = 0;
 		// Child mouse capture: prevents drag stealing between sibling controls
