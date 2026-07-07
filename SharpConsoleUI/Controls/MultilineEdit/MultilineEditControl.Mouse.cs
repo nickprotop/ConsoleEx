@@ -221,7 +221,12 @@ namespace SharpConsoleUI.Controls
 				int gutterX = args.Position.X - Margin.Left;
 				bool inGutter = gutterX >= 0 && gutterX < gutterWidth;
 
-				if (inGutter && args.HasFlag(MouseFlags.Button1Pressed) && !_gutterPressed)
+				// Fire GutterClick only on a FRESH press in the gutter, never when a text drag-selection is
+				// already in progress. SGR mouse format re-sends Button1Pressed for every motion-while-held
+				// event, so a drag-select that crosses into the gutter would otherwise be mistaken for a fresh
+				// gutter click and (e.g.) toggle a breakpoint mid-drag. A fresh gutter click starts with
+				// _isDragging == false; a drag crossing the gutter has _isDragging == true.
+				if (inGutter && args.HasFlag(MouseFlags.Button1Pressed) && !_gutterPressed && !_isDragging)
 				{
 					// First press in gutter — fire GutterClick immediately
 					_gutterPressed = true;
@@ -243,8 +248,11 @@ namespace SharpConsoleUI.Controls
 					return true;
 				}
 
-				// Consume all other Button1 events in gutter while pressed
-				if (inGutter && args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Dragged,
+				// Consume all other Button1 events in gutter while a GUTTER interaction is pressed (_gutterPressed).
+				// An active TEXT drag-selection that merely crosses into the gutter (_isDragging but not
+				// _gutterPressed) must fall through to the drag-extend path instead — otherwise crossing the
+				// gutter would silently end the selection.
+				if (inGutter && _gutterPressed && args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Dragged,
 					MouseFlags.Button1Released, MouseFlags.Button1Clicked))
 				{
 					if (args.HasAnyFlag(MouseFlags.Button1Released, MouseFlags.Button1Clicked))
