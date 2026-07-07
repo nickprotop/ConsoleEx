@@ -260,7 +260,7 @@ namespace SharpConsoleUI.Flows
 		/// <inheritdoc/>
 		public Task<bool> Completion => _tcs.Task;
 
-		/// <summary>The result task exposed to <see cref="SharpConsoleUI.Dialogs.Dialogs.ConfirmAsync"/>.</summary>
+		/// <summary>The result task exposed to <see cref="SharpConsoleUI.Dialogs.Dialogs.ConfirmAsync(ConsoleWindowSystem, string, string, string, string, Core.NotificationSeverityEnum, Window, bool)"/>.</summary>
 		internal Task<bool> Result => _tcs.Task;
 
 		/// <inheritdoc/>
