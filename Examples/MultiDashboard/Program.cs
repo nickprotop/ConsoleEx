@@ -2,82 +2,107 @@ using MultiDashboard.Windows;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Configuration;
-using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Panel;
+using SharpConsoleUI.Rendering;
+using SharpConsoleUI.Themes;
 
 namespace MultiDashboard;
 
 class Program
 {
     private static ConsoleWindowSystem? _windowSystem;
-    private static Window? _helpWindow;
-    private static WeatherDashboardWindow? _weatherWindow;
-    private static SystemMonitorWindow? _systemWindow;
-    private static StockTickerWindow? _stockWindow;
-    private static NewsFeedWindow? _newsWindow;
-    private static ClockWindow? _clockWindow;
-    private static LogStreamWindow? _logWindow;
+
+    // Window names — the keys the framework's WindowStateService uses to track each window. We do NOT
+    // hold windows in static fields; the window state manager is the single source of truth for which
+    // windows are open, so there are no stale references to go wrong when the user closes a window.
+    private const string NameControlCenter = "controlcenter";
+    private const string NameMetrics = "metrics";
+    private const string NameMarkets = "markets";
+    private const string NameLogStream = "logstream";
 
     static async Task<int> Main(string[] args)
     {
         try
         {
-            // 1. Initialize window system
+            // 1. Initialize the window system with framing top/bottom status bars that showcase the
+            // built-in panel elements: a Start menu + a TaskBar window pager (bottom) and a live Clock
+            // (top-right).
             _windowSystem = new ConsoleWindowSystem(
                 new NetConsoleDriver(RenderMode.Buffer),
                 options: new ConsoleWindowSystemOptions(
-                    TopPanelConfig: panel => panel.Left(Elements.StatusText("")),
+                    TopPanelConfig: panel => panel
+                        .Left(Elements.StatusText("[bold]Ocean Control Center[/]"))
+                        .Left(Elements.Separator())
+                        .Left(Elements.StatusText("[dim]F1: Control Center  ·  Ctrl+Space: Start[/]"))
+                        .Right(Elements.Clock().WithFormat("HH:mm:ss")),
                     BottomPanelConfig: panel => panel
-                        .Left(Elements.StartMenu())
+                        .Left(Elements.StartMenu()
+                            .WithName("startmenu")
+                            .WithText("☰ Start")
+                            .WithShortcutKey(ConsoleKey.Spacebar, ConsoleModifiers.Control)
+                            .WithOptions(new StartMenuOptions
+                            {
+                                AppName = "Multi-Dashboard",
+                                SidebarStyle = StartMenuSidebarStyle.IconLabel,
+                                ShowWindowList = true
+                            }))
                         .Center(Elements.TaskBar())
+                        .Right(Elements.StatusText("[dim]Ctrl+Q quit[/]"))
                 )
             );
-            _windowSystem.PanelStateService.TopStatus =
-                "Multi-Dashboard Showcase - ConsoleEx Unique Capabilities Demo";
-            _windowSystem.PanelStateService.BottomStatus =
-                "F1-F6: Toggle Windows | ESC: Close Window | F10: Close All | Ctrl+C: Quit";
 
-            // 2. Graceful shutdown
+            // 2. Ocean palette theme — a deep-ocean look derived from two seed colors.
+            _windowSystem.ThemeRegistryService.RegisterTheme(
+                "MultiDashboardOcean",
+                "Deep ocean palette for the dashboard showcase",
+                () => Theme.FromPalette(new Palette
+                {
+                    Primary = Color.FromHex("#2DD4BF"),      // cyan-teal accent
+                    Background = Color.FromHex("#0B1F2A")     // deep ocean surface
+                }));
+            _windowSystem.ThemeStateService.SwitchTheme("MultiDashboardOcean");
+
+            // 3. Ocean-Dots desktop background — vertical deep-blue gradient with a dot pattern.
+            _windowSystem.DesktopBackground = new DesktopBackgroundConfig
+            {
+                Gradient = new GradientBackground(
+                    ColorGradient.FromColors(new Color(30, 90, 160), new Color(5, 15, 35)),
+                    GradientDirection.Vertical),
+                Pattern = DesktopPatterns.Dots
+            };
+
+            // 4. Graceful shutdown on Ctrl+C.
             Console.CancelKeyPress += (sender, e) =>
             {
                 e.Cancel = true;
                 _windowSystem?.Shutdown(0);
             };
 
-            // 3. Create and show help window (small, centered)
-            CreateHelpWindow(_windowSystem);
+            // 5. Auto-open all dashboard windows so the multi-window desktop is populated immediately
+            // (this is what makes it a *Multi*-Dashboard). Each is a normal, movable window on the Ocean
+            // desktop; the Control Center opens last and stays active/on top.
+            ToggleMetrics();
+            ToggleMarkets();
+            ToggleLogStream();
+            OpenControlCenter();
 
-            // 4. Setup global key handlers on help window
-            if (_helpWindow != null)
+            // 6. Register app-shell wiring: a global F1 shortcut and Start-menu actions that open/focus
+            // each window — so every window is closable yet always reopenable. Showcases the global
+            // shortcut system + the Start menu as an app launcher.
+            _windowSystem.RegisterGlobalShortcut(ConsoleModifiers.None, ConsoleKey.F1, OpenControlCenter);
+
+            var startMenu = _windowSystem.BottomPanel?.FindElement<StartMenuElement>("startmenu");
+            if (startMenu != null)
             {
-                _helpWindow.KeyPressed += (sender, e) =>
-                {
-                    HandleGlobalKeys(e);
-                };
+                startMenu.RegisterAction("Control Center", OpenControlCenter, category: "Dashboards", order: 0);
+                startMenu.RegisterAction("Metrics", ToggleMetrics, category: "Dashboards", order: 1);
+                startMenu.RegisterAction("Markets", ToggleMarkets, category: "Dashboards", order: 2);
+                startMenu.RegisterAction("Log Stream", ToggleLogStream, category: "Dashboards", order: 3);
             }
 
-            // 5. Auto-open all dashboard windows (immediate showcase)
-            _weatherWindow = new WeatherDashboardWindow(_windowSystem);
-            _weatherWindow.Show();
-
-            _systemWindow = new SystemMonitorWindow(_windowSystem);
-            _systemWindow.Show();
-
-            _stockWindow = new StockTickerWindow(_windowSystem);
-            _stockWindow.Show();
-
-            _newsWindow = new NewsFeedWindow(_windowSystem);
-            _newsWindow.Show();
-
-            _clockWindow = new ClockWindow(_windowSystem);
-            _clockWindow.Show();
-
-            _logWindow = new LogStreamWindow(_windowSystem);
-            _logWindow.Show();
-
-            // 6. Run application
+            // 7. Run the application.
             await Task.Run(() => _windowSystem.Run());
 
             return 0;
@@ -88,181 +113,58 @@ class Program
             ExceptionFormatter.WriteException(ex);
             return 1;
         }
-        finally
-        {
-            // Cleanup
-            _weatherWindow?.Dispose();
-            _systemWindow?.Dispose();
-            _stockWindow?.Dispose();
-            _newsWindow?.Dispose();
-            _clockWindow?.Dispose();
-            _logWindow?.Dispose();
-        }
     }
 
-    static void HandleGlobalKeys(KeyPressedEventArgs e)
+    /// <summary>
+    /// Opens (creates) a window if the window state manager has none by that name, otherwise closes the
+    /// open one — a toggle keyed off the manager, not a cached reference. The factory builds the wrapper,
+    /// whose <c>Show()</c> registers the window; the manager then owns its lifetime.
+    /// </summary>
+    private static void ToggleByName(string name, Func<IDashboardWindow> factory)
     {
-        switch (e.KeyInfo.Key)
+        try
         {
-            case ConsoleKey.F1:
-                ToggleWindow(ref _weatherWindow, () => new WeatherDashboardWindow(_windowSystem!));
-                e.Handled = true;
-                break;
-            case ConsoleKey.F2:
-                ToggleWindow(ref _systemWindow, () => new SystemMonitorWindow(_windowSystem!));
-                e.Handled = true;
-                break;
-            case ConsoleKey.F3:
-                ToggleWindow(ref _stockWindow, () => new StockTickerWindow(_windowSystem!));
-                e.Handled = true;
-                break;
-            case ConsoleKey.F4:
-                ToggleWindow(ref _newsWindow, () => new NewsFeedWindow(_windowSystem!));
-                e.Handled = true;
-                break;
-            case ConsoleKey.F5:
-                ToggleWindow(ref _clockWindow, () => new ClockWindow(_windowSystem!));
-                e.Handled = true;
-                break;
-            case ConsoleKey.F6:
-                ToggleWindow(ref _logWindow, () => new LogStreamWindow(_windowSystem!));
-                e.Handled = true;
-                break;
-            case ConsoleKey.F10:
-                CloseAllWindows();
-                e.Handled = true;
-                break;
+            var existing = _windowSystem!.WindowStateService.FindWindowByName(name);
+            if (existing != null)
+                _windowSystem.CloseWindow(existing);
+            else
+                factory().Show();
+        }
+        catch (Exception ex)
+        {
+            _windowSystem?.LogService.LogError($"Error toggling window '{name}'", ex, "Program");
         }
     }
 
-    static void ToggleWindow<T>(ref T? window, Func<T> factory)
-        where T : class, IDisposable
+    /// <summary>
+    /// Opens the Control Center if the manager has none, or focuses the open one (focus-or-recreate).
+    /// Bound to the global F1 shortcut and the Start-menu action, so the hub is always reachable even
+    /// after the user closes it. No cached reference — liveness comes from the window state manager.
+    /// </summary>
+    public static void OpenControlCenter()
     {
-        if (window != null)
+        var existing = _windowSystem!.WindowStateService.FindWindowByName(NameControlCenter);
+        if (existing != null)
         {
-            // Close and dispose
-            try
-            {
-                var hideMethod = window.GetType().GetMethod("Hide");
-                hideMethod?.Invoke(window, null);
-                window.Dispose();
-                window = null;
-            }
-            catch (Exception ex)
-            {
-                _windowSystem?.LogService.LogError("Error closing window", ex, "Program");
-            }
+            _windowSystem.SetActiveWindow(existing);
+            return;
         }
-        else
-        {
-            // Create and show
-            try
-            {
-                window = factory();
-                var showMethod = window.GetType().GetMethod("Show");
-                showMethod?.Invoke(window, null);
-            }
-            catch (Exception ex)
-            {
-                _windowSystem?.LogService.LogError("Error opening window", ex, "Program");
-            }
-        }
+
+        var cc = new ControlCenterWindow(_windowSystem);
+        cc.Show();
+        if (cc.Window != null)
+            _windowSystem.SetActiveWindow(cc.Window);
     }
 
-    static void CloseAllWindows()
-    {
-        if (_weatherWindow != null)
-        {
-            _weatherWindow.Hide();
-            _weatherWindow.Dispose();
-            _weatherWindow = null;
-        }
+    /// <summary>Toggles the real Metrics dashboard window (live Sparkline / BarGraph / LineGraph).</summary>
+    public static void ToggleMetrics() =>
+        ToggleByName(NameMetrics, () => new MetricsWindow(_windowSystem!));
 
-        if (_systemWindow != null)
-        {
-            _systemWindow.Hide();
-            _systemWindow.Dispose();
-            _systemWindow = null;
-        }
+    /// <summary>Toggles the real Markets dashboard window (multi-series LineGraph + live ITableDataSource grid).</summary>
+    public static void ToggleMarkets() =>
+        ToggleByName(NameMarkets, () => new MarketsWindow(_windowSystem!));
 
-        if (_stockWindow != null)
-        {
-            _stockWindow.Hide();
-            _stockWindow.Dispose();
-            _stockWindow = null;
-        }
-
-        if (_newsWindow != null)
-        {
-            _newsWindow.Hide();
-            _newsWindow.Dispose();
-            _newsWindow = null;
-        }
-
-        if (_clockWindow != null)
-        {
-            _clockWindow.Hide();
-            _clockWindow.Dispose();
-            _clockWindow = null;
-        }
-
-        if (_logWindow != null)
-        {
-            _logWindow.Hide();
-            _logWindow.Dispose();
-            _logWindow = null;
-        }
-    }
-
-    static void CreateHelpWindow(ConsoleWindowSystem windowSystem)
-    {
-        _helpWindow = new WindowBuilder(windowSystem)
-            .WithTitle("Multi-Dashboard Showcase")
-            .WithSize(70, 30)
-            .Centered()
-            .WithColors(Spectre.Console.Color.White, Spectre.Console.Color.Grey11)
-            .Build();
-
-        _helpWindow.AddControl(
-            MarkupControl
-                .Create()
-                .AddLine("")
-                .AddLine("        [bold cyan]Welcome to the Multi-Dashboard Showcase![/]")
-                .AddLine("")
-                .AddLine("[yellow]What makes this unique:[/]")
-                .AddLine("Each window has its own [bold]async update thread[/] running")
-                .AddLine("independently. They update at [bold]different rates[/] without")
-                .AddLine("blocking each other - something no other .NET console")
-                .AddLine("framework can do while integrating Spectre.Console!")
-                .AddLine("")
-                .AddLine("[yellow]Dashboard Windows & Refresh Rates:[/]")
-                .AddLine(
-                    "[cyan]F1[/] - Weather Dashboard    ([green]5s[/])  - Async I/O simulation"
-                )
-                .AddLine("[cyan]F2[/] - System Monitor       ([green]1s[/])  - Fast metrics update")
-                .AddLine("[cyan]F3[/] - Stock Ticker         ([green]2s[/])  - Medium refresh")
-                .AddLine(
-                    "[cyan]F4[/] - News Feed           ([green]10s[/])  - Slow independence test"
-                )
-                .AddLine("[cyan]F5[/] - Digital Clock        ([green]1s[/])  - Continuous time")
-                .AddLine("[cyan]F6[/] - Log Stream        ([green]500ms[/]) - Stress test")
-                .AddLine("")
-                .AddLine("[yellow]Try this:[/]")
-                .AddLine("1. Watch all windows update at their own pace")
-                .AddLine("2. Close Weather (F1) - others keep updating!")
-                .AddLine("3. Reopen Weather (F1) - it resumes fresh")
-                .AddLine("4. Focus any window - all continue in background")
-                .AddLine("")
-                .AddLine("[yellow]Keyboard Shortcuts:[/]")
-                .AddLine("[cyan]F1-F6[/]   - Toggle individual windows on/off")
-                .AddLine("[cyan]ESC[/]     - Close active window")
-                .AddLine("[cyan]F10[/]     - Close all dashboard windows")
-                .AddLine("[cyan]Ctrl+C[/]  - Quit application")
-                .AddLine("")
-                .AddLine("[dim]All windows are now open. Try toggling them with F1-F6![/]")
-                .Build()
-        );
-
-        windowSystem.AddWindow(_helpWindow);
-    }
+    /// <summary>Toggles the live Log Stream dashboard window.</summary>
+    public static void ToggleLogStream() =>
+        ToggleByName(NameLogStream, () => new LogStreamWindow(_windowSystem!));
 }

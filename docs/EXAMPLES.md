@@ -393,8 +393,10 @@ dotnet run --project Examples/DemoApp
 ---
 
 ### MultiDashboard
-Multiple windows with independent async update threads.
+A flagship multi-window desktop: a Control Center hub that opens live dashboard windows on a
+gradient "Ocean Dots" desktop, each fed by its own async update thread.
 
+<!-- Screenshot regenerated for the modernized showcase — capture a fresh frame of the running app. -->
 ![MultiDashboard](images/examples/multidashboard.png)
 
 ```bash
@@ -402,12 +404,22 @@ dotnet run --project Examples/MultiDashboard
 ```
 
 **Key Features:**
-- 6 independent dashboard windows updating at different rates
-- Weather (5s), System Monitor (1s), Stock Ticker (2s), News (10s), Clock (1s), Log Stream (500ms)
-- Demonstrates async window threads with `IDisposable` pattern
-- Window toggle functionality (F1-F6)
+- **Control Center** — a `NavigationView` hub (a normal, movable window) that opens / focuses the
+  dashboard windows; the window state manager tracks liveness (no cached references), so windows are
+  closable yet always reopenable.
+- **Metrics** — real-time `SparklineControl` (CPU / memory / network), per-core `BarGraphControl`
+  bars, and a Braille `LineGraphControl` latency chart with Y-axis rulers.
+- **Markets** — a virtualized `ITableDataSource` data grid of live, sortable tickers beside a
+  multi-series price `LineGraphControl`.
+- **Log Stream** — a live, filterable, searchable `LogViewerControl` (Time / Level / Category /
+  Message) streaming color-coded entries.
+- **App shell** — a top-bar clock, a Start menu + TaskBar window pager (bottom), and a global **F1**
+  shortcut that reopens the Control Center. Quit with **Ctrl+Q**.
+- Each window updates on its own `WithAsyncWindowThread` loop; the whole app is Spectre-free.
 
-**What makes it unique:** Each window has its own async update thread running independently.
+**What makes it unique:** a genuine multi-window terminal *application* — not a demo of a single
+control — showcasing the compositor, real-time charts, a virtualized data grid, and per-window async
+threads together on one polished desktop.
 
 ---
 
