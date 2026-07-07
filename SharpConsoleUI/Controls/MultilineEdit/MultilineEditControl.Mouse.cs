@@ -92,7 +92,16 @@ namespace SharpConsoleUI.Controls
 
 			// --- Scrollbar click detection (before text handling) ---
 
-			if (args.HasFlag(MouseFlags.Button1Pressed) && HasFocus)
+			// Skip scrollbar interaction while a text drag-selection is already in progress. SGR mouse format
+			// re-sends Button1Pressed for every motion-while-held event, so a slow downward drag-select that
+			// steps onto the horizontal-scrollbar row (which sits at the viewport bottom) would otherwise be
+			// mistaken for a scrollbar thumb-press — flipping _isHorizontalScrollbarDragging on so every
+			// subsequent event is hijacked into horizontal scrolling instead of extending the selection. That
+			// froze the drag Y at the last in-viewport row, so drag-autoscroll never fired. A FAST drag that
+			// jumps over the scrollbar row never lands on it and works, hence "down-autoscroll needs high
+			// velocity". Once a drag-select has started, the pointer crossing the scrollbar area must fall
+			// through to the drag-extend/autoscroll path below.
+			if (args.HasFlag(MouseFlags.Button1Pressed) && HasFocus && !_isDragging)
 			{
 				// Vertical scrollbar interaction
 				if (IsOnVerticalScrollbar(args.Position.X))
@@ -192,8 +201,10 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			// Consume other mouse events on scrollbar areas to prevent text cursor positioning
-			if (args.HasAnyFlag(MouseFlags.Button1Clicked, MouseFlags.Button1Released,
+			// Consume other mouse events on scrollbar areas to prevent text cursor positioning — but NOT while a
+			// text drag-selection is in progress, so a drag crossing the scrollbar row falls through to the
+			// drag-extend/autoscroll path (see the _isDragging note on the scrollbar-interaction block above).
+			if (!_isDragging && args.HasAnyFlag(MouseFlags.Button1Clicked, MouseFlags.Button1Released,
 				MouseFlags.Button1DoubleClicked, MouseFlags.Button1TripleClicked,
 				MouseFlags.Button1Dragged))
 			{
