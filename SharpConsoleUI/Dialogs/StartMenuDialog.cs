@@ -189,7 +189,11 @@ public static class StartMenuDialog
 			? PortalPlacement.AboveOrBelow
 			: PortalPlacement.BelowOrAbove;
 
-		var anchorY = isBottom ? availableHeight : 0;
+		// For a bottom-panel (taskbar) element, anchor at the last usable desktop row so the menu's
+		// "Above" placement ends its bottom border on that row — directly above the bottom bar. Using
+		// availableHeight (one past the last row) would push the border onto the bottom-bar row, where
+		// the desktop clip drops it.
+		var anchorY = isBottom ? availableHeight - 1 : 0;
 		var anchorInDesktop = new Rectangle(
 			startBounds.X, anchorY,
 			startBounds.Width, 1);
