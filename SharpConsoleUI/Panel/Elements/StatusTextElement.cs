@@ -76,8 +76,10 @@ public class StatusTextElement : PanelElement
 	/// <inheritdoc/>
 	public override bool ProcessMouseEvent(Events.MouseEventArgs args, int elementX, int elementWidth)
 	{
-		if (ClickHandler != null &&
-			(args.HasFlag(Drivers.MouseFlags.Button1Pressed) || args.HasFlag(Drivers.MouseFlags.Button1Clicked)))
+		// Fire on Button1Clicked ONLY. A single physical click arrives as two dispatches —
+		// [Button1Pressed] then [Button1Released, Button1Clicked] — so also firing on Pressed ran the
+		// handler twice per click. Button1Clicked is the canonical single-click flag.
+		if (ClickHandler != null && args.HasFlag(Drivers.MouseFlags.Button1Clicked))
 		{
 			ClickHandler();
 			return true;
