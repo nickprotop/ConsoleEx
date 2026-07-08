@@ -86,7 +86,10 @@ namespace SharpConsoleUI.Input
 			{
 				var keyInfo = key.Value;
 
-				// Desktop portals capture all keyboard input when open
+				// Desktop portals capture keyboard input when open. The portal's content gets the key
+				// first (nav / type-ahead / Enter); a key it does NOT consume falls through to global
+				// shortcuts, so app-level shortcuts still work with a portal open (e.g. to toggle/switch
+				// portals). Escape closes the top portal. The portal always consumes the frame (continue).
 				if (_context.DesktopPortalService.HasPortals)
 				{
 					var topPortal = _context.DesktopPortalService.TopPortal;
@@ -96,6 +99,10 @@ namespace SharpConsoleUI.Input
 						if (topPortal.Content is Controls.IInteractiveControl interactive)
 						{
 							handled = interactive.ProcessKey(keyInfo);
+						}
+						if (!handled)
+						{
+							handled = _context.TryHandleGlobalShortcut(keyInfo);
 						}
 						if (!handled && keyInfo.Key == ConsoleKey.Escape)
 						{
