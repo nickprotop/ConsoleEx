@@ -26,4 +26,14 @@ Each tutorial is self-contained — you can start any one without completing the
 
 ---
 
-[Back to Documentation](../../README.md#tutorials)
+## Contributing to SharpConsoleUI?
+
+Want to build *for* the framework — a new control, theme, or dialog — instead of an app? The **[Contributor Tutorials](contributing/README.md)** take you from zero to an open pull request:
+
+- **[Composite Controls](contributing/01-composite-controls.md)** — the safest first contribution.
+- **[Adding a Control](contributing/02-adding-a-control.md)** — build a primitive from scratch.
+- **[Dialogs](contributing/03-dialogs.md)** — extend the dialog system additively.
+
+---
+
+[Back to Documentation](../../README.md)

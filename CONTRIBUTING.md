@@ -33,6 +33,10 @@ the full set of standards your code will be reviewed against. The highlights:
 - Keep files under the size limits, render Unicode-correctly, and marshal UI mutations to
   the UI thread — details and examples in [`docs/CODE_QUALITY.md`](docs/CODE_QUALITY.md).
 
+**Want a worked example?** The **[Contributor Tutorials](docs/tutorials/contributing/README.md)** walk
+you through building a composite control, a primitive control (`BadgeControl`), and a dialog
+(`Dialogs.PickAsync`) end to end — from an empty file to an open PR.
+
 ## Submitting Changes
 
 1. Ensure the solution builds without errors: `dotnet build`
