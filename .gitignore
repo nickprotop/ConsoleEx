@@ -379,3 +379,6 @@ docs/docfx/_site/
 docs/docfx/.manifest
 .lazydotide.workspace
 .worktrees/
+
+# Display-server program: planning corpus (vision, specs, plans, progress) — local-only
+SharpConsoleUI/Server/docs/vision/
