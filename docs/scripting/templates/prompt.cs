@@ -1,5 +1,5 @@
 #!/usr/bin/env dotnet
-#:package SharpConsoleUI@2.5.10
+#:package SharpConsoleUI@2.5.11
 
 // prompt.cs — Text input with optional password masking.
 //
