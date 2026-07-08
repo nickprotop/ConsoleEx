@@ -576,8 +576,8 @@ namespace SharpConsoleUI.Controls
 
 				if (scrollbarHeight > 0)
 				{
-					Color thumbColor = HasFocus ? Color.Cyan1 : Color.Grey;
-					Color trackColor = HasFocus ? Color.Grey : Color.Grey23;
+					Color thumbColor = ResolveScrollbarThumbColor();
+					Color trackColor = ResolveScrollbarTrackColor();
 					ScrollbarHelper.DrawVerticalScrollbar(
 						buffer, scrollbarX, scrollbarStartY, scrollbarHeight,
 						items.Count, effectiveMaxVisibleItems, scrollOffset,

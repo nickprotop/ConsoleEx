@@ -429,6 +429,27 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Resolves the scrollbar thumb color from the theme (<see cref="ITheme.ScrollbarThumbColor"/>),
+		/// falling back to the focus-dependent defaults when the theme does not specify one. Mirrors the
+		/// table control so both scrollbars follow the active theme instead of hardcoded colors.
+		/// </summary>
+		internal Color ResolveScrollbarThumbColor()
+		{
+			var theme = Container?.GetConsoleWindowSystem?.Theme;
+			return theme?.ScrollbarThumbColor ?? (HasFocus ? Color.Cyan1 : Color.Grey);
+		}
+
+		/// <summary>
+		/// Resolves the scrollbar track color from the theme (<see cref="ITheme.ScrollbarTrackColor"/>),
+		/// falling back to the focus-dependent defaults when the theme does not specify one.
+		/// </summary>
+		internal Color ResolveScrollbarTrackColor()
+		{
+			var theme = Container?.GetConsoleWindowSystem?.Theme;
+			return theme?.ScrollbarTrackColor ?? (HasFocus ? Color.Grey : Color.Grey23);
+		}
+
+		/// <summary>
 		/// Gets or sets whether the list control is enabled and can be interacted with.
 		/// </summary>
 		public bool IsEnabled
