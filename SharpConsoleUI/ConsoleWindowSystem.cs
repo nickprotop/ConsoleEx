@@ -704,9 +704,16 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the bottom-right coordinate of the usable desktop area (excluding status bars).
 		/// </summary>
+		/// <remarks>
+		/// The Y coordinate is the last desktop row above the bottom status bar. The top status bar
+		/// only shifts where the desktop <em>starts</em> (<see cref="DesktopUpperLeft"/>.Y), not where it
+		/// ends, so only the bottom-bar height is subtracted here — subtracting the top-bar height too
+		/// (as an earlier version did) reported the bottom one row short per top-bar row, clipping desktop
+		/// portals and mis-clamping windows against the bottom edge.
+		/// </remarks>
 		public Point DesktopBottomRight => new Point(
 			_consoleDriver.ScreenSize.Width - 1,
-			Math.Max(Render.GetTopStatusHeight(), _consoleDriver.ScreenSize.Height - 1 - Render.GetTopStatusHeight() - Render.GetBottomStatusHeight()));
+			Math.Max(Render.GetTopStatusHeight(), _consoleDriver.ScreenSize.Height - 1 - Render.GetBottomStatusHeight()));
 
 		/// <summary>
 		/// Gets the dimensions of the usable desktop area (excluding status bars).
