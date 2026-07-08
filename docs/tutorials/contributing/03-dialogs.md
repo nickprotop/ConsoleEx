@@ -162,7 +162,7 @@ Notes on the real APIs used:
 - `Ctl.List()` returns a `ListBuilder`. `AddItem(string text, object? tag = null)` attaches your source item to the row via `ListItem.Tag`, and `OnItemActivated(EventHandler<ListItem>)` fires when a row is activated. These are the real builder methods — verify them in `SharpConsoleUI/Builders/ListBuilder.cs`.
 - The picker has **no OK button** — activating a list row *is* the affirmative action (exactly like pressing Enter in `PromptContent`'s field). The only button is Cancel, so the bottom band is a one-button toolbar like `ProgressContent`'s.
 
-> **Reactive-contract note:** this class is dialog plumbing — it configures controls through their builders and never defines a control property setter. If you ever *do* add a property to a control while wiring a dialog, it must go through `SetProperty(ref _field, value)`, never a hand-rolled `set { _field = value; ... }`. See CLAUDE.md rule #5b. It doesn't arise here, but keep it in mind.
+> **Reactive-contract note:** this class is dialog plumbing — it configures controls through their builders and never defines a control property setter. If you ever *do* add a property to a control while wiring a dialog, it must go through `SetProperty(ref _field, value)`, never a hand-rolled `set { _field = value; ... }`. See [patterns.md](../../patterns.md). It doesn't arise here, but keep it in mind.
 
 ## Step 3: The `Dialogs.PickAsync<T>` entry point
 
@@ -277,7 +277,7 @@ public class PickAsyncTests
 }
 ```
 
-Then add the **positive** "real thing" test — launch the real modal and drive a real row activation, then assert the awaited value equals the chosen item. The point of the "real thing" rule (see CLAUDE.md) is that the test exercises the actual dialog path — `PickAsync` → `ShowContentModal` → a live modal window — not an isolated `PickContent` in a vacuum. Locate the list by its `"flow-pick-list"` name (`Window.FindControl` exists in `Window.Controls.cs`), select a row, and drive activation through the **real input path** so the list's `ItemActivated` fires exactly as it would for a user:
+Then add the **positive** "real thing" test — launch the real modal and drive a real row activation, then assert the awaited value equals the chosen item. The point of a "real thing" test (see the testing guidance in [CODE_QUALITY.md](../../CODE_QUALITY.md)) is that it exercises the actual dialog path — `PickAsync` → `ShowContentModal` → a live modal window — not an isolated `PickContent` in a vacuum. Locate the list by its `"flow-pick-list"` name (`Window.FindControl` exists in `Window.Controls.cs`), select a row, and drive activation through the **real input path** so the list's `ItemActivated` fires exactly as it would for a user:
 
 ```csharp
 [Fact]
@@ -302,7 +302,7 @@ public async Task ActivateItem_ResolvesToThatItem()
 }
 ```
 
-> **Point-at-reference:** `ListControl` has no public "activate the selected row" method — activation is raised internally from the keyboard/mouse handlers (`ListControl.Keyboard.cs` / `ListControl.Mouse.cs` invoke `ItemActivated`). So the affirmative test must reach activation through the **real input path** (enqueue an Enter key and pump input), exactly as the CLAUDE.md "real thing" rule prescribes and as the existing List tests already do. Before writing the test, open a current `ListControl` test and copy its precise key-injection helper — do not invent an `Activate...()` method. The load-bearing shape is fixed: launch the real `PickAsync`, drive the real modal via real input, `await` the returned task, assert the value survives.
+> **Point-at-reference:** `ListControl` has no public "activate the selected row" method — activation is raised internally from the keyboard/mouse handlers (`ListControl.Keyboard.cs` / `ListControl.Mouse.cs` invoke `ItemActivated`). So the affirmative test must reach activation through the **real input path** (enqueue an Enter key and pump input), exactly as a "real thing" test should (see [CODE_QUALITY.md](../../CODE_QUALITY.md)) and as the existing List tests already do. Before writing the test, open a current `ListControl` test and copy its precise key-injection helper — do not invent an `Activate...()` method. The load-bearing shape is fixed: launch the real `PickAsync`, drive the real modal via real input, `await` the returned task, assert the value survives.
 
 ## Step 6: The additive discipline
 

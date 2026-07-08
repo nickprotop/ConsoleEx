@@ -113,7 +113,7 @@ Why this exact form matters. `SetProperty` (defined on `BaseControl`, `SharpCons
 2. **Raises `INotifyPropertyChanged`** (`OnPropertyChanged`) — so data-bound consumers see the change.
 3. **Self-invalidates** — calls `Invalidate(Invalidation.Relayout)` on the control itself, which schedules a re-measure and repaint.
 
-That third step is *why the framework is reactive at the property boundary*: assigning `badge.Count = 5` makes the UI update on its own. You never write an `Invalidate` call for a property change. This is CLAUDE.md rule #5b (see also [patterns.md](../../patterns.md)).
+That third step is *why the framework is reactive at the property boundary*: assigning `badge.Count = 5` makes the UI update on its own. You never write an `Invalidate` call for a property change. See [patterns.md](../../patterns.md) for the full property/invalidation contract.
 
 > **Do NOT hand-roll `Container?.Invalidate(...)` in a setter.** A setter that pokes the container directly (`set { _count = value; Container?.Invalidate(true); }`) bypasses the change-guard and the notification, and invalidates the wrong node. It is rejected in review. Invalidate *`this`* via `SetProperty`; the framework forwards identity for you.
 
@@ -133,7 +133,7 @@ First, a small helper for the rendered pill text and its display width — we'll
     private int PillWidth() => UnicodeWidth.GetStringWidth(PillText());
 ```
 
-Note we measure with `UnicodeWidth.GetStringWidth` (`SharpConsoleUI/Helpers/UnicodeWidth.cs`), **not** `PillText().Length`. `string.Length` counts UTF-16 code units, not terminal columns — it's wrong for wide and combining characters (CLAUDE.md rule #12B). For an all-ASCII pill the two happen to agree, but using the correct API from the start means the control stays correct if the format ever gains a wide glyph.
+Note we measure with `UnicodeWidth.GetStringWidth` (`SharpConsoleUI/Helpers/UnicodeWidth.cs`), **not** `PillText().Length`. `string.Length` counts UTF-16 code units, not terminal columns — it's wrong for wide and combining characters (see the Unicode-aware rendering rules in [CODE_QUALITY.md](../../CODE_QUALITY.md)). For an all-ASCII pill the two happen to agree, but using the correct API from the start means the control stays correct if the format ever gains a wide glyph.
 
 Now the three `BaseControl` overrides. `ContentWidth` reports the intrinsic width; `GetLogicalContentSize` reports intrinsic size including margins; `MeasureDOM` clamps that into the constraints. These mirror `SpinnerControl` exactly:
 
@@ -185,7 +185,7 @@ The paint signature is fixed by `IDOMPaintable` — copy it character-for-charac
 
         // The pill is literal narrow ASCII ("[ 3 ]"), so write each cell with
         // SetNarrowCell — it assumes width-1 and is the correct API for literal
-        // narrow characters (CLAUDE.md #12A).
+        // narrow characters.
         string text = PillText();
         foreach (var rune in text.EnumerateRunes())
         {
@@ -197,7 +197,7 @@ The paint signature is fixed by `IDOMPaintable` — copy it character-for-charac
     }
 ```
 
-Two rules from the buffer-write contract (CLAUDE.md rule #12) are load-bearing here:
+Two rules from the buffer-write contract (see the Unicode-aware rendering section of [CODE_QUALITY.md](../../CODE_QUALITY.md)) are load-bearing here:
 
 - **Color comes from the role, not a literal.** `ColorResolver.ColorRoleForeground(...)` (`SharpConsoleUI/Helpers/ColorResolver.cs`) derives the color from the active theme's palette for the chosen `ColorRole` — so a `Danger` badge is red *in whatever the current theme calls red*, and it re-themes for free. This is the identical call `SpinnerControl.PaintDOM` makes. Never write `Color.Red` in a control. See [THEMES.md](../../THEMES.md).
 - **Literal narrow chars use `SetNarrowCell`.** `SetNarrowCell` assumes a width-1 character and clears cell flags — correct for the brackets, spaces, and ASCII digits of the pill. The other API, `buffer.SetCell(x, y, cell)`, is for cells that came out of `MarkupParser.Parse` (which already carries wide-continuation flags). If your text could contain markup or wide glyphs, you'd parse it instead — that's what `SpinnerControl` does for its (possibly marked-up) frames:

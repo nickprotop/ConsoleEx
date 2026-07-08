@@ -138,7 +138,7 @@ public string Value
 }
 ```
 
-This is the **reactive property contract** every control setter in the codebase follows: `SetProperty` change-guards (returns `false` and bails when the value is unchanged), raises `INotifyPropertyChanged`, and invalidates — so you never call `Invalidate` by hand. Only after it confirms a real change do you write the new text through to the child. It matches how `ChatTranscriptControl.MessagesSelectable` does `if (!SetProperty(ref _field, value)) return;` before writing through to its children. `SetProperty` is available because the composite subclasses a `BaseControl`-derived container. See [patterns.md](../../patterns.md) and CLAUDE.md rule #5b for the full contract.
+This is the **reactive property contract** every control setter in the codebase follows: `SetProperty` change-guards (returns `false` and bails when the value is unchanged), raises `INotifyPropertyChanged`, and invalidates — so you never call `Invalidate` by hand. Only after it confirms a real change do you write the new text through to the child. It matches how `ChatTranscriptControl.MessagesSelectable` does `if (!SetProperty(ref _field, value)) return;` before writing through to its children. `SetProperty` is available because the composite subclasses a `BaseControl`-derived container. See [patterns.md](../../patterns.md) for the full contract.
 
 ## Step 4: Add a `Controls.LabeledValue(...)` builder
 
