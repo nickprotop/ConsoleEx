@@ -21,6 +21,25 @@ dotnet run --project Examples/<ExampleName>
 
 Production applications built with SharpConsoleUI.
 
+### cxnet
+Real-time network throughput monitor for the terminal.
+
+![cxnet demo](images/examples/cxnet-demo.gif)
+
+**Project:** [github.com/nickprotop/cxnet](https://github.com/nickprotop/cxnet)
+
+Live download/upload throughput rendered as Braille waveforms, with session peaks, daily totals, per-interface selection, and a border that pulses with your transfer speed — over an alpha-blended, animated desktop background.
+
+**SharpConsoleUI features on show:**
+- Overlapping windows with a real compositor and a per-cell alpha-blended desktop background (the Matrix rain shows *through* the translucent monitor window)
+- Bordered pop-over pickers (portals) for themes, connections, and interfaces
+- A per-interface `TableControl` with columns, separators, and a scrollbar
+- A live sparkline/waveform driven by an async per-window render loop
+
+![cxnet still](images/examples/cxnet-hero.png)
+
+---
+
 ### ServerHub
 Production-ready Linux server control panel.
 

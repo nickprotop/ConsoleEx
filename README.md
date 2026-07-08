@@ -198,6 +198,13 @@ Multi-account IMAP/SMTP, conversation threading, HTML rendering, attachments, of
 ntop/btop-inspired. Hardware identity dashboard, sparkline graphs, process management. Cross-platform.
 [github.com/nickprotop/cxtop](https://github.com/nickprotop/cxtop)
 
+### cxnet — network throughput monitor
+
+![cxnet](docs/images/examples/cxnet-demo.gif)
+
+Live download/upload Braille waveforms, session peaks and daily totals, per-interface pickers, a speed-reactive border — over an alpha-blended, animated desktop background. Cross-platform.
+[github.com/nickprotop/cxnet](https://github.com/nickprotop/cxnet)
+
 ### LazyDotIDE — a .NET IDE in the terminal
 
 ![LazyDotIDE with IntelliSense](docs/images/examples/lazydotide-intellisense.png)
