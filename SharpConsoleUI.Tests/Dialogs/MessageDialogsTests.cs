@@ -279,7 +279,8 @@ public class MessageDialogsTests
 				// Block until the CancellationToken fires
 				await Task.Delay(System.TimeSpan.FromSeconds(30), ct);
 				return 99;
-			});
+			},
+			allowMarkup: false);
 		var root = content.BuildContent(new FlowChrome("Title"));
 
 		var win = new WindowBuilder(sys).WithTitle("Test").WithSize(60, 14).Build();
@@ -307,7 +308,8 @@ public class MessageDialogsTests
 				// Block until cancelled
 				await Task.Delay(System.TimeSpan.FromSeconds(30), ct);
 				return 99;
-			});
+			},
+			allowMarkup: false);
 		var root = content.BuildContent(new FlowChrome("Title"));
 
 		var win = new WindowBuilder(sys).WithTitle("Test").WithSize(60, 14).Build();

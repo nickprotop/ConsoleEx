@@ -171,7 +171,11 @@ namespace SharpConsoleUI.Flows
 			Func<CancellationToken, IProgress<string>, Task<TResult>> work)
 		{
 			// The primitive owns its own Cancel button → empty button row.
-			var content = new ProgressContent<TResult>(_ws, description, work);
+			var content = new ProgressContent<TResult>(
+				_ws,
+				description,
+				(ct, p) => work(ct, new StringProgressAdapter(p)),
+				allowMarkup: false);
 			var chrome = new FlowChrome(title, Indicator(), widthHint: 54, autoSizeHeight: true);
 			var outcome = await _host.PresentAsync(content, chrome, Token).ConfigureAwait(false);
 			return outcome.Value!;
@@ -213,6 +217,18 @@ namespace SharpConsoleUI.Flows
 				return (StepIndex, count);
 
 			return StepIndex == 0 ? null : (StepIndex, (int?)null);
+		}
+
+		/// <summary>
+		/// Permanent bridge that adapts an <see cref="IProgress{ProgressUpdate}"/> as an
+		/// <see cref="IProgress{String}"/> so the public string-based <see cref="RunWithProgress{TResult}"/>
+		/// overload maps each reported message to a message-only update.
+		/// </summary>
+		private sealed class StringProgressAdapter : System.IProgress<string>
+		{
+			private readonly System.IProgress<Dialogs.ProgressUpdate> _inner;
+			public StringProgressAdapter(System.IProgress<Dialogs.ProgressUpdate> inner) => _inner = inner;
+			public void Report(string value) => _inner.Report(new Dialogs.ProgressUpdate(message: value));
 		}
 	}
 }

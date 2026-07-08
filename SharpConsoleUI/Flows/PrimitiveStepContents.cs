@@ -88,7 +88,7 @@ namespace SharpConsoleUI.Flows
 		internal static IReadOnlyList<IWindowControl> BuildTopBand(FlowChrome chrome)
 		{
 			if (chrome.UseProgressGlyph)
-				return BuildTopBand(chrome, ColorRole.Primary, ControlDefaults.FlowGlyphProgress);
+				return BuildTopBand(chrome, ColorRole.Primary, ControlDefaults.FlowSpinnerMarkup);
 
 			return BuildTopBand(chrome, SeverityToRole(chrome.Severity), SeverityToGlyph(chrome.Severity));
 		}
@@ -422,11 +422,19 @@ namespace SharpConsoleUI.Flows
 	{
 		private readonly TaskCompletionSource<T?> _tcs = new();
 		private readonly string _description;
-		private readonly Func<CancellationToken, IProgress<string>, Task<T>> _work;
+		private readonly Func<CancellationToken, IProgress<Dialogs.ProgressUpdate>, Task<T>> _work;
 		private readonly ConsoleWindowSystem _ws;
 		private readonly CancellationTokenSource _cts = new();
 		private readonly NotificationSeverityEnum _severity = NotificationSeverityEnum.Info;
+		private readonly bool _allowMarkup;
 		private MarkupControl? _status;
+		private ProgressBarControl? _bar;
+
+		/// <summary>The status line control (test/inspection accessor).</summary>
+		internal MarkupControl? Status => _status;
+
+		/// <summary>The progress bar control, hidden until a fraction/mode is first reported (test accessor).</summary>
+		internal ProgressBarControl? Bar => _bar;
 
 		/// <summary>
 		/// Initializes a new <see cref="ProgressContent{T}"/>.
@@ -435,16 +443,19 @@ namespace SharpConsoleUI.Flows
 		/// <param name="description">Initial status text displayed below the accent rule.</param>
 		/// <param name="work">
 		/// The async work to run on a background thread. Receives a <see cref="CancellationToken"/>
-		/// and an <see cref="IProgress{T}"/> that updates the status line on the UI thread.
+		/// and an <see cref="IProgress{T}"/> that updates the bar/status on the UI thread.
 		/// </param>
+		/// <param name="allowMarkup">When <c>true</c>, status text is rendered as markup; otherwise escaped.</param>
 		public ProgressContent(
 			ConsoleWindowSystem ws,
 			string description,
-			Func<CancellationToken, IProgress<string>, Task<T>> work)
+			Func<CancellationToken, IProgress<Dialogs.ProgressUpdate>, Task<T>> work,
+			bool allowMarkup)
 		{
 			_ws = ws;
 			_description = description;
 			_work = work;
+			_allowMarkup = allowMarkup;
 		}
 
 		/// <inheritdoc/>
@@ -470,24 +481,34 @@ namespace SharpConsoleUI.Flows
 		/// </remarks>
 		public IWindowControl BuildContent(FlowChrome chrome)
 		{
-			// Live status line fed by IProgress<string>
+			// Determinate/indeterminate progress bar — hidden until the first Fraction/Indeterminate
+			// arrives, so a message-only (spinner-only) dialog looks exactly like before. ColorRole.Primary
+			// keeps the fill matching the dialog's Primary accent rule + [spinner] (theme-consistent).
+			_bar = Ctl.ProgressBar()
+				.WithName("flow-progress-bar")
+				.WithMaxValue(1.0)
+				.ShowPercentage(true)
+				.Stretch()
+				.WithColorRole(ColorRole.Primary)
+				.WithMargin(1, 1, 1, 0)
+				.Build();
+			_bar.Visible = false;
+
+			// Live status line. Honours _allowMarkup: escape by default, raw when opted in.
 			_status = Ctl.Markup()
-				.AddLine(MarkupParser.Escape(_description))
+				.AddLine(FormatText(_description))
 				.WithMargin(1, 1, 1, 1)
 				.Build();
 
-			// Progress reporter: marshals status updates to the UI thread
-			var progress = new Progress<string>(msg => _ws.EnqueueOnUIThread(() =>
-				_status!.SetContent(new System.Collections.Generic.List<string> { MarkupParser.Escape(msg) })));
+			// Progress reporter: marshals each update to the UI thread and applies non-null fields.
+			var progress = new Progress<Dialogs.ProgressUpdate>(u =>
+				_ws.EnqueueOnUIThread(() => ApplyUpdate(u)));
 
-			// Start work on a background thread
 			_ = Task.Run(async () =>
 			{
 				try
 				{
 					var r = await _work(_cts.Token, progress).ConfigureAwait(false);
-					// Resolve TCS directly — thread-safe; the modal close is marshalled by ShowContentModal's
-					// ContinueWith → EnqueueOnUIThread hook, not here.
 					_tcs.TrySetResult(r);
 				}
 				catch (OperationCanceledException)
@@ -501,12 +522,42 @@ namespace SharpConsoleUI.Flows
 				}
 			});
 
-			// Scrollable body: description + live status, filling the window content height so the
-			// StickyBottom band anchors to the true window bottom (no blank rows below it).
+			// Scrollable body: bar (hidden until shown) + live status, filling the content height so the
+			// StickyBottom band anchors to the true window bottom.
 			return Ctl.ScrollablePanel()
 				.WithVerticalAlignment(VerticalAlignment.Fill)
+				.AddControl(_bar)
 				.AddControl(_status)
 				.Build();
+		}
+
+		/// <summary>Escapes text unless the dialog opted into markup.</summary>
+		private string FormatText(string text) => _allowMarkup ? text : MarkupParser.Escape(text);
+
+		/// <summary>
+		/// Applies one <see cref="Dialogs.ProgressUpdate"/> to the bar/status. MUST run on the UI thread
+		/// (the reporter marshals via EnqueueOnUIThread). Only non-null fields take effect; nulls leave
+		/// that element unchanged. Fraction is clamped to [0,1].
+		/// </summary>
+		internal void ApplyUpdate(Dialogs.ProgressUpdate update)
+		{
+			if (update.Indeterminate is { } ind && _bar is not null)
+			{
+				_bar.IsIndeterminate = ind;
+				_bar.Visible = true;
+			}
+
+			if (update.Fraction is { } f && _bar is not null)
+			{
+				_bar.IsIndeterminate = false;
+				_bar.Value = System.Math.Clamp(f, 0.0, 1.0);
+				_bar.Visible = true;
+			}
+
+			if (update.Message is { } msg && _status is not null)
+			{
+				_status.SetContent(new System.Collections.Generic.List<string> { FormatText(msg) });
+			}
 		}
 
 		/// <summary>StickyBottom band: ruler + right-aligned toolbar holding the Cancel button.</summary>

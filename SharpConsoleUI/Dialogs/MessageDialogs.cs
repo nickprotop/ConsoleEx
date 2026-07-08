@@ -262,10 +262,9 @@ namespace SharpConsoleUI.Dialogs
 		}
 
 		/// <summary>
-		/// Shows a modal progress dialog that runs <paramref name="work"/> on a background thread
-		/// while displaying a live status line. Returns the work's result when it completes,
-		/// <c>default(T)</c> when cancelled (user clicks Cancel or dismisses), or re-throws
-		/// if the work throws.
+		/// Runs async <paramref name="work"/> behind a modal progress dialog with an animated spinner, an
+		/// optional determinate/indeterminate progress bar, and a live status line. Report progress via the
+		/// <see cref="ProgressUpdate"/> reporter: each field is optional and only non-null fields take effect.
 		/// </summary>
 		/// <typeparam name="T">The type produced by the work function.</typeparam>
 		/// <param name="windowSystem">The window system to host the dialog in.</param>
@@ -273,7 +272,12 @@ namespace SharpConsoleUI.Dialogs
 		/// <param name="description">Initial status text shown below the progress rule.</param>
 		/// <param name="work">
 		/// The async work to run. Receives a <see cref="CancellationToken"/> (honoured by Cancel/dismiss)
-		/// and an <see cref="IProgress{T}">IProgress&lt;string&gt;</see> that updates the status line.
+		/// and an <see cref="IProgress{T}">IProgress&lt;ProgressUpdate&gt;</see> reporter for the spinner,
+		/// progress bar, and status line.
+		/// </param>
+		/// <param name="allowMarkup">
+		/// When <c>true</c>, the <paramref name="description"/> and every status message render as markup
+		/// (the caller owns escaping untrusted fragments). When <c>false</c> (default), they are escaped.
 		/// </param>
 		/// <param name="parent">
 		/// Optional parent window. When provided the dialog is modal to that window only.
@@ -285,10 +289,11 @@ namespace SharpConsoleUI.Dialogs
 			ConsoleWindowSystem windowSystem,
 			string title,
 			string description,
-			Func<CancellationToken, IProgress<string>, Task<T>> work,
+			Func<CancellationToken, IProgress<ProgressUpdate>, Task<T>> work,
+			bool allowMarkup = false,
 			Window? parent = null)
 		{
-			var content = new ProgressContent<T>(windowSystem, description, work);
+			var content = new ProgressContent<T>(windowSystem, description, work, allowMarkup);
 			// useProgressGlyph: the host top-band builder renders the ⟳ spinner on a Primary rule, which the
 			// NotificationSeverityEnum set does not model.
 			var chrome = new FlowChrome(
@@ -314,6 +319,25 @@ namespace SharpConsoleUI.Dialogs
 
 			return await content.Completion.ConfigureAwait(false);
 		}
+
+		/// <summary>
+		/// Message-only progress overload (preserved for backward compatibility). Delegates to the
+		/// <see cref="ProgressUpdate"/> overload with markup disabled; each reported string becomes an
+		/// indeterminate, escaped status update — identical to the historical behaviour.
+		/// </summary>
+		public static Task<T?> RunWithProgressAsync<T>(
+			ConsoleWindowSystem windowSystem,
+			string title,
+			string description,
+			Func<CancellationToken, IProgress<string>, Task<T>> work,
+			Window? parent = null)
+			=> RunWithProgressAsync<T>(
+				windowSystem,
+				title,
+				description,
+				(ct, updateProgress) => work(ct, new StringProgressAdapter(updateProgress)),
+				allowMarkup: false,
+				parent: parent);
 
 		/// <summary>
 		/// Shared modal-window plumbing used by all primitive dialogs.
@@ -382,5 +406,16 @@ namespace SharpConsoleUI.Dialogs
 		}
 
 		internal static string FormatTitle(FlowChrome chrome) => FlowChromeFormat.FormatTitle(chrome);
+
+		/// <summary>
+		/// Adapts an <see cref="IProgress{ProgressUpdate}"/> as an <see cref="IProgress{String}"/> so the
+		/// legacy string-based progress overload maps each message to a message-only update.
+		/// </summary>
+		private sealed class StringProgressAdapter : System.IProgress<string>
+		{
+			private readonly System.IProgress<ProgressUpdate> _inner;
+			public StringProgressAdapter(System.IProgress<ProgressUpdate> inner) => _inner = inner;
+			public void Report(string value) => _inner.Report(new ProgressUpdate(message: value));
+		}
 	}
 }

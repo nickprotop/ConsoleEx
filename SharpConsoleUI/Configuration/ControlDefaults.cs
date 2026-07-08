@@ -1103,6 +1103,13 @@ namespace SharpConsoleUI.Configuration
 		/// <summary>Glyph for the Progress dialog — a clockwise open circle arrow (U+27F3, narrow).</summary>
 		public const string FlowGlyphProgress = "⟳";
 
+		/// <summary>
+		/// Markup emitted for the progress dialog's title-band spinner. Unlike the static
+		/// <see cref="FlowGlyphProgress"/> glyph, the <c>[spinner]</c> tag is animated by the render loop
+		/// (via MarkupSpinnerClock) with no per-control timer.
+		/// </summary>
+		public const string FlowSpinnerMarkup = "[spinner]";
+
 		/// <summary>Fraction toward black used to dim a flow window's inactive border relative to its active (role) border.</summary>
 		public const double FlowInactiveBorderShade = 0.35;
 
