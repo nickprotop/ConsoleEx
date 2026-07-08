@@ -104,6 +104,15 @@ namespace SharpConsoleUI.Input
 						{
 							handled = _context.TryHandleGlobalShortcut(keyInfo);
 						}
+						// The configured exit key (default Ctrl+Q) is a quit-from-anywhere shortcut — it
+						// must work with a portal open too, not be swallowed by the portal capture.
+						if (!handled && _context.Options.ExitKey.HasValue
+							&& (keyInfo.Modifiers & ConsoleModifiers.Control) != 0
+							&& keyInfo.Key == _context.Options.ExitKey.Value)
+						{
+							_context.RequestExit(0);
+							handled = true;
+						}
 						if (!handled && keyInfo.Key == ConsoleKey.Escape)
 						{
 							_context.DesktopPortalService.RemovePortal(topPortal);
