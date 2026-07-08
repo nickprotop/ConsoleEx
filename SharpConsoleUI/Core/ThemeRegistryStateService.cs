@@ -105,7 +105,16 @@ namespace SharpConsoleUI.Core
 			if (name == null)
 				return null;
 
-			return _themes.TryGetValue(name, out var info) ? info.Factory() : null;
+			if (!_themes.TryGetValue(name, out var info))
+				return null;
+
+			var theme = info.Factory();
+			// Stamp the registration name onto the produced theme so CurrentTheme.Name reflects the
+			// theme the caller asked for. Palette/generated themes otherwise report a generic name
+			// (e.g. "Custom (Palette)"), which breaks name-based lookups like "is this the current theme".
+			if (theme is MutableTheme mutable)
+				mutable.NameValue = name;
+			return theme;
 		}
 
 		/// <summary>Gets the named theme, or <paramref name="defaultTheme"/> if not registered.</summary>
