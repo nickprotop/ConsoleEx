@@ -24,6 +24,15 @@ namespace SharpConsoleUI.Core
 		private readonly Stack<Window?> _savedActiveWindows = new();
 		private int _nextZOrder;
 
+		// Portal state is mutated from BOTH the UI/render thread (CreatePortal/RemovePortal via the key
+		// loop; HasPortals/AnyPortalDirty reads from the render loop) AND the driver's mouse thread
+		// (click-outside → DismissAllPortals; HitTest). Without synchronization those unsynchronized
+		// List/Stack accesses race and can corrupt state — e.g. leaving HasPortals stuck true, after
+		// which every key and click is swallowed by the portal input branch while rendering continues.
+		// This lock serialises all access to _portals/_savedActiveWindows. Callbacks that re-enter the
+		// window system (OnDismiss, SetActiveWindow, RestorePortalRegions) run OUTSIDE the lock.
+		private readonly object _portalLock = new();
+
 		/// <summary>
 		/// Initializes a new instance of the DesktopPortalService class.
 		/// </summary>
@@ -40,17 +49,17 @@ namespace SharpConsoleUI.Core
 		/// <summary>
 		/// Gets whether any desktop portals are currently open.
 		/// </summary>
-		public bool HasPortals => _portals.Count > 0;
+		public bool HasPortals { get { lock (_portalLock) { return _portals.Count > 0; } } }
 
 		/// <summary>
 		/// Gets the topmost portal (highest ZOrder), or null if none.
 		/// </summary>
-		public DesktopPortal? TopPortal => _portals.Count > 0 ? _portals[_portals.Count - 1] : null;
+		public DesktopPortal? TopPortal { get { lock (_portalLock) { return _portals.Count > 0 ? _portals[_portals.Count - 1] : null; } } }
 
 		/// <summary>
-		/// Gets a read-only list of all open portals, ordered by ZOrder.
+		/// Gets a snapshot of all open portals, ordered by ZOrder.
 		/// </summary>
-		public IReadOnlyList<DesktopPortal> Portals => _portals.AsReadOnly();
+		public IReadOnlyList<DesktopPortal> Portals { get { lock (_portalLock) { return _portals.ToList(); } } }
 
 		#endregion
 
@@ -65,11 +74,16 @@ namespace SharpConsoleUI.Core
 		{
 			_logService.LogDebug($"Creating desktop portal (DismissOnClick={options.DismissOnClickOutside}, Dim={options.DimBackground})", category: "Portal");
 
-			// Save current active window for focus restoration
-			_savedActiveWindows.Push(_windowSystem.ActiveWindow);
+			// Read the active window outside the lock (it re-enters the window system).
+			var activeWindow = _windowSystem.ActiveWindow;
 
-			var portal = new DesktopPortal(options, _nextZOrder++, _windowSystem);
-			_portals.Add(portal);
+			DesktopPortal portal;
+			lock (_portalLock)
+			{
+				_savedActiveWindows.Push(activeWindow);
+				portal = new DesktopPortal(options, _nextZOrder++, _windowSystem);
+				_portals.Add(portal);
+			}
 
 			_logService.LogDebug($"Desktop portal created: {portal.Id}", category: "Portal");
 			return portal;
@@ -81,31 +95,31 @@ namespace SharpConsoleUI.Core
 		/// <param name="portal">The portal to remove.</param>
 		public void RemovePortal(DesktopPortal portal)
 		{
-			if (!_portals.Remove(portal))
-				return;
+			// Mutate the shared collections under the lock; decide what focus to restore. Re-entrant
+			// callbacks (OnDismiss, RestorePortalRegions, SetActiveWindow) run OUTSIDE the lock.
+			Window? windowToActivate = null;
+			lock (_portalLock)
+			{
+				if (!_portals.Remove(portal))
+					return;
+
+				if (_savedActiveWindows.Count > 0)
+				{
+					var savedWindow = _savedActiveWindows.Pop();
+					// Only restore if no more portals remain.
+					if (_portals.Count == 0 && savedWindow != null)
+						windowToActivate = savedWindow;
+				}
+			}
 
 			_logService.LogDebug($"Removing desktop portal: {portal.Id}", category: "Portal");
 
-			// Invoke dismiss callback
 			portal.OnDismiss?.Invoke();
-
-			// Disconnect content from invalidation chain
 			portal.Content.Container = null;
-
-			// Restore screen regions that were covered by this portal
 			_windowSystem.Render.RestorePortalRegions(portal);
 
-			// Restore focus
-			if (_savedActiveWindows.Count > 0)
-			{
-				var savedWindow = _savedActiveWindows.Pop();
-
-				// Only restore if no more portals remain
-				if (_portals.Count == 0 && savedWindow != null)
-				{
-					_windowSystem.SetActiveWindow(savedWindow);
-				}
-			}
+			if (windowToActivate != null)
+				_windowSystem.SetActiveWindow(windowToActivate);
 
 			_windowSystem.Render.DesktopNeedsRender = true;
 		}
@@ -115,23 +129,24 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public void DismissAllPortals()
 		{
-			if (_portals.Count == 0)
-				return;
-
-			_logService.LogDebug($"Dismissing all desktop portals ({_portals.Count})", category: "Portal");
-
-			// Find the bottom-most saved window (the one before any portals were opened)
+			// Snapshot + clear the shared collections under the lock; run re-entrant callbacks outside it.
 			Window? originalWindow = null;
-			while (_savedActiveWindows.Count > 0)
+			List<DesktopPortal> portalsCopy;
+			lock (_portalLock)
 			{
-				originalWindow = _savedActiveWindows.Pop();
+				if (_portals.Count == 0)
+					return;
+
+				// Drain to the bottom-most saved window (the one before any portals were opened).
+				while (_savedActiveWindows.Count > 0)
+					originalWindow = _savedActiveWindows.Pop();
+
+				portalsCopy = _portals.ToList();
+				_portals.Clear();
 			}
 
-			// Capture portals before clearing
-			var portalsCopy = _portals.ToList();
-			_portals.Clear();
+			_logService.LogDebug($"Dismissing all desktop portals ({portalsCopy.Count})", category: "Portal");
 
-			// Restore screen regions and clean up each portal
 			foreach (var portal in portalsCopy)
 			{
 				portal.OnDismiss?.Invoke();
@@ -139,11 +154,8 @@ namespace SharpConsoleUI.Core
 				_windowSystem.Render.RestorePortalRegions(portal);
 			}
 
-			// Restore original active window
 			if (originalWindow != null)
-			{
 				_windowSystem.SetActiveWindow(originalWindow);
-			}
 
 			_windowSystem.Render.DesktopNeedsRender = true;
 		}
@@ -158,12 +170,15 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public bool AnyPortalDirty()
 		{
-			for (int i = 0; i < _portals.Count; i++)
+			lock (_portalLock)
 			{
-				if (_portals[i].IsDirty)
-					return true;
+				for (int i = 0; i < _portals.Count; i++)
+				{
+					if (_portals[i].IsDirty)
+						return true;
+				}
+				return false;
 			}
-			return false;
 		}
 
 		#endregion
@@ -177,10 +192,17 @@ namespace SharpConsoleUI.Core
 		/// <returns>The topmost portal containing the point, or null.</returns>
 		public DesktopPortal? HitTest(Point point)
 		{
-			// Check in reverse order (topmost first)
-			for (int i = _portals.Count - 1; i >= 0; i--)
+			// Snapshot under the lock (this runs on the mouse thread while the UI thread may mutate).
+			DesktopPortal[] snapshot;
+			lock (_portalLock)
 			{
-				var portal = _portals[i];
+				snapshot = _portals.ToArray();
+			}
+
+			// Check in reverse order (topmost first).
+			for (int i = snapshot.Length - 1; i >= 0; i--)
+			{
+				var portal = snapshot[i];
 				// Check against control bounds, not full portal bounds
 				foreach (var bounds in portal.ControlBounds)
 				{
