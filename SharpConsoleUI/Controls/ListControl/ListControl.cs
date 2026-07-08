@@ -123,10 +123,23 @@ namespace SharpConsoleUI.Controls
 
 		#region Private Helpers
 
-		// Helper to set scroll offset
+		// Helper to set scroll offset. Clamps to the valid range so the last "page" stays full: scrolling
+		// to the end must not push past (item count - visible rows), which would leave blank rows below
+		// the final item. The upper bound uses the last rendered visible-item count; if that is not yet
+		// known (before the first layout/paint) we cannot compute a meaningful max, so only clamp the
+		// lower bound and let the next paint's scroll logic settle it.
 		private void SetScrollOffset(int offset)
 		{
-			_scrollOffset = Math.Max(0, offset);
+			int? visible = _calculatedMaxVisibleItems ?? _maxVisibleItems;
+			if (visible is int v && v > 0)
+			{
+				int maxOffset = Math.Max(0, _items.Count - v);
+				_scrollOffset = Math.Clamp(offset, 0, maxOffset);
+			}
+			else
+			{
+				_scrollOffset = Math.Max(0, offset);
+			}
 		}
 
 		// Helper to get cached text length (expensive operation)
