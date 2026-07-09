@@ -352,15 +352,15 @@ namespace SharpConsoleUI.Controls
 			if (args.HasFlag(MouseFlags.Button1Clicked))
 			{
 				// Focus is already set by FocusManager.HandleClick before ProcessMouseEvent is called.
-				// Toggle checked state (uses property setter to fire CheckedChanged event)
+				// Toggle checked state (uses property setter to fire CheckedChanged event).
+				// The setter self-invalidates, so no explicit Invalidate is needed here (CLAUDE.md rule #5).
 				Checked = !Checked;
 
 				// Fire mouse click event
 				MouseClick?.Invoke(this, args);
 
-				// Mark event as handled and trigger re-render
+				// Mark event as handled
 				args.Handled = true;
-				Invalidate(Invalidation.Repaint);
 
 				return true;
 			}

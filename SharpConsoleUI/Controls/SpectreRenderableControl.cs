@@ -521,7 +521,11 @@ namespace SharpConsoleUI.Controls
 			if (string.IsNullOrEmpty(input))
 				return 0;
 
-			return AnsiEscapePattern.Replace(input, string.Empty).Length;
+			// Return terminal display columns, not UTF-16 code units, so every width consumer
+			// (Measure, ContentWidth, padding, alignment) agrees with the cell count produced by
+			// ParseAnsiToCells — which computes width via UnicodeWidth. Using .Length here miscounts
+			// wide chars (CJK, emoji) and combining marks, bleeding content past the bounds.
+			return Helpers.UnicodeWidth.GetStringWidth(AnsiEscapePattern.Replace(input, string.Empty));
 		}
 
 		private static IEnumerable<Cell> ParseAnsiToCells(string ansiString, Color defaultFg, Color defaultBg)

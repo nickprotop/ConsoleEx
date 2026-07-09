@@ -74,6 +74,25 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
+		/// Collapses embedded line breaks (<c>\r\n</c>, <c>\r</c>, <c>\n</c>) to single spaces.
+		/// Single-line controls (buttons, rules, labels) route text through this before
+		/// <c>MarkupParser.Parse</c> so an embedded newline renders as a space instead of the
+		/// U+FFFD (◆) replacement glyph <see cref="IsUnsafeRune"/> would otherwise emit for U+000A/U+000D.
+		/// Multi-line controls should split on newlines instead of flattening.
+		/// </summary>
+		/// <param name="text">The text to flatten. May be null.</param>
+		/// <returns>The text with line breaks replaced by spaces, or the input unchanged when it contains none.</returns>
+		public static string FlattenNewlines(string text)
+		{
+			// Fast path: the overwhelming majority of single-line labels have no newline,
+			// so avoid allocating a new string per paint frame (CLAUDE.md rule #3).
+			if (string.IsNullOrEmpty(text) || text.IndexOf('\n') < 0 && text.IndexOf('\r') < 0)
+				return text;
+
+			return text.Replace("\r\n", " ").Replace('\r', ' ').Replace('\n', ' ');
+		}
+
+		/// <summary>
 		/// Returns true only for runes that are legitimately zero-width and safe
 		/// to attach as combiners. This includes Unicode categories Mn (nonspacing mark),
 		/// Me (enclosing mark), Mc (spacing combining mark), and Cf (format) minus BiDi

@@ -349,8 +349,10 @@ namespace SharpConsoleUI.Controls
 				}
 				else
 				{
-					// Parse title to get styled cells and measure visible length
-					var titleCells = MarkupParser.Parse(_title, ruleColor, effectiveBg);
+					// Parse title to get styled cells and measure visible length. A rule is inherently
+					// one row, so flatten any embedded newline to a space rather than letting it reach
+					// MarkupParser as U+000A and render as a U+FFFD (◆) glyph.
+					var titleCells = MarkupParser.Parse(Helpers.TextSanitizer.FlattenNewlines(_title), ruleColor, effectiveBg);
 					int titleLen = titleCells.Count;
 
 					// Add spaces around title: ─ Title ─

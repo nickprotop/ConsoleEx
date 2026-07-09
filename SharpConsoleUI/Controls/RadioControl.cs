@@ -494,8 +494,22 @@ namespace SharpConsoleUI.Controls
 		{
 			string escaped = Parsing.MarkupParser.Escape(_label);
 			if (labelWidth <= 0)
-				return new List<string> { escaped };
+				return SplitLabelLines(escaped);
 			return Parsing.MarkupParser.WrapMarkupLines(escaped, labelWidth);
+		}
+
+		/// <summary>
+		/// Splits an (already-escaped) label into physical lines on hard line breaks
+		/// (<c>\r\n</c>, <c>\r</c>, <c>\n</c>), so a multi-line label paints one row per line
+		/// even when soft-wrap is off. Returns at least one line.
+		/// </summary>
+		private static List<string> SplitLabelLines(string escaped)
+		{
+			if (string.IsNullOrEmpty(escaped) ||
+				(escaped.IndexOf('\n') < 0 && escaped.IndexOf('\r') < 0))
+				return new List<string> { escaped };
+
+			return new List<string>(escaped.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None));
 		}
 
 		/// <inheritdoc/>
@@ -505,20 +519,28 @@ namespace SharpConsoleUI.Controls
 			int hMargin = Margin.Left + Margin.Right;
 			int vMargin = Margin.Top + Margin.Bottom;
 
-			int labelWidth = Parsing.MarkupParser.StripLength(Parsing.MarkupParser.Escape(_label));
+			string escapedLabel = Parsing.MarkupParser.Escape(_label);
 
 			int width;
 			int height;
 
 			if (!_wrap)
 			{
-				// Single-line: full content on one row.
-				int contentWidth = markerPrefixWidth + labelWidth + 1; // trailing space
+				// Non-wrap: honor hard line breaks. Width is the widest physical line; height is the
+				// line count. A single-line label (the common case) collapses to one row, matching the
+				// prior behavior. Measuring lineCount here keeps the box tall enough for PaintDOM's
+				// multi-row output — otherwise rows 2+ would be clipped.
+				var lines = SplitLabelLines(escapedLabel);
+				int widestLabelLine = 0;
+				foreach (var line in lines)
+					widestLabelLine = Math.Max(widestLabelLine, Parsing.MarkupParser.StripLength(line));
+
+				int contentWidth = markerPrefixWidth + widestLabelLine + 1; // trailing space
 				int minWidth = contentWidth;
 				int radioWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? constraints.MaxWidth - hMargin : minWidth);
 				radioWidth = Math.Max(minWidth, radioWidth);
 				width = radioWidth + hMargin;
-				height = 1 + vMargin;
+				height = Math.Max(1, lines.Count) + vMargin;
 			}
 			else
 			{
@@ -583,7 +605,12 @@ namespace SharpConsoleUI.Controls
 			}
 			else
 			{
-				labelLines = new List<string> { Parsing.MarkupParser.Escape(_label) };
+				// Non-wrap: still honor hard line breaks in the label. Splitting on \r\n/\r/\n
+				// keeps each physical line on its own row (the paint loop below already renders
+				// lineCount rows with a hanging indent); without the split an embedded newline
+				// reaches MarkupParser as U+000A and renders as U+FFFD (◆), and rows 2+ would be
+				// clipped because MeasureDOM would have sized the box to a single row.
+				labelLines = SplitLabelLines(Parsing.MarkupParser.Escape(_label));
 			}
 			int lineCount = Math.Max(1, labelLines.Count);
 

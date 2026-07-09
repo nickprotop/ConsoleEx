@@ -472,7 +472,8 @@ namespace SharpConsoleUI.Controls
 		private void PaintIndeterminateBar(CharacterBuffer buffer, LayoutRect clipRect, LayoutRect bounds,
 			int startX, int y, int barWidth, Color filledColor, Color unfilledColor, Color bgColor)
 		{
-			int pulseStart = _pulsePosition % barWidth;
+			// Read on the render thread; paired with Interlocked.Increment on the timer thread.
+			int pulseStart = Volatile.Read(ref _pulsePosition) % barWidth;
 
 			for (int i = 0; i < barWidth; i++)
 			{
@@ -546,7 +547,11 @@ namespace SharpConsoleUI.Controls
 			// Guard: don't update if disposed or no container
 			if (_animationTimer == null || Container == null) return;
 
-			_pulsePosition++;
+			// Runs on the System.Timers.Timer thread while the render thread reads _pulsePosition
+			// in PaintIndeterminateBar. Use Interlocked so the increment is atomic and publishes to
+			// the reader (which uses Volatile.Read) — plain ++ is an unsynchronized read/write race
+			// (CLAUDE.md rule #13). Only Invalidate is safe to call directly from a background thread.
+			Interlocked.Increment(ref _pulsePosition);
 			Invalidate(Invalidation.Repaint);
 		}
 

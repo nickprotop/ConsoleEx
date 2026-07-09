@@ -96,7 +96,7 @@ namespace SharpConsoleUI.Controls
 		private int GetButtonWidth()
 		{
 			int chrome = _borderStyle == ButtonBorderStyle.None ? 2 : 4; // None: 1 space each side; Pipe/Full: │ + space each side
-			return Width ?? (Parsing.MarkupParser.StripLength(_text) + chrome);
+			return Width ?? (Parsing.MarkupParser.StripLength(Helpers.TextSanitizer.FlattenNewlines(_text)) + chrome);
 		}
 
 		private int GetButtonHeight()
@@ -431,7 +431,7 @@ namespace SharpConsoleUI.Controls
 		{
 			int chrome = _borderStyle == ButtonBorderStyle.None ? 2 : 4;
 			int minWidth = _borderStyle == ButtonBorderStyle.None ? 2 : 4;
-			int buttonWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? constraints.MaxWidth - Margin.Left - Margin.Right : Parsing.MarkupParser.StripLength(_text) + chrome);
+			int buttonWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? constraints.MaxWidth - Margin.Left - Margin.Right : Parsing.MarkupParser.StripLength(Helpers.TextSanitizer.FlattenNewlines(_text)) + chrome);
 			buttonWidth = Math.Max(minWidth, buttonWidth);
 
 			int width = buttonWidth + Margin.Left + Margin.Right;
@@ -461,11 +461,15 @@ namespace SharpConsoleUI.Controls
 
 			int chrome = _borderStyle == ButtonBorderStyle.None ? 2 : 4;
 			int minWidth = _borderStyle == ButtonBorderStyle.None ? 2 : 4;
-			int buttonWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : Math.Min(Parsing.MarkupParser.StripLength(_text) + chrome, targetWidth));
+			// A button is one row: flatten embedded newlines to spaces up front so measure, truncation,
+			// and paint all agree on the same single-line text. Without this an embedded \n reaches
+			// MarkupParser as U+000A and paints U+FFFD (◆), and the truncation helper mis-measures it.
+			string flatText = Helpers.TextSanitizer.FlattenNewlines(_text);
+			int buttonWidth = Width ?? (HorizontalAlignment == HorizontalAlignment.Stretch ? targetWidth : Math.Min(Parsing.MarkupParser.StripLength(flatText) + chrome, targetWidth));
 			buttonWidth = Math.Max(minWidth, buttonWidth);
 
 			int innerWidth = buttonWidth - chrome;
-			string text = innerWidth > 0 ? TextTruncationHelper.Truncate(_text, innerWidth) : string.Empty;
+			string text = innerWidth > 0 ? TextTruncationHelper.Truncate(flatText, innerWidth) : string.Empty;
 			int textLen = Parsing.MarkupParser.StripLength(text);
 			int totalInnerPad = Math.Max(0, innerWidth - textLen);
 			int leftInnerPad = totalInnerPad / 2;

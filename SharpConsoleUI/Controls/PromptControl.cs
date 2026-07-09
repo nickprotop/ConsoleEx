@@ -652,8 +652,13 @@ namespace SharpConsoleUI.Controls
 			var prefix = strings[0];
 			for (int i = 1; i < strings.Count; i++)
 			{
+				// Walk by UTF-16 code unit but never cut inside a surrogate pair: if the code units
+				// diverge on the low half of a pair, back the boundary up to before the high half so
+				// the common prefix never ends mid-astral-character (emoji, non-BMP).
 				int j = 0;
 				while (j < prefix.Length && j < strings[i].Length && prefix[j] == strings[i][j]) j++;
+				if (j > 0 && char.IsHighSurrogate(prefix[j - 1]))
+					j--;
 				prefix = prefix.Substring(0, j);
 			}
 			return prefix;
