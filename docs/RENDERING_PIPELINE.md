@@ -1,5 +1,11 @@
 # SharpConsoleUI Rendering Pipeline
 
+> **Want to write a control?** This document explains how frames are produced. For the
+> practical, step-by-step authoring path — deriving from `BaseControl` and overriding
+> `MeasureDOM`/`PaintDOM` — start at
+> [Creating Your Own Control](CONTROLS.md#creating-your-own-control), which links the
+> composite-control and from-scratch (`BadgeControl`) tutorials.
+
 ## Overview
 
 SharpConsoleUI uses a sophisticated multi-stage rendering pipeline optimized for console applications. The architecture employs **double buffering at two levels** (window and screen), **dirty tracking at three levels** — a per-window `PendingWork` intent accumulator (`Repaint`/`Relayout`) plus per-cell and per-line dirty tracking — and **occlusion culling** to minimize unnecessary rendering work.
@@ -481,7 +487,7 @@ private void PaintStage(CharacterBuffer buffer)
     foreach (var control in _controls)
     {
         var controlBounds = control.ArrangedBounds;
-        control.PaintDOM(buffer, controlBounds, _clipRect);
+        control.PaintDOM(buffer, controlBounds, _clipRect, defaultForeground, defaultBackground);
     }
 }
 ```
@@ -1995,13 +2001,18 @@ window.Invalidate();  // Force redraw
 
 ### Pattern 2: Custom Control Rendering
 
-Implement `IWindowControl.PaintDOM()` to render custom controls:
+Derive from `BaseControl` and override `PaintDOM` (declared by `IDOMPaintable`, not by
+`IWindowControl`) to render custom controls. See
+[Creating Your Own Control](CONTROLS.md#creating-your-own-control) for the full walkthrough.
 
 ```csharp
-public class CustomControl : IWindowControl
+public class CustomControl : BaseControl
 {
-    public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect)
+    public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect,
+                                  Color defaultForeground, Color defaultBackground)
     {
+        SetActualBounds(bounds);
+
         // Draw background
         buffer.FillRect(bounds, ' ', Color.White, Color.DarkBlue);
 
@@ -2012,8 +2023,9 @@ public class CustomControl : IWindowControl
         // Draw border
         for (int x = bounds.X; x < bounds.Right; x++)
         {
-            buffer.SetCell(x, bounds.Y, '─', Color.Gray, Color.DarkBlue);
-            buffer.SetCell(x, bounds.Bottom - 1, '─', Color.Gray, Color.DarkBlue);
+            // Literal narrow chars → SetNarrowCell (there is no 5-arg SetCell overload).
+            buffer.SetNarrowCell(x, bounds.Y, '─', Color.Gray, Color.DarkBlue);
+            buffer.SetNarrowCell(x, bounds.Bottom - 1, '─', Color.Gray, Color.DarkBlue);
         }
     }
 }
@@ -2030,14 +2042,14 @@ public class CustomControl : IWindowControl
 When updating list items, use targeted invalidation:
 
 ```csharp
-public class ListControl : IWindowControl
+public class MyListControl : BaseControl
 {
     private List<string> _items = new();
 
     public void AddItem(string item)
     {
         _items.Add(item);
-        Container?.Invalidate(Invalidation.Relayout);  // an added row changes size → re-layout
+        Invalidate(Invalidation.Relayout);  // an added row changes size → re-layout
     }
 
     public void UpdateItem(int index, string newValue)
@@ -2046,14 +2058,14 @@ public class ListControl : IWindowControl
             return;
 
         _items[index] = newValue;
-        Container?.Invalidate(Invalidation.Relayout);  // text width may change → re-layout
+        Invalidate(Invalidation.Relayout);  // text width may change → re-layout
     }
 }
 ```
 
 **Optimization:**
 - Batch updates: modify multiple items, then call `Invalidate()` once — the max-join coalesces them.
-- Use `Container?.Invalidate(Invalidation.Repaint)` for appearance-only changes (e.g. a selection or
+- Use `Invalidate(Invalidation.Repaint)` for appearance-only changes (e.g. a selection or
   colour change that doesn't move anything): the layout is reused and the Measure pass is skipped.
 - A burst of `Repaint`s plus one `Relayout` in the same frame resolves to `Relayout` — you never need
   to track "the strongest invalidation so far" yourself; the accumulator does it.
@@ -2097,9 +2109,9 @@ windowSystem.CloseWindow(modal);
 For controls that update continuously (clocks, progress bars):
 
 ```csharp
-public class ClockControl : IWindowControl
+public class ClockControl : BaseControl
 {
-    private string _currentTime;
+    private string _currentTime = "";
 
     public ClockControl()
     {
@@ -2108,13 +2120,16 @@ public class ClockControl : IWindowControl
         {
             _currentTime = DateTime.Now.ToString("HH:mm:ss");
             // Fixed-width text → appearance-only; Repaint skips Measure. Safe from the timer thread.
-            Container?.Invalidate(Invalidation.Repaint);
+            Invalidate(Invalidation.Repaint);
         }, null, 0, 1000);
     }
 
-    public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect)
+    public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect,
+                                  Color defaultForeground, Color defaultBackground)
     {
-        buffer.DrawText(bounds.X, bounds.Y, _currentTime, Color.Green, Color.Black);
+        SetActualBounds(bounds);
+        buffer.WriteStringClipped(bounds.X, bounds.Y, _currentTime,
+                                  Color.Green, Color.Black, clipRect);
     }
 }
 ```

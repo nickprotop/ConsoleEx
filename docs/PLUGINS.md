@@ -154,18 +154,24 @@ Create reusable control factories:
 ```csharp
 using SharpConsoleUI.Controls;
 
-public class MyCustomControl : IWindowControl
+// Derive from BaseControl — it supplies Container/Name/Tag/Visible/Margin/Invalidate/Dispose
+// and leaves you the four layout members to override.
+public class MyCustomControl : BaseControl
 {
-    public IContainer? Container { get; set; }
-    public string? Name { get; set; }
-    public object? Tag { get; set; }
-    public bool Visible { get; set; } = true;
+    public override int? ContentWidth => 20;
 
-    // Implement IWindowControl interface...
-    public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect) { }
-    public Size MeasureDOM(int availableWidth) => new Size(20, 5);
-    public void Invalidate(Invalidation work) { }
-    public void Dispose() { }
+    public override Size GetLogicalContentSize() => new Size(20, 5);
+
+    public override LayoutSize MeasureDOM(LayoutConstraints constraints) =>
+        new LayoutSize(
+            Math.Clamp(20, constraints.MinWidth, constraints.MaxWidth),
+            Math.Clamp(5, constraints.MinHeight, constraints.MaxHeight));
+
+    public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect,
+                                  Color defaultForeground, Color defaultBackground)
+    {
+        SetActualBounds(bounds);
+    }
 }
 
 public class MyPlugin : PluginBase
@@ -635,23 +641,44 @@ public class CorporateTheme : ITheme
 }
 
 // Custom control
-public class StatusIndicatorControl : IWindowControl
+public class StatusIndicatorControl : BaseControl
 {
-    public IContainer? Container { get; set; }
-    public string? Name { get; set; }
-    public object? Tag { get; set; }
-    public bool Visible { get; set; } = true;
-    public string Status { get; set; } = "Ready";
-    public Color StatusColor { get; set; } = Color.Green;
+    private string _status = "Ready";
+    private Color _statusColor = Color.Green;
 
-    public void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect)
+    public string Status { get => _status; set => SetProperty(ref _status, value); }
+    public Color StatusColor { get => _statusColor; set => SetProperty(ref _statusColor, value); }
+
+    private string Markup => $"[{_statusColor}]■[/] {_status}";
+
+    public override int? ContentWidth => MarkupParser.StripLength(Markup);
+
+    public override Size GetLogicalContentSize() =>
+        new Size(MarkupParser.StripLength(Markup) + Margin.Left + Margin.Right,
+                 1 + Margin.Top + Margin.Bottom);
+
+    public override LayoutSize MeasureDOM(LayoutConstraints constraints)
     {
-        buffer.SetText(bounds.X, bounds.Y, $"[{StatusColor}]■[/] {Status}", Color.White, Color.Black);
+        var size = GetLogicalContentSize();
+        return new LayoutSize(
+            Math.Clamp(size.Width, constraints.MinWidth, constraints.MaxWidth),
+            Math.Clamp(size.Height, constraints.MinHeight, constraints.MaxHeight));
     }
 
-    public Size MeasureDOM(int availableWidth) => new Size(20, 1);
-    public void Invalidate(Invalidation work) => Container?.Invalidate(work, this);
-    public void Dispose() { }
+    public override void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect,
+                                  Color defaultForeground, Color defaultBackground)
+    {
+        SetActualBounds(bounds);
+
+        // Parse markup to cells — never write raw "[red]…[/]" text into the buffer.
+        var cells = MarkupParser.Parse(Markup, defaultForeground, defaultBackground);
+        for (int i = 0; i < cells.Count; i++)
+        {
+            int x = bounds.X + Margin.Left + i;
+            if (x < clipRect.X || x >= clipRect.Right) continue;
+            buffer.SetCell(x, bounds.Y + Margin.Top, cells[i]);
+        }
+    }
 }
 
 // Custom service (agnostic IPluginService pattern)

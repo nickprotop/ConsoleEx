@@ -37,7 +37,7 @@ Start every source file with the project's license banner (copy it verbatim from
 
 SharpConsoleUI follows Interface Segregation: a control implements one small interface per capability it actually has, rather than one broad interface with methods it must stub out. A badge is not focusable and does not react to the mouse, so it implements *neither* `IFocusableControl` *nor* `IMouseAwareControl`. It *does* have a themable surface (the pill color), so — exactly like `SpinnerControl` — it implements `IColorRoleableControl`. See [patterns.md](../../patterns.md) for the full interface catalog and the ISP rationale.
 
-The base class `BaseControl` already supplies the layout plumbing (`ActualWidth`, `Margin`, `Invalidate`, `SetProperty`, and the abstract `ContentWidth` / `MeasureDOM` / `PaintDOM` / `GetLogicalContentSize` members you'll override). So the declaration mirrors `SpinnerControl : BaseControl, IColorRoleableControl`:
+The base class `BaseControl` already supplies the layout plumbing (`ActualWidth`, `Margin`, `Invalidate`, `SetProperty`). It leaves you three **abstract** members you *must* implement — `ContentWidth`, `MeasureDOM`, `PaintDOM` — plus `GetLogicalContentSize`, which is **virtual**: it has a default that returns `ContentWidth` by one line plus vertical margin, so you only override it when your control is taller than one line or sizes itself differently. The badge overrides it anyway, to state its size explicitly. So the declaration mirrors `SpinnerControl : BaseControl, IColorRoleableControl`:
 
 ```csharp
 using System.Drawing;

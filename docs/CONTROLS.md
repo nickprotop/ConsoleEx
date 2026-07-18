@@ -29,6 +29,23 @@ All controls support:
 - Layout properties (Width, Margin, Alignment, StickyPosition)
 - `Role` / `Outline` - Available on controls implementing `IRoleableControl`. Apply a semantic [Control Role](THEMES.md#control-roles) (Primary, Success, Danger, …) so the control's colors come from the theme's palette instead of being set by hand. `Role.Default` (the default) leaves color resolution unchanged. Most controls implement `IRoleableControl`; a few non-themed ones (Canvas, Image, Video, Html, …) do not and have no `Role`/`Outline`.
 
+### Creating Your Own Control
+
+Need something the built-in controls don't cover? There are two ways to build one, and a step-by-step tutorial for each. **Reach for composition first** — it's simpler and covers most cases.
+
+- **Compose existing controls** — wrap a grid, labels, buttons, etc. into a reusable unit. No custom rendering, no `IWindowControl` plumbing. Start here.
+  → [Contributor Tutorial 1: Composite Controls](tutorials/contributing/01-composite-controls.md)
+
+- **Write a primitive from scratch** — a control that paints its own cells (a gauge, a badge, a sparkline). You derive from `BaseControl` and override its four abstract/virtual layout members: `ContentWidth`, `GetLogicalContentSize()`, `MeasureDOM(LayoutConstraints) → LayoutSize`, and `PaintDOM(...)`. The tutorial builds a `BadgeControl` end to end.
+  → [Contributor Tutorial 2: Adding a Control](tutorials/contributing/02-adding-a-control.md)
+
+Before hand-rolling a primitive, know these two things — they save the most time:
+
+- **Don't parse markup yourself.** The framework already turns `[red]…[/]` tags into colored runs. Host or compose a [`MarkupControl`](controls/MarkupControl.md) for text, or call `SharpConsoleUI.Parsing.MarkupParser` if you paint directly. Writing raw markup strings straight into buffer cells renders the literal `[red]` tags on screen — the tags must be parsed to runs first. See [Markup Syntax](MARKUP_SYNTAX.md).
+- **`MeasureDOM` and `PaintDOM` are not on `IWindowControl`.** Both come from the `IDOMPaintable` contract, which `BaseControl` implements — that's why deriving from `BaseControl` is the normal path. See the [Interfaces](#interfaces) section below for the exact signatures.
+
+For the bigger picture of how paints, layout, and the character buffer fit together, see the [DOM Layout System](DOM_LAYOUT_SYSTEM.md) and [Rendering Pipeline](RENDERING_PIPELINE.md).
+
 ## Basic Input Controls
 
 Controls for user input and interaction.
@@ -122,21 +139,63 @@ Controls implement these interfaces based on their capabilities:
 
 ### IWindowControl (Base Interface)
 
-All controls implement this interface:
+All controls implement this interface. It defines identity, layout, and sizing — **not** painting (see the note below):
 
 ```csharp
 public interface IWindowControl : IDisposable
 {
+    // Identity
     IContainer? Container { get; set; }
     string? Name { get; set; }
     object? Tag { get; set; }
     bool Visible { get; set; }
 
-    void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect);
-    Size MeasureDOM(int availableWidth);
+    // Layout & sizing
+    int? ContentWidth { get; }                    // intrinsic width of the content, or null
+    HorizontalAlignment HorizontalAlignment { get; set; }
+    VerticalAlignment VerticalAlignment { get; set; }
+    Margin Margin { get; set; }
+    StickyPosition StickyPosition { get; set; }
+    int? Width { get; set; }
+    int? Height { get; set; }
+    int ActualX { get; }                          // where it was last rendered
+    int ActualY { get; }
+    int ActualWidth { get; }
+    int ActualHeight { get; }
+
+    // Intrinsic content size — returns System.Drawing.Size
+    Size GetLogicalContentSize();
+
+    // Invalidation (Repaint vs Relayout)
     void Invalidate(Invalidation work);
+    void Invalidate();                            // default impl → Invalidate(Relayout)
+    void Invalidate(bool redrawAll);              // default impl → Relayout / Repaint
 }
 ```
+
+> **Where are measure and paint?** `IWindowControl` has neither. Both come from the
+> `IDOMPaintable` contract (`SharpConsoleUI/Layout/IDOMPaintable.cs`), which `BaseControl`
+> implements and re-declares as abstract members you override:
+> ```csharp
+> public interface IDOMPaintable
+> {
+>     LayoutSize MeasureDOM(LayoutConstraints constraints);
+>     void PaintDOM(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect,
+>                   Color defaultForeground, Color defaultBackground);
+> }
+> ```
+> (`IDOMMeasurable` declares `MeasureDOM` alone, for controls that measure but don't paint.)
+> This is why the normal way to write a custom primitive is to **derive from `BaseControl`**
+> and override `MeasureDOM` and `PaintDOM` — see
+> [Creating Your Own Control](#creating-your-own-control) and
+> [Contributor Tutorial 2](tutorials/contributing/02-adding-a-control.md).
+>
+> **Namespaces:** `IWindowControl`, `IContainer`, `Margin`, `StickyPosition`, `BaseControl` →
+> `SharpConsoleUI.Controls`; `HorizontalAlignment`, `VerticalAlignment`, `CharacterBuffer`,
+> `LayoutRect`, `LayoutSize`, `LayoutConstraints`, `IDOMPaintable`, `IDOMMeasurable` →
+> `SharpConsoleUI.Layout`; `Invalidation`, `Color` → `SharpConsoleUI`;
+> `MarkupParser` → `SharpConsoleUI.Parsing`; **`Size` is `System.Drawing.Size`** (not a
+> SharpConsoleUI type).
 
 ### IInteractiveControl
 

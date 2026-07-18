@@ -1,5 +1,11 @@
 # DOM-Based Layout System Documentation
 
+> **Want to write a control?** This document explains how the layout engine works. For the
+> practical, step-by-step authoring path — deriving from `BaseControl` and overriding
+> `MeasureDOM`/`PaintDOM` — start at
+> [Creating Your Own Control](CONTROLS.md#creating-your-own-control), which links the
+> composite-control and from-scratch (`BadgeControl`) tutorials.
+
 ## Overview
 
 SharpConsoleUI uses a DOM-based layout system inspired by WPF's two-pass layout model. This replaces the old string-list-based rendering with a proper tree-based layout engine that handles measurement, arrangement, and painting of controls within windows.
