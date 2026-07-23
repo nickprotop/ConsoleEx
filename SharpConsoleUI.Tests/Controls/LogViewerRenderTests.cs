@@ -11,6 +11,7 @@ using System.Drawing;
 using SharpConsoleUI;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
 using Xunit;
@@ -108,11 +109,12 @@ public class LogViewerRenderTests
 	}
 
 	/// <summary>
-	/// Tail-follow (AutoScroll) test: as 100 log entries are added, the viewer should keep the newest
-	/// entry visible. This validates the auto-scroll behavior works correctly with the virtualized table.
+	/// Tail-follow at the bottom: as 100 log entries are added while the viewer sits at the bottom,
+	/// it keeps the newest entry visible. Renamed from the old ...UnlessScrolledUp, which overpromised:
+	/// its body never scrolled up. The scrolled-up cases are the two tests below.
 	/// </summary>
 	[Fact]
-	public void LogViewer_TailFollow_KeepsNewestVisible_UnlessScrolledUp()
+	public void LogViewer_TailFollow_KeepsNewestVisible_WhenAtBottom()
 	{
 		var driver = new HeadlessConsoleDriver(120, 30);
 		var system = new ConsoleWindowSystem(driver);
@@ -138,6 +140,96 @@ public class LogViewerRenderTests
 		// Newest line should be visible under tail-follow.
 		Assert.Contains(lines, l => l.Contains("NEWEST99"));
 	}
+
+	/// <summary>
+	/// With the viewer scrolled up, a newly-logged line must NOT yank the viewport back to the
+	/// bottom (follow is paused). The one-row StickyBottomThreshold guard in ApplyTailFollow makes this
+	/// hold; before the guard the control pinned to the bottom on every incoming line.
+	/// </summary>
+	[Fact]
+	public void LogViewer_TailFollow_PausesWhenScrolledUp()
+	{
+		var driver = new HeadlessConsoleDriver(120, 30);
+		var system = new ConsoleWindowSystem(driver);
+		var window = new Window(system) { Title = "Logs", Width = 100, Height = 12 };
+		system.AddWindow(window);
+
+		// A DEDICATED log service so the viewer shows only these lines, not the window system's own
+		// framework chatter (this is exactly why production feeds LogViewerControl a dedicated LogService).
+		var logSvc = new LogService { MinimumLevel = LogLevel.Trace };
+		var lv = new LogViewerControl(logSvc)
+		{
+			VerticalAlignment = VerticalAlignment.Fill,
+			HorizontalAlignment = HorizontalAlignment.Stretch,
+			AutoScroll = true
+		};
+		window.AddControl(lv);
+		var region = new List<Rectangle> { new Rectangle(0, 0, window.Width, window.Height) };
+		window.RenderAndGetVisibleContent(region);
+
+		// Seed well over one screen (stay under the LogService MaxBufferSize of 1000).
+		for (int i = 0; i < 60; i++)
+			logSvc.Log(LogLevel.Information, $"SEED{i}", "Cat");
+		system.DrainUiThreadQueueForTests();
+		var atBottom = window.RenderAndGetVisibleContent(region);
+		Assert.Contains(atBottom, l => l.Contains("SEED59")); // tail visible at the bottom
+
+		// Scroll to the top (ScrollOffset clamps at 0): the tail must leave the viewport.
+		for (int i = 0; i < 80; i++) lv.ProcessMouseEvent(Wheel(MouseFlags.WheeledUp));
+		var afterUp = window.RenderAndGetVisibleContent(region);
+		Assert.Contains(afterUp, l => l.Contains("SEED0"));        // oldest visible: at the top
+		Assert.DoesNotContain(afterUp, l => l.Contains("SEED59")); // moved away from the bottom
+
+		// A new line arrives while scrolled up: follow paused, viewport must not jump.
+		logSvc.Log(LogLevel.Information, "AFTERSCROLL", "Cat");
+		system.DrainUiThreadQueueForTests();
+		var after = window.RenderAndGetVisibleContent(region);
+		Assert.DoesNotContain(after, l => l.Contains("AFTERSCROLL")); // not yanked to the bottom
+		Assert.Contains(after, l => l.Contains("SEED0"));            // viewport held at the top
+	}
+
+	/// <summary>
+	/// After scrolling back to the bottom, tail-follow resumes: the next logged line is visible.
+	/// </summary>
+	[Fact]
+	public void LogViewer_TailFollow_ResumesAtBottom()
+	{
+		var driver = new HeadlessConsoleDriver(120, 30);
+		var system = new ConsoleWindowSystem(driver);
+		var window = new Window(system) { Title = "Logs", Width = 100, Height = 12 };
+		system.AddWindow(window);
+
+		var logSvc = new LogService { MinimumLevel = LogLevel.Trace };
+		var lv = new LogViewerControl(logSvc)
+		{
+			VerticalAlignment = VerticalAlignment.Fill,
+			HorizontalAlignment = HorizontalAlignment.Stretch,
+			AutoScroll = true
+		};
+		window.AddControl(lv);
+		var region = new List<Rectangle> { new Rectangle(0, 0, window.Width, window.Height) };
+		window.RenderAndGetVisibleContent(region);
+
+		for (int i = 0; i < 60; i++)
+			logSvc.Log(LogLevel.Information, $"SEED{i}", "Cat");
+		system.DrainUiThreadQueueForTests();
+		window.RenderAndGetVisibleContent(region);
+
+		// Scroll up, then back down to the bottom.
+		for (int i = 0; i < 80; i++) lv.ProcessMouseEvent(Wheel(MouseFlags.WheeledUp));
+		window.RenderAndGetVisibleContent(region);
+		for (int i = 0; i < 80; i++) lv.ProcessMouseEvent(Wheel(MouseFlags.WheeledDown));
+		window.RenderAndGetVisibleContent(region);
+
+		// Follow resumed at the bottom: the next line is visible.
+		logSvc.Log(LogLevel.Information, "RESUMED", "Cat");
+		system.DrainUiThreadQueueForTests();
+		var after = window.RenderAndGetVisibleContent(region);
+		Assert.Contains(after, l => l.Contains("RESUMED"));
+	}
+
+	private static MouseEventArgs Wheel(MouseFlags flag) =>
+		new(new List<MouseFlags> { flag }, new Point(1, 1), new Point(1, 1), new Point(1, 1));
 
 	/// <summary>
 	/// Large buffer virtualization test: adding 50,000 entries should not crash and the tail entry
