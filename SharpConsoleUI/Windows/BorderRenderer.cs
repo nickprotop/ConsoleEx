@@ -291,8 +291,16 @@ namespace SharpConsoleUI.Windows
 			bool isActive = _window.GetIsActive();
 			var borderFg = isActive ? _window.ActiveBorderForegroundColor : _window.InactiveBorderForegroundColor;
 			var titleFg = isActive ? _window.ActiveTitleForegroundColor : _window.InactiveTitleForegroundColor;
-			var buttonFg = isActive ? Color.Yellow : _window.InactiveBorderForegroundColor;
-			var closeFg = isActive ? Color.Red : _window.InactiveBorderForegroundColor;
+
+			/* In PreserveTerminalTransparency (no-colour) mode the active-window title buttons
+			   must not paint their hardcoded Yellow / Red: pass Color.Transparent (A=0) so
+			   FormatCellAnsi emits terminal-default (;39) and a colour-free frame stays
+			   colour-free (for the no-colour vendoring consumer). Inactive already
+			   uses the border colour, so it is unaffected. */
+			bool preserveTransparency = _window.GetConsoleWindowSystem?.Options.TerminalTransparencyMode
+				== Configuration.TerminalTransparencyMode.PreserveTerminalTransparency;
+			var buttonFg = isActive ? (preserveTransparency ? Color.Transparent : Color.Yellow) : _window.InactiveBorderForegroundColor;
+			var closeFg = isActive ? (preserveTransparency ? Color.Transparent : Color.Red) : _window.InactiveBorderForegroundColor;
 			var bg = _window.BackgroundColor;
 
 			// Rebuild cached border buffers if necessary
