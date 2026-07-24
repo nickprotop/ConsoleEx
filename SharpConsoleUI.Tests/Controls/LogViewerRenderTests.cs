@@ -14,6 +14,8 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
+using SharpConsoleUI.Tests.Infrastructure;
+using SharpConsoleUI.Windows;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Controls;
@@ -142,21 +144,16 @@ public class LogViewerRenderTests
 	}
 
 	/// <summary>
-	/// With the viewer scrolled up, a newly-logged line must NOT yank the viewport back to the
-	/// bottom (follow is paused). The one-row StickyBottomThreshold guard in ApplyTailFollow makes this
-	/// hold; before the guard the control pinned to the bottom on every incoming line.
+	/// Builds the REAL nesting (window > LogViewerControl > inner grid > virtualized table) on a
+	/// MockConsoleDriver so wheel input can be delivered through the actual window dispatcher.
 	/// </summary>
-	[Fact]
-	public void LogViewer_TailFollow_PausesWhenScrolledUp()
+	private static (ConsoleWindowSystem system, Window window, LogViewerControl lv, LogService log)
+		BuildRealDispatchViewer(int maxBuffer = 1000)
 	{
-		var driver = new HeadlessConsoleDriver(120, 30);
-		var system = new ConsoleWindowSystem(driver);
-		var window = new Window(system) { Title = "Logs", Width = 100, Height = 12 };
-		system.AddWindow(window);
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Left = 0, Top = 0, Width = 60, Height = 16, Title = "Logs" };
 
-		// A DEDICATED log service so the viewer shows only these lines, not the window system's own
-		// framework chatter (this is exactly why production feeds LogViewerControl a dedicated LogService).
-		var logSvc = new LogService { MinimumLevel = LogLevel.Trace };
+		var logSvc = new LogService { MinimumLevel = LogLevel.Trace, MaxBufferSize = maxBuffer };
 		var lv = new LogViewerControl(logSvc)
 		{
 			VerticalAlignment = VerticalAlignment.Fill,
@@ -164,237 +161,154 @@ public class LogViewerRenderTests
 			AutoScroll = true
 		};
 		window.AddControl(lv);
-		var region = new List<Rectangle> { new Rectangle(0, 0, window.Width, window.Height) };
-		window.RenderAndGetVisibleContent(region);
-
-		// Seed well over one screen (stay under the LogService MaxBufferSize of 1000).
-		for (int i = 0; i < 60; i++)
-			logSvc.Log(LogLevel.Information, $"SEED{i}", "Cat");
-		system.DrainUiThreadQueueForTests();
-		var atBottom = window.RenderAndGetVisibleContent(region);
-		Assert.Contains(atBottom, l => l.Contains("SEED59")); // tail visible at the bottom
-
-		// Scroll to the top (ScrollOffset clamps at 0): the tail must leave the viewport.
-		for (int i = 0; i < 80; i++) lv.ProcessMouseEvent(Wheel(MouseFlags.WheeledUp));
-		var afterUp = window.RenderAndGetVisibleContent(region);
-		Assert.Contains(afterUp, l => l.Contains("SEED0"));        // oldest visible: at the top
-		Assert.DoesNotContain(afterUp, l => l.Contains("SEED59")); // moved away from the bottom
-
-		// A new line arrives while scrolled up: follow paused, viewport must not jump.
-		logSvc.Log(LogLevel.Information, "AFTERSCROLL", "Cat");
-		system.DrainUiThreadQueueForTests();
-		var after = window.RenderAndGetVisibleContent(region);
-		Assert.DoesNotContain(after, l => l.Contains("AFTERSCROLL")); // not yanked to the bottom
-		Assert.Contains(after, l => l.Contains("SEED0"));            // viewport held at the top
+		system.WindowStateService.AddWindow(window);
+		system.WindowStateService.SetActiveWindow(window);
+		system.Render.UpdateDisplay();
+		return (system, window, lv, logSvc);
 	}
 
+	/// <summary>Delivers wheel events through the REAL dispatcher, not the control's method.</summary>
+	private static void RealWheel(ConsoleWindowSystem system, MouseFlags flag, int times)
+	{
+		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		for (int i = 0; i < times; i++)
+		{
+			driver.SimulateMouseEvent(new List<MouseFlags> { flag }, new Point(10, 8));
+			system.Input.ProcessInput();
+		}
+		system.Render.UpdateDisplay();
+	}
+
+	private static List<string> Frame(Window w) =>
+		w.RenderAndGetVisibleContent(new List<Rectangle> { new Rectangle(0, 0, w.Width, w.Height) });
+
 	/// <summary>
-	/// After scrolling back to the bottom, tail-follow resumes: the next logged line is visible.
+	/// THE HEADLINE CASE. Wheel-up through the real dispatcher must detach tail-follow so an
+	/// incoming line does not yank the viewport. This FAILS on PR #69's caeb761, because the
+	/// dispatcher bubbles the wheel deepest-first into the inner TableControl and never calls
+	/// LogViewerControl.ProcessMouseEvent (so its SyncFollowToOffset never ran).
+	/// Note this reproduces BELOW buffer capacity — the failure is not capacity-dependent.
 	/// </summary>
 	[Fact]
-	public void LogViewer_TailFollow_ResumesAtBottom()
+	public void LogViewer_RealDispatchWheelUp_DetachesFollow()
 	{
-		var driver = new HeadlessConsoleDriver(120, 30);
-		var system = new ConsoleWindowSystem(driver);
-		var window = new Window(system) { Title = "Logs", Width = 100, Height = 12 };
-		system.AddWindow(window);
+		var (system, window, _, logSvc) = BuildRealDispatchViewer();
 
-		var logSvc = new LogService { MinimumLevel = LogLevel.Trace };
-		var lv = new LogViewerControl(logSvc)
-		{
-			VerticalAlignment = VerticalAlignment.Fill,
-			HorizontalAlignment = HorizontalAlignment.Stretch,
-			AutoScroll = true
-		};
-		window.AddControl(lv);
-		var region = new List<Rectangle> { new Rectangle(0, 0, window.Width, window.Height) };
-		window.RenderAndGetVisibleContent(region);
-
-		for (int i = 0; i < 60; i++)
-			logSvc.Log(LogLevel.Information, $"SEED{i}", "Cat");
+		for (int i = 0; i < 200; i++) logSvc.Log(LogLevel.Information, $"SEED{i}", "Cat");
 		system.DrainUiThreadQueueForTests();
-		window.RenderAndGetVisibleContent(region);
+		system.Render.UpdateDisplay();
+		Assert.Contains(Frame(window), l => l.Contains("SEED199"));
 
-		// Scroll up, then back down to the bottom.
-		for (int i = 0; i < 80; i++) lv.ProcessMouseEvent(Wheel(MouseFlags.WheeledUp));
-		window.RenderAndGetVisibleContent(region);
-		for (int i = 0; i < 80; i++) lv.ProcessMouseEvent(Wheel(MouseFlags.WheeledDown));
-		window.RenderAndGetVisibleContent(region);
+		RealWheel(system, MouseFlags.WheeledUp, 20);
+		Assert.DoesNotContain(Frame(window), l => l.Contains("SEED199")); // actually scrolled away
 
-		// Follow resumed at the bottom: the next line is visible.
+		logSvc.Log(LogLevel.Information, "YANKCHECK", "Cat");
+		system.DrainUiThreadQueueForTests();
+		system.Render.UpdateDisplay();
+
+		var after = Frame(window);
+		Assert.DoesNotContain(after, l => l.Contains("YANKCHECK")); // viewport held
+		Assert.Contains(after, l => l.Contains("SEED"));            // survives the re-render
+	}
+
+	/// <summary>Scrolling back to the bottom re-attaches: the next line is visible again.</summary>
+	[Fact]
+	public void LogViewer_RealDispatchScrollBackToBottom_ResumesFollow()
+	{
+		var (system, window, _, logSvc) = BuildRealDispatchViewer();
+
+		for (int i = 0; i < 200; i++) logSvc.Log(LogLevel.Information, $"SEED{i}", "Cat");
+		system.DrainUiThreadQueueForTests();
+		system.Render.UpdateDisplay();
+
+		RealWheel(system, MouseFlags.WheeledUp, 20);
+		RealWheel(system, MouseFlags.WheeledDown, 40); // back to the bottom (clamps)
+
 		logSvc.Log(LogLevel.Information, "RESUMED", "Cat");
 		system.DrainUiThreadQueueForTests();
-		var after = window.RenderAndGetVisibleContent(region);
-		Assert.Contains(after, l => l.Contains("RESUMED"));
+		system.Render.UpdateDisplay();
+
+		Assert.Contains(Frame(window), l => l.Contains("RESUMED"));
 	}
 
 	/// <summary>
-	/// At buffer capacity every append is an eviction rebuild (a Reset, not an Add): the steady state
-	/// for any long-running log. A scrolled-up viewer must NOT be yanked to the bottom by those rebuilds.
-	/// Reported in PR review: deriving follow state from Add events froze the flag once the buffer
-	/// filled, so every Reset re-pinned the viewport. Repro shape contributed by the reviewer.
+	/// At buffer capacity every append is an eviction rebuild (Reset, not Add). A scrolled-up viewer
+	/// must not be yanked. This is the case from the PR review, now driven through real dispatch.
 	/// </summary>
 	[Fact]
-	public void LogViewer_TailFollow_AtCapacity_DoesNotYankScrolledUpViewer()
+	public void LogViewer_AtCapacity_RealDispatch_DoesNotYankScrolledUpViewer()
 	{
-		var driver = new HeadlessConsoleDriver(120, 30);
-		var system = new ConsoleWindowSystem(driver);
-		var window = new Window(system) { Title = "Logs", Width = 100, Height = 12 };
-		system.AddWindow(window);
+		var (system, window, _, logSvc) = BuildRealDispatchViewer(maxBuffer: 40);
 
-		// Small buffer so we sit AT capacity: every subsequent Log() evicts and raises Reset.
-		var logSvc = new LogService { MinimumLevel = LogLevel.Trace, MaxBufferSize = 40 };
-		var lv = new LogViewerControl(logSvc)
-		{
-			VerticalAlignment = VerticalAlignment.Fill,
-			HorizontalAlignment = HorizontalAlignment.Stretch,
-			AutoScroll = true
-		};
-		window.AddControl(lv);
-		var region = new List<Rectangle> { new Rectangle(0, 0, window.Width, window.Height) };
-		window.RenderAndGetVisibleContent(region);
-
-		for (int i = 0; i < 40; i++)
-			logSvc.Log(LogLevel.Information, $"SEED{i}", "Cat");
+		for (int i = 0; i < 40; i++) logSvc.Log(LogLevel.Information, $"SEED{i}", "Cat");
 		system.DrainUiThreadQueueForTests();
-		var atBottom = window.RenderAndGetVisibleContent(region);
-		Assert.Contains(atBottom, l => l.Contains("SEED39")); // tail visible at the bottom
+		system.Render.UpdateDisplay();
+		Assert.Contains(Frame(window), l => l.Contains("SEED39"));
 
-		// Scroll up: the tail must leave the viewport.
-		for (int i = 0; i < 80; i++) lv.ProcessMouseEvent(Wheel(MouseFlags.WheeledUp));
-		var afterUp = window.RenderAndGetVisibleContent(region);
-		Assert.DoesNotContain(afterUp, l => l.Contains("SEED39"));
+		RealWheel(system, MouseFlags.WheeledUp, 20);
+		Assert.DoesNotContain(Frame(window), l => l.Contains("SEED39"));
 
-		// At capacity this append arrives as a Reset, not a single-row Add.
-		logSvc.Log(LogLevel.Information, "AFTERSCROLL", "Cat");
+		logSvc.Log(LogLevel.Information, "AFTERSCROLL", "Cat"); // arrives as a Reset
 		system.DrainUiThreadQueueForTests();
-		var after = window.RenderAndGetVisibleContent(region);
-		Assert.DoesNotContain(after, l => l.Contains("AFTERSCROLL")); // viewport held, not yanked
+		system.Render.UpdateDisplay();
+
+		Assert.DoesNotContain(Frame(window), l => l.Contains("AFTERSCROLL"));
+	}
+
+	/// <summary>A viewer left at the bottom keeps tailing through eviction rebuilds.</summary>
+	[Fact]
+	public void LogViewer_AtCapacity_KeepsFollowingLiveTail()
+	{
+		var (system, window, _, logSvc) = BuildRealDispatchViewer(maxBuffer: 40);
+
+		for (int i = 0; i < 40; i++) logSvc.Log(LogLevel.Information, $"SEED{i}", "Cat");
+		system.DrainUiThreadQueueForTests();
+		system.Render.UpdateDisplay();
+
+		for (int i = 0; i < 20; i++) logSvc.Log(LogLevel.Information, $"EVICT{i}", "Cat");
+		system.DrainUiThreadQueueForTests();
+		system.Render.UpdateDisplay();
+
+		Assert.Contains(Frame(window), l => l.Contains("EVICT19"));
+	}
+
+	/// <summary>A view-filter change (Reset) must not yank a scrolled-up viewer.</summary>
+	[Fact]
+	public void LogViewer_FilterChange_RealDispatch_DoesNotYankScrolledUpViewer()
+	{
+		var (system, window, lv, logSvc) = BuildRealDispatchViewer();
+
+		for (int i = 0; i < 200; i++) logSvc.Log(LogLevel.Information, $"SEED{i}", "Cat");
+		system.DrainUiThreadQueueForTests();
+		system.Render.UpdateDisplay();
+
+		RealWheel(system, MouseFlags.WheeledUp, 20);
+		Assert.DoesNotContain(Frame(window), l => l.Contains("SEED199"));
+
+		lv.FilterLevel = LogLevel.Debug; // same rows pass; rebuild raises Reset
+		system.DrainUiThreadQueueForTests();
+		system.Render.UpdateDisplay();
+
+		Assert.DoesNotContain(Frame(window), l => l.Contains("SEED199"));
 	}
 
 	/// <summary>
-	/// The other half of the at-capacity contract: a viewer that stayed at the bottom keeps following
-	/// through eviction rebuilds: Reset appends must keep pinning the newest line into view.
+	/// The one-way delegation contract: LogViewerControl.AutoScroll is sticky USER INTENT. A user
+	/// scrolling up detaches the inner table but must NOT flip this preserved public property.
 	/// </summary>
 	[Fact]
-	public void LogViewer_TailFollow_AtCapacity_KeepsFollowingLiveTail()
+	public void LogViewer_AutoScrollProperty_StaysTrueAfterUserScrollsUp()
 	{
-		var driver = new HeadlessConsoleDriver(120, 30);
-		var system = new ConsoleWindowSystem(driver);
-		var window = new Window(system) { Title = "Logs", Width = 100, Height = 12 };
-		system.AddWindow(window);
+		var (system, _, lv, logSvc) = BuildRealDispatchViewer();
 
-		var logSvc = new LogService { MinimumLevel = LogLevel.Trace, MaxBufferSize = 40 };
-		var lv = new LogViewerControl(logSvc)
-		{
-			VerticalAlignment = VerticalAlignment.Fill,
-			HorizontalAlignment = HorizontalAlignment.Stretch,
-			AutoScroll = true
-		};
-		window.AddControl(lv);
-		var region = new List<Rectangle> { new Rectangle(0, 0, window.Width, window.Height) };
-		window.RenderAndGetVisibleContent(region);
-
-		for (int i = 0; i < 40; i++)
-			logSvc.Log(LogLevel.Information, $"SEED{i}", "Cat");
+		for (int i = 0; i < 200; i++) logSvc.Log(LogLevel.Information, $"SEED{i}", "Cat");
 		system.DrainUiThreadQueueForTests();
-		window.RenderAndGetVisibleContent(region);
+		system.Render.UpdateDisplay();
 
-		// Past capacity with no user scroll: every one of these appends is an eviction Reset.
-		for (int i = 0; i < 20; i++)
-			logSvc.Log(LogLevel.Information, $"EVICT{i}", "Cat");
-		system.DrainUiThreadQueueForTests();
-		var lines = window.RenderAndGetVisibleContent(region);
-		Assert.Contains(lines, l => l.Contains("EVICT19")); // still tailing through eviction
+		RealWheel(system, MouseFlags.WheeledUp, 20);
+
+		Assert.True(lv.AutoScroll); // intent unchanged — the table detached, not this
 	}
-
-	/// <summary>
-	/// At capacity, scrolling back down to the bottom resumes follow: the next (Reset) append is
-	/// visible. Locks in that resume does not depend on a single-row Add event ever firing again.
-	/// </summary>
-	[Fact]
-	public void LogViewer_TailFollow_AtCapacity_ResumesAfterScrollBackToBottom()
-	{
-		var driver = new HeadlessConsoleDriver(120, 30);
-		var system = new ConsoleWindowSystem(driver);
-		var window = new Window(system) { Title = "Logs", Width = 100, Height = 12 };
-		system.AddWindow(window);
-
-		var logSvc = new LogService { MinimumLevel = LogLevel.Trace, MaxBufferSize = 40 };
-		var lv = new LogViewerControl(logSvc)
-		{
-			VerticalAlignment = VerticalAlignment.Fill,
-			HorizontalAlignment = HorizontalAlignment.Stretch,
-			AutoScroll = true
-		};
-		window.AddControl(lv);
-		var region = new List<Rectangle> { new Rectangle(0, 0, window.Width, window.Height) };
-		window.RenderAndGetVisibleContent(region);
-
-		for (int i = 0; i < 40; i++)
-			logSvc.Log(LogLevel.Information, $"SEED{i}", "Cat");
-		system.DrainUiThreadQueueForTests();
-		window.RenderAndGetVisibleContent(region);
-
-		// Scroll up, then back down to the bottom.
-		for (int i = 0; i < 80; i++) lv.ProcessMouseEvent(Wheel(MouseFlags.WheeledUp));
-		window.RenderAndGetVisibleContent(region);
-		for (int i = 0; i < 80; i++) lv.ProcessMouseEvent(Wheel(MouseFlags.WheeledDown));
-		window.RenderAndGetVisibleContent(region);
-
-		// Follow resumed: this append (a Reset at capacity) pins the newest line into view.
-		logSvc.Log(LogLevel.Information, "RESUMED", "Cat");
-		system.DrainUiThreadQueueForTests();
-		var after = window.RenderAndGetVisibleContent(region);
-		Assert.Contains(after, l => l.Contains("RESUMED"));
-	}
-
-	/// <summary>
-	/// A view-filter change rebuilds the projection (a Reset) even below capacity. With the viewer
-	/// scrolled up, that rebuild must not yank the viewport to the bottom. The filter here widens from
-	/// Trace to Debug over Information-only rows, so the visible content is unchanged, isolating the
-	/// pure did-the-Reset-yank question.
-	/// </summary>
-	[Fact]
-	public void LogViewer_TailFollow_FilterChange_DoesNotYankScrolledUpViewer()
-	{
-		var driver = new HeadlessConsoleDriver(120, 30);
-		var system = new ConsoleWindowSystem(driver);
-		var window = new Window(system) { Title = "Logs", Width = 100, Height = 12 };
-		system.AddWindow(window);
-
-		var logSvc = new LogService { MinimumLevel = LogLevel.Trace }; // default buffer: below capacity
-		var lv = new LogViewerControl(logSvc)
-		{
-			VerticalAlignment = VerticalAlignment.Fill,
-			HorizontalAlignment = HorizontalAlignment.Stretch,
-			AutoScroll = true
-		};
-		window.AddControl(lv);
-		var region = new List<Rectangle> { new Rectangle(0, 0, window.Width, window.Height) };
-		window.RenderAndGetVisibleContent(region);
-
-		for (int i = 0; i < 60; i++)
-			logSvc.Log(LogLevel.Information, $"SEED{i}", "Cat");
-		system.DrainUiThreadQueueForTests();
-		window.RenderAndGetVisibleContent(region);
-
-		// Scroll to the top: the tail must leave the viewport.
-		for (int i = 0; i < 80; i++) lv.ProcessMouseEvent(Wheel(MouseFlags.WheeledUp));
-		var afterUp = window.RenderAndGetVisibleContent(region);
-		Assert.Contains(afterUp, l => l.Contains("SEED0"));
-		Assert.DoesNotContain(afterUp, l => l.Contains("SEED59"));
-
-		// Change the view filter: same rows pass, but the projection rebuild raises Reset.
-		lv.FilterLevel = LogLevel.Debug;
-		system.DrainUiThreadQueueForTests();
-		var after = window.RenderAndGetVisibleContent(region);
-		Assert.Contains(after, l => l.Contains("SEED0"));            // viewport held at the top
-		Assert.DoesNotContain(after, l => l.Contains("SEED59"));     // not yanked to the bottom
-	}
-
-	private static MouseEventArgs Wheel(MouseFlags flag) =>
-		new(new List<MouseFlags> { flag }, new Point(1, 1), new Point(1, 1), new Point(1, 1));
 
 	/// <summary>
 	/// Large buffer virtualization test: adding 50,000 entries should not crash and the tail entry

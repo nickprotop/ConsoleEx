@@ -65,6 +65,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 			TruncationFade = true,
 			VerticalAlignment = VerticalAlignment.Fill,
 			HorizontalAlignment = HorizontalAlignment.Stretch,
+			AutoScroll = _autoScroll,   // seed from the viewer's default intent (true)
 			DataSource = _dataSource
 		};
 
@@ -133,10 +134,23 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 	#region Public Properties (preserved API)
 
 	/// <summary>Gets or sets whether to keep the newest log entry visible (tail-follow).</summary>
+	/// <remarks>
+	/// This is sticky USER INTENT and is not changed by scrolling. It writes DOWN to the inner
+	/// table's <see cref="TableControl.AutoScroll"/>, which tracks the transient "currently pinned
+	/// to the bottom" state and detaches itself when the user scrolls up. The table never writes
+	/// back up, so this property always reads back what the caller set.
+	/// </remarks>
 	public bool AutoScroll
 	{
 		get => _autoScroll;
-		set { if (SetProperty(ref _autoScroll, value) && value) ResumeFollow(); }
+		set
+		{
+			if (SetProperty(ref _autoScroll, value))
+			{
+				_table.AutoScroll = value;
+				if (value) ResumeFollow();
+			}
+		}
 	}
 
 	/// <summary>Gets or sets the minimum log level shown by the VIEW filter (does not discard entries).</summary>
@@ -332,15 +346,15 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 			(keyInfo.Key == ConsoleKey.C && keyInfo.Modifiers.HasFlag(ConsoleModifiers.Control)))
 		{
 			// A clear is an explicit "start fresh": re-attach to the tail regardless of scroll position.
-			_followTail = true;
+			_table.AutoScroll = _autoScroll;
 			_logService.ClearLogs();
 			return true;
 		}
 
-		// Delegate scroll/selection to the table, then re-read where the user's input left the viewport.
-		bool handled = ((IInteractiveControl)_table).ProcessKey(keyInfo);
-		SyncFollowToOffset();
-		return handled;
+		// Delegate scroll/selection to the table. The table owns follow state (TableControl.AutoScroll),
+		// so nothing needs re-deriving here — which is what makes this correct even though the window
+		// dispatcher may route scroll input straight to the table without calling this method at all.
+		return ((IInteractiveControl)_table).ProcessKey(keyInfo);
 	}
 
 	/// <inheritdoc/>
@@ -352,11 +366,10 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 			return true;
 		}
 
-		// Delegate (wheel, scrollbar arrows/track/thumb, clicks) to the table, then re-read where the
-		// user's input left the viewport. Re-deriving after a non-scrolling input is a harmless no-op.
-		bool handled = ((IMouseAwareControl)_table).ProcessMouseEvent(args);
-		SyncFollowToOffset();
-		return handled;
+		// Delegate to the table, which owns follow state. Note the window dispatcher bubbles wheel
+		// events deepest-first and stops at the first consumer, so the inner table often handles the
+		// wheel WITHOUT this method ever running — which is exactly why follow state must not live here.
+		return ((IMouseAwareControl)_table).ProcessMouseEvent(args);
 	}
 
 	#endregion
@@ -463,40 +476,20 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 		_systemAttached = true;
 	}
 
-	// One-row sticky-bottom fuzz. New rows can land between the user's input and the next follow
-	// application, so a reader who left the viewport at the bottom may be one row shy of the newest
-	// bottom; treat within-one-row as still-at-the-bottom.
-	private const int StickyBottomThreshold = 1;
-
-	// Whether the tail is being followed. Owned by the INPUT path: after every key/mouse event is
-	// delegated to the table, SyncFollowToOffset re-reads where that input left the viewport. Collection
-	// events never touch it, because the data source is free to raise the same logical append as Add or
-	// Reset (at buffer capacity every append is an eviction rebuild, i.e. Reset; filter changes are Reset
-	// too). Deriving from event types froze this flag once the buffer filled and yanked scrolled-up
-	// readers to the bottom on every line; input-owned intent holds for every event shape.
-	private bool _followTail = true;
-
-	// Re-derives follow intent from where the user's input left the viewport: at (or within the fuzz of)
-	// the bottom means follow; anywhere above means the user is reading and the tail must not yank.
-	private void SyncFollowToOffset()
-	{
-		int visible = Math.Max(1, _table.GetVisibleRowCount());
-		int maxOffset = Math.Max(0, _table.RowCount - visible);
-		_followTail = _table.ScrollOffset >= maxOffset - StickyBottomThreshold;
-	}
-
-	// Explicit AutoScroll-on / unpause: force-follow and jump to the bottom.
+	// Explicit AutoScroll-on / unpause: re-attach the table to the tail and jump to the bottom.
 	private void ResumeFollow()
 	{
-		_followTail = true;
+		_table.AutoScroll = _autoScroll;
 		ApplyTailFollow();
 	}
 
-	// Apply-only: pins the viewport to the newest row when following, leaves it alone when not.
-	// Runs on every CollectionChanged action; never decides follow intent (see _followTail).
+	// Apply-only: pins the viewport to the newest row when the table is still attached to the tail.
+	// Follow state is owned by TableControl.AutoScroll, which detaches itself when the user scrolls
+	// up — so this runs safely on EVERY CollectionChanged action (single Add, batch, eviction Reset,
+	// filter Reset) without needing to know which one arrived.
 	private void ApplyTailFollow()
 	{
-		if (!_autoScroll || _isPaused || !_followTail) return;
+		if (!_autoScroll || _isPaused || !_table.AutoScroll) return;
 		int visible = Math.Max(1, _table.GetVisibleRowCount());
 		_table.ScrollOffset = Math.Max(0, _table.RowCount - visible);
 	}
