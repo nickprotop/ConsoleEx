@@ -51,7 +51,8 @@ namespace SharpConsoleUI.Controls
 			int dataWidth = Width ?? dataCount;
 			int contentWidth = Math.Max(dataWidth, titleWidth);
 			int width = contentWidth + Margin.Left + Margin.Right + borderSize;
-			int height = _graphHeight + Margin.Top + Margin.Bottom + borderSize + titleHeight + baselineHeight;
+			int axisHeight = IsXAxisActive ? 1 : 0;
+			int height = _graphHeight + Margin.Top + Margin.Bottom + borderSize + titleHeight + baselineHeight + axisHeight;
 
 			return new LayoutSize(
 				Math.Clamp(width, constraints.MinWidth, constraints.MaxWidth),
@@ -92,7 +93,8 @@ namespace SharpConsoleUI.Controls
 			int startX = bounds.X + Margin.Left;
 			int startY = bounds.Y + Margin.Top;
 			int contentWidth = bounds.Width - Margin.Left - Margin.Right;
-			int contentHeight = _graphHeight + (borderSize * 2) + titleHeight + baselineHeight;
+			int axisHeight = IsXAxisActive ? 1 : 0;
+			int contentHeight = _graphHeight + (borderSize * 2) + titleHeight + baselineHeight + axisHeight;
 
 			// Fill content area with the control background. A fully transparent background (A == 0) must
 			// preserve what is beneath — do NOT stamp filler spaces over it (that would overwrite the
@@ -267,6 +269,13 @@ namespace SharpConsoleUI.Controls
 			else
 			{
 				PaintStandard(buffer, graphStartX, graphStartY, graphWidth, _graphHeight, graphBottom, clipRect, bgColor, useBraille, dataPointsSnapshot);
+			}
+
+			// X-axis: one row below the graph (and below the baseline row if present).
+			if (IsXAxisActive)
+			{
+				int axisY = graphBottom + 1 + (_showBaseline && !isBidirectional && _baselinePosition == TitlePosition.Bottom ? 1 : 0);
+				RenderXAxis(buffer, graphStartX, axisY, graphWidth, dataPointsSnapshot.Count, clipRect, bgColor, fgColor);
 			}
 		}
 
@@ -444,6 +453,52 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+
+		/// <summary>True when the X-axis should be drawn (enabled and a provider is set).</summary>
+		private bool IsXAxisActive => _showXAxis && _axisProvider != null;
+
+		/// <summary>
+		/// Draws the X-axis row. Asks <see cref="AxisProvider"/> for ticks given the current geometry,
+		/// then paints each tick's label at the column of its point index (0 = left/oldest,
+		/// pointCount-1 = right/newest), clipped to the graph width. The caller owns labels and colors.
+		/// </summary>
+		private void RenderXAxis(CharacterBuffer buffer, int graphStartX, int axisY, int graphWidth,
+			int pointCount, LayoutRect clipRect, Color bgColor, Color fgColor)
+		{
+			if (_axisProvider == null || graphWidth <= 0 || pointCount <= 0) return;
+			if (axisY < clipRect.Y || axisY >= clipRect.Bottom) return;
+
+			// How many points are actually shown (columns are 1 point wide; newest is right-aligned).
+			int shown = System.Math.Min(pointCount, graphWidth);
+			var context = new SparklineAxisContext(shown, graphWidth, _unitsPerPoint);
+
+			System.Collections.Generic.IEnumerable<SparklineAxisTick> ticks;
+			try { ticks = _axisProvider(context); }
+			catch { return; } // a throwing provider must not break rendering
+
+			if (ticks == null) return;
+
+			int right = graphStartX + graphWidth - 1;
+			foreach (var tick in ticks)
+			{
+				if (tick.PointIndex < 0 || tick.PointIndex >= shown || string.IsNullOrEmpty(tick.Label))
+					continue;
+
+				var cells = Parsing.MarkupParser.Parse(tick.Label, tick.Color ?? fgColor, Color.Transparent);
+				int labelWidth = cells.Count;
+
+				// Column for this point: shown points are right-aligned, so index 0 is the leftmost of
+				// the shown window. Anchor the label so it doesn't overflow the right edge.
+				int x = graphStartX + tick.PointIndex;
+				if (tick.PointIndex >= shown - 1)
+					x = right - labelWidth + 1;                 // last/newest tick hugs the right edge
+				else
+					x = System.Math.Min(x, right - labelWidth + 1);
+				if (x < graphStartX) x = graphStartX;
+
+				buffer.WriteCellsClipped(x, axisY, cells, clipRect);
+			}
+		}
 		#endregion
 	}
 }

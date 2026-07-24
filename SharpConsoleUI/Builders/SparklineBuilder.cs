@@ -179,6 +179,23 @@ namespace SharpConsoleUI.Builders
 		}
 
 		/// <summary>
+		/// Enables an X-axis under the graph, driven by <paramref name="axisProvider"/>. The control
+		/// supplies the geometry (point count, graph width, units-per-point); the provider returns the
+		/// ticks (label, point index, optional color). <paramref name="unitsPerPoint"/> is passed
+		/// through unchanged for the provider's use (e.g. seconds-per-sample). Passing a <c>null</c>
+		/// provider leaves the axis off (convenient for conditionally enabling it).
+		/// </summary>
+		public SparklineBuilder WithXAxis(
+			System.Func<SharpConsoleUI.Controls.SparklineAxisContext, System.Collections.Generic.IEnumerable<SharpConsoleUI.Controls.SparklineAxisTick>>? axisProvider,
+			double unitsPerPoint = 1.0)
+		{
+			_control.AxisProvider = axisProvider;
+			_control.UnitsPerPoint = unitsPerPoint;
+			_control.ShowXAxis = axisProvider != null;
+			return this;
+		}
+
+		/// <summary>
 		/// Sets the initial data points.
 		/// </summary>
 		public SparklineBuilder WithData(IEnumerable<double> dataPoints)

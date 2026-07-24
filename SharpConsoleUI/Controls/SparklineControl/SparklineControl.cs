@@ -166,6 +166,14 @@ namespace SharpConsoleUI.Controls
 		private TitlePosition _baselinePosition = TitlePosition.Bottom;
 		private bool _inlineTitleWithBaseline = false;
 
+		// X-axis support: an optional 1-row axis under the graph. The control owns only the geometry
+		// (how many points are shown, how wide the graph rendered, units-per-point); the CALLER owns
+		// meaning and appearance by returning the ticks to draw (label + position + color) from
+		// AxisProvider. The control just paints each returned tick at the column for its point index.
+		private bool _showXAxis = false;
+		private double _unitsPerPoint = 1.0;
+		private Func<SparklineAxisContext, IEnumerable<SparklineAxisTick>>? _axisProvider;
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="SparklineControl"/> class.
 		/// </summary>
@@ -380,6 +388,40 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _baselinePosition;
 			set => SetProperty(ref _baselinePosition, value);
+		}
+
+		/// <summary>
+		/// Gets or sets whether to draw a 1-row X-axis beneath the graph. The axis is only drawn when
+		/// this is true AND <see cref="AxisProvider"/> is set. The control supplies the geometry; the
+		/// provider supplies the ticks.
+		/// </summary>
+		public bool ShowXAxis
+		{
+			get => _showXAxis;
+			set => SetProperty(ref _showXAxis, value);
+		}
+
+		/// <summary>
+		/// Gets or sets the value each data point represents, passed to <see cref="AxisProvider"/> as
+		/// <see cref="SparklineAxisContext.UnitsPerPoint"/> (e.g. seconds-per-sample). The control does
+		/// not interpret it; it is purely for the provider's benefit.
+		/// </summary>
+		public double UnitsPerPoint
+		{
+			get => _unitsPerPoint;
+			set => SetProperty(ref _unitsPerPoint, value);
+		}
+
+		/// <summary>
+		/// Gets or sets the callback that produces the X-axis ticks. The control passes the current
+		/// geometry (<see cref="SparklineAxisContext"/>) and draws each returned
+		/// <see cref="SparklineAxisTick"/> at the column for its point index. The caller owns tick
+		/// placement, labels, and colors; the control owns only where columns map on screen.
+		/// </summary>
+		public Func<SparklineAxisContext, IEnumerable<SparklineAxisTick>>? AxisProvider
+		{
+			get => _axisProvider;
+			set => SetProperty(ref _axisProvider, value);
 		}
 
 		/// <summary>
