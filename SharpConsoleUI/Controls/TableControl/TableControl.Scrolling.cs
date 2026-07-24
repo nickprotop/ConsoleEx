@@ -16,6 +16,22 @@ public partial class TableControl
 	#region Scroll Properties
 
 	/// <summary>
+	/// Gets or sets whether the table keeps the newest (last) row visible.
+	/// Disables automatically when the user scrolls up, re-enables when the user scrolls back to
+	/// the bottom. Mirrors <see cref="ScrollablePanelControl.AutoScroll"/>.
+	/// </summary>
+	/// <remarks>
+	/// Defaults to <c>false</c>. Only movement through the <see cref="ScrollOffset"/> setter
+	/// re-derives this flag; direct internal offset writes (selection-follow, filter and structural
+	/// resets) deliberately leave it untouched, because they are not user scrolls.
+	/// </remarks>
+	public bool AutoScroll
+	{
+		get => _autoScroll;
+		set { if (_autoScroll == value) return; _autoScroll = value; OnPropertyChanged(); }
+	}
+
+	/// <summary>
 	/// Gets or sets the vertical scroll offset (first visible row index).
 	/// </summary>
 	public int ScrollOffset
@@ -27,7 +43,19 @@ public partial class TableControl
 			int clamped = Math.Clamp(value, 0, maxOffset);
 			if (clamped != _scrollOffset)
 			{
+				bool movedUp = clamped < _scrollOffset;
 				_scrollOffset = clamped;
+
+				// Tail-follow intent, re-derived from the scroll the caller just performed. Lives here
+				// (not in a wrapper's input handler) so it is correct no matter who scrolls: wheel,
+				// scrollbar, keyboard or programmatic. Only UPWARD movement detaches; landing on
+				// maxOffset re-attaches, which is why a tail pin (ScrollOffset = maxOffset) can never
+				// detach the control from itself.
+				if (_autoScroll && movedUp)
+					_autoScroll = false;
+				else if (!_autoScroll && clamped >= maxOffset)
+					_autoScroll = true;
+
 				_hoveredRowIndex = -1;
 				OnPropertyChanged();
 				Invalidate(Invalidation.Relayout);

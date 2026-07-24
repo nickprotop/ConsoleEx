@@ -135,6 +135,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 	// Scrolling
 	private int _scrollOffset = 0;
+	private bool _autoScroll = false;
 	private int _horizontalScrollOffset = 0;
 	private ScrollbarVisibility _verticalScrollbarVisibility = ScrollbarVisibility.Auto;
 	private ScrollbarVisibility _horizontalScrollbarVisibility = ScrollbarVisibility.Auto;

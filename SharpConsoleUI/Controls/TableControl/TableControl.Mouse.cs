@@ -646,8 +646,10 @@ public partial class TableControl
 
 		int deltaY = args.Position.Y - _scrollbarDragStartY;
 		int newOffset = _scrollbarDragStartOffset + (int)(deltaY * (double)maxOffset / trackRange);
-		_scrollOffset = Math.Clamp(newOffset, 0, maxOffset);
-		Invalidate(Invalidation.Relayout);
+
+		// Route through the property (not the field) so the drag participates in the AutoScroll
+		// detach/re-attach rule like every other user scroll. The setter clamps and invalidates.
+		ScrollOffset = newOffset;
 	}
 
 	private int GetScrollbarContentWidth()
