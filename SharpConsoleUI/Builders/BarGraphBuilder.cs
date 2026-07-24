@@ -50,6 +50,16 @@ namespace SharpConsoleUI.Builders
 		}
 
 		/// <summary>
+		/// Sets the separator between the label and the bar (default <c>": "</c>). Use <c>" "</c>
+		/// or <see cref="string.Empty"/> to drop the colon.
+		/// </summary>
+		public BarGraphBuilder WithLabelSeparator(string separator)
+		{
+			_control.LabelSeparator = separator;
+			return this;
+		}
+
+		/// <summary>
 		/// Sets the current value.
 		/// </summary>
 		public BarGraphBuilder WithValue(double value)

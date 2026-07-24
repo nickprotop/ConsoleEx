@@ -67,6 +67,7 @@ namespace SharpConsoleUI.Controls
 		private Color? _foregroundColorValue;
 		private string _label = string.Empty;
 		private int? _labelWidth;
+		private string _labelSeparator = ": ";
 		private double _maxValue = 100.0;
 		private bool _showLabel = true;
 		private bool _showValue = true;
@@ -144,6 +145,16 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _labelWidth;
 			set => SetProperty(ref _labelWidth, value, v => v.HasValue ? Math.Max(0, v.Value) : null);
+		}
+
+		/// <summary>
+		/// Gets or sets the separator written between the label and the bar. Defaults to
+		/// <c>": "</c>; set to <c>" "</c> (or <see cref="string.Empty"/>) to omit the colon.
+		/// </summary>
+		public string LabelSeparator
+		{
+			get => _labelSeparator;
+			set => SetProperty(ref _labelSeparator, value, v => v ?? string.Empty);
 		}
 
 		/// <summary>
@@ -357,7 +368,7 @@ namespace SharpConsoleUI.Controls
 			if (_showLabel && !string.IsNullOrEmpty(_label))
 			{
 				string labelContent = _label;
-				string suffix = ": ";
+				string suffix = _labelSeparator;
 				int targetWidth = _labelWidth ?? Parsing.MarkupParser.StripLength(labelContent);
 
 				// Truncate label if it exceeds target width (handles markup correctly)
@@ -494,7 +505,7 @@ namespace SharpConsoleUI.Controls
 
 			if (_showLabel && !string.IsNullOrEmpty(_label))
 			{
-				width += Parsing.MarkupParser.StripLength(_label) + 2; // Label + ": "
+				width += Parsing.MarkupParser.StripLength(_label) + Parsing.MarkupParser.StripLength(_labelSeparator); // Label + separator
 			}
 
 			if (_showValue)
