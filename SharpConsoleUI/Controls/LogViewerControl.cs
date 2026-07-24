@@ -6,7 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using System.Collections.Specialized;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Dialogs;
@@ -99,8 +98,10 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 
 		_table.SelectedRowChanged += (_, index) => UpdateDetail(index);
 
-		// Reactively re-apply tail-follow whenever rows change.
-		_dataSource.CollectionChanged += (_, e) => ApplyTailFollow(e);
+		// Reactively re-apply tail-follow whenever rows change. Every action type (single Add, batch,
+		// eviction/filter Reset) takes the same apply-only path; follow intent is owned by the input
+		// handlers, never inferred from which action the data source happened to raise.
+		_dataSource.CollectionChanged += (_, _) => ApplyTailFollow();
 	}
 
 	/// <summary>
@@ -135,7 +136,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 	public bool AutoScroll
 	{
 		get => _autoScroll;
-		set { if (SetProperty(ref _autoScroll, value) && value) ApplyTailFollow(); }
+		set { if (SetProperty(ref _autoScroll, value) && value) ResumeFollow(); }
 	}
 
 	/// <summary>Gets or sets the minimum log level shown by the VIEW filter (does not discard entries).</summary>
@@ -167,7 +168,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 	public bool IsPaused
 	{
 		get => _isPaused;
-		set { if (SetProperty(ref _isPaused, value) && !value) ApplyTailFollow(); }
+		set { if (SetProperty(ref _isPaused, value) && !value) ResumeFollow(); }
 	}
 
 	/// <summary>Gets or sets whether the toolbar is shown.</summary>
@@ -330,12 +331,16 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 		if (keyInfo.Key == ConsoleKey.Delete ||
 			(keyInfo.Key == ConsoleKey.C && keyInfo.Modifiers.HasFlag(ConsoleModifiers.Control)))
 		{
+			// A clear is an explicit "start fresh": re-attach to the tail regardless of scroll position.
+			_followTail = true;
 			_logService.ClearLogs();
 			return true;
 		}
 
-		// Delegate scroll/selection to the table.
-		return ((IInteractiveControl)_table).ProcessKey(keyInfo);
+		// Delegate scroll/selection to the table, then re-read where the user's input left the viewport.
+		bool handled = ((IInteractiveControl)_table).ProcessKey(keyInfo);
+		SyncFollowToOffset();
+		return handled;
 	}
 
 	/// <inheritdoc/>
@@ -346,7 +351,12 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 			MouseRightClick?.Invoke(this, args);
 			return true;
 		}
-		return ((IMouseAwareControl)_table).ProcessMouseEvent(args);
+
+		// Delegate (wheel, scrollbar arrows/track/thumb, clicks) to the table, then re-read where the
+		// user's input left the viewport. Re-deriving after a non-scrolling input is a harmless no-op.
+		bool handled = ((IMouseAwareControl)_table).ProcessMouseEvent(args);
+		SyncFollowToOffset();
+		return handled;
 	}
 
 	#endregion
@@ -453,29 +463,42 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 		_systemAttached = true;
 	}
 
-	// One-row sticky-bottom threshold. A single-row Add runs ApplyTailFollow AFTER RowCount already
-	// counts the just-appended line, so a follower's stored offset lags the new bottom by exactly one
-	// row.
+	// One-row sticky-bottom fuzz. New rows can land between the user's input and the next follow
+	// application, so a reader who left the viewport at the bottom may be one row shy of the newest
+	// bottom; treat within-one-row as still-at-the-bottom.
 	private const int StickyBottomThreshold = 1;
 
-	// Whether the tail is being followed. Re-derived ONLY on a single-row Add (the one event where the
-	// offset cheaply reveals user intent); a scroll-up past the threshold clears it, returning to the
-	// bottom sets it. Batch adds, buffer-eviction rebuilds (Reset), and explicit AutoScroll/unpause do
-	// NOT re-derive it (their offset can lag by many rows or be reset to 0), so a live tail keeps
-	// following through eviction and a scrolled-up viewer is not yanked back by a batch.
+	// Whether the tail is being followed. Owned by the INPUT path: after every key/mouse event is
+	// delegated to the table, SyncFollowToOffset re-reads where that input left the viewport. Collection
+	// events never touch it, because the data source is free to raise the same logical append as Add or
+	// Reset (at buffer capacity every append is an eviction rebuild, i.e. Reset; filter changes are Reset
+	// too). Deriving from event types froze this flag once the buffer filled and yanked scrolled-up
+	// readers to the bottom on every line; input-owned intent holds for every event shape.
 	private bool _followTail = true;
 
-	private void ApplyTailFollow(NotifyCollectionChangedEventArgs? change = null)
+	// Re-derives follow intent from where the user's input left the viewport: at (or within the fuzz of)
+	// the bottom means follow; anywhere above means the user is reading and the tail must not yank.
+	private void SyncFollowToOffset()
 	{
-		if (!_autoScroll || _isPaused) return;
 		int visible = Math.Max(1, _table.GetVisibleRowCount());
 		int maxOffset = Math.Max(0, _table.RowCount - visible);
-		if (change is { Action: NotifyCollectionChangedAction.Add } && change.NewItems?.Count == 1)
-			_followTail = _table.ScrollOffset >= maxOffset - StickyBottomThreshold;
-		else if (change is null)
-			_followTail = true; // explicit AutoScroll-on / unpause: jump to the bottom and follow
-		if (_followTail)
-			_table.ScrollOffset = maxOffset;
+		_followTail = _table.ScrollOffset >= maxOffset - StickyBottomThreshold;
+	}
+
+	// Explicit AutoScroll-on / unpause: force-follow and jump to the bottom.
+	private void ResumeFollow()
+	{
+		_followTail = true;
+		ApplyTailFollow();
+	}
+
+	// Apply-only: pins the viewport to the newest row when following, leaves it alone when not.
+	// Runs on every CollectionChanged action; never decides follow intent (see _followTail).
+	private void ApplyTailFollow()
+	{
+		if (!_autoScroll || _isPaused || !_followTail) return;
+		int visible = Math.Max(1, _table.GetVisibleRowCount());
+		_table.ScrollOffset = Math.Max(0, _table.RowCount - visible);
 	}
 
 	#endregion
