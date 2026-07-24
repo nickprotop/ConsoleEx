@@ -396,16 +396,30 @@ namespace SharpConsoleUI.Controls
 		#region IWindowControl Implementation
 
 		/// <inheritdoc/>
+		/// <remarks>
+		/// An explicit <see cref="Width"/> always wins. Otherwise, when the control is
+		/// <see cref="Layout.HorizontalAlignment.Stretch"/>-aligned it returns <c>null</c> so the
+		/// layout assigns the available width (the graph then fills it — see the auto-fit path in
+		/// the renderer). Without stretch, the intrinsic width is the current data-point count plus
+		/// horizontal margins. Returning the data count while stretching would collapse the control
+		/// to zero width before any data has accumulated, making it invisible.
+		/// </remarks>
 		public override int? ContentWidth
 		{
 			get
 			{
+				if (Width.HasValue)
+					return Width;
+
+				if (HorizontalAlignment == Layout.HorizontalAlignment.Stretch)
+					return null;
+
 				List<double> snapshot;
 				lock (_dataLock)
 				{
 					snapshot = _dataPoints;
 				}
-				return Width ?? (snapshot.Count + Margin.Left + Margin.Right);
+				return snapshot.Count + Margin.Left + Margin.Right;
 			}
 		}
 
