@@ -97,20 +97,61 @@ namespace SharpConsoleUI.Drivers
 		/// </remarks>
 		public bool Lock { get; set; } = false;
 
-		// Cache for FormatCellAnsi to avoid repeated string allocations
-		private string _lastCellAnsi = string.Empty;
+		/* Cache for FormatCellAnsi to avoid repeated string allocations. _lastCellAnsi is null until the
+		   first real format: it must NOT start as string.Empty, because the other three fields start at
+		   default(Color) / TextDecoration.None, and default(Color) is byte-identical to Color.Transparent
+		   (a readonly struct of R,G,B,A all zero). That made the UNINITIALISED cache a legitimate colour
+		   combination: a first cell of Transparent-on-Transparent matched it and got string.Empty back (no
+		   SGR at all), and because the hit path returns before writing the cache, every later
+		   Transparent-on-Transparent cell got string.Empty too. It stays hidden whenever an opaque cell is
+		   formatted first (priming the cache), which is why an ordinary render never tripped it. The null
+		   sentinel cannot collide with any formatted value. */
+		private string? _lastCellAnsi;
 		private Color _lastCellFg;
 		private Color _lastCellBg;
 		private TextDecoration _lastCellDecorations;
 
 		/// <summary>
-		/// Formats an ANSI escape sequence for the given foreground color, background color,
-		/// and text decorations. Caches the last result for consecutive cells with identical
+		/// The foreground to actually emit for <paramref name="character"/>: the cell's own, unless it is a
+		/// blank whose foreground cannot be seen, in which case terminal-default.
+		/// </summary>
+		/// <remarks>
+		/// Only applies in <see cref="Configuration.TerminalTransparencyMode.PreserveTerminalTransparency"/>
+		/// (the opt-in no-colour mode); every other mode emits the cell's foreground unchanged.
+		/// </remarks>
+		private Color EffectiveForeground(Rune character, Color fg, TextDecoration decorations)
+		{
+			/* A space paints no glyph, so its foreground is invisible: emitting a concrete 38;2;R;G;B for it
+			   spends a colour nobody can see, and in no-colour mode it is precisely what stops a frame from
+			   being colour-free. Blank cells acquire an opaque foreground from several sources that cannot
+			   see the transparency mode: CharacterBuffer's background-only fills and Clear() bake Color.White,
+			   and Renderer.FillRect coerces an unspecified (null) foreground to White. Normalising at the
+			   emit boundary catches all of them at once, and (unlike changing what the buffer stores) it
+			   cannot disturb compositing or the alpha blend in SetNarrowCell, which read those same colours.
+			   Underline / Strikethrough / Invert DO paint a blank cell in its foreground, so they are exempt. */
+			if (_options.TerminalTransparencyMode != Configuration.TerminalTransparencyMode.PreserveTerminalTransparency)
+				return fg;
+			if (character.Value != ' ')
+				return fg;
+
+			const TextDecoration paintsBlankWithForeground = TextDecoration.Underline | TextDecoration.Strikethrough | TextDecoration.Invert;
+			if ((decorations & paintsBlankWithForeground) != 0)
+				return fg;
+
+			return Color.Transparent;
+		}
+
+		/// <summary>
+		/// Formats an ANSI escape sequence for the given cell character, foreground color, background
+		/// color, and text decorations. Caches the last result for consecutive cells with identical
 		/// attributes (common case).
 		/// </summary>
-		private string FormatCellAnsi(Color fg, Color bg, TextDecoration decorations = TextDecoration.None)
+		private string FormatCellAnsi(Rune character, Color fg, Color bg, TextDecoration decorations = TextDecoration.None)
 		{
-			if (fg.Equals(_lastCellFg) && bg.Equals(_lastCellBg) && decorations == _lastCellDecorations)
+			// Normalise BEFORE the cache probe so the cache keys on what is actually emitted.
+			fg = EffectiveForeground(character, fg, decorations);
+
+			if (_lastCellAnsi is not null && fg.Equals(_lastCellFg) && bg.Equals(_lastCellBg) && decorations == _lastCellDecorations)
 				return _lastCellAnsi;
 
 			var sb = _formatBuilder;
@@ -204,7 +245,7 @@ namespace SharpConsoleUI.Drivers
 				orphanedCont.Combiners = null;
 			}
 
-			string ansi = FormatCellAnsi(fg, bg);
+			string ansi = FormatCellAnsi(character, fg, bg);
 			ref var cell = ref _backBuffer[x, y];
 			if (cell.Character != character || cell.AnsiEscape != ansi || cell.IsWideContinuation || cell.Combiners != null)
 			{
@@ -260,7 +301,7 @@ namespace SharpConsoleUI.Drivers
 				orphanedCont.Combiners = null;
 			}
 
-			string ansi = FormatCellAnsi(fg, bg);
+			string ansi = FormatCellAnsi(character, fg, bg);
 			for (int i = 0; i < maxWidth; i++)
 			{
 				ref var cell = ref _backBuffer[x + i, y];
@@ -339,8 +380,8 @@ namespace SharpConsoleUI.Drivers
 						i == maxWidth - 1;
 					if (isOrphanedContinuation || isClippedWideBase)
 					{
-						string ansi = FormatCellAnsi(srcCell.Foreground, srcCell.Background, srcCell.Decorations);
 						var spaceRune = new Rune(' ');
+						string ansi = FormatCellAnsi(spaceRune, srcCell.Foreground, srcCell.Background, srcCell.Decorations);
 						if (destCell.Character != spaceRune || destCell.AnsiEscape != ansi || destCell.IsWideContinuation || destCell.Combiners != null)
 						{
 							destCell.Character = spaceRune;
@@ -351,7 +392,7 @@ namespace SharpConsoleUI.Drivers
 					}
 					else
 					{
-						string ansi = FormatCellAnsi(srcCell.Foreground, srcCell.Background, srcCell.Decorations);
+						string ansi = FormatCellAnsi(srcCell.Character, srcCell.Foreground, srcCell.Background, srcCell.Decorations);
 
 						if (destCell.Character != srcCell.Character || destCell.AnsiEscape != ansi || destCell.IsWideContinuation != srcCell.IsWideContinuation || destCell.Combiners != srcCell.Combiners)
 						{
@@ -364,9 +405,11 @@ namespace SharpConsoleUI.Drivers
 				}
 				else
 				{
-					// Out of bounds: write padding space with fallback background
+					// Out of bounds: write padding space with fallback background. The space's White
+					// foreground is normalised to terminal-default by EffectiveForeground in no-colour
+					// mode, so it needs no special-casing here.
 					var spaceRune = new Rune(' ');
-					string ansi = FormatCellAnsi(Color.White, fallbackBg);
+					string ansi = FormatCellAnsi(spaceRune, Color.White, fallbackBg);
 					if (destCell.Character != spaceRune || destCell.AnsiEscape != ansi || destCell.IsWideContinuation || destCell.Combiners != null)
 					{
 						destCell.Character = spaceRune;
