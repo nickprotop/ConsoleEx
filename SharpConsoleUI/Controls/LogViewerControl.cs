@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Collections.Specialized;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Dialogs;
@@ -99,7 +100,7 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 		_table.SelectedRowChanged += (_, index) => UpdateDetail(index);
 
 		// Reactively re-apply tail-follow whenever rows change.
-		_dataSource.CollectionChanged += (_, _) => ApplyTailFollow();
+		_dataSource.CollectionChanged += (_, e) => ApplyTailFollow(e);
 	}
 
 	/// <summary>
@@ -452,11 +453,29 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 		_systemAttached = true;
 	}
 
-	private void ApplyTailFollow()
+	// One-row sticky-bottom threshold. A single-row Add runs ApplyTailFollow AFTER RowCount already
+	// counts the just-appended line, so a follower's stored offset lags the new bottom by exactly one
+	// row.
+	private const int StickyBottomThreshold = 1;
+
+	// Whether the tail is being followed. Re-derived ONLY on a single-row Add (the one event where the
+	// offset cheaply reveals user intent); a scroll-up past the threshold clears it, returning to the
+	// bottom sets it. Batch adds, buffer-eviction rebuilds (Reset), and explicit AutoScroll/unpause do
+	// NOT re-derive it (their offset can lag by many rows or be reset to 0), so a live tail keeps
+	// following through eviction and a scrolled-up viewer is not yanked back by a batch.
+	private bool _followTail = true;
+
+	private void ApplyTailFollow(NotifyCollectionChangedEventArgs? change = null)
 	{
 		if (!_autoScroll || _isPaused) return;
-		int visible = _table.GetVisibleRowCount();
-		_table.ScrollOffset = Math.Max(0, _table.RowCount - Math.Max(1, visible));
+		int visible = Math.Max(1, _table.GetVisibleRowCount());
+		int maxOffset = Math.Max(0, _table.RowCount - visible);
+		if (change is { Action: NotifyCollectionChangedAction.Add } && change.NewItems?.Count == 1)
+			_followTail = _table.ScrollOffset >= maxOffset - StickyBottomThreshold;
+		else if (change is null)
+			_followTail = true; // explicit AutoScroll-on / unpause: jump to the bottom and follow
+		if (_followTail)
+			_table.ScrollOffset = maxOffset;
 	}
 
 	#endregion

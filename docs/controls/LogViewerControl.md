@@ -6,7 +6,7 @@ Scrollable control that displays log entries from the library's `LogService`, up
 
 LogViewerControl renders the entries held by an `ILogService` as a live, scrolling list. It subscribes to the service's `LogAdded` and `LogsCleared` events, so the view updates automatically whenever the application or the library writes a log entry. Each entry is rendered through `LogEntry.ToMarkup()`, which color-codes the level and dims the timestamp and category.
 
-Internally the control wraps a `ScrollablePanelControl` (with `AutoScroll` enabled), so it inherits smooth scrolling, an optional scrollbar, and mouse-wheel support. New entries appended at the bottom automatically scroll into view unless the user has scrolled away. The control honors the service's `MaxBufferSize`, trimming the oldest displayed entries when the buffer overflows.
+Internally the control composes a `GridControl` hosting a virtualized `TableControl` fed by a `LogTableDataSource`, so it inherits smooth scrolling, an optional scrollbar, and mouse-wheel support over large buffers without a per-entry control. Under `AutoScroll`, new entries appended at the bottom scroll into view; follow pauses when the user scrolls up and resumes when they return to the bottom (a one-row sticky-bottom threshold). The control honors the service's `MaxBufferSize`, trimming the oldest displayed entries when the buffer overflows.
 
 LogViewerControl is thread-safe: log events may be raised from any thread. Incoming entries are placed on a concurrent queue and applied on the UI thread during the next paint, so background logging never races with rendering. The control supports an optional `Title` line and can filter what it shows by minimum log level and by category.
 
