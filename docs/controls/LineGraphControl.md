@@ -150,6 +150,6 @@ All data operations (`AddDataPoint`, `SetDataPoints`, `ClearAllData`, `AddSeries
 
 ## Related
 
-- [SparklineControl](../CONTROLS.md) - Vertical bar chart for time-series data
-- [BarGraphControl](../CONTROLS.md) - Horizontal bar graphs
+- [SparklineControl](SparklineControl.md) - Compact time-series sparkline
+- [BarGraphControl](BarGraphControl.md) - Horizontal bar graphs
 - [CanvasControl](CanvasControl.md) - Free-form drawing for custom visualizations

@@ -391,6 +391,7 @@ window.AddControl(panel);
 
 ## See Also
 
+- [PanelControl](PanelControl.md) - The same panel with collapsing sealed off
 - [ScrollablePanelControl](ScrollablePanelControl.md) - Wrap a capped body to make it scrollable
 - [TabControl](TabControl.md) - Switchable multi-page container
 - [MarkupControl](MarkupControl.md) - Formatted text for headers and bodies

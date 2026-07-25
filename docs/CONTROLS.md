@@ -87,11 +87,12 @@ Controls for displaying formatted content.
 | **[ChatTranscriptControl](controls/ChatTranscriptControl.md)** | Agent/chat transcript | Role-tagged messages (User/Assistant/System/Tool/Error), token-by-token streaming, collapsible tool messages, thinking indicator, gradient headers, alpha bubbles |
 | **[LogViewerControl](controls/LogViewerControl.md)** | Log message viewer | Auto-scroll, filtering, severity colors |
 | **[SpectreRenderableControl](controls/SpectreRenderableControl.md)** | Wrapper for Spectre widgets | Display Tables, Trees, Panels, Charts, etc. |
-| **PanelControl** | Bordered container panel | Hosts child controls (a non-collapsible CollapsiblePanel); headers, border styles, padding, mouse. For bordered *text*, use [MarkupControl](controls/MarkupControl.md) with `.WithBorder()`. |
+| **[PanelControl](controls/PanelControl.md)** | Bordered container panel | Hosts child controls (a non-collapsible CollapsiblePanel); headers, border styles, padding, mouse. For bordered *text*, use [MarkupControl](controls/MarkupControl.md) with `.WithBorder()`. |
 | **RuleControl** | Horizontal rule/separator | Optional title, colors, horizontal line |
-| **SparklineControl** | Time-series sparkline graph | Block, braille, or bidirectional modes; borders; titles |
+| **[SparklineControl](controls/SparklineControl.md)** | Time-series sparkline graph | Block, braille, or bidirectional modes; borders; titles |
 | **[LineGraphControl](controls/LineGraphControl.md)** | Multi-series line graph | Braille and ASCII rendering modes, gradients, Y-axis labels, live updates |
-| **BarGraphControl** | Horizontal bar graph | Gradient color thresholds, labels, value display |
+| **[BarGraphControl](controls/BarGraphControl.md)** | Horizontal bar graph | Gradient color thresholds, labels, value display |
+| **[ProgressBarControl](controls/ProgressBarControl.md)** | Task progress indicator | Determinate fill with percentage, or indeterminate pulsing animation |
 | **[SpinnerControl](controls/SpinnerControl.md)** | Animated indeterminate-progress spinner | Preset styles + custom frames, per-frame markup, auto-animates via the animation manager. Also available as the inline `[spinner]` markup tag. |
 
 ## Drawing Controls
