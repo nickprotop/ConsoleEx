@@ -25,7 +25,7 @@ namespace SharpConsoleUI.Controls
 	/// A horizontal bar graph control for visualizing percentage-based data.
 	/// Displays a filled/unfilled bar with optional label, value, and custom colors.
 	/// </summary>
-	public class BarGraphControl : BaseControl, IColorRoleableControl
+	public partial class BarGraphControl : BaseControl, IColorRoleableControl
 	{
 
 		#region ColorRole
@@ -199,7 +199,12 @@ namespace SharpConsoleUI.Controls
 		public double Value
 		{
 			get => _value;
-			set => SetProperty(ref _value, value, v => Math.Max(0, v));
+			set
+			{
+				var clamped = Math.Max(0, value);
+				if (SetProperty(ref _value, clamped))
+					OnValueChanged(clamped);
+			}
 		}
 
 		/// <summary>
@@ -431,7 +436,7 @@ namespace SharpConsoleUI.Controls
 					effectiveBarWidth = availableForBar;
 			}
 
-			double percent = Math.Clamp(_value / _maxValue, 0.0, 1.0);
+			double percent = Math.Clamp(DisplayValue / _maxValue, 0.0, 1.0);  // DisplayValue eases while animating
 			int filledChars = (int)Math.Round(percent * effectiveBarWidth);
 			int unfilledChars = effectiveBarWidth - filledChars;
 

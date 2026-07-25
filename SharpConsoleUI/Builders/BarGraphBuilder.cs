@@ -69,6 +69,18 @@ namespace SharpConsoleUI.Builders
 		}
 
 		/// <summary>
+		/// Enables animated value transitions: when <see cref="BarGraphControl.Value"/> changes, the
+		/// bar (and its threshold/gradient color) eases to the new value over <paramref name="duration"/>
+		/// instead of snapping. The numeric readout still shows the target immediately. Off by default.
+		/// </summary>
+		public BarGraphBuilder WithAnimatedValue(bool animate = true, System.TimeSpan? duration = null)
+		{
+			_control.AnimateValue = animate;
+			if (duration.HasValue) _control.AnimationDuration = duration.Value;
+			return this;
+		}
+
+		/// <summary>
 		/// Sets the maximum value (100% fill).
 		/// </summary>
 		public BarGraphBuilder WithMaxValue(double maxValue)
