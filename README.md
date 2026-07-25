@@ -205,6 +205,13 @@ ntop/btop-inspired. Hardware identity dashboard, sparkline graphs, process manag
 Live download/upload Braille waveforms, session peaks and daily totals, per-interface pickers, a speed-reactive border — over an alpha-blended, animated desktop background. Cross-platform.
 [github.com/nickprotop/cxnet](https://github.com/nickprotop/cxnet)
 
+### cxgpu — multi-vendor GPU monitor
+
+![cxgpu](docs/images/examples/cxgpu-overview.png)
+
+NVIDIA and AMD side by side. Live gauges with Braille sparkline history, a multi-GPU fleet dashboard, a process tree with signal actions, throttle detection, and Prometheus metrics.
+[github.com/nickprotop/cxgpu](https://github.com/nickprotop/cxgpu)
+
 ### LazyDotIDE — a .NET IDE in the terminal
 
 ![LazyDotIDE with IntelliSense](docs/images/examples/lazydotide-intellisense.png)

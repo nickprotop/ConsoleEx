@@ -40,6 +40,36 @@ Live download/upload throughput rendered as Braille waveforms, with session peak
 
 ---
 
+### cxgpu
+Multi-vendor GPU monitor for the terminal — NVIDIA and AMD in one view.
+
+![cxgpu Overview](images/examples/cxgpu-overview.png)
+
+**Project:** [github.com/nickprotop/cxgpu](https://github.com/nickprotop/cxgpu)
+
+Live gauges and Braille sparkline history for utilization, memory, temperature, power and fan; a fleet dashboard for multi-GPU boxes; and a per-process tree with signal actions. Each backend declares what it can measure, so unsupported metrics are omitted rather than faked as zero.
+
+**Key Features:**
+- NVIDIA (`nvidia-smi`) and AMD (sysfs/hwmon, `amd-smi`/`rocm-smi`) side by side, each through its own backend
+- Overview with gauges, sparkline history, a vitals line, and a full device spec-sheet
+- Fleet dashboard with aggregate totals plus a hero panel per GPU
+- Process tree with GPU filter, sorting, per-process engine usage, SIGTERM/SIGKILL
+- Throttle detection, threshold alerts, session stats, and Prometheus `/metrics`
+- `--demo[=N]` simulates up to 9 GPUs — no hardware required
+
+**SharpConsoleUI features on show:**
+- `BarGraphControl` gauges and Braille sparkline history driven by an async per-window render loop
+- `TreeControl` with expandable rows for per-process detail, plus a filter/sort toolbar
+- A responsive panel grid that reflows side-by-side or stacked with terminal width
+- Toasts, a status-bar badge, and a portal flyout for alert history
+- A paged settings dialog (F9) and a keyboard help overlay
+
+| Overview | Fleet Dashboard | Processes |
+|----------|-----------------|-----------|
+| ![Overview](images/examples/cxgpu-overview.png) | ![Dashboard](images/examples/cxgpu-dashboard.png) | ![Processes](images/examples/cxgpu-processes.png) |
+
+---
+
 ### ServerHub
 Production-ready Linux server control panel.
 
