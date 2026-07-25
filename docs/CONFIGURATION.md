@@ -9,6 +9,7 @@ SharpConsoleUI provides comprehensive configuration options through `ConsoleWind
 - [Panel Configuration](#panel-configuration)
 - [Environment Variables](#environment-variables)
 - [Complete Configuration Examples](#complete-configuration-examples)
+- [RegistryConfiguration](#registryconfiguration)
 
 ## Overview
 
@@ -36,18 +37,69 @@ var windowSystem = new ConsoleWindowSystem(
 
 Main configuration for the console window system.
 
-### Properties
+`ConsoleWindowSystemOptions` is a **positional record** with init-only properties, so all
+settings are passed as named constructor arguments and modified with `with` expressions
+rather than assignment.
+
+#### Rendering and performance
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `EnablePerformanceMetrics` | `bool` | `false` | Enable performance metric tracking |
 | `EnableFrameRateLimiting` | `bool` | `true` | Limit rendering to target FPS (prevents excessive CPU usage) |
 | `TargetFPS` | `int` | `60` | Target frames per second (0 = unlimited) |
+| `ClampToWindowWidth` | `bool` | `false` | Clamp rendered output to the window width |
+| `DirtyTrackingMode` | `DirtyTrackingMode` | `Smart` | Dirty-region granularity: `Smart` (adaptive), `Cell` (minimal output), `Line` (fewer cursor moves) |
+| `SmartModeCoverageThreshold` | `float` | `0.6f` | `Smart` mode only — above this fraction of dirty cells, switch to line mode |
+| `SmartModeFragmentationThreshold` | `int` | `5` | `Smart` mode only — above this many separate regions, switch to line mode |
+| `ClearDestinationOnWindowMove` | `bool` | `true` | Clear the vacated area when a window moves |
+| `EnableAnimations` | `bool` | `true` | Enable the animation system |
+
+#### Panels and desktop
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
 | `TopPanelConfig` | `Func<PanelBuilder, PanelBuilder>?` | `null` | Top panel element configuration |
 | `BottomPanelConfig` | `Func<PanelBuilder, PanelBuilder>?` | `null` | Bottom panel element configuration |
 | `ShowTopPanel` | `bool` | `true` | Show/hide top panel |
 | `ShowBottomPanel` | `bool` | `true` | Show/hide bottom panel |
 | `DesktopBackground` | `DesktopBackgroundConfig?` | `null` | Desktop background (gradient, pattern, animated). See [Desktop Background](DESKTOP_BACKGROUND.md) |
+| `TerminalTransparencyMode` | `TerminalTransparencyMode` | `PreserveWindowColor` | How semi-transparent windows blend over a transparent terminal |
+
+#### Input and lifecycle
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `WindowCycleKey` | `ConsoleKey?` | `ConsoleKey.T` | Ctrl+key that cycles windows. `null` disables it |
+| `ExitKey` | `ConsoleKey?` | `ConsoleKey.Q` | Ctrl+key that exits. `null` disables it |
+| `Watchdog` | `WatchdogOptions?` | `null` | Main-loop watchdog settings. `null` uses `new WatchdogOptions()` |
+| `InstallSynchronizationContext` | `bool` | `false` | Install a UI `SynchronizationContext` for the duration of `Run()`. See the caveat below |
+
+#### Diagnostics and testing
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `EnableDiagnostics` | `bool` | `false` | Enable rendering diagnostics (zero overhead when disabled) |
+| `DiagnosticsRetainFrames` | `int` | `1` | Number of frames of diagnostic data to retain |
+| `DiagnosticsLayers` | `DiagnosticsLayers` | `All` | Which layers to capture diagnostics for |
+| `EnableQualityAnalysis` | `bool` | `false` | Enable render quality analysis |
+| `EnablePerformanceProfiling` | `bool` | `false` | Enable detailed performance profiling |
+
+### InstallSynchronizationContext
+
+> ⚠️ **Leave this `false` unless you are certain.** It defaults to `false` so that awaited
+> continuations resume on the thread pool. A handler that blocks on async work
+> (`.Result`, `.Wait()`, `.GetAwaiter().GetResult()`) then freezes-and-recovers instead of
+> deadlocking outright.
+>
+> Setting it to `true` opts into the WinForms/WPF model where `await` resumes on the UI
+> thread — but then handlers **must** use `await` and must never block on async work on the
+> UI thread, or the captured continuation deadlocks against the main loop.
+
+See [Opting in (`InstallSynchronizationContext`)](THREADING_AND_ASYNC.md#opting-in-installsynchronizationcontext)
+in the Threading & Async guide for the full discussion, and
+[Why blocking on async work deadlocks](THREADING_AND_ASYNC.md#why-blocking-on-async-work-deadlocks)
+for the underlying mechanism.
 
 ### Computed Properties
 
@@ -435,6 +487,7 @@ See the [Registry guide](REGISTRY.md) for full documentation.
 
 - [Panel System](PANELS.md) - Full panel and element reference
 - [Desktop Background](DESKTOP_BACKGROUND.md) - Gradients, patterns, animated backgrounds
+- [Threading & Async](THREADING_AND_ASYNC.md) - The UI thread model and `InstallSynchronizationContext`
 - [State Services](STATE-SERVICES.md) - Runtime state management
 - [Registry](REGISTRY.md) - Persistent key-value storage
 - [Themes](THEMES.md) - Theme system and customization
