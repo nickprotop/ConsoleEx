@@ -487,7 +487,8 @@ var options = new ConsoleWindowSystemOptions(
             .WithRenderCallback((buffer, x, y, width, fg, bg) =>
             {
                 var status = IsConnected ? "[green]●[/]" : "[red]●[/]";
-                buffer.WriteMarkup(x, y, $" {status} Online", fg, bg);
+                var cells = MarkupParser.Parse($" {status} Online", fg, bg);
+                buffer.WriteCellsClipped(x, y, cells, new LayoutRect(x, y, width, 1));
             }))
 );
 ```

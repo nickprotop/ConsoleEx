@@ -316,8 +316,8 @@ Controls.Dropdown()
 
 ```csharp
 Controls.Prompt("Enter name:")
-    .WithInitialText("")
-    .WithMaxLength(50)
+    .WithInput("")
+    .WithInputWidth(50)
     .WithName("nameInput")
     .OnEntered((sender, text, window) =>
     {
@@ -375,19 +375,22 @@ See [Markup Syntax → Markdown](MARKUP_SYNTAX.md#markdown) for the supported co
 ### TreeControlBuilder
 
 ```csharp
+// Build the node tree first, then hand the root(s) to the builder.
+// TreeNode.AddChild returns the new child, so you can nest by capturing it.
+var root = new TreeNode("Root");
+root.AddChild("Child 1");
+var child2 = root.AddChild("Child 2");
+child2.AddChild("Grandchild");
+root.IsExpanded = true;
+
 Controls.Tree()
-    .AddNode("Root", children =>
-    {
-        children.AddNode("Child 1");
-        children.AddNode("Child 2", grandchildren =>
-        {
-            grandchildren.AddNode("Grandchild");
-        });
-    })
+    .AddRootNode(root)
     .WithHeight(15)
     .WithColors(Color.Grey15, Color.White)
     .Build();
 ```
+
+Use `AddRootNodes(params TreeNode[])` to add several roots at once.
 
 ### HorizontalGridBuilder
 
@@ -493,15 +496,14 @@ Controls.Toolbar()
 Controls.MultilineEdit()
     .WithViewportHeight(10)
     .WithWrapMode(WrapMode.Wrap)
-    .WithInitialText("Initial content")
+    .WithContent("Initial content")
     .Build();
 ```
 
 ### FigleControlBuilder
 
 ```csharp
-Controls.Figle("BIG TEXT")
-    .WithFont(FigletFont.Load("standard"))
+Controls.Figlet("BIG TEXT")
     .WithAlignment(HorizontalAlignment.Center)
     .WithColor(Color.Yellow)
     .Build();
@@ -693,7 +695,10 @@ var table = new Table()
     .AddRow("Item 1", "100")
     .AddRow("Item 2", "200");
 
-Controls.SpectreRenderable(table)
+// SpectreRenderableBuilder is constructed directly — there is no Controls.* factory for it,
+// because Spectre.Console is an optional dependency.
+new SpectreRenderableBuilder()
+    .WithRenderable(table)
     .WithAlignment(HorizontalAlignment.Center)
     .Build();
 ```
@@ -782,7 +787,7 @@ Controls.Error("Error message")     // Red error text
 Controls.Success("Success!")        // Green success text
 Controls.Rule("Section")            // Horizontal rule with title
 Controls.Separator()                // Plain horizontal line
-Controls.Space()                    // Empty space/padding
+Controls.VerticalSeparator()        // Plain vertical line
 ```
 
 ### Builder Methods
@@ -803,16 +808,48 @@ Controls.CollapsiblePanel(title?)   // CollapsiblePanelBuilder (click-to-expand 
 Controls.Menu()                     // MenuBuilder
 Controls.Toolbar()                  // ToolbarBuilder
 Controls.MultilineEdit()            // MultilineEditControlBuilder
-Controls.Figle(text)                // FigleControlBuilder
-Controls.SpectreRenderable(widget)  // SpectreRenderableBuilder
+Controls.Figlet(text)               // FigleControlBuilder
 Controls.RuleBuilder()              // RuleBuilder
 Controls.Panel()                    // PanelBuilder (for bordered content panels)
 Controls.Panel(text)                // PanelControl directly with text content
 Controls.NavigationView()           // NavigationViewBuilder (sidebar nav + content area)
 Controls.Terminal(exe?)             // TerminalBuilder — Linux only, requires PtyShim setup
-new SparklineBuilder()              // SparklineBuilder (for time-series graphs)
-new BarGraphBuilder()               // BarGraphBuilder (for horizontal bar graphs)
+
+// Layout containers
+Controls.Grid()                     // GridBuilder (WinUI-style 2D layout)
+Controls.Splitter()                 // SplitterBuilder (vertical split)
+Controls.HorizontalSplitter()       // HorizontalSplitterBuilder
+Controls.TabControl()               // TabControlBuilder
+Controls.Form()                     // FormBuilder
+Controls.Flow()                     // FlowBuilder
+Controls.Wizard()                   // WizardBuilder
+
+// Data and graphs
+Controls.Table()                    // TableBuilder (data grid)
+Controls.Sparkline()                // SparklineBuilder (time-series graphs)
+Controls.BarGraph()                 // BarGraphBuilder (horizontal bar graphs)
+Controls.LineGraph()                // LineGraphBuilder
+Controls.ProgressBar()              // ProgressBarBuilder
+Controls.Spinner()                  // SpinnerBuilder
+Controls.StatusBar()                // StatusBarBuilder
+
+// Input
+Controls.Radio()                    // RadioBuilder
+Controls.Slider()                   // SliderBuilder
+Controls.RangeSlider()              // RangeSliderBuilder
+Controls.DatePicker()               // DatePickerBuilder
+Controls.TimePicker()               // TimePickerBuilder
+
+// Media and rich content
+Controls.Canvas()                   // CanvasBuilder
+Controls.Image(path?)               // ImageBuilder
+Controls.Video(path?)               // VideoBuilder
+Controls.ChatTranscript()           // ChatTranscriptBuilder
 ```
+
+`SpectreRenderableBuilder` has no `Controls.*` factory — construct it directly
+(`new SpectreRenderableBuilder().WithRenderable(...)`), since Spectre.Console is an
+optional dependency.
 
 ## Builder Patterns
 
@@ -930,7 +967,7 @@ mainWindow.AddControl(
         .Build()
 );
 
-mainWindow.AddControl(Controls.Space());
+mainWindow.AddControl(Controls.Label(""));   // blank spacer line
 
 // Name input
 mainWindow.AddControl(
@@ -953,7 +990,7 @@ mainWindow.AddControl(
         .Build()
 );
 
-mainWindow.AddControl(Controls.Space());
+mainWindow.AddControl(Controls.Label(""));   // blank spacer line
 
 // Message input
 mainWindow.AddControl(Controls.Label("Message:"));
@@ -965,7 +1002,7 @@ mainWindow.AddControl(
         .Build()
 );
 
-mainWindow.AddControl(Controls.Space());
+mainWindow.AddControl(Controls.Label(""));   // blank spacer line
 
 // Buttons
 mainWindow.AddControl(

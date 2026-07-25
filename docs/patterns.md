@@ -757,7 +757,7 @@ ws.NotificationStateService.ShowNotification(
     "Confirm", "This action cannot be undone.",
     NotificationSeverity.Warning, blockUi: true, timeout: null);
 
-ws.NotificationStateService.DismissAllNotifications();
+ws.NotificationStateService.DismissAll();
 ```
 
 ## 18. Table with Interactive Features

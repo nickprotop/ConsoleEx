@@ -219,13 +219,13 @@ string id = ws.NotificationStateService.ShowNotification(
     "Info", "Message", NotificationSeverity.Info);
 
 ws.NotificationStateService.DismissNotification(id);
-ws.NotificationStateService.DismissAllNotifications();
+ws.NotificationStateService.DismissAll();
 ```
 
 ### State and events
 
 ```csharp
-NotificationState State = ws.NotificationStateService.State;
+NotificationState state = ws.NotificationStateService.CurrentState;
 bool any   = ws.NotificationStateService.HasNotifications;
 int count  = ws.NotificationStateService.ActiveCount;
 
