@@ -502,7 +502,7 @@ windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
 windowSystem.ThemeStateService.SwitchTheme("MyAwesomeTheme");
 
 // Or use theme selector dialog
-windowSystem.ShowThemeSelectorDialog();
+windowSystem.ThemeStateService.ShowThemeSelector();
 ```
 
 ### Using Plugin Controls

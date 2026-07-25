@@ -314,7 +314,13 @@ See [Threading & Async](THREADING_AND_ASYNC.md) for the full UI-thread model.
 
 ## File Dialogs
 
-All file dialogs are async methods on `ConsoleWindowSystem` and support optional parent windows for modal behavior.
+All file dialogs are **static async methods on the `FileDialogs` class**. Each takes the
+`ConsoleWindowSystem` as its first argument and supports an optional parent window for modal
+behavior.
+
+```csharp
+using SharpConsoleUI.Dialogs;
+```
 
 ### Folder Picker
 
@@ -322,20 +328,22 @@ Select a directory from the file system.
 
 ```csharp
 // Basic usage
-string? selectedFolder = await windowSystem.ShowFolderPickerDialogAsync();
+string? selectedFolder = await FileDialogs.ShowFolderPickerAsync(windowSystem);
 
 if (selectedFolder != null)
 {
-    Console.WriteLine($"Selected: {selectedFolder}");
+    statusLabel.SetContent($"Selected: {selectedFolder}");
 }
 
 // With starting path
-string? folder = await windowSystem.ShowFolderPickerDialogAsync(
+string? folder = await FileDialogs.ShowFolderPickerAsync(
+    windowSystem,
     startPath: "/home/user/documents"
 );
 
 // As modal dialog with parent window
-string? folder = await windowSystem.ShowFolderPickerDialogAsync(
+string? folder = await FileDialogs.ShowFolderPickerAsync(
+    windowSystem,
     startPath: Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
     parentWindow: mainWindow
 );
@@ -353,21 +361,24 @@ Select an existing file from the file system.
 
 ```csharp
 // Basic usage
-string? selectedFile = await windowSystem.ShowFilePickerDialogAsync();
+string? selectedFile = await FileDialogs.ShowFilePickerAsync(windowSystem);
 
 // With starting path
-string? file = await windowSystem.ShowFilePickerDialogAsync(
+string? file = await FileDialogs.ShowFilePickerAsync(
+    windowSystem,
     startPath: "/home/user/documents"
 );
 
 // With file filter (extension filter)
-string? file = await windowSystem.ShowFilePickerDialogAsync(
+string? file = await FileDialogs.ShowFilePickerAsync(
+    windowSystem,
     startPath: "/home/user/documents",
     filter: ".txt"
 );
 
 // As modal dialog
-string? file = await windowSystem.ShowFilePickerDialogAsync(
+string? file = await FileDialogs.ShowFilePickerAsync(
+    windowSystem,
     startPath: Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
     filter: ".log",
     parentWindow: mainWindow
@@ -387,23 +398,26 @@ Select a location and filename for saving a file.
 
 ```csharp
 // Basic usage
-string? savePath = await windowSystem.ShowSaveFileDialogAsync();
+string? savePath = await FileDialogs.ShowSaveFileAsync(windowSystem);
 
 // With starting path and default filename
-string? savePath = await windowSystem.ShowSaveFileDialogAsync(
+string? savePath = await FileDialogs.ShowSaveFileAsync(
+    windowSystem,
     startPath: "/home/user/documents",
     defaultFileName: "output.txt"
 );
 
 // With file filter
-string? savePath = await windowSystem.ShowSaveFileDialogAsync(
+string? savePath = await FileDialogs.ShowSaveFileAsync(
+    windowSystem,
     startPath: "/home/user/documents",
     filter: ".log",
     defaultFileName: "app.log"
 );
 
 // As modal dialog
-string? savePath = await windowSystem.ShowSaveFileDialogAsync(
+string? savePath = await FileDialogs.ShowSaveFileAsync(
+    windowSystem,
     startPath: Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
     filter: ".txt",
     defaultFileName: "document.txt",
@@ -455,7 +469,7 @@ Display a dialog for selecting and switching themes at runtime.
 // Show theme selector dialog
 using SharpConsoleUI.Dialogs;
 
-windowSystem.ShowThemeSelectorDialog();
+windowSystem.ThemeStateService.ShowThemeSelector();
 
 // Or as modal to a parent window
 ThemeSelectorDialog.Show(windowSystem, parentWindow);
@@ -542,6 +556,7 @@ The about dialog displays:
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Dialogs;
 using SharpConsoleUI.Drivers;
 
 var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
@@ -556,7 +571,8 @@ mainWindow.AddControl(
     Controls.Button("Open File")
         .OnClick(async (sender, e, window) =>
         {
-            var filePath = await windowSystem.ShowFilePickerDialogAsync(
+            var filePath = await FileDialogs.ShowFilePickerAsync(
+                windowSystem,
                 startPath: Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                 filter: ".txt",
                 parentWindow: window
@@ -577,7 +593,8 @@ mainWindow.AddControl(
     Controls.Button("Save File")
         .OnClick(async (sender, e, window) =>
         {
-            var savePath = await windowSystem.ShowSaveFileDialogAsync(
+            var savePath = await FileDialogs.ShowSaveFileAsync(
+                windowSystem,
                 startPath: Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                 filter: ".log",
                 defaultFileName: "app.log",
@@ -600,7 +617,8 @@ mainWindow.AddControl(
     Controls.Button("Select Folder")
         .OnClick(async (sender, e, window) =>
         {
-            var folderPath = await windowSystem.ShowFolderPickerDialogAsync(
+            var folderPath = await FileDialogs.ShowFolderPickerAsync(
+                windowSystem,
                 startPath: Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 parentWindow: window
             );
@@ -620,7 +638,7 @@ mainWindow.AddControl(
     Controls.Button("Change Theme")
         .OnClick((sender, e, window) =>
         {
-            windowSystem.ShowThemeSelectorDialog();
+            windowSystem.ThemeStateService.ShowThemeSelector();
         })
         .Build()
 );

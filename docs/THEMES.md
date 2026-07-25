@@ -72,7 +72,7 @@ windowSystem.ThemeStateService.SwitchTheme("Ocean");
 windowSystem.ThemeStateService.SetTheme(new ModernGrayTheme());
 
 // Using built-in theme selector dialog
-windowSystem.ShowThemeSelectorDialog();
+windowSystem.ThemeStateService.ShowThemeSelector();
 ```
 
 ## Deriving a Theme from Another (Recommended)
@@ -429,7 +429,7 @@ Themes can be changed at any time and apply immediately to all windows.
 The easiest way for users to change themes:
 
 ```csharp
-windowSystem.ShowThemeSelectorDialog();
+windowSystem.ThemeStateService.ShowThemeSelector();
 ```
 
 ### Programmatic Theme Switching
@@ -473,7 +473,7 @@ mainWindow.KeyPressed += (sender, e) =>
 {
     if (e.KeyInfo.Key == ConsoleKey.F9)
     {
-        windowSystem.ShowThemeSelectorDialog();
+        windowSystem.ThemeStateService.ShowThemeSelector();
         e.Handled = true;
     }
 };
@@ -575,7 +575,7 @@ mainWindow.KeyPressed += (sender, e) =>
 {
     if (e.KeyInfo.Key == ConsoleKey.F9)
     {
-        windowSystem.ShowThemeSelectorDialog();
+        windowSystem.ThemeStateService.ShowThemeSelector();
         e.Handled = true;
     }
 };

@@ -161,23 +161,30 @@ bool IsResizing { get; }
 ### Key Methods
 
 ```csharp
-// Register a window
-void RegisterWindow(Window window);
+// Register a window (activates it by default)
+void RegisterWindow(Window window, bool activate = true);
 
 // Unregister a window
-void UnregisterWindow(string windowId);
+void UnregisterWindow(Window window);
+
+// Look up windows
+Window? GetWindow(string guid);
+Window? FindWindowByName(string name);
+bool WindowExists(string name);
 
 // Bring window to front (update z-order)
 void BringToFront(Window window);
 
-// Get windows in z-order (top to bottom)
-IEnumerable<Window> GetWindowsInZOrder();
+// Get windows by z-order, or only the visible ones
+IReadOnlyList<Window> GetWindowsByZOrder();
+IReadOnlyList<Window> GetVisibleWindows();
+int GetMaxZIndex();
 
 // Start drag operation
-void StartDrag(Window window, Point startMousePos);
+void StartDrag(Window window, Point mousePos);
 
 // Start resize operation
-void StartResize(Window window, Point startMousePos, ResizeDirection direction);
+void StartResize(Window window, ResizeDirection direction, Point mousePos);
 
 // End drag/resize operations
 void EndDrag();
@@ -188,23 +195,23 @@ void EndResize();
 
 ```csharp
 // Get all windows sorted by z-order
-var windows = windowSystem.WindowStateService.GetWindowsInZOrder();
+var windows = windowSystem.WindowStateService.GetWindowsByZOrder();
 foreach (var window in windows)
 {
-    Console.WriteLine($"Window: {window.Title} (Z: {window.ZOrder})");
+    windowSystem.LogService.LogInfo($"Window: {window.Title} (Z: {window.ZIndex})");
 }
 
 // Check active window
 var active = windowSystem.WindowStateService.ActiveWindow;
 if (active != null)
 {
-    Console.WriteLine($"Active window: {active.Title}");
+    windowSystem.LogService.LogInfo($"Active window: {active.Title}");
 }
 
 // Check if user is dragging a window
 if (windowSystem.WindowStateService.IsDragging)
 {
-    Console.WriteLine("Window drag in progress");
+    windowSystem.LogService.LogInfo("Window drag in progress");
 }
 ```
 
@@ -248,7 +255,7 @@ event EventHandler<FocusChangedEventArgs>? FocusChanged;
 // Subscribe to focus changes
 window.FocusManager.FocusChanged += (sender, e) =>
 {
-    Console.WriteLine($"Focus changed to: {e.NewControl?.GetType().Name ?? "none"}");
+    windowSystem.LogService.LogInfo($"Focus changed to: {e.NewControl?.GetType().Name ?? "none"}");
 };
 
 // Set focus programmatically
@@ -278,17 +285,25 @@ int ModalCount { get; }
 ### Key Methods
 
 ```csharp
-// Push a window onto the modal stack
-void PushModal(Window window);
+// Push a window onto the modal stack, optionally scoped to a parent window
+void PushModal(Window modal, Window? parent);
 
 // Remove a window from the modal stack
-void RemoveModal(Window window);
+void PopModal(Window modal);
 
 // Check if a window is modal
 bool IsModal(Window window);
 
-// Check if a window should be blocked (beneath a modal)
-bool IsBlockedByModal(Window window);
+// Get the modal blocking a window, or null when it is not blocked
+Window? GetBlockingModal(Window targetWindow);
+
+// Check whether activating a window is blocked by a modal
+bool IsActivationBlocked(Window targetWindow);
+
+// Modal relationships
+Window? GetModalParent(Window modal);
+IReadOnlyList<Window> GetModalChildren(Window parent);
+Window? GetDeepestModalChild(Window parent);
 ```
 
 ### Usage Example
@@ -307,12 +322,12 @@ windowSystem.AddWindow(dialog);
 // Check modal state
 if (windowSystem.ModalStateService.HasModals)
 {
-    var topModal = windowSystem.ModalStateService.TopModal;
-    Console.WriteLine($"Modal active: {topModal?.Title}");
+    var topModal = windowSystem.ModalStateService.TopmostModal;
+    windowSystem.LogService.LogInfo($"Modal active: {topModal?.Title}");
 }
 
 // Check if a window is blocked
-bool isBlocked = windowSystem.ModalStateService.IsBlockedByModal(mainWindow);
+bool isBlocked = windowSystem.ModalStateService.IsActivationBlocked(mainWindow);
 ```
 
 ## NotificationStateService
@@ -368,7 +383,7 @@ event EventHandler<ThemeChangedEventArgs>? ThemeChanged;
 // Subscribe to theme changes
 windowSystem.ThemeStateService.ThemeChanged += (sender, e) =>
 {
-    Console.WriteLine($"Theme changed from {e.OldTheme} to {e.NewTheme}");
+    windowSystem.LogService.LogInfo($"Theme changed from {e.OldTheme} to {e.NewTheme}");
 
     // Refresh custom UI elements
     UpdateCustomColors();
@@ -376,7 +391,7 @@ windowSystem.ThemeStateService.ThemeChanged += (sender, e) =>
 
 // Get current theme
 var currentTheme = windowSystem.ThemeStateService.CurrentTheme;
-Console.WriteLine($"Current theme window background: {currentTheme.WindowBackgroundColor}");
+windowSystem.LogService.LogInfo($"Current theme window background: {currentTheme.WindowBackgroundColor}");
 
 // Set theme programmatically
 windowSystem.ThemeStateService.SetTheme(new ModernGrayTheme());
@@ -389,98 +404,105 @@ Manages console cursor visibility and position.
 ### Key Properties
 
 ```csharp
-// Check if cursor is currently visible
-bool IsCursorVisible { get; }
-
-// Get current cursor position
-Point CursorPosition { get; }
+// Immutable snapshot of the current cursor state
+CursorState CurrentState { get; }
 ```
+
+`CursorState` exposes `IsVisible`, `AbsolutePosition`, and the owning control/window.
 
 ### Key Methods
 
 ```csharp
-// Show/hide cursor
-void ShowCursor();
+// Visibility
+void SetVisible(bool visible);
 void HideCursor();
 
-// Set cursor position
-void SetCursorPosition(int x, int y);
-void SetCursorPosition(Point position);
+// Cursor shape (block, underline, bar — see CursorShape)
+void SetShape(CursorShape shape);
 
-// Save and restore cursor position
-void SaveCursorPosition();
-void RestoreCursorPosition();
+// Diagnostics
+IReadOnlyList<CursorState> GetHistory();
+void ClearHistory();
+string GetDebugInfo();
 ```
+
+> **Note:** cursor **position** is not set directly by application code. The framework derives it
+> each frame from the focused control via `UpdateFromWindowSystem(...)` and applies it to the
+> terminal with `ApplyCursorToConsole(...)`. To move the cursor, move focus or set the cursor
+> position on the focused control (for example `MultilineEditControl.SetLogicalCursorPosition`).
 
 ### Usage Example
 
 ```csharp
-// Hide cursor during rendering
+// Hide the cursor
 windowSystem.CursorStateService.HideCursor();
 
-// Show cursor for input
-windowSystem.CursorStateService.ShowCursor();
-windowSystem.CursorStateService.SetCursorPosition(10, 5);
+// Show it again
+windowSystem.CursorStateService.SetVisible(true);
 
-// Save and restore cursor position
-windowSystem.CursorStateService.SaveCursorPosition();
-// ... do something ...
-windowSystem.CursorStateService.RestoreCursorPosition();
+// Inspect the current state
+var cursor = windowSystem.CursorStateService.CurrentState;
+windowSystem.LogService.LogInfo($"Cursor visible: {cursor.IsVisible} at {cursor.AbsolutePosition}");
 ```
 
 ## InputStateService
 
 Manages input state and key/mouse event processing.
 
+This service owns the **input queue** the main loop drains each frame. It does not track
+held-key or mouse-button state — terminals report discrete key events, not press/release
+pairs, so there is no "is this key currently down" concept to query.
+
 ### Key Properties
 
 ```csharp
-// Check if a key is currently pressed
-bool IsKeyPressed(ConsoleKey key);
+// Pending input
+bool HasPendingInput { get; }
+int PendingInputCount { get; }
 
-// Get mouse button states
-bool IsLeftButtonPressed { get; }
-bool IsRightButtonPressed { get; }
-bool IsMiddleButtonPressed { get; }
+// Timing / idle detection
+DateTime LastKeyTime { get; }
+ConsoleModifiers LastModifiers { get; }
+bool IsIdle { get; }
+TimeSpan TimeSinceLastKey { get; }
 
-// Get current mouse position
-Point MousePosition { get; }
+// Invoked when input arrives while the loop is idle
+Action? WakeCallback { get; set; }
 ```
 
 ### Key Methods
 
 ```csharp
-// Track key press/release
-void SetKeyPressed(ConsoleKey key, bool isPressed);
+// Enqueue input (used by drivers, and by tests to drive the real input path)
+void EnqueueKey(ConsoleKeyInfo key);
+void EnqueuePaste(string text);
 
-// Track mouse button press/release
-void SetMouseButtonPressed(MouseButton button, bool isPressed);
-
-// Update mouse position
-void UpdateMousePosition(Point position);
-
-// Reset all input state
-void Reset();
+// Drain input
+ConsoleKeyInfo? DequeueKey();
+ConsoleKeyInfo? PeekKey();
+bool TryDequeuePaste(out string text);
+void ClearQueue();
 ```
 
 ### Usage Example
 
 ```csharp
-// Check if a key is being held down
-if (windowSystem.InputStateService.IsKeyPressed(ConsoleKey.LeftControl))
+// Inspect the modifiers that accompanied the last key
+if (windowSystem.InputStateService.LastModifiers.HasFlag(ConsoleModifiers.Control))
 {
-    Console.WriteLine("Ctrl key is pressed");
+    windowSystem.LogService.LogInfo("Last key was pressed with Ctrl");
 }
 
-// Check mouse button state
-if (windowSystem.InputStateService.IsLeftButtonPressed)
+// Idle detection — e.g. dim the UI after inactivity
+if (windowSystem.InputStateService.IsIdle)
 {
-    var mousePos = windowSystem.InputStateService.MousePosition;
-    Console.WriteLine($"Left mouse button is down at ({mousePos.X}, {mousePos.Y})");
+    windowSystem.LogService.LogInfo(
+        $"Idle for {windowSystem.InputStateService.TimeSinceLastKey.TotalSeconds:F0}s");
 }
 
-// Reset input state (useful when losing focus)
-windowSystem.InputStateService.Reset();
+// Synthesize input (this is how tests drive the real input path)
+windowSystem.InputStateService.EnqueueKey(
+    new ConsoleKeyInfo('\0', ConsoleKey.Tab, false, false, false));
 ```
 
 ## PluginStateService
@@ -561,14 +583,14 @@ windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
 
 // Get current state
 var state = windowSystem.PluginStateService.CurrentState;
-Console.WriteLine($"Loaded plugins: {state.LoadedPluginCount}");
-Console.WriteLine($"Registered services: {state.RegisteredServiceCount}");
-Console.WriteLine($"Registered controls: {state.RegisteredControlCount}");
+windowSystem.LogService.LogInfo($"Loaded plugins: {state.LoadedPluginCount}");
+windowSystem.LogService.LogInfo($"Registered services: {state.RegisteredServiceCount}");
+windowSystem.LogService.LogInfo($"Registered controls: {state.RegisteredControlCount}");
 
 // Subscribe to plugin events
 windowSystem.PluginStateService.PluginLoaded += (sender, e) =>
 {
-    Console.WriteLine($"Plugin loaded: {e.Info.Name} v{e.Info.Version}");
+    windowSystem.LogService.LogInfo($"Plugin loaded: {e.Info.Name} v{e.Info.Version}");
     windowSystem.NotificationStateService.ShowNotification(
         "Plugin Loaded",
         $"{e.Info.Name} is now available",
@@ -578,20 +600,20 @@ windowSystem.PluginStateService.PluginLoaded += (sender, e) =>
 
 windowSystem.PluginStateService.StateChanged += (sender, e) =>
 {
-    Console.WriteLine($"Plugin count: {e.PreviousState.LoadedPluginCount} → {e.NewState.LoadedPluginCount}");
+    windowSystem.LogService.LogInfo($"Plugin count: {e.PreviousState.LoadedPluginCount} → {e.NewState.LoadedPluginCount}");
 };
 
 // Check if a plugin is loaded
 if (windowSystem.PluginStateService.IsPluginLoaded("MyPlugin"))
 {
-    Console.WriteLine("MyPlugin is available");
+    windowSystem.LogService.LogInfo("MyPlugin is available");
 }
 
 // Get a plugin by name
 var myPlugin = windowSystem.PluginStateService.GetPlugin("MyPlugin");
 if (myPlugin != null)
 {
-    Console.WriteLine($"Found plugin: {myPlugin.Info.Description}");
+    windowSystem.LogService.LogInfo($"Found plugin: {myPlugin.Info.Description}");
 }
 
 // Create plugin control
@@ -613,12 +635,12 @@ var diagnostics = windowSystem.PluginStateService.GetService("Diagnostics");
 if (diagnostics != null)
 {
     var report = (string)diagnostics.Execute("GetDiagnosticsReport")!;
-    Console.WriteLine(report);
+    windowSystem.LogService.LogInfo(report);
 }
 
 // Get all registered service names
 var services = windowSystem.PluginStateService.RegisteredServiceNames;
-Console.WriteLine($"Available services: {string.Join(", ", services)}");
+windowSystem.LogService.LogInfo($"Available services: {string.Join(", ", services)}");
 
 // Plugins are registered in-process — there is no directory auto-loading
 // (removed for NativeAOT compatibility). Register each plugin explicitly:
@@ -689,7 +711,7 @@ mainWindow.AddControl(
     Controls.Button("Change Theme")
         .OnClick((sender, e, window) =>
         {
-            windowSystem.ShowThemeSelectorDialog();
+            windowSystem.ThemeStateService.ShowThemeSelector();
         })
         .Build()
 );
