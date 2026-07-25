@@ -786,8 +786,8 @@ TerminalMail stops at the UI on purpose. Obvious next steps, roughly in order of
 - **Threading** — group messages by conversation in the table's data source.
 - **Attachments** — a list control in the reading pane, plus a file picker in compose.
 
-Every file is reproduced inline above — and the **complete, runnable project lives right next to this tutorial** in [`04-mail-client/`](04-mail-client/) (app + tests). Just `cd 04-mail-client/TerminalMail && dotnet run`.
+Every file is reproduced inline above — and the **complete, runnable project lives right next to this tutorial** in [`04-mail-client/`](https://github.com/nickprotop/ConsoleEx/tree/master/docs/tutorials/04-mail-client) (app + tests). Just `cd 04-mail-client/TerminalMail && dotnet run`.
 
-For more complete applications built on SharpConsoleUI, browse the [Examples](../../Examples) in this repository, or the production projects [CXPost](https://github.com/nickprotop/cxpost) (a terminal mail client) and [LazyNuGet](https://github.com/nickprotop/lazynuget) (a lazygit-style NuGet manager).
+For more complete applications built on SharpConsoleUI, browse the [Examples](https://github.com/nickprotop/ConsoleEx/blob/master/Examples) in this repository, or the production projects [CXPost](https://github.com/nickprotop/cxpost) (a terminal mail client) and [LazyNuGet](https://github.com/nickprotop/lazynuget) (a lazygit-style NuGet manager).
 
 Create the project, run `dotnet run`, and start poking. The whole point of a framework like this is that the distance from "idea" to "thing on screen" is short. Go build something.

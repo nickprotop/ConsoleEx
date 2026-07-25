@@ -116,4 +116,4 @@ To override a highlighter for **Markdown only** without touching the global regi
 
 ---
 
-[Back to Main Documentation](../README.md)
+[Back to Main Documentation](https://nickprotop.github.io/ConsoleEx/)

@@ -36,4 +36,4 @@ Want to build *for* the framework — a new control, theme, or dialog — instea
 
 ---
 
-[Back to Documentation](../../README.md)
+[Back to Documentation](https://nickprotop.github.io/ConsoleEx/)

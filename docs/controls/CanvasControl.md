@@ -362,4 +362,4 @@ Use `CanvasControl` when you need a self-contained drawing area within your wind
 
 ---
 
-[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](../../README.md)
+[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](https://nickprotop.github.io/ConsoleEx/)

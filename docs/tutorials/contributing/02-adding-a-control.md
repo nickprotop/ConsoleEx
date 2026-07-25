@@ -323,7 +323,7 @@ You added a new control, a new builder, and a new factory — all strictly addit
 - Run `dotnet build` and `dotnet test` — the new test must be green.
 - Run `dotnet format SharpConsoleUI/SharpConsoleUI.csproj` — CI has a blocking format gate (tabs).
 - Give every new public member an XML `<summary>` (the compiler warns otherwise).
-- Fill in the PR checklist in [`.github/pull_request_template.md`](../../../.github/pull_request_template.md) (tick **New feature**) and re-read the **No breaking changes** section of [CONTRIBUTING.md](../../../CONTRIBUTING.md).
+- Fill in the PR checklist in [`.github/pull_request_template.md`](https://github.com/nickprotop/ConsoleEx/blob/master/.github/pull_request_template.md) (tick **New feature**) and re-read the **No breaking changes** section of [CONTRIBUTING.md](https://github.com/nickprotop/ConsoleEx/blob/master/CONTRIBUTING.md).
 
 That's a complete primitive control — measure, paint, the reactive property contract, role-driven color, correct Unicode width, a builder, and a survives-a-re-render test — merged as a purely additive change.
 

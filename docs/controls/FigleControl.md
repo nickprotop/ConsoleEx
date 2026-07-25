@@ -231,4 +231,4 @@ window.AddControl(banner);
 
 ---
 
-[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](../../README.md)
+[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](https://nickprotop.github.io/ConsoleEx/)

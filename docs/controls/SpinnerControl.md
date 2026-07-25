@@ -237,4 +237,4 @@ See [Markup Syntax → Spinner (animated)](../MARKUP_SYNTAX.md#spinner-animated)
 
 ---
 
-[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](../../README.md)
+[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](https://nickprotop.github.io/ConsoleEx/)

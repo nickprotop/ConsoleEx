@@ -188,4 +188,4 @@ dotnet run --project Examples/DemoApp
 
 ---
 
-[Back to Documentation](../README.md#documentation)
+[Back to Documentation](https://nickprotop.github.io/ConsoleEx/#documentation)

@@ -296,4 +296,4 @@ slider.ValueChanged += (_, _) =>
 - [Desktop Background](DESKTOP_BACKGROUND.md) — the bottom layer of the compositing stack
 - [Rendering Pipeline](RENDERING_PIPELINE.md) — how the full render chain works
 
-[Back to Main Documentation](../README.md)
+[Back to Main Documentation](https://nickprotop.github.io/ConsoleEx/)

@@ -304,4 +304,4 @@ grid.AnimateColumnWidth(0, targetWidth: 0, duration: TimeSpan.FromMilliseconds(2
 
 ---
 
-[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](../../README.md)
+[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](https://nickprotop.github.io/ConsoleEx/)

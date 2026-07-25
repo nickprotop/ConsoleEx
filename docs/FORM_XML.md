@@ -409,4 +409,4 @@ window.AddControl(form);
 
 See also: [FormControl](controls/FormControl.md) · [MARKUP_SYNTAX](MARKUP_SYNTAX.md) · [CONTROLS](CONTROLS.md)
 
-[Back to Main Documentation](../README.md)
+[Back to Main Documentation](https://nickprotop.github.io/ConsoleEx/)

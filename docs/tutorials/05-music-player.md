@@ -496,4 +496,4 @@ TermTunes is a UI showcase wearing a music player's clothes. The seams are all i
 
 None of those touch the rendering layer, which is the part this tutorial is really about: an animation loop, a couple of hand-drawn canvases, an adaptive image control, and a per-track accent threaded through all of it.
 
-The complete, runnable source — app, tests, and cover generator — lives right next to this tutorial in [`05-music-player/`](05-music-player/). Just `cd 05-music-player/TermTunes && dotnet run`. For more applications built on SharpConsoleUI, browse the [Examples](../../Examples) in this repository.
+The complete, runnable source — app, tests, and cover generator — lives right next to this tutorial in [`05-music-player/`](https://github.com/nickprotop/ConsoleEx/tree/master/docs/tutorials/05-music-player). Just `cd 05-music-player/TermTunes && dotnet run`. For more applications built on SharpConsoleUI, browse the [Examples](https://github.com/nickprotop/ConsoleEx/blob/master/Examples) in this repository.

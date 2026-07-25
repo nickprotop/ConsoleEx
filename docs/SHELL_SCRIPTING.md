@@ -193,16 +193,16 @@ echo -e "alpha\nbeta\ngamma" | dotnet run pick.cs
 
 ## Ready-to-Use Templates
 
-Instead of writing a script from scratch, you can copy one of the templates from [`docs/scripting/templates/`](scripting/templates/). Each template is a self-contained `.cs` file that follows the I/O contract above.
+Instead of writing a script from scratch, you can copy one of the templates from [`docs/scripting/templates/`](https://github.com/nickprotop/ConsoleEx/blob/master/docs/scripting/templates/). Each template is a self-contained `.cs` file that follows the I/O contract above.
 
 | Template | Purpose |
 |---|---|
-| [picker.cs](scripting/templates/picker.cs) | Single-select list picker (stdin lines → stdout line) |
-| [multi-picker.cs](scripting/templates/multi-picker.cs) | Multi-select checklist |
-| [confirm.cs](scripting/templates/confirm.cs) | Yes/no dialog (exit code only) |
-| [prompt.cs](scripting/templates/prompt.cs) | Text input with optional password masking |
-| [table-select.cs](scripting/templates/table-select.cs) | JSON array row picker |
-| [progress.cs](scripting/templates/progress.cs) | Wraps a subprocess with an indeterminate progress bar |
+| [picker.cs](https://github.com/nickprotop/ConsoleEx/blob/master/docs/scripting/templates/picker.cs) | Single-select list picker (stdin lines → stdout line) |
+| [multi-picker.cs](https://github.com/nickprotop/ConsoleEx/blob/master/docs/scripting/templates/multi-picker.cs) | Multi-select checklist |
+| [confirm.cs](https://github.com/nickprotop/ConsoleEx/blob/master/docs/scripting/templates/confirm.cs) | Yes/no dialog (exit code only) |
+| [prompt.cs](https://github.com/nickprotop/ConsoleEx/blob/master/docs/scripting/templates/prompt.cs) | Text input with optional password masking |
+| [table-select.cs](https://github.com/nickprotop/ConsoleEx/blob/master/docs/scripting/templates/table-select.cs) | JSON array row picker |
+| [progress.cs](https://github.com/nickprotop/ConsoleEx/blob/master/docs/scripting/templates/progress.cs) | Wraps a subprocess with an indeterminate progress bar |
 
 See the [scripting guide](scripting/README.md) for usage details and per-shell recipes (bash, PowerShell, fish, nushell).
 

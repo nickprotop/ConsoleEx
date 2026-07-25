@@ -314,7 +314,7 @@ Look back at what you changed:
 
 You **changed nothing else**. `ConfirmContent`, `PromptContent`, `ProgressContent<T>`, `ConfirmAsync`, `PromptAsync`, and `RunWithProgressAsync` are byte-for-byte untouched. `ShowContentModal`, `FlowChrome`, `BuildTopBand`, and `BuildBottomBand` were *reused*, not modified. No existing method signature moved; no default behavior changed.
 
-That is the whole discipline: **new capability is a new symbol, never a mutation of an existing one.** SharpConsoleUI has real third-party NuGet users, and the rule is absolute — see the no-breaking-changes section of [CONTRIBUTING.md](../../../CONTRIBUTING.md). Because `PickAsync` and `PickContent<T>` are brand-new names, there is zero chance of breaking a caller: nobody was using a symbol that didn't exist. This is why "add alongside" is almost always the safe move — an additive change cannot regress code that never referenced it.
+That is the whole discipline: **new capability is a new symbol, never a mutation of an existing one.** SharpConsoleUI has real third-party NuGet users, and the rule is absolute — see the no-breaking-changes section of [CONTRIBUTING.md](https://github.com/nickprotop/ConsoleEx/blob/master/CONTRIBUTING.md). Because `PickAsync` and `PickContent<T>` are brand-new names, there is zero chance of breaking a caller: nobody was using a symbol that didn't exist. This is why "add alongside" is almost always the safe move — an additive change cannot regress code that never referenced it.
 
 ## Step 7: Open the PR
 

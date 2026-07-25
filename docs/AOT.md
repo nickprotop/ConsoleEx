@@ -101,4 +101,4 @@ This is exactly what the library's own AOT smoke test uses — see `SharpConsole
 - [Registry](REGISTRY.md) — AOT-safe JSON storage with source generation
 - [Controls Reference](CONTROLS.md) — complete control listing
 
-[Back to Main Documentation](../README.md)
+[Back to Main Documentation](https://nickprotop.github.io/ConsoleEx/)

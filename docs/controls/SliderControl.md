@@ -114,4 +114,4 @@ var custom = Controls.Slider()
 ## Related Controls
 
 - [RangeSliderControl](RangeSliderControl.md) - Dual-thumb range slider
-- [ProgressBarControl](../README.md) - Non-interactive progress display
+- [ProgressBarControl](https://nickprotop.github.io/ConsoleEx/) - Non-interactive progress display

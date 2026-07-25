@@ -563,4 +563,4 @@ At full width the nav pane shows icons + text. Resize the terminal narrower than
 
 ---
 
-[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](../../README.md)
+[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](https://nickprotop.github.io/ConsoleEx/)

@@ -12,7 +12,7 @@ SharpConsoleUI provides built-in dialog windows for common tasks. This guide cov
 ## Table of Contents
 
 - [Message Dialogs](#message-dialogs)
-  - [ConfirmAsync](#confirmAsync)
+  - [ConfirmAsync](#confirmasync)
   - [PromptAsync](#promptasync)
   - [RunWithProgressAsync](#runwithprogressasync)
   - [The severity parameter](#the-severity-parameter)
@@ -668,4 +668,4 @@ All file dialogs support these keyboard shortcuts:
 
 ---
 
-[Back to Main Documentation](../README.md)
+[Back to Main Documentation](https://nickprotop.github.io/ConsoleEx/)

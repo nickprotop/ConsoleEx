@@ -387,9 +387,9 @@ var grid = Controls.Grid()
 ## See Also
 
 - [CheckboxControl](CheckboxControl.md) - Independent toggle (no group coordination)
-- [DropdownControl](controls/DropdownControl.md) - Single-select from a compact list
-- [ListControl](controls/ListControl.md) - Always-visible scrollable selection list
+- [DropdownControl](DropdownControl.md) - Single-select from a compact list
+- [ListControl](ListControl.md) - Always-visible scrollable selection list
 
 ---
 
-[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](../../README.md)
+[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](https://nickprotop.github.io/ConsoleEx/)

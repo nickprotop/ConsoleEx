@@ -10,12 +10,12 @@ Each template is a single `.cs` file runnable with `dotnet run <file>.cs`. On Un
 
 | Template | Purpose | Input | Output |
 |---|---|---|---|
-| [picker.cs](templates/picker.cs) | Single-select list | stdin: lines | stdout: selected line |
-| [multi-picker.cs](templates/multi-picker.cs) | Multi-select checklist | stdin: lines | stdout: selected lines, newline-separated |
-| [confirm.cs](templates/confirm.cs) | Yes/no dialog | args: `--title TITLE --message MSG` | exit 0=yes, 1=no |
-| [prompt.cs](templates/prompt.cs) | Text input | args: `--prompt "Label"` (optional `--mask` for passwords) | stdout: entered text |
-| [table-select.cs](templates/table-select.cs) | JSON array row picker | stdin: JSON array of objects | stdout: selected row as JSON object |
-| [progress.cs](templates/progress.cs) | Run a command with progress monitoring | args: `-- <command> [args...]` | stdout: command's stdout, exit = command's exit |
+| [picker.cs](https://github.com/nickprotop/ConsoleEx/blob/master/docs/scripting/templates/picker.cs) | Single-select list | stdin: lines | stdout: selected line |
+| [multi-picker.cs](https://github.com/nickprotop/ConsoleEx/blob/master/docs/scripting/templates/multi-picker.cs) | Multi-select checklist | stdin: lines | stdout: selected lines, newline-separated |
+| [confirm.cs](https://github.com/nickprotop/ConsoleEx/blob/master/docs/scripting/templates/confirm.cs) | Yes/no dialog | args: `--title TITLE --message MSG` | exit 0=yes, 1=no |
+| [prompt.cs](https://github.com/nickprotop/ConsoleEx/blob/master/docs/scripting/templates/prompt.cs) | Text input | args: `--prompt "Label"` (optional `--mask` for passwords) | stdout: entered text |
+| [table-select.cs](https://github.com/nickprotop/ConsoleEx/blob/master/docs/scripting/templates/table-select.cs) | JSON array row picker | stdin: JSON array of objects | stdout: selected row as JSON object |
+| [progress.cs](https://github.com/nickprotop/ConsoleEx/blob/master/docs/scripting/templates/progress.cs) | Run a command with progress monitoring | args: `-- <command> [args...]` | stdout: command's stdout, exit = command's exit |
 
 All templates follow the shared exit-code contract documented in [SHELL_SCRIPTING.md](../SHELL_SCRIPTING.md):
 `0` = success/confirmed, `1` = user cancelled, `2` = invalid input, `>2` = unexpected error.

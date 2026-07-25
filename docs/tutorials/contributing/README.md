@@ -2,11 +2,11 @@
 
 Want to contribute *to* the framework — not just build apps with it? This is your starting point. These tutorials walk you through building real, mergeable additions end to end, so you can go from "I have never seen this codebase" to an open pull request without a multi-day reverse-engineering detour.
 
-If you are here to build an *application*, you want the [app tutorials](../README.md) instead.
+If you are here to build an *application*, you want the [app tutorials](https://nickprotop.github.io/ConsoleEx/) instead.
 
 ## Areas open for contribution
 
-Everything below is **additive only — no breaking changes** (see [CONTRIBUTING.md](../../../CONTRIBUTING.md)). SharpConsoleUI has real NuGet users, so we add new APIs rather than change existing ones. Within that rule, **PRs are welcome — no need to ask first.**
+Everything below is **additive only — no breaking changes** (see [CONTRIBUTING.md](https://github.com/nickprotop/ConsoleEx/blob/master/CONTRIBUTING.md)). SharpConsoleUI has real NuGet users, so we add new APIs rather than change existing ones. Within that rule, **PRs are welcome — no need to ask first.**
 
 **🟢 Dive right in**
 - **New controls** — especially composites (arrange existing controls). The biggest, safest surface.
@@ -42,4 +42,4 @@ These tutorials link out to the deeper reference docs where you need them:
 
 ---
 
-[Back to Tutorials](../README.md)
+[Back to Tutorials](https://nickprotop.github.io/ConsoleEx/)

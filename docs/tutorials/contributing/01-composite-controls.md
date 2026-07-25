@@ -195,8 +195,8 @@ To go the full distance (assert both parts actually *render* to cells at boundar
 
 You've added three things — a control, a builder factory, and a test — and changed nothing that already existed. That's the ideal composite PR: strictly additive.
 
-- Fill in the repo's PR checklist: [`.github/pull_request_template.md`](../../../.github/pull_request_template.md) (tick **New feature**, describe what you arranged, and note the test).
-- Re-read the **No breaking changes** rule in [CONTRIBUTING.md](../../../CONTRIBUTING.md): SharpConsoleUI has real NuGet users, so we never remove or rename existing public API — we add new ones. A composite is inherently safe here because it *only adds*: a new control class, a new `Controls.LabeledValue(...)` factory. As long as you didn't touch an existing signature, you're within the rule.
+- Fill in the repo's PR checklist: [`.github/pull_request_template.md`](https://github.com/nickprotop/ConsoleEx/blob/master/.github/pull_request_template.md) (tick **New feature**, describe what you arranged, and note the test).
+- Re-read the **No breaking changes** rule in [CONTRIBUTING.md](https://github.com/nickprotop/ConsoleEx/blob/master/CONTRIBUTING.md): SharpConsoleUI has real NuGet users, so we never remove or rename existing public API — we add new ones. A composite is inherently safe here because it *only adds*: a new control class, a new `Controls.LabeledValue(...)` factory. As long as you didn't touch an existing signature, you're within the rule.
 - Run `dotnet format SharpConsoleUI/SharpConsoleUI.csproj` before committing — CI has a blocking format gate.
 
 That's a complete, mergeable contribution built without writing one line of paint or layout math — the safest way to make your first change to the framework.

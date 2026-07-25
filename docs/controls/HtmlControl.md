@@ -246,4 +246,4 @@ The one caveat: its dependency **AngleSharp.Css** evaluates CSS `calc()` via ref
 - [Compositor Effects](../COMPOSITOR_EFFECTS.md) — for post-processing visual effects
 - [Controls Reference](../CONTROLS.md) — complete control listing
 
-[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](../../README.md)
+[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](https://nickprotop.github.io/ConsoleEx/)

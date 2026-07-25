@@ -181,4 +181,4 @@ var addressBar = Controls.Prompt($"{icon} ")
 - [MultilineEditControl](MultilineEditControl.md) — for multi-line text editing
 - [Controls Reference](../CONTROLS.md) — complete control listing
 
-[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](../../README.md)
+[Back to Controls](../CONTROLS.md) | [Back to Main Documentation](https://nickprotop.github.io/ConsoleEx/)

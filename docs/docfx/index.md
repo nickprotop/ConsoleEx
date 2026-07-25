@@ -16,4 +16,4 @@ Welcome to the SharpConsoleUI API documentation. This section contains complete 
 
 ## Back to Main Documentation
 
-[Return to main documentation](../)
+[Return to main documentation](https://nickprotop.github.io/ConsoleEx/)
