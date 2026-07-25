@@ -321,7 +321,11 @@ For handling keys before controls consume them:
 mainWindow.PreviewKeyPressed += (_, e) =>
 {
     // Context menu gets first priority
-    if (contextMenu.ProcessPreviewKey(e)) return;
+    if (contextMenu.ProcessKey(e.KeyInfo))
+    {
+        e.Handled = true;
+        return;
+    }
 
     // Active portal gets next priority
     if (activePortal != null)

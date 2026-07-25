@@ -2088,8 +2088,8 @@ var modal = new Window(windowSystem)
 };
 
 modal.AddControl(new MarkupControl("[yellow]Are you sure?[/]"));
-modal.CenterOnScreen();
-windowSystem.OpenWindow(modal);
+modal.Placement = Placement.Center(40, 10);
+windowSystem.AddWindow(modal);
 
 // Check if modals active
 if (windowSystem.ModalStateService.HasModals)
