@@ -176,8 +176,8 @@ public class MyWindow : Window
             {
                 var cell = buffer.GetCell(x, y);
                 if (cell.IsWideContinuation) continue; // Skip wide char right-half
-                // Modify cell colors, characters, etc.
-                buffer.SetCell(x, y, cell.Character, modifiedFg, modifiedBg);
+                // Recolor in place — preserves the rune, wide flags, and combiners
+                buffer.SetCellColors(x, y, modifiedFg, modifiedBg);
             }
         }
     }
@@ -258,12 +258,12 @@ private void ApplyBlur(CharacterBuffer buffer, LayoutRect dirtyRegion, LayoutRec
             var avgFg = AverageColorInRadius(buffer, x, y, radius, c => c.Foreground);
             var avgBg = AverageColorInRadius(buffer, x, y, radius, c => c.Background);
 
-            blurred.SetCell(x, y, '░', avgFg, avgBg);
+            blurred.SetNarrowCell(x, y, '░', avgFg, avgBg);
         }
     }
 
     // Copy blurred buffer back
-    buffer.CopyFrom(blurred, LayoutRect.FromDimensions(0, 0, buffer.Width, buffer.Height));
+    buffer.CopyFrom(blurred, new LayoutRect(0, 0, buffer.Width, buffer.Height));
 }
 
 private Color AverageColorInRadius(CharacterBuffer buffer, int cx, int cy, int radius,
@@ -318,7 +318,7 @@ private void DrawFocusGlow(CharacterBuffer buffer, LayoutRect dirtyRegion, Layou
             {
                 var cell = buffer.GetCell(x, bounds.Top - 1);
                 if (!cell.IsWideContinuation)
-                    buffer.SetCell(x, bounds.Top - 1, cell.Character, glowColor, cell.Background);
+                    buffer.SetCellColors(x, bounds.Top - 1, glowColor, cell.Background);
             }
 
             // Bottom
@@ -326,7 +326,7 @@ private void DrawFocusGlow(CharacterBuffer buffer, LayoutRect dirtyRegion, Layou
             {
                 var cell = buffer.GetCell(x, bounds.Bottom);
                 if (!cell.IsWideContinuation)
-                    buffer.SetCell(x, bounds.Bottom, cell.Character, glowColor, cell.Background);
+                    buffer.SetCellColors(x, bounds.Bottom, glowColor, cell.Background);
             }
         }
     }
@@ -425,7 +425,7 @@ public class CustomCompositor
                     if (cell.IsWideContinuation) continue; // Preserve wide char pairs
                     if (cell.Character != new Rune(' ')) // Simple alpha test
                     {
-                        result.SetCell(x, y, cell.Character, cell.Foreground, cell.Background);
+                        result.SetCell(x, y, cell); // full Cell copy preserves flags
                     }
                 }
             }
@@ -604,11 +604,14 @@ for (int y = 0; y < buffer.Height; y++)
 for (int x = 0; x < buffer.Width; x++)
 {
     var cell = buffer.GetCell(x, y);
-    buffer.SetCell(x, y, '█', cell.Foreground, cell.Background); // Breaks wide chars!
+    buffer.SetNarrowCell(x, y, '█', cell.Foreground, cell.Background); // Breaks wide chars!
 }
 ```
 
-**Note:** `SetCell()` accepts both `char` and `Rune`. When modifying only colors (not the character), consider preserving the original `Rune` from the cell to keep wide characters and combiners intact.
+**Note:** there is no `SetCell(x, y, char, fg, bg)` overload — it was renamed to `SetNarrowCell`
+so that misuse is a compile error. Use `SetCell(x, y, Cell)` for parsed or copied cells (it preserves
+`IsWideContinuation`, combiners, and decorations), `SetCellColors(x, y, fg, bg)` when changing only
+colors, and `SetNarrowCell` only for literal narrow characters such as borders, padding, and fill.
 
 ### 7. Use StringBuilder for Text Construction
 
@@ -818,9 +821,11 @@ namespace SharpConsoleUI.Layout
         public BufferSnapshot CreateSnapshot();
 
         // Key cell-level methods:
-        public void SetCell(int x, int y, Rune character, Color fg, Color bg);
-        public void SetCell(int x, int y, char character, Color fg, Color bg); // wraps in Rune
-        public void WriteString(int x, int y, string text, Color fg, Color bg);
+        public void SetCell(int x, int y, Cell cell);              // preserves all flags
+        public void SetCellColors(int x, int y, Color fg, Color bg); // recolor in place
+        public void SetNarrowCell(int x, int y, Rune character, Color fg, Color bg);
+        public void SetNarrowCell(int x, int y, char character, Color fg, Color bg);
+        public void WriteString(int x, int y, string text, Color fg, Color bg, bool sanitize = true);
     }
 }
 ```

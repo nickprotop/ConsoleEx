@@ -163,7 +163,7 @@ ws.AddWindow(window);
 
 | Method | Description |
 |--------|-------------|
-| `SetCell(x, y, ch, fg, bg)` | Set a single cell. |
+| `SetNarrowCell(x, y, ch, fg, bg)` | Set a single narrow (width-1) cell. |
 | `GetCell(x, y)` | Read a cell from the buffer. |
 | `Clear()` | Clear with the canvas background color. |
 | `Clear(bg)` | Clear with a specific color. |

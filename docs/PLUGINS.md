@@ -264,7 +264,7 @@ public class MyDataService : IPluginService
                 Name: "GetData",
                 Description: "Retrieves sample data",
                 ReturnType: typeof(string),
-                Parameters: Array.Empty<ServiceOperationParameter>()
+                Parameters: Array.Empty<ServiceParameter>()
             ),
             new ServiceOperation(
                 Name: "ProcessData",
@@ -272,7 +272,7 @@ public class MyDataService : IPluginService
                 ReturnType: null, // void
                 Parameters: new[]
                 {
-                    new ServiceOperationParameter(
+                    new ServiceParameter(
                         Name: "data",
                         Type: typeof(string),
                         Description: "The data to process",
@@ -708,15 +708,15 @@ public class StatusService : IPluginService
                 ReturnType: null,
                 Parameters: new[]
                 {
-                    new ServiceOperationParameter("status", typeof(string), "Status message", required: true),
-                    new ServiceOperationParameter("color", typeof(Color), "Status color", required: true)
+                    new ServiceParameter("status", typeof(string), Required: true, Description: "Status message"),
+                    new ServiceParameter("color", typeof(Color), Required: true, Description: "Status color")
                 }
             ),
             new ServiceOperation(
                 Name: "GetStatus",
                 Description: "Gets the current status",
                 ReturnType: typeof(string),
-                Parameters: Array.Empty<ServiceOperationParameter>()
+                Parameters: Array.Empty<ServiceParameter>()
             )
         };
     }

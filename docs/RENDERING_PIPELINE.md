@@ -721,7 +721,7 @@ public void WriteString(int x, int y, string text, Color foreground, Color backg
 #### 3. FillRect (Bulk Operations)
 *File: `CharacterBuffer.cs`*
 
-Used for backgrounds, borders, clearing regions. Delegates to `SetCell()` per cell.
+Used for backgrounds, borders, clearing regions. Delegates to `SetNarrowCell()` per cell.
 
 #### 4. ToLines (ANSI Serialization — Diagnostic Only)
 *File: `CharacterBuffer.cs`*
@@ -845,12 +845,14 @@ public class ConsoleBuffer
 
 ### Three Write Methods (Unified Cell API)
 
-All data enters ConsoleBuffer through exactly three cell-level methods:
+All data enters ConsoleBuffer through exactly three cell-level methods.
+Note the narrow-cell writers are named `SetNarrowCell` — they assume width-1 and clear
+cell flags, so they are only for literal narrow characters (borders, padding, fill).
 
-#### 1. SetCell (Single Cell)
+#### 1. SetNarrowCell (Single Cell)
 Used by borders (vertical, scrollbar), invisible borders. Accepts both `char` and `Rune`.
 ```csharp
-public void SetCell(int x, int y, Rune character, Color fg, Color bg)
+public void SetNarrowCell(int x, int y, Rune character, Color fg, Color bg)
 {
     // Fix wide char pair split: clean up orphaned base/continuation cells
     if (_backBuffer[x, y].IsWideContinuation && x > 0)
@@ -942,7 +944,7 @@ The driver interface exposes three cell-level output methods. No ANSI string wri
 ```csharp
 public interface IConsoleDriver
 {
-    void SetCell(int x, int y, char character, Color fg, Color bg);  // char convenience
+    void SetNarrowCell(int x, int y, char character, Color fg, Color bg);  // char convenience
     void FillCells(int x, int y, int width, char character, Color fg, Color bg);  // char convenience
     void WriteBufferRegion(int destX, int destY, CharacterBuffer source,
         int srcX, int srcY, int width, Color fallbackBg);
@@ -1107,7 +1109,7 @@ Immediate rendering without buffering. All three cell-level methods format inlin
 
 ```csharp
 // SetCell in Direct mode
-public void SetCell(int x, int y, char character, Color fg, Color bg)
+public void SetNarrowCell(int x, int y, char character, Color fg, Color bg)
 {
     var ansi = $"\x1b[38;2;{fg.R};{fg.G};{fg.B};48;2;{bg.R};{bg.G};{bg.B}m{character}\x1b[0m";
     WriteOutput($"\x1b[{y + 1};{x + 1}H");
@@ -1411,10 +1413,10 @@ CONSOLE DRIVER (NetConsoleDriver + ConsoleBuffer)
   │ 11. Cell-Level Writes to ConsoleBuffer         │
   │ Three paths, all cell-level:                   │
   │  • _driver.FillCells() ← background fills      │
-  │  • _driver.SetCell()   ← vertical borders      │
+  │  • _driver.SetNarrowCell()  ← vertical borders  │
   │  • _driver.WriteBufferRegion()                 │  ← Content + border lines
   │     → ConsoleBuffer.SetCellsFromBuffer()       │
-  │     → ConsoleBuffer.SetCell()                  │
+  │     → ConsoleBuffer.SetNarrowCell()            │
   │     → ConsoleBuffer.FillCells()                │
   │   All use cached ANSI formatting per cell      │
   │   No ANSI parsing at ConsoleBuffer level       │
@@ -1549,7 +1551,7 @@ driver.WriteBufferRegion(borderStartX, screenY,
     _cachedTopBorder, srcX, 0, borderWidth, bg);
 
 // Vertical borders: direct SetCell (single character, no buffer needed)
-driver.SetCell(windowLeft, screenY, chars.Vertical, borderFg, bg);
+driver.SetNarrowCell(windowLeft, screenY, chars.Vertical, borderFg, bg);
 ```
 
 **Invalidation:**
@@ -1672,7 +1674,7 @@ The most significant optimization: **all data enters ConsoleBuffer through cell-
 ```
 Window content:   CharacterBuffer → SetCellsFromBuffer() → ConsoleBuffer
 Border lines:     CharacterBuffer → SetCellsFromBuffer() → ConsoleBuffer
-Vertical borders: SetCell(x, y, char, fg, bg)            → ConsoleBuffer
+Vertical borders: SetNarrowCell(x, y, char, fg, bg)            → ConsoleBuffer
 Background fills: FillCells(x, y, width, char, fg, bg)   → ConsoleBuffer
 Status bars:      Markup → MarkupParser → CharacterBuffer → SetCellsFromBuffer()
 ```
@@ -1947,8 +1949,8 @@ var windowSystem = new ConsoleWindowSystem(RenderMode.Direct);
 | **DOM Rendering** | `Windows/WindowRenderer.cs` | `RebuildContentBuffer()` | — |
 | **Character Buffer** | `Layout/CharacterBuffer.cs` | `SetChar()`, `GetCell()`, `ToLines()` (test/diagnostic) | — |
 | **Console Buffer** | `Drivers/ConsoleBuffer.cs` | `SetCell()`, `FillCells()`, `SetCellsFromBuffer()`, `Render()` | — |
-| **Console Driver** | `Drivers/NetConsoleDriver.cs` | `SetCell()`, `FillCells()`, `WriteBufferRegion()`, `Render()` | — |
-| **Driver Interface** | `Drivers/IConsoleDriver.cs` | `SetCell()`, `FillCells()`, `WriteBufferRegion()` | — |
+| **Console Driver** | `Drivers/NetConsoleDriver.cs` | `SetNarrowCell()`, `FillCells()`, `WriteBufferRegion()`, `Render()` | — |
+| **Driver Interface** | `Drivers/IConsoleDriver.cs` | `SetNarrowCell()`, `FillCells()`, `WriteBufferRegion()` | — |
 
 ### Supporting Systems
 

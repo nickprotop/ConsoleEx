@@ -189,7 +189,7 @@ themes and every roled control re-derives from the new palette automatically.
 ### The roles
 
 ```csharp
-public enum ControlRole
+public enum ColorRole
 {
     Default,    // no role — the control resolves colors as it normally would
     Primary, Secondary, Tertiary,
@@ -205,7 +205,7 @@ additive, so existing code is unaffected.
 Every control inherits two properties from `BaseControl`:
 
 ```csharp
-button.Role = ControlRole.Danger;   // colors derived from the theme's Danger palette
+button.ColorRole = ColorRole.Danger;   // colors derived from the theme's Danger palette
 button.Outline = true;              // outline style: role color on text + border, surface fill
 ```
 
@@ -213,14 +213,14 @@ Or fluently via the builders:
 
 ```csharp
 // A danger button
-new ButtonBuilder().WithText("Delete account").WithRole(ControlRole.Danger).Build();
+new ButtonBuilder().WithText("Delete account").WithColorRole(ColorRole.Danger).Build();
 
 // An outline success button (surface fill, green text + border)
-new ButtonBuilder().WithText("Confirm").WithRole(ControlRole.Success).Outline().Build();
+new ButtonBuilder().WithText("Confirm").WithColorRole(ColorRole.Success).Outline().Build();
 
 // Primary / secondary action pair
-new ButtonBuilder().WithText("Save").WithRole(ControlRole.Primary).Build();
-new ButtonBuilder().WithText("Cancel").WithRole(ControlRole.Secondary).Outline().Build();
+new ButtonBuilder().WithText("Save").WithColorRole(ColorRole.Primary).Build();
+new ButtonBuilder().WithText("Cancel").WithColorRole(ColorRole.Secondary).Outline().Build();
 ```
 
 A per-control explicit color always wins over the role, so you can override a single slot and let the
@@ -228,12 +228,12 @@ rest come from the role:
 
 ```csharp
 new ButtonBuilder()
-    .WithRole(ControlRole.Danger)        // danger text + border…
+    .WithColorRole(ColorRole.Danger)        // danger text + border…
     .WithBackgroundColor(Color.Black)    // …but a specific black fill
     .Build();
 ```
 
-The same code is theme-agnostic — `WithRole(ControlRole.Danger)` resolves to Ocean's danger red under
+The same code is theme-agnostic — `WithColorRole(ColorRole.Danger)` resolves to Ocean's danger red under
 Ocean, Maroon under ModernGray, and so on.
 
 ### Where the colors come from
