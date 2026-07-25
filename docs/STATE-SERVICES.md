@@ -501,9 +501,6 @@ IReadOnlyCollection<string> RegisteredControlNames { get; }
 IReadOnlyCollection<string> RegisteredWindowNames { get; }
 IReadOnlyCollection<string> RegisteredServiceNames { get; }
 IReadOnlyCollection<IPluginService> RegisteredServices { get; }
-
-// Get configuration
-PluginConfiguration Configuration { get; }
 ```
 
 ### PluginState Record
@@ -514,20 +511,17 @@ public record PluginState(
     int RegisteredServiceCount,
     int RegisteredControlCount,
     int RegisteredWindowCount,
-    IReadOnlyList<string> PluginNames,
-    bool AutoLoadEnabled,
-    string? PluginsDirectory
+    IReadOnlyList<string> PluginNames
 );
 ```
 
 ### Key Methods
 
 ```csharp
-// Load plugins
+// Load plugins (in-process only — no loading from disk, see PLUGINS.md)
 void LoadPlugin<T>() where T : IPlugin, new();
 void LoadPlugin(IPlugin plugin);
-void LoadPlugin(string dllPath);
-void LoadPluginsFromDirectory(string? pluginsPath = null);
+void UnloadPlugin(IPlugin plugin);
 
 // Query plugins
 IPlugin? GetPlugin(string name);
@@ -541,9 +535,6 @@ Window? CreateWindow(string name);
 IPluginService? GetService(string serviceName);
 bool HasService(string serviceName);
 T? GetService<T>() where T : class; // Legacy, deprecated
-
-// Configuration
-void UpdateConfiguration(PluginConfiguration configuration);
 ```
 
 ### Events
@@ -629,17 +620,9 @@ if (diagnostics != null)
 var services = windowSystem.PluginStateService.RegisteredServiceNames;
 Console.WriteLine($"Available services: {string.Join(", ", services)}");
 
-// Auto-load plugins from directory with configuration
-var pluginConfig = new PluginConfiguration(
-    AutoLoad: true,
-    PluginsDirectory: "./plugins"
-);
-
-var windowSystem = new ConsoleWindowSystem(
-    new NetConsoleDriver(RenderMode.Buffer),
-    pluginConfiguration: pluginConfig
-);
-// Plugins are loaded automatically on startup
+// Plugins are registered in-process — there is no directory auto-loading
+// (removed for NativeAOT compatibility). Register each plugin explicitly:
+windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
 ```
 
 ## Complete Example

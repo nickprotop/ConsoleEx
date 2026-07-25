@@ -349,6 +349,8 @@ windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
 
 ### Load at Runtime
 
+Plugins can be loaded at any point in the application's lifetime, not just at startup:
+
 ```csharp
 // Load plugin dynamically
 windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
@@ -356,25 +358,31 @@ windowSystem.PluginStateService.LoadPlugin<MyPlugin>();
 // Plugin themes, controls, windows, and services are immediately available
 ```
 
-### Auto-loading with Configuration
+You can also load an instance you constructed yourself — useful when the plugin
+needs constructor arguments:
 
 ```csharp
-using SharpConsoleUI.Configuration;
-
-// Configure auto-loading from plugins directory
-var pluginConfig = new PluginConfiguration(
-    AutoLoad: true,
-    PluginsDirectory: "./plugins"
-);
-
-// Plugins are loaded automatically on startup
-var windowSystem = new ConsoleWindowSystem(
-    new NetConsoleDriver(RenderMode.Buffer),
-    pluginConfiguration: pluginConfig
-);
-
-// All plugins from ./plugins directory are now loaded
+windowSystem.PluginStateService.LoadPlugin(new MyPlugin(connectionString));
 ```
+
+> **Note:** `LoadPlugin<T>()` requires a public parameterless constructor. Use the
+> instance overload when your plugin takes dependencies.
+
+### No file-based or directory loading
+
+**Plugins are registered in-process only.** There is no API to load a plugin from a
+`.dll` on disk, from a plugins directory, or by assembly path — this was removed for
+**NativeAOT compatibility**, since AOT compilation resolves all types at build time and
+cannot load arbitrary assemblies at runtime.
+
+In practice this means:
+
+- Your plugin type is compiled into your application (or into a project it references).
+- You register it explicitly with `LoadPlugin<T>()` / `LoadPlugin(instance)`.
+- There is no plugin discovery, scanning, auto-loading, or hot-reload.
+
+To make a plugin distributable, ship it as a **NuGet package** that consumers reference
+and register with one `LoadPlugin<T>()` call.
 
 ## PluginStateService
 
@@ -404,9 +412,7 @@ public record PluginState(
     int RegisteredServiceCount,
     int RegisteredControlCount,
     int RegisteredWindowCount,
-    IReadOnlyList<string> PluginNames,
-    bool AutoLoadEnabled,
-    string? PluginsDirectory
+    IReadOnlyList<string> PluginNames
 );
 ```
 
@@ -467,19 +473,22 @@ Task.Run(() => windowSystem.PluginStateService.LoadPlugin<Plugin2>());
 var state = windowSystem.PluginStateService.CurrentState; // Safe
 ```
 
-### Configuration Management
+### Unloading Plugins
 
 ```csharp
-// Get current configuration
-var config = windowSystem.PluginStateService.Configuration;
-
-// Update configuration at runtime
-var newConfig = new PluginConfiguration(
-    AutoLoad: false,
-    PluginsDirectory: "./custom-plugins"
-);
-windowSystem.PluginStateService.UpdateConfiguration(newConfig);
+// Unload a previously loaded plugin instance
+var plugin = windowSystem.PluginStateService.GetPlugin("MyPlugin");
+if (plugin is not null)
+    windowSystem.PluginStateService.UnloadPlugin(plugin);
 ```
+
+Unloading removes the plugin from the loaded list and calls its `Dispose()`, then
+raises `PluginUnloaded` and `StateChanged`.
+
+> **Note:** unloading does **not** unregister the control, window, and service
+> factories the plugin contributed — those remain available until the
+> `ConsoleWindowSystem` itself is disposed. Unloading releases the plugin's own
+> resources; it is not a full teardown of everything it registered.
 
 ## Using Plugin Content
 
@@ -550,8 +559,7 @@ if (myService != null)
 The `Examples/PluginShowcaseExample` project authors a complete plugin
 (`ShowcasePlugin`) in its own code and loads it — the recommended way to see the
 plugin system end-to-end. It is an *example*, not a built-in library plugin: you
-write `ShowcasePlugin.cs` in your own project and reference it directly (or load
-a compiled plugin assembly by path).
+write `ShowcasePlugin.cs` in your own project and reference it directly.
 
 ### Loading the example plugin
 
