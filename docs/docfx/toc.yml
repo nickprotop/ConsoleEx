@@ -64,7 +64,7 @@
           href: controls/ButtonControl.html
         - name: CheckboxControl
           href: controls/CheckboxControl.html
-        - name: RadioControl
+        - name: RadioControl / RadioGroup
           href: controls/RadioControl.html
         - name: PromptControl
           href: controls/PromptControl.html
@@ -155,9 +155,9 @@
       href: COMPOSITOR_EFFECTS.html
     - name: Animations
       href: ANIMATIONS.html
-    - name: Image Rendering
+    - name: Image Rendering (ImageControl)
       href: IMAGE_RENDERING.html
-    - name: Video Playback
+    - name: Video Playback (VideoControl)
       href: VIDEO_PLAYBACK.html
 
 - name: System

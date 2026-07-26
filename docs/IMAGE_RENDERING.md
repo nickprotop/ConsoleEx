@@ -130,8 +130,41 @@ builder.AddControl(Controls.Image(pixels));
 |----------|------|-------------|
 | `Source` | `PixelBuffer?` | The pixel data to render |
 | `ScaleMode` | `ImageScaleMode` | How the image scales (default: `Fit`) |
+| `MinimumWidth` | `int` | Minimum measured width in cells, including margins (default: `0`). Pads the layout box only — it does not enlarge the drawn image |
+| `MinimumHeight` | `int` | Minimum measured height in cells, including margins (default: `0`). Pads the layout box only |
 
 Setting `Source` or `ScaleMode` automatically invalidates the render cache and triggers a repaint.
+
+### Builder API
+
+`Controls.Image(...)` returns an `ImageControlBuilder`. The `PixelBuffer` overload used above is a
+shorthand that builds the control directly; use the builder when you need layout or identity options.
+
+```csharp
+var image = Controls.Image()
+    .WithSource(pixels)
+    .WithScaleMode(ImageScaleMode.Fill)
+    .WithAlignment(HorizontalAlignment.Center)
+    .WithMargin(1)
+    .WithName("preview")
+    .Build();
+```
+
+| Method | Description |
+|--------|-------------|
+| `.WithSource(PixelBuffer source)` | Sets the pixel data to render |
+| `.WithScaleMode(ImageScaleMode mode)` | Sets how the image scales within its bounds |
+| `.NoScaling()` | Shorthand for `ImageScaleMode.None` — natural pixel size, clipped |
+| `.WithAlignment(HorizontalAlignment alignment)` | Horizontal alignment within the container |
+| `.WithVerticalAlignment(VerticalAlignment alignment)` | Vertical alignment within the container |
+| `.WithMargin(int left, int top, int right, int bottom)` | Per-side margin |
+| `.WithMargin(Margin margin)` | Margin from a `Margin` value |
+| `.Visible(bool visible)` | Initial visibility |
+| `.WithName(string name)` | Name for `FindControl<ImageControl>(...)` lookups |
+| `.WithTag(object tag)` | Arbitrary caller data |
+| `.WithStickyPosition(StickyPosition position)` | Pins the control while its container scrolls |
+| `.StickyTop()` / `.StickyBottom()` | Shorthands for the common sticky positions |
+| `.Build()` | Returns the configured `ImageControl` |
 
 ## Scale Modes
 

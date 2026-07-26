@@ -257,6 +257,26 @@ Shorthand with file path:
 var video = Controls.Video("movie.mp4").Fill().Build();
 ```
 
+### Sizing and alignment
+
+`Fill()` and `Stretch()` are the two sizing shorthands; use the alignment methods when the video
+should not consume all the available space.
+
+| Method | Description |
+|--------|-------------|
+| `.Fill()` | Fill the available space in both directions |
+| `.Stretch()` | Stretch horizontally to the container width |
+| `.WithAlignment(HorizontalAlignment alignment)` | Horizontal alignment within the container |
+| `.WithVerticalAlignment(VerticalAlignment alignment)` | Vertical alignment within the container |
+
+```csharp
+// A fixed-size video centred in its container rather than filling it
+var video = Controls.Video("clip.mp4")
+    .WithAlignment(HorizontalAlignment.Center)
+    .WithVerticalAlignment(VerticalAlignment.Center)
+    .Build();
+```
+
 ## Playback Controls
 
 ### Keyboard
