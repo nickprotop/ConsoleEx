@@ -159,9 +159,9 @@
       href: COMPOSITOR_EFFECTS.html
     - name: Animations
       href: ANIMATIONS.html
-    - name: Image Rendering (ImageControl)
+    - name: Image Rendering
       href: IMAGE_RENDERING.html
-    - name: Video Playback (VideoControl)
+    - name: Video Playback
       href: VIDEO_PLAYBACK.html
 
 - name: System
