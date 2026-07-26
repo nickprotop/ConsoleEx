@@ -130,8 +130,12 @@
           href: controls/FlowControl.html
         - name: WizardControl
           href: controls/WizardControl.html
-    - name: Drawing and Terminal
+    - name: Media and Drawing
       items:
+        - name: ImageControl
+          href: controls/ImageControl.html
+        - name: VideoControl
+          href: controls/VideoControl.html
         - name: CanvasControl
           href: controls/CanvasControl.html
         - name: TerminalControl
