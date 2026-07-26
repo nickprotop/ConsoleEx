@@ -1,9 +1,226 @@
-- name: Why SharpConsoleUI?
-  href: COMPARISON.html
-- name: Data Binding
-  href: binding.html
+- name: Getting Started
+  items:
+    - name: Why SharpConsoleUI?
+      href: COMPARISON.html
+    - name: Builder API
+      href: BUILDERS.html
+    - name: Configuration
+      href: CONFIGURATION.html
+    - name: Data Binding
+      href: binding.html
+    - name: Common Patterns
+      href: patterns.html
+    - name: Examples
+      href: EXAMPLES.html
+
 - name: Tutorials
   href: tutorials/README.html
+  items:
+    - name: Overview
+      href: tutorials/README.html
+    - name: "1. Hello Window"
+      href: tutorials/01-hello-window.html
+    - name: "2. Dashboard"
+      href: tutorials/02-dashboard.html
+    - name: "3. Settings App"
+      href: tutorials/03-settings-app.html
+    - name: "4. Mail Client"
+      href: tutorials/04-mail-client.html
+    - name: "5. Music Player"
+      href: tutorials/05-music-player.html
+    - name: Contributing
+      items:
+        - name: Overview
+          href: tutorials/contributing/README.html
+        - name: "1. Composite Controls"
+          href: tutorials/contributing/01-composite-controls.html
+        - name: "2. Adding a Control"
+          href: tutorials/contributing/02-adding-a-control.html
+        - name: "3. Dialogs"
+          href: tutorials/contributing/03-dialogs.html
+
+- name: Controls
+  href: CONTROLS.html
+  items:
+    - name: Overview
+      href: CONTROLS.html
+    - name: Text and Display
+      items:
+        - name: MarkupControl
+          href: controls/MarkupControl.html
+        - name: FigleControl
+          href: controls/FigleControl.html
+        - name: HtmlControl
+          href: controls/HtmlControl.html
+        - name: LogViewerControl
+          href: controls/LogViewerControl.html
+        - name: ChatTranscriptControl
+          href: controls/ChatTranscriptControl.html
+        - name: SpectreRenderableControl
+          href: controls/SpectreRenderableControl.html
+    - name: Input
+      items:
+        - name: ButtonControl
+          href: controls/ButtonControl.html
+        - name: CheckboxControl
+          href: controls/CheckboxControl.html
+        - name: RadioControl
+          href: controls/RadioControl.html
+        - name: PromptControl
+          href: controls/PromptControl.html
+        - name: MultilineEditControl
+          href: controls/MultilineEditControl.html
+        - name: DropdownControl
+          href: controls/DropdownControl.html
+        - name: SliderControl
+          href: controls/SliderControl.html
+        - name: RangeSliderControl
+          href: controls/RangeSliderControl.html
+        - name: DatePickerControl
+          href: controls/DatePickerControl.html
+        - name: TimePickerControl
+          href: controls/TimePickerControl.html
+        - name: FormControl
+          href: controls/FormControl.html
+    - name: Data
+      items:
+        - name: TableControl
+          href: controls/TableControl.html
+        - name: ListControl
+          href: controls/ListControl.html
+        - name: TreeControl
+          href: controls/TreeControl.html
+    - name: Graphs and Progress
+      items:
+        - name: BarGraphControl
+          href: controls/BarGraphControl.html
+        - name: SparklineControl
+          href: controls/SparklineControl.html
+        - name: LineGraphControl
+          href: controls/LineGraphControl.html
+        - name: ProgressBarControl
+          href: controls/ProgressBarControl.html
+        - name: SpinnerControl
+          href: controls/SpinnerControl.html
+    - name: Layout and Containers
+      items:
+        - name: GridControl
+          href: controls/GridControl.html
+        - name: HorizontalGridControl
+          href: controls/HorizontalGridControl.html
+        - name: PanelControl
+          href: controls/PanelControl.html
+        - name: CollapsiblePanel
+          href: controls/CollapsiblePanel.html
+        - name: ScrollablePanelControl
+          href: controls/ScrollablePanelControl.html
+        - name: TabControl
+          href: controls/TabControl.html
+        - name: NavigationView
+          href: controls/NavigationView.html
+    - name: Navigation and Commands
+      items:
+        - name: MenuControl
+          href: controls/MenuControl.html
+        - name: ToolbarControl
+          href: controls/ToolbarControl.html
+        - name: StatusBarControl
+          href: controls/StatusBarControl.html
+        - name: FlowControl
+          href: controls/FlowControl.html
+        - name: WizardControl
+          href: controls/WizardControl.html
+    - name: Drawing and Terminal
+      items:
+        - name: CanvasControl
+          href: controls/CanvasControl.html
+        - name: TerminalControl
+          href: controls/TerminalControl.html
+
+- name: Rendering
+  items:
+    - name: Rendering Pipeline
+      href: RENDERING_PIPELINE.html
+    - name: DOM Layout System
+      href: DOM_LAYOUT_SYSTEM.html
+    - name: Markup Syntax
+      href: MARKUP_SYNTAX.html
+    - name: Syntax Highlighting
+      href: SYNTAX_HIGHLIGHTING.html
+    - name: Gradients
+      href: GRADIENTS.html
+    - name: Alpha Blending & Transparency
+      href: ALPHA_BLENDING.html
+    - name: Compositor Effects
+      href: COMPOSITOR_EFFECTS.html
+    - name: Animations
+      href: ANIMATIONS.html
+    - name: Image Rendering
+      href: IMAGE_RENDERING.html
+    - name: Video Playback
+      href: VIDEO_PLAYBACK.html
+
+- name: System
+  items:
+    - name: Windows
+      href: WINDOWS.html
+    - name: Threading & Async
+      href: THREADING_AND_ASYNC.html
+    - name: Themes
+      href: THEMES.html
+    - name: State Services
+      href: STATE-SERVICES.html
+    - name: Desktop Background
+      href: DESKTOP_BACKGROUND.html
+    - name: Panels
+      href: PANELS.html
+    - name: Dialogs
+      href: DIALOGS.html
+    - name: Composable Flows
+      href: FLOWS.html
+    - name: Portal System
+      href: PORTAL_SYSTEM.html
+    - name: Notifications
+      href: NOTIFICATIONS.html
+    - name: Status System
+      href: STATUS_SYSTEM.html
+    - name: Clipboard
+      href: CLIPBOARD.html
+    - name: Registry
+      href: REGISTRY.html
+    - name: Form XML
+      href: FORM_XML.html
+    - name: Plugins
+      href: PLUGINS.html
+
+- name: Scripting
+  items:
+    - name: Overview
+      href: scripting/README.html
+    - name: Shell Scripting
+      href: SHELL_SCRIPTING.html
+    - name: SCHost CLI
+      href: SCHOST.html
+    - name: "Recipes: bash / zsh"
+      href: scripting/recipes/bash.html
+    - name: "Recipes: PowerShell"
+      href: scripting/recipes/powershell.html
+    - name: "Recipes: fish"
+      href: scripting/recipes/fish.html
+    - name: "Recipes: nushell"
+      href: scripting/recipes/nushell.html
+
+- name: Project
+  items:
+    - name: Native AOT
+      href: AOT.html
+    - name: Benchmarks
+      href: benchmarks/README.html
+    - name: Code Quality
+      href: CODE_QUALITY.html
+    - name: Code Quality Enforcement
+      href: CODE_QUALITY_ENFORCEMENT.html
+
 - name: API Reference
   href: api/
   homepage: api/SharpConsoleUI.html

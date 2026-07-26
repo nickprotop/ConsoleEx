@@ -890,4 +890,4 @@ See the [CanvasControl documentation](controls/CanvasControl.md) for the full AP
 - [Rendering Pipeline](RENDERING_PIPELINE.md) - Understanding the rendering flow
 - [Controls Documentation](CONTROLS.md) - Building UI with controls
 - [Themes Guide](THEMES.md) - Customizing visual appearance
-- [API Reference](docfx/_site/api/SharpConsoleUI.html) - Complete API documentation
+- [API Reference](https://nickprotop.github.io/ConsoleEx/docfx/_site/api/SharpConsoleUI.html) - Complete API documentation
