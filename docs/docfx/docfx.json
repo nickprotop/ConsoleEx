@@ -29,7 +29,7 @@
     "resource": [
       {
         "src": "../",
-        "files": ["images/**"]
+        "files": ["images/**", "context7.json"]
       }
     ],
     "output": "_site",
