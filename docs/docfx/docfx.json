@@ -22,7 +22,7 @@
       },
       {
         "src": "../",
-        "files": ["*.md", "controls/**.md", "tutorials/**.md", "scripting/**.md", "benchmarks/**.md"],
+        "files": ["*.md", "toc.yml", "controls/**.md", "tutorials/**.md", "scripting/**.md", "benchmarks/**.md"],
         "exclude": ["**/obj/**", "**/bin/**", "docfx/**"]
       }
     ],

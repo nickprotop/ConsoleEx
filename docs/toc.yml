@@ -1,0 +1,234 @@
+- name: Getting Started
+  items:
+    - name: Why SharpConsoleUI?
+      href: COMPARISON.md
+    - name: Builder API
+      href: BUILDERS.md
+    - name: Configuration
+      href: CONFIGURATION.md
+    - name: Data Binding
+      href: binding.md
+    - name: Common Patterns
+      href: patterns.md
+    - name: Examples
+      href: EXAMPLES.md
+
+- name: Tutorials
+  href: tutorials/README.md
+  items:
+    - name: Overview
+      href: tutorials/README.md
+    - name: "1. Hello Window"
+      href: tutorials/01-hello-window.md
+    - name: "2. Dashboard"
+      href: tutorials/02-dashboard.md
+    - name: "3. Settings App"
+      href: tutorials/03-settings-app.md
+    - name: "4. Mail Client"
+      href: tutorials/04-mail-client.md
+    - name: "5. Music Player"
+      href: tutorials/05-music-player.md
+    - name: Contributing
+      items:
+        - name: Overview
+          href: tutorials/contributing/README.md
+        - name: "1. Composite Controls"
+          href: tutorials/contributing/01-composite-controls.md
+        - name: "2. Adding a Control"
+          href: tutorials/contributing/02-adding-a-control.md
+        - name: "3. Dialogs"
+          href: tutorials/contributing/03-dialogs.md
+
+- name: Controls
+  href: CONTROLS.md
+  items:
+    - name: Overview
+      href: CONTROLS.md
+    - name: Text and Display
+      items:
+        - name: MarkupControl
+          href: controls/MarkupControl.md
+        - name: FigleControl
+          href: controls/FigleControl.md
+        - name: HtmlControl
+          href: controls/HtmlControl.md
+        - name: LogViewerControl
+          href: controls/LogViewerControl.md
+        - name: ChatTranscriptControl
+          href: controls/ChatTranscriptControl.md
+        - name: RuleControl
+          href: controls/RuleControl.md
+        - name: SpectreRenderableControl
+          href: controls/SpectreRenderableControl.md
+    - name: Input
+      items:
+        - name: ButtonControl
+          href: controls/ButtonControl.md
+        - name: CheckboxControl
+          href: controls/CheckboxControl.md
+        - name: RadioControl / RadioGroup
+          href: controls/RadioControl.md
+        - name: PromptControl
+          href: controls/PromptControl.md
+        - name: MultilineEditControl
+          href: controls/MultilineEditControl.md
+        - name: DropdownControl
+          href: controls/DropdownControl.md
+        - name: SliderControl
+          href: controls/SliderControl.md
+        - name: RangeSliderControl
+          href: controls/RangeSliderControl.md
+        - name: DatePickerControl
+          href: controls/DatePickerControl.md
+        - name: TimePickerControl
+          href: controls/TimePickerControl.md
+        - name: FormControl
+          href: controls/FormControl.md
+    - name: Data
+      items:
+        - name: TableControl
+          href: controls/TableControl.md
+        - name: ListControl
+          href: controls/ListControl.md
+        - name: TreeControl
+          href: controls/TreeControl.md
+    - name: Graphs and Progress
+      items:
+        - name: BarGraphControl
+          href: controls/BarGraphControl.md
+        - name: SparklineControl
+          href: controls/SparklineControl.md
+        - name: LineGraphControl
+          href: controls/LineGraphControl.md
+        - name: ProgressBarControl
+          href: controls/ProgressBarControl.md
+        - name: SpinnerControl
+          href: controls/SpinnerControl.md
+    - name: Layout and Containers
+      items:
+        - name: GridControl
+          href: controls/GridControl.md
+        - name: HorizontalGridControl
+          href: controls/HorizontalGridControl.md
+        - name: HorizontalSplitterControl
+          href: controls/HorizontalSplitterControl.md
+        - name: PanelControl
+          href: controls/PanelControl.md
+        - name: CollapsiblePanel
+          href: controls/CollapsiblePanel.md
+        - name: ScrollablePanelControl
+          href: controls/ScrollablePanelControl.md
+        - name: TabControl
+          href: controls/TabControl.md
+        - name: NavigationView
+          href: controls/NavigationView.md
+    - name: Navigation and Commands
+      items:
+        - name: MenuControl
+          href: controls/MenuControl.md
+        - name: ToolbarControl
+          href: controls/ToolbarControl.md
+        - name: StatusBarControl
+          href: controls/StatusBarControl.md
+        - name: FlowControl
+          href: controls/FlowControl.md
+        - name: WizardControl
+          href: controls/WizardControl.md
+    - name: Media and Drawing
+      items:
+        - name: ImageControl
+          href: controls/ImageControl.md
+        - name: VideoControl
+          href: controls/VideoControl.md
+        - name: CanvasControl
+          href: controls/CanvasControl.md
+        - name: TerminalControl
+          href: controls/TerminalControl.md
+
+- name: Rendering
+  items:
+    - name: Rendering Pipeline
+      href: RENDERING_PIPELINE.md
+    - name: DOM Layout System
+      href: DOM_LAYOUT_SYSTEM.md
+    - name: Markup Syntax
+      href: MARKUP_SYNTAX.md
+    - name: Syntax Highlighting
+      href: SYNTAX_HIGHLIGHTING.md
+    - name: Gradients
+      href: GRADIENTS.md
+    - name: Alpha Blending & Transparency
+      href: ALPHA_BLENDING.md
+    - name: Compositor Effects
+      href: COMPOSITOR_EFFECTS.md
+    - name: Animations
+      href: ANIMATIONS.md
+    - name: Image Rendering
+      href: IMAGE_RENDERING.md
+    - name: Video Playback
+      href: VIDEO_PLAYBACK.md
+
+- name: System
+  items:
+    - name: Windows
+      href: WINDOWS.md
+    - name: Threading & Async
+      href: THREADING_AND_ASYNC.md
+    - name: Themes
+      href: THEMES.md
+    - name: State Services
+      href: STATE-SERVICES.md
+    - name: Desktop Background
+      href: DESKTOP_BACKGROUND.md
+    - name: Panels
+      href: PANELS.md
+    - name: Dialogs
+      href: DIALOGS.md
+    - name: Composable Flows
+      href: FLOWS.md
+    - name: Portal System
+      href: PORTAL_SYSTEM.md
+    - name: Notifications
+      href: NOTIFICATIONS.md
+    - name: Status System
+      href: STATUS_SYSTEM.md
+    - name: Clipboard
+      href: CLIPBOARD.md
+    - name: Registry
+      href: REGISTRY.md
+    - name: Form XML
+      href: FORM_XML.md
+    - name: Plugins
+      href: PLUGINS.md
+
+- name: Scripting
+  items:
+    - name: Overview
+      href: scripting/README.md
+    - name: Shell Scripting
+      href: SHELL_SCRIPTING.md
+    - name: SCHost CLI
+      href: SCHOST.md
+    - name: "Recipes: bash / zsh"
+      href: scripting/recipes/bash.md
+    - name: "Recipes: PowerShell"
+      href: scripting/recipes/powershell.md
+    - name: "Recipes: fish"
+      href: scripting/recipes/fish.md
+    - name: "Recipes: nushell"
+      href: scripting/recipes/nushell.md
+
+- name: Project
+  items:
+    - name: Native AOT
+      href: AOT.md
+    - name: Benchmarks
+      href: benchmarks/README.md
+    - name: Code Quality
+      href: CODE_QUALITY.md
+    - name: Code Quality Enforcement
+      href: CODE_QUALITY_ENFORCEMENT.md
+
+- name: API Reference
+  href: api/
+  homepage: api/SharpConsoleUI.html
