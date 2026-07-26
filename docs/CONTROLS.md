@@ -88,7 +88,7 @@ Controls for displaying formatted content.
 | **[LogViewerControl](controls/LogViewerControl.md)** | Log message viewer | Auto-scroll, filtering, severity colors |
 | **[SpectreRenderableControl](controls/SpectreRenderableControl.md)** | Wrapper for Spectre widgets | Display Tables, Trees, Panels, Charts, etc. |
 | **[PanelControl](controls/PanelControl.md)** | Bordered container panel | Hosts child controls (a non-collapsible CollapsiblePanel); headers, border styles, padding, mouse. For bordered *text*, use [MarkupControl](controls/MarkupControl.md) with `.WithBorder()`. |
-| **RuleControl** | Horizontal rule/separator | Optional title, colors, horizontal line |
+| **[RuleControl](controls/RuleControl.md)** | Horizontal rule/separator | Optional title with alignment, colors, border styles; doubles as an inline progress bar (`SetProgress`/`SetIndeterminate`). Backs both `Controls.Rule(title)` and `Controls.Separator()` |
 | **[SparklineControl](controls/SparklineControl.md)** | Time-series sparkline graph | Block, braille, or bidirectional modes; borders; titles |
 | **[LineGraphControl](controls/LineGraphControl.md)** | Multi-series line graph | Braille and ASCII rendering modes, gradients, Y-axis labels, live updates |
 | **[BarGraphControl](controls/BarGraphControl.md)** | Horizontal bar graph | Gradient color thresholds, labels, value display |
@@ -117,13 +117,14 @@ Controls for organizing other controls.
 | **[GridControl](controls/GridControl.md)** | WinUI-style 2D grid | Fixed/Auto/Star rows & columns, row/col spans, gaps, per-cell styling, any control per cell |
 | **[FlowControl](controls/FlowControl.md)** | Renders a flow inline in a region | Embeds `Flow.Run`/`Flow.Wizard` in a pane (vs. a modal); idle/done placeholder; normal focus scope |
 | **[WizardControl](controls/WizardControl.md)** | Runs a multi-step wizard inline | A `FlowControl` named/presetted for wizards (the discoverable door); `wizard.Run(Flow.Wizard<T>()...)`; inline, not modal |
-| **SplitterControl** | Resizable divider | Drag to resize adjacent columns |
+| **[HorizontalSplitterControl](controls/HorizontalSplitterControl.md)** | Draggable horizontal divider | Resizes the control above against the one below; mouse drag + Up/Down (Shift for 5-row jumps), min-height floors, `SplitterMoved` |
+| **SplitterControl** | Vertical column divider | Internal to [HorizontalGridControl](controls/HorizontalGridControl.md) — created by `AddSplitter`/`AddSplitterBefore`. For grid splitters use [GridControl](controls/GridControl.md#splitters) |
 | **[TabControl](controls/TabControl.md)** | Multi-page tab container | Tab headers, keyboard/mouse switching, state preservation |
 | **[CollapsiblePanel](controls/CollapsiblePanel.md)** | Click-to-expand container | Borderless/bordered header, markup title, custom icons, MaxContentHeight, IControlHost. Can also serve as a plain, non-collapsible panel hosting any control via `.NonCollapsible()` / `.HideHeader()` |
 | **[NavigationView](controls/NavigationView.md)** | Sidebar navigation + content area | WinUI-inspired nav pane, responsive display modes (Expanded/Compact/Minimal), content factories, gradient-transparent |
 | **[ToolbarControl](controls/ToolbarControl.md)** | Horizontal button toolbar | Auto-height, wrapping, separator lines, content padding, Tab navigation |
 | **[StatusBarControl](controls/StatusBarControl.md)** | Three-zone status bar | Left/center/right zones, clickable items, shortcut hints, above line separator |
-| **SeparatorControl** | Visual separator | Simple horizontal line |
+| **SeparatorControl** | Vertical separator line | Non-interactive single vertical line (`Controls.VerticalSeparator()`); placed automatically by ToolbarControl and NavigationView. Documented in [RuleControl](controls/RuleControl.md#vertical-separators-separatorcontrol) |
 | **PortalContentContainer** | Portal overlay container | Host child controls in [portal overlays](PORTAL_SYSTEM.md), mouse/keyboard routing, focus tracking |
 
 ## Utility Controls

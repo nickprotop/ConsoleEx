@@ -56,6 +56,8 @@
           href: controls/LogViewerControl.html
         - name: ChatTranscriptControl
           href: controls/ChatTranscriptControl.html
+        - name: RuleControl
+          href: controls/RuleControl.html
         - name: SpectreRenderableControl
           href: controls/SpectreRenderableControl.html
     - name: Input
@@ -108,6 +110,8 @@
           href: controls/GridControl.html
         - name: HorizontalGridControl
           href: controls/HorizontalGridControl.html
+        - name: HorizontalSplitterControl
+          href: controls/HorizontalSplitterControl.html
         - name: PanelControl
           href: controls/PanelControl.html
         - name: CollapsiblePanel
