@@ -29,6 +29,7 @@
     - name: "5. Music Player"
       href: tutorials/05-music-player.md
     - name: Contributing
+      href: tutorials/contributing/README.md
       items:
         - name: Overview
           href: tutorials/contributing/README.md
@@ -45,6 +46,7 @@
     - name: Overview
       href: CONTROLS.md
     - name: Text and Display
+      href: CONTROLS.md#display-controls
       items:
         - name: MarkupControl
           href: controls/MarkupControl.md
@@ -61,6 +63,7 @@
         - name: SpectreRenderableControl
           href: controls/SpectreRenderableControl.md
     - name: Input
+      href: CONTROLS.md#basic-input-controls
       items:
         - name: ButtonControl
           href: controls/ButtonControl.md
@@ -85,6 +88,7 @@
         - name: FormControl
           href: controls/FormControl.md
     - name: Data
+      href: CONTROLS.md#selection-controls
       items:
         - name: TableControl
           href: controls/TableControl.md
@@ -93,6 +97,7 @@
         - name: TreeControl
           href: controls/TreeControl.md
     - name: Graphs and Progress
+      href: CONTROLS.md#display-controls
       items:
         - name: BarGraphControl
           href: controls/BarGraphControl.md
@@ -105,6 +110,7 @@
         - name: SpinnerControl
           href: controls/SpinnerControl.md
     - name: Layout and Containers
+      href: CONTROLS.md#layout-controls
       items:
         - name: GridControl
           href: controls/GridControl.md
@@ -123,6 +129,7 @@
         - name: NavigationView
           href: controls/NavigationView.md
     - name: Navigation and Commands
+      href: CONTROLS.md#layout-controls
       items:
         - name: MenuControl
           href: controls/MenuControl.md
@@ -135,6 +142,7 @@
         - name: WizardControl
           href: controls/WizardControl.md
     - name: Media and Drawing
+      href: CONTROLS.md#drawing-controls
       items:
         - name: ImageControl
           href: controls/ImageControl.md
