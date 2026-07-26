@@ -564,6 +564,18 @@
             margin-bottom: 10px;
         }
 
+        .link-group-label {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            letter-spacing: 0.06em;
+            color: var(--text-3);
+            opacity: 0.75;
+            margin: 18px 0 8px;
+        }
+        .link-group-label:first-of-type {
+            margin-top: 0;
+        }
+
         .link-chip {
             display: inline-block;
             padding: 7px 14px;
@@ -1022,23 +1034,74 @@ windowSystem.Run();</code></pre>
 
         <!-- ── Doc links ── -->
         <div class="divider"></div>
+        <p class="section-label"><span>//</span>Documentation</p>
+
+        <p class="link-group-label">Getting started</p>
         <div class="link-group">
-            <a href="docfx/_site/CONTROLS.html"          class="link-chip">Controls</a>
-            <a href="docfx/_site/DIALOGS.html"           class="link-chip">Dialogs</a>
-            <a href="docfx/_site/THEMES.html"            class="link-chip">Theming</a>
-            <a href="docfx/_site/CONFIGURATION.html"     class="link-chip">Configuration</a>
-            <a href="docfx/_site/STATE-SERVICES.html"    class="link-chip">State Services</a>
-            <a href="docfx/_site/VIDEO_PLAYBACK.html"     class="link-chip">Video Playback</a>
-            <a href="docfx/_site/COMPOSITOR_EFFECTS.html" class="link-chip">Compositor Effects</a>
-            <a href="docfx/_site/PLUGINS.html"           class="link-chip">Plugins</a>
-            <a href="docfx/_site/PORTAL_SYSTEM.html"     class="link-chip">Portal System</a>
-            <a href="docfx/_site/STATUS_SYSTEM.html"     class="link-chip">Status System</a>
+            <a href="docfx/_site/BUILDERS.html"           class="link-chip">Builder API</a>
+            <a href="docfx/_site/CONFIGURATION.html"      class="link-chip">Configuration</a>
+            <a href="docfx/_site/binding.html"            class="link-chip">Data Binding</a>
+            <a href="docfx/_site/patterns.html"           class="link-chip">Patterns</a>
+            <a href="docfx/_site/tutorials/README.html"   class="link-chip">Tutorials</a>
+            <a href="docfx/_site/EXAMPLES.html"           class="link-chip">Examples</a>
+        </div>
+
+        <p class="link-group-label">Controls &amp; layout</p>
+        <div class="link-group">
+            <a href="docfx/_site/CONTROLS.html"           class="link-chip">Controls</a>
             <a href="docfx/_site/PANELS.html"             class="link-chip">Panels</a>
+            <a href="docfx/_site/DIALOGS.html"            class="link-chip">Dialogs</a>
+            <a href="docfx/_site/FLOWS.html"              class="link-chip">Composable Flows</a>
+            <a href="docfx/_site/FORM_XML.html"           class="link-chip">Form XML</a>
+            <a href="docfx/_site/PORTAL_SYSTEM.html"      class="link-chip">Portal System</a>
+            <a href="docfx/_site/WINDOWS.html"            class="link-chip">Windows</a>
+            <a href="docfx/_site/DOM_LAYOUT_SYSTEM.html"  class="link-chip">DOM Layout</a>
+        </div>
+
+        <p class="link-group-label">Rendering &amp; media</p>
+        <div class="link-group">
+            <a href="docfx/_site/MARKUP_SYNTAX.html"      class="link-chip">Markup Syntax</a>
+            <a href="docfx/_site/SYNTAX_HIGHLIGHTING.html" class="link-chip">Syntax Highlighting</a>
+            <a href="docfx/_site/THEMES.html"             class="link-chip">Theming</a>
+            <a href="docfx/_site/GRADIENTS.html"          class="link-chip">Gradients</a>
+            <a href="docfx/_site/ALPHA_BLENDING.html"     class="link-chip">Alpha Blending</a>
+            <a href="docfx/_site/COMPOSITOR_EFFECTS.html" class="link-chip">Compositor Effects</a>
+            <a href="docfx/_site/ANIMATIONS.html"         class="link-chip">Animations</a>
+            <a href="docfx/_site/IMAGE_RENDERING.html"    class="link-chip">Image Rendering</a>
+            <a href="docfx/_site/VIDEO_PLAYBACK.html"     class="link-chip">Video Playback</a>
             <a href="docfx/_site/DESKTOP_BACKGROUND.html" class="link-chip">Desktop Background</a>
-            <a href="docfx/_site/CLIPBOARD.html"          class="link-chip">Clipboard</a>
+            <a href="docfx/_site/RENDERING_PIPELINE.html" class="link-chip">Rendering Pipeline</a>
+        </div>
+
+        <p class="link-group-label">System</p>
+        <div class="link-group">
+            <a href="docfx/_site/STATE-SERVICES.html"     class="link-chip">State Services</a>
             <a href="docfx/_site/THREADING_AND_ASYNC.html" class="link-chip">Threading &amp; Async</a>
+            <a href="docfx/_site/STATUS_SYSTEM.html"      class="link-chip">Status System</a>
+            <a href="docfx/_site/NOTIFICATIONS.html"      class="link-chip">Notifications</a>
+            <a href="docfx/_site/CLIPBOARD.html"          class="link-chip">Clipboard</a>
+            <a href="docfx/_site/REGISTRY.html"           class="link-chip">Registry</a>
+            <a href="docfx/_site/PLUGINS.html"            class="link-chip">Plugins</a>
+        </div>
+
+        <p class="link-group-label">Scripting &amp; project</p>
+        <div class="link-group">
+            <a href="docfx/_site/SHELL_SCRIPTING.html"    class="link-chip">Shell Scripting</a>
+            <a href="docfx/_site/scripting/README.html"   class="link-chip">Scripting Recipes</a>
+            <a href="docfx/_site/SCHOST.html"             class="link-chip">SCHost CLI</a>
             <a href="docfx/_site/AOT.html"                class="link-chip">Native AOT</a>
-            <a href="docfx/_site/patterns.html"          class="link-chip">Patterns</a>
+            <a href="docfx/_site/benchmarks/README.html"  class="link-chip">Benchmarks</a>
+            <a href="docfx/_site/COMPARISON.html"         class="link-chip">Comparison</a>
+            <a href="docfx/_site/api/SharpConsoleUI.html" class="link-chip">API Reference</a>
+        </div>
+
+        <p class="link-group-label">Contributing</p>
+        <div class="link-group">
+            <a href="https://github.com/nickprotop/ConsoleEx/blob/master/CONTRIBUTING.md" class="link-chip">Contributing Guide</a>
+            <a href="docfx/_site/tutorials/contributing/README.html" class="link-chip">Contributor Tutorials</a>
+            <a href="docfx/_site/tutorials/contributing/01-composite-controls.html" class="link-chip">Composite Controls</a>
+            <a href="docfx/_site/tutorials/contributing/02-adding-a-control.html" class="link-chip">Adding a Control</a>
+            <a href="docfx/_site/CODE_QUALITY.html"       class="link-chip">Code Quality</a>
         </div>
 
         <footer>
