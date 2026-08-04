@@ -129,6 +129,18 @@ public record ConsoleWindowSystemOptions(
 	ConsoleKey? WindowCycleKey = ConsoleKey.T,
 	ConsoleKey? ExitKey = ConsoleKey.Q,
 
+	// Alt+1..9 activates a top-level window by index — the order the taskbar lists them in.
+	// Set false to leave the chord to the application.
+	//
+	// Without this switch an application that wants Alt+digit for its own panes had to register all
+	// nine digits as global shortcuts, including the ones that are out of range, purely to stop the
+	// key falling through to the built-in selector. Note the asymmetry with the window move and
+	// resize chords beside it in InputCoordinator: those are gated on the ACTIVE window's
+	// IsMovable/IsResizable because they act on that window, whereas this one switches between
+	// windows and so belongs to the system rather than to any one of them — which is why it is an
+	// option here and not a Window property.
+	bool AltDigitSelectsWindow = true,
+
 	// Main-loop watchdog configuration. Null uses defaults (new WatchdogOptions()).
 	WatchdogOptions? Watchdog = null,
 

@@ -72,6 +72,7 @@ rather than assignment.
 |----------|------|---------|-------------|
 | `WindowCycleKey` | `ConsoleKey?` | `ConsoleKey.T` | Ctrl+key that cycles windows. `null` disables it |
 | `ExitKey` | `ConsoleKey?` | `ConsoleKey.Q` | Ctrl+key that exits. `null` disables it |
+| `AltDigitSelectsWindow` | `bool` | `true` | Alt+1..9 activates a top-level window by taskbar index. `false` leaves the chord to your app |
 | `Watchdog` | `WatchdogOptions?` | `null` | Main-loop watchdog settings. `null` uses `new WatchdogOptions()` |
 | `InstallSynchronizationContext` | `bool` | `false` | Install a UI `SynchronizationContext` for the duration of `Run()`. See the caveat below |
 

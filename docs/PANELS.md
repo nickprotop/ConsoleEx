@@ -166,7 +166,7 @@ Elements.TaskBar()
 | `WithMinimizedDim(bool)` | Dim minimized windows (default: true) |
 
 **Features:**
-- `Alt+1` through `Alt+9` to switch windows
+- `Alt+1` through `Alt+9` to switch windows (set `AltDigitSelectsWindow: false` to keep the chord for your own app — see [Configuration](CONFIGURATION.md))
 - Click to activate a window
 - Minimized windows shown dimmed
 - Automatically updates when windows are added/removed

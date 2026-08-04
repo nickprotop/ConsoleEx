@@ -135,6 +135,10 @@ BottomPanelConfig: panel => panel
 - `Alt+2` - Switch to second window
 - ... up to `Alt+9`
 
+> Set [`AltDigitSelectsWindow`](CONFIGURATION.md#input-and-lifecycle) to `false` if your application
+> wants `Alt`+digit for itself — for its own panes or tabs, say. The taskbar still numbers and lists
+> windows; only the built-in shortcut stands down.
+
 **Visual Indicators:**
 - **Normal**: `Alt-1 Window Title`
 - **Minimized**: Dimmed text

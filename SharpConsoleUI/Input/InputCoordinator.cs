@@ -164,8 +164,8 @@ namespace SharpConsoleUI.Input
 						{
 							handled = HandleMoveInput(keyInfo);
 						}
-						// Try Alt+1-9 window selection
-						else if ((keyInfo.Modifiers & ConsoleModifiers.Alt) != 0)
+						// Try Alt+1-9 window selection (opt-out: an app may want the chord itself)
+						else if ((keyInfo.Modifiers & ConsoleModifiers.Alt) != 0 && _context.Options.AltDigitSelectsWindow)
 						{
 							handled = HandleAltInput(keyInfo);
 						}
