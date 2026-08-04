@@ -619,9 +619,6 @@ public struct Cell : IEquatable<Cell>
 **Key changes from the original `char`-based Cell:**
 - `Rune` replaces `char` — a `System.Text.Rune` represents a full Unicode scalar value, enabling correct handling of emoji and characters above U+FFFF (which require surrogate pairs as `char`)
 - `IsWideContinuation` marks the right-half placeholder cell for CJK/emoji characters that occupy 2 terminal columns
-
-> How a character's column count is decided — including the terminal probes and the East Asian
-> Ambiguous policy — is covered in [Unicode Width](UNICODE_WIDTH.md).
 - `Combiners` stores zero-width combining marks (diacritics, variation selectors) attached to the base character
 - `TextDecoration` supports underline, strikethrough, and other text effects
 
