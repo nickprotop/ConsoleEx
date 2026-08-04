@@ -211,13 +211,10 @@ public class ModalWindowHostTests
 			=> Builders.Controls.Markup().AddLine("body").Build();
 	}
 
-	private static async Task WaitForNoWindowsAsync(ConsoleWindowSystem system)
-	{
-		// The host marshals modal.Close via EnqueueOnUIThread; drain the queue until empty or timeout.
-		for (int i = 0; i < 50 && system.Windows.Values.Any(); i++)
-		{
-			system.DrainPendingUIActionsForTest();
-			await Task.Delay(10);
-		}
-	}
+	// The host marshals modal.Close via EnqueueOnUIThread. Delegates to the shared deadline-based
+	// wait: the old 50 x 10ms budget bounded how long the drain was ALLOWED to take rather than how
+	// long it needed, so it lapsed under parallel test load and the caller then reported a window
+	// leak that was not one.
+	private static Task WaitForNoWindowsAsync(ConsoleWindowSystem system)
+		=> FlowTestHelpers.WaitForNoWindowsAsync(system);
 }

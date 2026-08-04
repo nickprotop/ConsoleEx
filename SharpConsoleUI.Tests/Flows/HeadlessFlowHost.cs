@@ -130,18 +130,58 @@ public static class FlowTestHelpers
 	/// Fails the test if the button never appears within the bounded timeout (~2s).
 	/// </summary>
 	public static async Task WaitAndClickButtonAsync(ConsoleWindowSystem system, string name, string because)
+		=> await WaitUntilAsync(system, () => ClickButtonByName(system, name),
+			$"{because}: button '{name}' never became clickable");
+
+	/// <summary>
+	/// The default budget for <see cref="WaitUntilAsync"/>. Deliberately generous: it is a bound on
+	/// FAILURE, not a delay any passing test pays — a satisfied condition returns on the first poll.
+	/// </summary>
+	private const int DefaultWaitMs = 10_000;
+
+	/// <summary>
+	/// Drains queued UI actions and renders until <paramref name="condition"/> holds, or the deadline
+	/// passes.
+	/// <para>
+	/// <b>Why a wall-clock deadline rather than a fixed number of iterations.</b> A flow step settles
+	/// asynchronously: the prior step resolves, a continuation runs on the thread pool, and only then
+	/// is the next <c>ShowStep</c> enqueued. Waiting a fixed number of drain/render cycles — or a fixed
+	/// number of 10 ms sleeps — measures the wrong thing, because under parallel test load the pool is
+	/// contended and the continuation simply has not run yet. The loop is unchanged in the happy path
+	/// and only the give-up point moves, so a genuinely broken flow still fails, and fails with the
+	/// reason attached rather than as a bare <c>Assert.Equal</c> on a colour.
+	/// </para>
+	/// </summary>
+	public static async Task WaitUntilAsync(
+		ConsoleWindowSystem system,
+		Func<bool> condition,
+		string because,
+		int timeoutMs = DefaultWaitMs)
 	{
-		for (int i = 0; i < 200; i++)
+		var deadline = Environment.TickCount64 + timeoutMs;
+		int polls = 0;
+
+		while (true)
 		{
 			system.DrainPendingUIActionsForTest();
 			system.Render.UpdateDisplay();
-			if (ClickButtonByName(system, name))
-				return;
-			await Task.Delay(10);
-		}
+			polls++;
 
-		Assert.Fail($"{because}: button '{name}' never became clickable within the timeout.");
+			if (condition())
+				return;
+
+			if (Environment.TickCount64 >= deadline)
+				Assert.Fail($"{because} — condition still false after {polls} polls over {timeoutMs}ms.");
+
+			await Task.Delay(5);
+		}
 	}
+
+	/// <summary>
+	/// Waits until the system holds no windows. Used after disposing a host to assert it leaked none.
+	/// </summary>
+	public static Task WaitForNoWindowsAsync(ConsoleWindowSystem system, string because = "host disposal should close every window")
+		=> WaitUntilAsync(system, () => !system.Windows.Values.Any(), because);
 }
 
 /// <summary>

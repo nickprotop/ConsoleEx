@@ -131,16 +131,18 @@ namespace SharpConsoleUI.Tests.Flows
 
 			var t1 = host.PresentAsync(step1, chrome1, CancellationToken.None);
 
-			// Drain the EnqueueOnUIThread border-set action then paint.
-			for (int i = 0; i < 3; i++)
-			{
-				system.DrainPendingUIActionsForTest();
-				system.Render.UpdateDisplay();
-			}
+			// Wait for the EnqueueOnUIThread border-set action to land. A fixed three drain/render
+			// cycles measured how much WORK the transition was allowed to take rather than whether it
+			// had happened, so under parallel test load the continuation had simply not run yet and
+			// the border assertion below failed on a window that was merely still catching up.
+			var expPrimary = ColorRoleResolver.Resolve(ColorRole.Primary, system.Theme).Border;
+			await FlowTestHelpers.WaitUntilAsync(
+				system,
+				() => system.Windows.Values.Count() == 1
+					&& system.Windows.Values.Single().ActiveBorderForegroundColor == expPrimary,
+				"step 1 (Info) should tint the host window's border Primary");
 
 			var window = system.Windows.Values.Single();
-			var expPrimary = ColorRoleResolver.Resolve(ColorRole.Primary, system.Theme).Border;
-			Assert.Equal(expPrimary, window.ActiveBorderForegroundColor);
 
 			// Resolve step 1 via button click.
 			bool clicked1 = FlowTestHelpers.ClickButtonByName(system, "flow-host-btn-Next");
@@ -159,15 +161,12 @@ namespace SharpConsoleUI.Tests.Flows
 
 			var t2 = host.PresentAsync(step2, chrome2, CancellationToken.None);
 
-			// Drain the border-set action then paint.
-			for (int i = 0; i < 3; i++)
-			{
-				system.DrainPendingUIActionsForTest();
-				system.Render.UpdateDisplay();
-			}
-
+			// Same wait for step 2's border-set action on the REUSED window.
 			var expDanger = ColorRoleResolver.Resolve(ColorRole.Danger, system.Theme).Border;
-			Assert.Equal(expDanger, window.ActiveBorderForegroundColor);
+			await FlowTestHelpers.WaitUntilAsync(
+				system,
+				() => window.ActiveBorderForegroundColor == expDanger,
+				"step 2 (Danger) should re-tint the same host window's border");
 
 			// Survives a re-render.
 			system.Render.UpdateDisplay();
