@@ -326,6 +326,7 @@ Full reference: [nickprotop.github.io/ConsoleEx/docfx/_site/CONTROLS.html](https
 | [Threading & Async](docs/THREADING_AND_ASYNC.md) | The UI thread model, async events, and the unresponsive watchdog |
 | [NativeAOT](docs/AOT.md) | AOT compatibility, the CI smoke gate, and the HtmlControl caveat |
 | [Clipboard, Copy & Paste](docs/CLIPBOARD.md) | OSC 52 remote copy (works over SSH), bracketed paste, and configuration |
+| [Unicode Width](docs/UNICODE_WIDTH.md) | How character widths are measured, the terminal probes, and the East Asian Ambiguous policy |
 | [Benchmarks](docs/benchmarks/README.md) | Headless BenchmarkDotNet regression suite + baseline (distinct from the live `BenchmarkApp` showcase) |
 | [Themes](https://nickprotop.github.io/ConsoleEx/docfx/_site/THEMES.html) | Built-in and custom themes |
 | [Comparison](https://nickprotop.github.io/ConsoleEx/docfx/_site/COMPARISON.html) | vs Terminal.Gui, Spectre.Console |

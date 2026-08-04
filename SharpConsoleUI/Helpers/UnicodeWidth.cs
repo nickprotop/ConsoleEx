@@ -47,8 +47,19 @@ namespace SharpConsoleUI.Helpers
 					return 1;
 				return 0;
 			}
+			if (w == 1 && AmbiguousIsWide(c))
+				return 2;
 			return w;
 		}
+
+		/// <summary>
+		/// Whether this codepoint should be widened because the terminal reports East Asian Ambiguous
+		/// characters as 2 columns. Only ever promotes a width-1 character, so it cannot disagree with
+		/// Wcwidth about anything Wcwidth is certain of.
+		/// </summary>
+		private static bool AmbiguousIsWide(int codepoint)
+			=> TerminalCapabilities.AmbiguousCharactersAreWide
+			&& EastAsianAmbiguous.IsWidenedWhenAmbiguousWide(codepoint);
 
 		/// <summary>
 		/// Returns the display width of a Rune in terminal columns (0, 1, or 2).
@@ -64,6 +75,8 @@ namespace SharpConsoleUI.Helpers
 					return 1;
 				return 0;
 			}
+			if (w == 1 && AmbiguousIsWide(r.Value))
+				return 2;
 			return w;
 		}
 

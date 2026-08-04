@@ -17,6 +17,7 @@ namespace SharpConsoleUI.Helpers
 		private static bool? _supportsVS16Widening;
 		private static bool? _supportsUnicode16Widths;
 		private static bool? _supportsZwjLigation;
+		private static bool? _ambiguousCharactersAreWide;
 		private static bool? _supportsKittyGraphics;
 		private static bool? _isRemoteSession;
 		private static bool? _isTmux;
@@ -42,6 +43,23 @@ namespace SharpConsoleUI.Helpers
 		public static bool SupportsUnicode16Widths
 		{
 			get => _supportsUnicode16Widths ?? false;
+		}
+
+		/// <summary>
+		/// Whether the terminal renders East Asian Ambiguous characters (°, ±, curly quotes, Greek,
+		/// Cyrillic, …) as 2 columns rather than 1.
+		/// <para>
+		/// Unlike every other width question this is not a property of the character: the Ambiguous
+		/// class exists precisely because those codepoints were encoded in both Western and East Asian
+		/// character sets, so a CJK-configured terminal draws them wide and a Western one narrow, and
+		/// both are right. Defaults to false (Western practice, and what Wcwidth resolves to) until
+		/// probed. Note that the ranges this library draws its own chrome from are held at width 1
+		/// regardless — see <see cref="EastAsianAmbiguous"/>.
+		/// </para>
+		/// </summary>
+		public static bool AmbiguousCharactersAreWide
+		{
+			get => _ambiguousCharactersAreWide ?? false;
 		}
 
 		/// <summary>
@@ -138,6 +156,16 @@ namespace SharpConsoleUI.Helpers
 
 			try
 			{
+				_ambiguousCharactersAreWide = ProbeAmbiguousWidth(write, readByte);
+			}
+			catch
+			{
+				// If probing fails, assume Western practice — the historical behaviour.
+				_ambiguousCharactersAreWide = false;
+			}
+
+			try
+			{
 				_supportsKittyGraphics = ProbeKittyGraphics(write, readByte);
 			}
 			catch
@@ -168,6 +196,16 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
+		/// Allows manual override of the ambiguous-width policy.
+		/// Useful for testing, or when the terminal's configuration is known ahead of time
+		/// (a probe cannot see a user's "treat ambiguous as wide" setting on every terminal).
+		/// </summary>
+		public static void SetAmbiguousCharactersAreWide(bool wide)
+		{
+			_ambiguousCharactersAreWide = wide;
+		}
+
+		/// <summary>
 		/// Allows manual override of the Kitty graphics capability.
 		/// Useful for testing or when the terminal is known ahead of time.
 		/// </summary>
@@ -184,6 +222,10 @@ namespace SharpConsoleUI.Helpers
 			_supportsVS16Widening = null;
 			_supportsUnicode16Widths = null;
 			_supportsKittyGraphics = null;
+			// ZWJ ligation was missing here: a method documented as resetting all capabilities that
+			// silently keeps one is a trap for the next test that relies on it.
+			_supportsZwjLigation = null;
+			_ambiguousCharactersAreWide = null;
 		}
 
 		private static bool ProbeVS16(Action<string> write, Func<int> readByte)
@@ -242,6 +284,28 @@ namespace SharpConsoleUI.Helpers
 		/// Probes whether the terminal renders Unicode 16.0 newly-widened characters as 2 columns.
 		/// Tests U+2630 (☰ TRIGRAM FOR HEAVEN), which changed from width 1 to 2 in Unicode 16.0.
 		/// </summary>
+		/// <summary>
+		/// Probes whether the terminal renders an East Asian Ambiguous character as 2 columns, by
+		/// writing one and asking where the cursor ended up. Uses ° (U+00B0 DEGREE SIGN): unambiguously
+		/// EAW=A, present in every font, and not in any range this library excludes — so the answer
+		/// describes the policy rather than an accident of the probe character.
+		/// </summary>
+		private static bool ProbeAmbiguousWidth(Action<string> write, Func<int> readByte)
+		{
+			// Narrow (Western practice): cursor at column 2. Wide (CJK practice): column 3.
+			write("\r\u00B0\x1b[6n");
+
+			int col = ReadDSRColumn(readByte);
+
+			// Clean up probe output
+			write("\r\x1b[K");
+
+			if (col < 0)
+				return false; // Timeout/error \u2192 assume Western practice, the historical behaviour
+
+			return col >= 3;
+		}
+
 		private static bool ProbeUnicode16Width(Action<string> write, Func<int> readByte)
 		{
 			// Write ☰ (U+2630) and query cursor position.
