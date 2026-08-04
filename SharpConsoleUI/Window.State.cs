@@ -301,26 +301,32 @@ namespace SharpConsoleUI
 		/// <returns>True if the cursor position is visible</returns>
 		internal bool IsCursorPositionVisible(Point cursorPosition, IWindowControl control)
 		{
-			// Get the control's bounds to understand its positioning
-			var bounds = _layoutManager.GetOrCreateControlBounds(control);
-			if (bounds == null) return false;
-			var controlBounds = bounds.ControlContentBounds;
+			// Resolve the node that actually positions this control on screen, and prefer it over the
+			// cached ControlContentBounds. That cache is only ever written by
+			// WindowEventDispatcher.UpdateControlLayout(), which runs from ProcessMouseEvent, so once
+			// populated it freezes at the layout the pointer last saw — and this reader decides
+			// WHETHER to show the caret, so a stale rectangle can hide a caret that is on screen.
+			//
+			// A control inside a self-painting container (ScrollablePanelControl) has only an ORPHAN
+			// registered node (empty bounds, not reachable from the root); its real position is
+			// governed by its nearest root-reachable ancestor (the host), whose node ResolveLaidOutNode
+			// returns instead. The host has already validated the cursor against its own viewport, so
+			// checking the cursor against the host bounds here is the correct visibility gate.
+			var node = _layoutManager.ResolveLaidOutNode(control);
 
-			// For nested controls, ControlContentBounds is never populated (only top-level controls get it).
-			// Fall back to the DOM node's AbsoluteBounds which tracks all controls including nested ones.
-			if (controlBounds.Width == 0 && controlBounds.Height == 0)
+			Rectangle controlBounds;
+			if (node != null)
 			{
-				// Resolve the node that actually positions this control on screen. A control inside a
-				// self-painting container (ScrollablePanelControl) has only an ORPHAN registered node
-				// (empty bounds, not reachable from the root); its real position is governed by its
-				// nearest root-reachable ancestor (the host), whose node we use instead. The host has
-				// already validated the cursor against its own viewport, so checking the cursor
-				// against the host bounds here is the correct visibility gate.
-				var node = _layoutManager.ResolveLaidOutNode(control);
-				if (node == null) return false;
-
 				var ab = node.AbsoluteBounds;
 				controlBounds = new Rectangle(ab.X, ab.Y, ab.Width, ab.Height);
+			}
+			else
+			{
+				// No node positions this control — the cached bounds are the only source left.
+				var bounds = _layoutManager.GetOrCreateControlBounds(control);
+				if (bounds == null) return false;
+				controlBounds = bounds.ControlContentBounds;
+				if (controlBounds.Width == 0 && controlBounds.Height == 0) return false;
 			}
 
 			// Convert cursor position from window coordinates to window content coordinates

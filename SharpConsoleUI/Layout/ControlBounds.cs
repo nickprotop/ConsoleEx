@@ -349,40 +349,55 @@ namespace SharpConsoleUI.Layout
 			if (logicalPosition == null)
 				return null;
 
-			// Get control's bounds (which are already absolute window-content coordinates from DOM)
-			var bounds = GetOrCreateControlBounds(control);
-			var contentBounds = bounds.ControlContentBounds;
+			// Resolve the LIVE layout node first, and prefer it over ControlContentBounds.
+			//
+			// That cache has exactly one writer — WindowEventDispatcher.UpdateControlLayout(), whose
+			// only call site is inside ProcessMouseEvent — so once populated it stops tracking
+			// relayouts until the pointer moves again. Preferring it meant the caret froze wherever
+			// the pointer last saw it while the control kept being painted somewhere else; typing,
+			// resizing or scrolling by keyboard all moved the control and not the caret.
+			//
+			// Nothing is recomputed more often than before: the node lookup already happened on the
+			// old fallback path. Because the node is precisely what UpdateControlLayout copies FROM,
+			// preferring it cannot report anything the cache would not have reported at its last
+			// refresh.
+			var node = _window._renderer?.GetLayoutNode(control);
 
-			// For nested controls, ControlContentBounds is never populated (only top-level controls get it).
-			// Fall back to the DOM node's AbsoluteBounds which tracks all controls including nested ones.
-			if (contentBounds.Width == 0 && contentBounds.Height == 0)
+			// No node of its own: the control lives inside a self-painting container (e.g.
+			// ToolbarControl). Walk up through Container to the nearest ancestor that has a
+			// LayoutNode and can provide a cursor position.
+			if (node == null)
 			{
-				var node = _window._renderer?.GetLayoutNode(control);
-
-				// If this control has no LayoutNode, it lives inside a self-painting container
-				// (e.g. ToolbarControl). Walk up through Container to find the nearest ancestor
-				// that has a LayoutNode and can provide a cursor position.
-				if (node == null)
+				var current = control.Container as Controls.IWindowControl;
+				while (current != null)
 				{
-					var current = control.Container as Controls.IWindowControl;
-					while (current != null)
+					node = _window._renderer?.GetLayoutNode(current);
+					if (node != null && current is Controls.ILogicalCursorProvider parentCursor)
 					{
-						node = _window._renderer?.GetLayoutNode(current);
-						if (node != null && current is Controls.ILogicalCursorProvider parentCursor)
-						{
-							// The parent's GetLogicalCursorPosition() already accumulates the
-							// child's offset within the parent, so use it instead.
-							logicalPosition = parentCursor.GetLogicalCursorPosition();
-							if (logicalPosition == null) return null;
-							break;
-						}
-						current = current.Container as Controls.IWindowControl;
+						// The parent's GetLogicalCursorPosition() already accumulates the
+						// child's offset within the parent, so use it instead.
+						logicalPosition = parentCursor.GetLogicalCursorPosition();
+						if (logicalPosition == null) return null;
+						break;
 					}
-					if (node == null) return null;
+					current = current.Container as Controls.IWindowControl;
 				}
+			}
 
+			Rectangle contentBounds;
+			if (node != null)
+			{
 				var ab = node.AbsoluteBounds;
 				contentBounds = new Rectangle(ab.X, ab.Y, ab.Width, ab.Height);
+			}
+			else
+			{
+				// Nothing in the layout tree positions this control, so the cached bounds are the
+				// only source left. Kept deliberately as a last resort: such a control still reports
+				// a caret rather than silently losing one.
+				contentBounds = GetOrCreateControlBounds(control).ControlContentBounds;
+				if (contentBounds.Width == 0 && contentBounds.Height == 0)
+					return null;
 			}
 
 			// ControlContentBounds are already absolute window-content coordinates (from DOM rendering).
