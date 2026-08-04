@@ -255,6 +255,11 @@ Interactive TUI dashboard for the [Chronicle](https://github.com/Cratis/Chronicl
 Interactive CLI for managing skills across AI coding tools (Codex, Claude Code, GitHub Copilot, Gemini). By [ManagedCode](https://github.com/managedcode).
 [github.com/managedcode/dotnet-skills](https://github.com/managedcode/dotnet-skills)
 
+#### SharpMUTerm — MU* terminal client
+
+Cross-platform TUI client for MUSH/MUCK/MUD worlds: telnet negotiation, ANSI/MXP/Pueblo parsing, Lua scripting, and inline Kitty-protocol graphics. Split panes, tabs and resizable windows on SharpConsoleUI; renders its own documentation screenshots through the `HeadlessConsoleDriver`. By [SharpMUSH](https://github.com/SharpMUSH).
+[github.com/SharpMUSH/SharpMUTerm](https://github.com/SharpMUSH/SharpMUTerm)
+
 ---
 
 ## What only SharpConsoleUI does
