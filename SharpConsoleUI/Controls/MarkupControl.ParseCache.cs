@@ -90,6 +90,80 @@ namespace SharpConsoleUI.Controls
 		/// off-screen rows during a multi-row copy. Holds the same reference as the newest LRU slot.</summary>
 		private ParsedContent? _cached;
 
+		// ---- Second cache level: parsed rows per GROUP ----
+		//
+		// The LRU above is keyed on the content VERSION, which every mutator bumps, so appending one
+		// line to a scrollback invalidated the parse of the entire buffer: at 20,000 lines that was
+		// 40,002 line-parses and ~269 MB of allocation because one line arrived. (40,002 rather than
+		// 20,001 because the scroll-panel overflow probe measures children at two widths — full
+		// viewport and viewport-minus-scrollbar — so a bumped version missed at both before the paint
+		// hit, and NaturalContentWidth probes a third width.)
+		//
+		// Keying a second level on the group's own TEXT fixes that without changing what the LRU does:
+		// an L1 miss still rebuilds the flat row list, but every group whose text did not change is
+		// assembled from rows that are already parsed. Only genuinely new text reaches the parser.
+		// The two levels answer different questions — L1 "is this whole frame unchanged?" (O(1)), L2
+		// "has this line been parsed before, at this width?" — and both are needed: without L1 an
+		// unchanged frame would walk every group, and without L2 a one-line append re-parses all of
+		// them.
+		//
+		// Accessed without a lock, matching the LRU beside it: only _content is guarded, and both
+		// caches are read and written on the render path.
+		private readonly record struct GroupKey(
+			string Text,
+			int ParseWidth,
+			Color Fg,
+			Color Bg,
+			MarkdownStyle? Md,
+			bool ZwjLigation);
+
+		/// <summary>One group's parse output: the rows it produced, their links, and their soft-wrap flags.</summary>
+		private sealed class ParsedGroup
+		{
+			public required List<List<Cell>> Rows { get; init; }
+			public required List<List<Parsing.LinkSpan>> Links { get; init; }
+			public required List<bool> SoftWrap { get; init; }
+			/// <summary>Build number this entry was last used by; drives eviction.</summary>
+			public int Generation;
+		}
+
+		private readonly Dictionary<GroupKey, ParsedGroup> _groupCache = new();
+		private int _groupGeneration;
+
+		// Whether the content holds dynamic markup, cached against the version that produced it. Without
+		// this an unchanged frame rescanned every line for "[spinner"/"[gradient" before it was allowed
+		// to consult the cache, which made a pure hit O(N).
+		private int _dynamicVersion = -1;
+		private bool _dynamicFlag;
+
+		// Whether any line opens a [markdown] region, cached the same way and for the same reason:
+		// ComputeParseWidth asks on every measure and every paint.
+		private int _markdownVersion = -1;
+		private bool _markdownFlag;
+
+		/// <summary>
+		/// True when the content contains a <c>[markdown]</c> region, answered from a per-version cache
+		/// so a repaint that changed nothing does not copy and rescan the whole buffer.
+		/// </summary>
+		private bool HasMarkdownRegion()
+		{
+			int version;
+			lock (_contentLock) { version = Volatile.Read(ref _contentVersion); }
+			if (_markdownVersion == version)
+				return _markdownFlag;
+
+			List<string> snapshot;
+			lock (_contentLock) { snapshot = _content.ToList(); version = Volatile.Read(ref _contentVersion); }
+
+			bool found = false;
+			for (int i = 0; i < snapshot.Count && !found; i++)
+				found = snapshot[i].Contains("[markdown]", StringComparison.Ordinal);
+
+			_markdownFlag = found;
+			_markdownVersion = version;
+			return found;
+		}
+
 		/// <summary>True if a logical line carries inline dynamic markup that must re-parse every frame.</summary>
 		private static bool IsDynamicLine(string line)
 			=> line.Contains("[spinner", StringComparison.Ordinal)
@@ -111,12 +185,33 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private ParsedContent EnsureParsed(int renderWidth, Color fg, Color bg, MarkdownStyle? md, bool wrap)
 		{
-			List<string> snapshot;
+			bool zwj = Helpers.TerminalCapabilities.SupportsZwjLigation;
+
+			// Fast path: take only the version under the lock. A frame that changed nothing must not
+			// copy the content list nor rescan it for dynamic markup — at 20,000 lines those two steps
+			// alone cost ~650 KB of garbage and a full scan on every repaint, before the cache lookup
+			// they were guarding had even been reached.
 			int version;
+			lock (_contentLock) { version = Volatile.Read(ref _contentVersion); }
+
+			if (_dynamicVersion == version && !_dynamicFlag)
+			{
+				var hotKey = new ParseKey(version, renderWidth, fg, bg, md, wrap, zwj);
+				for (int i = 0; i < ParseCacheCapacity; i++)
+				{
+					if (_cacheEntries[i] != null && _cacheKeys[i] == hotKey)
+						return _cacheEntries[i]!;
+				}
+			}
+
+			List<string> snapshot;
 			lock (_contentLock) { snapshot = _content.ToList(); version = Volatile.Read(ref _contentVersion); }
 
-			var key = new ParseKey(version, renderWidth, fg, bg, md, wrap, Helpers.TerminalCapabilities.SupportsZwjLigation);
+			var key = new ParseKey(version, renderWidth, fg, bg, md, wrap, zwj);
 			bool dynamic = HasDynamicContent(snapshot);
+			_dynamicVersion = version;
+			_dynamicFlag = dynamic;
+
 			if (!dynamic)
 			{
 				for (int i = 0; i < ParseCacheCapacity; i++)
@@ -143,6 +238,18 @@ namespace SharpConsoleUI.Controls
 			for (int g = 0; g < snapshot.Count;)
 			{
 				int start = g;
+
+				// Fast path: an entry that closes whatever it opened forms a group of exactly one and
+				// can be used as-is. Building a StringBuilder and calling ToString() for every entry
+				// made even this common case allocate once per line, which is O(N) work on a rebuild
+				// before a single character has been parsed.
+				if (!Parsing.MarkupParser.HasUnclosedMarkdownRegion(snapshot[g]))
+				{
+					groups.Add((snapshot[g], start));
+					g++;
+					continue;
+				}
+
 				var sb = new System.Text.StringBuilder(snapshot[g]);
 				while (Parsing.MarkupParser.HasUnclosedMarkdownRegion(sb.ToString()) && g + 1 < snapshot.Count)
 				{
@@ -153,41 +260,67 @@ namespace SharpConsoleUI.Controls
 				g++;
 			}
 
+			// Non-wrap parses at an unconstrained width so word-wrap is disabled and the only breaks are
+			// explicit newlines (parse-then-cut, so an open tag carries its style across them). Both
+			// branches otherwise made the same call, so the width is the only difference and the parse
+			// output depends on exactly these inputs — which is what makes them a sound cache key.
+			int parseWidth = (wrap && renderWidth > 0) ? renderWidth : int.MaxValue;
+			_groupGeneration++;
+
 			foreach (var (text, sourceIndex) in groups)
 			{
 				int before = rows.Count;
 
-				if (wrap && renderWidth > 0)
+				// A group carrying inline dynamic markup renders differently every frame, so it is
+				// neither served from nor written to the cache — per group rather than per control, so
+				// one spinner no longer forces the static lines beside it to re-parse.
+				bool groupDynamic = IsDynamicLine(text);
+				var groupKey = new GroupKey(text, parseWidth, fg, bg, md, zwj);
+
+				ParsedGroup? parsedGroup = null;
+				if (!groupDynamic && _groupCache.TryGetValue(groupKey, out var hit))
 				{
-					CountParse();
-					var wrapped = Parsing.MarkupParser.ParseLines(text, renderWidth, fg, bg, out var wrappedLinks, out var wrappedSoft, md);
-					for (int w = 0; w < wrapped.Count; w++)
-					{
-						rows.Add(wrapped[w]);
-						rowLinks.Add(w < wrappedLinks.Count ? wrappedLinks[w] : new List<Parsing.LinkSpan>());
-						rowSource.Add(sourceIndex);
-						rowSoftWrap.Add(w < wrappedSoft.Count && wrappedSoft[w]);
-					}
+					hit.Generation = _groupGeneration;
+					parsedGroup = hit;
 				}
-				else
+
+				if (parsedGroup == null)
 				{
-					// Non-wrap: parse-then-cut so an open tag carries its style across embedded newlines
-					// (a very large width disables word-wrap so the only breaks are explicit newlines).
 					CountParse();
-					var parsed = Parsing.MarkupParser.ParseLines(text, int.MaxValue, fg, bg, out var parsedLinks, out var parsedSoft, md);
+					var parsed = Parsing.MarkupParser.ParseLines(text, parseWidth, fg, bg, out var parsedLinks, out var parsedSoft, md);
+
+					var groupRows = new List<List<Cell>>(parsed.Count);
+					var groupLinks = new List<List<Parsing.LinkSpan>>(parsed.Count);
+					var groupSoft = new List<bool>(parsed.Count);
 					for (int w = 0; w < parsed.Count; w++)
 					{
-						rows.Add(parsed[w]);
-						rowLinks.Add(w < parsedLinks.Count ? parsedLinks[w] : new List<Parsing.LinkSpan>());
-						rowSource.Add(sourceIndex);
-						rowSoftWrap.Add(w < parsedSoft.Count && parsedSoft[w]);
+						groupRows.Add(parsed[w]);
+						groupLinks.Add(w < parsedLinks.Count ? parsedLinks[w] : new List<Parsing.LinkSpan>());
+						groupSoft.Add(w < parsedSoft.Count && parsedSoft[w]);
 					}
+
+					parsedGroup = new ParsedGroup { Rows = groupRows, Links = groupLinks, SoftWrap = groupSoft, Generation = _groupGeneration };
+					if (!groupDynamic)
+						_groupCache[groupKey] = parsedGroup;
+				}
+
+				// Rows are shared by reference with the cache entry, exactly as the LRU already shares
+				// them between frames: parse output is treated as immutable, and paint composes onto the
+				// buffer rather than into these lists.
+				for (int w = 0; w < parsedGroup.Rows.Count; w++)
+				{
+					rows.Add(parsedGroup.Rows[w]);
+					rowLinks.Add(parsedGroup.Links[w]);
+					rowSource.Add(sourceIndex);
+					rowSoftWrap.Add(parsedGroup.SoftWrap[w]);
 				}
 
 				// Rows are recorded against the group's FIRST entry. Absorbed entries (2nd+ in the group)
 				// keep lineRowCounts == 0, so the RowPrefix prefix-sum stays consistent.
 				lineRowCounts[sourceIndex] = rows.Count - before;
 			}
+
+			PruneGroupCache(groups.Count);
 
 			var prefix = new int[snapshot.Count + 1];
 			for (int i = 0; i < snapshot.Count; i++)
@@ -219,6 +352,39 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Bounds the per-group cache. Entries are kept for a few builds so the widths a single frame
+		/// asks for all stay hot — the scroll-panel overflow probe measures at the viewport width and
+		/// again at viewport-minus-scrollbar, and <see cref="NaturalContentWidth"/> probes a third at
+		/// <c>int.MaxValue</c>. Evicting per build would make those widths evict each other and
+		/// re-parse the buffer every frame, which is the defect this cache exists to remove.
+		/// <para>
+		/// Past the budget, anything the recent builds did not touch goes: that is what retires lines
+		/// scrolled out of a bounded scrollback. If everything is recent the cache is cleared outright
+		/// rather than allowed to grow without bound — a correctness-preserving reset, since a miss
+		/// only costs a re-parse.
+		/// </para>
+		/// </summary>
+		private void PruneGroupCache(int liveGroups)
+		{
+			int budget = Math.Max(512, liveGroups * 4);
+			if (_groupCache.Count <= budget)
+				return;
+
+			int cutoff = _groupGeneration - 3;
+			var stale = new List<GroupKey>();
+			foreach (var entry in _groupCache)
+			{
+				if (entry.Value.Generation < cutoff)
+					stale.Add(entry.Key);
+			}
+			foreach (var key in stale)
+				_groupCache.Remove(key);
+
+			if (_groupCache.Count > budget * 2)
+				_groupCache.Clear();
+		}
+
+		/// <summary>
 		/// Resolves the effective foreground/background the parser is keyed on. MUST be used by BOTH
 		/// MeasureDOM and PaintDOM so they compute the same ParseKey and share one cache entry. The
 		/// fallback chain is fully deterministic (explicit → role → container → theme → White) and does
@@ -247,19 +413,17 @@ namespace SharpConsoleUI.Controls
 			if (HorizontalAlignment == HorizontalAlignment.Stretch)
 				return availableContentWidth;
 
-			List<string> snapshot;
-			lock (_contentLock) { snapshot = _content.ToList(); }
-
-			for (int i = 0; i < snapshot.Count; i++)
-			{
-				// A [markdown] region restructures into a block whose RENDERED width is not its source
-				// StripLength (fenced code blocks, rules, tables expand). Clamping to a wrong natural width
-				// would parse the block too narrow and corrupt it, so don't fit-clamp such content — parse
-				// at the full available width (measure & paint then key on their own width; a stable-width
-				// repaint still hits its own cache, which is the path that matters for #42).
-				if (snapshot[i].Contains("[markdown]", StringComparison.Ordinal))
-					return availableContentWidth;
-			}
+			// A [markdown] region restructures into a block whose RENDERED width is not its source
+			// StripLength (fenced code blocks, rules, tables expand). Clamping to a wrong natural width
+			// would parse the block too narrow and corrupt it, so don't fit-clamp such content — parse
+			// at the full available width (measure & paint then key on their own width; a stable-width
+			// repaint still hits its own cache, which is the path that matters for #42).
+			//
+			// The answer is cached against the content version: this runs from both MeasureDOM and
+			// PaintDOM, and copying the line list and scanning every line for "[markdown]" on each call
+			// left an O(N) cost on frames where nothing had changed.
+			if (HasMarkdownRegion())
+				return availableContentWidth;
 
 			// Natural width from the REAL parse, not StripLength. StripLength strips any [..] as a tag, but
 			// literal brackets (JSON, [INFO] logs, array[0]) render as text — StripLength under-measured
