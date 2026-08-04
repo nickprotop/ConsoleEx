@@ -318,6 +318,8 @@ Controls.Dropdown()
 Controls.Prompt("Enter name:")
     .WithInput("")
     .WithInputWidth(50)
+    .WithPlaceholder("your full name")
+    .WithMaxLength(80)
     .WithName("nameInput")
     .OnEntered((sender, text, window) =>
     {
@@ -329,6 +331,33 @@ Controls.Prompt("Enter name:")
     })
     .Build();
 ```
+
+A prompt that wraps and grows instead of scrolling sideways — `Multiline()` is opt-in, so every
+existing prompt keeps its single-row behaviour:
+
+```csharp
+Controls.Prompt("> ")
+    .Multiline()
+    .WithRows(1, 6)                                  // start at one row, grow to six
+    .WithEnterBehavior(EnterBehavior.Submit)         // the default: Enter sends, Alt+Enter newlines
+    .WithPlaceholder("Message… (Alt+Enter for a new line)")
+    .WithMaxHistoryEntries(200)
+    .UnfocusOnEnter(false)
+    .Build();
+```
+
+| Method | Effect |
+|---|---|
+| `.Multiline(bool = true)` | Allow newlines, wrap the text, grow the box |
+| `.WithRows(min, max)` | Row bounds when multiline |
+| `.WithEnterBehavior(...)` | `Submit` (default) or `InsertNewline` |
+| `.WithPlaceholder(text)` | Hint shown while empty |
+| `.WithMaxLength(n)` | Cap the value length in characters |
+| `.ReadOnly(bool = true)` | Uneditable but focusable, navigable and copyable |
+| `.WithMaxHistoryEntries(n)` | Cap the command history (default 500) |
+
+See [PromptControl](controls/PromptControl.md) for the full key table and the note on why
+`Shift+Enter` cannot be the newline chord on Unix.
 
 ### MarkupBuilder
 

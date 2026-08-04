@@ -50,6 +50,80 @@ public sealed class PromptBuilder : IControlBuilder<PromptControl>
 	private ColorRole _role = ColorRole.Default;
 	private ThemeMode? _colorRoleMode;
 	private bool _outline;
+	private bool _multiline;
+	private int? _minRows;
+	private int? _maxRows;
+	private EnterBehavior _enterBehavior = EnterBehavior.Submit;
+	private string? _placeholder;
+	private int? _maxLength;
+	private bool _readOnly;
+	private int? _maxHistoryEntries;
+
+	/// <summary>
+	/// Lets the value wrap and the box grow instead of scrolling sideways on one row.
+	/// Off by default, so an existing prompt is unaffected.
+	/// </summary>
+	public PromptBuilder Multiline(bool multiline = true)
+	{
+		_multiline = multiline;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets how far a <see cref="Multiline"/> prompt may shrink and grow, in rows.
+	/// </summary>
+	public PromptBuilder WithRows(int minRows, int maxRows)
+	{
+		_minRows = minRows;
+		_maxRows = maxRows;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets what Enter does. The default, <see cref="EnterBehavior.Submit"/>, keeps Enter meaning
+	/// "submit" in both modes.
+	/// </summary>
+	public PromptBuilder WithEnterBehavior(EnterBehavior behavior)
+	{
+		_enterBehavior = behavior;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the hint shown while the value is empty. Never part of the value.
+	/// </summary>
+	public PromptBuilder WithPlaceholder(string placeholder)
+	{
+		_placeholder = placeholder;
+		return this;
+	}
+
+	/// <summary>
+	/// Caps the value at <paramref name="maxLength"/> characters.
+	/// </summary>
+	public PromptBuilder WithMaxLength(int maxLength)
+	{
+		_maxLength = maxLength;
+		return this;
+	}
+
+	/// <summary>
+	/// Makes the value uneditable while still focusable, navigable and copyable.
+	/// </summary>
+	public PromptBuilder ReadOnly(bool readOnly = true)
+	{
+		_readOnly = readOnly;
+		return this;
+	}
+
+	/// <summary>
+	/// Caps how many entries the command history retains.
+	/// </summary>
+	public PromptBuilder WithMaxHistoryEntries(int maxEntries)
+	{
+		_maxHistoryEntries = maxEntries;
+		return this;
+	}
 
 	/// <summary>
 	/// Sets the prompt text (displayed before the input area)
@@ -353,8 +427,30 @@ public sealed class PromptBuilder : IControlBuilder<PromptControl>
 		if (_inputFocusedForegroundColor.HasValue)
 			prompt.InputFocusedForegroundColor = _inputFocusedForegroundColor.Value;
 
+		// Mode and limits are applied BEFORE the initial value: SetInput flattens newlines in
+		// single-line mode and truncates to MaxLength, so setting them afterwards would silently
+		// mangle an initial value that the caller configured the control to accept.
+		if (_multiline)
+			prompt.Multiline = true;
+		if (_minRows.HasValue)
+			prompt.MinRows = _minRows.Value;
+		if (_maxRows.HasValue)
+			prompt.MaxRows = _maxRows.Value;
+		if (_enterBehavior != EnterBehavior.Submit)
+			prompt.EnterBehavior = _enterBehavior;
+		if (_placeholder != null)
+			prompt.Placeholder = _placeholder;
+		if (_maxLength.HasValue)
+			prompt.MaxLength = _maxLength.Value;
+		if (_maxHistoryEntries.HasValue)
+			prompt.MaxHistoryEntries = _maxHistoryEntries.Value;
+
 		if (!string.IsNullOrEmpty(_initialInput))
 			prompt.SetInput(_initialInput);
+
+		// After the initial value: a read-only prompt still accepts the value it was built with.
+		if (_readOnly)
+			prompt.ReadOnly = true;
 
 		// Attach standard handlers
 		if (_enteredHandler != null)

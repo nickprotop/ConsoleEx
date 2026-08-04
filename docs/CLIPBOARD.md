@@ -146,8 +146,9 @@ public interface IPasteTarget
 
 Built-in editors implement it (`MultilineEditControl`, `PromptControl`, `TableControl`). `Ctrl+V`
 reads `ClipboardHelper.GetText()` (the local-session source); bracketed paste uses the
-terminal-delivered text. A read-only editor's `Paste` is a no-op; `PromptControl` (single-line)
-flattens embedded newlines to spaces.
+terminal-delivered text. A read-only editor's `Paste` is a no-op. `PromptControl` flattens embedded
+newlines to spaces when it is single-line (the default) and inserts them verbatim when
+`Multiline` is set; text longer than its `MaxLength` is truncated to fit rather than rejected.
 
 > **Remote paste note:** reading the clipboard *back* (`GetText`, the `Ctrl+V` source) reads the
 > **server-side** clipboard over SSH — most terminals disable OSC 52 clipboard *reads* for security,

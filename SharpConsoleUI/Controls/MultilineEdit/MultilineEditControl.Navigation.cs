@@ -59,19 +59,12 @@ namespace SharpConsoleUI.Controls
 						}
 						else
 						{
-							int j = 0;
-							while (j < line.Length)
-							{
-								var (endChar, _) = UnicodeWidth.TakeColumns(line, j, safeWidth);
-								int len = endChar - j;
-								result.Add(new WrappedLineInfo(i, j, len, line.Substring(j, len)));
-								j = endChar;
-							}
+							AppendSegments(result, line, i, safeWidth, wordWrap: false);
 						}
 					}
 					else // WrapWords
 					{
-						BuildWordWrappedLines(result, line, i, safeWidth);
+						AppendSegments(result, line, i, safeWidth, wordWrap: true);
 					}
 				}
 
@@ -82,57 +75,21 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Word-wraps a single source line, preserving original spacing.
+		/// Wraps a single source line and appends the result as <see cref="WrappedLineInfo"/> rows.
+		/// The break positions come from <see cref="TextWrapping"/>, shared with
+		/// <see cref="PromptControl"/> so the two controls cannot wrap the same string differently;
+		/// this method only maps those segments onto the record this control navigates by.
 		/// </summary>
-		private static void BuildWordWrappedLines(List<WrappedLineInfo> result, string line, int sourceIndex, int width)
+		private static void AppendSegments(List<WrappedLineInfo> result, string line, int sourceIndex, int width, bool wordWrap)
 		{
-			if (string.IsNullOrEmpty(line))
-			{
-				result.Add(new WrappedLineInfo(sourceIndex, 0, 0, string.Empty));
-				return;
-			}
+			var segments = new List<TextWrapping.Segment>();
+			if (wordWrap)
+				TextWrapping.WrapWords(segments, line, width);
+			else
+				TextWrapping.WrapCharacters(segments, line, width);
 
-			int pos = 0;
-			while (pos < line.Length)
-			{
-				// Compute how many whole runes fit within 'width' DISPLAY columns from pos.
-				// fitEnd is always > pos (TakeColumns advances at least one rune) and <= line.Length,
-				// so all indexing/substring below is in-bounds and the loop always advances.
-				var (fitEnd, _) = UnicodeWidth.TakeColumns(line, pos, width);
-
-				if (fitEnd >= line.Length)
-				{
-					int rem = line.Length - pos;
-					result.Add(new WrappedLineInfo(sourceIndex, pos, rem, line.Substring(pos, rem)));
-					break;
-				}
-
-				// Find the last space within the column-fitting char range [pos, fitEnd) to break at
-				int breakAt = -1;
-				for (int j = fitEnd - 1; j > pos; j--)
-				{
-					if (line[j] == ' ')
-					{
-						breakAt = j;
-						break;
-					}
-				}
-
-				if (breakAt > pos)
-				{
-					// Break at word boundary (include the space in this visual line)
-					int len = breakAt - pos + 1;
-					result.Add(new WrappedLineInfo(sourceIndex, pos, len, line.Substring(pos, len)));
-					pos += len;
-				}
-				else
-				{
-					// No space found - force break at the column-fit boundary (long word)
-					int len = fitEnd - pos;
-					result.Add(new WrappedLineInfo(sourceIndex, pos, len, line.Substring(pos, len)));
-					pos += len;
-				}
-			}
+			foreach (var seg in segments)
+				result.Add(new WrappedLineInfo(sourceIndex, seg.Offset, seg.Length, line.Substring(seg.Offset, seg.Length)));
 		}
 
 		/// <summary>
