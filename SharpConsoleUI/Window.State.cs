@@ -36,16 +36,27 @@ namespace SharpConsoleUI
 				switch (value)
 				{
 					case WindowState.Minimized:
+						// Remember what to come back to. Minimizing does not resize the window, so a
+						// maximized window is still desktop-sized while minimized; restoring it to Normal
+						// would leave State and bounds disagreeing (issue #70).
+						_stateBeforeMinimize = previous_state;
 						// Clear the window area before minimizing
 						_windowSystem?.Renderer?.ClearArea(Left, Top, Width, Height, _windowSystem.Theme, _windowSystem.Windows);
 						Invalidate(Invalidation.Relayout);
 						break;
 
 					case WindowState.Maximized:
-						OriginalWidth = Width;
-						OriginalHeight = Height;
-						OriginalLeft = Left;
-						OriginalTop = Top;
+						// Capture the restore target ONLY when coming from Normal. Arriving from
+						// Minimized means the window is already at desktop size (minimizing left the
+						// bounds alone), so capturing here would overwrite the saved normal geometry
+						// with the maximized geometry and destroy the restore target for good.
+						if (previous_state == WindowState.Normal)
+						{
+							OriginalWidth = Width;
+							OriginalHeight = Height;
+							OriginalLeft = Left;
+							OriginalTop = Top;
+						}
 						// Position window at desktop origin (0,0 in desktop coordinates)
 						// Desktop coordinates are automatically offset by DesktopUpperLeft during rendering
 						Left = 0;
@@ -451,11 +462,17 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Restores the window to its normal state.
+		/// Restores the window from its current state.
+		/// <para>
+		/// A minimized window returns to whatever it was before it was minimized — a window minimized
+		/// while maximized comes back maximized, which is what every desktop window manager does and
+		/// what the taskbar caption implies. From any other state this restores to
+		/// <see cref="WindowState.Normal"/>, so the title-bar restore button is unchanged.
+		/// </para>
 		/// </summary>
 		public void Restore()
 		{
-			State = WindowState.Normal;
+			State = _state == WindowState.Minimized ? _stateBeforeMinimize : WindowState.Normal;
 		}
 
 		/// <summary>

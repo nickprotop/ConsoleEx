@@ -205,6 +205,14 @@ namespace SharpConsoleUI
 		private bool _isModal = false;
 		internal int _scrollOffset;
 		private WindowState _state;
+
+		/// <summary>
+		/// The state the window was in when it was minimized, so restoring returns it to that state
+		/// rather than always to <see cref="WindowState.Normal"/>. Minimizing does not change geometry,
+		/// so a maximized window that is minimized is still desktop-sized; restoring it to Normal would
+		/// leave the reported state and the actual bounds disagreeing (issue #70).
+		/// </summary>
+		private WindowState _stateBeforeMinimize = WindowState.Normal;
 		private object? _tag;
 		internal int _topStickyHeight;
 		private List<string> _topStickyLines = new List<string>();

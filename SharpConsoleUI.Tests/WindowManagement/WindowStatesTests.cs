@@ -266,6 +266,14 @@ public class WindowStatesTests
 		window.Minimize();
 		Assert.Equal(WindowState.Minimized, window.State);
 
+		// Restoring a window that was minimized WHILE MAXIMIZED brings it back maximized (issue #70).
+		// This assertion previously expected Normal, which is the defect that issue reported: minimizing
+		// never resized the window, so returning it to Normal left State claiming one thing and the
+		// bounds showing another, and the title-bar button then maximized an already-maximized window.
+		window.Restore();
+		Assert.Equal(WindowState.Maximized, window.State);
+
+		// A second restore, now from Maximized, returns it to Normal as it always has.
 		window.Restore();
 		Assert.Equal(WindowState.Normal, window.State);
 
