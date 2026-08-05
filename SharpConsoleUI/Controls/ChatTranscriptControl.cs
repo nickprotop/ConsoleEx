@@ -269,6 +269,38 @@ namespace SharpConsoleUI.Controls
 		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
 		public bool IsThinking(ChatMessageId id) => Require(id).Thinking;
 
+		/// <summary>Gets whether the message with the given id is currently expanded.</summary>
+		/// <param name="id">The message id.</param>
+		/// <returns><c>true</c> when the message body is visible; <c>false</c> when it is collapsed.</returns>
+		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
+		public bool IsExpanded(ChatMessageId id) => Require(id).Panel.IsExpanded;
+
+		#endregion
+
+		#region Message mutation API — collapse state
+
+		/// <summary>
+		/// Expands or collapses ONE message, overriding its role's
+		/// <see cref="ChatRoleStyle.StartCollapsed"/> default.
+		/// </summary>
+		/// <remarks>
+		/// Collapse state was configurable per ROLE but not per MESSAGE, and the two are not the same
+		/// need. A role like "System" is usually worth collapsing — startup notes, diagnostics, noise —
+		/// yet the occasional System line matters: a goal reporting that it finished, a warning the
+		/// user must act on. Those arrived collapsed behind an "expand…" nobody opens, which made a
+		/// finished run look identical to a stalled one.
+		///
+		/// <para>The capability already existed internally: every message owns a
+		/// <see cref="CollapsiblePanel"/> whose <see cref="CollapsiblePanel.IsExpanded"/> is public and
+		/// settable, and this control already listens for its changes. Only the accessor was missing —
+		/// <c>PanelForTest</c> was marked test-only — so callers had no way to reach it.</para>
+		/// </remarks>
+		/// <param name="id">The message id.</param>
+		/// <param name="expanded"><c>true</c> to expand; <c>false</c> to collapse.</param>
+		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
+		public void SetExpanded(ChatMessageId id, bool expanded) =>
+			Require(id).Panel.IsExpanded = expanded;
+
 		#endregion
 
 		#region Message mutation API
