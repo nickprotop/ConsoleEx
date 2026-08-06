@@ -244,6 +244,11 @@ namespace SharpConsoleUI.Controls
 				entry.PeekRow.Margin = WithBottom(entry.PeekRow.Margin, 0);
 
 			// Bottommost sibling below the panel: status → actions → peek.
+			// Compact messages keep the 0 set above — the trailing blank line is what turns a
+			// one-line row into a two-line one.
+			if (entry.CompactFooter)
+				return;
+
 			BaseControl? bottom = (BaseControl?)entry.StatusBar ?? entry.ActionsToolbar ?? (BaseControl?)entry.PeekRow;
 			if (bottom != null)
 				bottom.Margin = WithBottom(bottom.Margin, 1);
@@ -259,6 +264,15 @@ namespace SharpConsoleUI.Controls
 		{
 			if (!entry.HasFooter)
 				return;
+
+			// Compact messages carry no divider: the rule is full-width and says nothing, so on a
+			// sequence of short rows it doubles the height for no information.
+			if (entry.CompactFooter)
+			{
+				if (entry.ActionsToolbar != null) entry.ActionsToolbar.ShowAboveLine = false;
+				if (entry.StatusBar != null) entry.StatusBar.ShowAboveLine = false;
+				return;
+			}
 
 			Color lineColor = ResolveRailColor(entry);
 			if (entry.ActionsToolbar != null)

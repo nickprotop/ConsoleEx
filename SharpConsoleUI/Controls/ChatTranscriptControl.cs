@@ -86,6 +86,22 @@ namespace SharpConsoleUI.Controls
 			public List<ChatMessageAction> Actions { get; } = new();
 
 			/// <summary>
+			/// Suppresses the footer's separator rule and its bottom spacer for THIS message. Off by
+			/// default, so existing transcripts are unchanged.
+			///
+			/// <para>Exists for hosts that render many short, low-information rows — a per-step tool
+			/// log, a file list — where the divider and the trailing blank line cost more vertical
+			/// space than the row's own content. A five-step sequence pays ten lines of chrome for
+			/// five lines of substance, and the rule is a full-width divider that says nothing.</para>
+			///
+			/// <para>Deliberately per-MESSAGE, not per-control: <see cref="ApplyFooterSeparator"/> and
+			/// <see cref="ApplyFooterSpacer"/> re-derive both on every status update, so setting
+			/// <c>ShowAboveLine</c> or a margin directly on the row is overwritten on the next call.
+			/// The decision has to live where those two methods can see it.</para>
+			/// </summary>
+			public bool CompactFooter { get; set; }
+
+			/// <summary>
 			/// Whether this message currently has a footer (an actions row and/or a status row) rendered
 			/// as siblings of the panel. There is no separate footer container control — the two rows are
 			/// inserted directly after the panel — so footer-presence is derived from the two row fields.
@@ -300,6 +316,34 @@ namespace SharpConsoleUI.Controls
 		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
 		public void SetExpanded(ChatMessageId id, bool expanded) =>
 			Require(id).Panel.IsExpanded = expanded;
+
+		/// <summary>
+		/// Renders ONE message's footer compactly: no separator rule above the status/actions rows,
+		/// and no trailing blank line below them.
+		/// </summary>
+		/// <remarks>
+		/// For hosts that log many short, low-information rows — a per-step tool trace, a file list —
+		/// where the divider and the trailing blank cost more vertical space than the row's content.
+		/// A five-step sequence otherwise pays ten lines of chrome for five lines of substance.
+		///
+		/// <para>Per-message rather than a property on the rows themselves, because
+		/// <c>ApplyFooterSeparator</c> and <c>ApplyFooterSpacer</c> re-derive both on every status
+		/// update: setting <c>ShowAboveLine</c> or a margin directly is silently overwritten on the
+		/// next <see cref="SetStatus(ChatMessageId, string, NotificationSeverity?)"/> call.</para>
+		///
+		/// <para>Off by default, so existing transcripts render unchanged. Apply it before or after
+		/// setting a status; the next footer rebuild honours it either way.</para>
+		/// </remarks>
+		/// <param name="id">The message id.</param>
+		/// <param name="compact"><c>true</c> to drop the rule and the trailing blank.</param>
+		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
+		public void SetCompactFooter(ChatMessageId id, bool compact)
+		{
+			var entry = Require(id);
+			entry.CompactFooter = compact;
+			ApplyFooterSpacer(entry);
+			ApplyFooterSeparator(entry);
+		}
 
 		#endregion
 
