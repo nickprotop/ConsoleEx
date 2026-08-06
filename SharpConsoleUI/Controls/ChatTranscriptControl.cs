@@ -86,8 +86,9 @@ namespace SharpConsoleUI.Controls
 			public List<ChatMessageAction> Actions { get; } = new();
 
 			/// <summary>
-			/// Suppresses the footer's separator rule and its bottom spacer for THIS message. Off by
-			/// default, so existing transcripts are unchanged.
+			/// Suppresses the footer's separator RULE for THIS message. Off by default, so existing
+			/// transcripts are unchanged. The trailing spacer is kept: the rule is chrome that says
+			/// nothing, but the blank line is what stops consecutive rows running together.
 			///
 			/// <para>Exists for hosts that render many short, low-information rows — a per-step tool
 			/// log, a file list — where the divider and the trailing blank line cost more vertical
@@ -318,8 +319,8 @@ namespace SharpConsoleUI.Controls
 			Require(id).Panel.IsExpanded = expanded;
 
 		/// <summary>
-		/// Renders ONE message's footer compactly: no separator rule above the status/actions rows,
-		/// and no trailing blank line below them.
+		/// Renders ONE message's footer compactly: no separator rule above the status/actions rows.
+		/// The trailing blank line below them is KEPT — it separates consecutive rows.
 		/// </summary>
 		/// <remarks>
 		/// For hosts that log many short, low-information rows — a per-step tool trace, a file list —
@@ -337,6 +338,29 @@ namespace SharpConsoleUI.Controls
 		/// <param name="id">The message id.</param>
 		/// <param name="compact"><c>true</c> to drop the rule and the trailing blank.</param>
 		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
+		/// <summary>
+		/// Replaces ONE message's header text after creation.
+		/// </summary>
+		/// <remarks>
+		/// The header is otherwise composed once, when the message is added
+		/// (<c>ComposeHeader</c>), from the role style's factory and the author string — so a host
+		/// whose header should reflect CHANGING state (a step's status, its elapsed time, a live
+		/// spinner) had no way to express it and was forced into a separate status row below the
+		/// content.
+		///
+		/// <para>Folding that state into the header is what turns a three-line step — header,
+		/// result, status — into two. Combined with an inline <c>[spinner]</c> tag the same header
+		/// carries the running indicator, so a step does not change shape when it finishes.</para>
+		///
+		/// <para>The text is used verbatim: the role style's header factory is NOT re-applied, since
+		/// the caller supplying a full header already knows what it wants to say.</para>
+		/// </remarks>
+		/// <param name="id">The message id.</param>
+		/// <param name="header">The new header text. Markup is honoured.</param>
+		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
+		public void SetHeader(ChatMessageId id, string header) =>
+			Require(id).Panel.Title = header;
+
 		public void SetCompactFooter(ChatMessageId id, bool compact)
 		{
 			var entry = Require(id);

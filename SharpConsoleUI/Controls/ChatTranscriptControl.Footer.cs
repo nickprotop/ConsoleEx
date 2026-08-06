@@ -243,12 +243,9 @@ namespace SharpConsoleUI.Controls
 			if (entry.PeekRow != null)
 				entry.PeekRow.Margin = WithBottom(entry.PeekRow.Margin, 0);
 
-			// Bottommost sibling below the panel: status → actions → peek.
-			// Compact messages keep the 0 set above — the trailing blank line is what turns a
-			// one-line row into a two-line one.
-			if (entry.CompactFooter)
-				return;
-
+			// Bottommost sibling below the panel: status → actions → peek. The spacer is applied for
+			// COMPACT messages too: the separator RULE is chrome that says nothing, but the trailing
+			// blank is what keeps consecutive steps from running together into an unreadable block.
 			BaseControl? bottom = (BaseControl?)entry.StatusBar ?? entry.ActionsToolbar ?? (BaseControl?)entry.PeekRow;
 			if (bottom != null)
 				bottom.Margin = WithBottom(bottom.Margin, 1);
