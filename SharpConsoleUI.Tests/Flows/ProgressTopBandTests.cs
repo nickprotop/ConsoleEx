@@ -1,7 +1,7 @@
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
-using SharpConsoleUI.Flows;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Flows;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Flows

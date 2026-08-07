@@ -16,8 +16,15 @@ using SharpConsoleUI.Parsing;
 
 namespace SharpConsoleUI.Controls
 {
-	public partial class MarkupControl
+	public partial class MarkupControl : MarkupSpinnerClock.IInlineSpinnerHost
 	{
+		/// <summary>
+		/// Repaints this control because an inline <c>[spinner]</c> advanced a frame. Repaint (not
+		/// Relayout): a spinner's reserved width is constant per style, so the glyph can never reflow.
+		/// </summary>
+		void MarkupSpinnerClock.IInlineSpinnerHost.InvalidateForInlineSpinner()
+			=> Invalidate(Invalidation.Repaint);
+
 		// Process-wide count of full line-parses performed by MarkupParser via this control's
 		// paint/measure paths. Test-only: lets a test assert the cache eliminated re-parsing.
 		private static long _parseCount = 0;
@@ -169,6 +176,14 @@ namespace SharpConsoleUI.Controls
 			=> line.Contains("[spinner", StringComparison.Ordinal)
 			|| line.Contains("[gradient", StringComparison.Ordinal);
 
+		/// <summary>True if ANY content line carries an inline <c>[spinner]</c> (animated, unlike [gradient]).</summary>
+		private static bool HasInlineSpinner(List<string> snapshot)
+		{
+			for (int i = 0; i < snapshot.Count; i++)
+				if (snapshot[i].Contains("[spinner", StringComparison.Ordinal)) return true;
+			return false;
+		}
+
 		/// <summary>True if ANY content line is dynamic — such content can never serve from the cache.</summary>
 		private static bool HasDynamicContent(List<string> snapshot)
 		{
@@ -211,6 +226,14 @@ namespace SharpConsoleUI.Controls
 			bool dynamic = HasDynamicContent(snapshot);
 			_dynamicVersion = version;
 			_dynamicFlag = dynamic;
+
+			// An inline [spinner] is driven by elapsed time, not by a property change, so nothing else
+			// would ever mark this control dirty — and the render loop skips a clean window. Register so
+			// MarkupSpinnerClock.Tick can invalidate us each frame. Registration is idempotent and held
+			// weakly, so repeating it per parse costs nothing and needs no teardown. [gradient] is also
+			// "dynamic" for cache purposes but is not animated, so it is deliberately not registered.
+			if (dynamic && HasInlineSpinner(snapshot))
+				MarkupSpinnerClock.RegisterHost(this);
 
 			if (!dynamic)
 			{

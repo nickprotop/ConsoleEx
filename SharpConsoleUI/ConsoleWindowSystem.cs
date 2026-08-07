@@ -1073,6 +1073,12 @@ namespace SharpConsoleUI
 						StepDragAutoScroll(elapsed);
 					}
 
+					// Advance inline [spinner] markup. ShouldKeepRendering below only keeps the loop calling
+					// UpdateDisplay; it does not dirty any window, and RenderWindows skips a clean one. Tick
+					// invalidates the controls that painted an inline spinner, so their glyph advances on
+					// time instead of only when some other event happens to dirty the window.
+					Parsing.MarkupSpinnerClock.Tick(Animations.IsEnabled);
+
 					// Frame pacing: render if windows are dirty OR metrics need update OR desktop needs render OR animations active
 					bool shouldRender = AnyWindowDirty() || metricsNeedUpdate || Render.DesktopNeedsRender || Animations.HasActiveAnimations || Parsing.MarkupSpinnerClock.ShouldKeepRendering(Animations.IsEnabled) || Render.IsStatusBarDirty() || _desktopPortalService.AnyPortalDirty() || DragAutoScrollActive;
 

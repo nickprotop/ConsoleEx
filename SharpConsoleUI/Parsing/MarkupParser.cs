@@ -147,6 +147,7 @@ namespace SharpConsoleUI.Parsing
 							}
 						}
 						MarkupSpinnerClock.MarkParsed();
+						MarkupSpinnerClock.ReportInterval(spinnerInterval);
 						continue;
 					}
 
