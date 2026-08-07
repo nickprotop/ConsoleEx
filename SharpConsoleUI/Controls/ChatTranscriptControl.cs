@@ -319,26 +319,6 @@ namespace SharpConsoleUI.Controls
 			Require(id).Panel.IsExpanded = expanded;
 
 		/// <summary>
-		/// Renders ONE message's footer compactly: no separator rule above the status/actions rows.
-		/// The trailing blank line below them is KEPT — it separates consecutive rows.
-		/// </summary>
-		/// <remarks>
-		/// For hosts that log many short, low-information rows — a per-step tool trace, a file list —
-		/// where the divider and the trailing blank cost more vertical space than the row's content.
-		/// A five-step sequence otherwise pays ten lines of chrome for five lines of substance.
-		///
-		/// <para>Per-message rather than a property on the rows themselves, because
-		/// <c>ApplyFooterSeparator</c> and <c>ApplyFooterSpacer</c> re-derive both on every status
-		/// update: setting <c>ShowAboveLine</c> or a margin directly is silently overwritten on the
-		/// next <see cref="SetStatus(ChatMessageId, string, NotificationSeverity?)"/> call.</para>
-		///
-		/// <para>Off by default, so existing transcripts render unchanged. Apply it before or after
-		/// setting a status; the next footer rebuild honours it either way.</para>
-		/// </remarks>
-		/// <param name="id">The message id.</param>
-		/// <param name="compact"><c>true</c> to drop the rule and the trailing blank.</param>
-		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
-		/// <summary>
 		/// Replaces ONE message's header text after creation.
 		/// </summary>
 		/// <remarks>
@@ -361,6 +341,26 @@ namespace SharpConsoleUI.Controls
 		public void SetHeader(ChatMessageId id, string header) =>
 			Require(id).Panel.Title = header;
 
+		/// <summary>
+		/// Renders ONE message's footer compactly: no separator rule above the status/actions rows.
+		/// The trailing blank line below them is KEPT — it separates consecutive rows.
+		/// </summary>
+		/// <remarks>
+		/// For hosts that log many short, low-information rows — a per-step tool trace, a file list —
+		/// where the divider and the trailing blank cost more vertical space than the row's content.
+		/// A five-step sequence otherwise pays ten lines of chrome for five lines of substance.
+		///
+		/// <para>Per-message rather than a property on the rows themselves, because
+		/// <c>ApplyFooterSeparator</c> and <c>ApplyFooterSpacer</c> re-derive both on every status
+		/// update: setting <c>ShowAboveLine</c> or a margin directly is silently overwritten on the
+		/// next <see cref="SetStatus(ChatMessageId, string, NotificationSeverity?)"/> call.</para>
+		///
+		/// <para>Off by default, so existing transcripts render unchanged. Apply it before or after
+		/// setting a status; the next footer rebuild honours it either way.</para>
+		/// </remarks>
+		/// <param name="id">The message id.</param>
+		/// <param name="compact"><c>true</c> to drop the rule and the trailing blank.</param>
+		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
 		public void SetCompactFooter(ChatMessageId id, bool compact)
 		{
 			var entry = Require(id);
@@ -689,6 +689,19 @@ namespace SharpConsoleUI.Controls
 				return;
 
 			string content = entry.Buffer.ToString();
+
+			// HIDE an empty body rather than rendering it as a blank line. A host that clears a
+			// message's content — a step that has not produced output yet, a row whose whole content
+			// lives in its header — otherwise pays a blank line for nothing, and with the footer
+			// spacer below it that reads as a DOUBLE gap between consecutive rows.
+			//
+			// Visible, not removal: the control is reused the moment content arrives, and the layout
+			// already skips invisible children before measuring them (GridLayout's IsVisible checks),
+			// so a hidden body contributes no height.
+			entry.Body.Visible = content.Length > 0;
+			if (content.Length == 0)
+				return;
+
 			if (style.Markdown)
 				entry.Body.SetMarkdown(content);
 			else

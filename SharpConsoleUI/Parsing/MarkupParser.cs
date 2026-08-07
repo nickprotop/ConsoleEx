@@ -110,12 +110,20 @@ namespace SharpConsoleUI.Parsing
 
 					i = tagEnd + 1;
 
-					// Self-closing [fillwidth] marker: emit no cell, just flag this line so the
-					// painter fills the trailing background to the row width. Does not touch the
-					// style stack. The flag is applied to the line's last cell after parsing.
+					// Self-closing [fillwidth] marker: emit no cell, just flag the line so the painter
+					// fills the trailing background to the row width. Does not touch the style stack.
+					//
+					// Flag the CURRENT line's last cell right here, rather than deferring one global
+					// bool to the end of the parse. ParseLines parses the whole markup in ONE call
+					// (parse-then-cut, newlines swapped for a row-break sentinel), so a multi-line
+					// block emits [fillwidth] once PER LINE but only the very last cell of the whole
+					// run would have been flagged — every earlier line painted an unshaded tail
+					// stopping at its last character, which is the code-block shading bug.
+					// Flagging at the marker's own position is line-correct by construction.
 					if (tagContent == "fillwidth")
 					{
 						fillToWidth = true;
+						MarkLineFillToWidth(cells);
 						continue;
 					}
 
@@ -305,6 +313,14 @@ namespace SharpConsoleUI.Parsing
 							if (IsWideRune(sanitized))
 								cells.Add(new Cell(' ', currentFg, currentBg, currentDec) { IsWideContinuation = true });
 						}
+
+						// A row break ends the current logical line: clear the pending marker so it
+						// describes only the line being built. Without this the flag, once set, would
+						// still be live at end-of-parse and get applied to a FINAL line that never
+						// asked for it (an unmarked paragraph after a code block filling its tail).
+						if (sanitized.Value == RowBreakSentinelRune)
+							fillToWidth = false;
+
 						prevWasZwj = (sanitized.Value == 0x200D);
 						i += rune.Utf16SequenceLength;
 					}
@@ -323,16 +339,39 @@ namespace SharpConsoleUI.Parsing
 				ApplyGradientSpans(cells, gradientSpans);
 			}
 
-			// Apply the [fillwidth] marker (if seen) to the line's last cell so the painter
-			// extends its background to the available render width.
-			if (fillToWidth && cells.Count > 0)
+			// Apply the marker to the FINAL line too. Lines that ended at a row-break sentinel were
+			// already flagged when their own [fillwidth] was encountered; this covers the trailing
+			// line (and the single-line Parse callers), and is idempotent for anything already set.
+			if (fillToWidth)
 			{
-				var last = cells[^1];
-				last.FillToWidth = true;
-				cells[^1] = last;
+				MarkLineFillToWidth(cells);
 			}
 
 			return cells;
+		}
+
+		/// <summary>
+		/// Flags the last cell of the current logical line with <see cref="Cell.FillToWidth"/>, so the
+		/// painter extends that cell's background to the render width.
+		/// </summary>
+		/// <remarks>
+		/// "Current line" means the trailing cells after the most recent row-break sentinel. During the
+		/// whole-markup parse used by <c>ParseLines</c> the sentinel cells are still present in the list,
+		/// so a sentinel in last position means the line is empty and there is nothing to carry the flag.
+		/// The flag goes on the TRUE last cell — the painter reads <c>cellLine[^1]</c> — including a wide
+		/// continuation cell, which shares its base cell's background, so the fill color is unaffected.
+		/// </remarks>
+		private static void MarkLineFillToWidth(List<Cell> cells)
+		{
+			if (cells.Count == 0)
+				return;
+
+			var last = cells[^1];
+			if (last.Character.Value == RowBreakSentinelRune)
+				return;
+
+			last.FillToWidth = true;
+			cells[^1] = last;
 		}
 
 		/// <summary>
@@ -1195,6 +1234,20 @@ namespace SharpConsoleUI.Parsing
 
 		private static void WrapCellLine(List<Cell> cells, int width, List<List<Cell>> output)
 		{
+			// [fillwidth] rides on the LINE's last cell, but the painter reads the flag from each
+			// PAINTED ROW's last cell — so wrapping has to re-attach it to every row it produces, not
+			// just the one that happens to inherit the original final cell.
+			//
+			// Two ways it was lost, both visible as a code block whose shading stops at the last
+			// character instead of running to the right edge:
+			//   1. GetRange gives the original last cell to the FINAL row only, so every earlier row
+			//      of a wrapped line painted an unshaded tail.
+			//   2. The emitter ends each code line with a PAD SPACE, and that space IS the flagged
+			//      cell — trailing-space trimming below discarded it along with the flag, so even the
+			//      final row lost it.
+			bool fillToWidth = cells.Count > 0 && cells[^1].FillToWidth;
+			int rowsBefore = output.Count;
+
 			int start = 0;
 			while (start < cells.Count)
 			{
@@ -1257,6 +1310,18 @@ namespace SharpConsoleUI.Parsing
 				start = wordBreak;
 				while (start < cells.Count && IsBreakableSpace(cells[start]))
 					start++;
+			}
+
+			// Re-attach the marker to each row produced above. Done once here rather than at the four
+			// places rows are emitted, so a future break path cannot forget it.
+			if (!fillToWidth) return;
+			for (int r = rowsBefore; r < output.Count; r++)
+			{
+				var row = output[r];
+				if (row.Count == 0) continue;
+				var last = row[^1];
+				last.FillToWidth = true;
+				row[^1] = last;
 			}
 		}
 
