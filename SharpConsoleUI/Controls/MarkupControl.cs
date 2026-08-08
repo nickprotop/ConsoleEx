@@ -810,8 +810,16 @@ namespace SharpConsoleUI.Controls
 				int rightPadWidth = bounds.Right - rightPadStart - rightInset;
 				if (rightPadWidth > 0)
 				{
-					// Use the control's background color if set, otherwise container's
-					var rightFillBg = _backgroundColor == null ? Color.Transparent : _backgroundColor.Value;
+					// The control's background if set, ELSE THE CONTAINER'S — which is what this
+					// comment always claimed and the code never did. Falling back to Transparent left
+					// every line's trailing space showing whatever sat behind the control, so a
+					// MarkupControl inside a coloured container painted its text on the container's
+					// surface and its right-hand pad on the window's. Measured live in a chat
+					// transcript: a message body's rows carried the panel colour up to the last
+					// character and reverted for the rest of the row, while the header — filled by
+					// CollapsiblePanel itself — ran the full width. The block read as a header band
+					// with ragged text under it rather than one surface.
+					var rightFillBg = _backgroundColor ?? Container?.BackgroundColor ?? Color.Transparent;
 
 					// If this line's last cell requests fill-to-width (via the [fillwidth] marker),
 					// extend that cell's background instead — e.g. a shaded code-block line whose

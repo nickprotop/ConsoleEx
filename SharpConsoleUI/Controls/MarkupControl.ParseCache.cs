@@ -419,7 +419,15 @@ namespace SharpConsoleUI.Controls
 			Color fg = _foregroundColor
 				?? Helpers.ColorResolver.ColorRoleForeground(ColorRole, Container, Outline, mode: ColorRoleMode)
 				?? Helpers.ColorResolver.ResolveForeground(null, Container, Color.White);
-			Color bg = _backgroundColor ?? Color.Transparent;
+			// THE CONTAINER IS THE FALLBACK, not Transparent. A MarkupControl inside a container with a
+			// background painted its TEXT cells transparent, so the container's colour showed only
+			// where the control drew nothing — the glyphs sat in a hole the shape of the text. The
+			// symptom is a markup row whose background stops and starts around its own words, and it
+			// forced callers into workarounds: per-run `on <colour>` tags in the markup, [fillwidth]
+			// markers, and wrapper grids, all to repaint what the container had already established.
+			//
+			// Transparent stays the last resort, for a control with no background and no container.
+			Color bg = _backgroundColor ?? Container?.BackgroundColor ?? Color.Transparent;
 			return (fg, bg);
 		}
 
