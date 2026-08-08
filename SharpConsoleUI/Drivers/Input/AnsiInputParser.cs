@@ -485,6 +485,19 @@ namespace SharpConsoleUI.Drivers.Input
 				return;
 			}
 
+			// CURSOR POSITION REPORT — swallowed, never delivered.
+			//
+			// `ESC [ <row> ; <col> R` is the terminal ANSWERING a DSR query (ESC[6n), not a keystroke.
+			// It arrives on the input stream because that is where a terminal replies, so a parser
+			// that only knows CSI-R-means-F3 hands the app a function key nobody pressed — and any
+			// bytes it fails to consume get painted as text. Seen live: `R;3R 6;3R [46;3R` smeared
+			// across a transcript while TerminalCapabilities probed emoji widths (see its ReadDSRColumn).
+			//
+			// THE PARAMETERS TELL THEM APART. Real F3 is a bare `ESC [ R`; a report always carries the
+			// two numbers it exists to deliver. Requiring both — and requiring them numeric — keeps
+			// `ESC[R` and modified forms like `ESC[1;5R` (Ctrl+F3) working as keys.
+			if (finalByte == 'R' && IsCursorPositionReport(paramStr)) return;
+
 			// Parse modifiers from CSI sequences like "1;5A" (Ctrl+Up)
 			ParseModifiers(paramStr, out string numericPart, out bool shift, out bool alt, out bool ctrl);
 
@@ -658,6 +671,34 @@ namespace SharpConsoleUI.Drivers.Input
 		/// Parses ANSI modifier codes from CSI parameter string.
 		/// Format: "number;modifierCode" where modifierCode is 1-based (1=none, 2=Shift, 3=Alt, etc.)
 		/// </summary>
+		/// <summary>
+		/// Whether a CSI-R sequence's parameters are a cursor-position report rather than a function key.
+		/// </summary>
+		/// <remarks>
+		/// <para>Both share the final byte 'R', so only the parameters separate them:</para>
+		/// <list type="bullet">
+		///   <item>F3 is a bare <c>ESC [ R</c> — no parameters at all.</item>
+		///   <item>Modified F3 is <c>ESC [ 1 ; &lt;mod&gt; R</c> — the xterm form, whose first parameter is
+		///     always the literal 1 and whose second is a modifier code in 2..16.</item>
+		///   <item>A report is <c>ESC [ &lt;row&gt; ; &lt;col&gt; R</c>, carrying the two numbers it exists to
+		///     deliver.</item>
+		/// </list>
+		/// <para>So anything whose first parameter is not 1 is unambiguously a report, and a leading 1 is
+		/// treated as a report only when the second number cannot be a modifier code. That ordering
+		/// matters: a real keypress must never be swallowed, whereas a report misread as F3 is merely
+		/// the bug this exists to fix, so the ambiguous corner (row 1) resolves in favour of the key.</para>
+		/// </remarks>
+		private static bool IsCursorPositionReport(string paramStr)
+		{
+			var parts = paramStr.Split(';');
+			if (parts.Length != 2) return false;
+			if (!int.TryParse(parts[0], out var row) || !int.TryParse(parts[1], out var col)) return false;
+			if (row < 1 || col < 1) return false;
+
+			// Row 1 collides with the modifier form; every other row is a report outright.
+			return row != 1 || col > 16;
+		}
+
 		private static void ParseModifiers(string paramStr, out string numericPart, out bool shift, out bool alt, out bool ctrl)
 		{
 			shift = false;

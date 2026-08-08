@@ -147,6 +147,48 @@ namespace SharpConsoleUI.Helpers
 
 			if (_supportsKittyGraphics == false)
 				_supportsKittyGraphics = IsKittyTerminalByEnvironment();
+
+			// DRAIN WHATEVER IS STILL IN FLIGHT.
+			//
+			// Draining the FAILURE paths inside ReadDSRColumn is not enough, because the leak also
+			// happens when every probe SUCCEEDS. Four queries go out; each reader consumes exactly
+			// one reply and returns. A reply that arrives after its reader gave up — the per-byte
+			// timeout here is 150ms, and a loaded machine beats that — is left queued with nothing
+			// expecting it, and the next consumer is the application's key parser.
+			//
+			// That is what shipped: `3R ;3R [46;3R` painted into a live transcript. The fragments are
+			// the tell — a WHOLE `ESC[46;3R` is recognisable and can be discarded by the parser, but
+			// a tail whose ESC was already eaten by a probe reader is indistinguishable from someone
+			// typing it.
+			//
+			// So after probing, read until the stream goes quiet. Every byte here is by definition a
+			// reply nobody is waiting for: real user input cannot have arrived yet, since probing
+			// runs before the input loop starts (see this method's remarks).
+			DrainPendingReplies(readByte);
+		}
+
+		/// <summary>
+		/// Consumes any probe replies still queued once probing is done, so none of them reach the
+		/// application's input parser.
+		/// </summary>
+		/// <param name="readByte">Byte source; returns -1 on timeout or error.</param>
+		private static void DrainPendingReplies(Func<int> readByte)
+		{
+			// The first -1 ends it: the source signals "nothing there" by timing out, so one quiet
+			// read means the queue is empty. The cap bounds the pathological case of a terminal
+			// streaming bytes forever, and is far above the handful of replies four probes produce.
+			const int MaxDrainBytes = 256;
+
+			try
+			{
+				for (var i = 0; i < MaxDrainBytes; i++)
+					if (readByte() < 0) return;
+			}
+			catch
+			{
+				// A read that throws is the same as a read that finds nothing: there is no reply left
+				// to consume, and probing must never be the reason startup fails.
+			}
 		}
 
 		/// <summary>
@@ -267,13 +309,23 @@ namespace SharpConsoleUI.Helpers
 		/// </summary>
 		private static int ReadDSRColumn(Func<int> readByte)
 		{
+			// EVERY FAILURE PATH DRAINS. A bare `return -1` here abandons the rest of the reply in
+			// the input buffer, and whatever reads next finds `[46;3R` sitting there — the key parser
+			// does not recognise it, so it paints it as typed text. Seen live: `R;3R 6;3R [46;3R`
+			// smeared across the transcript, one reply re-entered at four different offsets, each
+			// giving up on a different byte and leaving a different tail behind.
+			//
+			// Desync happens whenever something else writes to the shared TTY while a probe is in
+			// flight — a child process that emits its own escape sequences, most often. The probe
+			// cannot prevent that; it can refuse to leave debris.
+
 			// Wait for ESC
 			int b = readByte();
-			if (b != 0x1b) return -1;
+			if (b != 0x1b) return Drain(readByte, b);
 
 			// Wait for '['
 			b = readByte();
-			if (b != '[') return -1;
+			if (b != '[') return Drain(readByte, b);
 
 			// Read digits for row (skip it)
 			b = readByte();
@@ -281,7 +333,7 @@ namespace SharpConsoleUI.Helpers
 				b = readByte();
 
 			// Expect ';'
-			if (b != ';') return -1;
+			if (b != ';') return Drain(readByte, b);
 
 			// Read digits for column
 			int col = 0;
@@ -293,9 +345,29 @@ namespace SharpConsoleUI.Helpers
 			}
 
 			// Expect 'R'
-			if (b != 'R') return -1;
+			if (b != 'R') return Drain(readByte, b);
 
 			return col;
+		}
+
+		/// <summary>
+		/// Consumes bytes through the end of a malformed cursor-position reply, so no partial escape
+		/// sequence is left for the next reader to print.
+		/// </summary>
+		/// <param name="readByte">Byte source; returns -1 on timeout or error.</param>
+		/// <param name="current">The byte that failed the parse — already read, still to be judged.</param>
+		/// <returns>Always -1: the caller could not read a column, whatever was drained.</returns>
+		private static int Drain(Func<int> readByte, int current)
+		{
+			// 'R' terminates a CPR. Bounded so a stream carrying no terminator — a timeout, or bytes
+			// that were never a reply at all — cannot spin here; the cap is far above any real reply
+			// (`ESC[999;999R` is 11 bytes) and small enough to be imperceptible.
+			const int MaxDrain = 32;
+
+			for (var i = 0; i < MaxDrain && current >= 0 && current != 'R'; i++)
+				current = readByte();
+
+			return -1;
 		}
 
 		/// <summary>
