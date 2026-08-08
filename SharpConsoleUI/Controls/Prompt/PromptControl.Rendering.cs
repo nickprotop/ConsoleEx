@@ -227,9 +227,31 @@ namespace SharpConsoleUI.Controls
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
 			int promptLength = Parsing.MarkupParser.StripLength(_prompt ?? string.Empty);
-			// Cap measured input width to available space — the control scrolls when text overflows
-			int naturalInputWidth = Math.Max(UnicodeWidth.GetStringWidth(_input), 10);
-			int inputFieldWidth = _inputWidth ?? Math.Min(naturalInputWidth, Math.Max(10, constraints.MaxWidth - promptLength - Margin.Left - Margin.Right));
+			// Cap measured input width to available space — the control scrolls when text overflows.
+			//
+			// THE PLACEHOLDER COUNTS. Measuring only _input means an EMPTY control measures the 10-cell
+			// floor, so a placeholder longer than that is cut at 10 no matter how much room the parent
+			// offers — and a placeholder is only ever shown when the input is empty, which is exactly
+			// when this measured nothing. "What should I do?" rendered as "What shoul" in a 160-column
+			// pane. The wider of the two is what will actually be painted, so it is what to measure.
+			int displayedWidth = Math.Max(
+				UnicodeWidth.GetStringWidth(_input),
+				string.IsNullOrEmpty(_input) ? UnicodeWidth.GetStringWidth(_placeholder ?? string.Empty) : 0);
+			int naturalInputWidth = Math.Max(displayedWidth, 10);
+
+			// STRETCH CLAIMS THE WIDTH OFFERED, as it does for ButtonControl and CheckboxControl —
+			// the same pattern, which this control was simply missing.
+			//
+			// Without it the field is measured from its CONTENT, and a prompt is not a label: an empty
+			// or short one asked for the 10-cell floor and was allotted exactly that, whatever the
+			// parent offered. Every symptom of that was reported as a separate bug — a placeholder cut
+			// at ten characters, the caret wrapping to a second row after ten, and a click past column
+			// ten failing to focus the control at all. One measurement, three faces.
+			int offered = Math.Max(10, constraints.MaxWidth - promptLength - Margin.Left - Margin.Right);
+			int inputFieldWidth = _inputWidth
+				?? (HorizontalAlignment == HorizontalAlignment.Stretch
+					? offered
+					: Math.Min(naturalInputWidth, offered));
 			int contentWidth = promptLength + inputFieldWidth;
 			int width = (Width ?? contentWidth) + Margin.Left + Margin.Right;
 

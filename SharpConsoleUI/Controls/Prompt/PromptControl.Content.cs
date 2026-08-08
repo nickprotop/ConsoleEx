@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 
@@ -259,6 +260,36 @@ namespace SharpConsoleUI.Controls
 			_history.Clear();
 			_historyIndex = 0;
 		}
+
+		/// <summary>
+		/// The recorded history, oldest first.
+		/// </summary>
+		/// <remarks>
+		/// <para>Read-only, and a SNAPSHOT rather than a live view: the internal list is mutated on
+		/// every submit and trimmed past <see cref="MaxHistoryEntries"/>, so handing out the list
+		/// itself would let a caller observe it changing underneath them — or mutate it and desync
+		/// the ↑/↓ index that walks it.</para>
+		/// <para>Exposed so history can outlive the control: an application that wants ↑ to reach
+		/// what was typed in a PREVIOUS session has to be able to read what was typed in this one.
+		/// <see cref="RecordHistory"/> is the other half — read them out at shutdown, feed them back
+		/// at startup.</para>
+		/// </remarks>
+		public IReadOnlyList<string> History => _history.ToArray();
+
+		/// <summary>
+		/// Records a value in the history as though it had been submitted here.
+		/// </summary>
+		/// <remarks>
+		/// <para>For an application that submits on its OWN terms rather than through this control's
+		/// Enter — one that intercepts the key upstream (a window-level PreviewKeyPressed, say, to
+		/// give Enter a meaning the control cannot know) and then reads <see cref="Input"/> itself.
+		/// Submit() is never reached on that path, so nothing was ever recorded and ↑/↓ recalled an
+		/// empty history: the control offered the feature and only its own key could feed it.</para>
+		/// <para>Same rules as an ordinary submit — empty values and consecutive duplicates are
+		/// ignored, and the oldest entries drop past <see cref="MaxHistoryEntries"/>.</para>
+		/// </remarks>
+		/// <param name="value">The value to record.</param>
+		public void RecordHistory(string value) => AddHistory(value);
 
 		/// <summary>
 		/// Records a submitted value. Skips a repeat of the immediately previous entry, and drops the

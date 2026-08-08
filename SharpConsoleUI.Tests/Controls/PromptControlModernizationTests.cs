@@ -609,4 +609,125 @@ public class PromptControlModernizationTests
 		}
 		return false;
 	}
+
+	/// <summary>
+	/// A PLACEHOLDER LONGER THAN THE INPUT must still fit.
+	///
+	/// <para>MeasureDOM took its natural width from _input alone, floored at 10. A placeholder is only
+	/// ever shown when the input is EMPTY — which is exactly when that measured nothing — so any
+	/// placeholder past ten cells was cut at ten however much room the parent offered. Live in a
+	/// 160-column pane: "What should I do?" rendered as "What shoul".</para>
+	/// </summary>
+	[Fact]
+	public void MeasuresThePlaceholderWhenTheInputIsEmpty()
+	{
+		var prompt = new PromptControl { Placeholder = "What should I do?" };
+
+		var size = prompt.MeasureDOM(new LayoutConstraints(0, 100, 0, 100));
+
+		Assert.True(size.Width >= 17,
+			$"the placeholder is 17 cells and must fit; measured {size.Width}");
+	}
+
+	[Fact]
+	public void TheInputStillWinsOnceThereIsOne()
+	{
+		// The placeholder only counts while it is the thing being displayed. A typed value longer
+		// than it must drive the width, exactly as before.
+		var prompt = new PromptControl { Placeholder = "short", Input = new string('x', 40) };
+
+		var size = prompt.MeasureDOM(new LayoutConstraints(0, 100, 0, 100));
+
+		Assert.True(size.Width >= 40, $"the input is 40 cells and must fit; measured {size.Width}");
+	}
+	/// <summary>
+	/// History is readable and writable from OUTSIDE the control.
+	///
+	/// <para>Both halves were missing for an application that submits on its own terms. AddHistory
+	/// ran only inside Submit(), which an app intercepting Enter upstream never reaches — so ↑/↓
+	/// recalled an empty list while the control advertised history. And with no way to READ it back,
+	/// history could not outlive the process.</para>
+	/// </summary>
+	[Fact]
+	public void HistoryRoundTripsThroughThePublicSurface()
+	{
+		var prompt = new PromptControl { HistoryEnabled = true };
+
+		prompt.RecordHistory("first");
+		prompt.RecordHistory("second");
+
+		Assert.Equal(new[] { "first", "second" }, prompt.History);
+	}
+
+	[Fact]
+	public void TheExposedHistoryIsASnapshot()
+	{
+		// A live view would let a caller observe the list being trimmed underneath them, or mutate it
+		// and desync the ↑/↓ index that walks it.
+		var prompt = new PromptControl { HistoryEnabled = true };
+		prompt.RecordHistory("first");
+
+		var taken = prompt.History;
+		prompt.RecordHistory("second");
+
+		Assert.Single(taken);
+	}
+
+	[Fact]
+	public void RecordedHistoryFollowsTheSameRulesAsASubmit()
+	{
+		// Empty values and consecutive duplicates are ignored, exactly as Submit() ignores them —
+		// otherwise a caller-driven submit would build a history the control's own never would.
+		var prompt = new PromptControl { HistoryEnabled = true };
+
+		prompt.RecordHistory("goal");
+		prompt.RecordHistory("goal");
+		prompt.RecordHistory("");
+
+		Assert.Equal(new[] { "goal" }, prompt.History);
+	}
+
+	/// <summary>
+	/// A STRETCHED PROMPT CLAIMS ITS CELL. Without this the field is measured from its CONTENT, and a
+	/// prompt's content is usually short or absent — so an empty composer asked for the 10-cell floor
+	/// and was allotted exactly that, however wide the parent.
+	///
+	/// <para>Three separate bug reports were that one measurement: a placeholder cut at ten
+	/// characters, the caret wrapping to a second row after ten, and a click past column ten failing
+	/// to focus the control — the hit test follows the measured bounds.</para>
+	///
+	/// <para>ButtonControl and CheckboxControl already honour Stretch this way; PromptControl was the
+	/// one input that did not.</para>
+	/// </summary>
+	[Fact]
+	public void AStretchedPromptMeasuresTheWidthOffered()
+	{
+		var prompt = new PromptControl
+		{
+			HorizontalAlignment = HorizontalAlignment.Stretch,
+			Input = "hi",
+		};
+
+		var size = prompt.MeasureDOM(new LayoutConstraints(0, 120, 0, 100));
+
+		Assert.True(size.Width >= 100,
+			$"a stretched prompt must take the width offered, not its content's; measured {size.Width}");
+	}
+
+	[Fact]
+	public void ALeftAlignedPromptStillMeasuresItsContent()
+	{
+		// The default is unchanged: a prompt that is NOT stretched still sizes to what it holds, so a
+		// caller placing one beside other controls keeps the layout they had.
+		var prompt = new PromptControl
+		{
+			HorizontalAlignment = HorizontalAlignment.Left,
+			Input = "hi",
+		};
+
+		var size = prompt.MeasureDOM(new LayoutConstraints(0, 120, 0, 100));
+
+		Assert.True(size.Width < 60, $"a left-aligned prompt must not claim the whole width; measured {size.Width}");
+	}
+
 }
