@@ -29,7 +29,7 @@ namespace SharpConsoleUI.Controls
 	/// keyboard activation, and the optional height animation are implemented in companion
 	/// partials added by later tasks.
 	/// </remarks>
-	public partial class CollapsiblePanel : BaseControl, IContainer, IContainerControl, IControlHost, IMouseAwareControl, IInteractiveControl, IFocusableControl, IFocusableContainerWithHeader, ILogicalCursorProvider, IColorRoleableControl
+	public partial class CollapsiblePanel : BaseControl, IContainer, IContainerControl, IControlHost, IMouseAwareControl, IInteractiveControl, IFocusableControl, IFocusableContainerWithHeader, ILogicalCursorProvider, IColorRoleableControl, Parsing.MarkupSpinnerClock.IInlineSpinnerHost
 	{
 
 		#region ColorRole
@@ -590,6 +590,23 @@ namespace SharpConsoleUI.Controls
 				bg = ColorResolver.ResolveCollapsibleHeaderFocusedBackground(_focusedBackgroundValue, Container);
 			}
 
+			// AN INLINE [spinner] IN THE HEADER needs this panel on the clock's registry, or it never
+			// animates. MarkupSpinnerClock.Tick invalidates its registered hosts; the render loop
+			// skips a clean window; and this panel parses its OWN header markup rather than hosting a
+			// MarkupControl — which is the only type that registers. So the clock ran on time and had
+			// nobody to tell.
+			//
+			// The symptom is subtle rather than absent: the glyph still advances whenever anything
+			// else dirties the window, so a header spinner keeps whatever cadence the app's busiest
+			// timer happens to have. Measured in a chat transcript: ~960ms per frame, which was the
+			// application's one-second panel clock, not the 60ms the tag asked for.
+			//
+			// Registered BEFORE the bordered/borderless branch because both paths draw the header
+			// (PaintBorderedHeader composes the same text). Registration is idempotent and held
+			// weakly, so doing it per paint costs nothing and needs no teardown.
+			if (EffectiveShowHeader && HeaderHasInlineSpinner())
+				Parsing.MarkupSpinnerClock.RegisterHost(this);
+
 			if (IsBordered)
 			{
 				PaintBorderedHeader(buffer, bounds, clipRect, fg, bg); // Task 5 implements
@@ -658,6 +675,18 @@ namespace SharpConsoleUI.Controls
 		/// (borderless): the current indicator glyph followed by the title. Shared by both
 		/// header styles to avoid duplication.
 		/// </summary>
+		/// <summary>Repaints when the inline spinner advances a frame.</summary>
+		/// <remarks>
+		/// Repaint, not Relayout: a spinner's reserved width is constant per style, so the glyph can
+		/// never reflow the header.
+		/// </remarks>
+		void Parsing.MarkupSpinnerClock.IInlineSpinnerHost.InvalidateForInlineSpinner()
+			=> Invalidate(Invalidation.Repaint);
+
+		/// <summary>Whether the composed header text contains an inline spinner tag.</summary>
+		private bool HeaderHasInlineSpinner()
+			=> ComposeHeaderText().Contains("[spinner", StringComparison.Ordinal);
+
 		private string ComposeHeaderText()
 		{
 			string icon = CurrentIcon ?? string.Empty;

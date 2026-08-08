@@ -127,6 +127,52 @@ public class InlineSpinnerIntegrationTests
 	}
 
 	/// <summary>Reads the first row of the window's rendered content buffer.</summary>
+	/// <summary>
+	/// A COLLAPSIBLE PANEL'S HEADER animates its inline spinner too.
+	///
+	/// <para>The registry fix covered <see cref="MarkupControl"/>, which is the only type that calls
+	/// RegisterHost. A CollapsiblePanel parses its OWN header markup instead of hosting a
+	/// MarkupControl, so it was never registered: the clock ticked on time and had nobody to
+	/// invalidate, and the header repainted only when something ELSE dirtied the window.</para>
+	///
+	/// <para>That makes the symptom a cadence rather than a freeze, which is why it survived the
+	/// original fix — a header spinner silently adopts whatever the app's busiest timer runs at.
+	/// Measured in a chat transcript: ~960ms per frame, the application's one-second panel clock,
+	/// against the 60ms the tag asked for.</para>
+	/// </summary>
+	[Fact]
+	public void CollapsiblePanelHeaderAnimatesItsInlineSpinner()
+	{
+		int interval = SpinnerControl.DefaultIntervalMs(SpinnerStyle.Circle);
+		long now = 0;
+		MarkupSpinnerClock.SetTimeProviderForTests(() => now);
+		try
+		{
+			var system = TestWindowSystemBuilder.CreateTestSystem(60, 12);
+			var window = new Window(system) { Width = 40, Height = 6, Left = 1, Top = 1 };
+
+			// NOTHING ELSE ANIMATED on screen — no MarkupControl, no SpinnerControl. Any of those
+			// would dirty the window on their own and drag the header along, which is exactly how
+			// this went unnoticed.
+			var panel = new CollapsiblePanel { Title = "Tool [spinner circle] running" };
+			window.AddControl(panel);
+			system.AddWindow(window);
+
+			MarkupSpinnerClock.Tick(system.Animations.IsEnabled);
+			system.Render.UpdateDisplay();
+			string rowA = ReadContentRow(window);
+
+			now += interval;
+
+			MarkupSpinnerClock.Tick(system.Animations.IsEnabled);
+			system.Render.UpdateDisplay();
+			string rowB = ReadContentRow(window);
+
+			Assert.NotEqual(rowA, rowB);
+		}
+		finally { MarkupSpinnerClock.ResetTimeProviderForTests(); MarkupSpinnerClock.ResetForTests(); }
+	}
+
 	private static string ReadContentRow(Window window)
 	{
 		var buffer = window.ContentBuffer;
