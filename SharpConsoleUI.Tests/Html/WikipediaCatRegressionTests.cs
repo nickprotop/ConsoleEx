@@ -38,11 +38,19 @@ namespace SharpConsoleUI.Tests.Html
 			var result = engine.Layout(html, maxWidth: 108, Color.White, Color.Black);
 			sw.Stop();
 
-			// A clean single-pass layout of the cat article is well under 10s on any
-			// reasonable hardware. If we go over that, something is pathological —
-			// this guards against accidental O(n²) walks or infinite/ping-pong logic.
-			Assert.True(sw.Elapsed.TotalSeconds < 10,
-				$"Wikipedia Cat layout took {sw.Elapsed.TotalSeconds:F2}s (expected < 10s). " +
+			// This guards against accidental O(n²) walks or infinite/ping-pong logic —
+			// not against absolute speed.
+			//
+			// The budget was 10s while AngleSharp.Css was pinned to 1.0.0-beta.213, which
+			// laid this page out in ~2s. AngleSharp.Css 1.0.1 (PR #72, taken for the
+			// AngleSharp mXSS fix GHSA-pgww-w46g-26qg) costs roughly 7-10x on heavy
+			// real-world pages like this one — large nested tables plus heavy CSS — taking
+			// it to ~21s. That cost was measured, bisected to AngleSharp.Css alone, and
+			// accepted deliberately; lighter HTML is unaffected. So the budget is raised to
+			// sit above the known cost with headroom for slower CI, while still tripping on
+			// a genuine hang. Revisit if AngleSharp.Css regains the lost speed.
+			Assert.True(sw.Elapsed.TotalSeconds < 45,
+				$"Wikipedia Cat layout took {sw.Elapsed.TotalSeconds:F2}s (expected < 45s). " +
 				"Possible regression in HtmlBlockFlow / HtmlTableLayout / nested-table handling.");
 
 			Assert.True(result.Lines.Length > 0);
