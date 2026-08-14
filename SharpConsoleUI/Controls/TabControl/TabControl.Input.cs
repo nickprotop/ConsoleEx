@@ -57,18 +57,27 @@ namespace SharpConsoleUI.Controls
 			return GetTabIndexAtX(clickX, snapshot);
 		}
 
-		private int GetTabIndexAtX(int clickX, List<TabPage> tabs)
+		private int GetTabIndexAtX(int clickX, List<TabPage> tabs) =>
+			GetTabIndexAtX(clickX, HeaderStrip(tabs));
+
+		private int GetTabIndexAtX(int clickX, TabStripLayout strip)
 		{
-			int currentX = Margin.Left;
-			for (int i = 0; i < tabs.Count; i++)
+			for (int drawn = 0; drawn < strip.Count; drawn++)
 			{
-				int innerWidth = MarkupParser.StripLength(tabs[i].Title) + 2 + (tabs[i].IsClosable ? 1 : 0);
-				if (clickX >= currentX && clickX < currentX + innerWidth)
-					return i;
-				currentX += innerWidth + 1; // + separator
+				int start = Margin.Left + strip.Offsets[drawn];
+				if (clickX >= start && clickX < start + strip.Widths[drawn])
+					return strip.First + drawn;
 			}
 			return -1;
 		}
+
+		/// <summary>
+		/// The header row as it was last painted. It has to come from the same <see cref="LayoutStrip"/>
+		/// the paint uses, or a scrolled strip is hit-tested against tab positions nobody can see — the
+		/// click would land on whichever tab happens to sit at that X when counting from index 0.
+		/// </summary>
+		private TabStripLayout HeaderStrip(IReadOnlyList<TabPage> tabs) =>
+			LayoutStrip(tabs, ActiveTabIndex, ActualWidth - Margin.Left - Margin.Right);
 
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
@@ -96,14 +105,13 @@ namespace SharpConsoleUI.Controls
 			{
 				// Calculate which tab was clicked (account for left margin)
 				int clickX = args.Position.X;
-				int tabIndex = GetTabIndexAtX(clickX, snapshot);
+				var strip = HeaderStrip(snapshot);
+				int tabIndex = GetTabIndexAtX(clickX, strip);
 
 				if (tabIndex >= 0 && args.HasFlag(MouseFlags.Button1Clicked))
 				{
-					// Check if click landed on the close button
-					int currentX = Margin.Left;
-					for (int j = 0; j < tabIndex; j++)
-						currentX += MarkupParser.StripLength(snapshot[j].Title) + 2 + (snapshot[j].IsClosable ? 1 : 0) + 1;
+					// Check if click landed on the close button, at the far end of that tab's own cells
+					int currentX = Margin.Left + strip.Offsets[tabIndex - strip.First];
 
 					if (snapshot[tabIndex].IsClosable && clickX == currentX + MarkupParser.StripLength(snapshot[tabIndex].Title) + 2)
 					{

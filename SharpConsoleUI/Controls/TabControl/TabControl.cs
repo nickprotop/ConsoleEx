@@ -179,6 +179,23 @@ namespace SharpConsoleUI.Controls
 			set => SetProperty(ref _showTabHeader, value);
 		}
 
+		private bool _showTabScrollIndicators = true;
+
+		/// <summary>
+		/// Gets or sets whether a ‹ or › is drawn at an edge the header row has more tabs beyond.
+		/// Each costs one cell of the row while it is shown, and only while it is shown.
+		/// Default: true.
+		/// </summary>
+		/// <remarks>
+		/// The header row scrolls to keep the active tab visible whatever this is set to; turning the
+		/// indicators off only stops the row saying that it has done so.
+		/// </remarks>
+		public bool ShowTabScrollIndicators
+		{
+			get => _showTabScrollIndicators;
+			set => SetProperty(ref _showTabScrollIndicators, value);
+		}
+
 		/// <summary>
 		/// Returns the number of rows consumed by the tab header (1 for Classic, 2 for Separator/AccentedSeparator).
 		/// </summary>
