@@ -1139,5 +1139,20 @@ namespace SharpConsoleUI.Configuration
 		public const string LogViewerExportDefaultFileName = "export.log";
 
 		#endregion
+
+		#region Tab Control
+
+		/// <summary>Glyph marking that a TabControl header row has tabs before the first one drawn
+		/// (single left-pointing angle quotation mark, U+2039). Reliably 1-cell wide.</summary>
+		public const char TabScrollLeftGlyph = '‹';
+
+		/// <summary>Glyph marking that a TabControl header row has tabs after the last one drawn
+		/// (single right-pointing angle quotation mark, U+203A). Reliably 1-cell wide.</summary>
+		public const char TabScrollRightGlyph = '›';
+
+		/// <summary>Cells one scroll indicator occupies on the tab header row while it is shown.</summary>
+		public const int TabScrollIndicatorWidth = 1;
+
+		#endregion
 	}
 }

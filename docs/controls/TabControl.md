@@ -8,6 +8,18 @@ TabControl is a container control that displays multiple pages of content (tabs)
 
 **Important**: TabControl does not automatically provide scrolling. Wrap tab content in `ScrollablePanelBuilder` to enable scrolling for content that exceeds the visible area.
 
+### More tabs than the header row can hold
+
+When the tabs are wider than the control, the header row shows the run that fits and positions it so
+the **active tab is always visible**. A `‹` or `›` marks an edge that has more tabs beyond it, so a
+truncated row is distinguishable from a complete one; set `ShowTabScrollIndicators` to `false` to give
+those cells back to the tabs. The row still follows the active tab either way — changing
+`ActiveTabIndex`, clicking a header, or pressing Left/Right while the header has focus scrolls it as
+needed.
+
+The scroll position is derived from the active tab rather than stored, so the row returns to its
+unscrolled state as soon as an early tab is selected again.
+
 ## Properties
 
 | Property | Type | Default | Description |
@@ -23,6 +35,7 @@ TabControl is a container control that displays multiple pages of content (tabs)
 | `BackgroundColor` | `Color` | `Color.Black` | Background color for control |
 | `ForegroundColor` | `Color` | `Color.White` | Foreground color for control |
 | `IsEnabled` | `bool` | `true` | Enable/disable tab control |
+| `ShowTabScrollIndicators` | `bool` | `true` | Draw `‹` / `›` at an edge the header row has more tabs beyond |
 
 ## Events
 
