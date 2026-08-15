@@ -37,9 +37,12 @@ NativeAOT-ready.
 
 ![SharpConsoleUI Demo](docs/images/examples/consoleex-matrix-background.gif)
 
-[![SharpConsoleUI Video Demo](https://img.youtube.com/vi/sl5C9jrJknM/maxresdefault.jpg)](https://www.youtube.com/watch?v=sl5C9jrJknM)
+### Watch it run
 
-*Watch SharpConsoleUI in action on YouTube*
+| | |
+|:---:|:---:|
+| [![cxshell — a desktop in the terminal](https://img.youtube.com/vi/LOH_yuFBHss/mqdefault.jpg)](https://www.youtube.com/watch?v=LOH_yuFBHss)<br>**[cxshell — a desktop in the terminal](https://www.youtube.com/watch?v=LOH_yuFBHss)**<br>Start menu, taskbar, app manager, and other TUI apps running live inside its windows. | [![DemoApp showcase](https://img.youtube.com/vi/Oz8Yo50GfOs/mqdefault.jpg)](https://www.youtube.com/watch?v=Oz8Yo50GfOs)<br>**[DemoApp showcase](https://www.youtube.com/watch?v=Oz8Yo50GfOs)**<br>Windows, controls, markup, compositor effects and dialogs. |
+| [![Chronicle Workbench](https://img.youtube.com/vi/4jStrJD_EFU/mqdefault.jpg)](https://www.youtube.com/watch?v=4jStrJD_EFU)<br>**[Cratis Chronicle Workbench](https://www.youtube.com/watch?v=4jStrJD_EFU)**<br>A third-party product built on SharpConsoleUI. | [![SharpConsoleUI examples](https://img.youtube.com/vi/sl5C9jrJknM/mqdefault.jpg)](https://www.youtube.com/watch?v=sl5C9jrJknM)<br>**[Examples in action](https://www.youtube.com/watch?v=sl5C9jrJknM)**<br>A walkthrough of the example projects. |
 
 ---
 
@@ -193,7 +196,9 @@ Give it a goal in plain language: it reads your files, works out what to change,
 
 ### cxshell — a desktop in your terminal
 
-Start menu, taskbar, system tray, movable windows and an app store, with built-in apps for files, settings and a terminal. Made for SSH: a real desktop on a remote machine without a single pixel of X11.
+![cxshell](docs/images/examples/cxshell-desktop.png)
+
+Start menu, taskbar, system tray, movable windows and an app store, with built-in apps for files, settings and a terminal. Other TUI apps run inside its windows — above, LazyDotIDE, cxtop and cxgpu are each hosted live in their own window. Made for SSH: a real desktop on a remote machine without a single pixel of X11.
 [github.com/nickprotop/cxshell](https://github.com/nickprotop/cxshell)
 
 ### LazyCaddy — Caddy server dashboard

@@ -2,11 +2,12 @@
 
 This document provides an overview of all example applications demonstrating SharpConsoleUI capabilities.
 
-## Video Demo
+## Videos
 
-[![SharpConsoleUI Video Demo](https://img.youtube.com/vi/sl5C9jrJknM/maxresdefault.jpg)](https://www.youtube.com/watch?v=sl5C9jrJknM)
-
-*Watch SharpConsoleUI examples in action on YouTube*
+| | |
+|:---:|:---:|
+| [![cxshell — a desktop in the terminal](https://img.youtube.com/vi/LOH_yuFBHss/mqdefault.jpg)](https://www.youtube.com/watch?v=LOH_yuFBHss)<br>**[cxshell — a desktop in the terminal](https://www.youtube.com/watch?v=LOH_yuFBHss)**<br>A full desktop environment: Start menu, taskbar, app manager, and other TUI applications running live inside its windows. | [![DemoApp showcase](https://img.youtube.com/vi/Oz8Yo50GfOs/mqdefault.jpg)](https://www.youtube.com/watch?v=Oz8Yo50GfOs)<br>**[DemoApp showcase](https://www.youtube.com/watch?v=Oz8Yo50GfOs)**<br>A tour of the bundled DemoApp — windows, controls, markup, compositor effects and dialogs. |
+| [![Chronicle Workbench](https://img.youtube.com/vi/4jStrJD_EFU/mqdefault.jpg)](https://www.youtube.com/watch?v=4jStrJD_EFU)<br>**[Cratis Chronicle Workbench](https://www.youtube.com/watch?v=4jStrJD_EFU)**<br>A third-party product built on SharpConsoleUI — live event-store browsing for the [Chronicle](https://github.com/Cratis/Chronicle) platform. | [![SharpConsoleUI examples](https://img.youtube.com/vi/sl5C9jrJknM/mqdefault.jpg)](https://www.youtube.com/watch?v=sl5C9jrJknM)<br>**[Examples in action](https://www.youtube.com/watch?v=sl5C9jrJknM)**<br>The original walkthrough of the example projects. |
 
 ## Quick Start
 
@@ -47,6 +48,34 @@ Give it a goal in plain language and it reads your files, works out what to chan
 | Permission prompt | Diff view | Usage stats |
 |-------------------|-----------|-------------|
 | ![Permission](images/examples/cxagent-permission.png) | ![Diff](images/examples/cxagent-diff.png) | ![Stats](images/examples/cxagent-stats.png) |
+
+---
+
+### cxshell
+A complete desktop environment, running in a terminal.
+
+![cxshell desktop](images/examples/cxshell-desktop.png)
+
+**Project:** [github.com/nickprotop/cxshell](https://github.com/nickprotop/cxshell)
+
+A Start menu, taskbar, system tray and movable windows, with an app manager that installs and updates terminal applications. Other TUI apps run *inside* its windows — the screenshot above has LazyDotIDE, cxtop and cxgpu each hosted in their own draggable window, live at the same time. Made for SSH: a real desktop on a remote machine without a single pixel of X11.
+
+**Key Features:**
+- Start menu, taskbar with window list, system tray with clock, network and battery
+- App Manager: catalog-based install, update detection, sandboxed builds, script installers
+- Built-in apps for files, settings and a terminal
+- Multi-page settings dialog (colors, background, keyboard, mouse, tray, network)
+- Runs over SSH; no browser, no X11
+
+**SharpConsoleUI features on show:**
+- The window manager itself: overlapping windows with drag, resize, minimize, maximize and z-order
+- `TerminalControl` hosting full external TUI applications inside a window, each with its own PTY
+- Independent async render loops per window — several live monitors updating at once without blocking each other
+- Portal flyouts for the Start menu and tray, and modal dialogs over the running desktop
+
+| Desktop with hosted apps | App Manager |
+|--------------------------|-------------|
+| ![Desktop](images/examples/cxshell-desktop.png) | ![App Manager](images/examples/cxshell-appmanager.png) |
 
 ---
 
