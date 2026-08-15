@@ -167,6 +167,13 @@ Terminal-based control panel for Linux servers and homelabs with 14 bundled widg
 - Custom widget support (any language)
 - Context-aware actions system
 
+**SharpConsoleUI features on show:**
+- `SparklineControl` and `LineGraphControl` history across the monitoring widgets
+- A widget grid that reflows with terminal width, each widget its own composed panel
+- Modal dialogs throughout (`AsModal` in 12 files) for widget config, actions and confirmations
+- `PromptControl` and `DropdownControl` inputs in the widget browser's search and filters
+- Live metric polling on an async window thread, with toast notifications for threshold alerts
+
 | Main Dashboard | Network Traffic | Widget Browser |
 |----------------|-----------------|----------------|
 | ![Main](images/examples/serverhub-main.png) | ![Network](images/examples/serverhub-network.png) | ![Widgets](images/examples/serverhub-widgets.png) |
@@ -190,6 +197,13 @@ Keyboard-driven TUI for browsing projects, checking for updates, installing/remo
 - CPM (Central Package Management) migration wizard
 - Operation history with undo support
 
+**SharpConsoleUI features on show:**
+- `TabControl` views over a `ScrollablePanelControl` package list, with a `ToolbarControl` and a status bar
+- `DropdownControl` pickers for sources and update strategies, in portal flyouts
+- Modal dialogs (`AsModal`) for confirmations and the CPM wizard, plus the built-in folder picker
+- Toast notifications and a `ProgressBarControl` for restore/update operations
+- A long-running package scan on an async window thread, leaving the UI responsive
+
 | Dashboard | Search NuGet.org | Dependency Tree |
 |-----------|-----------------|-----------------|
 | ![Dashboard](images/examples/lazynuget-dashboard.png) | ![Search](images/examples/lazynuget-search.png) | ![Deps](images/examples/lazynuget-deps.png) |
@@ -211,6 +225,13 @@ Console-based .NET IDE with LSP-powered IntelliSense, built-in terminal, and git
 - Git integration with commit dialog and change tracking
 - Multi-file editing with tab navigation
 - Works over SSH and in containers
+
+**SharpConsoleUI features on show:**
+- `MultilineEditControl` driven by `ISyntaxHighlighter` implementations — the framework's syntax-highlighting seam, used across 18 files
+- `TerminalControl`, the PTY-backed terminal emulator, hosted as a panel inside the IDE
+- `TreeControl` file explorer beside the editor, split by draggable `SplitterControl`s
+- LSP completion surfaced through portal overlays; `TabControl` for open files
+- Modal git dialogs (commit, discard-confirm) over the running editor
 
 | Editor + IntelliSense | Git Integration |
 |----------------------|-----------------|
