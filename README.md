@@ -184,6 +184,23 @@ See the [schost guide](https://nickprotop.github.io/ConsoleEx/docfx/_site/SCHOST
 
 ## Built with SharpConsoleUI
 
+### cxagent — terminal AI coding agent
+
+![cxagent](docs/images/examples/cxagent-session.png)
+
+Give it a goal in plain language: it reads your files, works out what to change, and changes them — with permission-gated file, shell and HTTP tools, sub-agent reports, and a live session panel. Bring your own model (Ollama, any OpenAI-compatible endpoint, or Anthropic).
+[github.com/nickprotop/cxagent](https://github.com/nickprotop/cxagent)
+
+### cxshell — a desktop in your terminal
+
+Start menu, taskbar, system tray, movable windows and an app store, with built-in apps for files, settings and a terminal. Made for SSH: a real desktop on a remote machine without a single pixel of X11.
+[github.com/nickprotop/cxshell](https://github.com/nickprotop/cxshell)
+
+### LazyCaddy — Caddy server dashboard
+
+Read and edit a running [Caddy](https://caddyserver.com/) server through its admin API: routes, handler chains, TLS certificates, upstream health and a visual routing map. Every change is atomic and snapshotted first, so nothing is one-way.
+[github.com/nickprotop/lazycaddy](https://github.com/nickprotop/lazycaddy)
+
 ### CXPost — terminal email client
 
 ![CXPost](docs/images/examples/cxpost-dashboard.png)
@@ -259,6 +276,16 @@ Interactive CLI for managing skills across AI coding tools (Codex, Claude Code, 
 
 Cross-platform TUI client for MUSH/MUCK/MUD worlds: telnet negotiation, ANSI/MXP/Pueblo parsing, Lua scripting, and inline Kitty-protocol graphics. Split panes, tabs and resizable windows on SharpConsoleUI; renders its own documentation screenshots through the `HeadlessConsoleDriver`. By [SharpMUSH](https://github.com/SharpMUSH).
 [github.com/SharpMUSH/SharpMUTerm](https://github.com/SharpMUSH/SharpMUTerm)
+
+#### CxSql — terminal SQL client
+
+Cross-platform database client bringing a Navicat-like management workflow to the terminal. A heavy user of the data-grid surface: `ITableDataSource` virtualization, modal dialogs, portals, and the result-grid filter. By [dameng324](https://github.com/dameng324).
+[github.com/dameng324/CxSql](https://github.com/dameng324/CxSql)
+
+#### qairt-tui — Snapdragon NPU model runner
+
+Keyboard-driven .NET 10 console for taking HuggingFace models onto a Qualcomm Snapdragon X2 Elite NPU via the `geniex` runtime — find, convert, pull, chat, serve, and benchmark. Self-contained win-arm64/x64 releases, built on compositor windows, dialogs, toasts, and markup. By [Forrest Technologies](https://github.com/Forrest-Technologies).
+[github.com/Forrest-Technologies/geniex-qairt-tools](https://github.com/Forrest-Technologies/geniex-qairt-tools)
 
 ---
 
