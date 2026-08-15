@@ -318,6 +318,11 @@ namespace SharpConsoleUI.Controls
 				if (completions[0] == _input)
 					return false; // already complete — let focus leave
 				_input = ApplyMaxLength(completions[0]);
+				// Clear the selection, as the Input setter and ReplaceFromHistory already do when they
+				// replace the text wholesale: the anchor points into the string just discarded, and
+				// MoveCursorTo clamps only the CURSOR, so a stale anchor past the new length would drive
+				// the next DeleteSelection out of range.
+				ClearSelection();
 				InvalidateWrapCache();
 				MoveCursorTo(_input.Length);
 				RaiseInputChanged();
@@ -329,6 +334,7 @@ namespace SharpConsoleUI.Controls
 			if (prefix.Length > _input.Length)
 			{
 				_input = ApplyMaxLength(prefix);
+				ClearSelection(); // same reason as the single-completion branch above
 				InvalidateWrapCache();
 				MoveCursorTo(_input.Length);
 				RaiseInputChanged();

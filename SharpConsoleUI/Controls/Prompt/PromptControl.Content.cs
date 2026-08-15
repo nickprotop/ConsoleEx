@@ -141,7 +141,15 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets whether there is an active text selection.
 		/// </summary>
-		public bool HasSelection => _selectionAnchor >= 0 && _selectionAnchor != _cursorPosition;
+		/// <remarks>
+		/// The anchor is bounded against the CURRENT text, not just compared with the cursor: an anchor
+		/// outlives any replacement that does not clear it, and this property gates both the delete path
+		/// and the renderer's highlight range (which would otherwise paint a selection past the end of
+		/// the text). An anchor past the end therefore reads as "no selection" rather than a range the
+		/// callers must each re-validate.
+		/// </remarks>
+		public bool HasSelection =>
+			_selectionAnchor >= 0 && _selectionAnchor <= _input.Length && _selectionAnchor != _cursorPosition;
 
 		/// <summary>
 		/// Clears the current selection.
@@ -157,8 +165,20 @@ namespace SharpConsoleUI.Controls
 		private void DeleteSelection()
 		{
 			if (!HasSelection) return;
-			int start = Math.Min(_selectionAnchor, _cursorPosition);
-			int end = Math.Max(_selectionAnchor, _cursorPosition);
+
+			// CLAMP both ends into the current text before touching it. The anchor is written from many
+			// paths and outlives any replacement that does not clear it, so an out-of-range range must be
+			// a no-op here rather than an exception: DeleteSelection runs under ProcessKey, whose caller
+			// is the input loop in ConsoleWindowSystem.Run(), so throwing takes the whole application down
+			// over one keystroke. Clearing the stale anchor on the way out stops it recurring.
+			int start = Math.Clamp(Math.Min(_selectionAnchor, _cursorPosition), 0, _input.Length);
+			int end = Math.Clamp(Math.Max(_selectionAnchor, _cursorPosition), 0, _input.Length);
+			if (end <= start)
+			{
+				_selectionAnchor = -1;
+				return;
+			}
+
 			_input = _input.Remove(start, end - start);
 			_selectionAnchor = -1;
 			InvalidateWrapCache();
