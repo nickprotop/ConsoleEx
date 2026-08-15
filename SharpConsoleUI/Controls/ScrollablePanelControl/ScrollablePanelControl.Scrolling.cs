@@ -146,9 +146,12 @@ namespace SharpConsoleUI.Controls
 			{
 				_autoScroll = false;  // Detach: user scrolled up
 			}
-			else if (!_autoScroll && lines > 0 && _verticalScrollOffset >= maxOffset)
+			else if (!_autoScroll && _autoScrollEverEnabled && lines > 0 && _verticalScrollOffset >= maxOffset)
 			{
-				_autoScroll = true;   // Re-attach: user scrolled to bottom
+				// Re-attach: user scrolled back to the bottom. Gated on _autoScrollEverEnabled so this
+				// RESTORES a mode the panel already had rather than switching it on for a panel that
+				// never opted in.
+				_autoScroll = true;
 			}
 
 			if (oldOffset != _verticalScrollOffset)

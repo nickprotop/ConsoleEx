@@ -360,6 +360,19 @@ namespace SharpConsoleUI.Controls
 						// was drawn with, so the thumb tracks the cursor and round-trips (Bug D).
 						int trackRowFromStart = _scrollbarDragStartThumbPos + (args.Position.Y - _scrollbarDragStartY);
 						int newOffset = OffsetForThumbPos(sbHeight, sbHeight, _contentHeight, trackRowFromStart);
+
+						// Detach/re-attach AutoScroll exactly as ScrollVerticalBy does for the wheel. The drag
+						// applies its offset through ScrollVerticalTo, which only moves the offset — so without
+						// this, a drag away from the bottom left AutoScroll set and the next PaintDOM re-asserted
+						// the bottom ("autoscroll-bottom"), snapping the thumb straight back. Guarded by
+						// _autoScrollEverEnabled so reaching the bottom cannot switch the mode ON for a panel
+						// that never had it.
+						if (_autoScrollEverEnabled)
+						{
+							int maxOffset = Math.Max(0, _contentHeight - VisibleContentHeight);
+							_autoScroll = newOffset >= maxOffset;
+						}
+
 						ScrollVerticalTo(newOffset);
 					}
 					args.Handled = true;

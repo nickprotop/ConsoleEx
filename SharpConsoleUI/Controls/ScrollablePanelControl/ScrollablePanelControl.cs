@@ -128,6 +128,12 @@ namespace SharpConsoleUI.Controls
 		private bool _enableMouseWheel = true;
 		private bool _autoScroll = false;
 
+		// Whether AutoScroll has ever been switched on for this panel. Scroll gestures may DETACH and
+		// RE-ATTACH _autoScroll (drag/wheel away from the bottom and back), but re-attaching must only
+		// restore a mode the panel already had — reaching the bottom must never turn AutoScroll on for a
+		// panel that never opted in.
+		private bool _autoScrollEverEnabled = false;
+
 		// Border and padding
 		private BorderStyle _borderStyle = BorderStyle.None;
 		private Color? _borderColor;
@@ -293,7 +299,12 @@ namespace SharpConsoleUI.Controls
 		public bool AutoScroll
 		{
 			get => _autoScroll;
-			set { _autoScroll = value; OnPropertyChanged(); }
+			set
+			{
+				_autoScroll = value;
+				if (value) _autoScrollEverEnabled = true;
+				OnPropertyChanged();
+			}
 		}
 
 		/// <summary>
