@@ -414,10 +414,17 @@ dotnet run --project Examples/AgentStudio
 ```
 
 **Key Features:**
-- Modern TUI design patterns
-- Advanced `NetConsoleDriverOptions` configuration
-- Hidden status bars for immersive experience
-- Custom window class implementation
+- `ChatTranscriptControl` transcript of prompts, tool calls and streamed replies
+- Command palette modal (Ctrl+P) with a searchable command list
+- Session Info sidebar with live `ProgressBarControl` token and latency meters
+- Session manager modal (Ctrl+J) built with `AsModal()`
+- Advanced `NetConsoleDriverOptions` configuration and a custom window class
+
+**SharpConsoleUI features on show:**
+- `ChatTranscriptControl` — a composite control that arranges markup, wrapping and scroll for a message log
+- Modal overlays floating above the live transcript, dismissed with Escape
+- Markdown and syntax-coloured code rendered inline in transcript messages, with bordered result tables
+- A status bar carrying model and keybinding hints while the driver hides the chrome
 
 ---
 
@@ -640,7 +647,7 @@ These examples demonstrate specific features without full screenshots.
 | Alpha Blending Demo | ✅ | | ✅ | | | |
 | HighFreqDemo | ✅ | | ✅ | | | |
 | CompositorEffectsExample | ✅ | ✅ | | ✅ | | |
-| AgentStudio | | | | | | |
+| AgentStudio | ✅ | | ✅ | | | |
 | SnakeGame | | ✅ | | | | ✅ |
 | TextEditorExample | | | | | | |
 | MultiDashboard | ✅ | | | | | |
