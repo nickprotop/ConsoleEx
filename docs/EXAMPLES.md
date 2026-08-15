@@ -21,6 +21,35 @@ dotnet run --project Examples/<ExampleName>
 
 Production applications built with SharpConsoleUI.
 
+### cxagent
+A terminal AI coding agent — say what you want, watch it work.
+
+![cxagent](images/examples/cxagent-session.png)
+
+**Project:** [github.com/nickprotop/cxagent](https://github.com/nickprotop/cxagent)
+
+Give it a goal in plain language and it reads your files, works out what to change, and changes them — in one context, with the real bytes in front of it. Anything outside the working folder asks permission first. Bring your own model: Ollama, any OpenAI-compatible endpoint, or Anthropic.
+
+**Key Features:**
+- Single-agent loop with permission-gated file, shell and HTTP tools
+- Sub-agents (explore, review, test, planner) that report back into the parent transcript
+- Live session panel: turns, tool calls, per-model and per-agent token accounting, git state
+- Built-in diff view for uncommitted and untracked changes
+- Usage stats broken down by project, model, agent type, and what filled the context
+- MCP tool support and loadable skills
+
+**SharpConsoleUI features on show:**
+- A transcript of collapsible tool-call rows (`expand…`) beside a sticky live status panel
+- Modal permission prompts with `Allow once` / `Always allow` / `Deny` buttons over the running transcript
+- Markdown rendered inline in the transcript — headings, bullet lists, tables and syntax-coloured code
+- `FigletControl` banner, horizontal bar charts, and a status bar carrying live context percentage
+
+| Permission prompt | Diff view | Usage stats |
+|-------------------|-----------|-------------|
+| ![Permission](images/examples/cxagent-permission.png) | ![Diff](images/examples/cxagent-diff.png) | ![Stats](images/examples/cxagent-stats.png) |
+
+---
+
 ### cxnet
 Real-time network throughput monitor for the terminal.
 
@@ -67,6 +96,57 @@ Live gauges and Braille sparkline history for utilization, memory, temperature, 
 | Overview | Fleet Dashboard | Processes |
 |----------|-----------------|-----------|
 | ![Overview](images/examples/cxgpu-overview.png) | ![Dashboard](images/examples/cxgpu-dashboard.png) | ![Processes](images/examples/cxgpu-processes.png) |
+
+---
+
+### cxtop
+ntop/btop-inspired system monitor for the terminal.
+
+![cxtop](images/examples/cxtop-screenshot.png)
+
+**Project:** [github.com/nickprotop/cxtop](https://github.com/nickprotop/cxtop)
+
+Live CPU, memory, network and storage metrics with a hardware identity dashboard, sparkline history, and a sortable process list with per-process actions. Cross-platform.
+
+**SharpConsoleUI features on show:**
+- Tabbed views (Processes, Memory, CPU, Network, Storage) over a shared header of live gauges
+- A sortable, mouse-selectable process table with a detail pane beside it
+- Sparkline history driven by an async per-window render loop
+- Double-click actions and a status bar carrying live system totals
+
+---
+
+### CXFiles
+Explorer-style terminal file manager.
+
+![CXFiles](images/examples/cxfiles-screenshot.png)
+
+**Project:** [github.com/nickprotop/cxfiles](https://github.com/nickprotop/cxfiles)
+
+Three-pane layout with a folder tree, file list and detail panel, plus tabs, image preview through the Kitty graphics protocol, a properties dialog and trash support.
+
+**SharpConsoleUI features on show:**
+- `TreeControl` folder tree beside a `TableControl` file list, split by draggable splitters
+- Tabs for multiple locations open at once
+- Inline image preview via the Kitty graphics protocol
+- Modal properties and confirmation dialogs
+
+---
+
+### CXPost
+Terminal email client.
+
+![CXPost](images/examples/cxpost-dashboard.png)
+
+**Project:** [github.com/nickprotop/cxpost](https://github.com/nickprotop/cxpost)
+
+Multi-account IMAP/SMTP with conversation threading, HTML message rendering, attachment handling and an offline cache.
+
+**SharpConsoleUI features on show:**
+- Threaded conversation view built on `TreeControl`, beside a scrollable message pane
+- HTML email rendered into terminal cells
+- Multi-account switching through portal flyouts
+- Compose and attachment dialogs over the running mailbox
 
 ---
 
