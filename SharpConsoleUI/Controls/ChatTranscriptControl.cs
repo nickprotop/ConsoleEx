@@ -103,6 +103,21 @@ namespace SharpConsoleUI.Controls
 			public bool CompactFooter { get; set; }
 
 			/// <summary>
+			/// Explicit per-message rail request, or <c>null</c> (the default) to inherit the footer-gated
+			/// behaviour. Tri-state rather than a bool so a caller can rail a footerless message, un-rail a
+			/// footered one, and hand the decision back to the default — see
+			/// <see cref="SetMessageRail(ChatMessageId, bool?)"/>.
+			/// </summary>
+			public bool? RailOverride { get; set; }
+
+			/// <summary>
+			/// Whether this message shows the left rail: the explicit <see cref="RailOverride"/> when one is
+			/// set, otherwise footer presence. This is the single rule both rail gates read — the gutter
+			/// inset and the painted glyph — so the reserved column and the drawn rail cannot disagree.
+			/// </summary>
+			public bool WantsRail => RailOverride ?? HasFooter;
+
+			/// <summary>
 			/// Whether this message currently has a footer (an actions row and/or a status row) rendered
 			/// as siblings of the panel. There is no separate footer container control — the two rows are
 			/// inserted directly after the panel — so footer-presence is derived from the two row fields.
