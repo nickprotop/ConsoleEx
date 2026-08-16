@@ -279,6 +279,9 @@ namespace SharpConsoleUI.Controls
 		{
 			_history.Clear();
 			_historyIndex = 0;
+			// The stash is positioned relative to the history that just went away; keeping it would let
+			// a Down restore a draft into a browse that no longer exists.
+			_draftStash = null;
 		}
 
 		/// <summary>
@@ -318,6 +321,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void AddHistory(string value)
 		{
+			// Committing ends the browse: the pending draft was either sent or abandoned, so it must not
+			// survive to be restored by a later Down. Cleared before the empty/duplicate early-outs
+			// below, since those still end the browse.
+			_draftStash = null;
+
 			if (string.IsNullOrEmpty(value)) return;
 			if (_history.Count > 0 && _history[^1] == value)
 			{

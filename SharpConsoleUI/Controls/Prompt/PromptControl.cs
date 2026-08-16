@@ -68,6 +68,9 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Async counterpart of <see cref="Entered"/>.</summary>
 		public event Core.AsyncEventHandler<string>? EnteredAsync;
 
+		/// <summary>The caret's character offset in the buffer (test-only seam).</summary>
+		internal int CursorPositionForTest => _cursorPosition;
+
 		/// <summary>Raises the <see cref="Entered"/> event for unit testing without simulating key input.</summary>
 		internal void PerformEnterForTest()
 			=> Core.AsyncEvent.Raise(Entered, EnteredAsync, this, _input, Container?.GetConsoleWindowSystem?.LogService);
@@ -97,6 +100,13 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void RaiseInputChanged()
 		{
+			// Every buffer mutation funnels through here, so this is where the buffer earns its "this is
+			// the user's own text" mark — typing, paste, deletes, the Input setter, tab completion. The
+			// history/draft paths (ReplaceFromHistory, RestoreDraft) set the flag themselves AFTER
+			// calling this, since they know the origin better than the funnel does. Marking it centrally
+			// rather than at each of the ~14 assignment sites means a new mutating path cannot silently
+			// forget to, which would cost the user their draft.
+			_bufferIsDraft = true;
 			OnPropertyChanged(nameof(Input));
 			InputChanged?.Invoke(this, _input);
 		}
@@ -124,6 +134,21 @@ namespace SharpConsoleUI.Controls
 		private bool _historyEnabled;
 		private readonly List<string> _history = new();
 		private int _historyIndex;
+
+		// The unsent draft, stashed while the user browses history. History is a committed list; the
+		// draft lives in this one slot OUTSIDE it, at the notional position "newer than the newest
+		// entry" (_historyIndex == _history.Count) — the readline model. Never appended to _history:
+		// a fragment nobody sent must not become a permanent entry, nor sit at the position the next
+		// Up would show. Null means "nothing stashed"; the cursor rides along so restoring a paragraph
+		// does not strand the caret at its end.
+		private string? _draftStash;
+		private int _draftStashCursor;
+
+		// Whether the buffer is the user's own text rather than an untouched history entry. Set by
+		// every mutating path and cleared by ReplaceFromHistory, so "should I stash this?" is answered
+		// by ORIGIN, not by emptiness — a plain "buffer is non-empty" test would refuse to browse on
+		// from an entry the user had just browsed onto.
+		private bool _bufferIsDraft;
 
 		// Tab completion
 		private Func<string, int, IEnumerable<string>?>? _tabCompleter;

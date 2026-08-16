@@ -210,6 +210,10 @@ namespace SharpConsoleUI.Controls
 					return true;
 				if (_historyEnabled && _historyIndex > 0)
 				{
+					// Leaving the draft position: stash what the user was writing so Down can bring it
+					// back. Only their OWN text is worth stashing — an untouched history entry would
+					// just shadow itself.
+					StashDraftIfLeavingDraftPosition();
 					_historyIndex--;
 					ReplaceFromHistory(_history[_historyIndex]);
 					return true;
@@ -223,8 +227,20 @@ namespace SharpConsoleUI.Controls
 					return true;
 				if (_historyEnabled && _historyIndex < _history.Count)
 				{
+					// An edit made while browsing is the user's text too: stash it before moving on, so
+					// walking down past it returns the edit rather than silently dropping it.
+					StashDraftIfLeavingDraftPosition();
 					_historyIndex++;
-					ReplaceFromHistory(_historyIndex < _history.Count ? _history[_historyIndex] : string.Empty);
+					if (_historyIndex < _history.Count)
+					{
+						ReplaceFromHistory(_history[_historyIndex]);
+					}
+					else
+					{
+						// Past the newest entry is the DRAFT position — restore the stash rather than
+						// clearing the line, which is what made a stray Down destructive.
+						RestoreDraft();
+					}
 					return true;
 				}
 				return _multiline;
@@ -303,6 +319,47 @@ namespace SharpConsoleUI.Controls
 			InvalidateWrapCache();
 			MoveCursorTo(_input.Length);
 			RaiseInputChanged();
+			// AFTER the notification: RaiseInputChanged marks the buffer a draft for every ordinary
+			// mutation, but this one MIRRORS a history entry rather than being the user's own text, so
+			// a further Up has nothing worth stashing.
+			_bufferIsDraft = false;
+		}
+
+		/// <summary>
+		/// Stashes the buffer as the pending draft when the user is about to leave the draft position
+		/// (or an entry they have edited). A no-op for an untouched history entry — that is what makes
+		/// browsing on from a loaded entry work, where a "buffer is non-empty" guard would refuse.
+		/// </summary>
+		private void StashDraftIfLeavingDraftPosition()
+		{
+			if (!_bufferIsDraft)
+				return;
+
+			_draftStash = _input;
+			_draftStashCursor = _cursorPosition;
+			// The edit has been banked; the buffer about to be loaded is a history entry again.
+			_bufferIsDraft = false;
+		}
+
+		/// <summary>
+		/// Restores the stashed draft (text and caret) at the draft position past the newest entry.
+		/// With nothing stashed this yields an empty line — the same result the old unconditional
+		/// clear produced, which is correct when the user had typed nothing.
+		/// </summary>
+		private void RestoreDraft()
+		{
+			string value = _draftStash ?? string.Empty;
+			int cursor = _draftStash != null ? _draftStashCursor : 0;
+
+			_input = ApplyMaxLength(value);
+			_draftStash = null;
+			ClearSelection();
+			InvalidateWrapCache();
+			MoveCursorTo(cursor);
+			RaiseInputChanged();
+			// AFTER the notification, for the same reason as ReplaceFromHistory. Restored text is the
+			// user's own again (so a subsequent Up re-stashes it), but an empty line is not a draft.
+			_bufferIsDraft = value.Length > 0;
 		}
 
 		private bool ProcessTabCompletion(int cursorPos)
