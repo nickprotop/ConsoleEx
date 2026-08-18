@@ -53,10 +53,12 @@ most narrowly-scoped work last.
 
 - **Scroll-to-cursor for nested editors** — when a content-sized `MultilineEditControl` (one that does not scroll internally) is taller than its host `ScrollablePanel`, moving the cursor toward the editor's end hides the terminal cursor instead of scrolling the panel to follow it
 - **WrapPanel** — responsive wrap-by-width layout for toolbars, tag lists and narrow-window form fields
+- **Portal child viewport slices** — `GetVisibleHeightForControl` hands a portal's hosted child the whole inner area, so a list stacked with siblings (prompt, rules, status) believes it owns their rows too. Every portal-based command palette in the family hand-patches this with the same `h - 2 - 5` arithmetic. Fixing it shifts layout for existing portal consumers, so it needs its own tests and a deliberate landing
 - ListControl data virtualization — virtual data source for 100K+ item lists, matching TableControl
 - NumericSpinner — increment/decrement with arrow keys
 - ColorPicker — color selection dialog
-- More composites — command palette, property inspector, diff viewer
+- **CommandPaletteControl** — the palette five family apps each copied from lazydotide and drifted (~700 duplicated lines). Portal-hosted, generic over the item type, with a real scored subsequence matcher and match highlighting — which none of the five actually has today. Design: `docs/superpowers/specs/2026-08-18-command-palette-control-design.md`
+- More composites — property inspector, diff viewer
 
 ## Future
 
