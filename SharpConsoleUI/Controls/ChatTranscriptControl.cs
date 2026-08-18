@@ -118,6 +118,14 @@ namespace SharpConsoleUI.Controls
 			public bool WantsRail => RailOverride ?? HasFooter;
 
 			/// <summary>
+			/// Explicit per-message Markdown request, or <c>null</c> (the default) to inherit
+			/// <see cref="ChatRoleStyle.Markdown"/>. Tri-state rather than a bool so a caller can render
+			/// native markup in a markdown role, force markdown in a plain role, and hand the decision
+			/// back to the role — see <see cref="SetMarkdownMode(ChatMessageId, bool?)"/>.
+			/// </summary>
+			public bool? MarkdownOverride { get; set; }
+
+			/// <summary>
 			/// Whether this message currently has a footer (an actions row and/or a status row) rendered
 			/// as siblings of the panel. There is no separate footer container control — the two rows are
 			/// inserted directly after the panel — so footer-presence is derived from the two row fields.
@@ -384,6 +392,46 @@ namespace SharpConsoleUI.Controls
 			ApplyFooterSeparator(entry);
 		}
 
+		/// <summary>
+		/// Overrides ONE message's body rendering mode, independently of its role's
+		/// <see cref="ChatRoleStyle.Markdown"/>.
+		/// </summary>
+		/// <remarks>
+		/// A role decides markdown-or-markup for every message it owns, so a host with ONE message
+		/// carrying rich native markup — a diff with per-file colour and intra-line highlight, a
+		/// pre-coloured table — had to move it to a different role to render it correctly, losing the
+		/// role's header, colour and collapse behaviour with it.
+		///
+		/// <para>Tri-state: <c>false</c> renders the body as native markup, <c>true</c> renders it as
+		/// Markdown, and <c>null</c> (the default) defers to the role — so a caller can undo an override
+		/// without tracking what the role's value would have been. Mirrors
+		/// <see cref="SetMessageRail(ChatMessageId, bool?)"/>.</para>
+		///
+		/// <para>Off by default: an untouched message keeps <c>null</c> and renders exactly as it does
+		/// today.</para>
+		///
+		/// <para>The override is read on every render, so it survives
+		/// <see cref="UpdateMessage"/> and streaming <see cref="Append(ChatMessageId, string)"/> calls —
+		/// a message that starts as markup does not revert to markdown on its next token.</para>
+		/// </remarks>
+		/// <param name="id">The message id.</param>
+		/// <param name="markdown">
+		/// <c>true</c> to force Markdown, <c>false</c> to render native markup, <c>null</c> to inherit
+		/// the role's setting.
+		/// </param>
+		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
+		public void SetMarkdownMode(ChatMessageId id, bool? markdown)
+		{
+			var entry = Require(id);
+			if (entry.MarkdownOverride == markdown)
+				return;
+
+			entry.MarkdownOverride = markdown;
+			RenderBody(entry, GetRoleStyle(entry.Role));
+			RefreshPeek(entry);
+			Invalidate(Invalidation.Relayout);
+		}
+
 		#endregion
 
 		#region Message mutation API
@@ -498,6 +546,41 @@ namespace SharpConsoleUI.Controls
 			var id = AddMessage(role, content, author); // existing overload — already seeds role DefaultActions
 			if (actions != null) SetActions(id, actions); // explicit actions override the role defaults
 			if (status != null) SetStatus(id, status);
+			return id;
+		}
+
+		/// <summary>
+		/// Adds a new message, seeding its footer actions, status row and body-rendering mode at creation.
+		/// </summary>
+		/// <remarks>
+		/// A separate overload rather than an optional parameter on the five-argument version: adding an
+		/// optional parameter is source-compatible but changes the compiled method signature, so a
+		/// consumer assembly built against the old one would fail at runtime with
+		/// <c>MissingMethodException</c> until recompiled. The library has real third-party NuGet users,
+		/// so new surface is added, never modified.
+		/// <para>Like the other reactive methods, this must be called on the UI thread — see CLAUDE.md Rule 13.</para>
+		/// </remarks>
+		/// <param name="role">The role of the message author.</param>
+		/// <param name="content">The initial message content.</param>
+		/// <param name="author">An optional author name that overrides the role's default header label.</param>
+		/// <param name="actions">
+		/// Explicit footer actions. Non-<c>null</c> overrides the role's
+		/// <see cref="ChatRoleStyle.DefaultActions"/>; <c>null</c> keeps them.
+		/// </param>
+		/// <param name="status">An optional initial status row. <c>null</c> adds no status row.</param>
+		/// <param name="markdown">
+		/// Per-message body-rendering override: <c>false</c> renders native markup, <c>true</c> forces
+		/// Markdown, <c>null</c> defers to the role. Seeding it here means a body of rich markup never
+		/// renders as Markdown even once — equivalent to calling
+		/// <see cref="SetMarkdownMode(ChatMessageId, bool?)"/> immediately afterwards.
+		/// </param>
+		/// <returns>The id of the newly added message.</returns>
+		public ChatMessageId AddMessage(ChatRole role, string content, string? author,
+			System.Collections.Generic.IEnumerable<ChatMessageAction>? actions, ChatMessageStatus? status,
+			bool? markdown)
+		{
+			var id = AddMessage(role, content, author, actions, status);
+			if (markdown != null) SetMarkdownMode(id, markdown);
 			return id;
 		}
 
@@ -638,6 +721,27 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		internal string BodyTextForTest(ChatMessageId id) => Require(id).Buffer.ToString();
 
+		/// <summary>
+		/// Returns the message body control's rendered text (test-only seam). Markdown rendering wraps the
+		/// content in a <c>[markdown]…[/]</c> region, so this distinguishes the two paths by their real
+		/// output rather than by re-evaluating the mode expression.
+		/// </summary>
+		internal string? RenderedBodyTextForTest(ChatMessageId id) => Require(id).Body?.Text;
+
+		/// <summary>Returns the message's explicit Markdown override, or <c>null</c> when it inherits the role (test-only seam).</summary>
+		internal bool? MarkdownOverrideForTest(ChatMessageId id) => Require(id).MarkdownOverride;
+
+		/// <summary>
+		/// Returns the rendering mode actually used for the message's body — the override when set,
+		/// otherwise the role's <see cref="ChatRoleStyle.Markdown"/>. This is the exact expression
+		/// <see cref="RenderBody"/> evaluates, so a test asserting it cannot drift from the paint path.
+		/// </summary>
+		internal bool EffectiveMarkdownForTest(ChatMessageId id)
+		{
+			var entry = Require(id);
+			return entry.MarkdownOverride ?? GetRoleStyle(entry.Role).Markdown;
+		}
+
 		/// <summary>Returns the child <see cref="CollapsiblePanel"/> for the message with the given id (test-only observation seam).</summary>
 		internal CollapsiblePanel PanelForTest(ChatMessageId id) => Require(id).Panel;
 
@@ -748,7 +852,10 @@ namespace SharpConsoleUI.Controls
 			if (content.Length == 0)
 				return;
 
-			if (style.Markdown)
+			// The message's own override wins; null defers to the role. RenderBody re-runs from the
+			// buffer on every append/update, so reading the override HERE is what makes it survive
+			// streaming — a message that starts as markup must not revert to markdown on its next token.
+			if (entry.MarkdownOverride ?? style.Markdown)
 				entry.Body.SetMarkdown(content);
 			else
 				entry.Body.SetContent(SplitLines(content));
