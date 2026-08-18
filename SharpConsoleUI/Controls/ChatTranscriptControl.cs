@@ -565,6 +565,15 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Removes the message with the given id from the transcript. No-op if the id is unknown.
 		/// </summary>
+		/// <remarks>
+		/// A message is not just its panel: its actions toolbar, status row and collapsed peek row are
+		/// inserted as SIBLINGS of the panel (see <c>InsertActionsRow</c>, <c>InsertStatusRow</c> and
+		/// <c>MaybeAddPeek</c>). All of them are torn down here, otherwise a removed message leaves its
+		/// footer chrome behind as orphan rows attributed to the message above.
+		/// <para>The footer spacer and separator are not controls — they are the bottom margin and
+		/// <c>ShowAboveLine</c> carried by those rows — so removing the rows removes them too.</para>
+		/// <para>Mutates the control's children and MUST run on the UI thread (see CLAUDE.md Rule 13).</para>
+		/// </remarks>
 		/// <param name="id">The message id to remove.</param>
 		public void RemoveMessage(ChatMessageId id)
 		{
@@ -572,9 +581,31 @@ namespace SharpConsoleUI.Controls
 				return;
 
 			entry.Spinner?.Stop();
+			entry.Spinner = null;
+
+			// Siblings first, then the panel itself.
+			if (entry.StatusBar != null)
+			{
+				RemoveControl(entry.StatusBar);
+				entry.StatusBar = null;
+			}
+
+			if (entry.ActionsToolbar != null)
+			{
+				RemoveControl(entry.ActionsToolbar);
+				entry.ActionsToolbar = null;
+			}
+
+			if (entry.PeekRow != null)
+			{
+				RemoveControl(entry.PeekRow);
+				entry.PeekRow = null;
+			}
+
 			RemoveControl(entry.Panel);
 			_byId.Remove(id);
 			_order.Remove(entry);
+			Invalidate(Invalidation.Relayout);
 		}
 
 		/// <summary>
