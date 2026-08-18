@@ -44,6 +44,7 @@ SharpConsoleUI is actively maintained and driven by real-world usage in producti
 - **Instant input response** — replace the polling-based input loop with event-driven wake for zero-latency keypress handling
 - **Consolidate focus tracking** — unify visual focus (`control.HasFocus`) and coordinator routing into a single source of truth; currently two independent writes that can drift and cause key routing to target the wrong control
 - **Granular invalidation** — `SetProperty` always issues a full `Relayout`; let appearance-only properties settle for a `Repaint` so a color change stops costing a measure pass
+- **Native plugin ABI** — a real C-ABI plugin boundary that loads `.dll`/`.so` plugins at runtime, scoped to services and themes. Today's `LoadPlugin<T>` only instantiates a host-compiled type, so plugins cannot ship independently of the host
 
 ## Later
 
@@ -58,7 +59,6 @@ SharpConsoleUI is actively maintained and driven by real-world usage in producti
 
 - **Web terminal backend** — run your TUI in a browser via WebSocket
 - **SSH remote session driver** — dedicated driver for remote sessions
-- **Native plugin ABI** — real `.dll`/`.so` plugin loading for services and themes, beyond today's host-compiled types
 - **Plugin ecosystem** — community-contributed controls and themes
 
 ---
