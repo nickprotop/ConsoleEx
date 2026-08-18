@@ -1,5 +1,5 @@
 #!/usr/bin/env dotnet
-#:package SharpConsoleUI@2.5.23
+#:package SharpConsoleUI@2.5.24
 
 // progress.cs — Run a subprocess while showing an indeterminate progress bar.
 //
