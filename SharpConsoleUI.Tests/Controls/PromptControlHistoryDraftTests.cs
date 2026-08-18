@@ -237,4 +237,34 @@ public class PromptControlHistoryDraftTests
 		Down(p);
 		Assert.Equal(pasted, p.Input);
 	}
+
+	/// <summary>
+	/// Paste is a mutating path like typing: a pasted draft must survive an Up/Down round trip.
+	/// </summary>
+	[Fact]
+	public void PastedDraft_SurvivesAnUpDownRoundTrip()
+	{
+		var p = Host("first", "second");
+		p.Paste("pasted text");
+		Assert.Equal("pasted text", p.Input);
+
+		Up(p);
+		Assert.Equal("second", p.Input);
+
+		Down(p);
+		Assert.Equal("pasted text", p.Input);
+	}
+
+	/// <summary>Paste into an EMPTY buffer, the most common real case.</summary>
+	[Fact]
+	public void PasteIntoEmptyBuffer_ThenBrowse_RestoresPaste()
+	{
+		var p = Host("only");
+		p.Paste("fresh paste");
+
+		Up(p);
+		Assert.Equal("only", p.Input);
+		Down(p);
+		Assert.Equal("fresh paste", p.Input);
+	}
 }
