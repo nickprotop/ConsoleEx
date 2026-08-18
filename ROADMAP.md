@@ -37,14 +37,17 @@ SharpConsoleUI is actively maintained and driven by real-world usage in producti
 - Project templates — `dotnet new tui-app`, `tui-dashboard`, `tui-multiwindow`
 - .NET 8.0 + 9.0 multi-targeting, SourceLink and symbol packages
 - Compositor effects — PreBufferPaint/PostBufferPaint hooks
+- Unified focus management — a single `FocusManager` per window owns `FocusedControl` and the focus path, replacing the old FocusCoordinator/FocusStateService pair and the per-control `_hasFocus` fields. `IFocusScope` lets containers (ScrollablePanel, grids, NavigationView, Toolbar) define their own Tab order
 - Control-authoring on-ramp with the measure/paint contract reconciled to source
 
 ## Next
 
-- **Instant input response** — replace the polling-based input loop with event-driven wake for zero-latency keypress handling
-- **Consolidate focus tracking** — unify visual focus (`control.HasFocus`) and coordinator routing into a single source of truth; currently two independent writes that can drift and cause key routing to target the wrong control
-- **Granular invalidation** — `SetProperty` always issues a full `Relayout`; let appearance-only properties settle for a `Repaint` so a color change stops costing a measure pass
-- **Native plugin ABI** — a real C-ABI plugin boundary that loads `.dll`/`.so` plugins at runtime, scoped to services and themes. Today's `LoadPlugin<T>` only instantiates a host-compiled type, so plugins cannot ship independently of the host
+Ordered by effect per unit of effort — cheapest broad wins first, the deepest and
+most narrowly-scoped work last.
+
+- **Granular invalidation** — the `Repaint` tier already exists and the layout path already honors it, but all 476 `SetProperty` setters hardcode `Relayout`, so a color change still costs a full measure pass. Remaining work is per-property classification (~166 are colour-only and provably layout-neutral), not engine work; over-invalidating stays correct, so the failure mode is safe in one direction
+- **Instant input response** — `InputLoop` spins on `Console.KeyAvailable` with a 10ms sleep, so every keystroke pays up to 10ms before anything sees it. Replace that one loop with a blocking read plus a wake. Contained to a single method, but it is the paste and ANSI-sequence parsing path, so it needs care on both Unix and Windows
+- **Native plugin ABI** — a real C-ABI plugin boundary that loads `.dll`/`.so` plugins at runtime, scoped to services and themes. Today's `LoadPlugin<T>` is `new T()` on a host-compiled type, so plugins cannot ship independently of the host. The largest piece of work here and the one no adopter is currently blocked on
 
 ## Later
 
