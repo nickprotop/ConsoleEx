@@ -101,7 +101,7 @@ public partial class TableControl
 	public int MinScrollbarThumbSize
 	{
 		get => _minScrollbarThumbSize;
-		set { if (_minScrollbarThumbSize == value) return; _minScrollbarThumbSize = value; Invalidate(Invalidation.Repaint); }
+		set { if (_minScrollbarThumbSize == value) return; _minScrollbarThumbSize = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
 	}
 
 	#endregion
