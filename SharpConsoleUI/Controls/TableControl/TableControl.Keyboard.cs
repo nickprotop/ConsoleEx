@@ -34,7 +34,7 @@ public partial class TableControl
 				if (_hoveredRowIndex != -1) _hoveredRowIndex = -1;
 				if (_selectedRowIndex < rowCount - 1)
 				{
-					SetSelectedRow(_selectedRowIndex + 1);
+					ExtendOrMoveSelection(_selectedRowIndex + 1, key.Modifiers);
 					return true;
 				}
 				return false;
@@ -43,7 +43,7 @@ public partial class TableControl
 				if (_hoveredRowIndex != -1) _hoveredRowIndex = -1;
 				if (_selectedRowIndex > 0)
 				{
-					SetSelectedRow(_selectedRowIndex - 1);
+					ExtendOrMoveSelection(_selectedRowIndex - 1, key.Modifiers);
 					return true;
 				}
 				return false;
@@ -188,10 +188,13 @@ public partial class TableControl
 				}
 				return false;
 
-			case ConsoleKey.Spacebar when _checkboxMode && _multiSelectEnabled:
+			// Not gated on _checkboxMode - the only way to toggle a row into a growing multi-selection from
+			// the keyboard when Shift+Up/Down hasn't already covered it (e.g. picking non-contiguous rows).
+			case ConsoleKey.Spacebar when _multiSelectEnabled:
 				if (_selectedRowIndex >= 0)
 				{
 					ToggleRowSelection(_selectedRowIndex);
+					_selectionAnchorRowIndex = _selectedRowIndex;
 					return true;
 				}
 				return false;
@@ -210,4 +213,30 @@ public partial class TableControl
 				return false;
 		}
 	}
+
+	/// <summary>
+	/// Moves the cursor to <paramref name="newIndex"/>. Plain Up/Down resets the range anchor to the new
+	/// cursor position (so a later Shift+Up/Down always starts fresh from wherever the cursor now is).
+	/// Shift+Up/Down instead keeps the existing anchor fixed and re-selects the whole anchor..newIndex
+	/// range every time, so growing/shrinking the range by holding Shift and repeating the arrow key
+	/// works like Explorer/Excel. This is keyboard-only multi-select: this terminal does not deliver
+	/// Shift/Ctrl mouse-click modifiers to the app at all (confirmed via raw MouseFlags logging), so
+	/// Shift/Ctrl+Click can't be relied on here.
+	/// </summary>
+	private void ExtendOrMoveSelection(int newIndex, ConsoleModifiers modifiers)
+	{
+		if (_multiSelectEnabled && modifiers.HasFlag(ConsoleModifiers.Shift))
+		{
+			int anchor = _selectionAnchorRowIndex >= 0 ? _selectionAnchorRowIndex : _selectedRowIndex;
+			_selectionAnchorRowIndex = anchor;
+			_selectedRowIndices.Clear();
+			SelectRange(anchor, newIndex);
+		}
+		else
+		{
+			_selectionAnchorRowIndex = newIndex;
+		}
+		SetSelectedRow(newIndex);
+	}
 }
+

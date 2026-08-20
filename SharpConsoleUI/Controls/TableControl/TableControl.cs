@@ -116,6 +116,10 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private bool _checkboxMode = false;
 	private bool _clearSelectionOnEmptyClick = false;
 	private HashSet<int> _selectedRowIndices = new();
+	// Anchor for keyboard Shift+Up/Down range selection - the row a shift-extended range grows from/to.
+	// Reset to the cursor row on every non-shift cursor move so a fresh Shift+arrow always starts from
+	// wherever the cursor currently is (matches Explorer/Excel range-select semantics).
+	private int _selectionAnchorRowIndex = -1;
 
 	/// <summary>
 	/// When true, a left-click in the data area that does not hit any row

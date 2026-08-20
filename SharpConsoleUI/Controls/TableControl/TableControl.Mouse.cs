@@ -75,7 +75,9 @@ public partial class TableControl
 			return true;
 		}
 
-		// Right-click: select row/cell first, then fire event
+		// Right-click: select row/cell first, then fire event. When multi-select is enabled, this also
+		// extends the range from the anchor to the clicked row (a Shift+click stand-in, since this
+		// terminal does not deliver Shift/Ctrl mouse-click modifiers - see ExtendOrMoveSelection).
 		if (args.HasFlag(MouseFlags.Button3Clicked))
 		{
 			if (_isEditing)
@@ -85,6 +87,13 @@ public partial class TableControl
 			int rowIdx = GetRowIndexAtY(args.Position.Y);
 			if (rowIdx >= 0)
 			{
+				if (_multiSelectEnabled)
+				{
+					int anchor = _selectionAnchorRowIndex >= 0 ? _selectionAnchorRowIndex : _selectedRowIndex;
+					_selectionAnchorRowIndex = anchor;
+					_selectedRowIndices.Clear();
+					SelectRange(anchor, rowIdx);
+				}
 				SetSelectedRow(rowIdx);
 				if (_cellNavigationEnabled)
 				{
@@ -335,8 +344,11 @@ public partial class TableControl
 
 			// Fresh press over a data row: just move the cursor, don't touch multi-select state
 			// (multi-select toggling happens on the Button1Clicked / Up phase to avoid double-toggle).
+			// EXCEPTION: a Shift-click's range (Up phase below) is anchored on whatever _selectedRowIndex
+			// was BEFORE this click - moving it here first would make every range collapse to just the
+			// pressed row (anchor == target).
 			int pressRow = GetRowIndexAtY(args.Position.Y);
-			if (pressRow >= 0)
+			if (pressRow >= 0 && !(_multiSelectEnabled && args.HasFlag(MouseFlags.ButtonShift)))
 				SetSelectedRow(pressRow);
 			return true;
 		}
@@ -411,7 +423,14 @@ public partial class TableControl
 								row.IsChecked = false;
 						}
 					}
+					// Seed the set with this row so a plain click establishes a real one-row selection a
+					// following Ctrl/Shift-click can build on - otherwise Ctrl-clicking a second row only
+					// ever produces a 1-row set (looks like the selection moved rather than grew).
 					_selectedRowIndices.Clear();
+					_selectedRowIndices.Add(rowIdx);
+					// Re-anchor keyboard Shift+Up/Down range-select (see TableControl.Keyboard.cs) here too,
+					// so it starts fresh from wherever was just plain-clicked.
+					_selectionAnchorRowIndex = rowIdx;
 				}
 				SetSelectedRow(rowIdx);
 			}
