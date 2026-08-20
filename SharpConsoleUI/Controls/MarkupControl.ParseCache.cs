@@ -114,8 +114,10 @@ namespace SharpConsoleUI.Controls
 		// unchanged frame would walk every group, and without L2 a one-line append re-parses all of
 		// them.
 		//
-		// Accessed without a lock, matching the LRU beside it: only _content is guarded, and both
-		// caches are read and written on the render path.
+		// Guarded by _parseCacheLock (below): the render path is the intended caller, but a
+		// ScrollablePanelControl wheel/scrollbar-drag re-measure can reach EnsureParsed from the
+		// console driver's background input thread (see InputCoordinator.HandleMouseEvent), racing
+		// the UI thread's own render pass on this SAME Dictionary and corrupting it.
 		private readonly record struct GroupKey(
 			string Text,
 			int ParseWidth,
@@ -137,6 +139,11 @@ namespace SharpConsoleUI.Controls
 		private readonly Dictionary<GroupKey, ParsedGroup> _groupCache = new();
 		private int _groupGeneration;
 
+		// Serializes all access to the parse cache state (_groupCache, _cacheKeys/_cacheEntries, the
+		// dynamic/markdown version flags, _groupGeneration, _cached): EnsureParsed and HasMarkdownRegion
+		// can each be entered from more than one thread (see the GroupKey comment above).
+		private readonly object _parseCacheLock = new();
+
 		// Whether the content holds dynamic markup, cached against the version that produced it. Without
 		// this an unchanged frame rescanned every line for "[spinner"/"[gradient" before it was allowed
 		// to consult the cache, which made a pure hit O(N).
@@ -154,21 +161,24 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private bool HasMarkdownRegion()
 		{
-			int version;
-			lock (_contentLock) { version = Volatile.Read(ref _contentVersion); }
-			if (_markdownVersion == version)
-				return _markdownFlag;
+			lock (_parseCacheLock)
+			{
+				int version;
+				lock (_contentLock) { version = Volatile.Read(ref _contentVersion); }
+				if (_markdownVersion == version)
+					return _markdownFlag;
 
-			List<string> snapshot;
-			lock (_contentLock) { snapshot = _content.ToList(); version = Volatile.Read(ref _contentVersion); }
+				List<string> snapshot;
+				lock (_contentLock) { snapshot = _content.ToList(); version = Volatile.Read(ref _contentVersion); }
 
-			bool found = false;
-			for (int i = 0; i < snapshot.Count && !found; i++)
-				found = snapshot[i].Contains("[markdown]", StringComparison.Ordinal);
+				bool found = false;
+				for (int i = 0; i < snapshot.Count && !found; i++)
+					found = snapshot[i].Contains("[markdown]", StringComparison.Ordinal);
 
-			_markdownFlag = found;
-			_markdownVersion = version;
-			return found;
+				_markdownFlag = found;
+				_markdownVersion = version;
+				return found;
+			}
 		}
 
 		/// <summary>True if a logical line carries inline dynamic markup that must re-parse every frame.</summary>
@@ -199,6 +209,13 @@ namespace SharpConsoleUI.Controls
 		/// logical line (so a hit shows zero new parses).
 		/// </summary>
 		private ParsedContent EnsureParsed(int renderWidth, Color fg, Color bg, MarkdownStyle? md, bool wrap)
+		{
+			// Serialized: a ScrollablePanelControl wheel/scrollbar-drag re-measure can call this from the
+			// console driver's background input thread concurrently with the UI thread's own render pass.
+			lock (_parseCacheLock) { return EnsureParsedLocked(renderWidth, fg, bg, md, wrap); }
+		}
+
+		private ParsedContent EnsureParsedLocked(int renderWidth, Color fg, Color bg, MarkdownStyle? md, bool wrap)
 		{
 			bool zwj = Helpers.TerminalCapabilities.SupportsZwjLigation;
 
