@@ -75,6 +75,15 @@ public interface ITableDataSource : INotifyCollectionChanged
 	int? GetColumnWidth(int columnIndex) => null;
 
 	/// <summary>
+	/// Gets a minimum width floor for a column when it is auto-width and gets shrunk to fit the
+	/// available space. Null means no floor (the column can be shrunk down to 1 character). Ignored
+	/// for columns with a fixed <see cref="GetColumnWidth"/>. When honoring this floor would require
+	/// more space than is available, the table instead lets its total content width exceed the
+	/// viewport so a horizontal scrollbar can be used to pan to it.
+	/// </summary>
+	int? GetColumnMinWidth(int columnIndex) => null;
+
+	/// <summary>
 	/// Gets the background color for a row. Null means use table default.
 	/// </summary>
 	Color? GetRowBackgroundColor(int rowIndex) => null;

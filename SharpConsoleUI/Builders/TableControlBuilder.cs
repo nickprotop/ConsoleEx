@@ -119,6 +119,15 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 	}
 
 	/// <summary>
+	/// Adds a column with a minimum auto-width floor. See <see cref="TableColumn.MinWidth"/>.
+	/// </summary>
+	public TableControlBuilder AddColumn(string header, TextJustification alignment, int? width, int? minWidth)
+	{
+		_columns.Add(new TableColumn(header, alignment, width) { MinWidth = minWidth });
+		return this;
+	}
+
+	/// <summary>
 	/// Adds multiple columns from header names.
 	/// </summary>
 	public TableControlBuilder WithColumns(params string[] headers)

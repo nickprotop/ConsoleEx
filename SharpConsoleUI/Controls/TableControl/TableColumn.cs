@@ -54,6 +54,21 @@ public class TableColumn
 		set { if (_width == value) return; _width = value; Owner?.OnColumnDisplayChanged(this, true, Invalidation.Relayout); }
 	}
 
+	private int? _minWidth;
+
+	/// <summary>
+	/// Gets or sets a minimum width floor applied when this column is auto-width and gets shrunk to
+	/// fit the available space. Ignored for columns with a fixed <see cref="Width"/>. Null means no
+	/// floor (the column can be shrunk down to 1 character, the previous fixed behavior). When the
+	/// column's natural content would still be shrunk below this floor, the table instead allows its
+	/// total content width to exceed the viewport so a horizontal scrollbar can be used to pan to it.
+	/// </summary>
+	public int? MinWidth
+	{
+		get => _minWidth;
+		set { if (_minWidth == value) return; _minWidth = value; Owner?.OnColumnDisplayChanged(this, true, Invalidation.Relayout); }
+	}
+
 	private bool _noWrap = false;
 
 	/// <summary>

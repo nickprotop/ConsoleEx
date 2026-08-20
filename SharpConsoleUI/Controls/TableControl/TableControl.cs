@@ -1196,24 +1196,33 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 				for (int c = 0; c < colCount; c++)
 				{
 					if (cols[c].Width.HasValue) continue;
-					widths[c] = Math.Max(1, (int)(widths[c] * ratio));
+					int minW = Math.Max(1, cols[c].MinWidth ?? 1);
+					widths[c] = Math.Max(minW, (int)(widths[c] * ratio));
 					assigned += widths[c];
 					lastAutoCol = c;
 				}
 				if (lastAutoCol >= 0)
-					widths[lastAutoCol] = Math.Max(1, widths[lastAutoCol] + (contentWidth - assigned));
+				{
+					int minWLast = Math.Max(1, cols[lastAutoCol].MinWidth ?? 1);
+					widths[lastAutoCol] = Math.Max(minWLast, widths[lastAutoCol] + (contentWidth - assigned));
+				}
 			}
 			else
 			{
-				// Not enough space even for fixed columns — shrink everything
+				// Not enough space even for fixed columns — shrink everything. Fixed-width columns have
+				// no MinWidth concept (floor stays 1); auto columns respect their configured floor, which
+				// may leave the total width exceeding contentWidth - the table then relies on horizontal
+				// scrolling rather than crushing an auto column below its usable floor.
 				double ratio = (double)contentWidth / totalNatural;
 				int assigned = 0;
 				for (int c = 0; c < colCount - 1; c++)
 				{
-					widths[c] = Math.Max(1, (int)(widths[c] * ratio));
+					int minW = cols[c].Width.HasValue ? 1 : Math.Max(1, cols[c].MinWidth ?? 1);
+					widths[c] = Math.Max(minW, (int)(widths[c] * ratio));
 					assigned += widths[c];
 				}
-				widths[colCount - 1] = Math.Max(1, contentWidth - assigned);
+				int minWLast = cols[colCount - 1].Width.HasValue ? 1 : Math.Max(1, cols[colCount - 1].MinWidth ?? 1);
+				widths[colCount - 1] = Math.Max(minWLast, contentWidth - assigned);
 			}
 		}
 
@@ -1314,24 +1323,35 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 				{
 					bool isFixed = _columnWidthOverrides.ContainsKey(c) || _dataSource.GetColumnWidth(c).HasValue;
 					if (isFixed) continue;
-					widths[c] = Math.Max(1, (int)(widths[c] * ratio));
+					int minW = Math.Max(1, _dataSource.GetColumnMinWidth(c) ?? 1);
+					widths[c] = Math.Max(minW, (int)(widths[c] * ratio));
 					assigned += widths[c];
 					lastAutoCol = c;
 				}
 				if (lastAutoCol >= 0)
-					widths[lastAutoCol] = Math.Max(1, widths[lastAutoCol] + (contentWidth - assigned));
+				{
+					int minWLast = Math.Max(1, _dataSource.GetColumnMinWidth(lastAutoCol) ?? 1);
+					widths[lastAutoCol] = Math.Max(minWLast, widths[lastAutoCol] + (contentWidth - assigned));
+				}
 			}
 			else
 			{
-				// Not enough space even for fixed columns — shrink everything
+				// Not enough space even for fixed columns — shrink everything. Fixed/overridden columns
+				// have no MinWidth concept (floor stays 1); auto columns respect their configured floor,
+				// which may leave the total width exceeding contentWidth - the table then relies on
+				// horizontal scrolling rather than crushing an auto column below its usable floor.
 				double ratio = (double)contentWidth / totalNatural;
 				int assigned = 0;
 				for (int c = 0; c < colCount - 1; c++)
 				{
-					widths[c] = Math.Max(1, (int)(widths[c] * ratio));
+					bool isFixed = _columnWidthOverrides.ContainsKey(c) || _dataSource.GetColumnWidth(c).HasValue;
+					int minW = isFixed ? 1 : Math.Max(1, _dataSource.GetColumnMinWidth(c) ?? 1);
+					widths[c] = Math.Max(minW, (int)(widths[c] * ratio));
 					assigned += widths[c];
 				}
-				widths[colCount - 1] = Math.Max(1, contentWidth - assigned);
+				bool isLastFixed = _columnWidthOverrides.ContainsKey(colCount - 1) || _dataSource.GetColumnWidth(colCount - 1).HasValue;
+				int minWLast = isLastFixed ? 1 : Math.Max(1, _dataSource.GetColumnMinWidth(colCount - 1) ?? 1);
+				widths[colCount - 1] = Math.Max(minWLast, contentWidth - assigned);
 			}
 		}
 
