@@ -79,14 +79,14 @@ public class ConsoleWindowSystemWatchdogTests
 	[Fact]
 	public void FormatCurrentCallback_ReturnsNull_WhenNoFrameSet()
 	{
-		var sys = new ConsoleWindowSystem(RenderMode.Buffer);
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver());
 		Assert.Null(sys.FormatCurrentCallback());
 	}
 
 	[Fact]
 	public void FormatCurrentCallback_FreeFormLabel_FormatsAsOpColonLabel()
 	{
-		var sys = new ConsoleWindowSystem(RenderMode.Buffer);
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver());
 		sys.SetFrameLabel("SaveTimer");
 		Assert.Equal("UIAction: SaveTimer", sys.FormatCurrentCallback());
 	}
@@ -94,7 +94,7 @@ public class ConsoleWindowSystemWatchdogTests
 	[Fact]
 	public void FormatCurrentCallback_StructuredWindowAndControl_NamesBoth()
 	{
-		var sys = new ConsoleWindowSystem(RenderMode.Buffer);
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver());
 		var window = new Window(sys) { Title = "Editor" };
 		var control = new SharpConsoleUI.Controls.MarkupControl(new System.Collections.Generic.List<string> { "x" });
 		sys.SetFrame(window, control, UiOp.Click);
@@ -104,7 +104,7 @@ public class ConsoleWindowSystemWatchdogTests
 	[Fact]
 	public void FormatCurrentCallback_WindowOnly_OmitsControlClause()
 	{
-		var sys = new ConsoleWindowSystem(RenderMode.Buffer);
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver());
 		var window = new Window(sys) { Title = "Dashboard" };
 		sys.SetFrame(window, null, UiOp.Render);
 		Assert.Equal("Render on 'Dashboard'", sys.FormatCurrentCallback());
@@ -115,7 +115,7 @@ public class ConsoleWindowSystemWatchdogTests
 	[Fact]
 	public void UiCallbackScope_RestoresPreviousFrame_OnDispose()
 	{
-		var sys = new ConsoleWindowSystem(RenderMode.Buffer);
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver());
 		var window = new Window(sys) { Title = "Outer" };
 		sys.SetFrame(window, null, UiOp.Key);
 
@@ -131,7 +131,7 @@ public class ConsoleWindowSystemWatchdogTests
 	[Fact]
 	public void UiCallbackScope_Nested_InnermostWins_OuterRestored()
 	{
-		var sys = new ConsoleWindowSystem(RenderMode.Buffer);
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver());
 
 		using (new UiCallbackScope(sys, "A"))
 		{

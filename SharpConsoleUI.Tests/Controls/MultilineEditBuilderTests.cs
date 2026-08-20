@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System;
 using SharpConsoleUI.Controls;
 using Xunit;
 using Ctl = SharpConsoleUI.Builders.Controls;
@@ -23,7 +24,7 @@ public class MultilineEditBuilderTests
 			.WithHeight(4)
 			.Build();
 
-		Assert.Equal("line 1\nline 2", editor.Content);
+		Assert.Equal("line 1" + Environment.NewLine + "line 2", editor.Content); // Content getter joins lines with Environment.NewLine
 		Assert.True(editor.ReadOnly);
 		Assert.Equal(4, editor.Height);            // WithHeight sets the layout height
 	}

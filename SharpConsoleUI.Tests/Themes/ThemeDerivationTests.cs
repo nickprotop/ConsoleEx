@@ -146,7 +146,7 @@ public class ThemeDerivationTests
 	[Fact]
 	public void RegisterAndSwitch_EndToEnd_MakesDerivedThemeLive()
 	{
-		var system = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
+		var system = new ConsoleWindowSystem(new HeadlessConsoleDriver());
 
 		var derived = Theme.From(new ModernGrayTheme())
 			.WithName("MyDark")

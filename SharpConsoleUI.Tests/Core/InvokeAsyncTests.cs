@@ -11,7 +11,7 @@ public class InvokeAsyncTests
 	[Fact]
 	public async Task InvokeAsync_MarshalsWork_AndReturnsResult()
 	{
-		var sys = new ConsoleWindowSystem(RenderMode.Buffer, options: new ConsoleWindowSystemOptions());
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(), options: new ConsoleWindowSystemOptions());
 		Assert.False(sys.IsOnUIThread);                  // not running → uiThreadId is -1
 
 		var task = sys.InvokeAsync(() => 21 * 2);

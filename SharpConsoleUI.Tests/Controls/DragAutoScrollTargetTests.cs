@@ -124,7 +124,7 @@ public class DragAutoScrollTargetTests
 	[Fact]
 	public void Registry_Step_DrivesTarget_WhenOutOfBounds()
 	{
-		var system = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
+		var system = new ConsoleWindowSystem(new HeadlessConsoleDriver());
 		var fake = new FakeTarget { LastDragRelativeY = 15, ViewportHeightRows = 10 }; // 6 below bottom
 		system.RegisterDragAutoScroll(fake);
 
@@ -137,7 +137,7 @@ public class DragAutoScrollTargetTests
 	[Fact]
 	public void Registry_Step_NoOp_WhenInBounds()
 	{
-		var system = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer));
+		var system = new ConsoleWindowSystem(new HeadlessConsoleDriver());
 		var fake = new FakeTarget { LastDragRelativeY = 3, ViewportHeightRows = 10 };
 		system.RegisterDragAutoScroll(fake);
 		system.StepDragAutoScrollForTest(1000);
