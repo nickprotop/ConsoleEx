@@ -298,16 +298,20 @@ Keyboard-driven .NET 10 console for taking HuggingFace models onto a Qualcomm Sn
 
 | Capability | Other .NET TUI libraries |
 |---|---|
-| Overlapping windows with drag, resize, minimize, maximize | Terminal.Gui v2 beta only |
-| Per-cell Porter-Duff RGBA alpha blending | None |
-| Gradient backgrounds propagating through controls | None |
+| Per-window buffers merged by a true compositor | None (single shared buffer) |
 | PreBufferPaint / PostBufferPaint compositor hooks | None |
+| Occlusion culling (hidden regions skipped entirely) | None |
+| Overlapping windows with drag, resize, minimize, maximize | Terminal.Gui v2 only |
 | Per-window async threads | None |
 | PTY-backed terminal emulator control | None |
-| Video playback (Kitty graphics + half-block/ASCII/braille) | None |
 | Animated desktop backgrounds | None |
 | Portal system for dropdowns and overlays | None |
 | Plugin architecture (themes, controls, windows, services) | None |
+
+Alpha blending is **not** on that list: XenoAtom.Terminal.UI also does RGBA blending, in
+linear colour space. What differs is where it happens — we blend *between per-window
+buffers* during compositing, which is what makes overlapping translucent windows and
+compositor effects possible. See the [full comparison](https://nickprotop.github.io/ConsoleEx/docfx/_site/COMPARISON.html) for the honest side-by-side.
 
 Full comparison with Terminal.Gui, Spectre.Console, and XenoAtom.Terminal.UI:
 [nickprotop.github.io/ConsoleEx/docfx/_site/COMPARISON.html](https://nickprotop.github.io/ConsoleEx/docfx/_site/COMPARISON.html)
