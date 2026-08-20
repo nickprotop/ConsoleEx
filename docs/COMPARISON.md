@@ -11,7 +11,16 @@ The .NET ecosystem has several libraries for building console applications. Each
 | **[XenoAtom.Terminal.UI](https://github.com/XenoAtom/XenoAtom.Terminal.UI)** | Reactive UI framework | A **WPF for the terminal** -- reactive bindings, alpha blending |
 | **[SharpConsoleUI](https://github.com/nickprotop/ConsoleEx)** | Windowed console UI system | A **desktop** -- overlapping windows with a compositor engine |
 
-They're complementary, not always competing. SharpConsoleUI can host Spectre.Console renderables inside its windows via `SpectreRenderableControl`.
+They're complementary, not always competing — they solve different problems, and two of them
+can be used together: SharpConsoleUI can host Spectre.Console renderables inside its windows via
+`SpectreRenderableControl`.
+
+> **A note on a common misreading.** SharpConsoleUI is sometimes described as "built on top of
+> Spectre.Console." It is not. It has its own rendering engine, compositor, drivers, layout
+> engine, colour system and markup parser; the Spectre dependency exists so one optional control
+> can host Spectre renderables, and so the two colour types convert. The markup *syntax* is
+> Spectre-compatible by design — that compatibility is what gets mistaken for a dependency. See
+> [Compatibility with Spectre.Console](#compatibility-with-spectreconsole).
 
 ## Quick Decision Guide
 
@@ -247,7 +256,12 @@ var label = Controls.Markup()
 - **Spectre.Console** has excellent markup -- but only for static output that scrolls away. You can't use it in live, interactive controls.
 - **Terminal.Gui** has no markup system. Styling requires working with `ColorScheme` objects and attribute-based formatting. v2 adds `VisualRole` semantic styling, but no inline markup syntax.
 - **XenoAtom.Terminal.UI** has its own markup and `Brush` system (including gradient brushes for text), but it's a separate syntax incompatible with Spectre.Console. No `IRenderable` bridge.
-- **SharpConsoleUI** parses Spectre-compatible markup directly into cells (no ANSI roundtrip) and supports any Spectre `IRenderable` (Tables, Charts, BarCharts) as a control via `SpectreRenderableControl`. This extends Spectre.Console rather than replacing it.
+- **SharpConsoleUI** has its **own** markup parser that writes directly into cells (no ANSI
+  roundtrip). The syntax is deliberately Spectre-compatible so existing markup strings keep
+  working, but the parser, the colour system and the render path are ours — the compositor,
+  drivers and layout engine contain no Spectre code. Separately, `SpectreRenderableControl` can
+  host any Spectre `IRenderable` (Tables, Charts, BarCharts) as a control, for teams already
+  invested in those renderables.
 
 ### Hyperlinks
 
@@ -434,7 +448,24 @@ var logWindow = new WindowBuilder(system)
 
 ## Compatibility with Spectre.Console
 
-SharpConsoleUI doesn't replace Spectre.Console -- it can host it. Use `SpectreRenderableControl` to embed any Spectre.Console renderable inside a SharpConsoleUI window:
+**SharpConsoleUI is not built on Spectre.Console.** The rendering engine, compositor, drivers,
+layout engine, colour system and markup parser are all its own: of 598 source files in the
+library, **three** touch Spectre at all — the two halves of the optional
+`SpectreRenderableControl` bridge, plus implicit conversion operators between our `Color` and
+Spectre's in `Color.cs`, so the two colour types interoperate. Nothing in the compositor,
+drivers or layout engine references it.
+
+Two things are easy to conflate, so stated plainly:
+
+- **Markup syntax compatibility.** SharpConsoleUI's markup (`[red bold]text[/]`) is deliberately
+  Spectre-*compatible*, so strings you already have keep working. The parser is ours and writes
+  straight into cells, with no ANSI roundtrip and no Spectre call.
+- **Renderable hosting.** `SpectreRenderableControl` embeds a real Spectre `IRenderable` in a
+  window, for teams already invested in Spectre's tables and charts. This is the one place the
+  dependency is used, and it is opt-in per control.
+
+So the two are complementary rather than layered — SharpConsoleUI can host Spectre, not the
+other way round:
 
 ```csharp
 var table = new Table()
