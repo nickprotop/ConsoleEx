@@ -143,6 +143,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private int _horizontalScrollOffset = 0;
 	private ScrollbarVisibility _verticalScrollbarVisibility = ScrollbarVisibility.Auto;
 	private ScrollbarVisibility _horizontalScrollbarVisibility = ScrollbarVisibility.Auto;
+	private int _minScrollbarThumbSize = ControlDefaults.DefaultMinScrollbarThumbSize;
 
 	// Mouse gesture capture: a fresh Button1 press captures one sub-region; every subsequent resent
 	// press/drag routes to it without re-hit-testing (SGR re-sends Button1Pressed on motion). Replaces

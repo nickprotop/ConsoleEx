@@ -15,7 +15,7 @@ spec adds a second **source** of plugin contributions: a native shared library
 A native library is exposed to the framework as a **pure logic engine**. The managed
 framework remains the **sole owner of rendering, layout, input, and the window system**.
 The native side never sees a .NET type, namespace, or the `ConsoleWindowSystem`. It
-implements four `extern "C"` functions and speaks a small, fixed JSON vocabulary.
+implements five `extern "C"` functions and speaks a small, fixed JSON vocabulary.
 
 The design is **additive and non-breaking**: no existing interface, signature, or caller
 changes. A native library is wrapped in a managed container that *is* an `IPlugin`, so the
@@ -58,7 +58,7 @@ Three layers:
 
 | Layer | Responsibility | Language | Type |
 | :--- | :--- | :--- | :--- |
-| **Brain** | Pure logic | Rust / C / Zig | C-compatible library exporting 4 functions |
+| **Brain** | Pure logic | Rust / C / Zig | C-compatible library exporting 5 functions |
 | **Shim** | Bridge / marshalling | C# | `NativeServiceShim : IPluginService` (generic, one class for all native services) |
 | **Loader** | Registration | C# | `NativePluginContainer : PluginBase` + a discovery entry point |
 
@@ -103,7 +103,7 @@ Host (managed)
 
 ## 5. The native ABI
 
-A native plugin exports exactly four C functions. Names are fixed; symbol lookup is by name.
+A native plugin exports exactly five C functions. Names are fixed; symbol lookup is by name.
 
 ```c
 /* ABI handshake. Return the ABI version this library was built against.
@@ -111,15 +111,26 @@ A native plugin exports exactly four C functions. Names are fixed; symbol lookup
 int32_t     plugin_abi_version(void);
 
 /* Self-description. Return a UTF-8 JSON manifest (see §6).
-   The returned pointer is owned by the library and released via plugin_free. */
+   MUST be a freshly allocated string: the host copies it out and hands the pointer
+   straight back to plugin_free. Returning a static/const literal is a bug — the
+   library's own free() will be called on memory it does not own. */
 const char* plugin_describe(void);
 
 /* Invoke a named operation. `op` and `args_json` are host-owned, valid for the call.
    Return a UTF-8 JSON result envelope (see §9), owned by the library. */
 const char* plugin_invoke(const char* op, const char* args_json);
 
-/* Release a string previously returned by plugin_describe / plugin_invoke. */
+/* Release a string previously returned by plugin_kind / plugin_describe / plugin_invoke. */
 void        plugin_free(const char* ptr);
+
+/* Pre-load probe. Return the UTF-8 set of kinds this library declares, newline-separated
+   (see §6.1). Freshly allocated; released via plugin_free.
+
+   This is the ONLY function callable before plugin_abi_version — it is what tells a host
+   whether a version check is even meaningful. A file that does not export it is not a
+   ConsoleEx plugin, which is the whole point: the host learns that by resolving a symbol,
+   without ever executing plugin_invoke. */
+const char* plugin_kind(void);
 ```
 
 Managed side uses **`[LibraryImport]`** (source-generated, trim/AOT-clean UTF-8 marshalling).
@@ -127,6 +138,147 @@ The repository already ships native interop (`Controls/Terminal/PtyNative.cs` vi
 `[LibraryImport]` is the AOT-preferred form for this new path.
 
 ---
+
+## 5.1 The protocol, end to end
+
+The whole contract is four calls in a fixed order. There is no state on the host side beyond
+what one `NativePluginContainer` holds, and no callback from native back into managed.
+
+### Phase 1 — Load handshake
+
+Happens once, in the `NativePluginContainer` constructor. It either completes fully or throws;
+there is no partially-loaded plugin.
+
+```
+1. NativeLibrary.Load(path)                     → fail: DllNotFoundException, propagated
+2. resolve the 5 symbols by name                → any missing: EntryPointNotFoundException
+3. const char* k = plugin_kind()                 → the probe (§6.2); plugin_free(k)
+4. int v = plugin_abi_version()                 → the handshake
+5. if (v != AbiVersion) throw                   → refuse the load, do not call further
+6. const char* json = plugin_describe()          → the manifest
+7. parse + validate manifest, then plugin_free(json)
+8. probe kinds == union of manifest kinds?       → mismatch: throw (§6.2)
+9. materialize one NativeServiceShim per service
+```
+
+Step 3 is redundant when the caller already probed via `NativePluginProbe.TryReadKinds` — but
+the container cannot assume it did, and step 8 needs the probe's answer to verify the manifest
+agrees with it. The cost is one extra string round-trip per load, once.
+
+**Version check precedes everything except the probe.** `plugin_abi_version` is called before
+`plugin_describe`, so a library built against a future ABI is rejected before the host tries
+to parse a manifest whose shape it may not understand. Its signature can never change — it and `plugin_kind`
+are the only things both sides agree on before agreeing on anything else. (`plugin_kind` comes
+first only because it answers a cruder question: *is this a plugin at all?* It returns a string
+under the ownership rule of §10, which is why the probe needs `plugin_free` resolvable too.)
+
+The host's `AbiVersion` is a single constant (`1` for this spec). The rule is deliberately
+**exact equality, not a floor**: a v1 host cannot know whether a v2 manifest carries a field
+whose absence would silently change behaviour. When v2 exists, a host may choose to accept
+`{1, 2}` explicitly, per version, with code that knows both shapes.
+
+Validation at step 6 rejects a manifest that parses but is unusable — duplicate service names
+within one library, duplicate operation names within a service, a parameter whose `type` is
+outside the closed vocabulary (§7), or an operation whose `returnType` is outside it. Failing
+here means an authoring mistake surfaces at load, not at the first call in production.
+
+### Phase 2 — Discovery / registration
+
+The container is an `IPlugin`, so it registers through the existing path with no new API:
+
+```csharp
+windowSystem.PluginStateService.LoadPlugin(new NativePluginContainer("./libmath.so"));
+```
+
+`PluginStateService.LoadPlugin` calls `plugin.Initialize(windowSystem)`, then walks
+`plugin.GetServicePlugins()` and keys each into its service map by `ServiceName`
+(`_services[servicePlugin.ServiceName] = servicePlugin`). Two consequences worth stating,
+because both are inherited behaviour rather than choices made here:
+
+- **Registration is last-wins, not an error.** Loading a second plugin that declares an
+  existing `ServiceName` silently replaces the first. That is the framework's existing
+  semantics for managed plugins; native plugins do not change it. A host that cares should
+  check `HasService(name)` before loading.
+- **`GetServicePlugins()` is the override that matters.** `PluginBase` also exposes an
+  obsolete `GetServices()` returning the legacy `PluginService` type; `NativePluginContainer`
+  overrides only `GetServicePlugins()` and inherits the empty default for everything else —
+  themes, controls, windows, action providers. That inherited emptiness *is* the "don't probe,
+  don't offer" principle: there is no ABI export for those, so the container cannot accidentally
+  claim them.
+
+Discovery from the caller's side is then entirely the existing, unmodified API — a native
+service is indistinguishable from a managed one:
+
+```csharp
+var svc = windowSystem.PluginStateService.GetService("MathService");   // IPluginService?
+foreach (var op in svc!.GetAvailableOperations())                       // manifest, rehydrated
+    Console.WriteLine($"{op.Name}({string.Join(", ", op.Parameters.Select(p => p.Name))})");
+```
+
+`GetAvailableOperations()` returns the `ServiceOperation` records built from the manifest at
+load. Nothing crosses the ABI to answer it — the metadata was captured once, in phase 1.
+
+### Phase 3 — The call
+
+```csharp
+long sum = (long)svc.Execute("Add", new Dictionary<string, object> { ["a"] = 21L, ["b"] = 21L })!;
+```
+
+Inside `NativeServiceShim.Execute`:
+
+```
+1. look up the ServiceOperation by name       → unknown: InvalidOperationException
+2. validate the dictionary against it         → §13.1 strict rule; reject before crossing
+3. Utf8JsonWriter → args JSON                 → dispatch on the DECLARED wire type,
+                                                 never on the boxed runtime type
+4. plugin_invoke(op, argsJson)                → the only P/Invoke on the hot path
+```
+
+Step 3 is what keeps the pipeline AOT-clean. The writer switches on the manifest's declared
+type and calls the corresponding typed `Write*` — it never asks a boxed `object` what it is
+and never reaches `JsonSerializer.Serialize(object)`, which is the reflection path that breaks
+NativeAOT.
+
+Step 2 matters for a subtler reason: **validation happens before marshalling**, so a bad call
+never reaches native code. The native side may assume its args JSON is well-formed and
+type-correct, which is what lets a native author write a plugin without defensive parsing in
+every operation.
+
+### Phase 4 — The return
+
+Native returns a UTF-8 JSON envelope (§9), and the shim:
+
+```
+1. copy the UTF-8 bytes into a managed string
+2. plugin_free(ptr)                           ← in a finally, always, including on throw
+3. parse the envelope per §9.1
+     ok:false → InvalidOperationException(error)
+     ok:true  → read "value" per the operation's declared ReturnType
+4. return object?  (null for a void operation)
+```
+
+Step 2 before step 3 is deliberate: the native buffer is released as soon as its bytes are
+copied, so a malformed envelope throws *after* the memory is already reclaimed rather than
+leaking it on the error path.
+
+The envelope grammar, the meaning of each field, and the complete table of failure modes live in
+**§9** and are not restated here — one normative home, so the two cannot drift.
+
+Ownership is strictly one-directional and stated once: **every string crossing the boundary is
+allocated by the side that produced it and freed by that same side's allocator.** Native
+allocates what it returns; the shim copies it out and hands the pointer straight back via
+`plugin_free`. The host's `op` and `args_json` are valid only for the duration of the call, so
+a library retaining either must copy it.
+
+### What the protocol deliberately lacks
+
+- **No host callbacks.** Native never calls back into managed. This is what keeps the ABI five
+  functions wide and makes the boundary trivially auditable.
+- **No async.** `plugin_invoke` is synchronous. A long-running native operation blocks its
+  caller, exactly as a long-running managed service would; the host is free to call it from a
+  background thread and marshal results back with `EnqueueOnUIThread` (CLAUDE.md Rule 13).
+- **No streaming or partial results.** One call, one envelope.
+- **No unload.** Mirrors the managed plugin system's existing limitation (§2).
 
 ## 6. Manifest format (`plugin_describe`)
 
@@ -140,6 +292,7 @@ existing metadata types (`ServiceOperation`, `ServiceParameter`).
   "services": [
     {
       "name": "MathService",
+      "kind": "calculator",
       "description": "Arithmetic helpers.",
       "operations": [
         {
@@ -157,9 +310,128 @@ existing metadata types (`ServiceOperation`, `ServiceParameter`).
 }
 ```
 
+### 6.1 `kind` — the user-declared contract identifier
+
+Each service may declare a **kind**: a free-form string naming the contract it satisfies.
+
+```json
+{
+  "name": "GitService",
+  "kind": "scm",
+  "description": "Source-control operations.",
+  "operations": [ … ]
+}
+```
+
+**The framework never interprets a kind.** It does not validate it against a registry, does
+not reserve names, and attaches no behaviour to any value. The vocabulary belongs entirely to
+the consumer: an app that understands `"scm"` decides what that obliges a plugin to implement.
+This is deliberate — the moment the framework assigns meaning to a kind, it owns a taxonomy it
+must version and defend forever.
+
+`kind` is optional. A service that omits it has `Kind == null` and is simply not discoverable
+by kind, which keeps the field additive: existing manifests remain valid.
+
+**Why a string and not a type.** The obvious managed analogue — `GetService<T>()` — already
+exists and is `[Obsolete("Type-based service lookup will be removed in a future version")]`,
+because it cannot work reflection-free. It certainly cannot work for a native plugin, which
+has no CLR type at all. A string is the only identifier that crosses a C ABI, and it is the
+one the consumer can define without the framework's participation.
+
+**Where the kind lives managed-side.** Not on `IPluginService` — adding a member there would
+break every external implementer, which the no-breaking rule forbids. The kind lives on the
+shim and is exposed through a separate optional interface:
+
+```csharp
+/// <summary>A service that declares the contract ("kind") it satisfies, for discovery by
+/// consumers that group plugins by capability rather than by name.</summary>
+public interface IKindedService
+{
+    /// <summary>The consumer-defined contract identifier, or null when the service declares none.</summary>
+    string? Kind { get; }
+}
+```
+
+`NativeServiceShim` implements it. Managed services may implement it too — the feature is not
+native-only, and nothing stops a managed plugin from participating in the same discovery. A
+service that does not implement it is treated as `Kind == null`.
+
+Discovery is then a filter over the existing registry, added as new API rather than changed API:
+
+```csharp
+// All services declaring a given kind, native and managed alike.
+IReadOnlyList<IPluginService> GetServicesByKind(string kind);
+```
+
+### 6.2 `plugin_kind` — the pre-load probe
+
+`plugin_kind()` returns the **union of the kinds declared by the library's services**,
+newline-separated, in any order:
+
+```
+scm
+diff-provider
+```
+
+A library whose services declare no kinds returns an empty string. Duplicates are collapsed —
+three services of kind `"scm"` yield one `scm` line.
+
+**Union, not a primary kind.** One `.so` may host several services of different kinds, so a
+single value would force a primary/secondary hierarchy that means nothing to a consumer asking
+"does this file contain anything of kind `scm`?" The union answers exactly that question and
+needs no hierarchy to explain.
+
+**Ordering.** `plugin_kind` is the one function callable before `plugin_abi_version`, because
+it is what establishes whether the file is a plugin at all. It therefore needs `plugin_free`
+resolvable too — the probe resolves **two** symbols, not one, and both must be present for the
+file to be considered a plugin.
+
+**Consistency is enforced at load.** After `plugin_describe`, the container compares the
+probe's set against the union of the manifest's kinds. A mismatch is a **load error**, not a
+precedence question: two sources of truth that can silently diverge is how a plugin ends up
+filtered into one bucket and behaving like another. The manifest is the authority; the probe
+is a fast path that must agree with it.
+
+**The helper.**
+
+```csharp
+public static class NativePluginProbe
+{
+    /// <summary>
+    /// Reads the kinds a native library declares, without loading it as a plugin.
+    /// Returns false — never throws — when the file is missing, is not a loadable native
+    /// library, or does not export plugin_kind/plugin_free, i.e. when it is not a
+    /// ConsoleEx plugin.
+    /// </summary>
+    /// <remarks>
+    /// A true result means the file CLAIMS to be a ConsoleEx plugin of these kinds. It does
+    /// NOT mean the plugin will load: the ABI version is not checked here, the manifest is
+    /// not parsed, and the probe/manifest consistency check happens later, at load.
+    ///
+    /// <para>Not zero-trust. Loading a shared library runs its initializers (ELF .init_array,
+    /// DllMain on Windows), so probing an untrusted file still executes some of its code. The
+    /// probe is narrower than a full load — it never calls plugin_invoke — but it is not a
+    /// sandbox. Do not point it at a directory you would not execute.</para>
+    /// </remarks>
+    public static bool TryReadKinds(string path, out IReadOnlyList<string> kinds);
+}
+```
+
+Which makes the folder case a filter before any plugin is initialized:
+
+```csharp
+foreach (var file in Directory.EnumerateFiles(dir, "*.so"))
+{
+    if (!NativePluginProbe.TryReadKinds(file, out var kinds)) continue;  // not ours
+    if (!kinds.Contains("scm")) continue;                                 // not wanted
+    windowSystem.PluginStateService.LoadPlugin(new NativePluginContainer(file));
+}
+```
+
 Mapping to framework types:
 
 - service `name`/`description` → `IPluginService.ServiceName` / `Description`
+- service `kind` (optional) → `IKindedService.Kind` on the shim; `null` when omitted (§6.1)
 - `operations[]` → `GetAvailableOperations()` returning `ServiceOperation(Name, Description, Parameters, ReturnType?)`
 - `parameters[]` → `ServiceParameter(Name, Type, Required, DefaultValue?, Description?)`
 - `returnType` omitted / `null` → a void operation (`ReturnType == null`)
@@ -183,7 +455,51 @@ code on both sides.
 | `i64[]` / `f64[]` / `bool[]` / `string[]` | array types | JSON array |
 | `json` | `System.Text.Json.JsonElement` | arbitrary JSON (escape hatch for nested objects) |
 
+`json` is the one wire type that leaks the transport into caller code: because `Execute` takes
+`Dictionary<string, object>`, a caller supplies a boxed `JsonElement` (or a `string` of valid
+JSON — see §13.1) and receives a boxed `JsonElement` back. That is deliberate — it is the
+escape hatch, and pretending otherwise would mean inventing a parallel object model. Prefer a
+declared shape over `json` wherever the operation's arguments are actually fixed; reach for it
+when they genuinely are not.
+
 `void` (or an omitted `returnType`) denotes no return value.
+
+---
+
+### 7.1 What a plugin actually has to parse
+
+JSON appears in three roles, and they do not cost the same. Worth stating plainly, because "the
+ABI is JSON" reads as a heavier requirement than it is:
+
+| Role | Frequency | Who **parses** | Who **writes** |
+| :--- | :--- | :--- | :--- |
+| Manifest (`plugin_describe`) | once per load | host | plugin (a string literal) |
+| Args (`plugin_invoke` in) | every call | **plugin** | host |
+| Envelope (`plugin_invoke` out) | every call | host | plugin (`sprintf`-shaped) |
+
+Only one cell is a real burden: **args parsing, plugin-side.** And it is far narrower than
+"implement JSON," because by the time args arrive they are guaranteed to be:
+
+- a **flat object** — no nesting, unless the operation declares a `json` parameter;
+- drawn from the **closed vocabulary** of §7 — ten types, no surprises;
+- **already validated** host-side against the manifest (§13.1) — present, correctly typed, no
+  unknown keys.
+
+So a plugin is not parsing arbitrary JSON. It is pulling a handful of known keys, of known
+types, out of a flat object whose shape it declared itself. The C example's 15-line
+`json_get_i64` is unglamorous but sufficient; a real plugin would use `cJSON` / `serde_json` /
+`json` and write less.
+
+**The two exceptions, stated so they are not discovered the hard way:**
+
+1. **The `json` wire type breaks this.** An operation declaring a `json` parameter receives
+   arbitrary nested JSON and does need a real parser. That is the trade for the escape hatch —
+   one type that changes a plugin's dependency footprint. Prefer declared shapes.
+2. **`plugin_describe` is a hand-written JSON string literal** in every example here, and it is
+   the most error-prone line in a plugin: a missing brace fails at load with a parse error and
+   no compile-time help. Authors are encouraged to generate it — serialize a struct at build
+   time, or emit it from the same declaration the operations are implemented from — rather than
+   maintain it by hand.
 
 ---
 
@@ -201,24 +517,81 @@ code on both sides.
 
 ---
 
-## 9. Error handling
+## 9. The result envelope
 
-`plugin_invoke` returns a **result envelope**:
+`plugin_invoke` **always** returns a JSON object with an `ok` field. Never a bare value, never
+`NULL`, never an empty string — success and failure share one channel, so there is no errno, no
+out-parameter, and no exception crossing the boundary.
 
 ```json
 { "ok": true,  "value": 42 }
+{ "ok": true }                                          // void operation
 { "ok": false, "error": "unknown operation 'Frobnicate'" }
 ```
 
-- `ok: false` → the shim throws `InvalidOperationException(error)`, matching the documented
-  contract of `IPluginService.Execute` (unknown operation / invalid parameters).
-- A null pointer or unparseable envelope → `InvalidOperationException` with a diagnostic message.
+### 9.1 Grammar
+
+| Field | When | Type | Rule |
+| :--- | :--- | :--- | :--- |
+| `ok` | **always** | boolean | Required. Absent or non-boolean → the envelope is malformed (§9.3). |
+| `value` | `ok: true`, non-void operation | per `returnType` | Required. Its JSON type must match the operation's declared `returnType` (§7). |
+| `value` | `ok: true`, void operation | — | **Omitted.** `null` is also accepted and treated identically; any other value is malformed. |
+| `error` | `ok: false` | string | Required, and should be non-empty. |
+
+**Unknown fields are ignored.** A host encountering a field it does not recognise skips it
+rather than failing. This is the forward-compatibility seam: a future ABI version may add
+envelope fields without breaking a v1 host, and a plugin may carry diagnostic fields a host
+does not read.
+
+### 9.2 Reading `value`
+
+The shim reads `value` **by the operation's declared `ReturnType`, not by inspecting the JSON**.
+An `i64` operation reads a number as `long`; a `string` operation reads a string. This keeps
+`Utf8JsonReader` on a typed path and makes the boxed `object?` predictable: the cast in
+`(long)svc.Execute(...)` is safe because the manifest promised `i64`.
+
+A mismatch — a JSON string where the manifest declared `i64` — is a **plugin bug**, and is
+reported as `InvalidOperationException` naming the operation and both types, rather than
+surfacing as a cast failure three frames up in the caller.
+
+### 9.3 Every failure mode, and what the host does
+
+| Native returns | Host behaviour |
+| :--- | :--- |
+| `{"ok":false,"error":"…"}` | `InvalidOperationException(error)` |
+| `{"ok":false}` — no `error` | `InvalidOperationException` with a generated message naming the service and operation |
+| `{"ok":true,"value":…}` matching `returnType` | the boxed value |
+| `{"ok":true}` on a **void** operation | `null` |
+| `{"ok":true}` on a **non-void** operation | `InvalidOperationException` — the plugin promised a value and did not send one |
+| `{"ok":true,"value":…}` mismatching `returnType` | `InvalidOperationException` (§9.2) |
+| `{"ok":true,"value":…}` on a **void** operation | ignored; returns `null`. A void operation's caller has nothing to receive it. |
+| `NULL` pointer | `InvalidOperationException` — a plugin must always return an envelope |
+| empty string, or not valid JSON | `InvalidOperationException` quoting a bounded prefix of what was returned |
+| valid JSON but not an object (`42`, `[…]`, `"x"`) | `InvalidOperationException` — the envelope is an object |
+| object without `ok` | `InvalidOperationException` — malformed envelope |
+
+Every one of these throws `InvalidOperationException`, matching the documented contract of
+`IPluginService.Execute`. The distinction between "the plugin reported a failure" and "the
+plugin misbehaved" is carried in the **message**, not the exception type — a host catching
+`Execute` should not have to distinguish them, and a plugin author reading the message should
+immediately see which it was.
+
+### 9.4 Why a plugin must never return `NULL`
+
+It is the one failure mode with no diagnostic content: the host cannot tell a deliberate refusal
+from a crashed allocator or a missing return path. Both worked examples that can fail this way
+guard against it — the Python bridge substitutes an error envelope when its interpreter is dead,
+and the Rust `out()` helper substitutes one when `CString::new` rejects an interior NUL. A C
+plugin whose `malloc` fails should return a **statically-sized stack buffer copy** if it can, and
+if it truly cannot allocate, `NULL` is the honest answer and the host reports it as such.
 
 ---
 
 ## 10. Memory ownership
 
-Every string returned by `plugin_describe` / `plugin_invoke` is **native-allocated**. The shim:
+Every string returned by `plugin_describe` / `plugin_invoke` is **native-allocated, per call**
+— including `plugin_describe`, which is called once but must still return owned memory rather
+than a static literal (§5). The shim:
 
 1. Copies the UTF-8 bytes into a managed `string`.
 2. Calls `plugin_free(ptr)` in a `finally` block — always, including on exception.
@@ -251,55 +624,667 @@ native author cannot offer them and the container returns empty:
 
 ## 12. Backward compatibility
 
+**The ABI itself is purely additive.**
+
 - No change to `IPlugin`, `IPluginService`, `PluginStateService`, or any caller.
 - `Execute(string, Dictionary<string, object>?) → object?` is unchanged; the dictionary is the
   compatibility seam. Native services validate boxed dictionary values against declared types (§13).
-- Managed plugins are entirely unaffected. The change is purely additive.
+- `IKindedService` and `GetServicesByKind` are new surface, not modified surface (§6.1).
+- Managed plugins are entirely unaffected.
+
+**§14 is not**, and is deliberately kept separate. The obsolete-surface removal planned there is
+a breaking change shipping in a major version. Nothing in §1–§13 depends on it, and it depends
+on nothing here — the two are folded into one document because they touch the same subsystem,
+not because they ship together.
 
 ---
 
-## 13. Open questions
+## 13. Resolved decisions
 
-1. **Parameter validation — strict vs lenient.** When a caller passes a boxed value whose type
-   doesn't match the declared wire type (e.g. `"42"` for an `i64`): reject with
-   `InvalidOperationException` (**strict**, recommended — the manifest gives us the type), or attempt
-   `Convert.ChangeType` (**lenient**). Strict cannot be quietly relaxed later without risk, so decide now.
-2. **Unified loader facade.** Ship a single discovery entry point (point at a folder → load managed
-   assemblies *and* native libraries, funnel both through `LoadPlugin(IPlugin)`) in v1, or leave native
-   loading as an explicit `LoadPlugin(new NativePluginContainer(path))` call for now?
+1. **Parameter validation — STRICT.** A boxed value whose runtime type does not match the
+   declared wire type is rejected with `InvalidOperationException`; no `Convert.ChangeType`,
+   no silent coercion. Three reasons: the manifest already gives us the exact expected type,
+   so guessing is unnecessary; `Convert.ChangeType` is reflection-driven and hostile to the
+   NativeAOT gate; and strictness is the direction that can be relaxed later without breaking
+   anyone, whereas lenient-then-strict silently breaks working callers. See §13.1 for the
+   exact rule.
+2. **Unified loader facade — deferred, not in v1.** Native loading stays an explicit
+   `LoadPlugin(new NativePluginContainer(path))`. A folder-scanning facade raises
+   discovery-order, partial-failure and platform-suffix (`.so` / `.dll` / `.dylib`) questions
+   that are orthogonal to the ABI. Ship the ABI first; a facade over it is additive later.
 
----
+### 13.1 The strict conversion rule
 
-## 14. Appendix — minimal native plugin (sketch)
+For each supplied parameter the shim looks up the declared wire type from the manifest and
+accepts **only** these runtime types:
+
+| Wire type | Accepted boxed CLR type |
+| :--- | :--- |
+| `i64` | `long`, `int`, `short`, `sbyte`, `byte`, `ushort`, `uint` (all lossless widenings to `long`) |
+| `f64` | `double`, `float`, plus every integer type above (lossless) |
+| `bool` | `bool` |
+| `string` | `string` |
+| `bytes` | `byte[]` |
+| `i64[]`, `f64[]`, `bool[]`, `string[]` | the matching array type, or any `IEnumerable<T>` of the element type |
+| `json` | `JsonElement`, or `string` containing valid JSON |
+
+Everything else throws. Note what strict does **not** mean: lossless numeric widening is
+allowed, because `["x"] = 21` (an `int` literal, the overwhelmingly common call site) must not
+fail against an `i64` parameter. Rejecting that would make the API hostile for no safety gain.
+What is rejected is *lossy or textual* conversion — `"42"` for an `i64`, `42.7` for an `i64`,
+`1` for a `bool`.
+
+Missing required parameter → `InvalidOperationException`. Missing optional parameter → the
+manifest's `defaultValue` is used, or the parameter is omitted from the args JSON entirely
+when it has none. Unknown parameter keys → rejected, so a typo surfaces immediately rather
+than being silently dropped on the native side.
+
+## 14. Planned: remove the obsolete plugin surface
+
+The native ABI lands on a plugin system that still carries a **legacy type-based service
+subsystem**, deprecated but never removed. It is dead weight the new path has to route around,
+and it is the direct reason `kind` needs a side interface (§6.1) rather than a natural home.
+Removing it is planned work, folded in here because it shares the same surface.
+
+### 14.1 Why it blocks nothing but costs something
+
+`GetService<T>()` looks up services by CLR type. That cannot work reflection-free — which is
+why it is already `[Obsolete("Type-based service lookup will be removed in a future version")]`
+— and it definitionally cannot work for a native plugin, which has no CLR type. So the ABI
+already ignores it. The cost is not a blocker; it is that every reader of the plugin system now
+meets two service models and has to work out which is live.
+
+### 14.2 Inventory — 13 members, verified zero usage
+
+**Plugin subsystem (the legacy type-based service model):**
+
+| Member | Location |
+| :--- | :--- |
+| `record PluginService(Type, object)` | `Plugins/IPlugin.cs:52` |
+| `IPlugin.GetServices()` | `Plugins/IPlugin.cs:88` |
+| `PluginBase.GetServices()` | `Plugins/IPlugin.cs:131` |
+| `PluginStateService.GetService<T>()` | `Core/PluginStateService.cs:478` |
+| `PluginStateService.RegisteredLegacyServiceTypes` | `Core/PluginStateService.cs:240` |
+| `PluginStateService.UnloadPlugin(IPlugin)` | `Core/PluginStateService.cs:397` |
+
+Plus the private `_legacyServices` dictionary and its registration loop (`:141, 346-348, 590`),
+and the two `#pragma warning disable CS0618` pairs that exist only to silence the above
+(`IPlugin.cs:130-132`, `PluginStateService.cs:345-351`).
+
+**Elsewhere in the library** (same sweep, unrelated to plugins):
+
+| Member | Location | Replacement |
+| :--- | :--- | :--- |
+| `Window.UseDOMLayout` | `Window.Layout.cs:223` | none — always true |
+| `WindowBuilder.WithPosition(x, y)` | `Builders/WindowBuilder.cs:152` | `AtPosition` |
+| `WindowBuilder.WithModal(bool)` | `Builders/WindowBuilder.cs:235` | `AsModal` |
+| `WindowBuilder.WithDomLayout(...)` | `Builders/WindowBuilder.cs:769` | none — always enabled |
+| `MenuControl.BackgroundColor` | `Controls/MenuControl/MenuControl.cs:245` | `DropdownBackgroundColor` |
+| `MenuControl.ForegroundColor` | `:255` | `DropdownForegroundColor` |
+| `MenuControl.HighlightColor` | `:265` | `DropdownHighlightBackgroundColor` |
+| `MenuControl.HighlightForeground` | `:275` | `DropdownHighlightForegroundColor` |
+
+**Usage audit — zero, everywhere.** Checked across the library, `Examples/`, `Example/`, the
+test suite, and all 15 sibling repos (cx*, lazy*, ServerHub, cratis-cli, dotnet-skills). Two
+false positives worth recording so the next audit does not re-raise them:
+
+- `cxgpu` appears to use `PluginService` 10 times; every hit is the *modern* `IPluginService` /
+  `GetServicePlugins()`. Substring collision.
+- `GetService<T>` appears in `Html/HtmlLayoutEngine.cs` and two test helpers; those are
+  AngleSharp's `IBrowsingContext.GetService<T>`, not ours.
+
+`MenuControl` itself is used by four consumers (cxfiles, cxsql, lazydotide, cratis-cli), but
+none touches the four colour aliases.
+
+### 14.3 `UnloadPlugin` — removed, and why it is the odd one
+
+Every other member is deprecated as *"use X instead."* `UnloadPlugin` is deprecated as *"this
+does not actually work"*: it disposes the plugin but leaves its registered contributions in the
+service, theme, control and window maps. A caller relying on it already has a latent bug.
+Removing it converts that bug into a compile error, which is strictly better than leaving a
+method whose contract admits it is wrong. Plugin unloading remains unsupported — unchanged
+from today, and consistent with §2's non-goal.
+
+### 14.4 Shipping
+
+This is a **breaking change**: removing public members breaks binary compatibility for anything
+compiled against 2.5.x, and source compatibility for anything that still calls them. Zero
+observed usage lowers the risk; it does not change the classification.
+
+It therefore ships as a **major version**, not a patch — a patch that removes public API is the
+case where a consumer's routine update fails to compile, or throws `MissingMethodException` at
+runtime. It should be batched with any other breaking work rather than spent alone.
+
+Ordering against the ABI itself: **independent.** The ABI is purely additive and needs none of
+these gone; the removal is a cleanup of the surface it lands on. Either can go first. The one
+coupling worth noting is §6.1 — if `IPluginService` is ever revised in a major version,
+`Kind` could move onto it directly and `IKindedService` would become unnecessary. That is a
+possibility to weigh at that point, not a reason to delay either piece of work.
+
+## 15. Considered: slimming the managed plugin system to services-only
+
+A natural follow-on to §14: if the ABI contributes **services only**, should the managed plugin
+system drop themes, controls, windows and action providers so both sides have the same shape?
+
+**Recommendation: no.** The investigation is recorded here because the usage data it produced is
+worth keeping, and because "make managed match native" is an idea that will recur.
+
+### 15.1 What the usage audit found
+
+**Every adopter already uses the plugin system for services only.** Across all 15 sibling repos
+(cx\*, lazy\*, ServerHub, cratis-cli, dotnet-skills), the count of overrides of `GetThemes`,
+`GetControls`, `GetWindows` or `GetActionProviders`, and of references to `PluginTheme`,
+`PluginControl`, `PluginWindow` or `IPluginActionProvider`, is **zero**. The intuition behind
+the question is correct: in practice, a plugin here is a service.
+
+The only consumer outside the library is
+`Examples/PluginShowcaseExample/ShowcasePlugin.cs`, which overrides four of the five kinds. That
+file exists to demonstrate the plugin system — it was moved *out* of the library in `1ea2504`
+for exactly that reason — so it is evidence of capability, not of demand.
+
+### 15.2 Why it is still the wrong change
+
+**A shipping library feature depends on it.** `Dialogs/StartMenuDialog.cs` builds its plugin
+section from `plugin.GetWindows()` and `plugin.GetActionProviders()` (`:605-606`), then launches
+the selection through `PluginStateService.CreateWindow(name)` (`:632`) and
+`ExecutePluginAction(provider, action, ctx)` (`:642`). Slimming to services-only would either
+delete that feature or leave it calling API that no longer exists. The cascade is wider than the
+two `Get*` calls: `CreateControl`, `CreateWindow` and `ExecutePluginAction` are public members
+that exist only to serve those contribution kinds.
+
+That matters beyond the library: a start menu is the premise of a desktop-shell app, and cxshell
+is one.
+
+**The category is different from §14.** That section removes members already marked `[Obsolete]`,
+with zero consumers and a documented replacement. This would remove **live, undeprecated public
+API that a feature actually calls**. Zero *external* usage does not make it dead code when the
+library itself is the consumer.
+
+**The asymmetry is not an inconsistency.** §11 already resolves it honestly: the ABI exports
+nothing for controls/windows/actions/themes, so a native author cannot offer them, and
+`PluginBase`'s empty defaults mean `NativePluginContainer` never claims them. A managed plugin
+system richer than the native one is the normal shape of an interop boundary — native plugins
+are a new *source* of contributions, not a redefinition of what a plugin is. Nothing in §1–§13
+is made simpler by the removal.
+
+### 15.3 What to do with the finding instead
+
+The zero-usage result argues for **emphasis, not deletion**: document that services are the
+primary contribution kind, that the other four exist for in-process managed plugins and are
+currently unused by every adopter, and that native plugins are services-only by design. That
+captures the conceptual slimming with no breakage and no feature loss.
+
+If the removal is ever revisited, the honest ordering is to settle `StartMenuDialog`'s plugin
+integration first — it is the only real consumer, and its fate decides whether this is a
+cleanup or a feature deletion. That is a product question, not a refactor.
+
+## 16. Appendix — worked examples
+
+All examples below were **compiled and driven end to end** against a host performing the §5.1
+handshake — probe → version → manifest → consistency → invoke — except the Rust one, which is
+noted where it appears. Verified output is shown for each.
+
+### 16.0 How small a plugin actually is
+
+The examples that follow look longer than the ABI is, because each carries a hand-rolled JSON
+reader to stay dependency-free. That is example scaffolding, not protocol. Stripped to the ABI
+alone, a complete working plugin is **18 lines**:
 
 ```c
-// libmath.c  —  compile to libmath.so
-#include <string.h>
+/* The ABI, with nothing else: no JSON parsing, no helpers. */
+#include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
-int32_t plugin_abi_version(void) { return 1; }
+static char *dup(const char *s){ char*p=malloc(strlen(s)+1); if(p) strcpy(p,s); return p; }
+
+const char* plugin_kind(void)        { return dup("greeter"); }
+int32_t     plugin_abi_version(void) { return 1; }
 
 const char* plugin_describe(void) {
-    return strdup(
-      "{\"abiVersion\":1,\"services\":[{"
-      "\"name\":\"MathService\",\"description\":\"Arithmetic helpers.\","
-      "\"operations\":[{\"name\":\"Add\",\"description\":\"Adds two integers.\","
-      "\"parameters\":[{\"name\":\"a\",\"type\":\"i64\",\"required\":true},"
-      "{\"name\":\"b\",\"type\":\"i64\",\"required\":true}],\"returnType\":\"i64\"}]"
-      "}]}");
+    return dup("{\"abiVersion\":1,\"services\":[{\"name\":\"Hello\",\"kind\":\"greeter\","
+               "\"description\":\"Says hello.\",\"operations\":[{\"name\":\"Greet\","
+               "\"description\":\"Returns a greeting.\",\"parameters\":[],"
+               "\"returnType\":\"string\"}]}]}");
 }
 
-const char* plugin_invoke(const char* op, const char* args_json) {
-    // parse args_json, compute, return envelope (real code uses a JSON lib)
-    if (strcmp(op, "Add") == 0)
-        return strdup("{\"ok\":true,\"value\":42}");
-    return strdup("{\"ok\":false,\"error\":\"unknown operation\"}");
+const char* plugin_invoke(const char *op, const char *args) {
+    (void)args;
+    if (strcmp(op, "Greet") == 0) return dup("{\"ok\":true,\"value\":\"hello\"}");
+    return dup("{\"ok\":false,\"error\":\"unknown operation\"}");
 }
 
-void plugin_free(const char* ptr) { free((void*)ptr); }
+void plugin_free(const char *p) { free((void*)p); }
 ```
 
-Managed usage — indistinguishable from a managed service:
+```
+$ cc -shared -fPIC -o libminimal.so minimal.c
+kind  : greeter
+greet : {"ok":true,"value":"hello"}
+```
+
+That is the whole contract: five functions, four of which are one line. Everything beyond it in
+the longer examples is either the plugin's own logic or a JSON parser a real plugin would take
+from a library (`cJSON`, `serde_json`, `json`) instead of writing.
+
+Read `plugin_describe` as the only piece with real content — it is a string literal, and it is
+where a plugin says what it is.
+
+### 16.1 C — the reference plugin
+
+The same five functions as §16.0, plus one real operation. Of its ~46 lines of code, **15 are
+the `json_get_i64` toy parser** — present only to keep the example dependency-free. A real
+plugin drops it for `cJSON` and is shorter than this.
+
+
+```c
+/* libmath.c — a minimal ConsoleEx native plugin.
+ * Build:  cc -shared -fPIC -o libmath.so libmath.c
+ *
+ * Exports the five ABI functions. Every returned string is malloc'd, because the
+ * host copies it out and hands the pointer straight back to plugin_free.
+ */
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define ABI_VERSION 1
+
+/* ---- helpers ------------------------------------------------------------ */
+
+/* Every string we hand the host must be freshly allocated (spec §5/§10). */
+static char *dup_cstr(const char *s) {
+    size_t n = strlen(s) + 1;
+    char *p = (char *)malloc(n);
+    if (p) memcpy(p, s, n);
+    return p;
+}
+
+/* Toy extractor: finds "key":<number> in a flat JSON object. Real plugins use a
+ * JSON library; this keeps the example dependency-free. */
+static long json_get_i64(const char *json, const char *key, long fallback) {
+    char pat[64];
+    snprintf(pat, sizeof pat, "\"%s\":", key);
+    const char *p = strstr(json, pat);
+    if (!p) return fallback;
+    return strtol(p + strlen(pat), NULL, 10);
+}
+
+/* ---- the ABI ------------------------------------------------------------ */
+
+/* 1. Probe. The only function callable before the version check: it is what
+ *    tells a host this file is a plugin at all. Union of the kinds our services
+ *    declare, newline-separated. */
+const char *plugin_kind(void) {
+    return dup_cstr("calculator");
+}
+
+/* 2. Handshake. Checked before plugin_describe; a mismatch aborts the load. */
+int32_t plugin_abi_version(void) {
+    return ABI_VERSION;
+}
+
+/* 3. Self-description. The manifest's kinds must match what plugin_kind returned,
+ *    or the host rejects the load. */
+const char *plugin_describe(void) {
+    return dup_cstr(
+        "{\"abiVersion\":1,\"services\":[{"
+          "\"name\":\"MathService\","
+          "\"kind\":\"calculator\","
+          "\"description\":\"Arithmetic helpers.\","
+          "\"operations\":[{"
+            "\"name\":\"Add\",\"description\":\"Adds two integers.\","
+            "\"parameters\":["
+              "{\"name\":\"a\",\"type\":\"i64\",\"required\":true},"
+              "{\"name\":\"b\",\"type\":\"i64\",\"required\":true}],"
+            "\"returnType\":\"i64\"}]"
+        "}]}");
+}
+
+/* 4. Invoke. op and args_json are host-owned and valid only for this call, so
+ *    copy anything you retain. Args are already validated against the manifest
+ *    host-side (§13.1), so no defensive type-checking is needed here. */
+const char *plugin_invoke(const char *op, const char *args_json) {
+    if (strcmp(op, "Add") == 0) {
+        long a = json_get_i64(args_json, "a", 0);
+        long b = json_get_i64(args_json, "b", 0);
+        char buf[64];
+        snprintf(buf, sizeof buf, "{\"ok\":true,\"value\":%ld}", a + b);
+        return dup_cstr(buf);
+    }
+    return dup_cstr("{\"ok\":false,\"error\":\"unknown operation\"}");
+}
+
+/* 5. Free. Receives only pointers we allocated above. */
+void plugin_free(const char *ptr) {
+    free((void *)ptr);
+}
+```
+
+```
+$ cc -shared -fPIC -o libmath.so libmath.c
+```
+
+Driven through the full handshake:
+
+```
+kinds       : ['calculator']
+abi version : 1
+service     : MathService | kind: calculator
+operations  : ['Add']
+consistency : probe == manifest OK
+Add(21,21)  : {'ok': True, 'value': 42}
+unknown op  : {'ok': False, 'error': 'unknown operation'}
+```
+
+### 16.2 Python — logic in Python, five symbols in C
+
+Python cannot export C symbols, so a plugin written in it needs a small native stub that embeds
+the interpreter. The split is worth stating plainly, because it is the shape any managed or
+interpreted language will need:
+
+- **`plugin_math.py`** — the plugin. Pure logic, no `ctypes`, no ABI knowledge. It implements
+  three functions taking and returning `str`.
+- **`pybridge.c`** — the stub. Owns the five C exports, the interpreter lifetime, and all
+  allocation. Roughly 60 lines, and identical for every Python plugin: only `PY_MODULE` changes.
+
+```python
+"""A ConsoleEx plugin written in Python.
+
+Pure logic, no ctypes, no ABI knowledge: it implements three functions the C
+bridge calls. Everything crossing the boundary is a str.
+"""
+import json
+
+KIND = "calculator"
+
+MANIFEST = {
+    "abiVersion": 1,
+    "services": [{
+        "name": "PyMathService",
+        "kind": KIND,
+        "description": "Arithmetic helpers, implemented in Python.",
+        "operations": [
+            {"name": "Add", "description": "Adds two integers.",
+             "parameters": [{"name": "a", "type": "i64", "required": True},
+                            {"name": "b", "type": "i64", "required": True}],
+             "returnType": "i64"},
+            {"name": "Join", "description": "Joins strings with a separator.",
+             "parameters": [{"name": "parts", "type": "string[]", "required": True},
+                            {"name": "sep",   "type": "string",   "required": False}],
+             "returnType": "string"},
+        ],
+    }],
+}
+
+def plugin_kind() -> str:
+    # Union of the kinds our services declare, newline-separated.
+    return "\n".join(sorted({s["kind"] for s in MANIFEST["services"] if s.get("kind")}))
+
+def plugin_describe() -> str:
+    return json.dumps(MANIFEST)
+
+def plugin_invoke(op: str, args_json: str) -> str:
+    # Args arrive already validated against the manifest (spec §13.1), so this
+    # only has to dispatch and compute.
+    try:
+        args = json.loads(args_json) if args_json else {}
+        if op == "Add":
+            return json.dumps({"ok": True, "value": args["a"] + args["b"]})
+        if op == "Join":
+            return json.dumps({"ok": True,
+                               "value": args.get("sep", " ").join(args["parts"])})
+        return json.dumps({"ok": False, "error": f"unknown operation '{op}'"})
+    except Exception as e:                      # never let an exception cross the ABI
+        return json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"})
+```
+
+```c
+/* pybridge.c — exposes a Python module as a ConsoleEx native plugin.
+ *
+ * Python cannot export C symbols, so this stub embeds the interpreter and
+ * forwards the five ABI functions to plugin_math.py. The Python side never
+ * sees a pointer; everything crossing is a str.
+ *
+ * Build: cc -shared -fPIC -o libpymath.so pybridge.c $(python3-config --cflags --ldflags --embed)
+ */
+#include <Python.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define ABI_VERSION 1
+#define PY_MODULE   "plugin_math"
+
+static PyObject *g_mod = NULL;
+
+static char *dup_cstr(const char *s) {
+    size_t n = strlen(s) + 1;
+    char *p = (char *)malloc(n);
+    if (p) memcpy(p, s, n);
+    return p;
+}
+
+/* Start the interpreter once, on first use. */
+static int ensure_python(void) {
+    if (g_mod) return 1;
+    if (!Py_IsInitialized()) {
+        Py_InitializeEx(0);                 /* 0 = don't install signal handlers */
+        PyRun_SimpleString("import sys; sys.path.insert(0, '.')");
+    }
+    g_mod = PyImport_ImportModule(PY_MODULE);
+    if (!g_mod) { PyErr_Clear(); return 0; }
+    return 1;
+}
+
+/* Call a Python function returning str; result is malloc'd for the host. */
+static char *call_py(const char *fn, const char *a1, const char *a2) {
+    if (!ensure_python()) return NULL;
+    PyObject *f = PyObject_GetAttrString(g_mod, fn);
+    if (!f) { PyErr_Clear(); return NULL; }
+
+    PyObject *args = a2 ? Py_BuildValue("(ss)", a1, a2)
+             : a1 ? Py_BuildValue("(s)", a1)
+                  : PyTuple_New(0);
+    PyObject *r = PyObject_CallObject(f, args);
+    Py_XDECREF(args); Py_DECREF(f);
+
+    if (!r) { PyErr_Clear(); return NULL; }
+    const char *utf8 = PyUnicode_AsUTF8(r);
+    char *out = utf8 ? dup_cstr(utf8) : NULL;
+    Py_DECREF(r);
+    return out;
+}
+
+const char *plugin_kind(void)     { return call_py("plugin_kind", NULL, NULL); }
+int32_t     plugin_abi_version(void) { return ABI_VERSION; }
+const char *plugin_describe(void) { return call_py("plugin_describe", NULL, NULL); }
+
+const char *plugin_invoke(const char *op, const char *args_json) {
+    char *r = call_py("plugin_invoke", op, args_json ? args_json : "{}");
+    /* A dead interpreter must still produce a valid envelope, never NULL. */
+    return r ? r : dup_cstr("{\"ok\":false,\"error\":\"python bridge failure\"}");
+}
+
+void plugin_free(const char *ptr) { free((void *)ptr); }
+```
+
+```
+$ cc -shared -fPIC -o libpymath.so pybridge.c $(python3-config --cflags --ldflags --embed)
+```
+
+Driven from a plain C host — `dlopen` plus the five symbols, no Python on the calling side —
+which is the point: the host cannot tell this from the C plugin.
+
+```
+kinds      : calculator
+abi        : 1
+manifest   : {"abiVersion": 1, "services": [{"name": "PyMathService", "kind": "calcul...
+Add        : {"ok": true, "value": 42}
+Join       : {"ok": true, "value": "x-y-z"}
+unknown    : {"ok": false, "error": "unknown operation 'Nope'"}
+```
+
+### 16.3 What the Python example demonstrates about the ABI
+
+- **The boundary is genuinely language-agnostic.** The host does `dlopen` + five symbols; what
+  lives behind them — compiled C, an embedded interpreter, a Rust `cdylib` — is invisible.
+- **The bridge is boilerplate, not design work.** It is the same file for every Python plugin;
+  a real deployment would ship it prebuilt and let authors write only the `.py`.
+- **Exceptions must not cross the ABI.** `plugin_invoke` wraps its body in `try/except` and
+  converts any failure into an `{"ok":false,"error":…}` envelope, which the shim turns back
+  into `InvalidOperationException`. A Python traceback escaping into native code is undefined
+  behaviour; the envelope is the only error channel (§9).
+- **A dead interpreter still returns a valid envelope.** `pybridge.c` never returns `NULL` from
+  `plugin_invoke` — a failed import or a missing function yields an error envelope instead, so
+  the host's parse path always has something to parse.
+- **Caveats this example does not solve.** The embedded interpreter is process-wide and not
+  reentrant across plugins: two Python plugins in one process share one interpreter, and the
+  GIL serialises their calls. Nothing here handles sub-interpreters or threading, and
+  `plugin_invoke` is synchronous by contract (§5.1) — a slow Python operation blocks its caller.
+
+### 16.4 Rust — a `cdylib`, no bridge needed
+
+Rust compiles straight to a C-ABI shared library, so unlike Python it needs no stub. Shown last
+because it is the most explicit about ownership — which is a feature: the rules the C example
+follows by convention, Rust states in the type system.
+
+**Not compiled here** — no Rust toolchain was available on the machine this spec was written on.
+The manifest string it emits was validated as JSON and checked against `plugin_kind`; the code
+itself is unverified against a compiler.
+
+```rust
+//! A ConsoleEx native plugin in Rust — no dependencies, no serde.
+//!
+//! Cargo.toml:
+//!   [lib]
+//!   crate-type = ["cdylib"]
+//!
+//! Build: cargo build --release   →  target/release/libmath_rs.so
+
+use std::ffi::{CStr, CString};
+use std::os::raw::{c_char, c_int};
+
+const ABI_VERSION: c_int = 1;
+
+/// Hand a Rust string to the host as an owned C string.
+///
+/// `into_raw` transfers ownership out of Rust: the allocation now belongs to the
+/// host, which returns it via `plugin_free`. Nothing here may be a `&'static str`
+/// pointer — the host frees what it receives.
+fn out(s: String) -> *const c_char {
+    match CString::new(s) {
+        Ok(c) => c.into_raw(),
+        // A NUL byte in the payload is the one thing CString rejects. Never return
+        // null from an ABI function; emit a valid error envelope instead.
+        Err(_) => CString::new(r#"{"ok":false,"error":"interior NUL in result"}"#)
+            .unwrap()
+            .into_raw(),
+    }
+}
+
+/// Borrow a host-owned C string for the duration of a call.
+unsafe fn borrow<'a>(p: *const c_char) -> &'a str {
+    if p.is_null() {
+        return "";
+    }
+    CStr::from_ptr(p).to_str().unwrap_or("")
+}
+
+/// Toy extractor: `"key":<int>` in a flat JSON object. A real plugin uses serde_json.
+fn json_i64(json: &str, key: &str) -> i64 {
+    let pat = format!("\"{key}\":");
+    match json.find(&pat) {
+        Some(i) => {
+            let rest = &json[i + pat.len()..];
+            let end = rest
+                .find(|c: char| !c.is_ascii_digit() && c != '-')
+                .unwrap_or(rest.len());
+            rest[..end].parse().unwrap_or(0)
+        }
+        None => 0,
+    }
+}
+
+// ---- the five ABI functions ------------------------------------------------
+
+/// 1. Probe — the only function callable before the version check.
+#[no_mangle]
+pub extern "C" fn plugin_kind() -> *const c_char {
+    out("calculator".to_string())
+}
+
+/// 2. Handshake.
+#[no_mangle]
+pub extern "C" fn plugin_abi_version() -> c_int {
+    ABI_VERSION
+}
+
+/// 3. Manifest. Its kinds must match `plugin_kind`, or the host rejects the load.
+#[no_mangle]
+pub extern "C" fn plugin_describe() -> *const c_char {
+    // One line, no post-processing: stripping whitespace from a pretty-printed
+    // literal would also strip the spaces inside description strings.
+    out(concat!(
+        r#"{"abiVersion":1,"services":[{"#,
+        r#""name":"RustMathService","#,
+        r#""kind":"calculator","#,
+        r#""description":"Arithmetic helpers, implemented in Rust.","#,
+        r#""operations":[{"#,
+        r#""name":"Add","description":"Adds two integers.","#,
+        r#""parameters":["#,
+        r#"{"name":"a","type":"i64","required":true},"#,
+        r#"{"name":"b","type":"i64","required":true}],"#,
+        r#""returnType":"i64"}]}]}"#
+    ).to_string())
+}
+
+/// 4. Invoke. Args are host-validated against the manifest (§13.1) before arrival.
+///
+/// `catch_unwind` is not decoration: a panic unwinding across an `extern "C"`
+/// boundary is undefined behaviour. Any panic becomes an error envelope instead,
+/// mirroring the Python bridge's `try/except`.
+#[no_mangle]
+pub extern "C" fn plugin_invoke(op: *const c_char, args_json: *const c_char) -> *const c_char {
+    let result = std::panic::catch_unwind(|| {
+        let op = unsafe { borrow(op) };
+        let args = unsafe { borrow(args_json) };
+        match op {
+            "Add" => format!(
+                r#"{{"ok":true,"value":{}}}"#,
+                json_i64(args, "a") + json_i64(args, "b")
+            ),
+            other => format!(r#"{{"ok":false,"error":"unknown operation '{other}'"}}"#),
+        }
+    });
+    out(result.unwrap_or_else(|_| {
+        r#"{"ok":false,"error":"panic in plugin_invoke"}"#.to_string()
+    }))
+}
+
+/// 5. Free. Reclaims ownership of a pointer we handed out, then drops it.
+#[no_mangle]
+pub extern "C" fn plugin_free(ptr: *const c_char) {
+    if !ptr.is_null() {
+        unsafe { drop(CString::from_raw(ptr as *mut c_char)) };
+    }
+}
+```
+
+Three things Rust makes explicit that C leaves to discipline:
+
+- **`CString::into_raw` / `from_raw`** *is* the §10 ownership rule. `into_raw` moves the
+  allocation out of Rust; `from_raw` in `plugin_free` reclaims it so `drop` uses the matching
+  allocator. Returning a `&'static str` pointer instead is the same bug as returning a literal
+  from C, but here the type system makes it hard to write by accident.
+- **`catch_unwind` is mandatory, not defensive.** A panic unwinding across `extern "C"` is
+  undefined behaviour. It plays the role the Python bridge's `try/except` plays: any failure
+  becomes an error envelope, because §9's envelope is the only error channel.
+- **`CString::new` can fail** on an interior NUL — the one case where a Rust `String` is not a
+  valid C string. It returns an envelope rather than null, since §9 requires a parseable result.
+
+### 16.5 Managed usage — indistinguishable from a managed service
 
 ```csharp
 windowSystem.PluginStateService.LoadPlugin(new NativePluginContainer("./libmath.so"));
@@ -310,4 +1295,15 @@ long sum = (long)math!.Execute("Add", new Dictionary<string, object>
     ["a"] = 21L,
     ["b"] = 21L
 })!;
+```
+
+Or, filtering a folder by kind before loading anything (§6.2):
+
+```csharp
+foreach (var file in Directory.EnumerateFiles(pluginDir, "*.so"))
+{
+    if (!NativePluginProbe.TryReadKinds(file, out var kinds)) continue;  // not ours
+    if (!kinds.Contains("calculator")) continue;                          // not wanted
+    windowSystem.PluginStateService.LoadPlugin(new NativePluginContainer(file));
+}
 ```

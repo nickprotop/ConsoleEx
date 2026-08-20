@@ -177,7 +177,16 @@ namespace SharpConsoleUI.Drivers.Input
 			Action<List<MouseFlags>, Point> onMouse,
 			Action<MouseFlags, Point> continuousButtonPressedHandler)
 		{
-			var buttonState = rawFlags.Count > 0 ? rawFlags[0] : (MouseFlags)0;
+			// The BUTTON flag, not rawFlags[0]: AnsiInputParser prepends modifier flags
+			// (ButtonShift/ButtonAlt/ButtonCtrl) before the button, so rawFlags[0] is the modifier
+			// whenever one is held. Taking it verbatim made every `buttonState == Button1Released`
+			// comparison below fail under Shift/Ctrl, so Clicked was never synthesized and
+			// Shift+Click / Ctrl+Click silently did nothing in every control that gates on it.
+			var buttonState = ExtractButtonState(rawFlags);
+
+			// Modifiers travel alongside the button and must survive onto whatever we dispatch —
+			// the returns below rebuild the list from buttonState and would otherwise drop them.
+			var modifiers = ExtractModifiers(rawFlags);
 
 			// --- Button press ---
 			if (!_isButtonClicked && !_isButtonDoubleClicked &&
@@ -214,7 +223,7 @@ namespace SharpConsoleUI.Drivers.Input
 					}
 				});
 
-				return new List<MouseFlags> { buttonState };
+				return WithModifiers(modifiers, buttonState);
 			}
 
 			// --- Button press during double-click window → triple click ---
@@ -226,7 +235,7 @@ namespace SharpConsoleUI.Drivers.Input
 				var tripleFlag = GetButtonTripleClicked(buttonState);
 				_isButtonDoubleClicked = false;
 				_isButtonTripleClicked = true;
-				return new List<MouseFlags> { tripleFlag };
+				return WithModifiers(modifiers, tripleFlag);
 			}
 
 			// --- Button press during click window → double click ---
@@ -243,7 +252,7 @@ namespace SharpConsoleUI.Drivers.Input
 					await Task.Delay(Configuration.ControlDefaults.DefaultDebounceMs);
 					_isButtonDoubleClicked = false;
 				});
-				return new List<MouseFlags> { doubleFlag };
+				return WithModifiers(modifiers, doubleFlag);
 			}
 
 			// --- Button release ---
@@ -284,11 +293,11 @@ namespace SharpConsoleUI.Drivers.Input
 					});
 
 					_lastMouseButtonPressed = 0;
-					return new List<MouseFlags> { buttonState, clickFlag };
+					return WithModifiers(modifiers, buttonState, clickFlag);
 				}
 
 				_lastMouseButtonPressed = 0;
-				return new List<MouseFlags> { buttonState };
+				return WithModifiers(modifiers, buttonState);
 			}
 
 			// --- Motion with button held (drag) ---
@@ -316,6 +325,48 @@ namespace SharpConsoleUI.Drivers.Input
 
 			// Unhandled — pass through
 			return new List<MouseFlags>(rawFlags);
+		}
+
+		/// <summary>
+		/// Returns the button flag from a raw SGR flag set, ignoring any modifier flags that precede it.
+		/// </summary>
+		private static MouseFlags ExtractButtonState(List<MouseFlags> rawFlags)
+		{
+			for (int i = 0; i < rawFlags.Count; i++)
+			{
+				if (!IsModifier(rawFlags[i]))
+					return rawFlags[i];
+			}
+			return (MouseFlags)0;
+		}
+
+		/// <summary>Returns just the modifier flags (Shift/Alt/Ctrl) present in a raw SGR flag set.</summary>
+		private static List<MouseFlags> ExtractModifiers(List<MouseFlags> rawFlags)
+		{
+			List<MouseFlags>? mods = null;
+			for (int i = 0; i < rawFlags.Count; i++)
+			{
+				if (IsModifier(rawFlags[i]))
+					(mods ??= new List<MouseFlags>()).Add(rawFlags[i]);
+			}
+			return mods ?? EmptyModifiers;
+		}
+
+		private static readonly List<MouseFlags> EmptyModifiers = new();
+
+		private static bool IsModifier(MouseFlags flag) =>
+			flag == MouseFlags.ButtonShift || flag == MouseFlags.ButtonAlt || flag == MouseFlags.ButtonCtrl;
+
+		/// <summary>
+		/// Builds the dispatch list: the modifiers that came in with the event, followed by the
+		/// synthesized button/click flags. Keeps Shift/Ctrl visible to controls that key off them.
+		/// </summary>
+		private static List<MouseFlags> WithModifiers(List<MouseFlags> modifiers, params MouseFlags[] flags)
+		{
+			var result = new List<MouseFlags>(modifiers.Count + flags.Length);
+			result.AddRange(modifiers);
+			result.AddRange(flags);
+			return result;
 		}
 
 		private static MouseFlags GetButtonClicked(MouseFlags released)

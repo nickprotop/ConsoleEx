@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Layout;
@@ -49,6 +50,7 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 	private bool _fuzzyFilterEnabled = false;
 	private ScrollbarVisibility _verticalScrollbarVisibility = ScrollbarVisibility.Auto;
 	private ScrollbarVisibility _horizontalScrollbarVisibility = ScrollbarVisibility.Auto;
+	private int _minScrollbarThumbSize = ControlDefaults.DefaultMinScrollbarThumbSize;
 	private ITableDataSource? _dataSource;
 
 	// Event handlers
@@ -652,6 +654,15 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 	}
 
 	/// <summary>
+	/// Sets the minimum vertical scrollbar thumb height, in rows.
+	/// </summary>
+	public TableControlBuilder WithMinScrollbarThumbSize(int size)
+	{
+		_minScrollbarThumbSize = size;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the virtual data source for lazy loading.
 	/// </summary>
 	public TableControlBuilder WithDataSource(ITableDataSource dataSource)
@@ -743,6 +754,7 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 			FuzzyFilterEnabled = _fuzzyFilterEnabled,
 			VerticalScrollbarVisibility = _verticalScrollbarVisibility,
 			HorizontalScrollbarVisibility = _horizontalScrollbarVisibility,
+			MinScrollbarThumbSize = _minScrollbarThumbSize,
 
 			// Base properties
 			HorizontalAlignment = _horizontalAlignment,

@@ -70,6 +70,11 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int DefaultPageScrollMultiplier = 5;
 
+		/// <summary>
+		/// Default minimum vertical scrollbar thumb height in rows (default: 1)
+		/// </summary>
+		public const int DefaultMinScrollbarThumbSize = 1;
+
 		// Input defaults
 		/// <summary>
 		/// Debounce delay for rapid input events in milliseconds (default: 300ms)
