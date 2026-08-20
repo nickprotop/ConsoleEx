@@ -95,6 +95,15 @@ public partial class TableControl
 		set { _horizontalScrollbarVisibility = value; OnPropertyChanged(); Invalidate(Invalidation.Relayout); }
 	}
 
+	/// <summary>
+	/// Gets or sets the minimum vertical scrollbar thumb height, in rows.
+	/// </summary>
+	public int MinScrollbarThumbSize
+	{
+		get => _minScrollbarThumbSize;
+		set { if (_minScrollbarThumbSize == value) return; _minScrollbarThumbSize = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
+	}
+
 	#endregion
 
 	#region Scroll State
@@ -235,7 +244,8 @@ public partial class TableControl
 		if (thumbTrackHeight <= 0) return (trackTop, trackHeight, 0, trackHeight);
 
 		double viewportRatio = (double)visibleRows / totalRows;
-		int thumbHeight = Math.Clamp((int)(thumbTrackHeight * viewportRatio), 1, thumbTrackHeight);
+		int minThumbHeight = Math.Min(_minScrollbarThumbSize, thumbTrackHeight);
+		int thumbHeight = Math.Clamp((int)(thumbTrackHeight * viewportRatio), minThumbHeight, thumbTrackHeight);
 		double scrollRatio = (double)_scrollOffset / Math.Max(1, totalRows - visibleRows);
 		int thumbY = arrowSlots > 0 ? 1 : 0; // start after top arrow
 		int maxThumbPos = thumbTrackHeight - thumbHeight;
