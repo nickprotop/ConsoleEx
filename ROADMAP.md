@@ -63,8 +63,16 @@ most narrowly-scoped work last.
 
 ## Future
 
-- **Web terminal backend** — run your TUI in a browser via WebSocket
-- **SSH remote session driver** — dedicated driver for remote sessions
+- **Cell-stream transport** — one idea with two front ends, currently listed as two: a **web
+  terminal backend** (run your TUI in a browser over WebSocket) and an **SSH remote session
+  driver**. Both mean the same thing: stop serialising the UI to ANSI and have the far end parse
+  it back, and instead send the cells themselves — the compositor's `CharacterBuffer` diff — with
+  input events returning on the same channel. The dirty-region tracking that already exists *is*
+  the diff. Prior art: vtm's DirectVT does exactly this over stdin/stdout and reports beating a
+  classic SSH connection. The real prize is not speed: when both ends are ours, terminal
+  capability probing stops mattering — wide-char widths, ZWJ ligation, Kitty support are all known
+  rather than guessed. Costs: a client to ship and version, and a wire format owned forever. It is
+  an additional driver, never a replacement — plain SSH into a stock terminal must keep working
 - **Plugin ecosystem** — community-contributed controls and themes
 
 ---
