@@ -305,6 +305,7 @@ Keyboard-driven .NET 10 console for taking HuggingFace models onto a Qualcomm Sn
 | Per-window async threads | None |
 | PTY-backed terminal emulator control | None |
 | Animated desktop backgrounds | None |
+| Video playback (decoded frames, not still images) | None (still images only) |
 | Portal system for dropdowns and overlays | None |
 | Plugin architecture (themes, controls, windows, services) | None |
 
