@@ -37,6 +37,7 @@ By default, `ReadOnly = true` preserves backward-compatible static table renderi
 | `FilteringEnabled` | `bool` | `false` | Enable inline filtering (press `/`) |
 | `FuzzyFilterEnabled` | `bool` | `false` | Enable fuzzy matching as fallback |
 | `AutoHighlightOnFocus` | `bool` | `true` | Auto-select first row on focus |
+| `MinScrollbarThumbSize` | `int` | `1` | Minimum vertical scrollbar thumb height, in rows |
 
 ## Events
 
@@ -227,6 +228,60 @@ var grid = Controls.Table()
 | **Drag Scrollbar Thumb** | Smooth scroll |
 | **Click Scrollbar Arrow** | Scroll by one row/column |
 
+## Column Widths
+
+A column is either **fixed** (an explicit `Width`) or **auto** (sized from its content). When the
+auto columns do not fit, they are shrunk proportionally — which means one column holding a very
+long value can squeeze its neighbours down to a couple of characters:
+
+```
+│St│Ti│Message
+│RU│16│XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX...
+```
+
+`MinWidth` sets a floor for an auto column so that cannot happen:
+
+```csharp
+var table = new TableControlBuilder()
+    .AddColumn("Status",  TextJustification.Left, width: null, minWidth: 8)
+    .AddColumn("Time",    TextJustification.Left, width: null, minWidth: 8)
+    .AddColumn("Message", TextJustification.Left, width: null, minWidth: null)
+    .WithHorizontalScrollbar(ScrollbarVisibility.Auto)
+    .Build();
+```
+
+```
+│Status  │Time    │Message
+│RUNNING │16:29:00│XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX...
+```
+
+Or on an existing column:
+
+```csharp
+table.Columns[0].MinWidth = 8;
+```
+
+Behaviour worth knowing:
+
+- **Fixed columns ignore `MinWidth`.** An explicit `Width` is already a decision; its floor stays 1.
+- **`null`, `0` or a negative value all mean no floor** — the column can shrink to 1 character, which
+  is how the table behaved before floors existed.
+- **Floors can overflow the viewport.** When honouring every floor needs more room than there is, the
+  table lets its total content width exceed the viewport and relies on the horizontal scrollbar to
+  pan, rather than crushing a column below a usable width. Pair `MinWidth` with
+  `WithHorizontalScrollbar(ScrollbarVisibility.Auto)` so the overflow is reachable.
+
+For a virtual data source, return the floor from `GetColumnMinWidth` instead:
+
+```csharp
+public int? GetColumnMinWidth(int columnIndex) => columnIndex switch
+{
+    0 => 8,     // Status
+    1 => 8,     // Time
+    _ => null,  // no floor
+};
+```
+
 ## ITableDataSource
 
 The `ITableDataSource` interface enables virtual data binding for large datasets. Only visible rows are queried — the control never loads all data into memory.
@@ -242,6 +297,7 @@ public interface ITableDataSource
     // Optional (default interface methods):
     TextJustification GetColumnAlignment(int columnIndex) => TextJustification.Left;
     int? GetColumnWidth(int columnIndex) => null;
+    int? GetColumnMinWidth(int columnIndex) => null;
     Color? GetRowBackgroundColor(int rowIndex) => null;
     Color? GetRowForegroundColor(int rowIndex) => null;
     bool IsRowEnabled(int rowIndex) => true;
@@ -268,6 +324,7 @@ When `DataSource` is set:
 | Method | Description |
 |--------|-------------|
 | `.AddColumn(header, alignment?, width?)` | Add a column |
+| `.AddColumn(header, alignment, width, minWidth)` | Add a column with an auto-width floor ([Column Widths](#column-widths)) |
 | `.WithColumns(headers...)` | Add multiple columns by name |
 | `.AddRow(cells...)` | Add a data row |
 | `.WithDataSource(source)` | Set virtual data source |
@@ -295,6 +352,7 @@ When `DataSource` is set:
 | `.ShowRowSeparators()` | Show lines between rows |
 | `.WithVerticalScrollbar(visibility)` | Scrollbar visibility (Auto/Always/Never) |
 | `.WithHorizontalScrollbar(visibility)` | Scrollbar visibility (Auto/Always/Never) |
+| `.WithMinScrollbarThumbSize(size)` | Minimum vertical thumb height in rows (default 1) |
 
 ### Events
 
@@ -464,13 +522,18 @@ For in-memory rows, sorting creates an internal index map. For `ITableDataSource
 
 Regardless of data mode or ReadOnly state, TableControl always uses virtual rendering: only visible rows are measured and painted. This means 10,000+ row tables render instantly with no performance penalty.
 
-Column widths are computed using sample-based measurement (header + visible rows + a small buffer), cached and invalidated on significant scroll or data changes.
+Column widths are computed using sample-based measurement (header + visible rows + a small buffer), cached and invalidated on significant scroll or data changes. Auto columns are shrunk proportionally to fit, subject to any `MinWidth` floor — see [Column Widths](#column-widths).
 
 ## Scrollbars
 
 - **Vertical scrollbar**: Appears when rows exceed viewport. Shows up/down arrows, draggable thumb, and clickable track for page scrolling.
 - **Horizontal scrollbar**: Appears when total column width exceeds viewport. Same interaction model.
 - Both support `ScrollbarVisibility.Auto` (default), `Always`, or `Never`.
+- On a table with very many rows the proportional vertical thumb shrinks to a single row and becomes
+  hard to grab. `MinScrollbarThumbSize` sets a floor for it.
+- A table whose columns carry `MinWidth` floors may deliberately overflow its viewport rather than
+  crush a column — see [Column Widths](#column-widths). The horizontal scrollbar is how that
+  overflow is reached, so leave it on `Auto`.
 
 ## See Also
 

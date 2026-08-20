@@ -1104,6 +1104,71 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// Computes column widths for the given total available width.
 	/// Uses sample-based measurement for auto-width columns (visible rows + small buffer).
 	/// </summary>
+	/// <summary>
+	/// Shrinks natural column widths to fit <paramref name="contentWidth"/>, honouring each auto
+	/// column's minimum-width floor.
+	/// </summary>
+	/// <remarks>
+	/// Shared by the <see cref="TableColumn"/> and <see cref="ITableDataSource"/> paths, which differ
+	/// only in how "is this column fixed?" and "what is its floor?" are answered — hence the two
+	/// delegates rather than two copies of the arithmetic.
+	///
+	/// <para>Fixed-width columns have no floor concept: they are already explicit, so theirs stays 1.
+	/// A null or non-positive <c>MinWidth</c> also means 1 (no floor), matching the behaviour before
+	/// floors existed.</para>
+	///
+	/// <para>When honouring every floor needs more room than there is, the total is allowed to exceed
+	/// <paramref name="contentWidth"/>. The table then pans with its horizontal scrollbar rather than
+	/// crushing a column below a usable width — that overflow is the point of the feature, not a bug.</para>
+	/// </remarks>
+	/// <param name="widths">Natural widths, shrunk in place.</param>
+	/// <param name="colCount">Number of columns.</param>
+	/// <param name="contentWidth">Space available for content.</param>
+	/// <param name="fixedTotal">Total width of the fixed columns.</param>
+	/// <param name="autoTotal">Total natural width of the auto columns.</param>
+	/// <param name="totalNatural">Total natural width of every column.</param>
+	/// <param name="isFixed">Whether the column at an index has an explicit width.</param>
+	/// <param name="minWidthOf">The configured floor for the column at an index, or null for none.</param>
+	private static void ShrinkToFit(int[] widths, int colCount, int contentWidth,
+		int fixedTotal, int autoTotal, int totalNatural,
+		Func<int, bool> isFixed, Func<int, int?> minWidthOf)
+	{
+		// A fixed column is already explicit, so it has no floor; anything unset or non-positive
+		// means "no floor", i.e. 1.
+		int Floor(int c) => isFixed(c) ? 1 : Math.Max(1, minWidthOf(c) ?? 1);
+
+		int autoTarget = contentWidth - fixedTotal;
+		if (autoTarget > 0 && autoTotal > 0)
+		{
+			// Enough room for the fixed columns: distribute what is left across the auto ones.
+			double ratio = (double)autoTarget / autoTotal;
+			int assigned = fixedTotal;
+			int lastAutoCol = -1;
+			for (int c = 0; c < colCount; c++)
+			{
+				if (isFixed(c)) continue;
+				widths[c] = Math.Max(Floor(c), (int)(widths[c] * ratio));
+				assigned += widths[c];
+				lastAutoCol = c;
+			}
+			// Rounding leftovers go to the last auto column so the row fills exactly.
+			if (lastAutoCol >= 0)
+				widths[lastAutoCol] = Math.Max(Floor(lastAutoCol), widths[lastAutoCol] + (contentWidth - assigned));
+		}
+		else
+		{
+			// Not even the fixed columns fit — shrink everything proportionally, floors still applying.
+			double ratio = (double)contentWidth / totalNatural;
+			int assigned = 0;
+			for (int c = 0; c < colCount - 1; c++)
+			{
+				widths[c] = Math.Max(Floor(c), (int)(widths[c] * ratio));
+				assigned += widths[c];
+			}
+			widths[colCount - 1] = Math.Max(Floor(colCount - 1), contentWidth - assigned);
+		}
+	}
+
 	internal int[] ComputeColumnWidths(int availableWidth, List<TableColumn> cols, List<TableRow>? rows, int scrollOffset = 0, int visibleRowCount = 50)
 	{
 		int colCount = cols.Count;
@@ -1188,43 +1253,9 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 					autoTotal += widths[c];
 			}
 
-			int autoTarget = contentWidth - fixedTotal;
-			if (autoTarget > 0 && autoTotal > 0)
-			{
-				double ratio = (double)autoTarget / autoTotal;
-				int assigned = fixedTotal;
-				int lastAutoCol = -1;
-				for (int c = 0; c < colCount; c++)
-				{
-					if (cols[c].Width.HasValue) continue;
-					int minW = Math.Max(1, cols[c].MinWidth ?? 1);
-					widths[c] = Math.Max(minW, (int)(widths[c] * ratio));
-					assigned += widths[c];
-					lastAutoCol = c;
-				}
-				if (lastAutoCol >= 0)
-				{
-					int minWLast = Math.Max(1, cols[lastAutoCol].MinWidth ?? 1);
-					widths[lastAutoCol] = Math.Max(minWLast, widths[lastAutoCol] + (contentWidth - assigned));
-				}
-			}
-			else
-			{
-				// Not enough space even for fixed columns — shrink everything. Fixed-width columns have
-				// no MinWidth concept (floor stays 1); auto columns respect their configured floor, which
-				// may leave the total width exceeding contentWidth - the table then relies on horizontal
-				// scrolling rather than crushing an auto column below its usable floor.
-				double ratio = (double)contentWidth / totalNatural;
-				int assigned = 0;
-				for (int c = 0; c < colCount - 1; c++)
-				{
-					int minW = cols[c].Width.HasValue ? 1 : Math.Max(1, cols[c].MinWidth ?? 1);
-					widths[c] = Math.Max(minW, (int)(widths[c] * ratio));
-					assigned += widths[c];
-				}
-				int minWLast = cols[colCount - 1].Width.HasValue ? 1 : Math.Max(1, cols[colCount - 1].MinWidth ?? 1);
-				widths[colCount - 1] = Math.Max(minWLast, contentWidth - assigned);
-			}
+			ShrinkToFit(widths, colCount, contentWidth, fixedTotal, autoTotal, totalNatural,
+				isFixed: c => cols[c].Width.HasValue,
+				minWidthOf: c => cols[c].MinWidth);
 		}
 
 		// Cache results
@@ -1314,46 +1345,9 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 					autoTotal += widths[c];
 			}
 
-			int autoTarget = contentWidth - fixedTotal;
-			if (autoTarget > 0 && autoTotal > 0)
-			{
-				double ratio = (double)autoTarget / autoTotal;
-				int assigned = fixedTotal;
-				int lastAutoCol = -1;
-				for (int c = 0; c < colCount; c++)
-				{
-					bool isFixed = _columnWidthOverrides.ContainsKey(c) || _dataSource.GetColumnWidth(c).HasValue;
-					if (isFixed) continue;
-					int minW = Math.Max(1, _dataSource.GetColumnMinWidth(c) ?? 1);
-					widths[c] = Math.Max(minW, (int)(widths[c] * ratio));
-					assigned += widths[c];
-					lastAutoCol = c;
-				}
-				if (lastAutoCol >= 0)
-				{
-					int minWLast = Math.Max(1, _dataSource.GetColumnMinWidth(lastAutoCol) ?? 1);
-					widths[lastAutoCol] = Math.Max(minWLast, widths[lastAutoCol] + (contentWidth - assigned));
-				}
-			}
-			else
-			{
-				// Not enough space even for fixed columns — shrink everything. Fixed/overridden columns
-				// have no MinWidth concept (floor stays 1); auto columns respect their configured floor,
-				// which may leave the total width exceeding contentWidth - the table then relies on
-				// horizontal scrolling rather than crushing an auto column below its usable floor.
-				double ratio = (double)contentWidth / totalNatural;
-				int assigned = 0;
-				for (int c = 0; c < colCount - 1; c++)
-				{
-					bool isFixed = _columnWidthOverrides.ContainsKey(c) || _dataSource.GetColumnWidth(c).HasValue;
-					int minW = isFixed ? 1 : Math.Max(1, _dataSource.GetColumnMinWidth(c) ?? 1);
-					widths[c] = Math.Max(minW, (int)(widths[c] * ratio));
-					assigned += widths[c];
-				}
-				bool isLastFixed = _columnWidthOverrides.ContainsKey(colCount - 1) || _dataSource.GetColumnWidth(colCount - 1).HasValue;
-				int minWLast = isLastFixed ? 1 : Math.Max(1, _dataSource.GetColumnMinWidth(colCount - 1) ?? 1);
-				widths[colCount - 1] = Math.Max(minWLast, contentWidth - assigned);
-			}
+			ShrinkToFit(widths, colCount, contentWidth, fixedTotal, autoTotal, totalNatural,
+				isFixed: c => _columnWidthOverrides.ContainsKey(c) || _dataSource.GetColumnWidth(c).HasValue,
+				minWidthOf: c => _dataSource.GetColumnMinWidth(c));
 		}
 
 		return widths;
