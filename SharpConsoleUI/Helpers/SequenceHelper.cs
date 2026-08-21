@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System.Drawing;
+using System.Threading;
 using SharpConsoleUI.Drivers;
 
 // Code from Terminal.Gui - https://github.com/gui-cs/Terminal.Gui
@@ -62,6 +63,18 @@ namespace SharpConsoleUI.Helpers
 		private static MouseFlags? _lastMouseButtonPressed;
 		private static Point? _point;
 		private static DateTime _lastClickTime = DateTime.MinValue;
+
+		// Owns the in-flight continuous-press loop so it can be stopped deterministically.
+		//
+		// The loop used to be a bare `while (_isButtonPressed)` poll started by an unawaited
+		// Task.Run, which left three ways to leak it: a driver shutting down mid-press never
+		// cleared the flag, so the loop span forever invoking a disposed driver's callback; a
+		// missed release let the next press stack a second loop on top of the first; and this
+		// state is static, so a new driver in the same process inherited a live loop from the
+		// previous one. Cancelling the previous token before each new press, and on Reset(),
+		// closes all three.
+		private static CancellationTokenSource? _continuousPressCts;
+		private static readonly object _continuousPressLock = new();
 
 		/// <summary>
 		/// Gets the C1 control character name for the specified character.
@@ -367,10 +380,22 @@ namespace SharpConsoleUI.Helpers
 
 				if ((mouseFlags[0] & MouseFlags.ReportMousePosition) == 0)
 				{
-					Task.Run(
+					CancellationToken token;
+					lock (_continuousPressLock)
+					{
+						// Cancel any loop still running from a previous press before starting
+						// another, so a missed release cannot leave two of them firing.
+						_continuousPressCts?.Cancel();
+						_continuousPressCts?.Dispose();
+						_continuousPressCts = new CancellationTokenSource();
+						token = _continuousPressCts.Token;
+					}
+
+					_ = Task.Run(
 							async () => await ProcessContinuousButtonPressedAsync(
 											buttonState,
-											continuousButtonPressedHandler));
+											continuousButtonPressedHandler,
+											token));
 				}
 				else if (mouseFlags[0].HasFlag(MouseFlags.ReportMousePosition))
 				{
@@ -414,6 +439,13 @@ namespace SharpConsoleUI.Helpers
 			{
 				mouseFlags[0] = buttonState;
 				_isButtonPressed = false;
+
+				// Stop the continuous-press loop immediately rather than letting it notice the
+				// flag on its next 100ms tick.
+				lock (_continuousPressLock)
+				{
+					_continuousPressCts?.Cancel();
+				}
 
 				if (_isButtonTripleClicked)
 				{
@@ -559,20 +591,65 @@ namespace SharpConsoleUI.Helpers
 			_isButtonDoubleClicked = false;
 		}
 
-		private static async Task ProcessContinuousButtonPressedAsync(MouseFlags mouseFlag, Action<MouseFlags, Point> continuousButtonPressedHandler)
+		private static async Task ProcessContinuousButtonPressedAsync(MouseFlags mouseFlag,
+			Action<MouseFlags, Point> continuousButtonPressedHandler, CancellationToken token)
 		{
-			// PERF: Pause and poll in a hot loop.
-			// This should be replaced with event dispatch and a synchronization primitive such as AutoResetEvent.
-			// Will make a massive difference in responsiveness.
-			while (_isButtonPressed)
+			// Repeats the press while the button is held, so a held mouse button keeps scrolling.
+			//
+			// Exits on the token as well as the flag: the flag alone is cleared only by a release
+			// event, so a driver that shuts down mid-press (or never sees the release) would leave
+			// this running forever against a dead handler. Reset() and the next press both cancel.
+			try
 			{
-				await Task.Delay(Configuration.ControlDefaults.ContinuousPressIntervalMs);
-
-				if (_isButtonPressed && _lastMouseButtonPressed is { } && (mouseFlag & MouseFlags.ReportMousePosition) == 0)
+				// PERF: still a poll rather than event dispatch. Replacing the delay with a
+				// signal primitive would improve responsiveness — see the "instant input
+				// response" roadmap item — but cancellation is what makes it safe to leave.
+				while (_isButtonPressed && !token.IsCancellationRequested)
 				{
-					continuousButtonPressedHandler(mouseFlag, _point ?? Point.Empty);
+					await Task.Delay(Configuration.ControlDefaults.ContinuousPressIntervalMs, token);
+
+					if (_isButtonPressed && !token.IsCancellationRequested
+						&& _lastMouseButtonPressed is { } && (mouseFlag & MouseFlags.ReportMousePosition) == 0)
+					{
+						continuousButtonPressedHandler(mouseFlag, _point ?? Point.Empty);
+					}
 				}
 			}
+			catch (OperationCanceledException)
+			{
+				// Expected: the press ended, or the owner reset.
+			}
+			catch (Exception)
+			{
+				// The handler threw. This task is not awaited, so an escaping exception would be
+				// unobserved — swallow it rather than faulting a task nobody is watching.
+			}
+		}
+
+		/// <summary>
+		/// Clears the mouse click/press state machine and stops any continuous-press loop.
+		/// </summary>
+		/// <remarks>
+		/// This state is process-wide, so a driver shutting down — or a test constructing a fresh
+		/// console window system — should call this to avoid inheriting a previous owner's
+		/// half-finished click sequence or a still-running press loop.
+		/// </remarks>
+		public static void Reset()
+		{
+			lock (_continuousPressLock)
+			{
+				_continuousPressCts?.Cancel();
+				_continuousPressCts?.Dispose();
+				_continuousPressCts = null;
+			}
+
+			_isButtonClicked = false;
+			_isButtonDoubleClicked = false;
+			_isButtonPressed = false;
+			_isButtonTripleClicked = false;
+			_lastMouseButtonPressed = null;
+			_point = null;
+			_lastClickTime = DateTime.MinValue;
 		}
 
 		private static MouseFlags SetControlKeyStates(MouseFlags buttonState, MouseFlags mouseFlag)

@@ -510,6 +510,11 @@ namespace SharpConsoleUI.Drivers
 			// Cancel raw input reader if active
 			try { _rawInputCts?.Cancel(); } catch { }
 
+			// SequenceHelper's click/press state is process-wide. Clearing it here stops any
+			// continuous-press loop still running against this driver's callback, and prevents a
+			// driver created later in the same process from inheriting a half-finished click.
+			try { Helpers.SequenceHelper.Reset(); } catch { }
+
 			bool wasDirectAnsi = _useDirectAnsi;
 
 			// Write cleanup sequences BEFORE restoring terminal (while raw write still works)
