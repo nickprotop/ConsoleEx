@@ -243,6 +243,10 @@ namespace SharpConsoleUI.Helpers
 					//pos.Y = int.Parse (value) + Console.WindowTop - 1;
 					pos.Y = int.Parse(value) - 1;
 
+					// The SGR decoding below was rewritten from a hand-enumerated case table to
+					// bitmask decoding by @joezearing in PR #74. The old table listed only specific
+					// button+modifier combinations and omitted code 4 (bare Shift+Click), so any
+					// unlisted combination left buttonState at 0 and the click was never recognised.
 					if ((buttonCode & 0x40) != 0)
 					{
 						// Wheel codes: xterm maps a modifier held during a vertical wheel tick to a
