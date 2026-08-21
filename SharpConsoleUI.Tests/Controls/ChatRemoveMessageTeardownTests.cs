@@ -7,10 +7,10 @@
 // -----------------------------------------------------------------------
 
 using System.Linq;
-using SharpConsoleUI.Layout;
-using SharpConsoleUI.Tests.Infrastructure;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
+using SharpConsoleUI.Layout;
+using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Controls
