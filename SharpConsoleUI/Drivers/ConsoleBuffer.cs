@@ -70,10 +70,22 @@ namespace SharpConsoleUI.Drivers
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ConsoleBuffer"/> class with the specified dimensions.
 		/// </summary>
-		/// <param name="width">The width of the buffer in characters.</param>
-		/// <param name="height">The height of the buffer in lines.</param>
-		/// <param name="consoleLock">Optional shared lock for thread-safe Console I/O operations.</param>
 		/// <param name="options">Optional configuration options for buffer behavior.</param>
+		/// <summary>
+		/// When true, rendered frames are composed and diffed as usual but never written to the
+		/// process's stdout.
+		/// </summary>
+		/// <remarks>
+		/// For a driver that has no real console to write to. Without this, the fallback in
+		/// <c>WriteOutput</c> — <c>Console.Out.Write</c> whenever raw mode is inactive, which is always
+		/// on Windows and always for a headless driver — paints ANSI escape sequences into whatever
+		/// stdout happens to be. That is measurable: a headless render emitted ~4.6KB of frames,
+		/// contradicting the driver's own contract of capturing output rather than writing it, and
+		/// landing in the caller's data when stdout is redirected.
+		/// </remarks>
+		public bool SuppressConsoleOutput { get; set; }
+
+		/// <inheritdoc/>
 		public ConsoleBuffer(int width, int height, Configuration.ConsoleWindowSystemOptions? options = null, object? consoleLock = null)
 		{
 			_width = width;
@@ -793,8 +805,11 @@ namespace SharpConsoleUI.Drivers
 		/// Raw write completely bypasses .NET's Console/StreamWriter/SyncTextWriter infrastructure,
 		/// eliminating any possibility of .NET runtime code touching termios during output.
 		/// </summary>
-		private static void WriteOutput(string text)
+		private void WriteOutput(string text)
 		{
+			if (SuppressConsoleOutput)
+				return;
+
 			if (TerminalRawMode.IsRawModeActive)
 				TerminalRawMode.WriteStdout(text);
 			else
@@ -805,8 +820,11 @@ namespace SharpConsoleUI.Drivers
 		/// Writes a StringBuilder directly to stdout, avoiding the intermediate ToString() allocation.
 		/// Falls back to ToString() for the Console.Out path (non-raw mode).
 		/// </summary>
-		private static void WriteOutput(StringBuilder sb)
+		private void WriteOutput(StringBuilder sb)
 		{
+			if (SuppressConsoleOutput)
+				return;
+
 			if (TerminalRawMode.IsRawModeActive)
 				TerminalRawMode.WriteStdout(sb);
 			else

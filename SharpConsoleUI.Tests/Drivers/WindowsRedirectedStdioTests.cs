@@ -102,6 +102,48 @@ public class WindowsRedirectedStdioTests
 	}
 
 	/// <summary>
+	/// The headless driver must not write rendered frames to the process's stdout.
+	/// </summary>
+	/// <remarks>
+	/// <c>ConsoleBuffer.WriteOutput</c> falls back to <c>Console.Out.Write</c> whenever raw mode is
+	/// inactive — which is always for a headless driver, and always on Windows — so a driver documented
+	/// to "capture output instead of writing to the real console" was measured emitting ~4.6KB of ANSI
+	/// per short render. It matters beyond tidiness: piped stdin now works for headless and embedded
+	/// drivers on Windows, so <c>data | app &gt; result.txt</c> would receive working input and escape
+	/// sequences painted into result.txt — the harm the redirected-stdio refusal exists to prevent.
+	/// </remarks>
+	[Fact]
+	public void HeadlessDriver_WritesNothingToConsoleOut()
+	{
+		var original = Console.Out;
+		var captured = new System.IO.StringWriter();
+		try
+		{
+			Console.SetOut(captured);
+
+			var system = new ConsoleWindowSystem(new HeadlessConsoleDriver(80, 25)) { BlockWhenIdle = false };
+			var window = new Window(system) { Title = "Leak", Left = 1, Top = 1, Width = 40, Height = 10 };
+			system.WindowStateService.AddWindow(window);
+			system.WindowStateService.SetActiveWindow(window);
+
+			using (var session = system.BeginHosted())
+			{
+				for (int i = 0; i < 5; i++) session.Tick();
+				system.ForceRender();
+				session.Tick();
+			}
+		}
+		finally
+		{
+			Console.SetOut(original);
+		}
+
+		string leaked = captured.ToString();
+		Assert.True(leaked.Length == 0,
+			$"headless driver wrote {leaked.Length} chars to stdout; it must capture output, not write it.");
+	}
+
+	/// <summary>
 	/// The refusal belongs to the console driver, not to piped input: a driver that reads no console
 	/// handles still receives piped data on Windows.
 	/// </summary>

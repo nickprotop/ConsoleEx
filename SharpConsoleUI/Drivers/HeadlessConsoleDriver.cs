@@ -201,7 +201,14 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 		_windowSystem = windowSystem;
 
 		// Create ConsoleBuffer for buffered rendering with thread-safe lock
-		_consoleBuffer = new ConsoleBuffer(_screenSize.Width, _screenSize.Height, windowSystem.Options, _consoleLock);
+		_consoleBuffer = new ConsoleBuffer(_screenSize.Width, _screenSize.Height, windowSystem.Options, _consoleLock)
+		{
+			// This driver captures output; it has no console to write to. Without this the buffer's
+			// Console.Out fallback would paint rendered frames into the process's real stdout — into
+			// the caller's data when stdout is redirected, which is exactly what the Windows
+			// redirected-stdio refusal exists to prevent.
+			SuppressConsoleOutput = true
+		};
 
 		// Connect diagnostics to ConsoleBuffer
 		if (windowSystem.RenderingDiagnostics != null)
