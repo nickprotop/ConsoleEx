@@ -151,7 +151,11 @@ public record ConsoleWindowSystemOptions(
 	// freezes-then-recovers instead of deadlocking. Set true to opt into the WinForms/WPF model
 	// where `await` resumes on the UI thread — but then handlers MUST use `await` and never block
 	// on async work on the UI thread, or the captured continuation deadlocks against the loop.
-	bool InstallSynchronizationContext = false
+	bool InstallSynchronizationContext = false,
+
+	// Piped-stdin capture configuration. Null uses defaults (new PipedInputOptions()).
+	// Appended last so existing positional arguments keep their meaning.
+	PipedInputOptions? PipedInput = null
 )
 {
 	private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";

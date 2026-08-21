@@ -63,6 +63,16 @@ namespace SharpConsoleUI
 		// Signal to wake the main loop when input or UI actions arrive
 		private readonly ManualResetEventSlim _wakeSignal = new(false);
 
+		// Piped-stdin capture. Null when stdin is a TTY, capture is disabled, or stdin is unreadable.
+		private readonly Core.PipedInputCapture? _pipedInputCapture;
+		private readonly Configuration.PipedInputOptions _pipedInputOptions;
+
+		// Hosted-loop state. The sync-context pair were locals of Run(); they are fields now because
+		// StartHostedCore() sets them and StopHostedCore() consumes them.
+		private SynchronizationContext? _previousSyncContext;
+		private bool _installedSyncContext;
+		private bool _hostedStopped;
+
 		// Frame rate limiting (configured via ConsoleWindowSystemOptions)
 		private DateTime _lastRenderTime = DateTime.UtcNow;
 
@@ -339,12 +349,16 @@ namespace SharpConsoleUI
 		/// <param name="registryConfiguration">Optional registry configuration for persistent key-value storage.</param>
 		public ConsoleWindowSystem(IConsoleDriver driver, ITheme theme, ConsoleWindowSystemOptions? options = null, RegistryConfiguration? registryConfiguration = null)
 		{
-			// Capture piped stdin before the driver takes over the terminal.
-			// Must be done first — once the driver initializes, stdin may be redirected to /dev/tty.
-			if (Console.IsInputRedirected)
+			// Begin capturing piped stdin. Started before the driver initializes so no input is missed,
+			// but NOT waited on here: stdin held open by a live writer (a streaming producer, or a parent
+			// process that keeps the pipe open) would otherwise block construction forever, before the
+			// application could draw anything. See PipedInputCapture and PipedInput.
+			_pipedInputOptions = (options ?? ConsoleWindowSystemOptions.Create()).PipedInput
+				?? new Configuration.PipedInputOptions();
+			if (_pipedInputOptions.Enabled && Console.IsInputRedirected)
 			{
-				try { PipedInput = Console.In.ReadToEnd(); }
-				catch { /* stdin read failed — leave as null */ }
+				try { _pipedInputCapture = new Core.PipedInputCapture(Console.In); }
+				catch { /* stdin unreadable — leave the capture null, PipedInput stays null */ }
 			}
 
 			_consoleDriver = driver ?? throw new ArgumentNullException(nameof(driver));
@@ -597,9 +611,32 @@ namespace SharpConsoleUI
 
 		/// <summary>
 		/// Gets the text that was piped into the application via stdin, or null if stdin is a TTY.
-		/// Automatically captured at construction time — available throughout the app lifecycle.
+		/// Captured automatically — available throughout the app lifecycle.
 		/// </summary>
-		public string? PipedInput { get; }
+		/// <remarks>
+		/// The capture starts at construction and runs in the background, so constructing the system
+		/// never blocks. For the usual finite pipe (<c>echo x | app</c>) it has already finished by the
+		/// time anything reads this, and the full text is returned immediately.
+		///
+		/// <para>Reading this property before <see cref="Run"/> waits up to
+		/// <see cref="Configuration.PipedInputOptions.PreUiTimeoutMs"/> for input still in flight, then
+		/// returns what arrived — a bounded wait, because no UI exists yet to report a longer one. Once
+		/// the UI is up, <see cref="Run"/> surfaces a still-pending capture as a cancellable progress
+		/// dialog instead, and this property returns the text captured by the time it resolved.</para>
+		/// </remarks>
+		public string? PipedInput
+		{
+			get
+			{
+				var capture = _pipedInputCapture;
+				if (capture == null) return null;
+
+				// Once the UI is running, the dialog owns the waiting; block only before that.
+				return capture.IsCompleted || _running
+					? capture.PartialText
+					: capture.WaitForText(_pipedInputOptions.PreUiTimeoutMs);
+			}
+		}
 
 		/// <summary>
 		/// Gets the piped stdin split into lines, or null if stdin is a TTY.
@@ -937,11 +974,47 @@ namespace SharpConsoleUI
 		#region System Control
 
 		/// <summary>
-		/// Starts the main event loop of the window system. Blocks until <see cref="Shutdown"/> is called.
+		/// Whether <see cref="HostedSession.Tick"/> waits out its idle interval before returning.
 		/// </summary>
-		/// <returns>The exit code set by <see cref="Shutdown"/> or 1 if an unhandled exception occurred.</returns>
-		public int Run()
+		/// <remarks>
+		/// <c>true</c> (the default) is what <see cref="Run"/> needs: the loop sleeps between frames
+		/// rather than spinning. A host driving frames from its own event loop should set this to
+		/// <c>false</c> and pace the calls itself — on a single-threaded host such as WebAssembly a
+		/// blocking wait here holds the only thread and no further tick can fire.
+		/// </remarks>
+		public bool BlockWhenIdle { get; set; } = true;
+
+		/// <summary>
+		/// Starts the system for a host that owns its own event loop, and returns a session whose
+		/// <see cref="HostedSession.Tick"/> renders one frame.
+		/// </summary>
+		/// <remarks>
+		/// <see cref="Run"/> is this plus a loop: it is the same machinery, differing only in who owns
+		/// the loop. Use this when the host already has one — a browser, a game loop, a GUI application
+		/// embedding a console surface.
+		/// <example>
+		/// <code>
+		/// using var session = ws.BeginHosted();
+		/// while (session.Tick()) await Task.Delay(33);
+		/// </code>
+		/// </example>
+		/// <para>Disposing the session tears down what this established. Call <see cref="HostedSession.Tick"/>
+		/// on the thread that called this method — the first call captures it as the UI thread.</para>
+		/// </remarks>
+		/// <exception cref="InvalidOperationException">The system is already running.</exception>
+		public HostedSession BeginHosted()
 		{
+			if (_running)
+				throw new InvalidOperationException("The console window system is already running.");
+
+			StartHostedCore();
+			return new HostedSession(this);
+		}
+
+		/// <summary>The one-time startup shared by <see cref="Run"/> and <see cref="BeginHosted"/>.</summary>
+		private void StartHostedCore()
+		{
+			_hostedStopped = false;
 			_logService.LogInfo("Console window system starting", "System");
 			_running = true;
 
@@ -952,18 +1025,18 @@ namespace SharpConsoleUI
 			// Optionally install a UI SynchronizationContext so that `await` in handlers resumes on
 			// the main-loop (UI) thread, mirroring the WinForms/WPF model. Opt-out for legacy apps
 			// that block on async work on the UI thread (see ConsoleWindowSystemOptions).
-			SynchronizationContext? previousSyncContext = null;
-			bool installedSyncContext = false;
+			_previousSyncContext = null;
+			_installedSyncContext = false;
 			if (_options.InstallSynchronizationContext)
 			{
-				previousSyncContext = SynchronizationContext.Current;
+				_previousSyncContext = SynchronizationContext.Current;
 				SynchronizationContext.SetSynchronizationContext(
 					new Core.ConsoleUISynchronizationContext(EnqueueOnUIThread, () => IsOnUIThread));
-				installedSyncContext = true;
+				_installedSyncContext = true;
 			}
 
 			// Report the resolved async model so user code can query it at runtime (Issue #35).
-			SynchronizationContextInstalled = installedSyncContext;
+			SynchronizationContextInstalled = _installedSyncContext;
 
 			// Subscribe to the console driver events
 			// Store handlers in fields so they can be properly unsubscribed in Shutdown()
@@ -1029,139 +1102,238 @@ namespace SharpConsoleUI
 			// Initialize the console window system with background color and character
 			_renderer.FillDesktopBackground(Theme, _consoleDriver.ScreenSize.Width, _consoleDriver.ScreenSize.Height);
 
+			BeginPipedInputDialogWatch();
+		}
+
+		/// <summary>
+		/// Surfaces a still-running piped-stdin capture as a cancellable progress dialog, once the UI is up.
+		/// </summary>
+		/// <remarks>
+		/// Stdin held open by a live writer never reaches end-of-input, so the capture can outlast startup.
+		/// Rather than blocking (which is the bug this replaces) or waiting invisibly, the wait becomes
+		/// something the user can see and dismiss. Cancelling leaves <see cref="PipedInput"/> holding
+		/// whatever arrived, which is what an application reading best-effort piped input expects.
+		/// </remarks>
+		private void BeginPipedInputDialogWatch()
+		{
+			var capture = _pipedInputCapture;
+			if (capture == null || capture.IsCompleted) return;
+			if (!_pipedInputOptions.ShowDialog) return;
+
+			_ = ShowPipedInputDialogAsync(capture);
+		}
+
+		private async Task ShowPipedInputDialogAsync(Core.PipedInputCapture capture)
+		{
+			try
+			{
+				// Grace period: the common finite pipe finishes in well under a millisecond, and a dialog
+				// that appears and vanishes reads as a glitch. Only a genuinely slow capture gets one.
+				var delay = Task.Delay(_pipedInputOptions.DialogDelayMs);
+				if (await Task.WhenAny(capture.Completion, delay).ConfigureAwait(false) == capture.Completion)
+					return;
+
+				if (!_running || capture.IsCompleted) return;
+
+				await Dialogs.Dialogs.RunWithProgressAsync<object?>(
+					this,
+					_pipedInputOptions.DialogTitle,
+					_pipedInputOptions.DialogMessage,
+					async (CancellationToken cancellationToken, IProgress<Dialogs.ProgressUpdate> _) =>
+					{
+						// Completes on end-of-input, or unblocks when the user cancels; either way the
+						// capture keeps whatever it read, and the background thread is left to finish.
+						var cancelled = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+						using (cancellationToken.Register(() => cancelled.TrySetResult(true)))
+							await Task.WhenAny(capture.Completion, cancelled.Task).ConfigureAwait(false);
+
+						return (object?)null;
+					}).ConfigureAwait(false);
+			}
+			catch (Exception ex)
+			{
+				// The dialog is a courtesy over a best-effort capture: never let it take down the app.
+				_logService.LogWarning($"Piped-input dialog failed: {ex.Message}", "System");
+			}
+		}
+
+		/// <summary>Runs one iteration of the main loop. Returns <c>false</c> once the system should stop.</summary>
+		internal bool TickCore()
+		{
+			if (!_running) return false;
+
+			_watchdog.Heartbeat();
+			_currentPhase = Core.MainLoopPhase.Input;
+			Input.ProcessInput();
+			_currentPhase = Core.MainLoopPhase.Drain;
+			DrainUIActionQueue();
+
+			var now = DateTime.UtcNow;
+			var elapsed = (now - _lastRenderTime).TotalMilliseconds;
+
+			// Track performance metrics on EVERY iteration (independent of rendering)
+			bool metricsNeedUpdate = false;
+			if (Performance.IsPerformanceMetricsEnabled)
+			{
+				metricsNeedUpdate = Performance.BeginFrame();
+				if (metricsNeedUpdate)
+				{
+					Render.InvalidateStatusCache();
+				}
+
+				Performance.UpdateMetrics(
+					Windows.Count,
+					Windows.Values.Count(w => w.PendingWork != FrameWork.None)
+				);
+			}
+
+			// Advance animations before rendering
+			if (Animations.HasActiveAnimations)
+			{
+				Animations.Update(TimeSpan.FromMilliseconds(elapsed));
+			}
+
+			// Advance drag-select autoscroll (independent of EnableAnimations).
+			if (DragAutoScrollActive)
+			{
+				StepDragAutoScroll(elapsed);
+			}
+
+			// Advance inline [spinner] markup. ShouldKeepRendering below only keeps the loop calling
+			// UpdateDisplay; it does not dirty any window, and RenderWindows skips a clean one. Tick
+			// invalidates the controls that painted an inline spinner, so their glyph advances on
+			// time instead of only when some other event happens to dirty the window.
+			Parsing.MarkupSpinnerClock.Tick(Animations.IsEnabled);
+
+			// Frame pacing: render if windows are dirty OR metrics need update OR desktop needs render OR animations active
+			bool shouldRender = AnyWindowDirty() || metricsNeedUpdate || Render.DesktopNeedsRender || Animations.HasActiveAnimations || Parsing.MarkupSpinnerClock.ShouldKeepRendering(Animations.IsEnabled) || Render.IsStatusBarDirty() || _desktopPortalService.AnyPortalDirty() || DragAutoScrollActive;
+
+			// Calculate recommended sleep duration once (used in both branches)
+			var recommendedSleep = _inputStateService.GetRecommendedSleepDuration(
+				Configuration.SystemDefaults.MinSleepDurationMs,
+				Configuration.SystemDefaults.MaxSleepDurationMs);
+
+			if (Performance.IsFrameRateLimitingEnabled)
+			{
+				// Frame rate limiting enabled: only render if enough time elapsed
+				if (shouldRender && elapsed >= Performance.MinFrameTime)
+				{
+					_currentPhase = Core.MainLoopPhase.Render;
+					Render.UpdateDisplay();
+					_lastRenderTime = now;
+					_idleTime = (int)Performance.MinFrameTime;
+				}
+				else
+				{
+					_inputStateService.UpdateIdleState();
+					_idleTime = recommendedSleep;
+				}
+			}
+			else
+			{
+				// Frame rate limiting disabled: render immediately when dirty
+				if (shouldRender)
+				{
+					_currentPhase = Core.MainLoopPhase.Render;
+					Render.UpdateDisplay();
+					_lastRenderTime = now;
+					_idleTime = Configuration.SystemDefaults.FastLoopIdleMs; // Fast loop when dirty, no frame rate cap
+				}
+				else
+				{
+					_inputStateService.UpdateIdleState();
+					_idleTime = recommendedSleep;
+				}
+			}
+
+			UpdateCursor();
+			if (_uiActionsPending && _idleTime > Configuration.SystemDefaults.MinSleepDurationMs)
+				_idleTime = Configuration.SystemDefaults.MinSleepDurationMs;
+			_currentPhase = Core.MainLoopPhase.Idle;
+			try
+			{
+				// A host driving frames from its own event loop paces them itself; blocking here would
+				// hold its thread (on a single-threaded host, the only one) and starve the next tick.
+				if (BlockWhenIdle)
+					_wakeSignal.Wait(_idleTime);
+				_wakeSignal.Reset();
+			}
+			catch (ObjectDisposedException)
+			{
+				// Shutdown disposed the signal — stop ticking.
+				_running = false;
+			}
+
+			return _running;
+		}
+
+		/// <summary>The teardown shared by <see cref="Run"/> and <see cref="HostedSession.Dispose"/>.</summary>
+		internal void StopHostedCore()
+		{
+			if (_hostedStopped) return;
+			_hostedStopped = true;
+			_running = false;
+
+			// Restore the previously-installed SynchronizationContext for the calling thread
+			// (only if we installed our own).
+			if (_installedSyncContext)
+				SynchronizationContext.SetSynchronizationContext(_previousSyncContext);
+			_installedSyncContext = false;
+
+			// The hosted session has ended — the resolved async model no longer applies.
+			SynchronizationContextInstalled = false;
+
+			// ALWAYS restore console state (mouse mode, cursor, etc.)
+			// This ensures the terminal is usable even if the app crashes
+			try
+			{
+				_consoleDriver.Stop();
+			}
+			catch
+			{
+				// Ignore cleanup errors - we're already exiting
+			}
+		}
+
+		/// <summary>
+		/// Runs the console window system until it exits.
+		/// </summary>
+		/// <returns>The process exit code.</returns>
+		/// <summary>
+		/// Starts the main event loop of the window system. Blocks until <see cref="Shutdown"/> is called.
+		/// </summary>
+		/// <remarks>
+		/// This is <see cref="BeginHosted"/> plus the loop. A host that owns its own event loop calls
+		/// that instead.
+		/// </remarks>
+		/// <returns>The exit code set by <see cref="Shutdown"/> or 1 if an unhandled exception occurred.</returns>
+		/// <exception cref="InvalidOperationException">The driver does not support a blocking loop.</exception>
+		public int Run()
+		{
+			if (!_consoleDriver.SupportsBlockingLoop)
+				throw new InvalidOperationException(
+					$"{_consoleDriver.GetType().Name} cannot be driven by a blocking loop. " +
+					"Use BeginHosted() and drive frames from the host's own event loop.");
+
 			Exception? fatalException = null;
+			StartHostedCore();
 
 			try
 			{
-				// Main loop
 				while (_running)
 				{
-					_watchdog.Heartbeat();
-					_currentPhase = Core.MainLoopPhase.Input;
-					Input.ProcessInput();
-					_currentPhase = Core.MainLoopPhase.Drain;
-					DrainUIActionQueue();
-
-					var now = DateTime.UtcNow;
-					var elapsed = (now - _lastRenderTime).TotalMilliseconds;
-
-					// Track performance metrics on EVERY iteration (independent of rendering)
-					bool metricsNeedUpdate = false;
-					if (Performance.IsPerformanceMetricsEnabled)
-					{
-						metricsNeedUpdate = Performance.BeginFrame();
-						if (metricsNeedUpdate)
-						{
-							Render.InvalidateStatusCache();
-						}
-
-						Performance.UpdateMetrics(
-							Windows.Count,
-							Windows.Values.Count(w => w.PendingWork != FrameWork.None)
-						);
-					}
-
-					// Advance animations before rendering
-					if (Animations.HasActiveAnimations)
-					{
-						Animations.Update(TimeSpan.FromMilliseconds(elapsed));
-					}
-
-					// Advance drag-select autoscroll (independent of EnableAnimations).
-					if (DragAutoScrollActive)
-					{
-						StepDragAutoScroll(elapsed);
-					}
-
-					// Advance inline [spinner] markup. ShouldKeepRendering below only keeps the loop calling
-					// UpdateDisplay; it does not dirty any window, and RenderWindows skips a clean one. Tick
-					// invalidates the controls that painted an inline spinner, so their glyph advances on
-					// time instead of only when some other event happens to dirty the window.
-					Parsing.MarkupSpinnerClock.Tick(Animations.IsEnabled);
-
-					// Frame pacing: render if windows are dirty OR metrics need update OR desktop needs render OR animations active
-					bool shouldRender = AnyWindowDirty() || metricsNeedUpdate || Render.DesktopNeedsRender || Animations.HasActiveAnimations || Parsing.MarkupSpinnerClock.ShouldKeepRendering(Animations.IsEnabled) || Render.IsStatusBarDirty() || _desktopPortalService.AnyPortalDirty() || DragAutoScrollActive;
-
-					// Calculate recommended sleep duration once (used in both branches)
-					var recommendedSleep = _inputStateService.GetRecommendedSleepDuration(
-						Configuration.SystemDefaults.MinSleepDurationMs,
-						Configuration.SystemDefaults.MaxSleepDurationMs);
-
-					if (Performance.IsFrameRateLimitingEnabled)
-					{
-						// Frame rate limiting enabled: only render if enough time elapsed
-						if (shouldRender && elapsed >= Performance.MinFrameTime)
-						{
-							_currentPhase = Core.MainLoopPhase.Render;
-							Render.UpdateDisplay();
-							_lastRenderTime = now;
-							_idleTime = (int)Performance.MinFrameTime;
-						}
-						else
-						{
-							_inputStateService.UpdateIdleState();
-							_idleTime = recommendedSleep;
-						}
-					}
-					else
-					{
-						// Frame rate limiting disabled: render immediately when dirty
-						if (shouldRender)
-						{
-							_currentPhase = Core.MainLoopPhase.Render;
-							Render.UpdateDisplay();
-							_lastRenderTime = now;
-							_idleTime = Configuration.SystemDefaults.FastLoopIdleMs; // Fast loop when dirty, no frame rate cap
-						}
-						else
-						{
-							_inputStateService.UpdateIdleState();
-							_idleTime = recommendedSleep;
-						}
-					}
-
-					UpdateCursor();
-					if (_uiActionsPending && _idleTime > Configuration.SystemDefaults.MinSleepDurationMs)
-						_idleTime = Configuration.SystemDefaults.MinSleepDurationMs;
-					_currentPhase = Core.MainLoopPhase.Idle;
-					try
-					{
-						_wakeSignal.Wait(_idleTime);
-						_wakeSignal.Reset();
-					}
-					catch (ObjectDisposedException)
-					{
-						break; // Shutdown disposed the signal — exit loop
-					}
+					if (!TickCore()) break;
 				}
 			}
 			catch (Exception ex)
 			{
-				// Log the exception to file (if file logging is enabled) before cleanup
 				LogService?.LogCritical($"Unhandled exception in main loop: {ex.Message}", ex, "System");
 				fatalException = ex;
-				_exitCode = 1;  // Error exit code
+				_exitCode = 1;
 			}
 			finally
 			{
-				// Restore the previously-installed SynchronizationContext for the calling thread
-				// (only if we installed our own).
-				if (installedSyncContext)
-					SynchronizationContext.SetSynchronizationContext(previousSyncContext);
-
-				// Run() has returned — the resolved async model no longer applies.
-				SynchronizationContextInstalled = false;
-
-				// ALWAYS restore console state (mouse mode, cursor, etc.)
-				// This ensures the terminal is usable even if the app crashes
-				try
-				{
-					_consoleDriver.Stop();
-				}
-				catch
-				{
-					// Ignore cleanup errors - we're already exiting
-				}
+				StopHostedCore();
 			}
 
 			// After console is restored, show error message to user

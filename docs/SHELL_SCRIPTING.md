@@ -25,7 +25,7 @@ On Windows, the standard Win32 console APIs handle redirection themselves, so no
 
 The golden rule: **read piped stdin before `windowSystem.Run()`, write results after it**.
 
-`ConsoleWindowSystem` does this automatically — piped stdin is captured at construction and available via `PipedInput` / `PipedLines` throughout the app lifecycle:
+`ConsoleWindowSystem` does this automatically — piped stdin is captured from construction onward and available via `PipedInput` / `PipedLines` throughout the app lifecycle:
 
 ```csharp
 using SharpConsoleUI;
@@ -76,7 +76,32 @@ else
 | `PipedInput` | `string?` | The full text piped via stdin. `null` when stdin is a TTY (normal interactive run). |
 | `PipedLines` | `string[]?` | `PipedInput` split by newline. `null` when stdin is a TTY. |
 
-Piped stdin is captured automatically at construction time — before the driver takes over the terminal. The data is available throughout the entire app lifecycle, including inside event handlers, async threads, and after `Run()` returns.
+Piped stdin is captured automatically, starting at construction — before the driver takes over the terminal. The data is available throughout the entire app lifecycle, including inside event handlers, async threads, and after `Run()` returns.
+
+### Slow and never-ending stdin
+
+The capture runs in the background, so **constructing the system never blocks**. This matters because redirected stdin has no single correct deadline: `echo x | app` ends immediately, but `tail -f log | app` is designed never to end, and a parent process that spawns your app with an open stdin pipe may never close it.
+
+For an ordinary finite pipe the capture finishes in well under a millisecond, so nothing below is ever observable — `PipedInput` returns the complete text just as it always has.
+
+When input is still arriving, two things bound the wait:
+
+- **Before `Run()`** — reading `PipedInput` waits up to `PreUiTimeoutMs` (default 2s), then returns the text received so far. No UI exists yet to report a longer wait, so the wait is bounded and partial data is returned rather than blocking startup.
+- **After the UI is up** — if the capture is still running, a cancellable **"Reading input"** dialog appears (after a short `DialogDelayMs` grace period, so it never flashes for fast input). The user can wait or press Cancel; cancelling leaves `PipedInput` holding whatever arrived.
+
+Tune or disable any of this via `PipedInputOptions`:
+
+```csharp
+var options = new ConsoleWindowSystemOptions() with
+{
+    PipedInput = new PipedInputOptions(
+        PreUiTimeoutMs: 500,      // shorter pre-UI bound
+        ShowDialog: false)        // capture silently in the background
+};
+var system = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer), options: options);
+```
+
+Set `Enabled: false` to leave stdin entirely to your application, in which case `PipedInput` is always `null`.
 
 You can also read stdin manually before constructing the system if you prefer:
 

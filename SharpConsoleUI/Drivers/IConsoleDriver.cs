@@ -169,6 +169,19 @@ namespace SharpConsoleUI.Drivers
 		void InvalidateFrontBuffer() { }
 
 		/// <summary>
+		/// Whether this driver can be driven by a blocking main loop that owns its thread.
+		/// </summary>
+		/// <remarks>
+		/// <c>true</c> for a terminal driver, which runs on a thread it may block. A driver whose host
+		/// owns the event loop — a browser canvas, where WebAssembly is single-threaded and a blocking
+		/// wait holds the only thread — returns <c>false</c>, and
+		/// <see cref="ConsoleWindowSystem.Run"/> refuses rather than hanging. Such a host drives frames
+		/// itself via <see cref="ConsoleWindowSystem.BeginHosted"/>.
+		/// <para>Defaulted so existing drivers are unaffected.</para>
+		/// </remarks>
+		bool SupportsBlockingLoop => true;
+
+		/// <summary>
 		/// Copies a horizontal strip of cells from a <see cref="CharacterBuffer"/> directly
 		/// to the console output buffer, bypassing ANSI string serialization and parsing.
 		/// </summary>

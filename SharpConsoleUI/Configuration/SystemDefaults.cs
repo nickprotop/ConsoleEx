@@ -49,6 +49,25 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int UiDrainHeartbeatIntervalMs = 250;
 
+		// Piped-stdin capture timings (see PipedInputOptions).
+		/// <summary>
+		/// How long a pre-UI read of <see cref="SharpConsoleUI.ConsoleWindowSystem.PipedInput"/> waits for
+		/// the capture to finish before returning what has arrived so far (default: 2000ms).
+		/// </summary>
+		/// <remarks>
+		/// A finite pipe (<c>echo x | app</c>) completes in well under a millisecond, so this bound is
+		/// never reached in normal use. It exists so that stdin held open by a live writer — a
+		/// <c>tail -f</c> producer, or a parent process that keeps the pipe open — degrades to partial
+		/// data instead of hanging the application before it can draw anything.
+		/// </remarks>
+		public const int PipedInputPreUiTimeoutMs = 2000;
+
+		/// <summary>
+		/// How long the capture may stay pending once the UI is up before the progress dialog appears
+		/// (default: 300ms). Below this, the dialog would only flash.
+		/// </summary>
+		public const int PipedInputDialogDelayMs = 300;
+
 		/// <summary>
 		/// Debounce time before allowing portal dismiss after creation (default: 200ms).
 		/// Prevents the same click that opens a portal from immediately dismissing it.
