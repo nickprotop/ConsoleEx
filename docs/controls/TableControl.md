@@ -18,6 +18,7 @@ By default, `ReadOnly = true` preserves backward-compatible static table renderi
 | `CellNavigationEnabled` | `bool` | `false` | Enable Tab/Arrow cell-level navigation |
 | `MultiSelectEnabled` | `bool` | `false` | Enable Ctrl+Click/Shift+Click multi-selection |
 | `CheckboxMode` | `bool` | `false` | Show [x]/[ ] checkboxes (implies MultiSelect) |
+| `RightClickExtendsSelection` | `bool` | `false` | Right-click extends the multi-selection from the anchor |
 | `SortingEnabled` | `bool` | `false` | Enable column sorting by clicking headers |
 | `ColumnResizeEnabled` | `bool` | `false` | Enable column resize by dragging borders |
 | `InlineEditingEnabled` | `bool` | `false` | Enable F2/Enter/DblClick cell editing |
@@ -217,7 +218,7 @@ var grid = Controls.Table()
 |--------|--------|
 | **Left Click** | Select row (and cell if cell nav enabled) |
 | **Double Click** | Activate row / begin cell edit |
-| **Right Click** | Select row/cell, then fire MouseRightClick |
+| **Right Click** | Select row/cell, then fire MouseRightClick (extends the selection when `RightClickExtendsSelection`) |
 | **Ctrl+Click** | Toggle row selection (multi-select) |
 | **Shift+Click** | Select range (multi-select) |
 | **Click Header** | Sort by column (toggles Asc/Desc/None) |
@@ -337,6 +338,7 @@ When `DataSource` is set:
 | `.WithCellNavigation()` | Enable cell-level Tab/Arrow navigation |
 | `.WithMultiSelect()` | Enable Ctrl+Click/Shift+Click multi-select |
 | `.WithCheckboxMode()` | Enable checkbox multi-select |
+| `.WithRightClickExtendsSelection()` | Right-click extends the range (implies multi-select) |
 | `.WithSorting()` | Enable click-header sorting |
 | `.WithColumnResize()` | Enable drag-to-resize columns |
 | `.WithInlineEditing()` | Enable F2/Enter cell editing |

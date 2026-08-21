@@ -39,6 +39,7 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 	private bool _multiSelectEnabled = false;
 	private bool _hoverEnabled = true;
 	private bool _checkboxMode = false;
+	private bool _rightClickExtendsSelection = false;
 	private bool _sortingEnabled = false;
 	private bool _columnResizeEnabled = false;
 	private char? _columnSeparator;
@@ -555,6 +556,21 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 	}
 
 	/// <summary>
+	/// Enables right-click extending the multi-selection from the anchor to the clicked row, for
+	/// terminals that never deliver Shift+Click. Implies multi-select.
+	/// </summary>
+	/// <remarks>
+	/// Off by default: right-click otherwise selects a single row and fires the right-click event,
+	/// which is what a context menu acting on the current selection expects.
+	/// </remarks>
+	public TableControlBuilder WithRightClickExtendsSelection()
+	{
+		_rightClickExtendsSelection = true;
+		_multiSelectEnabled = true;
+		return this;
+	}
+
+	/// <summary>
 	/// Enables checkbox mode for multi-selection.
 	/// </summary>
 	public TableControlBuilder WithCheckboxMode()
@@ -752,6 +768,7 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 			MultiSelectEnabled = _multiSelectEnabled,
 			HoverEnabled = _hoverEnabled,
 			CheckboxMode = _checkboxMode,
+			RightClickExtendsSelection = _rightClickExtendsSelection,
 			SortingEnabled = _sortingEnabled,
 			ColumnResizeEnabled = _columnResizeEnabled,
 			ColumnSeparator = _columnSeparator,

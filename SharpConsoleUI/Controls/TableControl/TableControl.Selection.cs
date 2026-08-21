@@ -156,6 +156,25 @@ public partial class TableControl
 	}
 
 	/// <summary>
+	/// Gets or sets whether right-click extends the multi-selection from the anchor to the clicked
+	/// row. Requires <see cref="MultiSelectEnabled"/>.
+	/// </summary>
+	/// <remarks>
+	/// Off by default: right-click otherwise selects the clicked row and fires
+	/// <see cref="MouseRightClick"/>, which is what a context menu acting on the current selection
+	/// expects — extending the range would replace that selection underneath it.
+	///
+	/// <para>Intended for terminals that never deliver Shift+Click. Windows Terminal and VS Code
+	/// bind it to their own text selection and do not forward the modifier, which leaves the mouse
+	/// with no native range gesture; turning this on restores one.</para>
+	/// </remarks>
+	public bool RightClickExtendsSelection
+	{
+		get => _rightClickExtendsSelection;
+		set { if (_rightClickExtendsSelection == value) return; _rightClickExtendsSelection = value; OnPropertyChanged(); }
+	}
+
+	/// <summary>
 	/// Gets or sets whether checkbox mode is enabled (shows [x]/[ ] before each row).
 	/// Requires MultiSelectEnabled = true.
 	/// </summary>
@@ -290,6 +309,26 @@ public partial class TableControl
 		_selectedRowIndices.Clear();
 		Invalidate(Invalidation.Repaint);
 		Core.AsyncEvent.Raise(MultiSelectionChanged, MultiSelectionChangedAsync, this, 0, Container?.GetConsoleWindowSystem?.LogService);
+	}
+
+	/// <summary>Returns the multi-selected row indices (test-only observation seam).</summary>
+	internal List<int> SelectedRowIndicesForTest() => new List<int>(_selectedRowIndices);
+
+	/// <summary>
+	/// Drives the right-click selection path for the row at <paramref name="rowIndex"/> exactly as
+	/// <c>ProcessMouseEvent</c> does, without needing a laid-out control to hit-test against
+	/// (test-only seam).
+	/// </summary>
+	internal void RightClickRowForTest(int rowIndex)
+	{
+		if (_multiSelectEnabled && _rightClickExtendsSelection)
+		{
+			int anchor = _selectionAnchorRowIndex >= 0 ? _selectionAnchorRowIndex : _selectedRowIndex;
+			_selectionAnchorRowIndex = anchor;
+			_selectedRowIndices.Clear();
+			SelectRange(anchor, rowIndex);
+		}
+		SetSelectedRow(rowIndex);
 	}
 
 	/// <summary>

@@ -87,7 +87,7 @@ public partial class TableControl
 			int rowIdx = GetRowIndexAtY(args.Position.Y);
 			if (rowIdx >= 0)
 			{
-				if (_multiSelectEnabled)
+				if (_multiSelectEnabled && _rightClickExtendsSelection)
 				{
 					int anchor = _selectionAnchorRowIndex >= 0 ? _selectionAnchorRowIndex : _selectedRowIndex;
 					_selectionAnchorRowIndex = anchor;

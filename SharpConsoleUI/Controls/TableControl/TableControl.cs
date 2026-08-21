@@ -114,6 +114,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private bool _cellNavigationEnabled = false;
 	private bool _multiSelectEnabled = false;
 	private bool _checkboxMode = false;
+	private bool _rightClickExtendsSelection = false;
 	private bool _clearSelectionOnEmptyClick = false;
 	private HashSet<int> _selectedRowIndices = new();
 	// Anchor for keyboard Shift+Up/Down range selection - the row a shift-extended range grows from/to.
