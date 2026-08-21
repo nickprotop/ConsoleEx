@@ -192,10 +192,24 @@ internal sealed class MainLoopWatchdog : IDisposable
 		}
 	}
 
+	/// <summary>
+	/// Stops monitoring and releases the timer, leaving the watchdog able to <see cref="Start"/> again.
+	/// </summary>
+	/// <remarks>
+	/// Must be called whenever the loop it watches ends. A timer left running after the loop stops
+	/// eventually observes a heartbeat that is stale only because nothing is beating it any more, and
+	/// escalates to the force-exit path — which is how a finished session could terminate its host.
+	/// </remarks>
+	public void Stop()
+	{
+		var timer = _timer;
+		_timer = null;
+		timer?.Dispose();
+	}
+
 	public void Dispose()
 	{
 		_disposed = true;
-		_timer?.Dispose();
-		_timer = null;
+		Stop();
 	}
 }

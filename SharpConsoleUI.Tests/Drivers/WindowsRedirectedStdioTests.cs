@@ -29,7 +29,12 @@ namespace SharpConsoleUI.Tests.Drivers;
 ///
 /// <para>Unix is unaffected: there the driver opens <c>/dev/tty</c> and pipelines work fully, which
 /// is what <c>docs/SHELL_SCRIPTING.md</c> documents.</para>
+///
+/// <para>Serialized with the other stdin-swapping tests: <see cref="Console.SetIn"/> is
+/// process-wide, so running these in parallel with <c>PipedInputStartupTests</c> lets one class's
+/// reader be captured by the other's system.</para>
 /// </remarks>
+[Collection("TimingSensitive")]
 public class WindowsRedirectedStdioTests
 {
 	private static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
@@ -97,17 +102,38 @@ public class WindowsRedirectedStdioTests
 	}
 
 	/// <summary>
-	/// Piped input cannot reach a Windows app that has a UI, so the property must not promise it.
+	/// The refusal belongs to the console driver, not to piped input: a driver that reads no console
+	/// handles still receives piped data on Windows.
 	/// </summary>
+	/// <remarks>
+	/// An earlier version of this suite asserted <c>PipedInput</c> was always null on Windows, gated
+	/// on the OS. That was wrong twice over. It contradicted three existing tests that assert the
+	/// property returns text using the same headless driver — the suite could not go green on Windows
+	/// as written. And the justification was driver-specific while the check was not:
+	/// <c>NetConsoleDriver</c> is constructed as an argument, so it throws before
+	/// <see cref="ConsoleWindowSystem"/>'s constructor body runs and never reaches the check at all.
+	/// Its only real effect was on headless and embedded drivers, silently discarding input they
+	/// could have consumed perfectly well.
+	/// </remarks>
 	[Fact]
-	public void PipedInput_IsNull_OnWindows()
+	public void PipedInput_IsCapturedForHeadlessDrivers_OnEveryPlatform()
 	{
-		if (!IsWindows)
-			return;
+		var original = Console.In;
+		try
+		{
+			Console.SetIn(new System.IO.StringReader("alpha\nbeta\n"));
 
-		var system = new ConsoleWindowSystem(new MockConsoleDriver());
+			var system = new ConsoleWindowSystem(new MockConsoleDriver());
 
-		Assert.Null(system.PipedInput);
-		Assert.Null(system.PipedLines);
+			if (!Console.IsInputRedirected)
+				return; // A real console: nothing was piped, so there is nothing to capture.
+
+			Assert.Equal("alpha\nbeta\n", system.PipedInput);
+			Assert.Equal(new[] { "alpha", "beta" }, system.PipedLines);
+		}
+		finally
+		{
+			Console.SetIn(original);
+		}
 	}
 }

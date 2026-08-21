@@ -356,12 +356,14 @@ namespace SharpConsoleUI
 			// application could draw anything. See PipedInputCapture and PipedInput.
 			_pipedInputOptions = (options ?? ConsoleWindowSystemOptions.Create()).PipedInput
 				?? new Configuration.PipedInputOptions();
-			// Not on Windows: NetConsoleDriver refuses redirected stdio there (the console APIs it
-			// renders through act on the standard handles), so piped input can never reach an
-			// application that has a UI. Capturing it would promise data the app cannot receive.
-			if (_pipedInputOptions.Enabled
-				&& Console.IsInputRedirected
-				&& !RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+			// Deliberately NOT gated on Windows. Whether piped input can reach the application is a
+			// property of the DRIVER, not the OS: NetConsoleDriver refuses redirected stdio on Windows
+			// and throws from its own constructor — which runs before this one, since the driver is
+			// passed in — so it never reaches here. Every driver that does reach here (headless,
+			// embedded, a future front-end) reads no console handles and can consume piped data fine
+			// on any platform. An OS check here would discard their input for a reason that does not
+			// apply to them.
+			if (_pipedInputOptions.Enabled && Console.IsInputRedirected)
 			{
 				try { _pipedInputCapture = new Core.PipedInputCapture(Console.In); }
 				catch { /* stdin unreadable — leave the capture null, PipedInput stays null */ }
@@ -618,12 +620,16 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the text that was piped into the application via stdin, or null if stdin is a TTY.
 		/// Captured automatically — available throughout the app lifecycle.
-		/// <b>Always null on Windows</b>, where redirected stdio is not supported.
 		/// </summary>
 		/// <remarks>
 		/// The capture starts at construction and runs in the background, so constructing the system
 		/// never blocks. For the usual finite pipe (<c>echo x | app</c>) it has already finished by the
 		/// time anything reads this, and the full text is returned immediately.
+		///
+		/// <para>On Windows this is null in practice for a terminal application, because
+		/// <c>NetConsoleDriver</c> refuses redirected stdio outright — but that is the driver's
+		/// limitation, not this property's: a headless or embedded driver receives piped input on
+		/// every platform.</para>
 		///
 		/// <para>Reading this property before <see cref="Run"/> waits up to
 		/// <see cref="Configuration.PipedInputOptions.PreUiTimeoutMs"/> for input still in flight, then
@@ -1075,6 +1081,20 @@ namespace SharpConsoleUI
 					onForceExit: () =>
 					{
 						_logService.LogCritical("Watchdog: forcing exit \u2014 main loop unresponsive", null, "Watchdog");
+
+						// Stop the loop and restore the terminal either way.
+						_running = false;
+						_wakeSignal.Set();
+
+						if (!wd.AllowProcessExit)
+						{
+							// Embedded: the process belongs to the host, and killing it over one wedged
+							// loop is not ours to decide. Stop the driver so the terminal is usable and
+							// let the host handle a Run() that has returned.
+							try { _consoleDriver.Stop(); } catch { }
+							return;
+						}
+
 						// Hard kill in 1s — guarantees exit even if Stop() deadlocks
 						new Thread(() => { Thread.Sleep(1000); Environment.Exit(1); })
 						{ IsBackground = true, Name = "WatchdogKill" }.Start();
@@ -1280,6 +1300,11 @@ namespace SharpConsoleUI
 			if (_hostedStopped) return;
 			_hostedStopped = true;
 			_running = false;
+
+			// Stop the watchdog with the loop it watches. Left running it would keep sampling a
+			// heartbeat nobody is beating any more, decide the loop is hung, and escalate — a
+			// finished session must not be able to act on a loop that no longer exists.
+			_watchdog.Stop();
 
 			// Restore the previously-installed SynchronizationContext for the calling thread
 			// (only if we installed our own).

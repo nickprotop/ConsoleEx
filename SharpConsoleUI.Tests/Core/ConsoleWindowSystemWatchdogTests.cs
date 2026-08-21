@@ -19,6 +19,57 @@ public class ConsoleWindowSystemWatchdogTests
 		return condition();
 	}
 
+	/// <summary>
+	/// The watchdog must stop when the loop it watches stops.
+	/// </summary>
+	/// <remarks>
+	/// It used to be released only by <c>Dispose()</c>, which a host driving frames itself never has
+	/// to call. The timer then kept sampling a heartbeat nothing was beating any more, concluded the
+	/// loop was hung, and escalated to the force-exit path — which called
+	/// <see cref="Environment.Exit"/>. Inside a test host that killed the whole run: reported from a
+	/// Windows box as "Test Run Aborted, ~50 tests never execute", with the abort point moving
+	/// between runs because it was a leaked timer rather than any one test.
+	/// </remarks>
+	[Fact]
+	public void Watchdog_StopsWithTheSession_AndDoesNotFireAfterwards()
+	{
+		var opts = new ConsoleWindowSystemOptions() with
+		{
+			Watchdog = new WatchdogOptions(
+				StaleThresholdMs: 40, UnresponsiveThresholdMs: 80, PollIntervalMs: 20,
+				ShowUnresponsiveBanner: false, AllowProcessExit: false)
+		};
+		var sys = new ConsoleWindowSystem(new MockConsoleDriver(), options: opts) { BlockWhenIdle = false };
+
+		int unresponsiveAfterStop = 0;
+		using (var session = sys.BeginHosted())
+			session.Tick();
+
+		// The session is over. Anything the watchdog raises from here on concerns a loop that no
+		// longer exists, and in the shipped code escalates to terminating the process.
+		sys.Unresponsive += (s, e) => Interlocked.Increment(ref unresponsiveAfterStop);
+		Thread.Sleep(400); // ~20 poll intervals, 5x the unresponsive threshold
+
+		Assert.Equal(0, Volatile.Read(ref unresponsiveAfterStop));
+	}
+
+	/// <summary>
+	/// A host that owns the process must be able to refuse having it terminated.
+	/// </summary>
+	/// <remarks>
+	/// The force-exit path calls <see cref="Environment.Exit"/>, which is correct for a standalone
+	/// terminal app — the process is the app — and unacceptable for a library embedded in a test
+	/// runner, service, or GUI host. This asserts the option exists and defaults to preserving the
+	/// historical behaviour; the effect itself cannot be asserted in-process, since the failing case
+	/// would take the test host down with it.
+	/// </remarks>
+	[Fact]
+	public void AllowProcessExit_DefaultsTrue_AndIsOptOut()
+	{
+		Assert.True(new WatchdogOptions().AllowProcessExit);
+		Assert.False((new WatchdogOptions() with { AllowProcessExit = false }).AllowProcessExit);
+	}
+
 	[Fact]
 	public void Unresponsive_Raised_WithDrainPhase_WhenLoopBlocks()
 	{
