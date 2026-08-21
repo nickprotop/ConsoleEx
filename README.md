@@ -376,10 +376,21 @@ MIT — [Nikolaos Protopapas](https://github.com/nickprotop)
 
 ## Acknowledgments
 
+**Contributors**
+
+- [@changlv](https://github.com/changlv) — CJK and wide-character handling, theme derivation and
+  control colour roles, markup and CollapsiblePanel behaviour (30 issues, 5 discussions, 5 PRs)
+- [@joezearing](https://github.com/joezearing) — mouse input decoding, column sizing, scrollbars
+- [@3x0dv5](https://github.com/3x0dv5) — LogViewerControl auto-follow, no-colour terminal handling
+- [@nanov](https://github.com/nanov) — macOS ARM64 ioctl crash fix
+
+**Prior art and analysis**
+
 - [Spectre.Console](https://github.com/spectreconsole/spectre.console) integration via SpectreRenderableControl
 - Unix raw I/O approach inspired by [Terminal.Gui v2](https://github.com/gui-cs/Terminal.Gui)
-- Mouse input, column sizing and scrollbar work in TableControl — [@joezearing](https://github.com/joezearing)
-- The root-cause analysis behind the caret-tracking fix — that `ControlContentBounds` is refreshed only by mouse events, so the text cursor froze once a window had seen one — came from the [SharpMUTerm](https://github.com/SharpMUSH/SharpMUTerm) project
+- The caret-tracking root-cause analysis — that `ControlContentBounds` is refreshed only by mouse
+  events, so the text cursor froze once a window had seen one — came from the
+  [SharpMUTerm](https://github.com/SharpMUSH/SharpMUTerm) project
 
 ## Development Notes
 
