@@ -30,6 +30,56 @@ public class ClipboardSetTextNonBlockingTests : IDisposable
 		ClipboardHelper.ForceBackendForTests(ClipboardBackend.InternalFallback);
 	}
 
+	/// <summary>
+	/// A copy must be readable immediately on Windows, even when the system clipboard cannot be
+	/// reached at all.
+	/// </summary>
+	/// <remarks>
+	/// The Windows read path used to go straight to the system clipboard and, on failure, to
+	/// <c>powershell.exe Get-Clipboard</c> — never to the in-process buffer. Two things then produced
+	/// an empty result from a fresh copy: the Win32 write is queued to the ThreadPool, so a read
+	/// right after a copy can beat it; and where there is no window station (a service, a CI runner)
+	/// neither the Win32 read nor powershell returns anything. CI caught this: the pre-existing
+	/// round-trip test failed on windows-latest with Expected "ASCII 中文 …" / Actual "".
+	///
+	/// <para>Runs on every platform, but is only a REGRESSION GATE on Windows. On Linux/macOS the
+	/// powershell fallback throws (no such binary) and <see cref="ClipboardHelper.GetText"/>'s outer
+	/// catch already returns the buffer, so this passes with or without the fix. On Windows
+	/// powershell exists and returns an empty string, which the old code returned verbatim — that is
+	/// the failure CI saw, and what this pins.</para>
+	/// </remarks>
+	[Fact]
+	public void WindowsBackend_GetText_FallsBackToBuffer_WhenSystemClipboardUnavailable()
+	{
+		ClipboardHelper.ForceBackendForTests(ClipboardBackend.WindowsClip);
+		const string sample = "ASCII 中文 Привет 🚀 naïve";
+
+		var sw = Stopwatch.StartNew();
+		ClipboardHelper.SetText(sample);
+		string read = ClipboardHelper.GetText();
+		sw.Stop();
+
+		Assert.Equal(sample, read);
+
+		// And it must be prompt: answering from the buffer must not spawn powershell.exe, whose
+		// per-read cost is the stall the native path exists to avoid (issue #42).
+		Assert.True(sw.ElapsedMilliseconds < 250,
+			$"copy+read took {sw.ElapsedMilliseconds}ms; expected the in-process path, not a process spawn.");
+	}
+
+	/// <summary>Repeated copies keep reading back the most recent value, not a stale one.</summary>
+	[Fact]
+	public void WindowsBackend_GetText_TracksSuccessiveCopies()
+	{
+		ClipboardHelper.ForceBackendForTests(ClipboardBackend.WindowsClip);
+
+		foreach (var value in new[] { "first", "second", "third \u4e2d\u6587" })
+		{
+			ClipboardHelper.SetText(value);
+			Assert.Equal(value, ClipboardHelper.GetText());
+		}
+	}
+
 	[Fact]
 	public void SetText_InProcessBuffer_WrittenSynchronously()
 	{

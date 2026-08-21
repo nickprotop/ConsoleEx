@@ -58,6 +58,11 @@ namespace SharpConsoleUI.Helpers
 		private static readonly object _lock = new();
 		private static string _internalBuffer = string.Empty;
 
+		// Count of Windows clipboard writes queued to the ThreadPool but not yet finished. A read
+		// that finds the clipboard empty while one is in flight prefers the in-process buffer, which
+		// already holds the copied text. See ReadWindowsClipboardOrBuffer.
+		private static int _pendingWindowsWrites;
+
 		private static volatile Action<string>? _osc52Emitter;
 
 		/// <summary>
@@ -140,13 +145,22 @@ namespace SharpConsoleUI.Helpers
 					// Run it OFF the UI thread: OpenClipboard can block or fail when another process holds the
 					// clipboard (Windows clipboard-history, the terminal's own paste handling, AV), so a copy
 					// right after a paste could otherwise stall the UI thread and trip the watchdog
-					// (issue #42: "UI unresponsive after multiple copies"). The value is already mirrored into
-					// the in-process buffer synchronously above, so GetText() is correct immediately regardless
-					// of the background write's timing. Falls back to clip.exe if the native write fails.
+					// (issue #42: "UI unresponsive after multiple copies"). The value is mirrored into the
+					// in-process buffer synchronously above, and GetText() prefers that buffer while this
+					// write is still in flight, so a copy is readable immediately either way
+					// (see ReadWindowsClipboardOrBuffer). Falls back to clip.exe if the native write fails.
+					Interlocked.Increment(ref _pendingWindowsWrites);
 					ThreadPool.QueueUserWorkItem(_ =>
 					{
-						if (!TryWriteWindowsClipboard(text))
-							WriteToExternalTool(ClipboardBackend.WindowsClip, text);
+						try
+						{
+							if (!TryWriteWindowsClipboard(text))
+								WriteToExternalTool(ClipboardBackend.WindowsClip, text);
+						}
+						finally
+						{
+							Interlocked.Decrement(ref _pendingWindowsWrites);
+						}
 					});
 					break;
 				case ClipboardBackend.Pbcopy:
@@ -217,7 +231,7 @@ namespace SharpConsoleUI.Helpers
 					// spawn was slow enough to trip the unresponsive-watchdog). UTF-16 native, so CJK/Cyrillic
 					// round-trip without code-page re-encoding. Falls back to powershell only if it returns null.
 					ClipboardBackend.WindowsClip =>
-						TryReadWindowsClipboard() ?? RunProcessRead("powershell.exe", "-command", "Get-Clipboard"),
+						ReadWindowsClipboardOrBuffer(),
 					ClipboardBackend.Pbcopy =>
 						RunProcessRead("pbpaste"),
 					ClipboardBackend.WlClipboard =>
@@ -463,6 +477,51 @@ namespace SharpConsoleUI.Helpers
 		/// Reads CF_UNICODETEXT from the Windows clipboard via the Win32 API. Returns the text, or
 		/// <c>null</c> on any failure (so the caller can fall back to the powershell path). Never throws.
 		/// </summary>
+		/// <summary>
+		/// Reads the Windows clipboard, falling back to the in-process buffer when the system
+		/// clipboard cannot be read or has not caught up with a copy still in flight.
+		/// </summary>
+		/// <remarks>
+		/// Two cases make the system clipboard the wrong answer, and both used to surface as an
+		/// empty string:
+		///
+		/// <para>The system clipboard cannot be read at all — no window station (a service, a CI
+		/// runner), or another process holding it past the retry budget. <see cref="TryReadWindowsClipboard"/>
+		/// reports that as null, distinct from the empty string it returns when the clipboard genuinely
+		/// holds no text, so the two are not conflated here.</para>
+		///
+		/// <para><see cref="SetText"/> writes the system clipboard on a background thread (issue #42:
+		/// doing it inline stalled the UI thread). A read immediately after a copy can therefore
+		/// observe the clipboard before that write lands, while the in-process buffer already holds
+		/// the copied text. A caller that just copied must never be told the clipboard is empty.</para>
+		/// </remarks>
+		private static string ReadWindowsClipboardOrBuffer()
+		{
+			string? system = TryReadWindowsClipboard();
+
+			if (system == null)
+			{
+				// The Win32 read failed outright. When this process is the one that last copied, the
+				// buffer already holds that text — answer from it rather than spawning powershell.exe,
+				// which costs up to ProcessTimeoutMs and is the very stall the native path exists to
+				// avoid (issue #42).
+				string buffered = GetInternalBuffer();
+				if (buffered.Length > 0)
+					return buffered;
+
+				// Nothing copied by us: fall back to powershell for text another process put there.
+				try { return RunProcessRead("powershell.exe", "-command", "Get-Clipboard"); }
+				catch { return string.Empty; }
+			}
+
+			// The clipboard read succeeded but came back empty while a copy is still in flight:
+			// the buffer holds what SetText was asked to copy, so prefer it.
+			if (system.Length == 0 && Volatile.Read(ref _pendingWindowsWrites) > 0)
+				return GetInternalBuffer();
+
+			return system;
+		}
+
 		private static string? TryReadWindowsClipboard()
 		{
 			if (!OperatingSystem.IsWindows())
