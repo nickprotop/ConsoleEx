@@ -118,6 +118,15 @@ namespace SharpConsoleUI.Drivers
 		private const int STD_INPUT_HANDLE = -10;
 		private const int STD_OUTPUT_HANDLE = -11;
 
+		// CreateFile access/share/disposition flags, for opening the console device directly
+		// (CONIN$/CONOUT$) when a standard stream is redirected. See ResolveWindowsConsoleHandle.
+		private const uint GENERIC_READ = 0x80000000;
+		private const uint GENERIC_WRITE = 0x40000000;
+		private const uint FILE_SHARE_READ = 0x00000001;
+		private const uint FILE_SHARE_WRITE = 0x00000002;
+		private const uint OPEN_EXISTING = 3;
+		private static readonly nint INVALID_HANDLE_VALUE = -1;
+
 		// ===== FIX TOGGLES =====
 
 		private ConsoleWindowSystem? _consoleWindowSystem;
@@ -130,6 +139,16 @@ namespace SharpConsoleUI.Drivers
 		private readonly uint _originalInputConsoleMode;
 		private readonly uint _originalOutputConsoleMode;
 		private readonly nint _outputHandle;
+
+		// Console-device handles this driver opened itself (CONIN$/CONOUT$) because the matching
+		// standard stream was redirected. Closed on cleanup; INVALID_HANDLE_VALUE when unused.
+		private nint _ownedConInHandle = INVALID_HANDLE_VALUE;
+		private nint _ownedConOutHandle = INVALID_HANDLE_VALUE;
+
+		// Whether each handle is a real console whose mode we captured and must restore.
+		private readonly bool _inputModeCaptured;
+		private readonly bool _outputModeCaptured;
+		private readonly bool _errorModeCaptured;
 		private ConsoleBuffer? _consoleBuffer;
 		private MouseFlags _lastButton;
 		private Point? _lastClickPosition;
@@ -146,9 +165,11 @@ namespace SharpConsoleUI.Drivers
 		/// <exception cref="ArgumentNullException">
 		/// Thrown when <paramref name="options"/> is null.
 		/// </exception>
-		/// <exception cref="ApplicationException">
-		/// Thrown when console mode configuration fails on Windows platforms.
-		/// </exception>
+		/// <remarks>
+		/// On Windows a redirected standard stream is not an error: the driver opens the console device
+		/// (<c>CONIN$</c>/<c>CONOUT$</c>) instead, so the UI reaches the terminal while the redirected
+		/// stream keeps carrying the caller's data.
+		/// </remarks>
 		public NetConsoleDriver(NetConsoleDriverOptions options)
 		{
 			Options = options ?? throw new ArgumentNullException(nameof(options));
@@ -174,62 +195,59 @@ namespace SharpConsoleUI.Drivers
 
 			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 			{
-				_inputHandle = GetStdHandle(STD_INPUT_HANDLE);
+				// Resolve the input handle. When stdin is redirected (a pipe or file, as in
+				// `type data.txt | app`), the standard handle is not a console and console-mode calls
+				// against it fail — so fall back to the console device, CONIN$. This mirrors what the
+				// Unix path does with /dev/tty: the UI talks to the terminal while the redirected
+				// stream stays free to carry the script's data.
+				_inputHandle = ResolveWindowsConsoleHandle(
+					STD_INPUT_HANDLE, "CONIN$", GENERIC_READ | GENERIC_WRITE, ref _ownedConInHandle);
 
-				if (!GetConsoleMode(_inputHandle, out uint mode))
+				if (GetConsoleMode(_inputHandle, out uint mode))
 				{
-					throw new ApplicationException($"Failed to get input console mode, error code: {GetLastError()}.");
-				}
+					_originalInputConsoleMode = mode;
+					_inputModeCaptured = true;
 
-				_originalInputConsoleMode = mode;
+					mode |= ENABLE_MOUSE_INPUT;
 
-				mode |= ENABLE_MOUSE_INPUT;
-
-				if ((mode & ENABLE_VIRTUAL_TERMINAL_INPUT) < ENABLE_VIRTUAL_TERMINAL_INPUT)
-				{
-					mode |= ENABLE_VIRTUAL_TERMINAL_INPUT;
-
-					if (!SetConsoleMode(_inputHandle, mode))
+					if ((mode & ENABLE_VIRTUAL_TERMINAL_INPUT) < ENABLE_VIRTUAL_TERMINAL_INPUT)
 					{
-						throw new ApplicationException($"Failed to set input console mode, error code: {GetLastError()}.");
+						mode |= ENABLE_VIRTUAL_TERMINAL_INPUT;
+
+						// Best-effort: a console that refuses VT input still renders, it just loses
+						// the richer input encoding. Refusing to start would be worse.
+						SetConsoleMode(_inputHandle, mode);
 					}
 				}
 
-				_outputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+				_outputHandle = ResolveWindowsConsoleHandle(
+					STD_OUTPUT_HANDLE, "CONOUT$", GENERIC_READ | GENERIC_WRITE, ref _ownedConOutHandle);
 
-				if (!GetConsoleMode(_outputHandle, out mode))
+				if (GetConsoleMode(_outputHandle, out mode))
 				{
-					throw new ApplicationException($"Failed to get output console mode, error code: {GetLastError()}.");
-				}
+					_originalOutputConsoleMode = mode;
+					_outputModeCaptured = true;
 
-				_originalOutputConsoleMode = mode;
-
-				if ((mode & (ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN)) < DISABLE_NEWLINE_AUTO_RETURN)
-				{
-					mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN;
-
-					if (!SetConsoleMode(_outputHandle, mode))
+					if ((mode & (ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN)) < DISABLE_NEWLINE_AUTO_RETURN)
 					{
-						throw new ApplicationException($"Failed to set output console mode, error code: {GetLastError()}.");
+						mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN;
+						SetConsoleMode(_outputHandle, mode);
 					}
 				}
 
+				// stderr is only ever written to; it is never reopened against the console device,
+				// because a redirected stderr is a deliberate choice by the caller (2> log.txt).
 				_errorHandle = GetStdHandle(STD_ERROR_HANDLE);
 
-				if (!GetConsoleMode(_errorHandle, out mode))
+				if (GetConsoleMode(_errorHandle, out mode))
 				{
-					throw new ApplicationException($"Failed to get error console mode, error code: {GetLastError()}.");
-				}
+					_originalErrorConsoleMode = mode;
+					_errorModeCaptured = true;
 
-				_originalErrorConsoleMode = mode;
-
-				if ((mode & DISABLE_NEWLINE_AUTO_RETURN) < DISABLE_NEWLINE_AUTO_RETURN)
-				{
-					mode |= DISABLE_NEWLINE_AUTO_RETURN;
-
-					if (!SetConsoleMode(_errorHandle, mode))
+					if ((mode & DISABLE_NEWLINE_AUTO_RETURN) < DISABLE_NEWLINE_AUTO_RETURN)
 					{
-						throw new ApplicationException($"Failed to set error console mode, error code: {GetLastError()}.");
+						mode |= DISABLE_NEWLINE_AUTO_RETURN;
+						SetConsoleMode(_errorHandle, mode);
 					}
 				}
 			}
@@ -300,29 +318,37 @@ namespace SharpConsoleUI.Drivers
 		/// Restores the console to its original configuration.
 		/// </summary>
 		/// <remarks>
-		/// On Windows, this method restores the original console modes for input, output, and error handles.
-		/// This method is automatically called by <see cref="Stop"/>.
+		/// On Windows, this restores the original console modes for whichever of the input, output, and
+		/// error handles were real consoles, and closes any console device the driver opened itself.
+		/// Failures are ignored: this runs while tearing down, where throwing would leave the terminal
+		/// unrestored. Called automatically by <see cref="Stop"/>.
 		/// </remarks>
-		/// <exception cref="ApplicationException">
-		/// Thrown when restoring console modes fails on Windows platforms.
-		/// </exception>
 		public void Cleanup()
 		{
 			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 			{
-				if (!SetConsoleMode(_inputHandle, _originalInputConsoleMode))
+				// Restore only the modes actually captured: a redirected handle never had one, and
+				// this runs on the teardown path, where throwing would leave the terminal unrestored.
+				if (_inputModeCaptured)
+					SetConsoleMode(_inputHandle, _originalInputConsoleMode);
+
+				if (_outputModeCaptured)
+					SetConsoleMode(_outputHandle, _originalOutputConsoleMode);
+
+				if (_errorModeCaptured)
+					SetConsoleMode(_errorHandle, _originalErrorConsoleMode);
+
+				// Release console devices this driver opened itself.
+				if (_ownedConInHandle != INVALID_HANDLE_VALUE)
 				{
-					throw new ApplicationException($"Failed to restore input console mode, error code: {GetLastError()}.");
+					CloseHandle(_ownedConInHandle);
+					_ownedConInHandle = INVALID_HANDLE_VALUE;
 				}
 
-				if (!SetConsoleMode(_outputHandle, _originalOutputConsoleMode))
+				if (_ownedConOutHandle != INVALID_HANDLE_VALUE)
 				{
-					throw new ApplicationException($"Failed to restore output console mode, error code: {GetLastError()}.");
-				}
-
-				if (!SetConsoleMode(_errorHandle, _originalErrorConsoleMode))
-				{
-					throw new ApplicationException($"Failed to restore error console mode, error code: {GetLastError()}.");
+					CloseHandle(_ownedConOutHandle);
+					_ownedConOutHandle = INVALID_HANDLE_VALUE;
 				}
 			}
 		}
@@ -1134,6 +1160,14 @@ namespace SharpConsoleUI.Drivers
 		[DllImport("kernel32.dll", SetLastError = true)]
 		private static extern nint GetStdHandle(int nStdHandle);
 
+		[DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+		private static extern nint CreateFileW(
+			string lpFileName, uint dwDesiredAccess, uint dwShareMode, nint lpSecurityAttributes,
+			uint dwCreationDisposition, uint dwFlagsAndAttributes, nint hTemplateFile);
+
+		[DllImport("kernel32.dll", SetLastError = true)]
+		private static extern bool CloseHandle(nint hObject);
+
 		[DllImport("kernel32.dll")]
 		private static extern bool SetConsoleMode(nint hConsoleHandle, uint dwMode);
 
@@ -1148,6 +1182,52 @@ namespace SharpConsoleUI.Drivers
 
 		[DllImport("libc", EntryPoint = "signal")]
 		private static extern IntPtr _unixSignal(int signum, IntPtr handler);
+
+		/// <summary>
+		/// Returns a console handle for the given standard stream, falling back to the console device
+		/// when that stream is redirected.
+		/// </summary>
+		/// <param name="stdHandle">The <c>STD_*_HANDLE</c> identifier to try first.</param>
+		/// <param name="deviceName">The console device to open instead — <c>CONIN$</c> or <c>CONOUT$</c>.</param>
+		/// <param name="access">Desired access for the device open.</param>
+		/// <param name="ownedHandle">
+		/// Receives the handle when this method opens the device itself, so cleanup can close it.
+		/// </param>
+		/// <remarks>
+		/// A redirected standard stream (<c>type in.txt | app</c>, <c>app &gt; out.txt</c>) is a pipe or
+		/// file, not a console, so console-mode calls against it fail. Opening <c>CONIN$</c>/<c>CONOUT$</c>
+		/// reaches the terminal directly and leaves the redirected stream carrying the caller's data —
+		/// the Windows counterpart of the Unix <c>/dev/tty</c> path in <see cref="Input.TerminalRawMode"/>.
+		///
+		/// <para>Falls back to the standard handle when no console is attached at all (a detached or
+		/// service process): there is nothing better to return, and callers treat a non-console handle
+		/// as "no mode to configure" rather than as an error.</para>
+		/// </remarks>
+		private static nint ResolveWindowsConsoleHandle(int stdHandle, string deviceName, uint access, ref nint ownedHandle)
+		{
+			nint handle = GetStdHandle(stdHandle);
+
+			// Already a console: use it directly, exactly as before.
+			if (handle != INVALID_HANDLE_VALUE && handle != 0 && GetConsoleMode(handle, out _))
+				return handle;
+
+			// Redirected. Reach the terminal through the console device instead.
+			nint device = CreateFileW(
+				deviceName, access, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, 0);
+
+			if (device != INVALID_HANDLE_VALUE && GetConsoleMode(device, out _))
+			{
+				ownedHandle = device;
+				return device;
+			}
+
+			if (device != INVALID_HANDLE_VALUE)
+				CloseHandle(device);
+
+			// No console available (detached process, service, redirected CI runner). The caller
+			// skips mode configuration; rendering degrades rather than throwing.
+			return handle;
+		}
 
 		private void InputLoop()
 		{
