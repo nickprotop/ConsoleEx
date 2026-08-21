@@ -68,10 +68,6 @@ namespace SharpConsoleUI.Drivers
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="ConsoleBuffer"/> class with the specified dimensions.
-		/// </summary>
-		/// <param name="options">Optional configuration options for buffer behavior.</param>
-		/// <summary>
 		/// When true, rendered frames are composed and diffed as usual but never written to the
 		/// process's stdout.
 		/// </summary>
@@ -85,7 +81,13 @@ namespace SharpConsoleUI.Drivers
 		/// </remarks>
 		public bool SuppressConsoleOutput { get; set; }
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Initializes a new instance of the <see cref="ConsoleBuffer"/> class with the specified dimensions.
+		/// </summary>
+		/// <param name="width">The width of the buffer in characters.</param>
+		/// <param name="height">The height of the buffer in lines.</param>
+		/// <param name="consoleLock">Optional shared lock for thread-safe Console I/O operations.</param>
+		/// <param name="options">Optional configuration options for buffer behavior.</param>
 		public ConsoleBuffer(int width, int height, Configuration.ConsoleWindowSystemOptions? options = null, object? consoleLock = null)
 		{
 			_width = width;

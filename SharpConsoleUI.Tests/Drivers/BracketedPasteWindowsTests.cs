@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using SharpConsoleUI.Drivers;
 using Xunit;
@@ -11,6 +14,80 @@ namespace SharpConsoleUI.Tests.Drivers;
 /// </summary>
 public class BracketedPasteWindowsTests
 {
+	#region Payload reader termination
+
+	/// <summary>Yields the given keys, then reports a gap forever — a paste that stops mid-stream.</summary>
+	private sealed class ScriptedKeySource : NetConsoleDriver.IConsoleKeySource
+	{
+		private readonly Queue<char> _keys;
+
+		public ScriptedKeySource(string text) => _keys = new Queue<char>(text);
+
+		public int GapReports { get; private set; }
+
+		public bool TryReadKey(out ConsoleKeyInfo key)
+		{
+			if (_keys.Count > 0)
+			{
+				key = new ConsoleKeyInfo(_keys.Dequeue(), ConsoleKey.NoName, false, false, false);
+				return true;
+			}
+
+			GapReports++;
+			key = default;
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// A paste whose end marker never arrives must still terminate the reader.
+	/// </summary>
+	/// <remarks>
+	/// Regression gate for an intermittent "UI unresponsive" watchdog report on Windows, seen after a
+	/// copy. The reader used to call <c>Console.ReadKey(true)</c> — a block with no timeout — while the
+	/// input loop held <c>_consoleLock</c>. A start marker with no end marker parked the input thread
+	/// there holding the lock; the next copy went through the OSC 52 emitter, which takes the same
+	/// lock on the UI thread, and froze the application until the watchdog fired. Intermittent because
+	/// it needs a truncated or malformed paste sequence first.
+	/// </remarks>
+	[Fact]
+	public void ReadPayload_Terminates_WhenEndMarkerNeverArrives()
+	{
+		var source = new ScriptedKeySource("orphaned payload");
+
+		var sw = Stopwatch.StartNew();
+		string payload = NetConsoleDriver.ReadBracketedPastePayload(source);
+		sw.Stop();
+
+		Assert.Equal("orphaned payload", payload);
+		Assert.True(sw.ElapsedMilliseconds < 1000,
+			$"reader took {sw.ElapsedMilliseconds}ms; a paste without an end marker must not park the input thread.");
+		Assert.Equal(1, source.GapReports); // stopped at the first gap rather than spinning
+	}
+
+	[Fact]
+	public void ReadPayload_ReturnsPayload_WhenEndMarkerArrives()
+	{
+		var source = new ScriptedKeySource("hello \u4e2d\u6587\x1b[201~");
+
+		string payload = NetConsoleDriver.ReadBracketedPastePayload(source);
+
+		Assert.Equal("hello \u4e2d\u6587", payload);
+		Assert.Equal(0, source.GapReports); // the marker ended it, no waiting
+	}
+
+	[Fact]
+	public void ReadPayload_Terminates_OnEmptyInput()
+	{
+		var source = new ScriptedKeySource("");
+
+		string payload = NetConsoleDriver.ReadBracketedPastePayload(source);
+
+		Assert.Equal(string.Empty, payload);
+	}
+
+	#endregion
+
 	[Fact]
 	public void TryExtract_EndMarkerPresent_ReturnsPayloadWithoutMarker()
 	{

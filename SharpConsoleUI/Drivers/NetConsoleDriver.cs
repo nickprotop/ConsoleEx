@@ -718,16 +718,38 @@ namespace SharpConsoleUI.Drivers
 		/// this does not gate on <see cref="Console.KeyAvailable"/> (which can briefly read false mid-paste).
 		/// </summary>
 		private static string ReadBracketedPastePayload()
+			=> ReadBracketedPastePayload(ConsoleKeys);
+
+		/// <summary>
+		/// Reads a bracketed-paste payload from <paramref name="source"/> until the <c>ESC[201~</c> end
+		/// marker, the size cap, or a gap in the input.
+		/// </summary>
+		/// <remarks>
+		/// This runs while the input loop holds <c>_consoleLock</c>, which every writer to the console
+		/// also takes — including the OSC 52 clipboard emitter on the UI thread. It must therefore
+		/// always terminate. It previously called <c>Console.ReadKey(true)</c>, which blocks until a
+		/// key arrives with no timeout: a start marker whose end marker never came (a truncated or
+		/// malformed paste) parked the input thread here holding the lock, and the next copy blocked
+		/// the UI thread behind it until the watchdog reported the application unresponsive.
+		///
+		/// <para>Uses the same gap-tolerant, time-bounded reader as the CSI path, which was already
+		/// written to "terminate instead of hanging" for exactly this reason.</para>
+		/// </remarks>
+		internal static string ReadBracketedPastePayload(IConsoleKeySource source)
 		{
 			var sb = new StringBuilder();
 			while (sb.Length < MaxBracketedPasteChars)
 			{
-				var k = Console.ReadKey(true);
+				if (!source.TryReadKey(out var k))
+					break; // No further bytes within the budget — the paste is over or was truncated.
+
 				sb.Append(k.KeyChar);
 				if (TryExtractBracketedPaste(sb, out string payload))
 					return payload;
 			}
-			// Cap hit without an end marker: return whatever we have, stripping a trailing partial marker.
+
+			// Cap or gap reached without an end marker: return whatever we have, stripping a trailing
+			// partial marker.
 			return StripPasteEndMarker(sb.ToString());
 		}
 
