@@ -477,8 +477,11 @@ namespace SharpConsoleUI
 		public string ToMarkup()
 		{
 			if (IsDefault) return "default";
-			if (A < 255) return $"rgba({R},{G},{B},{A / 255.0:0.##})";
-			return $"rgb({R},{G},{B})";
+			// InvariantCulture: a comma-decimal locale (el-GR, de-DE, ...) would render the alpha as
+			// "0,5", adding a fifth comma-separated field that the parser rejects — the colour then
+			// silently falls back to the default foreground. The parser reads it as invariant too.
+			if (A < 255) return FormattableString.Invariant($"rgba({R},{G},{B},{A / 255.0:0.##})");
+			return FormattableString.Invariant($"rgb({R},{G},{B})");
 		}
 
 		/// <summary>Returns a copy of this color with the specified alpha value.</summary>

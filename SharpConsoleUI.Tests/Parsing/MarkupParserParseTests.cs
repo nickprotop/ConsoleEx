@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using SharpConsoleUI;
 using SharpConsoleUI.Layout;
@@ -334,6 +335,48 @@ namespace SharpConsoleUI.Tests.Parsing
 			// render as literal text. 0.5 → byte 128 (rounded).
 			var result = MarkupParser.Parse("[rgba(255,0,0,0.5)]x[/]", Fg, Bg);
 			Assert.Equal(new Color(255, 0, 0, 128), result[0].Foreground);
+		}
+
+		/// <summary>
+		/// The rgba round-trip must hold under a comma-decimal culture, not merely on an en-US machine.
+		/// </summary>
+		/// <remarks>
+		/// <c>Color.ToMarkup()</c> formatted the alpha with the CURRENT culture, so on el-GR/de-DE it
+		/// emitted <c>rgba(10,150,200,0,5)</c> — five comma-separated fields. The parser rejected that
+		/// and the text silently fell back to the default foreground, breaking every semi-transparent
+		/// colour for comma-decimal users. Found by running the suite on a Greek-locale Windows box;
+		/// the existing round-trip test above cannot catch it because CI runs invariant/en-US.
+		/// </remarks>
+		[Theory]
+		[InlineData("el-GR")]
+		[InlineData("de-DE")]
+		[InlineData("fr-FR")]
+		[InlineData("en-US")]
+		[InlineData("")]
+		public void ToMarkup_RgbaRoundTrips_UnderCommaDecimalCultures(string cultureName)
+		{
+			var previous = CultureInfo.CurrentCulture;
+			try
+			{
+				CultureInfo.CurrentCulture = new CultureInfo(cultureName);
+
+				var original = new Color(10, 150, 200, 128);
+				string markup = original.ToMarkup();
+
+				// The wire form is culture-independent: exactly four fields, decimal point not comma.
+				Assert.StartsWith("rgba(", markup);
+				Assert.Equal(4, markup[5..^1].Split(',').Length);
+
+				var parsed = MarkupParser.Parse($"[{markup}]x[/]", Fg, Bg)[0].Foreground;
+				Assert.Equal(original.R, parsed.R);
+				Assert.Equal(original.G, parsed.G);
+				Assert.Equal(original.B, parsed.B);
+				Assert.InRange(parsed.A, original.A - 1, original.A + 1);
+			}
+			finally
+			{
+				CultureInfo.CurrentCulture = previous;
+			}
 		}
 
 		[Fact]
