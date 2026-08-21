@@ -294,6 +294,22 @@ namespace SharpConsoleUI.Helpers
 		/// clipboard round-trips can be made hermetic (use <see cref="ClipboardBackend.InternalFallback"/>
 		/// to route through the in-process buffer and avoid touching the real system clipboard).
 		/// </summary>
+		/// <summary>
+		/// Waits for background clipboard writes queued by <see cref="SetText"/> to finish, so a test
+		/// cannot observe a write queued by an earlier one. Returns false if they did not settle in time.
+		/// </summary>
+		internal static bool DrainPendingWritesForTests(int timeoutMs = 2000)
+		{
+			var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+			while (Volatile.Read(ref _pendingWindowsWrites) > 0)
+			{
+				if (DateTime.UtcNow >= deadline)
+					return false;
+				Thread.Sleep(10);
+			}
+			return true;
+		}
+
 		internal static void ForceBackendForTests(ClipboardBackend backend)
 		{
 			lock (_lock)
@@ -514,9 +530,11 @@ namespace SharpConsoleUI.Helpers
 				catch { return string.Empty; }
 			}
 
-			// The clipboard read succeeded but came back empty while a copy is still in flight:
-			// the buffer holds what SetText was asked to copy, so prefer it.
-			if (system.Length == 0 && Volatile.Read(ref _pendingWindowsWrites) > 0)
+			// A copy of ours is still in flight, so whatever the clipboard currently holds predates it
+			// — an empty clipboard on a headless host, or the PREVIOUS value on a real desktop, where
+			// the read succeeds and returns stale text. Either way the buffer holds what SetText was
+			// asked to copy, so it is the answer until the write lands.
+			if (Volatile.Read(ref _pendingWindowsWrites) > 0)
 				return GetInternalBuffer();
 
 			return system;

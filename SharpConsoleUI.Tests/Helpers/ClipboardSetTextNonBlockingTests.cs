@@ -24,6 +24,9 @@ public class ClipboardSetTextNonBlockingTests : IDisposable
 
 	public void Dispose()
 	{
+		// Let queued Windows clipboard writes finish before the next test runs: otherwise one test's
+		// in-flight copy lands during another's read and makes it pass (or fail) for the wrong reason.
+		ClipboardHelper.DrainPendingWritesForTests();
 		ClipboardHelper.RegisterOsc52Emitter(null);
 		ClipboardHelper.Osc52Mode = Osc52Mode.Auto;
 		TerminalCapabilities.SetOsc52Override(null);
@@ -52,7 +55,9 @@ public class ClipboardSetTextNonBlockingTests : IDisposable
 	public void WindowsBackend_GetText_FallsBackToBuffer_WhenSystemClipboardUnavailable()
 	{
 		ClipboardHelper.ForceBackendForTests(ClipboardBackend.WindowsClip);
-		const string sample = "ASCII 中文 Привет 🚀 naïve";
+		// Distinct from every other test's payload: a shared string can be supplied by another test's
+		// in-flight write, which would make this pass without exercising the fallback at all.
+		const string sample = "fallback ASCII 中文 Привет 🚀 naïve";
 
 		var sw = Stopwatch.StartNew();
 		ClipboardHelper.SetText(sample);
