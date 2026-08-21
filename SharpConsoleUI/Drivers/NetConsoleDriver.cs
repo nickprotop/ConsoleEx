@@ -170,10 +170,16 @@ namespace SharpConsoleUI.Drivers
 		/// (<c>CONIN$</c>/<c>CONOUT$</c>) instead, so the UI reaches the terminal while the redirected
 		/// stream keeps carrying the caller's data.
 		/// </remarks>
+		/// <exception cref="PlatformNotSupportedException">
+		/// Windows only, when stdin or stdout is redirected. See <see cref="ThrowIfWindowsStdioRedirected"/>.
+		/// </exception>
 		public NetConsoleDriver(NetConsoleDriverOptions options)
 		{
 			Options = options ?? throw new ArgumentNullException(nameof(options));
 			RenderMode = options.RenderMode;
+
+			// Refuse redirected stdio on Windows before touching Console at all — see the method.
+			ThrowIfWindowsStdioRedirected();
 
 			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 			{
@@ -1184,6 +1190,56 @@ namespace SharpConsoleUI.Drivers
 		private static extern IntPtr _unixSignal(int signum, IntPtr handler);
 
 		/// <summary>
+		/// Refuses to construct a Windows driver over redirected standard streams.
+		/// </summary>
+		/// <remarks>
+		/// On Windows this driver renders and reads input through the managed <see cref="Console"/>
+		/// APIs — <c>ReadKey</c>, <c>KeyAvailable</c>, <c>Write</c>, the cursor and buffer APIs — and
+		/// every one of them acts on the process's STANDARD handles. When those are redirected they
+		/// refer to a pipe or a file rather than the console, so input cannot be read and UI frames
+		/// would be written into the caller's data stream. The failures are not theoretical: setting
+		/// <c>TreatControlCAsInput</c> throws for redirected stdin, and <c>CursorVisible</c> throws for
+		/// redirected stdout, each with an unhelpful "The handle is invalid".
+		///
+		/// <para>Unix does not have this problem because the driver never uses <see cref="Console"/>
+		/// for UI there: it opens <c>/dev/tty</c>, writes to that fd directly, and points
+		/// <see cref="Console.Out"/> at <see cref="TextWriter.Null"/> so the runtime cannot leak into
+		/// the pipe. Giving Windows the same treatment means reading via <c>ReadConsoleInput</c> on
+		/// <c>CONIN$</c> and writing to <c>CONOUT$</c> — a separate Windows I/O backend, not a patch.
+		/// Until that exists, failing immediately with an explanation beats crashing later from a
+		/// cursor call, or silently painting escape sequences into somebody's output file.</para>
+		///
+		/// <para>Redirecting stderr is unaffected: <c>2&gt; log.txt</c> is a normal choice and the
+		/// driver only ever writes there.</para>
+		/// </remarks>
+		/// <exception cref="PlatformNotSupportedException">stdin or stdout is redirected on Windows.</exception>
+		private static void ThrowIfWindowsStdioRedirected()
+		{
+			if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+				return;
+
+			bool stdinRedirected = Console.IsInputRedirected;
+			bool stdoutRedirected = Console.IsOutputRedirected;
+
+			if (!stdinRedirected && !stdoutRedirected)
+				return;
+
+			throw new PlatformNotSupportedException(
+				"Piped or redirected stdin/stdout is not supported on Windows." + Environment.NewLine +
+				Environment.NewLine +
+				"SharpConsoleUI renders through the Windows console APIs, which act on the process's " +
+				"standard handles. When those are redirected they refer to a pipe or file rather than " +
+				"the console, so input cannot be read and UI output would be written into your data stream." +
+				Environment.NewLine + Environment.NewLine +
+				$"stdin redirected: {stdinRedirected}   stdout redirected: {stdoutRedirected}" +
+				Environment.NewLine + Environment.NewLine +
+				"Workarounds:" + Environment.NewLine +
+				"  - Run without redirection." + Environment.NewLine +
+				"  - Read the piped data yourself before constructing the window system." + Environment.NewLine +
+				"  - Use Linux/macOS, where the driver opens /dev/tty and pipelines work fully.");
+		}
+
+		/// <summary>
 		/// Returns a console handle for the given standard stream, falling back to the console device
 		/// when that stream is redirected.
 		/// </summary>
@@ -1202,6 +1258,11 @@ namespace SharpConsoleUI.Drivers
 		/// <para>Falls back to the standard handle when no console is attached at all (a detached or
 		/// service process): there is nothing better to return, and callers treat a non-console handle
 		/// as "no mode to configure" rather than as an error.</para>
+		///
+		/// <para>Note: the redirected branch is currently unreachable, because
+		/// <see cref="ThrowIfWindowsStdioRedirected"/> refuses that case first. It is kept because it is
+		/// correct, costs nothing, and is the foundation a real Windows device backend would build on.
+		/// The reachable path today is the no-console fallback.</para>
 		/// </remarks>
 		private static nint ResolveWindowsConsoleHandle(int stdHandle, string deviceName, uint access, ref nint ownedHandle)
 		{

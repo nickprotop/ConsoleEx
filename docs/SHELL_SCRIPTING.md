@@ -4,6 +4,9 @@ SharpConsoleUI apps work correctly inside shell pipelines. You can pipe data in 
 
 This makes SharpConsoleUI a drop-in choice for interactive pickers, confirmations, and wizards in scripts, similar to tools like `fzf`, `gum`, and `dialog`.
 
+> **Platform scope: Linux and macOS.** Piped stdin/stdout is not supported on Windows — see
+> [Windows: not supported](#windows-not-supported).
+
 ## How It Works
 
 On Unix, when `NetConsoleDriver` starts up it calls `isatty(0)` and `isatty(1)` to detect whether stdin and stdout are real terminals.
@@ -19,7 +22,29 @@ When `/dev/tty` is used, the script's stdin and stdout remain untouched — they
 
 If no controlling terminal is available (e.g., a systemd service with no TTY allocated, or `setsid` with redirected streams), `EnterRawMode()` returns `false` and the driver falls back to ConsolePal. A TUI cannot render in that environment — this is an expected and graceful failure.
 
-On Windows, the standard Win32 console APIs handle redirection themselves, so no special code path is needed.
+### Windows: not supported
+
+**Pipelines are a Unix and macOS feature.** On Windows, `NetConsoleDriver` throws
+`PlatformNotSupportedException` at construction when stdin or stdout is redirected.
+
+The reason is structural rather than an oversight. On Unix the driver opens `/dev/tty` and writes UI
+frames to that file descriptor directly, leaving the standard streams free — which is what makes the
+whole pattern on this page work. On Windows it renders and reads input through the managed
+`Console` APIs (`ReadKey`, `KeyAvailable`, `Write`, the cursor and buffer APIs), and every one of
+those acts on the process's *standard* handles. Redirect them and they refer to a pipe or a file:
+input cannot be read, and UI output would be written into your data stream.
+
+Supporting it properly means giving Windows its own device-level I/O path — reading via
+`ReadConsoleInput` on `CONIN$` and writing to `CONOUT$` — which is a separate backend rather than a
+patch. Until that exists the driver refuses immediately, with a message naming the workarounds,
+instead of failing later from an unrelated-looking cursor call or silently painting escape sequences
+into your output file.
+
+Redirecting **stderr** is fine on every platform: `2> log.txt` works, and the driver only ever
+writes there.
+
+If you need to consume piped data in a Windows TUI, read stdin yourself *before* constructing the
+window system, and run the UI without redirection.
 
 ## Writing a Pipeline-Friendly App
 
@@ -73,8 +98,8 @@ else
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `PipedInput` | `string?` | The full text piped via stdin. `null` when stdin is a TTY (normal interactive run). |
-| `PipedLines` | `string[]?` | `PipedInput` split by newline. `null` when stdin is a TTY. |
+| `PipedInput` | `string?` | The full text piped via stdin. `null` when stdin is a TTY (normal interactive run), and **always `null` on Windows**, where redirected stdio is not supported. |
+| `PipedLines` | `string[]?` | `PipedInput` split by newline. Same `null` rules. |
 
 Piped stdin is captured automatically, starting at construction — before the driver takes over the terminal. The data is available throughout the entire app lifecycle, including inside event handlers, async threads, and after `Run()` returns.
 
@@ -250,4 +275,9 @@ if (!Environment.UserInteractive || Console.IsInputRedirected && Console.IsOutpu
 ```
 
 **Pipeline works on Linux/macOS but not Windows**
-Windows file-based apps don't honor the `#!/usr/bin/env dotnet` shebang. Invoke via `dotnet run script.cs` explicitly in PowerShell.
+It is not supported on Windows — see *Windows: not supported* above. The driver throws
+`PlatformNotSupportedException` when stdin or stdout is redirected. Read stdin yourself before
+constructing the window system, and run the UI without redirection.
+
+Note also that PowerShell's `|` and `>` operate on its own object pipeline rather than the
+process's stdio handles, so they do not redirect the way `cmd.exe` and Unix shells do.

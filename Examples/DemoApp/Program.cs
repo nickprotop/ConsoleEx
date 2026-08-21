@@ -99,7 +99,9 @@ internal class Program
 		}
 		catch (Exception ex)
 		{
-			Console.Clear();
+			// Console.Clear() itself throws when stdout is redirected, which would replace the real
+			// exception with an unrelated IOException and hide why the app actually failed.
+			try { Console.Clear(); } catch { /* not a console — the message below still matters */ }
 			ExceptionFormatter.WriteException(ex);
 			return 1;
 		}

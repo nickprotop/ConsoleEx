@@ -8,6 +8,7 @@
 
 using System.Collections.Concurrent;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Threading;
 using SharpConsoleUI.Animation;
 using SharpConsoleUI.Configuration;
@@ -355,7 +356,12 @@ namespace SharpConsoleUI
 			// application could draw anything. See PipedInputCapture and PipedInput.
 			_pipedInputOptions = (options ?? ConsoleWindowSystemOptions.Create()).PipedInput
 				?? new Configuration.PipedInputOptions();
-			if (_pipedInputOptions.Enabled && Console.IsInputRedirected)
+			// Not on Windows: NetConsoleDriver refuses redirected stdio there (the console APIs it
+			// renders through act on the standard handles), so piped input can never reach an
+			// application that has a UI. Capturing it would promise data the app cannot receive.
+			if (_pipedInputOptions.Enabled
+				&& Console.IsInputRedirected
+				&& !RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 			{
 				try { _pipedInputCapture = new Core.PipedInputCapture(Console.In); }
 				catch { /* stdin unreadable — leave the capture null, PipedInput stays null */ }
@@ -612,6 +618,7 @@ namespace SharpConsoleUI
 		/// <summary>
 		/// Gets the text that was piped into the application via stdin, or null if stdin is a TTY.
 		/// Captured automatically — available throughout the app lifecycle.
+		/// <b>Always null on Windows</b>, where redirected stdio is not supported.
 		/// </summary>
 		/// <remarks>
 		/// The capture starts at construction and runs in the background, so constructing the system
