@@ -27,6 +27,7 @@ namespace SharpConsoleUI.Tests.Helpers
 		{
 			// col = relativeX - originX = 15 - 5 = 10 ∈ [10,14)
 			var hit = LinkHitTester.FindAt(Row, originX: 5, relativeX: 15);
+			Assert.True(hit.HasValue);
 			Assert.Equal("urlB", hit.Value.Url);
 		}
 

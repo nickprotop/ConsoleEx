@@ -116,6 +116,18 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private bool _checkboxMode = false;
 	private bool _clearSelectionOnEmptyClick = false;
 	private HashSet<int> _selectedRowIndices = new();
+	// Anchor for keyboard Shift+Up/Down range selection - the row a shift-extended range grows from/to.
+	// Reset to the cursor row on every non-shift cursor move so a fresh Shift+arrow always starts from
+	// wherever the cursor currently is (matches Explorer/Excel range-select semantics).
+	private int _selectionAnchorRowIndex = -1;
+	// True from a plain (no modifier) Button1 press on a data row through its release - lets a
+	// click-and-drag extend the multi-select range live, as a mouse-only stand-in for Shift+Click
+	// (terminals routinely swallow Shift+Click for their own text selection - see #Shift-click bug).
+	private bool _isRowDragSelecting = false;
+	// Non-null while a Ctrl+drag is in progress: the selection snapshot taken on press, so each Move
+	// can recompute the live preview as (snapshot ∪ anchor..pointer range) instead of accumulating rows
+	// the pointer has since backtracked past. Null when no Ctrl+drag is active.
+	private HashSet<int>? _ctrlDragBaseSelection = null;
 
 	/// <summary>
 	/// When true, a left-click in the data area that does not hit any row
@@ -1521,6 +1533,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		_gesture.Reset();
 		_vThumbDragging = false;
 		_hThumbDragging = false;
+		_isRowDragSelecting = false;
+		_ctrlDragBaseSelection = null;
 
 		if (_dataSource != null)
 			_dataSource.CollectionChanged -= OnDataSourceCollectionChanged;

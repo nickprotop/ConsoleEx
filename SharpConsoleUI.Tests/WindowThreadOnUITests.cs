@@ -56,7 +56,7 @@ public class WindowThreadOnUITests
 	[Fact]
 	public void UIWindowThread_RunsOnUIThread_BeforeAndAfterAwait()
 	{
-		var sys = new ConsoleWindowSystem(RenderMode.Buffer); // headless buffer render
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver());
 
 		bool? beforeAwaitOnUi = null;
 		bool? afterAwaitOnUi = null;
@@ -90,7 +90,7 @@ public class WindowThreadOnUITests
 	[Fact]
 	public void DefaultWindowThread_RunsOffUIThread_UnderRunLoop()
 	{
-		var sys = new ConsoleWindowSystem(RenderMode.Buffer); // headless buffer render
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver());
 
 		bool? observedOnUi = null;
 		var window = new Window(sys, async (win, ct) =>
@@ -133,7 +133,7 @@ public class WindowThreadOnUITests
 	[Fact]
 	public void Builder_WithWindowThreadOnUI_RunsOnUIThread()
 	{
-		var sys = new ConsoleWindowSystem(RenderMode.Buffer); // headless buffer render
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver());
 
 		bool? observedOnUi = null;
 		var window = new SharpConsoleUI.Builders.WindowBuilder(sys)
@@ -171,7 +171,7 @@ public class WindowThreadOnUITests
 	[Fact]
 	public void UIWindowThread_DirectMutation_RendersAndSurvives()
 	{
-		var sys = new ConsoleWindowSystem(RenderMode.Buffer); // headless buffer render
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver());
 
 		var markup = new MarkupControl(new List<string> { "initial" });
 		Exception? delegateError = null;
@@ -238,7 +238,7 @@ public class WindowThreadOnUITests
 	[Fact]
 	public void UIWindowThread_ClosedDuringStartGap_DoesNotRunDelegate()
 	{
-		var sys = new ConsoleWindowSystem(RenderMode.Buffer); // headless buffer render
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver());
 
 		bool delegateRan = false;
 		var window = new SharpConsoleUI.Builders.WindowBuilder(sys)
@@ -273,7 +273,7 @@ public class WindowThreadOnUITests
 	public void UIWindowThread_UIAffinity_IndependentOfGlobalSyncContext()
 	{
 		var options = new ConsoleWindowSystemOptions() with { InstallSynchronizationContext = false };
-		var sys = new ConsoleWindowSystem(RenderMode.Buffer, options); // headless buffer render
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(), options);
 
 		bool? observedOnUi = null;
 		var window = new SharpConsoleUI.Builders.WindowBuilder(sys)

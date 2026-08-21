@@ -75,7 +75,9 @@ public partial class TableControl
 			return true;
 		}
 
-		// Right-click: select row/cell first, then fire event
+		// Right-click: select row/cell first, then fire event. When multi-select is enabled, this also
+		// extends the range from the anchor to the clicked row (a Shift+click stand-in, since this
+		// terminal does not deliver Shift/Ctrl mouse-click modifiers - see ExtendOrMoveSelection).
 		if (args.HasFlag(MouseFlags.Button3Clicked))
 		{
 			if (_isEditing)
@@ -85,6 +87,13 @@ public partial class TableControl
 			int rowIdx = GetRowIndexAtY(args.Position.Y);
 			if (rowIdx >= 0)
 			{
+				if (_multiSelectEnabled)
+				{
+					int anchor = _selectionAnchorRowIndex >= 0 ? _selectionAnchorRowIndex : _selectedRowIndex;
+					_selectionAnchorRowIndex = anchor;
+					_selectedRowIndices.Clear();
+					SelectRange(anchor, rowIdx);
+				}
 				SetSelectedRow(rowIdx);
 				if (_cellNavigationEnabled)
 				{
@@ -335,20 +344,70 @@ public partial class TableControl
 
 			// Fresh press over a data row: just move the cursor, don't touch multi-select state
 			// (multi-select toggling happens on the Button1Clicked / Up phase to avoid double-toggle).
+			// EXCEPTION: a Shift-click's range (Up phase below) is anchored on whatever _selectedRowIndex
+			// was BEFORE this click - moving it here first would make every range collapse to just the
+			// pressed row (anchor == target).
 			int pressRow = GetRowIndexAtY(args.Position.Y);
-			if (pressRow >= 0)
+
+			// A plain (no Ctrl/Shift) press on a data row seeds a click-and-drag range select - the mouse-only
+			// stand-in for Shift+Click, since terminals routinely swallow Shift+Click for native text selection.
+			_isRowDragSelecting = _multiSelectEnabled && pressRow >= 0 && !IsClickOnHeader(args)
+				&& !args.HasFlag(MouseFlags.ButtonShift) && !args.HasFlag(MouseFlags.ButtonCtrl)
+				&& !(_checkboxMode && IsClickOnCheckbox(args.Position.X));
+
+			// A Ctrl-held press on a data row seeds a Ctrl+drag: additional ranges added on top of whatever
+			// was already selected, instead of the plain drag's "replace the whole selection" behavior.
+			bool isCtrlDragSelecting = _multiSelectEnabled && pressRow >= 0 && !IsClickOnHeader(args)
+				&& args.HasFlag(MouseFlags.ButtonCtrl) && !args.HasFlag(MouseFlags.ButtonShift)
+				&& !(_checkboxMode && IsClickOnCheckbox(args.Position.X));
+			_ctrlDragBaseSelection = isCtrlDragSelecting ? new HashSet<int>(_selectedRowIndices) : null;
+
+			if (_isRowDragSelecting || isCtrlDragSelecting)
+				_selectionAnchorRowIndex = pressRow;
+
+			if (pressRow >= 0 && !(_multiSelectEnabled && args.HasFlag(MouseFlags.ButtonShift)))
 				SetSelectedRow(pressRow);
 			return true;
 		}
 
 		if (phase == GesturePhase.Move)
 		{
-			// A cell drag stays owned by the cells area; nothing to extend here.
+			// A cell drag stays owned by the cells area. A plain-press drag seeded above extends the
+			// multi-select range live to the row under the pointer.
+			if (_isRowDragSelecting)
+			{
+				int dragRowIdx = GetRowIndexAtY(args.Position.Y);
+				if (dragRowIdx >= 0)
+				{
+					_selectedRowIndices.Clear();
+					SelectRange(_selectionAnchorRowIndex, dragRowIdx);
+					SetSelectedRow(dragRowIdx);
+				}
+			}
+			else if (_ctrlDragBaseSelection != null)
+			{
+				// Recompute from the pre-drag snapshot each time (rather than accumulating) so backtracking
+				// the pointer past the anchor correctly drops rows the live preview had added.
+				int dragRowIdx = GetRowIndexAtY(args.Position.Y);
+				if (dragRowIdx >= 0)
+				{
+					_selectedRowIndices.Clear();
+					_selectedRowIndices.UnionWith(_ctrlDragBaseSelection);
+					SelectRange(_selectionAnchorRowIndex, dragRowIdx);
+					SetSelectedRow(dragRowIdx);
+				}
+			}
 			return true;
 		}
 
 		// Up phase: the Button1Clicked discrete actions. If the release did not carry Button1Clicked
 		// (e.g. a bare Button1Released ending a press) there is nothing further to do.
+		// Captured once here (rather than read from the field below) so every exit path from this phase -
+		// header sort, empty-area click, or a normal row click - consistently ends the drag-select gesture.
+		bool wasDragSelecting = _isRowDragSelecting;
+		HashSet<int>? ctrlDragBase = _ctrlDragBaseSelection;
+		_isRowDragSelecting = false;
+		_ctrlDragBaseSelection = null;
 		if (!args.HasFlag(MouseFlags.Button1Clicked))
 			return true;
 
@@ -382,7 +441,19 @@ public partial class TableControl
 		{
 			if (_multiSelectEnabled && args.HasFlag(MouseFlags.ButtonCtrl))
 			{
-				ToggleRowSelection(rowIdx);
+				// A completed Ctrl+drag (anchor differs from the release row) adds the whole dragged range
+				// on top of whatever was selected before the drag; a plain Ctrl+click (no movement) keeps the
+				// original single-row toggle behavior.
+				if (ctrlDragBase != null && _selectionAnchorRowIndex != rowIdx)
+				{
+					_selectedRowIndices.Clear();
+					_selectedRowIndices.UnionWith(ctrlDragBase);
+					SelectRange(_selectionAnchorRowIndex, rowIdx);
+				}
+				else
+				{
+					ToggleRowSelection(rowIdx);
+				}
 				SetSelectedRow(rowIdx);
 			}
 			else if (_multiSelectEnabled && args.HasFlag(MouseFlags.ButtonShift))
@@ -411,7 +482,16 @@ public partial class TableControl
 								row.IsChecked = false;
 						}
 					}
+					// A click-and-drag range select (seeded on Down, extended on Move) finalizes here using its
+					// original press-row anchor, so a completed drag isn't collapsed back down to the single
+					// release row. A plain click (no drag) has anchor == rowIdx, so this degrades to the same
+					// single-row selection as before.
+					int anchor = wasDragSelecting && _selectionAnchorRowIndex >= 0 ? _selectionAnchorRowIndex : rowIdx;
 					_selectedRowIndices.Clear();
+					SelectRange(anchor, rowIdx);
+					// Re-anchor keyboard Shift+Up/Down range-select (see TableControl.Keyboard.cs) here too,
+					// so it starts fresh from wherever was just plain-clicked/dragged.
+					_selectionAnchorRowIndex = rowIdx;
 				}
 				SetSelectedRow(rowIdx);
 			}
@@ -534,6 +614,20 @@ public partial class TableControl
 		if (!string.IsNullOrEmpty(_title)) hy++;
 		if (_borderStyle != BorderStyle.None) hy++;
 		return hy;
+	}
+
+	/// <summary>Returns the Y coordinate of the given display row index, for unit-testing row hit detection.</summary>
+	internal int RowYForTest(int displayIndex)
+	{
+		int dataStartY = Margin.Top;
+		if (!string.IsNullOrEmpty(_title)) dataStartY++;
+		if (_borderStyle != BorderStyle.None) dataStartY++;
+		if (_showHeader) dataStartY++;
+		if (_showHeader && _borderStyle != BorderStyle.None) dataStartY++;
+
+		int effectiveRowIndex = displayIndex - _scrollOffset;
+		int rowOffset = (_showRowSeparators && _borderStyle != BorderStyle.None) ? effectiveRowIndex * 2 : effectiveRowIndex;
+		return dataStartY + rowOffset;
 	}
 
 	private bool IsClickOnVerticalScrollbar(MouseEventArgs args)

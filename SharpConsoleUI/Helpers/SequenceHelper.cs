@@ -243,201 +243,68 @@ namespace SharpConsoleUI.Helpers
 					//pos.Y = int.Parse (value) + Console.WindowTop - 1;
 					pos.Y = int.Parse(value) - 1;
 
-					switch (buttonCode)
+					if ((buttonCode & 0x40) != 0)
 					{
-						case 0:
-						case 8:
-						case 16:
-						case 24:
-						case 32:
-						case 36:
-						case 40:
-						case 48:
-						case 56:
-							buttonState = c == 'M'
-											  ? MouseFlags.Button1Pressed
-											  : MouseFlags.Button1Released;
+						// Wheel codes: xterm maps a modifier held during a vertical wheel tick to a
+						// synthetic horizontal tilt (WheeledLeft/Right) rather than a plain modifier bit,
+						// so this table is deliberately kept as its own hardcoded lookup.
+						switch (buttonCode)
+						{
+							case 64:
+								buttonState = MouseFlags.WheeledUp;
+								break;
 
-							break;
+							case 65:
+								buttonState = MouseFlags.WheeledDown;
+								break;
 
-						case 1:
-						case 9:
-						case 17:
-						case 25:
-						case 33:
-						case 37:
-						case 41:
-						case 45:
-						case 49:
-						case 53:
-						case 57:
-						case 61:
-							buttonState = c == 'M'
-											  ? MouseFlags.Button2Pressed
-											  : MouseFlags.Button2Released;
+							case 68:
+							case 72:
+							case 80:
+								buttonState = MouseFlags.WheeledLeft; // Shift/Alt/Ctrl+WheeledUp
 
-							break;
+								break;
 
-						case 2:
-						case 10:
-						case 14:
-						case 18:
-						case 22:
-						case 26:
-						case 30:
-						case 34:
-						case 42:
-						case 46:
-						case 50:
-						case 54:
-						case 58:
-						case 62:
-							buttonState = c == 'M'
-											  ? MouseFlags.Button3Pressed
-											  : MouseFlags.Button3Released;
+							case 69:
+							case 73:
+							case 81:
+								buttonState = MouseFlags.WheeledRight; // Shift/Alt/Ctrl+WheeledDown
 
-							break;
-
-						case 35:
-						case 39:
-						case 43:
-						case 47:
-						case 51:
-						case 55:
-						case 59:
-						case 63:
-							buttonState = MouseFlags.ReportMousePosition;
-
-							break;
-
-						case 64:
-							buttonState = MouseFlags.WheeledUp;
-
-							break;
-
-						case 65:
-							buttonState = MouseFlags.WheeledDown;
-
-							break;
-
-						case 68:
-						case 72:
-						case 80:
-							buttonState = MouseFlags.WheeledLeft; // Shift/Ctrl+WheeledUp
-
-							break;
-
-						case 69:
-						case 73:
-						case 81:
-							buttonState = MouseFlags.WheeledRight; // Shift/Ctrl+WheeledDown
-
-							break;
+								break;
+						}
 					}
-
-					// Modifiers.
-					switch (buttonCode)
+					else
 					{
-						case 8:
-						case 9:
-						case 10:
-						case 43:
-							buttonState |= MouseFlags.ButtonAlt;
+						// Base button + modifiers computed from the SGR bit layout (bits 0-1 = button,
+						// 0x04/0x08/0x10 = Shift/Alt/Ctrl, 0x20 = motion) instead of a hand-enumerated
+						// case table: the old table only listed specific button+modifier combinations
+						// and silently dropped any code it didn't recognize (e.g. a bare Shift+Click was
+						// code 4, present in neither switch), leaving buttonState at its default 0 and
+						// the click never recognized at all.
+						switch (buttonCode & 0x03)
+						{
+							case 0:
+								buttonState = c == 'M' ? MouseFlags.Button1Pressed : MouseFlags.Button1Released;
+								break;
 
-							break;
+							case 1:
+								buttonState = c == 'M' ? MouseFlags.Button2Pressed : MouseFlags.Button2Released;
+								break;
 
-						case 14:
-						case 47:
-							buttonState |= MouseFlags.ButtonAlt | MouseFlags.ButtonShift;
+							case 2:
+								buttonState = c == 'M' ? MouseFlags.Button3Pressed : MouseFlags.Button3Released;
+								break;
 
-							break;
+							case 3:
+								if ((buttonCode & 0x20) != 0)
+									buttonState = MouseFlags.ReportMousePosition;
+								break;
+						}
 
-						case 16:
-						case 17:
-						case 18:
-						case 51:
-							buttonState |= MouseFlags.ButtonCtrl;
-
-							break;
-
-						case 22:
-						case 55:
-							buttonState |= MouseFlags.ButtonCtrl | MouseFlags.ButtonShift;
-
-							break;
-
-						case 24:
-						case 25:
-						case 26:
-						case 59:
-							buttonState |= MouseFlags.ButtonCtrl | MouseFlags.ButtonAlt;
-
-							break;
-
-						case 30:
-						case 63:
-							buttonState |= MouseFlags.ButtonCtrl | MouseFlags.ButtonShift | MouseFlags.ButtonAlt;
-
-							break;
-
-						case 32:
-						case 33:
-						case 34:
-							buttonState |= MouseFlags.ReportMousePosition;
-
-							break;
-
-						case 36:
-						case 37:
-							buttonState |= MouseFlags.ReportMousePosition | MouseFlags.ButtonShift;
-
-							break;
-
-						case 39:
-						case 68:
-						case 69:
-							buttonState |= MouseFlags.ButtonShift;
-
-							break;
-
-						case 40:
-						case 41:
-						case 42:
-							buttonState |= MouseFlags.ReportMousePosition | MouseFlags.ButtonAlt;
-
-							break;
-
-						case 45:
-						case 46:
-							buttonState |= MouseFlags.ReportMousePosition | MouseFlags.ButtonAlt | MouseFlags.ButtonShift;
-
-							break;
-
-						case 48:
-						case 49:
-						case 50:
-							buttonState |= MouseFlags.ReportMousePosition | MouseFlags.ButtonCtrl;
-
-							break;
-
-						case 53:
-						case 54:
-							buttonState |= MouseFlags.ReportMousePosition | MouseFlags.ButtonCtrl | MouseFlags.ButtonShift;
-
-							break;
-
-						case 56:
-						case 57:
-						case 58:
-							buttonState |= MouseFlags.ReportMousePosition | MouseFlags.ButtonCtrl | MouseFlags.ButtonAlt;
-
-							break;
-
-						case 61:
-						case 62:
-							buttonState |= MouseFlags.ReportMousePosition | MouseFlags.ButtonCtrl | MouseFlags.ButtonShift | MouseFlags.ButtonAlt;
-
-							break;
+						if ((buttonCode & 0x20) != 0) buttonState |= MouseFlags.ReportMousePosition;
+						if ((buttonCode & 0x04) != 0) buttonState |= MouseFlags.ButtonShift;
+						if ((buttonCode & 0x08) != 0) buttonState |= MouseFlags.ButtonAlt;
+						if ((buttonCode & 0x10) != 0) buttonState |= MouseFlags.ButtonCtrl;
 					}
 				}
 			}
@@ -459,6 +326,14 @@ namespace SharpConsoleUI.Helpers
 
 			mouseFlags = [MouseFlags.AllEvents];
 
+			// buttonState mixes the button/wheel action with Shift/Alt/Ctrl (OR'd in by the modifier switch
+			// above), so every `buttonState == Button1Pressed`-style check below fails whenever a modifier
+			// is held — same class of bug ExtractButtonState fixed on the Unix path (UnixStdinReader.cs).
+			// SetControlKeyStates() re-applies the modifier bits onto the final output further down, so
+			// only the state-machine's recognition needs the stripped value.
+			const MouseFlags modifierMask = MouseFlags.ButtonShift | MouseFlags.ButtonAlt | MouseFlags.ButtonCtrl;
+			var actionState = buttonState & ~modifierMask;
+
 			if (_lastMouseButtonPressed != null
 				&& !_isButtonPressed
 				&& !buttonState.HasFlag(MouseFlags.ReportMousePosition)
@@ -473,10 +348,10 @@ namespace SharpConsoleUI.Helpers
 
 			if ((!_isButtonClicked
 				 && !_isButtonDoubleClicked
-				 && (buttonState == MouseFlags.Button1Pressed
-					 || buttonState == MouseFlags.Button2Pressed
-					 || buttonState == MouseFlags.Button3Pressed
-					 || buttonState == MouseFlags.Button4Pressed)
+				 && (actionState == MouseFlags.Button1Pressed
+					 || actionState == MouseFlags.Button2Pressed
+					 || actionState == MouseFlags.Button3Pressed
+					 || actionState == MouseFlags.Button4Pressed)
 				 && _lastMouseButtonPressed is null)
 				|| (_isButtonPressed && _lastMouseButtonPressed is { } && buttonState.HasFlag(MouseFlags.ReportMousePosition)))
 			{
@@ -504,22 +379,22 @@ namespace SharpConsoleUI.Helpers
 				}
 			}
 			else if (_isButtonDoubleClicked
-					 && (buttonState == MouseFlags.Button1Pressed
-						 || buttonState == MouseFlags.Button2Pressed
-						 || buttonState == MouseFlags.Button3Pressed
-						 || buttonState == MouseFlags.Button4Pressed))
+					 && (actionState == MouseFlags.Button1Pressed
+						 || actionState == MouseFlags.Button2Pressed
+						 || actionState == MouseFlags.Button3Pressed
+						 || actionState == MouseFlags.Button4Pressed))
 			{
-				mouseFlags[0] = GetButtonTripleClicked(buttonState);
+				mouseFlags[0] = GetButtonTripleClicked(actionState);
 				_isButtonDoubleClicked = false;
 				_isButtonTripleClicked = true;
 			}
 			else if (_isButtonClicked
-					 && (buttonState == MouseFlags.Button1Pressed
-						 || buttonState == MouseFlags.Button2Pressed
-						 || buttonState == MouseFlags.Button3Pressed
-						 || buttonState == MouseFlags.Button4Pressed))
+					 && (actionState == MouseFlags.Button1Pressed
+						 || actionState == MouseFlags.Button2Pressed
+						 || actionState == MouseFlags.Button3Pressed
+						 || actionState == MouseFlags.Button4Pressed))
 			{
-				mouseFlags[0] = GetButtonDoubleClicked(buttonState);
+				mouseFlags[0] = GetButtonDoubleClicked(actionState);
 				_isButtonClicked = false;
 				_isButtonDoubleClicked = true;
 
@@ -528,10 +403,10 @@ namespace SharpConsoleUI.Helpers
 
 			else if (!_isButtonClicked
 					 && !_isButtonDoubleClicked
-					 && (buttonState == MouseFlags.Button1Released
-						 || buttonState == MouseFlags.Button2Released
-						 || buttonState == MouseFlags.Button3Released
-						 || buttonState == MouseFlags.Button4Released))
+					 && (actionState == MouseFlags.Button1Released
+						 || actionState == MouseFlags.Button2Released
+						 || actionState == MouseFlags.Button3Released
+						 || actionState == MouseFlags.Button4Released))
 			{
 				mouseFlags[0] = buttonState;
 				_isButtonPressed = false;
@@ -546,7 +421,7 @@ namespace SharpConsoleUI.Helpers
 					var timeSinceLastClick = (DateTime.Now - _lastClickTime).TotalMilliseconds;
 					if (timeSinceLastClick >= 50)
 					{
-						mouseFlags.Add(GetButtonClicked(buttonState));
+						mouseFlags.Add(GetButtonClicked(actionState));
 						_isButtonClicked = true;
 						Task.Run(async () => await ProcessButtonClickedAsync());
 						_lastClickTime = DateTime.Now;
@@ -556,23 +431,23 @@ namespace SharpConsoleUI.Helpers
 				_point = pos;
 
 			}
-			else if (buttonState == MouseFlags.WheeledUp)
+			else if (actionState == MouseFlags.WheeledUp)
 			{
 				mouseFlags[0] = MouseFlags.WheeledUp;
 			}
-			else if (buttonState == MouseFlags.WheeledDown)
+			else if (actionState == MouseFlags.WheeledDown)
 			{
 				mouseFlags[0] = MouseFlags.WheeledDown;
 			}
-			else if (buttonState == MouseFlags.WheeledLeft)
+			else if (actionState == MouseFlags.WheeledLeft)
 			{
 				mouseFlags[0] = MouseFlags.WheeledLeft;
 			}
-			else if (buttonState == MouseFlags.WheeledRight)
+			else if (actionState == MouseFlags.WheeledRight)
 			{
 				mouseFlags[0] = MouseFlags.WheeledRight;
 			}
-			else if (buttonState == MouseFlags.ReportMousePosition)
+			else if (actionState == MouseFlags.ReportMousePosition)
 			{
 				mouseFlags[0] = MouseFlags.ReportMousePosition;
 			}
