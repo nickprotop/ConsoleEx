@@ -632,8 +632,8 @@ native author cannot offer them and the container returns empty:
 - `IKindedService` and `GetServicesByKind` are new surface, not modified surface (§6.1).
 - Managed plugins are entirely unaffected.
 
-**§14 is not**, and is deliberately kept separate. The obsolete-surface removal planned there is
-a breaking change shipping in a major version. Nothing in §1–§13 depends on it, and it depends
+**§14 is not**, and is deliberately kept separate. The legacy service-model removal planned there
+is a breaking change shipping in a major version. Nothing in §1–§13 depends on it, and it depends
 on nothing here — the two are folded into one document because they touch the same subsystem,
 not because they ship together.
 
@@ -679,12 +679,19 @@ manifest's `defaultValue` is used, or the parameter is omitted from the args JSO
 when it has none. Unknown parameter keys → rejected, so a typo surfaces immediately rather
 than being silently dropped on the native side.
 
-## 14. Planned: remove the obsolete plugin surface
+## 14. Planned: remove the obsolete type-based service model
 
 The native ABI lands on a plugin system that still carries a **legacy type-based service
 subsystem**, deprecated but never removed. It is dead weight the new path has to route around,
 and it is the direct reason `kind` needs a side interface (§6.1) rather than a natural home.
 Removing it is planned work, folded in here because it shares the same surface.
+
+**Scope: the legacy service model, and nothing else.** Native plugins (§1–§13) are unaffected —
+they are additive and depend on none of this. An earlier draft of this section also swept in eight
+unrelated obsolete members found by the same audit (`Window.UseDOMLayout`, three `WindowBuilder`
+aliases, four `MenuControl` colour aliases). Those are not plugin surface and have been dropped
+from this plan: bundling unrelated removals into one breaking change makes it harder to justify
+and harder to review. If they are ever removed, that is its own decision.
 
 ### 14.1 Why it blocks nothing but costs something
 
@@ -694,9 +701,7 @@ why it is already `[Obsolete("Type-based service lookup will be removed in a fut
 already ignores it. The cost is not a blocker; it is that every reader of the plugin system now
 meets two service models and has to work out which is live.
 
-### 14.2 Inventory — 13 members, verified zero usage
-
-**Plugin subsystem (the legacy type-based service model):**
+### 14.2 Inventory — 6 members plus plumbing, verified zero usage
 
 | Member | Location |
 | :--- | :--- |
@@ -711,19 +716,6 @@ Plus the private `_legacyServices` dictionary and its registration loop (`:141, 
 and the two `#pragma warning disable CS0618` pairs that exist only to silence the above
 (`IPlugin.cs:130-132`, `PluginStateService.cs:345-351`).
 
-**Elsewhere in the library** (same sweep, unrelated to plugins):
-
-| Member | Location | Replacement |
-| :--- | :--- | :--- |
-| `Window.UseDOMLayout` | `Window.Layout.cs:223` | none — always true |
-| `WindowBuilder.WithPosition(x, y)` | `Builders/WindowBuilder.cs:152` | `AtPosition` |
-| `WindowBuilder.WithModal(bool)` | `Builders/WindowBuilder.cs:235` | `AsModal` |
-| `WindowBuilder.WithDomLayout(...)` | `Builders/WindowBuilder.cs:769` | none — always enabled |
-| `MenuControl.BackgroundColor` | `Controls/MenuControl/MenuControl.cs:245` | `DropdownBackgroundColor` |
-| `MenuControl.ForegroundColor` | `:255` | `DropdownForegroundColor` |
-| `MenuControl.HighlightColor` | `:265` | `DropdownHighlightBackgroundColor` |
-| `MenuControl.HighlightForeground` | `:275` | `DropdownHighlightForegroundColor` |
-
 **Usage audit — zero, everywhere.** Checked across the library, `Examples/`, `Example/`, the
 test suite, and all 15 sibling repos (cx*, lazy*, ServerHub, cratis-cli, dotnet-skills). Two
 false positives worth recording so the next audit does not re-raise them:
@@ -732,9 +724,6 @@ false positives worth recording so the next audit does not re-raise them:
   `GetServicePlugins()`. Substring collision.
 - `GetService<T>` appears in `Html/HtmlLayoutEngine.cs` and two test helpers; those are
   AngleSharp's `IBrowsingContext.GetService<T>`, not ours.
-
-`MenuControl` itself is used by four consumers (cxfiles, cxsql, lazydotide, cratis-cli), but
-none touches the four colour aliases.
 
 ### 14.3 `UnloadPlugin` — removed, and why it is the odd one
 
@@ -754,6 +743,11 @@ observed usage lowers the risk; it does not change the classification.
 It therefore ships as a **major version**, not a patch — a patch that removes public API is the
 case where a consumer's routine update fails to compile, or throws `MissingMethodException` at
 runtime. It should be batched with any other breaking work rather than spent alone.
+
+> The removal is narrow by design, and that is a lesson from experience rather than caution for
+> its own sake: the static `ThemeRegistry` removal was correct on the merits and still left
+> consumers stranded on update. Six members with zero observed usage is a far smaller blast
+> radius, but the classification is the same and the ceremony should be too.
 
 Ordering against the ABI itself: **independent.** The ABI is purely additive and needs none of
 these gone; the removal is a cleanup of the surface it lands on. Either can go first. The one
