@@ -88,6 +88,36 @@ public class NavigationViewResponsiveTests
 		Assert.Equal(NavigationViewDisplayMode.Minimal, resolved);
 	}
 
+	/// <summary>
+	/// Pins the resolved mode either side of each threshold, so the boundaries are asserted rather
+	/// than implied by widths that happen to sit far from them.
+	/// </summary>
+	/// <remarks>
+	/// The defaults were lowered by 8 (Expanded 80→72, Compact 50→42) so the pane keeps its labels in
+	/// a window a few cells short of 80. Both moved together, so each band keeps its width. No test
+	/// covered the boundaries before, which is why the change was silent.
+	/// </remarks>
+	[Theory]
+	[InlineData(72, NavigationViewDisplayMode.Expanded)]   // exactly at the Expanded threshold
+	[InlineData(71, NavigationViewDisplayMode.Compact)]    // one below it
+	[InlineData(42, NavigationViewDisplayMode.Compact)]    // exactly at the Compact threshold
+	[InlineData(41, NavigationViewDisplayMode.Minimal)]    // one below it
+	public void Auto_ResolvesAtTheConfiguredThresholds(int width, NavigationViewDisplayMode expected)
+	{
+		var nav = CreateTestNav();
+
+		Assert.Equal(expected, nav.ResolveDisplayMode(width));
+	}
+
+	/// <summary>The band between the two thresholds keeps its width when both move together.</summary>
+	[Fact]
+	public void Auto_CompactBand_SpansThirtyCells()
+	{
+		var nav = CreateTestNav();
+
+		Assert.Equal(30, nav.ExpandedThreshold - nav.CompactThreshold);
+	}
+
 	[Fact]
 	public void Forced_Expanded_IgnoresWidth()
 	{

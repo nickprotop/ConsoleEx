@@ -394,15 +394,24 @@ namespace SharpConsoleUI.Configuration
 		public const int NavigationViewHeaderTopMargin = 1;
 
 		/// <summary>
-		/// Width threshold at or above which Auto display mode resolves to Expanded (default: 80).
+		/// Width threshold at or above which Auto display mode resolves to Expanded (default: 72).
 		/// </summary>
-		public const int DefaultNavigationViewExpandedThreshold = 80;
+		/// <remarks>
+		/// Lowered from 80: the pane collapsed to Compact while there was still room to show labels,
+		/// so a window a few cells short of 80 lost its navigation text for no visual benefit. The
+		/// Compact threshold moved by the same amount, so each band keeps its width.
+		/// </remarks>
+		public const int DefaultNavigationViewExpandedThreshold = 72;
 
 		/// <summary>
-		/// Width threshold at or above which Auto display mode resolves to Compact (default: 50).
+		/// Width threshold at or above which Auto display mode resolves to Compact (default: 42).
 		/// Below this threshold, Auto resolves to Minimal.
 		/// </summary>
-		public const int DefaultNavigationViewCompactThreshold = 50;
+		/// <remarks>
+		/// Lowered from 50 alongside the Expanded threshold, by the same amount, so the Compact band
+		/// keeps its width instead of being squeezed.
+		/// </remarks>
+		public const int DefaultNavigationViewCompactThreshold = 42;
 
 		/// <summary>
 		/// Width of the navigation pane in Compact display mode (default: 5).
