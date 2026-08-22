@@ -63,6 +63,25 @@ namespace SharpConsoleUI.Helpers
 		// already holds the copied text. See ReadWindowsClipboardOrBuffer.
 		private static int _pendingWindowsWrites;
 
+		// Serializes this process's OWN native clipboard access. OpenClipboard(NULL) associates the
+		// clipboard with the calling *task*, not the calling thread, so a second thread in the same
+		// process opens it successfully while the first still holds it — Windows gives us no
+		// cross-thread exclusion here. SetText runs its write on the ThreadPool (issue #42, so a copy
+		// never stalls the UI thread), so a write and a read overlap routinely: the writer's
+		// EmptyClipboard() frees the very block the reader has just obtained from GetClipboardData and
+		// locked, and the reader then locks, reads and unlocks freed memory. That corrupts the process
+		// heap, and Windows fast-fails with STATUS_HEAP_CORRUPTION (0xC0000374) — below the CLR, so
+		// there is no managed exception, no crash dump and nothing on stderr; the process simply
+		// vanishes mid-call. Two queued writes racing each other are unsafe for the same reason.
+		//
+		// Cost: a read can now wait behind an in-flight write. In the normal case the holder finishes
+		// in microseconds; the worst case is bounded by OpenClipboardWithRetry (8 x 25ms = 200ms) and
+		// only arises when another PROCESS is holding the clipboard for that whole budget — in which
+		// case the waiting call would have blocked on it anyway. That is well under the watchdog
+		// thresholds, but not far from the 250ms assertions in the clipboard tests; if those are ever
+		// tightened, this is the interaction to remember.
+		private static readonly object _nativeClipboardLock = new();
+
 		private static volatile Action<string>? _osc52Emitter;
 
 		/// <summary>
@@ -563,6 +582,14 @@ namespace SharpConsoleUI.Helpers
 			if (!OperatingSystem.IsWindows())
 				return null;
 
+			// A concurrent write must not EmptyClipboard() the block this read has locked.
+			lock (_nativeClipboardLock)
+				return TryReadWindowsClipboardCore();
+		}
+
+		/// <summary>The body of <see cref="TryReadWindowsClipboard"/>, called under the native lock.</summary>
+		private static string? TryReadWindowsClipboardCore()
+		{
 			try
 			{
 				if (!OpenClipboardWithRetry())
@@ -621,6 +648,15 @@ namespace SharpConsoleUI.Helpers
 			if (!OperatingSystem.IsWindows())
 				return false;
 
+			// EmptyClipboard() below frees the handle the clipboard currently owns, which a concurrent
+			// read may have locked.
+			lock (_nativeClipboardLock)
+				return TryWriteWindowsClipboardCore(text);
+		}
+
+		/// <summary>The body of <see cref="TryWriteWindowsClipboard"/>, called under the native lock.</summary>
+		private static bool TryWriteWindowsClipboardCore(string text)
+		{
 			try
 			{
 				if (!OpenClipboardWithRetry())
