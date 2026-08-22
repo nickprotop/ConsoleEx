@@ -47,6 +47,9 @@ most narrowly-scoped work last.
 
 - **Granular invalidation** — the `Repaint` tier already exists and the layout path already honors it, but all 476 `SetProperty` setters hardcode `Relayout`, so a color change still costs a full measure pass. Remaining work is per-property classification (~166 are colour-only and provably layout-neutral), not engine work; over-invalidating stays correct, so the failure mode is safe in one direction
 - **Instant input response** — `InputLoop` spins on `Console.KeyAvailable` with a 10ms sleep, so every keystroke pays up to 10ms before anything sees it. Replace that one loop with a blocking read plus a wake. Contained to a single method, but it is the paste and ANSI-sequence parsing path, so it needs care on both Unix and Windows
+- **A centred window larger than the desktop opens blank** — `WindowBuilder.Centered()` computes a negative position, and nothing shrinks an oversized window to fit
+- **Alt+1-9 does not select a window when none is active** — the chord is handled inside the branch that routes keys to the active window, so it is dropped when there is nothing to route to
+- **Ctrl+Q does not force-quit when the stall is inside a terminal write** — the watchdog banner promises it, but on Windows the input thread blocks on the same `_consoleLock` the render path holds, so the key never reaches the queue; the fix is narrowing that lock, next to the frozen compositor
 - **Native plugin ABI** — a real C-ABI plugin boundary that loads `.dll`/`.so` plugins at runtime, scoped to services and themes. Today's `LoadPlugin<T>` is `new T()` on a host-compiled type, so plugins cannot ship independently of the host. The largest piece of work here and the one no adopter is currently blocked on
 
 ## Later
