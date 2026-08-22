@@ -137,13 +137,51 @@ const char* plugin_kind(void);
 /* OPTIONAL, sixth export. Receives the host's event channel — the plugin's only way to talk
    back (§17). Called once, after the manifest is validated and before any plugin_invoke.
    A library that does not export it is fully valid; it simply raises no events. */
-typedef void (*host_event_fn)(const char* name, const char* payload_json);
-void        plugin_set_host(host_event_fn on_event);
+typedef void (*host_event_fn)(void* ctx, const char* service, const char* name,
+                              const char* payload_json);
+void        plugin_set_host(host_event_fn on_event, void* ctx);
 ```
 
-Managed side uses **`[LibraryImport]`** (source-generated, trim/AOT-clean UTF-8 marshalling).
-The repository already ships native interop (`Controls/Terminal/PtyNative.cs` via `[DllImport]`);
-`[LibraryImport]` is the AOT-preferred form for this new path.
+### 5.0 How the managed side binds these symbols
+
+**Not `[LibraryImport]`, and not `[DllImport]`.** Both bind a *compile-time* library name to
+static methods, and this design does neither thing: it loads arbitrary user-supplied paths, several
+libraries at once, every one exporting the same five symbol names. A static `plugin_invoke` import
+has no way to dispatch to `libmath.so` versus `libgit.so`.
+
+The mechanism is the one §5.1 step 2 already implies — resolve per library, at runtime:
+
+```csharp
+nint lib = NativeLibrary.Load(path);
+nint sym = NativeLibrary.GetExport(lib, "plugin_invoke");
+
+// Held per container. AOT-clean: a function pointer, not a delegate, so nothing is generated
+// at runtime and nothing needs rooting.
+private readonly delegate* unmanaged[Cdecl]<byte*, byte*, byte*> _invoke =
+    (delegate* unmanaged[Cdecl]<byte*, byte*, byte*>)sym;
+```
+
+**Every string-returning export is typed as `byte*`, never `string`.** This is not a style
+preference — it is the difference between working and corrupting the heap. A `string` return with
+`StringMarshalling.Utf8` makes the marshaller free the returned pointer with **its own allocator**
+after copying, which both bypasses `plugin_free` and calls `CoTaskMemFree` on memory the plugin
+allocated with `malloc`. That is precisely the mismatched-allocator fault §10 exists to prevent,
+introduced by the marshalling layer rather than by the plugin.
+
+So the shim copies and frees explicitly, exactly as §5.1 phase 4 describes:
+
+```csharp
+byte* p = _invoke(opUtf8, argsUtf8);
+if (p is null) throw new InvalidOperationException(/* §9.3: a plugin must always return an envelope */);
+try     { json = Marshal.PtrToStringUTF8((nint)p)!; }   // copy out
+finally { _free(p); }                                    // the plugin's own allocator
+```
+
+Arguments go the other way as caller-owned UTF-8 — a stack buffer or a pinned array, valid only
+for the duration of the call (§10).
+
+`Controls/Terminal/PtyNative.cs` uses `[DllImport]` against a fixed library and is not a
+precedent for this path; it has one library, known at compile time.
 
 ---
 
@@ -166,9 +204,13 @@ there is no partially-loaded plugin.
 6. const char* json = plugin_describe()          → the manifest
 7. parse + validate manifest, then plugin_free(json)
 8. probe kinds == union of manifest kinds?       → mismatch: throw (§6.2)
-9. resolve plugin_set_host (OPTIONAL)            → absent: the plugin raises no events
-10. if present, plugin_set_host(on_event)        → the channel, before any invoke (§17)
-11. materialize one NativeServiceShim per service
+9.  resolve plugin_set_host (OPTIONAL)           → absent: the plugin raises no events
+10. materialize one NativeServiceShim per service
+
+Then later, in Initialize(windowSystem) — NOT in the constructor:
+
+11. plugin_set_host(on_event, ctx)               → the channel, once there is a window
+                                                    system to deliver events to (§17.3)
 ```
 
 Step 3 is redundant when the caller already probed via `NativePluginProbe.TryReadKinds` — but
@@ -186,6 +228,20 @@ The host's `AbiVersion` is a single constant (`1` for this spec). The rule is de
 **exact equality, not a floor**: a v1 host cannot know whether a v2 manifest carries a field
 whose absence would silently change behaviour. When v2 exists, a host may choose to accept
 `{1, 2}` explicitly, per version, with code that knows both shapes.
+
+**Cleanup, and the refcount.** `NativeLibrary.Load` refcounts by path, which has three
+consequences the container must handle rather than discover:
+
+- **A failed load frees what it loaded.** If any step after step 1 throws, the container calls
+  `NativeLibrary.Free` before propagating. The library's initializers have already run — that cannot
+  be undone — but a rejected file does not stay mapped for the life of the process.
+- **`TryReadKinds` frees too.** Probing a directory must not leave every candidate `.so` mapped, so
+  the probe loads, reads, and frees within the call.
+- **Loading the same path twice shares one library.** Two containers over one file get one mapping,
+  so the second `plugin_set_host` **overwrites the first callback** and the first container stops
+  receiving events. The container therefore refuses a path already loaded, throwing rather than
+  silently producing a half-working pair. A host wanting two instances of the same plugin needs two
+  files.
 
 **What the load throws.** Each failure names its cause, so a host can tell "not our file" from
 "our file, built wrong": a missing library or unresolvable dependency propagates
@@ -282,11 +338,27 @@ leaking it on the error path.
 The envelope grammar, the meaning of each field, and the complete table of failure modes live in
 **§9** and are not restated here — one normative home, so the two cannot drift.
 
+**`args_json` is never NULL.** An operation with no parameters receives `"{}"` — not NULL, not an
+empty string — so a plugin may dereference it unconditionally. The same holds for `op`. Making this
+normative removes a defensive branch from every operation in every plugin.
+
 Ownership is strictly one-directional and stated once: **every string crossing the boundary is
 allocated by the side that produced it and freed by that same side's allocator.** Native
 allocates what it returns; the shim copies it out and hands the pointer straight back via
 `plugin_free`. The host's `op` and `args_json` are valid only for the duration of the call, so
 a library retaining either must copy it.
+
+### Concurrency — the host does not serialize invokes
+
+**`plugin_invoke` may be called concurrently, from multiple threads, on the same library.** The
+shim takes no lock on the invoke path; a plugin that cannot tolerate concurrent calls must say so
+in its description and its callers must honour that.
+
+This is normative rather than incidental, because §17.4 depends on it. "Cancel is just an
+operation" only works if a second `plugin_invoke` can run while the first is still blocked inside a
+long `Scan` — a defensive lock in the shim would silently turn `Cancel` into "wait for Scan to
+finish", which is the opposite of cancelling. The absence of that lock is a feature, and the cost
+of it lands where §17.5 says it lands: on the plugin author.
 
 ### What the protocol deliberately lacks
 
@@ -308,6 +380,12 @@ existing metadata types (`ServiceOperation`, `ServiceParameter`).
 ```json
 {
   "abiVersion": 1,
+  "plugin": {
+    "name": "Math",
+    "version": "1.0.0",
+    "author": "someone",
+    "description": "Arithmetic helpers as a native plugin."
+  },
   "services": [
     {
       "name": "MathService",
@@ -447,8 +525,21 @@ foreach (var file in Directory.EnumerateFiles(dir, "*.so"))
 }
 ```
 
+### 6.0 The `plugin` block
+
+Required, and separate from the services it contains. `PluginBase.Info` is abstract and returns
+`PluginInfo(Name, Version, Author, Description)`, so the container has to get those four values
+from somewhere; deriving them from the filename would be guessing, and leaving them empty would put
+an unnamed plugin in every diagnostic. All four fields are required strings — a manifest missing the
+block, or any field in it, fails validation at load (§5.1 step 7).
+
+`version` is a free-form string carried through to `PluginInfo.Version` unparsed. The framework does
+not compare versions, order them, or attach meaning to their shape; that is the consumer's business,
+exactly as with `kind` (§6.1).
+
 Mapping to framework types:
 
+- `plugin` block → `PluginBase.Info` → `PluginInfo(Name, Version, Author, Description)`
 - service `name`/`description` → `IPluginService.ServiceName` / `Description`
 - service `kind` (optional) → `IKindedService.Kind` on the shim; `null` when omitted (§6.1)
 - `operations[]` → `GetAvailableOperations()` returning `ServiceOperation(Name, Description, Parameters, ReturnType?)`
@@ -481,6 +572,17 @@ escape hatch, and pretending otherwise would mean inventing a parallel object mo
 declared shape over `json` wherever the operation's arguments are actually fixed; reach for it
 when they genuinely are not.
 
+**`f64` cannot carry NaN or Infinity.** JSON has no representation for either, and
+`Utf8JsonWriter.WriteNumberValue` throws rather than emitting something a parser would reject. A
+plugin needing them must encode them itself — as a `string`, or inside a `json` value — and a shim
+asked to write one throws `InvalidOperationException` naming the parameter, rather than letting a
+`ArgumentException` surface from the writer.
+
+**There is no null value.** `{"ok":true,"value":null}` is malformed for a non-void operation
+(§9.1), so a `string`-returning `Find` cannot express "nothing found" as null. It must return an
+empty string, report `ok:false` with an error, or declare `json` and return `null` inside it. This
+is a deliberate limitation of a closed vocabulary with no nullable types, not an oversight.
+
 `void` (or an omitted `returnType`) denotes no return value.
 
 ---
@@ -508,6 +610,12 @@ So a plugin is not parsing arbitrary JSON. It is pulling a handful of known keys
 types, out of a flat object whose shape it declared itself. The C example's 15-line
 `json_get_i64` is unglamorous but sufficient; a real plugin would use `cJSON` / `serde_json` /
 `json` and write less.
+
+**On `abiVersion` appearing twice.** The manifest's `abiVersion` and `plugin_abi_version()` state
+the same fact, and §6.2 already rules that two sources of truth which can silently diverge is a load
+error. The same rule applies here: the container compares them after parsing and a mismatch fails
+the load. `plugin_abi_version()` stays the authority — it is checked before the manifest is parsed
+at all, precisely so a future manifest shape is never handed to a host that cannot read it.
 
 **The two exceptions, stated so they are not discovered the hard way:**
 
@@ -588,6 +696,11 @@ surfacing as a cast failure three frames up in the caller.
 | empty string, or not valid JSON | `InvalidOperationException` quoting a bounded prefix of what was returned |
 | valid JSON but not an object (`42`, `[…]`, `"x"`) | `InvalidOperationException` — the envelope is an object |
 | object without `ok` | `InvalidOperationException` — malformed envelope |
+| `value` is not valid base64 for a `bytes` operation | `InvalidOperationException` — a value that does not match the declared type (§9.2) |
+
+`plugin_describe` and `plugin_kind` returning `NULL` or invalid JSON are **load** failures, not call
+failures: both throw `InvalidOperationException` from the container constructor (§5.1), naming the
+library and which export misbehaved.
 
 Every one of these throws `InvalidOperationException`, matching the documented contract of
 `IPluginService.Execute`. The distinction between "the plugin reported a failure" and "the
@@ -601,8 +714,34 @@ It is the one failure mode with no diagnostic content: the host cannot tell a de
 from a crashed allocator or a missing return path. Both worked examples that can fail this way
 guard against it — the Python bridge substitutes an error envelope when its interpreter is dead,
 and the Rust `out()` helper substitutes one when `CString::new` rejects an interior NUL. A C
-plugin whose `malloc` fails should return a **statically-sized stack buffer copy** if it can, and
-if it truly cannot allocate, `NULL` is the honest answer and the host reports it as such.
+plugin whose `malloc` fails cannot allocate an error envelope either, which is the awkward case.
+Returning a stack buffer is use-after-return; returning a `const` literal is worse, because the host
+hands that pointer to `plugin_free` and the plugin `free()`s storage it never allocated (§10). Both
+are undefined behaviour.
+
+The pattern that works is a **static sentinel envelope that `plugin_free` recognises and skips**:
+
+```c
+static const char OOM[] = "{\"ok\":false,\"error\":\"out of memory\"}";
+
+const char* plugin_invoke(const char* op, const char* args_json) {
+    char* buf = malloc(n);
+    if (!buf) return OOM;              /* not freeable — see plugin_free */
+    /* … */
+}
+
+void plugin_free(const char* p) {
+    if (p == OOM) return;              /* the host cannot know; the plugin must */
+    free((void*)p);
+}
+```
+
+§10's ownership rule is unchanged: the plugin still frees what the plugin returned. It has simply
+chosen a pointer whose free is a no-op — and only the plugin can make that choice, because only the
+plugin knows which pointers are its own.
+
+If a library truly cannot manage even that, `NULL` is the honest answer and the host reports it as
+such (§9.3).
 
 ---
 
@@ -680,7 +819,7 @@ accepts **only** these runtime types:
 | Wire type | Accepted boxed CLR type |
 | :--- | :--- |
 | `i64` | `long`, `int`, `short`, `sbyte`, `byte`, `ushort`, `uint` (all lossless widenings to `long`) |
-| `f64` | `double`, `float`, plus every integer type above (lossless) |
+| `f64` | `double`, `float`, and every integer type above. Widening a `long` past 2^53 loses precision; it is accepted anyway, because rejecting it would mean second-guessing a value the caller chose to send to an `f64` parameter |
 | `bool` | `bool` |
 | `string` | `string` |
 | `bytes` | `byte[]` |
@@ -1340,7 +1479,7 @@ foreach (ServiceOperation op in math.GetAvailableOperations())
 
     Console.WriteLine($"{op.ReturnType?.Name ?? "void"} {op.Name}({args})");
 }
-// i64 Add(Int64 a, Int64 b)
+// Int64 Add(Int64 a, Int64 b)
 // String Format(Int64 value, String prefix = "")
 // void Reset()
 ```
@@ -1557,13 +1696,18 @@ as `plugin_invoke`.
 
 ```c
 /* Host-provided. The plugin may call this at any time, from any thread.
-   Neither string is owned by the plugin after the call returns. */
-typedef void (*host_event_fn)(const char* name, const char* payload_json);
+   `ctx` is the opaque token the host supplied; pass it back unchanged.
+   `service` names which of the library's services is raising the event, or NULL for the library
+   as a whole. Neither string is owned by the plugin after the call returns. */
+typedef void (*host_event_fn)(void* ctx, const char* service, const char* name,
+                              const char* payload_json);
 
-/* Host hands the plugin its event channel. Called once, immediately after the manifest is
-   validated and before any plugin_invoke. A plugin that does not export this simply never
-   raises events; the host resolves the symbol optionally. */
-void plugin_set_host(host_event_fn on_event);
+/* Host hands the plugin its event channel, together with an opaque context token. Called once,
+   during Initialize (§17.3) and before any plugin_invoke. A plugin that does not export this
+   simply never raises events; the host resolves the symbol optionally.
+
+   The plugin must retain both `on_event` and `ctx` and pass the token back on every call. */
+void plugin_set_host(host_event_fn on_event, void* ctx);
 ```
 
 That is the entire addition. The boundary becomes symmetrical:
@@ -1599,6 +1743,30 @@ svc.PluginEvent += (_, e) =>
 };
 ```
 
+### 17.1a Where the callback pointer comes from
+
+The host passes a **static** `[UnmanagedCallersOnly]` method, not a delegate:
+
+```csharp
+[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+private static unsafe void OnEvent(void* ctx, byte* service, byte* name, byte* payload)
+{
+    // ctx identifies WHICH container. A static cannot capture, so the mapping is a table.
+    if (!Containers.TryGet((nint)ctx, out var container)) return;   // stale token: drop
+    container.RaiseEvent(Utf8(service), Utf8(name), Utf8(payload)); // copies, then queues
+}
+```
+
+Two details that are easy to get wrong, and fatal when got wrong:
+
+- **A static, never `Marshal.GetFunctionPointerForDelegate`.** A delegate's function pointer is
+  only valid while the delegate is GC-rooted; a plugin that outlives it calls into collected memory
+  — a crash with no stack pointing at the cause. `[UnmanagedCallersOnly]` on a static needs no
+  rooting and is AOT-clean, which is why the callback cannot capture and needs `ctx` at all.
+- **`ctx` is a token, not a pointer to managed memory.** It is an integer key into a host-side
+  table, so a plugin that fires after its container is gone finds nothing and is dropped, rather
+  than dereferencing a freed object. That is also what makes the shutdown rule in §17.3 cheap.
+
 ### 17.2 Fire-and-forget, and what that buys
 
 `host_event_fn` returns `void`. That single property is what keeps this from reopening the design:
@@ -1613,7 +1781,26 @@ svc.PluginEvent += (_, e) =>
 - **No allocation contract.** Both strings are plugin-owned and valid only for the duration of the
   call. The host copies what it needs before returning. Nothing is handed back to `plugin_free`.
 
-### 17.3 Host → plugin signalling is not a mechanism
+### 17.3 Lifecycle — when the channel is live
+
+`plugin_set_host` is called during **`Initialize(windowSystem)`**, not in the container
+constructor. That is deliberate and it closes a hole: the constructor runs before `LoadPlugin`, so
+there is no window system yet — and a plugin is allowed to fire immediately and from any thread, so
+an event arriving in that window would have nowhere to be queued. Handing over the channel only
+once there is somewhere to deliver to removes the case entirely rather than defending against it.
+
+At the other end, native threads may keep running after the loop stops. The host therefore
+**invalidates the `ctx` token during shutdown**: an event arriving afterwards finds no container in
+the table and is dropped, with a trace log. It is not an error — a plugin cannot know the host has
+gone, and the ABI has no way to tell it (§17.2: nothing crosses back).
+
+| Moment | Event behaviour |
+| :--- | :--- |
+| Before `Initialize` | Impossible — the plugin has no channel yet |
+| Between `Initialize` and shutdown | Copied, queued to the UI thread, raised |
+| After the token is invalidated | Dropped, traced |
+
+### 17.4 Host → plugin signalling is not a mechanism
 
 A host that wants to *tell* a plugin something — cancel, reload, change log level — does not need
 new ABI. It calls an operation the plugin declared:
@@ -1627,6 +1814,9 @@ new ABI. It calls an operation the plugin declared:
 scanner.Call("Cancel");
 ```
 
+This works only because the host does not serialize invokes (§5.1) — a `Cancel` call has to reach
+the plugin while `Scan` is still running, or it is not cancellation.
+
 Three consequences, all of them better than a dedicated mechanism:
 
 - **It is discoverable.** `GetAvailableOperations()` answers whether a plugin supports cancelling.
@@ -1638,7 +1828,7 @@ Three consequences, all of them better than a dedicated mechanism:
 The plugin reports what happened through the event channel — `("cancelled", …)` — closing the loop
 with the mechanism it already has.
 
-### 17.4 What the framework does not own
+### 17.5 What the framework does not own
 
 **The plugin's thread safety is the plugin author's problem.** Calling `Cancel` on thread B while
 `Scan` runs on thread A touches the plugin's own state concurrently. A plugin that declares an
@@ -1654,7 +1844,7 @@ framework acquires responsibility for behaviour it cannot observe or fix.
 This mirrors §11's stance on controls and windows: the boundary stays small not because more is
 impossible, but because everything past it belongs to someone else.
 
-### 17.5 Managed surface
+### 17.6 Managed surface
 
 `IPluginService` cannot gain a member without breaking every external implementer (§6.1), so the
 event lives on a side interface that `NativeServiceShim` implements — and that a managed plugin
