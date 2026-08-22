@@ -177,6 +177,14 @@ The host's `AbiVersion` is a single constant (`1` for this spec). The rule is de
 whose absence would silently change behaviour. When v2 exists, a host may choose to accept
 `{1, 2}` explicitly, per version, with code that knows both shapes.
 
+**What the load throws.** Each failure names its cause, so a host can tell "not our file" from
+"our file, built wrong": a missing library or unresolvable dependency propagates
+`DllNotFoundException`; an absent export gives `EntryPointNotFoundException`; and every other
+refusal — ABI version mismatch, unparseable or invalid manifest, probe/manifest disagreement —
+is `InvalidOperationException` with a message naming the library and the reason. There is no
+custom exception type: a host catching a load failure almost always treats them alike, and the
+three that differ are already distinguished by the framework's own types.
+
 Validation at step 6 rejects a manifest that parses but is unusable — duplicate service names
 within one library, duplicate operation names within a service, a parameter whose `type` is
 outside the closed vocabulary (§7), or an operation whose `returnType` is outside it. Failing
@@ -1278,20 +1286,134 @@ Three things Rust makes explicit that C leaves to discipline:
 - **`CString::new` can fail** on an interior NUL — the one case where a Rust `String` is not a
   valid C string. It returns an envelope rather than null, since §9 requires a parseable result.
 
-### 16.5 Managed usage — indistinguishable from a managed service
+### 16.5 Managed usage — load, inspect, call, read the result
+
+A native service is reached through the framework's existing API. Nothing below is new surface:
+`LoadPlugin`, `GetService`, `GetAvailableOperations` and `Execute` are the same members a managed
+plugin uses, which is the point of the container pattern (§4).
+
+#### Loading
 
 ```csharp
+// One explicit load. The constructor performs the full handshake (§5.1 phase 1) — resolve
+// symbols, check the ABI version, parse and validate the manifest — and either completes or
+// throws. There is no partially-loaded plugin.
 windowSystem.PluginStateService.LoadPlugin(new NativePluginContainer("./libmath.so"));
+```
 
-var math = windowSystem.PluginStateService.GetService("MathService");
-long sum = (long)math!.Execute("Add", new Dictionary<string, object>
+Failures at this point are authoring or deployment problems, and each names its cause:
+
+```csharp
+try
 {
-    ["a"] = 21L,
-    ["b"] = 21L
+    windowSystem.PluginStateService.LoadPlugin(new NativePluginContainer(path));
+}
+catch (DllNotFoundException)        { /* file missing, or its own dependencies are */ }
+catch (EntryPointNotFoundException) { /* not a ConsoleEx plugin: a required export is absent */ }
+catch (InvalidOperationException)   { /* ABI version mismatch, or an invalid manifest */ }
+```
+
+#### Inspecting what the plugin offers
+
+The manifest was captured at load, so this crosses no ABI boundary — it is reading metadata that
+already lives managed-side:
+
+```csharp
+var math = windowSystem.PluginStateService.GetService("MathService");
+if (math is null) return;                       // not loaded, or a different ServiceName
+
+foreach (ServiceOperation op in math.GetAvailableOperations())
+{
+    string args = string.Join(", ", op.Parameters.Select(p =>
+        p.Required ? $"{p.Type.Name} {p.Name}" : $"{p.Type.Name} {p.Name} = {p.DefaultValue}"));
+
+    Console.WriteLine($"{op.ReturnType?.Name ?? "void"} {op.Name}({args})");
+}
+// i64 Add(Int64 a, Int64 b)
+// String Format(Int64 value, String prefix = "")
+// void Reset()
+```
+
+`ReturnType == null` means a void operation — that distinction matters when reading the result.
+
+#### Calling with parameters
+
+Arguments are a `Dictionary<string, object>`, validated against the manifest **before** anything
+crosses the boundary (§13.1). The declared type governs; the boxed runtime type only has to be
+losslessly convertible to it:
+
+```csharp
+long sum = (long)math.Execute("Add", new Dictionary<string, object>
+{
+    ["a"] = 21L,     // long — exact match for i64
+    ["b"] = 21        // int  — accepted: lossless widening to i64 (§13.1)
 })!;
 ```
 
-Or, filtering a folder by kind before loading anything (§6.2):
+A parameter the manifest marks optional may simply be omitted, and its declared `defaultValue`
+is used:
+
+```csharp
+// Format(value, prefix = "") — prefix omitted
+string plain  = (string)math.Execute("Format", new() { ["value"] = 42L })!;
+
+// …or supplied
+string fancy  = (string)math.Execute("Format", new() { ["value"] = 42L, ["prefix"] = "#" })!;
+```
+
+An operation with no parameters takes `null`, and a void operation returns `null`:
+
+```csharp
+math.Execute("Reset");                            // returns null; nothing to read
+```
+
+#### Reading the result
+
+`Execute` returns `object?`, and the cast is safe because the manifest declared the type — the
+shim reads the value **by the declared `ReturnType`, never by inspecting the JSON** (§9.2). One
+cast per wire type:
+
+```csharp
+long    n     = (long)      svc.Execute("Count",   null)!;          // i64
+double  ratio = (double)    svc.Execute("Ratio",   null)!;          // f64
+bool    ok    = (bool)      svc.Execute("IsReady", null)!;          // bool
+string  name  = (string)    svc.Execute("Name",    null)!;          // string
+byte[]  blob  = (byte[])    svc.Execute("Read",    null)!;          // bytes  (base64 on the wire)
+long[]  ids   = (long[])    svc.Execute("Ids",     null)!;          // i64[]
+JsonElement tree = (JsonElement)svc.Execute("Tree", null)!;         // json   (the escape hatch)
+```
+
+The `!` is warranted for a non-void operation: §9.3 makes "the plugin promised a value and did
+not send one" a throw, not a null return. Only a void operation returns null.
+
+#### Handling failure
+
+Everything that can go wrong at call time surfaces as `InvalidOperationException`, matching the
+documented contract of `IPluginService.Execute`. The **message** distinguishes a plugin that
+reported a failure from one that misbehaved (§9.3):
+
+```csharp
+try
+{
+    var result = math.Execute("Divide", new() { ["a"] = 1L, ["b"] = 0L });
+}
+catch (InvalidOperationException ex)
+{
+    // "division by zero"                        → the plugin returned {"ok":false,"error":…}
+    // "unknown operation 'Divde'"               → caller typo, rejected before the ABI
+    // "parameter 'b': expected i64, got String" → §13.1, rejected before the ABI
+    // "operation 'Divide' declared i64 but returned a string" → plugin bug (§9.2)
+    log.Warn(ex.Message);
+}
+```
+
+The first three are recoverable and actionable by the caller. The fourth is a bug in the plugin,
+and reads as one — which is why the shim reports the mismatch itself rather than letting it
+surface as a `InvalidCastException` three frames up.
+
+#### Discovery by kind
+
+Filtering a folder before loading anything, so an unwanted plugin is never initialized (§6.2):
 
 ```csharp
 foreach (var file in Directory.EnumerateFiles(pluginDir, "*.so"))
@@ -1300,4 +1422,25 @@ foreach (var file in Directory.EnumerateFiles(pluginDir, "*.so"))
     if (!kinds.Contains("calculator")) continue;                          // not wanted
     windowSystem.PluginStateService.LoadPlugin(new NativePluginContainer(file));
 }
+```
+
+Or, after loading, grouping whatever is registered — native and managed alike, since any service
+may implement `IKindedService` (§6.1):
+
+```csharp
+foreach (IPluginService svc in windowSystem.PluginStateService.GetServicesByKind("calculator"))
+    Console.WriteLine($"{svc.ServiceName}: {svc.Description}");
+```
+
+#### Threading
+
+`plugin_invoke` is synchronous (§5.1), so a long-running operation blocks its caller exactly as a
+managed one would. Call it off the UI thread and marshal the result back (CLAUDE.md rule 13):
+
+```csharp
+_ = Task.Run(() =>
+{
+    var result = (string)heavy.Execute("Analyze", new() { ["path"] = file })!;
+    windowSystem.EnqueueOnUIThread(() => output.SetContent(result));
+});
 ```
