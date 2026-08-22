@@ -473,6 +473,31 @@ diff-provider
 A library whose services declare no kinds returns an empty string. Duplicates are collapsed —
 three services of kind `"scm"` yield one `scm` line.
 
+**Why this exists — it is an ID card, not an optimisation.** The obvious objection is that
+`TryReadKinds` still has to `dlopen` the file, so the saving over "load it properly, then read the
+kinds from the manifest" is one JSON parse of a string literal. As a performance argument that is
+correct and unimpressive.
+
+Performance is not the argument. The question `plugin_kind` answers is **"do I want this file in my
+plugin system at all?"**, and it answers it *at the door*. Without it, deciding requires admitting
+the plugin first: construct a container, run the full handshake, validate the manifest, materialize
+a shim per service — and, because registration is last-wins (§5.1 phase 2), possibly displace a
+service another plugin already registered under the same name. Only then can the host discover that
+the kind is one it does not recognise, and it has no clean way to undo any of it: unloading is not
+supported (§2).
+
+With the probe, an unrecognised plugin is simply never admitted. Nothing is constructed, nothing is
+registered, nothing has to be undone. A host scanning a mixed directory — the case §6.2's example
+shows — asks one question and acts on one answer.
+
+That is a different category of thing from a fast path, which is why the cost is worth it: a fifth
+export, a second wire format, and a consistency check buy the host the ability to *decline*. It is
+the same reason a door has a peephole rather than a policy of letting everyone in and asking them to
+leave.
+
+(The probe is not a security boundary and does not pretend to be one — `dlopen` has already run the
+file's initializers by the time it answers. See §16.)
+
 **Union, not a primary kind.** One `.so` may host several services of different kinds, so a
 single value would force a primary/secondary hierarchy that means nothing to a consumer asking
 "does this file contain anything of kind `scm`?" The union answers exactly that question and
