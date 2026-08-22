@@ -133,6 +133,17 @@ namespace SharpConsoleUI.Input
 					continue;
 				}
 
+				// Alt+1-9 window selection (opt-out: an app may want the chord itself). This SELECTS a
+				// window rather than acting on the active one, so it belongs here with the other
+				// system-level shortcuts — not inside the "route to the active window" branch below,
+				// where it used to sit and was therefore dropped whenever nothing was active yet.
+				if ((keyInfo.Modifiers & ConsoleModifiers.Alt) != 0
+					&& _context.Options.AltDigitSelectsWindow
+					&& HandleAltInput(keyInfo))
+				{
+					continue;
+				}
+
 				// Check for window cycling (configurable, default Ctrl+T)
 				if (_context.Options.WindowCycleKey.HasValue &&
 					(keyInfo.Modifiers & ConsoleModifiers.Control) != 0 &&
@@ -163,11 +174,6 @@ namespace SharpConsoleUI.Input
 						else if ((keyInfo.Modifiers & ConsoleModifiers.Control) != 0 && _context.ActiveWindow.IsMovable)
 						{
 							handled = HandleMoveInput(keyInfo);
-						}
-						// Try Alt+1-9 window selection (opt-out: an app may want the chord itself)
-						else if ((keyInfo.Modifiers & ConsoleModifiers.Alt) != 0 && _context.Options.AltDigitSelectsWindow)
-						{
-							handled = HandleAltInput(keyInfo);
 						}
 					}
 				}
