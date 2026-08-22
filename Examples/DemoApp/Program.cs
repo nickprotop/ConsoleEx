@@ -39,6 +39,17 @@ internal class Program
 					.Right(Elements.Clock().WithFormat("HH:mm:ss"))
 			);
 			var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer), options: options);
+
+			// Ocean Dots — the same configuration the Desktop Background demo's "Ocean Dots" button
+			// applies, made the default so the app opens on it.
+			windowSystem.DesktopBackground = new DesktopBackgroundConfig
+			{
+				Gradient = new GradientBackground(
+					ColorGradient.FromColors(new Color(10, 40, 90), new Color(5, 10, 25)),
+					GradientDirection.Vertical),
+				Pattern = DesktopPatterns.Dots
+			};
+
 			using var disposables = new DisposableManager();
 
 			// Register a sample custom settings group
