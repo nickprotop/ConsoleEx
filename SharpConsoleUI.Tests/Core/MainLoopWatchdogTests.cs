@@ -58,7 +58,10 @@ public class MainLoopWatchdogTests
 		watchdog.Start(
 			scanForEmergencyExit: () => { scanCalled = true; return false; },
 			onForceExit: () => { },
-			onRecovery: () => { });
+			onRecovery: () => { },
+			// Suppress the banner: WriteBanner writes raw ANSI to the process stderr, and
+			// without this callback it defaults to shown on every run of the suite.
+			onUnresponsive: _ => false);
 
 		Assert.True(WaitFor(() => scanCalled), "Watchdog should have called scanForEmergencyExit when stale");
 		watchdog.Dispose();
@@ -73,7 +76,10 @@ public class MainLoopWatchdogTests
 		watchdog.Start(
 			scanForEmergencyExit: () => { scanCalled = true; return false; },
 			onForceExit: () => { },
-			onRecovery: () => { });
+			onRecovery: () => { },
+			// Suppress the banner: WriteBanner writes raw ANSI to the process stderr, and
+			// without this callback it defaults to shown on every run of the suite.
+			onUnresponsive: _ => false);
 
 		Thread.Sleep(600);
 
@@ -90,7 +96,10 @@ public class MainLoopWatchdogTests
 		watchdog.Start(
 			scanForEmergencyExit: () => true,
 			onForceExit: () => { forceExitCalled = true; },
-			onRecovery: () => { });
+			onRecovery: () => { },
+			// Suppress the banner: WriteBanner writes raw ANSI to the process stderr, and
+			// without this callback it defaults to shown on every run of the suite.
+			onUnresponsive: _ => false);
 
 		Assert.True(WaitFor(() => forceExitCalled), "Watchdog should call onForceExit when scan finds emergency key");
 		watchdog.Dispose();
@@ -106,7 +115,11 @@ public class MainLoopWatchdogTests
 		watchdog.Start(
 			scanForEmergencyExit: () => { bannerTick = true; return false; },
 			onForceExit: () => { },
-			onRecovery: () => { recoveryCalled = true; });
+			onRecovery: () => { recoveryCalled = true; },
+			// Suppress the banner: without a callback it defaults to shown, and WriteBanner writes raw
+			// ANSI straight to the process's stderr on every run of the suite. The recovery path under
+			// test does not depend on it being painted.
+			onUnresponsive: _ => false);
 
 		// Wait for at least one tick (proves banner threshold was reached)
 		Assert.True(WaitFor(() => bannerTick), "Timer should have ticked");
@@ -127,7 +140,10 @@ public class MainLoopWatchdogTests
 		watchdog.Start(
 			scanForEmergencyExit: () => false,
 			onForceExit: () => { },
-			onRecovery: () => { recoveryCalled = true; });
+			onRecovery: () => { recoveryCalled = true; },
+			// Suppress the banner: WriteBanner writes raw ANSI to the process stderr, and
+			// without this callback it defaults to shown on every run of the suite.
+			onUnresponsive: _ => false);
 
 		// Heartbeat stays fresh — never crosses the stale threshold
 		Thread.Sleep(100);
@@ -146,7 +162,10 @@ public class MainLoopWatchdogTests
 		watchdog.Start(
 			scanForEmergencyExit: () => { Interlocked.Increment(ref ticks); return false; },
 			onForceExit: () => { },
-			onRecovery: () => { });
+			onRecovery: () => { },
+			// Suppress the banner: WriteBanner writes raw ANSI to the process stderr, and
+			// without this callback it defaults to shown on every run of the suite.
+			onUnresponsive: _ => false);
 
 		Assert.True(WaitFor(() => Volatile.Read(ref ticks) >= 3, timeoutMs: 2000));
 		watchdog.Dispose();
