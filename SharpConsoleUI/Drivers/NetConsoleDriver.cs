@@ -1467,12 +1467,52 @@ namespace SharpConsoleUI.Drivers
 						else
 						{
 							// Regular key press
-							KeyPressed?.Invoke(this, key);
+							KeyPressed?.Invoke(this, NormalizeKey(key));
 						}
 					}
 				} // End lock(_consoleLock) - all Console I/O now protected
 				Thread.Sleep(10);
 			}
+		}
+
+		/// <summary>
+		/// Fills in a missing <see cref="ConsoleKeyInfo.Key"/> from the character, leaving everything
+		/// else untouched.
+		/// </summary>
+		/// <remarks>
+		/// The driver enables <c>ENABLE_VIRTUAL_TERMINAL_INPUT</c>, under which
+		/// <see cref="Console.ReadKey(bool)"/> reports <see cref="ConsoleKey.None"/> for ordinary
+		/// characters and sets only <see cref="ConsoleKeyInfo.KeyChar"/>. Verified by A/B on one console
+		/// with the same injected keystroke: with VT input off, <c>W</c> arrives as
+		/// <c>Key=W, KeyChar=0x77</c>; with it on, as <c>Key=None, KeyChar=0x77</c>.
+		///
+		/// <para>The effect was that <c>keyInfo.Key == ConsoleKey.W</c> — the obvious way to test for a
+		/// keystroke, and the way it works on Unix — was never true on Windows. Ctrl+letter combinations
+		/// escaped this only because the control-character branch above rebuilds them from 0x01-0x1A.</para>
+		///
+		/// <para>Uses the mapping the Unix parser already applies, so both input backends agree rather
+		/// than each carrying their own table.</para>
+		///
+		/// <para>Conservative by design: a key that already carries a <see cref="ConsoleKey"/> is
+		/// returned unchanged, and <see cref="ConsoleKeyInfo.KeyChar"/> and the modifiers are always
+		/// preserved — the raw character is what the CJK and bracketed-paste paths depend on (issue #42).</para>
+		/// </remarks>
+		internal static ConsoleKeyInfo NormalizeKey(ConsoleKeyInfo key)
+		{
+			// Already identified (VT input off, or a key the console resolved itself): leave it alone.
+			if (key.Key != ConsoleKey.None)
+				return key;
+
+			ConsoleKey mapped = Input.AnsiInputParser.CharToConsoleKey(key.KeyChar);
+			if (mapped == ConsoleKey.NoName)
+				return key; // No sensible mapping — reporting NoName would be no better than None.
+
+			return new ConsoleKeyInfo(
+				key.KeyChar,
+				mapped,
+				(key.Modifiers & ConsoleModifiers.Shift) != 0,
+				(key.Modifiers & ConsoleModifiers.Alt) != 0,
+				(key.Modifiers & ConsoleModifiers.Control) != 0);
 		}
 
 		private (ConsoleKeyInfo? consoleKeyInfo, bool isMouse) MapAnsiToConsoleKeyInfo(string ansiSequence, List<ConsoleKeyInfo> consoleKeyInfoSequence)

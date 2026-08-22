@@ -736,7 +736,17 @@ namespace SharpConsoleUI.Drivers.Input
 			return new KeyInputEvent(new ConsoleKeyInfo(keyChar, key, shift, alt, ctrl));
 		}
 
-		private static ConsoleKey CharToConsoleKey(char c)
+		/// <summary>
+		/// Maps a printable character to its <see cref="ConsoleKey"/>, or
+		/// <see cref="ConsoleKey.NoName"/> when there is no sensible mapping.
+		/// </summary>
+		/// <remarks>
+		/// Shared with the Windows ReadKey path (see <c>NetConsoleDriver.NormalizeKey</c>) so both
+		/// input backends report the same <see cref="ConsoleKey"/> for the same keystroke. They used to
+		/// disagree: this mapping existed only here, so a plain letter arrived as
+		/// <see cref="ConsoleKey.NoName"/> on Windows.
+		/// </remarks>
+		internal static ConsoleKey CharToConsoleKey(char c)
 		{
 			return c switch
 			{
