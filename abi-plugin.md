@@ -15,7 +15,8 @@ spec adds a second **source** of plugin contributions: a native shared library
 A native library is exposed to the framework as a **pure logic engine**. The managed
 framework remains the **sole owner of rendering, layout, input, and the window system**.
 The native side never sees a .NET type, namespace, or the `ConsoleWindowSystem`. It
-implements five `extern "C"` functions and speaks a small, fixed JSON vocabulary.
+implements five `extern "C"` functions — plus an optional sixth to receive an event channel
+(§17) — and speaks a small, fixed JSON vocabulary.
 
 The design is **additive and non-breaking**: no existing interface, signature, or caller
 changes. A native library is wrapped in a managed container that *is* an `IPlugin`, so the
@@ -58,7 +59,7 @@ Three layers:
 
 | Layer | Responsibility | Language | Type |
 | :--- | :--- | :--- | :--- |
-| **Brain** | Pure logic | Rust / C / Zig | C-compatible library exporting 5 functions |
+| **Brain** | Pure logic | Rust / C / Zig | C-compatible library exporting 5 functions (+1 optional) |
 | **Shim** | Bridge / marshalling | C# | `NativeServiceShim : IPluginService` (generic, one class for all native services) |
 | **Loader** | Registration | C# | `NativePluginContainer : PluginBase` + a discovery entry point |
 
@@ -103,7 +104,8 @@ Host (managed)
 
 ## 5. The native ABI
 
-A native plugin exports exactly five C functions. Names are fixed; symbol lookup is by name.
+A native plugin exports five required C functions, and may export a sixth to receive the host's
+event channel (§17). Names are fixed; symbol lookup is by name.
 
 ```c
 /* ABI handshake. Return the ABI version this library was built against.
@@ -131,6 +133,12 @@ void        plugin_free(const char* ptr);
    ConsoleEx plugin, which is the whole point: the host learns that by resolving a symbol,
    without ever executing plugin_invoke. */
 const char* plugin_kind(void);
+
+/* OPTIONAL, sixth export. Receives the host's event channel — the plugin's only way to talk
+   back (§17). Called once, after the manifest is validated and before any plugin_invoke.
+   A library that does not export it is fully valid; it simply raises no events. */
+typedef void (*host_event_fn)(const char* name, const char* payload_json);
+void        plugin_set_host(host_event_fn on_event);
 ```
 
 Managed side uses **`[LibraryImport]`** (source-generated, trim/AOT-clean UTF-8 marshalling).
@@ -158,7 +166,9 @@ there is no partially-loaded plugin.
 6. const char* json = plugin_describe()          → the manifest
 7. parse + validate manifest, then plugin_free(json)
 8. probe kinds == union of manifest kinds?       → mismatch: throw (§6.2)
-9. materialize one NativeServiceShim per service
+9. resolve plugin_set_host (OPTIONAL)            → absent: the plugin raises no events
+10. if present, plugin_set_host(on_event)        → the channel, before any invoke (§17)
+11. materialize one NativeServiceShim per service
 ```
 
 Step 3 is redundant when the caller already probed via `NativePluginProbe.TryReadKinds` — but
@@ -280,8 +290,9 @@ a library retaining either must copy it.
 
 ### What the protocol deliberately lacks
 
-- **No host callbacks.** Native never calls back into managed. This is what keeps the ABI five
-  functions wide and makes the boundary trivially auditable.
+- **No host callbacks that return a value.** Native raises fire-and-forget events (§17) and can
+  never wait on the host, which is what keeps the boundary auditable: nothing re-enters, nothing
+  blocks, and no exception crosses.
 - **No async.** `plugin_invoke` is synchronous. A long-running native operation blocks its
   caller, exactly as a long-running managed service would; the host is free to call it from a
   background thread and marshal results back with `EnqueueOnUIThread` (CLAUDE.md Rule 13).
@@ -1340,7 +1351,8 @@ foreach (ServiceOperation op in math.GetAvailableOperations())
 
 Arguments are a `Dictionary<string, object>`, validated against the manifest **before** anything
 crosses the boundary (§13.1). The declared type governs; the boxed runtime type only has to be
-losslessly convertible to it:
+losslessly convertible to it. The raw form is shown here because it is the contract; §16.6 has
+helpers that remove the ceremony (`math.Call<long>("Add", ("a", 21L), ("b", 21))`):
 
 ```csharp
 long sum = (long)math.Execute("Add", new Dictionary<string, object>
@@ -1444,3 +1456,225 @@ _ = Task.Run(() =>
     windowSystem.EnqueueOnUIThread(() => output.SetContent(result));
 });
 ```
+
+### 16.6 `PluginServiceExtensions` — calling without the dictionary
+
+`Execute(string, Dictionary<string, object>?)` is the contract, and it stays exactly as it is:
+it is the compatibility seam (§12), and every managed plugin already implements it. But it is
+noisy at the call site, and the noise is all ceremony:
+
+```csharp
+long sum = (long)math.Execute("Add", new Dictionary<string, object> { ["a"] = 21L, ["b"] = 21 })!;
+```
+
+Two extension methods remove it. They are **extensions, not interface members** — adding a member
+to `IPluginService` would break every external implementer, the same rule that put `Kind` on a
+side interface (§6.1). They build the dictionary and delegate; **all validation stays in the
+shim**, so a helper can never drift from the strict rules of §13.1.
+
+```csharp
+public static class PluginServiceExtensions
+{
+    // Named — explicit, order-independent, the recommended form.
+    public static T Call<T>(this IPluginService svc, string op, params (string Name, object Value)[] args);
+    public static void Call(this IPluginService svc, string op, params (string Name, object Value)[] args);
+
+    // Positional — binds by the manifest's declared parameter order.
+    public static T CallPositional<T>(this IPluginService svc, string op, params object[] args);
+    public static void CallPositional(this IPluginService svc, string op, params object[] args);
+}
+```
+
+#### Named — the default
+
+```csharp
+long   sum   = math.Call<long>("Add", ("a", 21L), ("b", 21));
+string fancy = math.Call<string>("Format", ("value", 42L), ("prefix", "#"));
+math.Call("Reset");                                    // void overload, no args
+```
+
+Order-independent, and a wrong name fails the same way it always did — `InvalidOperationException`
+naming the parameter, from the shim.
+
+#### Positional — shortest, and narrower on purpose
+
+```csharp
+long sum = math.CallPositional<long>("Add", 21L, 21);   // → a: 21, b: 21
+```
+
+Arguments bind to `GetAvailableOperations()[op].Parameters` in declaration order, which the
+manifest preserves as an ordered list.
+
+**The hazard, and the guard.** Positional binding couples a caller to declaration order: a plugin
+author who swaps two same-typed parameters breaks every positional caller, with no compile error
+and — without a guard — no runtime complaint either, just silently transposed arguments. That is
+the one failure mode this design will not accept quietly, so `CallPositional` refuses the cases
+where a mistake could pass unnoticed:
+
+| Situation | Behaviour |
+| :--- | :--- |
+| More arguments than declared parameters | `InvalidOperationException` |
+| Fewer arguments than **required** parameters | `InvalidOperationException` |
+| Fewer than total, remainder all optional | allowed — the optionals take their manifest defaults |
+| Any argument's type mismatches its position | `InvalidOperationException` from the shim (§13.1), naming the parameter |
+
+The type check is what makes this survivable in practice: transposing two parameters of
+*different* types is caught immediately by name in the error message. Transposing two of the
+**same** type is not detectable by any mechanism, which is why the named form is the default and
+this one is the deliberate shortcut.
+
+**When to reach for it.** A stable, well-known operation called in a tight loop, or an operation
+with one parameter where naming it adds nothing:
+
+```csharp
+bool ready = gpu.CallPositional<bool>("IsReady");
+long bytes = gpu.CallPositional<long>("Read", handle);
+```
+
+Prefer `Call` everywhere else.
+
+#### What the generic return does, and does not, do
+
+`T` is a **cast, not a conversion**. The shim still reads the value by the operation's declared
+`ReturnType` (§9.2); `Call<T>` only saves the caller writing the cast, and throws
+`InvalidCastException` if `T` disagrees with what the manifest declared — which is a caller bug,
+distinct from the plugin bug §9.2 reports.
+
+For a void operation use the non-generic overload. Calling `Call<T>` on one throws, rather than
+returning `default(T)`: a caller asking for a value from an operation that declares none has
+made a mistake worth surfacing.
+
+**None of this is type safety.** `("a", 21L)` is still not checked against the manifest at compile
+time, and cannot be — the manifest is data, not types. These helpers remove ceremony; they do not
+remove the possibility of a typo'd parameter name. That is the same trade the string-keyed
+`GetService(name)` already makes.
+
+## 17. Plugin → host events
+
+The ABI so far is one-directional: the host calls in, native answers. This section adds the
+return path — **one function pointer**, fire-and-forget, carrying the same name + JSON vocabulary
+as `plugin_invoke`.
+
+```c
+/* Host-provided. The plugin may call this at any time, from any thread.
+   Neither string is owned by the plugin after the call returns. */
+typedef void (*host_event_fn)(const char* name, const char* payload_json);
+
+/* Host hands the plugin its event channel. Called once, immediately after the manifest is
+   validated and before any plugin_invoke. A plugin that does not export this simply never
+   raises events; the host resolves the symbol optionally. */
+void plugin_set_host(host_event_fn on_event);
+```
+
+That is the entire addition. The boundary becomes symmetrical:
+
+| Direction | Mechanism | Shape |
+| :--- | :--- | :--- |
+| host → plugin, wants a result | `plugin_invoke` | name + JSON → envelope |
+| plugin → host, no result | `host_event_fn` | name + JSON → void |
+
+### 17.1 The framework interprets nothing
+
+`name` is **consumer-defined**, exactly as `kind` is (§6.1). The framework does not validate it,
+reserve names, or attach behaviour to any value. It marshals the event to the UI thread and
+raises it; what `"progress"` or `"scan.finished"` obliges an application to do is the
+application's decision.
+
+This is deliberate and it is the same refusal made twice already in this design: the moment the
+framework defines a vocabulary of host services — `log`, `progress`, `notify` as distinct ABI
+entry points — it owns a taxonomy it must version and defend forever, and every addition is an
+ABI break. One generic channel makes a new capability a new *name*, not a new function pointer.
+
+An application wires the names it cares about, in a few lines:
+
+```csharp
+svc.PluginEvent += (_, e) =>
+{
+    switch (e.Name)
+    {
+        case "log":      windowSystem.LogService.LogInfo(e.Payload.GetProperty("msg").GetString()!, "Plugin"); break;
+        case "progress": progressBar.Value = e.Payload.GetProperty("fraction").GetDouble();                    break;
+        default:         /* unknown names are ignored, not errors */                                            break;
+    }
+};
+```
+
+### 17.2 Fire-and-forget, and what that buys
+
+`host_event_fn` returns `void`. That single property is what keeps this from reopening the design:
+
+- **No reentrancy.** The plugin cannot observe a result, so it cannot be blocked mid-call waiting
+  on a host that is calling back into it.
+- **No threading contract imposed on the plugin.** The host copies both strings, queues the event
+  to the UI thread via `EnqueueOnUIThread`, and returns immediately. The plugin may call from any
+  thread, at any time, including during `plugin_invoke`.
+- **No exceptions crossing.** A managed handler that throws is caught at the boundary and logged;
+  an exception propagating into native code is undefined behaviour and never allowed to.
+- **No allocation contract.** Both strings are plugin-owned and valid only for the duration of the
+  call. The host copies what it needs before returning. Nothing is handed back to `plugin_free`.
+
+### 17.3 Host → plugin signalling is not a mechanism
+
+A host that wants to *tell* a plugin something — cancel, reload, change log level — does not need
+new ABI. It calls an operation the plugin declared:
+
+```json
+{ "name": "Cancel", "description": "Requests the running Scan to stop.", "parameters": [], "returnType": null }
+```
+
+```csharp
+// Scan is running on a background thread; ask it to stop.
+scanner.Call("Cancel");
+```
+
+Three consequences, all of them better than a dedicated mechanism:
+
+- **It is discoverable.** `GetAvailableOperations()` answers whether a plugin supports cancelling.
+  A mandatory export would have every plugin claim the capability whether or not it honours it.
+- **It is not privileged.** `Cancel` is an operation like `Add`. The framework does not know the
+  word, so it cannot be wrong about what it means.
+- **It generalises for free.** `Pause`, `Reload`, `SetLogLevel` need no further design.
+
+The plugin reports what happened through the event channel — `("cancelled", …)` — closing the loop
+with the mechanism it already has.
+
+### 17.4 What the framework does not own
+
+**The plugin's thread safety is the plugin author's problem.** Calling `Cancel` on thread B while
+`Scan` runs on thread A touches the plugin's own state concurrently. A plugin that declares an
+operation intended to be called during another is asserting that this is safe; one that is not
+should say so in its description.
+
+The framework provides the channel and guarantees its own side of it — the event is copied,
+marshalled and raised safely, and a throwing handler cannot reach native code. It does not
+provide locking, a cancellation token, an operation registry, or any guarantee about what a
+plugin does with concurrent calls. Providing rails for a locomotive we did not build is how a
+framework acquires responsibility for behaviour it cannot observe or fix.
+
+This mirrors §11's stance on controls and windows: the boundary stays small not because more is
+impossible, but because everything past it belongs to someone else.
+
+### 17.5 Managed surface
+
+`IPluginService` cannot gain a member without breaking every external implementer (§6.1), so the
+event lives on a side interface that `NativeServiceShim` implements — and that a managed plugin
+may implement too, since nothing here is native-only:
+
+```csharp
+public sealed class PluginEventArgs : EventArgs
+{
+    public string ServiceName { get; }    // which service raised it
+    public string Name { get; }           // consumer-defined
+    public JsonElement Payload { get; }   // parsed payload; an empty element when none was sent
+}
+
+/// <summary>A service that raises events to the host.</summary>
+public interface IEventRaisingService
+{
+    event EventHandler<PluginEventArgs>? PluginEvent;
+}
+```
+
+A malformed payload is not an error the plugin author sees at the boundary: the host raises the
+event with an empty `Payload` and logs the parse failure, rather than dropping the event or
+throwing into native code. The name is the part that carries meaning; the payload is best-effort.
