@@ -189,14 +189,8 @@ public sealed class WindowBuilder
 		var windowWidth = _bounds?.Width ?? 80;
 		var windowHeight = _bounds?.Height ?? 25;
 
-		// Clamp to the desktop origin. A window larger than the desktop otherwise centres to a
-		// NEGATIVE position, which puts its content origin off-screen: the window still exists and
-		// draws its border, but its content paints nothing — the long-standing "the dialog opens
-		// blank" report. Overflowing off the bottom-right is the normal terminal behaviour for
-		// oversized content, and the renderer's row/column guards already handle it.
-		// (The other two centring sites, in WindowLifecycleHelper, already clamp this way.)
-		var x = Math.Max(0, (screenWidth - windowWidth) / 2);
-		var y = Math.Max(0, (screenHeight - windowHeight) / 2);
+		var x = (screenWidth - windowWidth) / 2;
+		var y = (screenHeight - windowHeight) / 2;
 
 		return AtPosition(x, y);
 	}
