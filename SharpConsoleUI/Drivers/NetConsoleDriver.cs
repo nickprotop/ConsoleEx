@@ -1493,7 +1493,11 @@ namespace SharpConsoleUI.Drivers
 			return new ConsoleKeyInfo(
 				c,
 				normalized.Key,
-				(normalized.Modifiers & ConsoleModifiers.Shift) != 0 || char.IsUpper(c),
+				// ASCII-only, matching ProcessEscape's own `b >= 0x20 && b <= 0x7E` range: outside it
+				// Unix does not take the Alt path at all, so inferring Shift there would invent a
+				// divergence rather than remove one. (char.IsUpper is Unicode-aware; the rule it
+				// mirrors is not.)
+				(normalized.Modifiers & ConsoleModifiers.Shift) != 0 || (c <= 0x7e && char.IsUpper(c)),
 				true, // Alt is pressed
 				(normalized.Modifiers & ConsoleModifiers.Control) != 0);
 		}

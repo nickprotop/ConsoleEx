@@ -240,6 +240,29 @@ public class WindowsKeyNormalizationTests
 		Assert.True(result.Modifiers.HasFlag(ConsoleModifiers.Alt));
 	}
 
+	/// <summary>
+	/// Shift is inferred only for ASCII, because that is the only range where Unix takes the Alt path
+	/// at all.
+	/// </summary>
+	/// <remarks>
+	/// <c>ProcessEscape</c> gates on <c>b &gt;= 0x20 &amp;&amp; b &lt;= 0x7E</c>, so its
+	/// <c>char.IsUpper</c> only ever sees ASCII. <see cref="char.IsUpper(char)"/> is Unicode-aware, so
+	/// applying it unscoped reported Shift for Alt+CYRILLIC-CAPITAL — an event Unix never produces,
+	/// since ESC followed by a multi-byte character takes the control-character path there. Inferring
+	/// Shift outside ASCII invents a divergence instead of removing one.
+	/// </remarks>
+	[Theory]
+	[InlineData('П')]  // Cyrillic capital — uppercase, but outside the range Unix treats as Alt+key
+	[InlineData('Ä')]  // Latin-1 capital, likewise
+	public void AltKey_DoesNotInferShift_ForNonAsciiUppercase(char c)
+	{
+		var result = NetConsoleDriver.BuildAltKey(AfterEsc(c));
+
+		Assert.False(result.Modifiers.HasFlag(ConsoleModifiers.Shift));
+		Assert.Equal(c, result.KeyChar);
+		Assert.True(result.Modifiers.HasFlag(ConsoleModifiers.Alt));
+	}
+
 	/// <summary>An Alt+key whose character has no mapping keeps the character and stays unidentified.</summary>
 	[Fact]
 	public void AltKey_UnmappableCharacter_KeepsItsCharacter()
