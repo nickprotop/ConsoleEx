@@ -75,7 +75,13 @@ public class ConsoleWindowSystemWatchdogTests
 	{
 		var opts = new ConsoleWindowSystemOptions() with
 		{
-			Watchdog = new WatchdogOptions(StaleThresholdMs: 50, UnresponsiveThresholdMs: 120, PollIntervalMs: 40, ShowUnresponsiveBanner: false)
+			Watchdog = new WatchdogOptions(
+				StaleThresholdMs: 50, UnresponsiveThresholdMs: 120, PollIntervalMs: 40,
+				ShowUnresponsiveBanner: false,
+				// These tests deliberately stall the loop past the stale threshold. Without this the
+				// watchdog's force-exit path is live, and one queued Ctrl+Q/Ctrl+C would call
+				// Environment.Exit(1) and take the test host down with it.
+				AllowProcessExit: false)
 		};
 		// Drive a HEADLESS console: Run() renders into an in-memory buffer, not the real terminal.
 		// A real NetConsoleDriver here writes screen renders to stdout; under CI (stdout is a pipe)
@@ -103,7 +109,13 @@ public class ConsoleWindowSystemWatchdogTests
 	{
 		var opts = new ConsoleWindowSystemOptions() with
 		{
-			Watchdog = new WatchdogOptions(StaleThresholdMs: 50, UnresponsiveThresholdMs: 120, PollIntervalMs: 40, ShowUnresponsiveBanner: false)
+			Watchdog = new WatchdogOptions(
+				StaleThresholdMs: 50, UnresponsiveThresholdMs: 120, PollIntervalMs: 40,
+				ShowUnresponsiveBanner: false,
+				// These tests deliberately stall the loop past the stale threshold. Without this the
+				// watchdog's force-exit path is live, and one queued Ctrl+Q/Ctrl+C would call
+				// Environment.Exit(1) and take the test host down with it.
+				AllowProcessExit: false)
 		};
 		// Headless driver — see note in Unresponsive_Raised_WithDrainPhase_WhenLoopBlocks.
 		var sys = new ConsoleWindowSystem(new MockConsoleDriver(), options: opts);
