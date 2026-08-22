@@ -85,6 +85,24 @@ public class ClipboardSetTextNonBlockingTests : IDisposable
 		}
 	}
 
+	/// <summary>
+	/// The counter must actually observe a process-spawning read, or the assertion above proves nothing.
+	/// </summary>
+	[Fact]
+	public void ProcessReadCount_CountsAProcessBackedRead()
+	{
+		// An external-tool backend shells out on read. Which tool exists varies by machine; the count
+		// is incremented before the process is started, so it rises either way.
+		ClipboardHelper.ForceBackendForTests(ClipboardBackend.Xclip);
+		ClipboardHelper.ResetProcessReadCountForTests();
+
+		try { _ = ClipboardHelper.GetText(); }
+		catch { /* the tool may not exist here — the counter is what is under test */ }
+
+		Assert.True(ClipboardHelper.ProcessReadCount > 0,
+			"a process-backed read was not counted; the native-path assertion would be vacuous.");
+	}
+
 	[Fact]
 	public void SetText_InProcessBuffer_WrittenSynchronously()
 	{
@@ -179,24 +197,33 @@ public class ClipboardSetTextNonBlockingTests : IDisposable
 			$"Windows clipboard write+read took {sw.ElapsedMilliseconds}ms; expected the in-process Win32 path.");
 	}
 
-	// Issue #42: the SECOND copy hung because the intervening paste's GetText() spawned powershell on the
-	// UI thread. Reproduces the read side: repeated GetText() on the Windows backend must never block.
+	/// <summary>
+	/// Repeated reads on the Windows backend must stay on the in-process Win32 path.
+	/// </summary>
+	/// <remarks>
+	/// Issue #42: the SECOND copy hung because the intervening paste's <c>GetText()</c> spawned
+	/// powershell on the UI thread. This covers the read side.
+	///
+	/// <para>Asserts WHICH path ran, via <c>ProcessReadCount</c>, rather than inferring it from a
+	/// stopwatch. The timing version needed 20 live round-trips against the real system clipboard —
+	/// machine-global state shared with everything else on the box, and with every other test — to
+	/// make the difference measurable. A process spawn is now counted directly, so a handful of reads
+	/// prove the same thing, and the assertion fails for the right reason instead of on a slow
+	/// machine.</para>
+	/// </remarks>
 	[Fact]
-	public void Windows_NativeClipboard_RepeatedReads_DoNotBlock()
+	public void Windows_NativeClipboard_RepeatedReads_StayOnTheNativePath()
 	{
 		if (!OperatingSystem.IsWindows())
 			return;
 
 		ClipboardHelper.ForceBackendForTests(ClipboardBackend.WindowsClip);
 		ClipboardHelper.SetText("中文测试内容");
+		ClipboardHelper.ResetProcessReadCountForTests();
 
-		var sw = Stopwatch.StartNew();
-		for (int i = 0; i < 20; i++)
+		for (int i = 0; i < 3; i++)
 			_ = ClipboardHelper.GetText();
-		sw.Stop();
 
-		// 20 reads via powershell cold-start would be many seconds; native is microseconds each.
-		Assert.True(sw.ElapsedMilliseconds < 500,
-			$"20 Windows clipboard reads took {sw.ElapsedMilliseconds}ms; expected the in-process Win32 path.");
+		Assert.Equal(0, ClipboardHelper.ProcessReadCount);
 	}
 }

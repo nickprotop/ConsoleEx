@@ -437,8 +437,26 @@ namespace SharpConsoleUI.Helpers
 			return payload;
 		}
 
+		/// <summary>
+		/// Number of times a clipboard read has fallen back to spawning an external process.
+		/// </summary>
+		/// <remarks>
+		/// Exists so a test can assert WHICH path ran instead of inferring it from a stopwatch. The
+		/// regression it guards is issue #42: a read that spawns powershell.exe on the UI thread was
+		/// slow enough to trip the unresponsive watchdog. Timing that indirectly needs many live
+		/// round-trips against the real system clipboard, which is machine-global shared state.
+		/// </remarks>
+		internal static int ProcessReadCount => Volatile.Read(ref _processReadCount);
+
+		private static int _processReadCount;
+
+		/// <summary>Resets <see cref="ProcessReadCount"/>. For tests.</summary>
+		internal static void ResetProcessReadCountForTests() => Volatile.Write(ref _processReadCount, 0);
+
 		private static string RunProcessRead(string cmd, params string[] args)
 		{
+			Interlocked.Increment(ref _processReadCount);
+
 			var psi = new ProcessStartInfo(cmd)
 			{
 				RedirectStandardOutput = true,
@@ -560,7 +578,22 @@ namespace SharpConsoleUI.Helpers
 						return null;
 					try
 					{
-						return Marshal.PtrToStringUni(pointer) ?? string.Empty;
+						// Bound the read by the block's real size. Marshal.PtrToStringUni(pointer) walks
+						// memory until it finds a NUL, so a CF_UNICODETEXT block that is not
+						// NUL-terminated — which a misbehaving producer can put on the clipboard — reads
+						// past the end of the allocation. An access violation there is not catchable and
+						// takes the process down. The format's contract says terminated; nothing enforces
+						// it, and this code is reading another process's memory.
+						nuint bytes = GlobalSize(handle);
+						if (bytes == 0)
+							return string.Empty;
+
+						int chars = (int)Math.Min(bytes / sizeof(char), int.MaxValue);
+						string raw = Marshal.PtrToStringUni(pointer, chars) ?? string.Empty;
+
+						// The block is sized, not trimmed: everything from the terminator on is padding.
+						int nul = raw.IndexOf('\0');
+						return nul >= 0 ? raw.Substring(0, nul) : raw;
 					}
 					finally
 					{
@@ -659,6 +692,9 @@ namespace SharpConsoleUI.Helpers
 
 		[DllImport("kernel32.dll", SetLastError = true)]
 		private static extern nint GlobalFree(nint hMem);
+
+		[DllImport("kernel32.dll", SetLastError = true)]
+		private static extern nuint GlobalSize(nint hMem);
 
 		[DllImport("kernel32.dll", SetLastError = true)]
 		private static extern nint GlobalLock(nint hMem);
