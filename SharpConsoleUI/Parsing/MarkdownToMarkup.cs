@@ -67,6 +67,11 @@ namespace SharpConsoleUI.Parsing
 					break;
 
 				case HeadingBlock h:
+					// A heading needs air ABOVE it, not just below: it introduces what follows, so
+					// butting it against the previous block reads as part of that block. Skipped at
+					// the very start of the output, where a leading blank line is just a gap.
+					if (sb.Length > 0)
+						sb.Append('\n');
 					Indent(sb, indent);
 					WriteHeading(h, sb, style);
 					break;

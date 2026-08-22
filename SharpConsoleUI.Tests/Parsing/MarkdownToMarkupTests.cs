@@ -1,3 +1,4 @@
+using System;
 using SharpConsoleUI;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
@@ -287,5 +288,50 @@ namespace SharpConsoleUI.Tests.Parsing
 			Assert.Contains(visible, l => l.Contains("line1") && !l.Contains("line2"));
 			Assert.Contains(visible, l => l.Contains("line2") && !l.Contains("line1"));
 		}
+
+		/// <summary>
+		/// A heading is separated from the block above it, not just the one below.
+		/// </summary>
+		/// <remarks>
+		/// Headings emitted a trailing blank line but no leading one, so a heading butted directly
+		/// against the preceding paragraph or list and read as part of it — the opposite of how
+		/// Markdown presents a heading, which is as an introduction to what follows.
+		/// </remarks>
+		[Fact]
+		public void Heading_IsPrecededByABlankLine()
+		{
+			string result = MarkdownToMarkup.Convert("Intro paragraph.\n\n## Section\n\nBody.");
+			var lines = result.Split('\n');
+
+			int heading = Array.FindIndex(lines, l => l.Contains("Section"));
+			Assert.True(heading > 0, "heading not found");
+			Assert.Equal(string.Empty, lines[heading - 1]);
+		}
+
+		/// <summary>A heading after a list is separated from it too.</summary>
+		[Fact]
+		public void Heading_AfterAList_IsPrecededByABlankLine()
+		{
+			string result = MarkdownToMarkup.Convert("- one\n- two\n\n## After\n\nBody.");
+			var lines = result.Split('\n');
+
+			int heading = Array.FindIndex(lines, l => l.Contains("After"));
+			Assert.True(heading > 0, "heading not found");
+			Assert.Equal(string.Empty, lines[heading - 1]);
+		}
+
+		/// <summary>
+		/// A document opening with a heading gets no leading blank line — there is nothing to
+		/// separate it from, and a gap at the top is just wasted space.
+		/// </summary>
+		[Fact]
+		public void Heading_AtTheStart_HasNoLeadingBlankLine()
+		{
+			string result = MarkdownToMarkup.Convert("# Title\n\nBody.");
+
+			Assert.False(result.StartsWith("\n"), "output starts with a blank line");
+			Assert.Contains("Title", result.Split('\n')[0]);
+		}
+
 	}
 }
