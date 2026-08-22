@@ -167,4 +167,102 @@ public class WindowsKeyNormalizationTests
 	}
 
 	#endregion
+
+	#region Alt+key (the ESC branch)
+
+	/// <summary>What VT input delivers as the character following an ESC.</summary>
+	private static ConsoleKeyInfo AfterEsc(char c) => VtStyle(c);
+
+	/// <summary>
+	/// Alt+letter must report its <see cref="ConsoleKey"/> too.
+	/// </summary>
+	/// <remarks>
+	/// Under VT input Alt+X arrives as ESC then X, handled by a branch UPSTREAM of the ordinary
+	/// normalization — so the first fix did not reach it. Measured on Windows before and after that
+	/// fix, unchanged both times: <c>Alt+w -> Key=None, Mods=Alt, KeyChar=0x77</c>. Unix already
+	/// reported <c>Key=W</c> here, via <c>AnsiInputParser.ProcessEscape</c>.
+	/// </remarks>
+	[Theory]
+	[InlineData('w', ConsoleKey.W)]
+	[InlineData('f', ConsoleKey.F)]
+	[InlineData('7', ConsoleKey.D7)]
+	[InlineData('.', ConsoleKey.OemPeriod)]
+	public void AltKey_GetsItsConsoleKey(char c, ConsoleKey expected)
+	{
+		var result = NetConsoleDriver.BuildAltKey(AfterEsc(c));
+
+		Assert.Equal(expected, result.Key);
+		Assert.Equal(c, result.KeyChar);
+		Assert.True(result.Modifiers.HasFlag(ConsoleModifiers.Alt));
+	}
+
+	/// <summary>
+	/// Shift is taken from the character's case, matching the Unix parser, so both backends agree
+	/// about Alt+W.
+	/// </summary>
+	[Theory]
+	[InlineData('W', true)]
+	[InlineData('w', false)]
+	public void AltKey_ReportsShiftFromCharacterCase_LikeUnix(char c, bool expectShift)
+	{
+		var result = NetConsoleDriver.BuildAltKey(AfterEsc(c));
+
+		Assert.Equal(expectShift, result.Modifiers.HasFlag(ConsoleModifiers.Shift));
+		Assert.Equal(ConsoleKey.W, result.Key);
+	}
+
+	/// <summary>The two input backends must report the same ConsoleKey for the same Alt+key.</summary>
+	[Theory]
+	[InlineData('w')]
+	[InlineData('W')]
+	[InlineData('f')]
+	[InlineData('3')]
+	[InlineData('-')]
+	public void AltKey_AgreesWithTheUnixParser(char c)
+	{
+		var windows = NetConsoleDriver.BuildAltKey(AfterEsc(c));
+		var unix = SharpConsoleUI.Drivers.Input.AnsiInputParser.CharToConsoleKey(c);
+
+		Assert.Equal(unix, windows.Key);
+		// Unix sets shift from char.IsUpper at the same point; Windows must match.
+		Assert.Equal(char.IsUpper(c), windows.Modifiers.HasFlag(ConsoleModifiers.Shift));
+	}
+
+	[Fact]
+	public void AltKey_PreservesControlModifier()
+	{
+		var ctrlAltW = new ConsoleKeyInfo('\u0017', ConsoleKey.W, false, false, true);
+
+		var result = NetConsoleDriver.BuildAltKey(ctrlAltW);
+
+		Assert.Equal(ConsoleKey.W, result.Key);
+		Assert.True(result.Modifiers.HasFlag(ConsoleModifiers.Control));
+		Assert.True(result.Modifiers.HasFlag(ConsoleModifiers.Alt));
+	}
+
+	/// <summary>An Alt+key whose character has no mapping keeps the character and stays unidentified.</summary>
+	[Fact]
+	public void AltKey_UnmappableCharacter_KeepsItsCharacter()
+	{
+		var result = NetConsoleDriver.BuildAltKey(AfterEsc('中'));
+
+		Assert.Equal('中', result.KeyChar);
+		Assert.Equal(ConsoleKey.None, result.Key);
+		Assert.True(result.Modifiers.HasFlag(ConsoleModifiers.Alt));
+	}
+
+	/// <summary>A key that already resolved must not be overwritten here either.</summary>
+	[Fact]
+	public void AltKey_AlreadyIdentifiedKey_PassesThrough()
+	{
+		var already = new ConsoleKeyInfo('w', ConsoleKey.W, false, false, false);
+
+		var result = NetConsoleDriver.BuildAltKey(already);
+
+		Assert.Equal(ConsoleKey.W, result.Key);
+		Assert.Equal('w', result.KeyChar);
+		Assert.True(result.Modifiers.HasFlag(ConsoleModifiers.Alt));
+	}
+
+	#endregion
 }

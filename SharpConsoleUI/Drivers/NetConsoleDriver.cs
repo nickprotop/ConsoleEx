@@ -1446,14 +1446,7 @@ namespace SharpConsoleUI.Drivers
 								else
 								{
 									// This is an Alt + key combination (ESC followed by key)
-									var altKey = new ConsoleKeyInfo(
-										nextKey.KeyChar,
-										nextKey.Key,
-										(nextKey.Modifiers & ConsoleModifiers.Shift) != 0,
-										true, // Alt is pressed
-										(nextKey.Modifiers & ConsoleModifiers.Control) != 0);
-
-									KeyPressed?.Invoke(this, altKey);
+									KeyPressed?.Invoke(this, BuildAltKey(nextKey));
 									continue;
 								}
 							}
@@ -1473,6 +1466,36 @@ namespace SharpConsoleUI.Drivers
 				} // End lock(_consoleLock) - all Console I/O now protected
 				Thread.Sleep(10);
 			}
+		}
+
+		/// <summary>
+		/// Builds the Alt+key event for an <c>ESC</c> followed by a printable character.
+		/// </summary>
+		/// <param name="nextKey">The key read after the ESC.</param>
+		/// <remarks>
+		/// Under <c>ENABLE_VIRTUAL_TERMINAL_INPUT</c>, Alt+X arrives as ESC then X, and the X carries
+		/// no <see cref="ConsoleKey"/> — the same gap <see cref="NormalizeKey"/> closes for an ordinary
+		/// keystroke, reached through a different branch. Measured on Windows: Alt+w produced
+		/// <c>Key=None, Mods=Alt, KeyChar=0x77</c> both before and after that fix, because this branch
+		/// runs upstream of it.
+		///
+		/// <para>Shift is taken from the character's case, matching
+		/// <c>AnsiInputParser.ProcessEscape</c>. That is an inference and an imperfect one — a shifted
+		/// digit gives no uppercase to detect — but Unix has always reported it this way, so the
+		/// alternative is for the two backends to disagree about Alt+W, which is the concrete bug here.
+		/// See <see cref="NormalizeKey"/> for why Shift is NOT inferred on the ordinary path.</para>
+		/// </remarks>
+		internal static ConsoleKeyInfo BuildAltKey(ConsoleKeyInfo nextKey)
+		{
+			var normalized = NormalizeKey(nextKey);
+			char c = normalized.KeyChar;
+
+			return new ConsoleKeyInfo(
+				c,
+				normalized.Key,
+				(normalized.Modifiers & ConsoleModifiers.Shift) != 0 || char.IsUpper(c),
+				true, // Alt is pressed
+				(normalized.Modifiers & ConsoleModifiers.Control) != 0);
 		}
 
 		/// <summary>
@@ -1496,6 +1519,19 @@ namespace SharpConsoleUI.Drivers
 		/// <para>Conservative by design: a key that already carries a <see cref="ConsoleKey"/> is
 		/// returned unchanged, and <see cref="ConsoleKeyInfo.KeyChar"/> and the modifiers are always
 		/// preserved — the raw character is what the CJK and bracketed-paste paths depend on (issue #42).</para>
+		///
+		/// <para><b>Known limitation — Shift is not reported under VT input on Windows.</b> conhost
+		/// drops <c>SHIFT_PRESSED</c> before the driver ever sees the record, so Shift+W arrives as
+		/// <c>KeyChar='W'</c> with no Shift modifier:</para>
+		/// <code>
+		/// VT off : Key=W(87)   Mods=Shift  KeyChar=0x57
+		/// VT on  : Key=W(87)   Mods=None   KeyChar=0x57
+		/// </code>
+		/// <para>So <c>Key == ConsoleKey.W &amp;&amp; Modifiers.HasFlag(Shift)</c> does not fire on
+		/// Windows. This is deliberately NOT worked around here: inferring Shift from an uppercase
+		/// character is wrong for anything without a case, where the shifted and unshifted forms are
+		/// different characters entirely (<c>5</c> versus <c>%</c>), so it would trade a missing
+		/// modifier for a wrong one. Test the character instead when case matters.</para>
 		/// </remarks>
 		internal static ConsoleKeyInfo NormalizeKey(ConsoleKeyInfo key)
 		{
