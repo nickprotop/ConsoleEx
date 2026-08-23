@@ -323,7 +323,7 @@ Full comparison with Terminal.Gui, Spectre.Console, and XenoAtom.Terminal.UI:
 
 30+ built-in controls including:
 
-**Input:** Button, Checkbox, Prompt, MultilineEdit (with syntax highlighting),
+**Input:** Button, Checkbox, Prompt, MultilineEdit (syntax highlighting, ~64 languages),
 Slider, RangeSlider, DatePicker, TimePicker, Dropdown, Menu, Toolbar
 
 **Display:** MarkupControl (Spectre-compatible markup everywhere), FigletControl,

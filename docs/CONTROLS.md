@@ -57,7 +57,7 @@ Controls for user input and interaction.
 | **[DatePickerControl](controls/DatePickerControl.md)** | Locale-aware date picker | Segmented editing, calendar popup, min/max dates |
 | **[PromptControl](controls/PromptControl.md)** | Text input, single-line or wrapping | Enter key events, optional multiline with grow-to-fit, placeholder, max length, read-only, history, tab completion |
 | **[TimePickerControl](controls/TimePickerControl.md)** | Locale-aware time picker | 12h/24h modes, seconds toggle, min/max times |
-| **[MultilineEditControl](controls/MultilineEditControl.md)** | Multi-line text editor | [Syntax highlighting](SYNTAX_HIGHLIGHTING.md) (13 built-in languages via `SyntaxHighlighters.For(...)`), pluggable gutter, find/replace, undo/redo, word wrap |
+| **[MultilineEditControl](controls/MultilineEditControl.md)** | Multi-line text editor | [Syntax highlighting](SYNTAX_HIGHLIGHTING.md) (~64 languages via TextMate grammars, `SyntaxHighlighters.For(...)`), pluggable gutter, find/replace, undo/redo, word wrap |
 | **[SliderControl](controls/SliderControl.md)** | Value slider with thumb | Horizontal/vertical, step/large-step, keyboard/mouse drag |
 | **[RangeSliderControl](controls/RangeSliderControl.md)** | Dual-thumb range slider | MinRange enforcement, tab to switch thumbs, range events |
 | **[FormControl](controls/FormControl.md)** | Labeled-input form | Two-column grid (label \| editor), typed field overloads (text/multiline/checkbox/dropdown/radio/slider), custom `AddField`, sections with collapse, row packing, validation, `GetValues`/`Submit`/`Submitted`, declarative [XML loader](FORM_XML.md) |
@@ -425,7 +425,7 @@ Browse detailed documentation for specific controls:
 - [TerminalControl](controls/TerminalControl.md) - Embedded PTY terminal (Linux)
 
 ### Cross-Cutting Features
-- [Syntax Highlighting](SYNTAX_HIGHLIGHTING.md) - 13 built-in highlighters + registry, used by MultilineEditControl and Markdown code blocks
+- [Syntax Highlighting](SYNTAX_HIGHLIGHTING.md) - ~64 languages via TextMate grammars, themed by your app, used by MultilineEditControl and Markdown code blocks
 - [Markup Syntax](MARKUP_SYNTAX.md) - Colors, decorations, spinners, and the `[markdown]` tag
 
 ---

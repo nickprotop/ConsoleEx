@@ -149,7 +149,7 @@ Neither Terminal.Gui nor XenoAtom.Terminal.UI offer window-level gradients that 
 | Accordion / collapsible | -- | -- | Accordion, Collapsible | **CollapsiblePanel** |
 | Hyperlinks (clickable) | `[link]` markup (OSC 8, terminal-handled) | `Link` view (clickable, keyboard) | Markdown renders links (click handling unconfirmed) | **`[link=url]` markup + Markdown links, in-app `LinkClicked` event, keyboard-navigable** |
 | Markdown | -- | Yes (Markdig) | MarkdownControl (Markdig) | **`[markdown]` tag (Markdig, works in every markup control)** |
-| Syntax highlighting | -- | Partial (TextMateSharp) | Yes (TextMateSharp) | **13 built-in (regex) + registry** |
+| Syntax highlighting | -- | Partial (TextMateSharp) | Yes (TextMateSharp) | **Yes (TextMateSharp), app-themed** |
 | Video playback | -- | -- | -- | **VideoControl (half-block + Kitty)** |
 | Wizard / stepper | -- | Wizard | -- | -- |
 | Toast notifications | -- | -- | ToastService | **NotificationSystem** |
@@ -203,7 +203,7 @@ The through-line is **desktop-GUI capabilities brought to the terminal**. A hand
 - **PTY-backed embedded terminal.** `TerminalControl` runs a real PTY-backed terminal emulator inside a window, alongside your other controls -- rare in the .NET TUI ecosystem.
 - **GUI-level threading model.** Each window can own an independent async thread, with UI-thread marshaling (`EnqueueOnUIThread`) much like a desktop dispatcher, so panels update on their own schedule without blocking the UI.
 - **Per-window compositor.** Each window renders into its own `CharacterBuffer`; a compositor merges them with per-cell RGBA alpha blending, occlusion culling, and `PreBufferPaint`/`PostBufferPaint` hooks for backgrounds and effects -- the window-manager model adapted to character cells.
-- **13 built-in syntax highlighters.** C#, Bash, JSON, JS, CSS, HTML, XML, YAML, Razor, Dockerfile, SLN, Diff, and Markdown, behind a `SyntaxHighlighters` registry shared by Markdown code blocks and `MultilineEditControl`. These are regex/lexical highlighters, not grammar-based -- TextMate-driven highlighters (Terminal.Gui, XenoAtom) parse full grammars and will be more precise on edge cases.
+- **Grammar-based syntax highlighting, coloured by your theme.** ~64 languages via TextMate grammars, behind a `SyntaxHighlighters` registry shared by Markdown code blocks and `MultilineEditControl`, resolving lazily with no initialization call. Unlike the other TextMate-driven options, code colours come from the application's own `ITheme` (via `SyntaxPalette`) rather than a bundled editor theme, so highlighted code matches the surrounding UI and follows theme switches; bundled VS Code themes remain available as an opt-in.
 
 ### Rich Text Markup Everywhere
 

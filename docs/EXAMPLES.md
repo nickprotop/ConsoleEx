@@ -256,7 +256,7 @@ Console-based .NET IDE with LSP-powered IntelliSense, built-in terminal, and git
 - Works over SSH and in containers
 
 **SharpConsoleUI features on show:**
-- `MultilineEditControl` driven by `ISyntaxHighlighter` implementations — the framework's syntax-highlighting seam, used across 18 files
+- `MultilineEditControl` driven by `ISyntaxHighlighter` implementations — the framework's syntax-highlighting seam
 - `TerminalControl`, the PTY-backed terminal emulator, hosted as a panel inside the IDE
 - `TreeControl` file explorer beside the editor, split by draggable `SplitterControl`s
 - LSP completion surfaced through portal overlays; `TabControl` for open files
@@ -289,7 +289,7 @@ dotnet run --project Examples/DemoApp
 - `ImageControl` rendering images directly in the terminal
 - Full markup syntax showcase with colors, decorations, and gradients
 - **Markdown** page — the `[markdown]` tag rendering headings, lists, tables, blockquotes, and syntax-highlighted code blocks as native markup
-- **IDE Layout** page — `MultilineEditControl` with built-in syntax highlighting (`SyntaxHighlighters.For("csharp")` / `"markdown"`)
+- **IDE Layout** page — `MultilineEditControl` with syntax highlighting (`SyntaxHighlighters.For("csharp")` / `"markdown"`)
 - Async window threads with `CancellationToken`
 - Theme switching and window taskbar navigation
 
@@ -489,7 +489,7 @@ dotnet run --project Examples/TextEditorExample
 **Key Features:**
 - Multiline edit control with scrolling
 - File browser dialog integration
-- Syntax highlighting via the built-in highlighters (`SyntaxHighlighters.For(...)` — C#, JSON, XML, and more)
+- Syntax highlighting via TextMate grammars (`SyntaxHighlighters.For(...)` — ~64 languages, themed by the app)
 - Save/load functionality
 - Line numbers and cursor position
 

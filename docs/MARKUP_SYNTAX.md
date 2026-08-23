@@ -303,34 +303,32 @@ var control = Controls.Markdown("# Report").Build();
 ```
 ````
 
-The following languages (and aliases) ship with the library:
+Roughly **64 languages** are available through TextMate grammars, resolved lazily with no setup — C#, JavaScript, TypeScript, Python, Rust, Go, Java, C/C++, Ruby, PHP, SQL, HTML, CSS, JSON, YAML, XML, Markdown, shell scripts, Dockerfiles, diffs, and more.
 
-| Language | Aliases |
-|----------|---------|
-| C# | `csharp`, `cs` |
-| Bash | `bash`, `sh`, `shell`, `zsh` |
-| JSON | `json` |
-| JavaScript | `javascript`, `js`, `node`, `mjs`, `cjs` |
-| CSS | `css` |
-| HTML | `html`, `htm` |
-| XML | `xml` |
-| YAML | `yaml`, `yml` |
-| Razor | `razor`, `cshtml` |
-| Dockerfile | `dockerfile`, `docker` |
-| Solution | `sln` |
-| Diff | `diff`, `patch` |
-| Markdown | `markdown`, `md` |
+Language ids, aliases, and file extensions all work, case-insensitively:
 
-A fenced block with **no language hint** — or one whose hint matches no registered highlighter — falls back to a flat, shaded code block (no token coloring).
+| Hint | Resolves to |
+|------|-------------|
+| `csharp`, `cs` | C# |
+| `sh`, `bash`, `zsh`, `shell` | Shell script |
+| `js`, `javascript`, `node`, `mjs` | JavaScript |
+| `ts`, `typescript` | TypeScript |
+| `py`, `python` | Python |
+| `rust`, `rs` | Rust |
+| `sql` | SQL |
+| `yml`, `yaml` | YAML |
+| `md`, `markdown` | Markdown |
 
-> The same highlighters power `MultilineEditControl`. See the [Syntax Highlighting](SYNTAX_HIGHLIGHTING.md) guide for the registry, the full list of built-ins, and how to register your own.
+A fenced block with **no language hint** — or one whose hint matches no grammar — falls back to a flat, shaded code block (no token coloring). Indented code blocks carry no hint and are always flat.
+
+> The same engine powers `MultilineEditControl`, and code colours come from the active theme via `ITheme.SyntaxColors`. See the [Syntax Highlighting](SYNTAX_HIGHLIGHTING.md) guide for theming, the registry, and how to register your own.
 
 **Custom highlighters.** Register a highlighter **globally** so it applies everywhere Markdown is rendered:
 
 ```csharp
 using SharpConsoleUI.Highlighting;
 
-SyntaxHighlighters.Register("toml", new MyTomlHighlighter());
+SyntaxHighlighters.Register("toml", new MyTomlHighlighter());   // no TextMate grammar ships for TOML
 ```
 
 Or override **per style** via `MarkdownStyle.CodeHighlighters` (keyed by language hint), which is consulted before the global registry:
@@ -347,7 +345,7 @@ var control = Controls.Markdown(markdown)
     .Build();
 ```
 
-**Precedence** for a given language hint: per-style `CodeHighlighters` override → global `SyntaxHighlighters` registry → flat shaded block.
+**Precedence** for a given language hint: per-style `CodeHighlighters` override → explicit `SyntaxHighlighters.Register` → TextMate grammar → flat shaded block.
 
 ### Styling — `MarkdownStyle`
 

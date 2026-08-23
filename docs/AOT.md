@@ -35,7 +35,7 @@ If either step fails, CI fails.
 The smoke test instantiates and renders the broad control surface under the native binary — the full control set (Markup, Button, Checkbox, List, Tree, Table, Tab, Dropdown, ProgressBar, Sparkline, BarGraph, LineGraph, Slider, RangeSlider, Date/Time pickers, Menu, Toolbar, StatusBar, Prompt, MultilineEdit, NavigationView, Figlet, LogViewer, containers, Canvas primitives, …) plus the heavy dependency-backed paths that are the real AOT risk:
 
 - the `[markdown]` tag (Markdig) including a syntax-highlighted code block,
-- the built-in syntax highlighters (`SyntaxHighlighters.For(...)`),
+- syntax highlighting (`SyntaxHighlighters.For(...)`), including a TextMate grammar loaded lazily and its native Oniguruma regex engine,
 - `SpectreRenderableControl` (Spectre.Console),
 - `ImageControl` decoding an in-memory image (ImageSharp),
 - `HtmlControl` rendering HTML with CSS `calc()` (AngleSharp + AngleSharp.Css),
