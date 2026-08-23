@@ -950,6 +950,13 @@ namespace SharpConsoleUI.Controls
 			get => _syntaxHighlighter;
 			set
 			{
+				// Assigning the SAME highlighter is a no-op: dropping the token cache here would
+				// force a full re-tokenize of the file on the next paint. Callers that mutate a
+				// highlighter in place (for example layering LSP semantic tokens over it) should
+				// call RefreshSyntaxHighlighting() to say so explicitly.
+				if (ReferenceEquals(_syntaxHighlighter, value))
+					return;
+
 				lock (_contentLock)
 				{
 					_syntaxHighlighter = value;
@@ -959,6 +966,24 @@ namespace SharpConsoleUI.Controls
 				OnPropertyChanged();
 				Invalidate(Invalidation.Repaint);
 			}
+		}
+
+		/// <summary>
+		/// Discards cached syntax tokens and repaints, re-tokenizing the visible lines.
+		/// </summary>
+		/// <remarks>
+		/// Call this when the current highlighter's own output has changed but the instance has
+		/// not — for example after pushing new LSP semantic tokens into a decorating highlighter.
+		/// Assigning <see cref="SyntaxHighlighter"/> to the value it already holds does nothing.
+		/// </remarks>
+		public void RefreshSyntaxHighlighting()
+		{
+			lock (_contentLock)
+			{
+				_syntaxTokenCache = null;
+				_lineStateCache = null;
+			}
+			Invalidate(Invalidation.Repaint);
 		}
 
 		/// <inheritdoc/>
