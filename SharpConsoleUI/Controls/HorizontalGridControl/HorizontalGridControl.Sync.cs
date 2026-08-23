@@ -47,8 +47,46 @@ namespace SharpConsoleUI.Controls
 		// signature and trigger a real rebuild.
 		private string? _lastSyncSignature;
 
+		// Sizing is tracked separately from structure. A column's width changing is a TRACK RESIZE,
+		// not a structural change: the same columns, contents and splitters remain, so re-Placing
+		// them is pure waste. It is also the hot path — a splitter drag rewrites two columns' widths
+		// per mouse event, and each teardown forces a full window layout-tree rebuild (~37ms on a
+		// large document), on the input thread.
+		private string? _lastSizingSignature;
+
 		// Test-observable count of ACTUAL grid rebuilds (signature-miss), not skipped Sync() calls.
 		internal int SyncRebuildCount { get; private set; }
+
+		/// <summary>
+		/// Rewrites the track definitions for a sizing-only change, leaving the placed cells alone.
+		/// The track list interleaves column and splitter tracks in the order <see cref="Sync"/>
+		/// built them, so each visible column maps to a known index without re-Placing anything.
+		/// </summary>
+		/// <param name="columns">The grid's columns, in order.</param>
+		/// <param name="splitters">The splitters between them.</param>
+		private void ApplySizingOnly(List<ColumnContainer> columns, List<SplitterControl> splitters)
+		{
+			int track = 0;
+
+			for (int i = 0; i < columns.Count; i++)
+			{
+				ColumnContainer col = columns[i];
+				if (!col.Visible)
+					continue;
+
+				if (track >= ColumnDefinitions.Count)
+					return;   // track list out of step with the model; the next structural Sync fixes it
+
+				GridLength desired = ToGridLength(col);
+				if (!ColumnDefinitions[track].Equals(desired))
+					ColumnDefinitions[track] = desired;
+
+				track++;
+
+				if (SplitterAfterColumn(i, splitters) != null)
+					track++;   // skip the splitter's own track
+			}
+		}
 
 		private string ComputeModelSignature(List<ColumnContainer> columns, List<SplitterControl> splitters)
 		{
@@ -58,10 +96,6 @@ namespace SharpConsoleUI.Controls
 			{
 				sb.Append(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(c))
 				  .Append(':').Append(c.Visible ? '1' : '0')
-				  .Append(':').Append(c.Width?.ToString() ?? "_")
-				  .Append(':').Append(c.MinWidth?.ToString() ?? "_")
-				  .Append(':').Append(c.MaxWidth?.ToString() ?? "_")
-				  .Append(':').Append(c.FlexFactor.ToString("R"))
 				  // The SET of a column's child controls is structure Sync() Places into the grid: a control
 				  // added to or removed from a column must re-Place so the grid re-measures. A child whose
 				  // CONTENT changes in place (same instance, new text) leaves this signature unchanged, so
@@ -77,6 +111,27 @@ namespace SharpConsoleUI.Controls
 				sb.Append(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(s))
 				  .Append(':').Append(GetSplitterLeftColumnIndex(s))
 				  .Append(':').Append(s.Width?.ToString() ?? "_")
+				  .Append(';');
+			}
+			return sb.ToString();
+		}
+
+		/// <summary>
+		/// The columns' sizing inputs — everything <see cref="ToGridLength"/> reads that is not
+		/// structural. A change here needs only the affected track definitions rewritten and a
+		/// re-measure, never a teardown.
+		/// </summary>
+		/// <param name="columns">The grid's columns, in order.</param>
+		/// <returns>A signature that changes when any column's sizing changes.</returns>
+		private static string ComputeSizingSignature(List<ColumnContainer> columns)
+		{
+			var sb = new System.Text.StringBuilder();
+			foreach (var c in columns)
+			{
+				sb.Append(c.Width?.ToString() ?? "_")
+				  .Append(':').Append(c.MinWidth?.ToString() ?? "_")
+				  .Append(':').Append(c.MaxWidth?.ToString() ?? "_")
+				  .Append(':').Append(c.FlexFactor.ToString("R"))
 				  .Append(';');
 			}
 			return sb.ToString();
@@ -105,11 +160,24 @@ namespace SharpConsoleUI.Controls
 				// layout rebuild so the propagating Relayout re-measures cleanly (the grid caches layout nodes
 				// that a Relayout must refresh) — one rebuild, not the teardown storm.
 				string signature = ComputeModelSignature(columns, splitters);
+				string sizing = ComputeSizingSignature(columns);
+
 				if (signature == _lastSyncSignature)
 				{
+					// Structure is unchanged. If only the SIZING moved — the splitter-drag case —
+					// rewrite the affected track definitions in place and let the grid re-measure.
+					// Tearing down and re-Placing identical columns would cost a full window
+					// layout-tree rebuild for what is a one-track resize.
+					if (sizing != _lastSizingSignature)
+					{
+						_lastSizingSignature = sizing;
+						ApplySizingOnly(columns, splitters);
+					}
 					return;
 				}
+
 				_lastSyncSignature = signature;
+				_lastSizingSignature = sizing;
 				SyncRebuildCount++;
 
 				// Clear the inherited grid state (cells + track defs) and re-stamp HGC's flush layout.

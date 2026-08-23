@@ -46,14 +46,18 @@ namespace SharpConsoleUI.Tests.Controls
 		}
 
 		[Fact]
-		public void ColumnWidthChange_DoesRebuildColumns()
+		public void ColumnWidthChange_UpdatesTracksWithoutRebuilding()
 		{
 			var (grid, col, _) = BuildGrid();
 			int before = grid.SyncRebuildCount;
 
-			col.Width = 25; // a real structural change to the column model.
+			col.Width = 25; // a track RESIZE: the same columns, contents and splitters remain.
 
-			Assert.True(grid.SyncRebuildCount > before, "a column Width change must rebuild the grid tracks");
+			// Re-Placing identical columns would cost a full window layout-tree rebuild for a
+			// one-track change — the splitter-drag hot path. The track definition is rewritten in
+			// place instead, so the grid re-measures without a teardown.
+			Assert.Equal(before, grid.SyncRebuildCount);
+			Assert.Equal(25, grid.ColumnDefinitions[0].Value);
 		}
 
 		[Fact]
