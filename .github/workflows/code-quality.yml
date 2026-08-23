@@ -162,7 +162,11 @@ jobs:
       - name: Run native binary (blocking)
         run: |
           echo "## NativeAOT smoke run" >> "$GITHUB_STEP_SUMMARY"
-          bin="SharpConsoleUI.Tests/aot.test/bin/Release/net10.0/linux-x64/native/AotSmoke"
+          # Run from the PUBLISH directory, not native/: publish/ is the deployable layout and
+          # is where RID-specific native dependencies (e.g. libonigwrap.so, used by the TextMate
+          # grammar engine) are staged next to the binary. native/ holds ILC output only, so a
+          # binary run from there cannot load them.
+          bin="SharpConsoleUI.Tests/aot.test/bin/Release/net10.0/linux-x64/publish/AotSmoke"
           out=$("$bin" 2>&1); code=$?
           echo "$out"
           if [ "$code" -ne 0 ] || ! echo "$out" | grep -q "AOT SMOKE OK"; then
