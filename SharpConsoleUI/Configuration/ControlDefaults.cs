@@ -1162,5 +1162,8 @@ namespace SharpConsoleUI.Configuration
 
 		/// <summary>Lines of tokenized output retained per grammar before the least-recently-used is dropped.</summary>
 		public const int SyntaxTokenCacheSize = 4096;
+
+		/// <summary>Minimum text columns a multiline editor needs beside its gutter and scrollbar.</summary>
+		public const int MultilineEditMinimumTextColumns = 8;
 	}
 }

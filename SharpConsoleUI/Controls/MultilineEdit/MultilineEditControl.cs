@@ -321,6 +321,34 @@ namespace SharpConsoleUI.Controls
 		{
 			get
 			{
+				// The contract is the minimum width needed to DISPLAY the content, and this control
+				// scrolls: it displays any document at any width, so the longest line is not a
+				// minimum — it is a preference the control never asserts (MeasureDOM accepts
+				// whatever width it is handed). Reporting the longest line here made layout treat
+				// it as a hard requirement: a 436-character source line floored a flex grid column
+				// at 436 inside a 98-wide grid, pushing the sibling columns off-screen and putting
+				// every narrower splitter position out of reach.
+				//
+				// What the control genuinely cannot render below is its own chrome — the gutter and
+				// a vertical scrollbar — plus room for a little text.
+				int gutterWidth = GetGutterWidth();
+				bool needsVerticalScrollbar = _verticalScrollbarVisibility == ScrollbarVisibility.Always;
+				int scrollbarWidth = needsVerticalScrollbar ? 1 : 0;
+
+				return gutterWidth + scrollbarWidth + ControlDefaults.MultilineEditMinimumTextColumns
+					+ Margin.Left + Margin.Right;
+			}
+		}
+
+		/// <summary>
+		/// Gets the width of the widest line in the document, in display columns. This is what the
+		/// content would occupy if it were never wrapped or scrolled — a preference, not a
+		/// constraint; see <see cref="ContentWidth"/> for the minimum the control needs.
+		/// </summary>
+		public int LongestLineWidth
+		{
+			get
+			{
 				List<string> linesSnapshot;
 				lock (_contentLock) { linesSnapshot = _lines.ToList(); }
 				int maxLength = 0;
@@ -329,7 +357,7 @@ namespace SharpConsoleUI.Controls
 					int lineWidth = UnicodeWidth.GetStringWidth(line);
 					if (lineWidth > maxLength) maxLength = lineWidth;
 				}
-				return maxLength + Margin.Left + Margin.Right;
+				return maxLength;
 			}
 		}
 

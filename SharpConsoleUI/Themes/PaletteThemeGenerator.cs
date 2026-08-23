@@ -35,7 +35,16 @@ namespace SharpConsoleUI.Themes
 			Color success = palette.Success ?? new Color(40, 167, 69);
 			Color warning = palette.Warning ?? new Color(255, 193, 7);
 			Color danger = palette.Danger ?? new Color(220, 53, 69);
-			Color info = palette.Info ?? new Color(13, 202, 240);
+			// DERIVED FROM THE PRIMARY, not a fixed cyan. Success, warning and danger keep their
+			// literals because a fixed hue IS their meaning — red reads as danger whatever the
+			// palette, and tinting it toward the accent weakens the signal it exists to carry.
+			// Info is not that: it marks a thing as a DIFFERENT KIND rather than as a hazard, and a
+			// fixed #0dcaf0 lands as an unthemed intrusion — cyan inside a crimson theme, cyan on a
+			// light background — on every seed theme, none of which supplies a Palette.Info.
+			//
+			// TINTED RATHER THAN SHADED, so it separates from secondary and tertiary, which shade
+			// the same seed in steps. Info sits on the other side of the accent from them.
+			Color info = palette.Info ?? primary.Tint(0.30);
 
 			// "Raised" surfaces lighten in dark mode / darken in light mode; "Recessed" the inverse.
 			Color Raise(Color c, double amt) => mode == ThemeMode.Dark ? c.Tint(amt) : c.Shade(amt);

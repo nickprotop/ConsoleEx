@@ -547,57 +547,124 @@ namespace SharpConsoleUI.Controls
 
 
 		/// <summary>
+		/// The largest width one fixed column may take without pushing the layout off-screen:
+		/// the grid, less every other column, the splitters between them, and a minimum slice
+		/// for the column this splitter is not resizing.
+		/// </summary>
+		/// <param name="minWidth">The floor a single column may not go below.</param>
+		/// <returns>The ceiling, or <see cref="int.MaxValue"/> when no width is known yet.</returns>
+		private int ComputeMaxColumnWidth(int minWidth)
+		{
+			int gridWidth = _parentGrid?.ActualWidth ?? _ownerGrid?.ActualWidth ?? 0;
+
+			// ActualWidth is only assigned during paint, so a drag before the first frame sees 0.
+			// Fall back to the window rather than dropping the ceiling altogether.
+			if (gridWidth <= 0)
+				gridWidth = Container?.GetConsoleWindowSystem?.DesktopDimensions.Width ?? 0;
+
+			if (gridWidth <= 0)
+				return int.MaxValue;
+
+			var columns = _parentGrid?.Columns ?? _ownerGrid?.Columns;
+			if (columns == null)
+				return Math.Max(minWidth, gridWidth - minWidth);
+
+			// Space the OTHER columns hold. The pair this splitter straddles is excluded: one of
+			// them is being resized, and the other is reserved for separately below.
+			int otherColumns = 0;
+			int visibleColumns = 0;
+
+			foreach (ColumnContainer column in columns)
+			{
+				if (!column.Visible)
+					continue;
+
+				visibleColumns++;
+
+				if (ReferenceEquals(column, _leftColumn) || ReferenceEquals(column, _rightColumn))
+					continue;
+
+				// A flex sibling holds no committed width; reserve its floor so it stays usable.
+				otherColumns += column.Width ?? minWidth;
+			}
+
+			// One splitter sits between each adjacent pair of visible columns.
+			int splitters = Math.Max(0, visibleColumns - 1);
+
+			// What is left for the pair, minus a floor for whichever of the two is not resizing.
+			int available = gridWidth - otherColumns - splitters - minWidth;
+			return Math.Max(minWidth, available);
+		}
+
+		/// <summary>
 		/// Moves the splitter by adjusting the widths of adjacent columns.
 		/// </summary>
 		/// <param name="delta">The amount to move the splitter (positive = right, negative = left).</param>
 		private void MoveSplitter(int delta)
 		{
-			if (_leftColumn == null || _rightColumn == null)
+			if (_leftColumn == null || _rightColumn == null || delta == 0)
 				return;
 
-			// Get the current column widths:
-			// - Prefer explicit Width (always fresh, set by previous MoveSplitter calls)
-			// - Fall back to ActualWidth (rendered size, correct for flexing columns with no explicit Width)
-			// - Last resort: GetContentWidth or default
+			// A column with no explicit Width is a flex column: the grid gives it whatever the fixed
+			// columns leave over. Writing a Width to one would pin it permanently, so a drag adjusts
+			// only the fixed column(s) and lets flex absorb the remainder.
+			bool leftIsFlex = _leftColumn.Width == null;
+			bool rightIsFlex = _rightColumn.Width == null;
+
 			int leftColumnWidth = _leftColumn.Width ?? (_leftColumn.ActualWidth > 0 ? _leftColumn.ActualWidth : (_leftColumn.GetContentWidth() ?? 10));
 			int rightColumnWidth = _rightColumn.Width ?? (_rightColumn.ActualWidth > 0 ? _rightColumn.ActualWidth : (_rightColumn.GetContentWidth() ?? 10));
 
-			// Calculate new left width
 			int newLeftWidth = leftColumnWidth + delta;
+			int newRightWidth = rightColumnWidth - delta;
 
-			// Total available width is the combined space of the two adjacent columns
-			// Using actual rendered widths ensures correctness when columns flex or when other columns are hidden
 			int totalAvailableWidth = leftColumnWidth + rightColumnWidth;
+			int minWidth = Math.Max(5, (int)((leftIsFlex || rightIsFlex ? Math.Min(leftColumnWidth, rightColumnWidth) : totalAvailableWidth) * MIN_COLUMN_PERCENTAGE));
+			int maxColumnWidth = ComputeMaxColumnWidth(minWidth);
 
+			int appliedDelta;
 
-			// Enforce minimum widths (at least 10% of total available or 5 characters)
-			int minWidth = Math.Max(5, (int)(totalAvailableWidth * MIN_COLUMN_PERCENTAGE));
-			int maxLeftWidth = totalAvailableWidth - minWidth; // Leave minimum space for right column
-
-			// Constrain the new left width
-			newLeftWidth = Math.Clamp(newLeftWidth, minWidth, maxLeftWidth);
-
-			// Only apply changes if width is valid and different
-			if (newLeftWidth > 0 && newLeftWidth != leftColumnWidth)
+			if (leftIsFlex && rightIsFlex)
 			{
-
-				// Apply the new widths — set both columns explicitly so that
-				// neither accidentally becomes a flex column sharing space equally
-				// with other null-width columns in the grid.
+				newLeftWidth = Math.Clamp(newLeftWidth, minWidth, maxColumnWidth);
+				if (newLeftWidth == leftColumnWidth) return;
+				appliedDelta = newLeftWidth - leftColumnWidth;
+				_leftColumn.Width = newLeftWidth;
+			}
+			else if (!leftIsFlex && !rightIsFlex)
+			{
+				int maxLeftWidth = totalAvailableWidth - minWidth;
+				if (maxLeftWidth < minWidth) return;
+				newLeftWidth = Math.Clamp(newLeftWidth, minWidth, maxLeftWidth);
+				if (newLeftWidth == leftColumnWidth) return;
+				appliedDelta = newLeftWidth - leftColumnWidth;
 				_leftColumn.Width = newLeftWidth;
 				_rightColumn.Width = totalAvailableWidth - newLeftWidth;
-
-
-				// Calculate the actual delta that was applied
-				int actualDelta = newLeftWidth - leftColumnWidth;
-
-				// Raise the SplitterMoved event
-				Core.AsyncEvent.Raise(SplitterMoved, SplitterMovedAsync, this, new SplitterMovedEventArgs(actualDelta, newLeftWidth, 0), Container?.GetConsoleWindowSystem?.LogService);
-
-				// Invalidate to ensure redraw
-				Invalidate(Invalidation.Relayout);
-
 			}
+			else if (rightIsFlex)
+			{
+				newLeftWidth = Math.Clamp(newLeftWidth, minWidth, maxColumnWidth);
+				if (newLeftWidth == leftColumnWidth) return;
+				appliedDelta = newLeftWidth - leftColumnWidth;
+				_leftColumn.Width = newLeftWidth;
+			}
+			else
+			{
+				newRightWidth = Math.Clamp(newRightWidth, minWidth, maxColumnWidth);
+				if (newRightWidth == rightColumnWidth) return;
+				appliedDelta = rightColumnWidth - newRightWidth;
+				_rightColumn.Width = newRightWidth;
+			}
+
+			// Report the size each column now occupies. A flex column has no explicit Width, so
+			// report what it renders at — never 0, which consumers cannot act on.
+			int reportedLeft = _leftColumn.Width ?? (_leftColumn.ActualWidth > 0 ? _leftColumn.ActualWidth : leftColumnWidth);
+			int reportedRight = _rightColumn.Width ?? (_rightColumn.ActualWidth > 0 ? _rightColumn.ActualWidth : rightColumnWidth);
+
+			Core.AsyncEvent.Raise(SplitterMoved, SplitterMovedAsync, this,
+				new SplitterMovedEventArgs(appliedDelta, reportedLeft, reportedRight),
+				Container?.GetConsoleWindowSystem?.LogService);
+
+			Invalidate(Invalidation.Relayout);
 		}
 	}
 

@@ -223,7 +223,7 @@ public class SplitterControlResizeTests
 	#region Flex Column (No Explicit Width) Combinations
 
 	[Fact]
-	public void RightArrow_LeftExplicitRightFlex_SetsLeftWidthClearsRight()
+	public void RightArrow_LeftExplicitRightFlex_AdjustsLeftAndLeavesRightFlexing()
 	{
 		// Only left has explicit width, right flexes
 		var (grid, col1, col2, splitter, system, window) =
@@ -235,7 +235,9 @@ public class SplitterControlResizeTests
 
 		Assert.NotNull(col1.Width);
 		Assert.Equal(41, col1.Width);
-		Assert.NotNull(col2.Width); // Right gets explicit width to prevent equal-split bug
+		// The flex column must stay flexible: pinning it here froze the layout so it no longer
+		// absorbed slack on resize, and left a Width far larger than its on-screen size.
+		Assert.Null(col2.Width);
 	}
 
 	[Fact]
@@ -263,10 +265,11 @@ public class SplitterControlResizeTests
 
 		splitter.ProcessKey(RightArrow);
 
-		// After resize, both columns get explicit widths
+		// With no fixed column to adjust, the dragged (left) column is pinned so the drag has
+		// an effect, while the right column keeps flexing into whatever is left.
 		Assert.NotNull(col1.Width);
 		Assert.Equal(actualBefore + 1, col1.Width);
-		Assert.NotNull(col2.Width); // Right also set explicitly to prevent equal-split bug
+		Assert.Null(col2.Width);
 	}
 
 	#endregion

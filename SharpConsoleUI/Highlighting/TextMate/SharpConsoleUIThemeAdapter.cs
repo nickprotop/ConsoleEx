@@ -27,16 +27,16 @@ namespace SharpConsoleUI.Highlighting.TextMate
 			Add("comment", "comment", palette.Comment);
 			Add("string", "string, constant.character", palette.String);
 			Add("number", "constant.numeric", palette.Number);
-			Add("constant", "constant.language, constant.other", palette.Constant);
+			Add("constant", "constant.language, constant.other, support.constant", palette.Constant);
 			Add("keyword", "keyword, storage, storage.type, storage.modifier", palette.Keyword);
 
 			// Must follow "keyword": a bare keyword selector otherwise swallows
 			// keyword.operator.* and renders '=' in the keyword colour.
 			Add("operator", "keyword.operator", palette.Operator);
 
-			Add("type", "entity.name.type, entity.name.class, support.type, support.class", palette.Type);
+			Add("type", "entity.name.type, entity.name.class, entity.other.inherited-class, support.type, support.class", palette.Type);
 			Add("function", "entity.name.function, support.function", palette.Function);
-			Add("variable", "variable, entity.name.variable", palette.Variable);
+			Add("variable", "variable, entity.name.variable, support.variable", palette.Variable);
 			Add("tag", "entity.name.tag", palette.Tag);
 			Add("attribute", "entity.other.attribute-name", palette.Attribute);
 			Add("punctuation", "punctuation", palette.Punctuation);
@@ -47,6 +47,27 @@ namespace SharpConsoleUI.Highlighting.TextMate
 			Add("comment-punctuation", "punctuation.definition.comment", palette.Comment);
 			Add("string-punctuation", "punctuation.definition.string", palette.String);
 			Add("invalid", "invalid", palette.Invalid);
+
+			// Markup scopes (markdown, diff, textile, restructuredtext). Without these a
+			// markup document renders almost entirely in the default colour: its own syntax
+			// carries markup.* scopes, so only embedded code blocks - tokenized by the
+			// language's own grammar - pick up any colour at all.
+			Add("markup-heading", "markup.heading, entity.name.section", palette.Keyword);
+			Add("markup-bold", "markup.bold", palette.Keyword);
+			Add("markup-italic", "markup.italic", palette.Type);
+			Add("markup-raw", "markup.inline.raw, markup.raw, markup.fenced_code", palette.String);
+			Add("markup-link", "markup.underline.link, string.other.link", palette.Function);
+			Add("markup-list", "markup.list, beginning.punctuation.definition.list", palette.Punctuation);
+			Add("markup-quote", "markup.quote", palette.Comment);
+
+			// Diff: added and removed lines are the whole point of the format.
+			Add("markup-inserted", "markup.inserted", palette.String);
+			Add("markup-deleted", "markup.deleted", palette.Invalid);
+			Add("markup-changed", "markup.changed", palette.Number);
+			Add("diff-header", "meta.diff.header, meta.diff.range", palette.Comment);
+
+			// Config formats: a bare [section] title carries only entity.name.section.
+			Add("section-title", "entity.name.section.group-title", palette.Type);
 		}
 
 		private void Add(string name, string scope, Color? color)
