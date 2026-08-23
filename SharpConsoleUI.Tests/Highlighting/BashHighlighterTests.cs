@@ -14,8 +14,20 @@ namespace SharpConsoleUI.Tests.Highlighting
 		[Fact]
 		public void Comment_ColoredToEndOfLine()
 		{
-			var (tokens, _) = Tok("echo hi  # a comment");
-			Assert.Contains(tokens, t => t.StartIndex == 9 && t.Length == "# a comment".Length);
+			const string line = "echo hi  # a comment";
+			var (tokens, _) = Tok(line);
+
+			// TextMate splits the comment into punctuation ('#') plus its text, where the old
+			// regex emitted one span. What matters is that every column from '#' to end of line
+			// is covered by comment-coloured tokens.
+			int hash = line.IndexOf('#');
+			var covering = tokens.Where(t => t.StartIndex >= hash).OrderBy(t => t.StartIndex).ToList();
+
+			Assert.NotEmpty(covering);
+			Assert.Equal(hash, covering[0].StartIndex);
+			Assert.Equal(line.Length, covering[^1].StartIndex + covering[^1].Length);
+			// All of it is one colour: the comment colour.
+			Assert.Single(covering.Select(t => t.ForegroundColor).Distinct());
 		}
 
 		[Fact]
@@ -60,7 +72,8 @@ namespace SharpConsoleUI.Tests.Highlighting
 		{
 			Assert.NotNull(SyntaxHighlighters.For("bash"));
 			Assert.NotNull(SyntaxHighlighters.For("sh"));
-			Assert.IsType<BashSyntaxHighlighter>(SyntaxHighlighters.For("bash"));
+			// Resolves through the TextMate fallback now; the two aliases share one instance.
+			Assert.Same(SyntaxHighlighters.For("bash"), SyntaxHighlighters.For("sh"));
 		}
 	}
 }

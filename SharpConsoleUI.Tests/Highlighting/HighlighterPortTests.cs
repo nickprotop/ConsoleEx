@@ -4,6 +4,9 @@ using SharpConsoleUI.Highlighting;
 using Xunit;
 using Color = SharpConsoleUI.Color;
 
+// These tests deliberately exercise the obsolete shim classes.
+#pragma warning disable CS0618
+
 namespace SharpConsoleUI.Tests.Highlighting
 {
 	public class HighlighterPortTests
@@ -62,3 +65,5 @@ namespace SharpConsoleUI.Tests.Highlighting
 		}
 	}
 }
+
+#pragma warning restore CS0618

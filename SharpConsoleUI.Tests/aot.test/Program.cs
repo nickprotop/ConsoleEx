@@ -138,8 +138,10 @@ try
 	if (string.IsNullOrEmpty(converted))
 		return Fail("MarkdownToMarkup.Convert returned empty");
 
-	// 4. Syntax highlighters — regex highlighters + registry. Tokenize one line each.
-	foreach (var lang in new[] { "csharp", "bash", "json" })
+	// 4. Syntax highlighters — TextMate grammars + registry. Tokenize one line each.
+	//    "rust" and "sql" have no built-in registration: they prove the lazy TextMate fallback
+	//    (grammar load + Oniguruma native regex) works under NativeAOT.
+	foreach (var lang in new[] { "csharp", "bash", "json", "rust", "sql" })
 	{
 		var hl = SyntaxHighlighters.For(lang);
 		if (hl == null)
@@ -148,11 +150,22 @@ try
 		{
 			"csharp" => "public int X = 42; // comment",
 			"bash" => "echo \"hello $USER\" # comment",
+			"rust" => "fn main() { let x = 42; }",
+			"sql" => "SELECT id FROM users WHERE n = 1;",
 			_ => "{ \"key\": \"value\", \"n\": 123 }",
 		};
 		var (tokens, _) = hl.Tokenize(sample, 0, SyntaxLineState.Initial);
 		if (tokens == null || tokens.Count == 0)
 			return Fail($"highlighter \"{lang}\" produced no tokens");
+	}
+
+	// 4b. Multi-line parser state must survive under NativeAOT (TextMate IStateStack).
+	{
+		var cs = SyntaxHighlighters.For("csharp")!;
+		var (_, openState) = cs.Tokenize("/* open", 0, SyntaxLineState.Initial);
+		var (contTokens, _) = cs.Tokenize("still comment */ int x;", 1, openState);
+		if (contTokens.Count == 0)
+			return Fail("TextMate line state did not carry across lines");
 	}
 
 	// ---- 5. Broad control coverage. Grouped across several windows so layout is realistic. ----

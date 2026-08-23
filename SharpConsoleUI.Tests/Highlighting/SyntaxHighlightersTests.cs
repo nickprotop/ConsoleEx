@@ -16,14 +16,16 @@ namespace SharpConsoleUI.Tests.Highlighting
 			Assert.NotNull(a);
 			Assert.NotNull(b);
 			Assert.NotNull(c);
-			Assert.IsType<CSharpSyntaxHighlighter>(a);
-			Assert.IsType<CSharpSyntaxHighlighter>(b);
+			// The concrete type is now a TextMate-backed highlighter; assert identity, not type.
+			Assert.Same(a, b);
+			Assert.Same(a, c);
 		}
 
 		[Fact]
 		public void For_Unknown_ReturnsNull()
 		{
-			Assert.Null(SyntaxHighlighters.For("rust"));
+			// "rust" now resolves through the TextMate fallback, so use a language no grammar covers.
+			Assert.Null(SyntaxHighlighters.For("definitely-not-a-language"));
 			Assert.Null(SyntaxHighlighters.For(null));
 			Assert.Null(SyntaxHighlighters.For(""));
 		}
@@ -31,7 +33,7 @@ namespace SharpConsoleUI.Tests.Highlighting
 		[Fact]
 		public void Register_AddsCustomLanguage_BuiltInsRemain()
 		{
-			var custom = new CSharpSyntaxHighlighter();
+			var custom = SyntaxHighlighters.For("csharp")!;
 			SyntaxHighlighters.Register("toml-test", custom);
 			Assert.Same(custom, SyntaxHighlighters.For("toml-test"));
 			Assert.NotNull(SyntaxHighlighters.For("csharp"));

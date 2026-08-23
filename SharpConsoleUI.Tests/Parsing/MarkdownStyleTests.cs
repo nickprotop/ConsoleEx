@@ -3,6 +3,9 @@ using SharpConsoleUI.Configuration;
 using Xunit;
 using Color = SharpConsoleUI.Color;
 
+// These tests deliberately exercise the obsolete shim classes.
+#pragma warning disable CS0618
+
 namespace SharpConsoleUI.Tests.Parsing
 {
 	public class MarkdownStyleTests
@@ -50,3 +53,5 @@ namespace SharpConsoleUI.Tests.Parsing
 		}
 	}
 }
+
+#pragma warning restore CS0618

@@ -31,7 +31,9 @@ namespace SharpConsoleUI.Tests.Parsing
 		[Fact]
 		public void UnknownLanguage_FallsBackToFlat()
 		{
-			var cells = Render("```rust\nlet x = 1;\n```");
+			// "rust" used to be unknown; TextMate ships a rust grammar, so use a fence tag no
+			// grammar claims to exercise the flat fallback.
+			var cells = Render("```definitely-not-a-language\nlet x = 1;\n```");
 			Assert.Contains("let x = 1;", CellString(cells));
 			Assert.All(cells.Where(c => c.Background == MarkdownStyle.Default.CodeBackground
 					&& c.Character.ToString().Trim().Length > 0),
