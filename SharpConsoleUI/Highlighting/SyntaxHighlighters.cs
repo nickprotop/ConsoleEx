@@ -16,6 +16,11 @@ namespace SharpConsoleUI.Highlighting
 	/// instances. The single source of truth for the language→highlighter mapping, shared by the
 	/// markdown code-block renderer and any other consumer (e.g. MultilineEditControl), so the
 	/// mapping is never duplicated per consumer.
+	/// <para>
+	/// Languages that are not explicitly registered fall back to a TextMate grammar, so roughly
+	/// 64 languages resolve out of the box with no initialization call. Grammars load on first
+	/// use. An explicit <see cref="Register"/> call always takes precedence over the fallback.
+	/// </para>
 	/// </summary>
 	public static class SyntaxHighlighters
 	{
@@ -24,26 +29,24 @@ namespace SharpConsoleUI.Highlighting
 		private static readonly ConcurrentDictionary<string, ISyntaxHighlighter> Map =
 			new(StringComparer.OrdinalIgnoreCase);
 
+		// Maps historical alias spellings onto TextMate language ids.
+		private static readonly ConcurrentDictionary<string, string> Aliases =
+			new(StringComparer.OrdinalIgnoreCase);
+
 		static SyntaxHighlighters()
 		{
-			void Reg(ISyntaxHighlighter hl, params string[] names)
-			{
-				foreach (var n in names) Register(n, hl);
-			}
+			// Only what the TextMate fallback cannot resolve is pre-registered. Everything else
+			// (csharp/cs, json, javascript/js/mjs/cjs, css, html/htm, xml, yaml/yml, razor/cshtml,
+			// dockerfile/docker, diff/patch, markdown/md, bash/sh/zsh) resolves lazily through
+			// TextMate. Registering them here would both add a redundant hop and force the engine
+			// to be built during static initialization, defeating the lazy default.
+#pragma warning disable CS0618 // SlnSyntaxHighlighter has no TextMate grammar and stays regex-based.
+			Register("sln", new SlnSyntaxHighlighter());
+#pragma warning restore CS0618
 
-			Reg(new CSharpSyntaxHighlighter(), "csharp", "cs");
-			Reg(new JsonSyntaxHighlighter(), "json");
-			Reg(new JsSyntaxHighlighter(), "javascript", "js", "node", "mjs", "cjs");
-			Reg(new CssSyntaxHighlighter(), "css");
-			Reg(new HtmlSyntaxHighlighter(), "html", "htm");
-			Reg(new XmlSyntaxHighlighter(), "xml");
-			Reg(new YamlSyntaxHighlighter(), "yaml", "yml");
-			Reg(new RazorSyntaxHighlighter(), "razor", "cshtml");
-			Reg(new DockerfileSyntaxHighlighter(), "dockerfile", "docker");
-			Reg(new SlnSyntaxHighlighter(), "sln");
-			Reg(new DiffSyntaxHighlighter(), "diff", "patch");
-			Reg(new MarkdownSyntaxHighlighter(), "markdown", "md");
-			Reg(new BashSyntaxHighlighter(), "bash", "sh", "shell", "zsh");
+			// Aliases TextMate does not know, bridged onto the language ids it does.
+			Aliases["node"] = "javascript";
+			Aliases["shell"] = "shellscript";
 		}
 
 		/// <summary>Returns the highlighter for a language name/alias, or null if none is registered.</summary>
@@ -52,7 +55,18 @@ namespace SharpConsoleUI.Highlighting
 		{
 			if (string.IsNullOrWhiteSpace(language))
 				return null;
-			return Map.TryGetValue(language.Trim(), out var hl) ? hl : null;
+
+			string key = language.Trim();
+			if (Map.TryGetValue(key, out var hl))
+				return hl;
+
+			// Translate historical aliases onto TextMate language ids.
+			if (Aliases.TryGetValue(key, out var mapped))
+				key = mapped;
+
+			// Fall back to a TextMate grammar. Grammars load lazily, so languages nobody asks
+			// for cost nothing. An explicit Register() call always takes precedence.
+			return TextMate.TextMateEngine.Instance.GetHighlighter(key);
 		}
 
 		/// <summary>Registers (or overrides) a highlighter for a language name/alias. Additive; built-ins remain.</summary>
