@@ -62,6 +62,8 @@
 		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.300" PrivateAssets="all" />
 		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
 		<PackageReference Include="Spectre.Console" Version="0.55.0" />
+		<PackageReference Include="TextMateSharp" Version="2.0.4" />
+		<PackageReference Include="TextMateSharp.Grammars" Version="2.0.4" />
 		<PackageReference Include="Wcwidth.Sources" Version="4.0.1" />
 	</ItemGroup>
 

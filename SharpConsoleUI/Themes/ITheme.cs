@@ -50,6 +50,13 @@ public interface ITheme
 	Color? SecondaryColor => null;
 	/// <summary>Tertiary accent seed. Null = derived from Secondary.</summary>
 	Color? TertiaryColor => null;
+
+	/// <summary>
+	/// Gets the per-role colours used to render syntax-highlighted code. Returns <c>null</c> when
+	/// the theme specifies none, in which case <see cref="SyntaxPalette.DeriveFrom(ITheme)"/>
+	/// supplies defaults derived from the theme's base colours.
+	/// </summary>
+	SyntaxPalette? SyntaxColors => null;
 	/// <summary>Info status seed. Null = a mode-tuned cyan/blue.</summary>
 	Color? InfoColor => null;
 	/// <summary>Success status seed. Null = a mode-tuned green.</summary>

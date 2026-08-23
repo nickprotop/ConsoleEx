@@ -1153,5 +1153,14 @@ namespace SharpConsoleUI.Configuration
 		public const string LogViewerExportDefaultFileName = "export.log";
 
 		#endregion
+
+		/// <summary>Minimum luminance gap between syntax colours and the code background.</summary>
+		public const double SyntaxMinimumContrastGap = 80.0;
+
+		/// <summary>Milliseconds a single line may spend in the TextMate tokenizer before it gives up.</summary>
+		public const int SyntaxTokenizeTimeoutMs = 500;
+
+		/// <summary>Lines of tokenized output retained per grammar before the least-recently-used is dropped.</summary>
+		public const int SyntaxTokenCacheSize = 4096;
 	}
 }
