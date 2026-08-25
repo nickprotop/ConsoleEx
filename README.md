@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://www.nuget.org/packages/SharpConsoleUI"><img src="https://img.shields.io/nuget/v/SharpConsoleUI.svg" alt="NuGet"></a>
   <a href="https://www.nuget.org/packages/SharpConsoleUI"><img src="https://img.shields.io/nuget/dt/SharpConsoleUI.svg" alt="NuGet Downloads"></a>
-  <a href="https://github.com/nickprotop/ConsoleEx/actions"><img src="https://github.com/nickprotop/ConsoleEx/actions/workflows/build-and-publish.yml/badge.svg" alt="Build"></a>
+  <a href="https://github.com/nickprotop/ConsoleEx/actions/workflows/code-quality.yml"><img src="https://github.com/nickprotop/ConsoleEx/actions/workflows/code-quality.yml/badge.svg?branch=master" alt="Build and tests"></a>
   <a href="LICENSE.txt"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
   <a href="https://dotnet.microsoft.com"><img src="https://img.shields.io/badge/.NET-8.0%2B-purple" alt=".NET"></a>
   <a href="docs/AOT.md"><img src="https://img.shields.io/badge/NativeAOT-ready-brightgreen" alt="NativeAOT Ready"></a>
