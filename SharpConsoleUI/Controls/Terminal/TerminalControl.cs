@@ -13,6 +13,7 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
 
@@ -138,6 +139,69 @@ public sealed class TerminalControl
 	/// readline to redraw the prompt. Call before a programmatic reparent.
 	/// </summary>
 	public void NudgeOnNextResize() => _nudgeReadlineOnResize = true;
+
+	/// <summary>
+	/// Every line the terminal has shown, oldest first: scrollback history, then the
+	/// current screen. Trailing whitespace is trimmed from each line and blank lines are
+	/// dropped from the end of the result; interior blank lines are real output and kept.
+	/// <para>
+	/// Remains readable after the process exits — <see cref="Dispose"/> tears down the PTY
+	/// only, and the VT machine with its buffers survives, so a <see cref="ProcessExited"/>
+	/// handler (which fires after disposal) can still collect the transcript. Any future
+	/// change to <see cref="Dispose"/> must preserve that, or such handlers break silently.
+	/// </para>
+	/// </summary>
+	public IReadOnlyList<string> GetTranscript()
+	{
+		lock (_lock)
+		{
+			var lines = new List<string>(_vt.ScrollbackCount + _vt.Height);
+			var sb = new StringBuilder(_vt.Width);
+
+			// GetScrollbackLine(0) is the MOST RECENTLY scrolled-off line, so oldest-first
+			// means walking the indices downward.
+			for (int i = _vt.ScrollbackCount - 1; i >= 0; i--)
+				lines.Add(RenderRow(_vt.GetScrollbackLine(i), sb));
+
+			// Scrollback holds only lines that scrolled OFF the screen; the final screenful —
+			// where a command's outcome almost always is — still lives in the screen buffer.
+			// A transcript of scrollback alone would omit the answer.
+			for (int y = 0; y < _vt.Height; y++)
+			{
+				sb.Clear();
+				for (int x = 0; x < _vt.Width; x++)
+					AppendCell(sb, _vt.Screen.GetCell(x, y));
+				lines.Add(sb.ToString().TrimEnd());
+			}
+
+			// The screen's unused rows are entirely blank; without this the transcript of a
+			// short command ends in a page of empty lines.
+			int end = lines.Count;
+			while (end > 0 && lines[end - 1].Length == 0)
+				end--;
+			lines.RemoveRange(end, lines.Count - end);
+			return lines;
+		}
+	}
+
+	private static string RenderRow(Cell[]? row, StringBuilder sb)
+	{
+		// A null row (index raced out of range, or width changed under the ring buffer)
+		// still occupies its place in time; an empty line keeps the ordering honest.
+		if (row == null) return string.Empty;
+		sb.Clear();
+		for (int x = 0; x < row.Length; x++)
+			AppendCell(sb, row[x]);
+		return sb.ToString().TrimEnd();
+	}
+
+	private static void AppendCell(StringBuilder sb, in Cell cell)
+	{
+		// A wide glyph occupies two cells; appending its continuation would double it.
+		if (cell.IsWideContinuation) return;
+		sb.AppendRune(cell.Character);
+		if (cell.Combiners != null) sb.Append(cell.Combiners);
+	}
 
 	/// <inheritdoc/>
 	public void Dispose()
