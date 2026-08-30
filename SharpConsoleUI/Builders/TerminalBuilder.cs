@@ -26,6 +26,7 @@ public class TerminalBuilder
 	private string? _workingDirectory;
 	private ILogService? _logService;
 	private Color? _defaultBackground;
+	private bool _closeWindowOnExit = true;
 
 	/// <summary>Sets the executable to launch inside the terminal.</summary>
 	public TerminalBuilder WithExe(string exe) { _exe = exe; return this; }
@@ -41,9 +42,20 @@ public class TerminalBuilder
 	/// so the host terminal's own background (or its transparency) shows through.
 	/// </summary>
 	public TerminalBuilder WithBackgroundColor(Color color) { _defaultBackground = color; return this; }
+	/// <summary>
+	/// Keeps the containing window open after the process exits instead of the default
+	/// self-close. Input stops on its own (the PTY is gone) but scrolling and
+	/// <see cref="TerminalControl.GetTranscript"/> keep working, so the
+	/// final screen stays until the host closes the window — typically from a
+	/// <see cref="TerminalControl.ProcessExited"/> handler.
+	/// </summary>
+	public TerminalBuilder KeepOpenOnExit() { _closeWindowOnExit = false; return this; }
 
 	/// <summary>Returns a self-contained TerminalControl (PTY open, shim running, read loop active).</summary>
-	public TerminalControl Build() => new TerminalControl(_exe, _args, _workingDirectory, _logService, _defaultBackground);
+	public TerminalControl Build() => new TerminalControl(_exe, _args, _workingDirectory, _logService, _defaultBackground)
+	{
+		CloseWindowOnExit = _closeWindowOnExit,
+	};
 
 	/// <summary>
 	/// Convenience: builds a TerminalControl and opens a default centered window.

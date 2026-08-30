@@ -59,6 +59,16 @@ public sealed class TerminalControl
 	/// </summary>
 	public int? ExitCode => _pty.ExitCode;
 
+	/// <summary>
+	/// Whether the containing window force-closes itself when the process exits. True by
+	/// default because every existing consumer relies on the window tearing itself down at
+	/// EOF; keeping it open is opt-in via <see cref="Builders.TerminalBuilder.KeepOpenOnExit"/>.
+	/// When false the final screen stays put — scrolling and <see cref="GetTranscript"/> keep
+	/// working after disposal — and closing the window becomes the host's job, typically from
+	/// a <see cref="ProcessExited"/> handler after reading <see cref="ExitCode"/>.
+	/// </summary>
+	public bool CloseWindowOnExit { get; init; } = true;
+
 	/// <summary>Raised on the PTY read thread when the spawned process exits.</summary>
 	public event EventHandler? ProcessExited;
 
@@ -113,21 +123,27 @@ public sealed class TerminalControl
 			}
 			Invalidate(Invalidation.Relayout);
 		}
-		_log?.LogInfo($"TerminalControl.ReadLoop: EOF reached (pid={_pty.ChildProcessId}), closing window", "Terminal");
-		// EOF or backend closed — clean up and close the containing window.
+		_log?.LogInfo($"TerminalControl.ReadLoop: EOF reached (pid={_pty.ChildProcessId}), closeWindowOnExit={CloseWindowOnExit}", "Terminal");
+		// EOF or backend closed — clean up, tell the host, and (by default) close the window.
 		// Dispose MUST run before the event is raised: the backend's dispose is where the wait
 		// on the child happens and where ExitCode is captured, so this ordering is what lets a
 		// ProcessExited handler read ExitCode. Raising first would hand every handler null.
 		Dispose();
+		// The event fires regardless of CloseWindowOnExit: a host keeping the window open still
+		// needs to know the process is gone — this is its cue to read ExitCode/GetTranscript()
+		// and, on its own terms, close the window itself.
 		SharpConsoleUI.Core.AsyncEvent.Raise(ProcessExited, ProcessExitedAsync, this, EventArgs.Empty, _log);
-		var window = Container as Window;
-		if (window != null)
+		if (CloseWindowOnExit)
 		{
-			var windowSystem = window.GetConsoleWindowSystem;
-			if (windowSystem != null)
-				windowSystem.EnqueueOnUIThread(() => window.Close(force: true));
-			else
-				window.Close(force: true);
+			var window = Container as Window;
+			if (window != null)
+			{
+				var windowSystem = window.GetConsoleWindowSystem;
+				if (windowSystem != null)
+					windowSystem.EnqueueOnUIThread(() => window.Close(force: true));
+				else
+					window.Close(force: true);
+			}
 		}
 	}
 
