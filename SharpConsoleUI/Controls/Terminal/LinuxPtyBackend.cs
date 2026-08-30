@@ -50,6 +50,14 @@ internal sealed class LinuxPtyBackend : IPtyBackend
 
 	public int ChildProcessId => _shimProc.Id;
 
+	/// <summary>
+	/// After execvp the shim process IS the target command — same pid, same exit status — so
+	/// waiting on <c>_shimProc</c> yields the command's own status, not a wrapper's.
+	/// </summary>
+	public int? ExitCode => _exitCode;
+
+	private int? _exitCode;
+
 	public int Read(byte[] buf, int count) => PtyNative.read(_masterFd, buf, count);
 
 	public void Write(byte[] buf, int count) => PtyNative.write(_masterFd, buf, count);
@@ -66,7 +74,14 @@ internal sealed class LinuxPtyBackend : IPtyBackend
 		{
 			_log?.LogDebug($"LinuxPtyBackend.Dispose: closing master fd {_masterFd}, waiting on shim pid {_shimProc.Id}", "PTY");
 			try { PtyNative.close(_masterFd); } catch { }
-			try { _shimProc.WaitForExit(500); } catch { }
+			// Process.ExitCode throws while the process is alive, so it is only read once the
+			// wait confirms exit; a timed-out wait leaves ExitCode null rather than crashing.
+			try
+			{
+				if (_shimProc.WaitForExit(500))
+					_exitCode = _shimProc.ExitCode;
+			}
+			catch { }
 		}
 	}
 }

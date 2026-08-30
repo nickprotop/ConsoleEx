@@ -147,4 +147,13 @@ internal static class WinPtyNative
 
 	[DllImport("kernel32.dll", SetLastError = true)]
 	public static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
+
+	[DllImport("kernel32.dll", SetLastError = true)]
+	public static extern bool GetExitCodeProcess(IntPtr hProcess, out uint lpExitCode);
+
+	/// <summary>
+	/// GetExitCodeProcess reports this for a process that has not exited. A process that really
+	/// exited with 259 is indistinguishable from a running one, so 259 must read as "unknown".
+	/// </summary>
+	public const uint STILL_ACTIVE = 259;
 }

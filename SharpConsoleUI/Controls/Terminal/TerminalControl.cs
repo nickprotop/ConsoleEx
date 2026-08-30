@@ -50,6 +50,14 @@ public sealed class TerminalControl
 	/// <summary>The OS process ID of the child process running inside the PTY.</summary>
 	public int ProcessId => _pty.ChildProcessId;
 
+	/// <summary>
+	/// The exit status of the process this terminal ran, or null while it is still running
+	/// (or when the status could not be determined). A host that launches one command in a
+	/// terminal reads this to learn whether the command worked — zero is a real answer and
+	/// means success, not "unknown".
+	/// </summary>
+	public int? ExitCode => _pty.ExitCode;
+
 	/// <summary>Raised on the PTY read thread when the spawned process exits.</summary>
 	public event EventHandler? ProcessExited;
 
@@ -87,6 +95,7 @@ public sealed class TerminalControl
 		_log?.LogInfo($"TerminalControl: PTY read thread started (childPid={_pty.ChildProcessId})", "Terminal");
 	}
 
+
 	private void ReadLoop()
 	{
 		_log?.LogDebug($"TerminalControl.ReadLoop: entering (pid={_pty.ChildProcessId})", "Terminal");
@@ -105,6 +114,9 @@ public sealed class TerminalControl
 		}
 		_log?.LogInfo($"TerminalControl.ReadLoop: EOF reached (pid={_pty.ChildProcessId}), closing window", "Terminal");
 		// EOF or backend closed — clean up and close the containing window.
+		// Dispose MUST run before the event is raised: the backend's dispose is where the wait
+		// on the child happens and where ExitCode is captured, so this ordering is what lets a
+		// ProcessExited handler read ExitCode. Raising first would hand every handler null.
 		Dispose();
 		SharpConsoleUI.Core.AsyncEvent.Raise(ProcessExited, ProcessExitedAsync, this, EventArgs.Empty, _log);
 		var window = Container as Window;

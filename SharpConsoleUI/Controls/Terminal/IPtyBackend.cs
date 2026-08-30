@@ -28,4 +28,12 @@ internal interface IPtyBackend : IDisposable
 
 	/// <summary>The OS process ID of the child process running inside the PTY.</summary>
 	int ChildProcessId { get; }
+
+	/// <summary>
+	/// The child's exit status once it has exited; null while it is still running or when the
+	/// status could not be determined (the post-EOF wait timed out). Both backends learn the
+	/// status during <see cref="IDisposable.Dispose"/> — that is where the wait on the child
+	/// already lives — so it only becomes non-null after disposal.
+	/// </summary>
+	int? ExitCode { get; }
 }

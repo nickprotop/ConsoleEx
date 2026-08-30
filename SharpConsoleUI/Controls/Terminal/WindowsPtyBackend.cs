@@ -123,6 +123,10 @@ internal sealed class WindowsPtyBackend : IPtyBackend
 
 	public int ChildProcessId => _processId;
 
+	public int? ExitCode => _exitCode;
+
+	private int? _exitCode;
+
 	public int Read(byte[] buf, int count)
 	{
 		if (_outputStream == null) return 0;
@@ -171,6 +175,15 @@ internal sealed class WindowsPtyBackend : IPtyBackend
 		if (_hProcess != IntPtr.Zero)
 		{
 			WinPtyNative.WaitForSingleObject(_hProcess, 1000);
+			// The status must be read before CloseHandle — afterwards there is nothing to ask.
+			// STILL_ACTIVE (259) means the wait above timed out with the process still running:
+			// that is "unknown", not an exit status (see WinPtyNative.STILL_ACTIVE for the
+			// collision this creates with a real 259).
+			if (WinPtyNative.GetExitCodeProcess(_hProcess, out uint exitCode)
+				&& exitCode != WinPtyNative.STILL_ACTIVE)
+			{
+				_exitCode = unchecked((int)exitCode);
+			}
 			WinPtyNative.CloseHandle(_hProcess);
 			_hProcess = IntPtr.Zero;
 		}
