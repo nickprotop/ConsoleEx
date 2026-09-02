@@ -269,7 +269,19 @@ namespace SharpConsoleUI.Controls
 					MouseFlags.Button2Pressed, MouseFlags.Button2Clicked, MouseFlags.Button2Released,
 					MouseFlags.Button3Pressed, MouseFlags.Button3Clicked, MouseFlags.Button3Released);
 
-				if (isClickEvent && clickedControl is IFocusableControl focusable && focusable.CanReceiveFocus)
+				// A CONTAINER IS ON THE WAY TO THE TARGET, NOT THE TARGET. The hit test returns this
+				// grid's DIRECT child, so a click deep inside a nested container resolves to the
+				// container — and focusing it steals focus from whatever the user actually clicked.
+				// A TabControl is the case that exposes this: it reports CanReceiveFocus for its
+				// header whenever it holds a tab, so every click anywhere in a tab's content focused
+				// the header strip instead of the control under the cursor.
+				//
+				// LEAVES FOCUS THEMSELVES. ButtonControl, PromptControl, MarkupControl and the rest
+				// all call SetFocus from their own mouse handlers, so the forward below reaches the
+				// real target and it claims focus — which is both correct and what already happens
+				// for every direct leaf child of this grid.
+				if (isClickEvent && clickedControl is not IContainerControl
+					&& clickedControl is IFocusableControl focusable && focusable.CanReceiveFocus)
 					this.GetParentWindow()?.FocusManager.SetFocus(focusable, FocusReason.Mouse);
 
 				if (clickedControl is IMouseAwareControl mouseAware && mouseAware.WantsMouseEvents)
