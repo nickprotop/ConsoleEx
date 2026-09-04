@@ -620,8 +620,20 @@ namespace SharpConsoleUI.Controls
 			int left = bounds.X + Margin.Left;
 			int right = bounds.X + bounds.Width - Margin.Right;
 
-			for (int x = left; x < right; x++)
-				buffer.SetNarrowCell(x, headerY, ' ', fg, bg);
+			// EVERY WRITE BELOW IS CLIPPED. This header used to paint at its arranged position with no
+			// regard for clipRect, unlike the bordered path (which routes through PanelBorderRenderer)
+			// and unlike the body (painted by the layout engine). A panel scrolled above its host's
+			// viewport still drew its header row — landing on whatever chrome owned that row, e.g. the
+			// tab header strip of an enclosing TabControl.
+			bool headerVisible = headerY >= clipRect.Y && headerY < clipRect.Bottom;
+			int clippedLeft = Math.Max(left, clipRect.X);
+			int clippedRight = Math.Min(right, clipRect.Right);
+
+			if (headerVisible)
+			{
+				for (int x = clippedLeft; x < clippedRight; x++)
+					buffer.SetNarrowCell(x, headerY, ' ', fg, bg);
+			}
 
 			// The title follows BorderColor when one is set (so WithBorderColor colors the title even in
 			// borderless mode, issue #49); otherwise the resolved foreground. Markup in the title still
@@ -633,15 +645,20 @@ namespace SharpConsoleUI.Controls
 			int textWidth = Math.Min(cells.Count, avail);
 			int startX = left + HorizontalOffset(textWidth, avail, _headerAlignment);
 
-			var headerClip = new LayoutRect(left, headerY, avail, 1);
+			// Intersected with the INHERITED clip, not just the header row: on its own this rect would
+			// happily place the title outside the host viewport.
+			var headerClip = new LayoutRect(left, headerY, avail, 1).Intersect(clipRect);
 			buffer.WriteCellsClipped(startX, headerY, cells, headerClip);
 
 			if (_showHeaderSeparator)
 			{
 				int sepY = headerY + 1;
-				Color sep = ResolveChromeColor(fg);
-				for (int x = left; x < right; x++)
-					buffer.SetNarrowCell(x, sepY, '─', sep, bg);
+				if (sepY >= clipRect.Y && sepY < clipRect.Bottom)
+				{
+					Color sep = ResolveChromeColor(fg);
+					for (int x = clippedLeft; x < clippedRight; x++)
+						buffer.SetNarrowCell(x, sepY, '─', sep, bg);
+				}
 			}
 		}
 
