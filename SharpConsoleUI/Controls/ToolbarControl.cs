@@ -123,6 +123,8 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => _isEnabled && GetFocusableItems().Any();
 
+
+
 		/// <inheritdoc/>
 		public override IContainer? Container
 		{
@@ -945,6 +947,17 @@ namespace SharpConsoleUI.Controls
 			return (null, default);
 		}
 
+		/// <summary>
+		/// Moves focus to the next item, wrapping at the ends.
+		/// </summary>
+		/// <remarks>
+		/// SEPARATE FROM <see cref="NavigateFocus"/>, WHICH DELIBERATELY EXITS AT THE ENDS. That is
+		/// right for an arrow — pressing → past the last item should leave the row, the way it leaves
+		/// any other container — and wrong for Tab, which a user presses to reach the NEXT choice and
+		/// expects to keep working. A two-button confirmation is the case that matters: without
+		/// wrapping, one press reaches the first button and the second press leaves the row, so the
+		/// second button is unreachable by keyboard.
+		/// </remarks>
 		private bool NavigateFocus(bool backward)
 		{
 			var focusableItems = GetFocusableItems().ToList();
