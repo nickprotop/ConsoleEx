@@ -123,8 +123,6 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => _isEnabled && GetFocusableItems().Any();
 
-
-
 		/// <inheritdoc/>
 		public override IContainer? Container
 		{
