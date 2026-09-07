@@ -948,15 +948,12 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Moves focus to the next item, wrapping at the ends.
+		/// Moves focus to the next item, LEAVING THE ROW at either end.
 		/// </summary>
 		/// <remarks>
-		/// SEPARATE FROM <see cref="NavigateFocus"/>, WHICH DELIBERATELY EXITS AT THE ENDS. That is
-		/// right for an arrow — pressing → past the last item should leave the row, the way it leaves
-		/// any other container — and wrong for Tab, which a user presses to reach the NEXT choice and
-		/// expects to keep working. A two-button confirmation is the case that matters: without
-		/// wrapping, one press reaches the first button and the second press leaves the row, so the
-		/// second button is unreachable by keyboard.
+		/// EXITING IS THE POINT, not a limitation. A toolbar is a focus SCOPE: an arrow past the last
+		/// item should leave it the way it leaves any other container, and the window's traversal
+		/// takes over from there. `ToolbarFocusScopeTests` pins that in both directions.
 		/// </remarks>
 		private bool NavigateFocus(bool backward)
 		{
