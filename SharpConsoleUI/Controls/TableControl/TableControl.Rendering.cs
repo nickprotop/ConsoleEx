@@ -724,13 +724,38 @@ public partial class TableControl
 			currentY++;
 		}
 
-		// Build render-time column list with dummy entry for checkbox column
+		// Build render-time column list with dummy entry for checkbox column.
+		//
+		// IN DATA-SOURCE MODE colSnapshot IS NULL (the branch above reads only ColumnCount), so
+		// without this the null flowed into DrawDataRow and its alignment lookup fell through to the
+		// Left default for every column — ITableDataSource.GetColumnAlignment was declared,
+		// implemented by data sources, and never consulted anywhere (issue #78). SetColumnAlignment
+		// could not compensate either: it writes into _columns, which is empty here.
+		//
+		// Projecting the alignment into the same TableColumn list the non-data-source path already
+		// builds keeps DrawDataRow and the checkbox offset below untouched — the checkbox dummy is
+		// prepended to this list exactly as it is for bound columns, so indices stay aligned.
 		List<TableColumn>? renderCols = colSnapshot;
-		if (_checkboxMode && colSnapshot != null)
+		if (renderCols == null && _dataSource != null)
 		{
-			renderCols = new List<TableColumn>(colSnapshot.Count + 1);
-			renderCols.Add(new TableColumn { Header = "", Alignment = TextJustification.Left, Width = 4 });
-			renderCols.AddRange(colSnapshot);
+			renderCols = new List<TableColumn>(colCount);
+			for (int c = 0; c < colCount; c++)
+			{
+				renderCols.Add(new TableColumn
+				{
+					Header = _dataSource.GetColumnHeader(c),
+					Alignment = _dataSource.GetColumnAlignment(c),
+					Width = _dataSource.GetColumnWidth(c)
+				});
+			}
+		}
+
+		if (_checkboxMode && renderCols != null)
+		{
+			var withCheckbox = new List<TableColumn>(renderCols.Count + 1);
+			withCheckbox.Add(new TableColumn { Header = "", Alignment = TextJustification.Left, Width = 4 });
+			withCheckbox.AddRange(renderCols);
+			renderCols = withCheckbox;
 		}
 
 		// Top border
