@@ -180,6 +180,14 @@ public partial class TableControl
 		_filterBuffer = compound.RawText;
 		_filterMode = FilterMode.Confirmed;
 
+		// PUSH THE FILTER DOWN when the source can do it itself. Client-side filtering walks every
+		// row calling GetCellValue per column, which pulls a virtualized source fully into memory —
+		// the opposite of what ITableDataSource exists for. A source advertising CanFilter narrows
+		// itself instead, so RowCount already reflects the filtered set and the display map stays
+		// null (identity mapping).
+		if (TryDelegateFilter(compound))
+			return;
+
 		// Store unfiltered count before filtering
 		if (_filterIndexMap == null)
 		{
@@ -198,6 +206,41 @@ public partial class TableControl
 		Core.AsyncEvent.Raise(FilterApplied, FilterAppliedAsync, this, compound.RawText, Container?.GetConsoleWindowSystem?.LogService);
 		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);
+	}
+
+	/// <summary>
+	/// Hands the filter to the data source when it can apply one itself, returning true if it did.
+	/// </summary>
+	/// <remarks>
+	/// The source hook takes a single (text, column, operator) triple, so only a filter that reduces
+	/// to ONE expression can be expressed through it. A compound AND/OR filter is therefore kept
+	/// client-side: delegating it would silently drop every condition but the first, which is worse
+	/// than being slow.
+	/// </remarks>
+	private bool TryDelegateFilter(CompoundFilterExpression compound)
+	{
+		if (_dataSource == null || !_dataSource.CanFilter)
+			return false;
+
+		if (compound.Terms.Count != 1 || compound.Terms[0].Alternatives.Count != 1)
+			return false;
+
+		var expression = compound.Terms[0].Alternatives[0];
+		_dataSource.ApplyFilter(expression.Value, expression.ColumnName, expression.Operator);
+
+		// The source now reports only matching rows, so no display map is needed: RowCount reads
+		// through to it and MapDisplayToData stays identity.
+		_filterIndexMap = null;
+		_unfilteredRowCount = 0;
+
+		_selectedRowIndex = RowCount > 0 ? 0 : -1;
+		_scrollOffset = 0;
+		_selectedRowIndices.Clear();
+
+		Core.AsyncEvent.Raise(FilterApplied, FilterAppliedAsync, this, compound.RawText, Container?.GetConsoleWindowSystem?.LogService);
+		InvalidateColumnWidths();
+		Invalidate(Invalidation.Relayout);
+		return true;
 	}
 
 	/// <summary>
@@ -239,7 +282,14 @@ public partial class TableControl
 	/// </summary>
 	public void ClearFilter()
 	{
-		if (_filterMode == FilterMode.None && _filterIndexMap == null) return;
+		// A DELEGATED filter leaves _filterIndexMap null (the source narrowed itself), so the guard
+		// below cannot tell "no filter" from "filtered server-side" on its own — ask the source to
+		// drop its filter first, then fall through to reset local state.
+		bool delegated = _dataSource != null && _dataSource.CanFilter && _activeFilter != null;
+		if (delegated)
+			_dataSource!.ClearFilter();
+
+		if (!delegated && _filterMode == FilterMode.None && _filterIndexMap == null) return;
 
 		_filterMode = FilterMode.None;
 		_filterBuffer = string.Empty;
@@ -388,13 +438,20 @@ public partial class TableControl
 			var compound = ParseCompoundFilterExpression(_filterBuffer);
 			_activeFilter = compound;
 
-			if (compound != null)
-				RecomputeDisplayMap();
-			else
-				_filterIndexMap = null;
+			// Live typing goes through the same seam as the programmatic API, so a source that
+			// filters itself is not scanned row-by-row on every keystroke. TryDelegateFilter already
+			// resets selection and scroll, so only the client-side branch needs to do it here —
+			// but FilterTextChanged below must still fire either way.
+			if (compound == null || !TryDelegateFilter(compound))
+			{
+				if (compound != null)
+					RecomputeDisplayMap();
+				else
+					_filterIndexMap = null;
 
-			_selectedRowIndex = RowCount > 0 ? 0 : -1;
-			_scrollOffset = 0;
+				_selectedRowIndex = RowCount > 0 ? 0 : -1;
+				_scrollOffset = 0;
+			}
 		}
 
 		_selectedRowIndices.Clear();
