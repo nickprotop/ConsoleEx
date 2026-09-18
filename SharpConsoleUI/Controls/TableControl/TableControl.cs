@@ -914,6 +914,30 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	}
 
 	/// <summary>
+	/// Gets the caller's tag object for a row, or null when there is none.
+	/// </summary>
+	/// <remarks>
+	/// Reads <see cref="ITableDataSource.GetRowTag"/> when a data source is attached and
+	/// <see cref="TableRow.Tag"/> otherwise, so a row's identity can be recovered the same way in
+	/// both modes. <see cref="GetRow"/> cannot serve the data-source case: it reads the
+	/// <c>_rows</c> list, which is empty whenever a source is attached, and throws.
+	/// </remarks>
+	/// <param name="index">The row index. Out-of-range indices return null rather than throwing.</param>
+	/// <returns>The row's tag, or null.</returns>
+	public object? GetRowTagAt(int index)
+	{
+		if (index < 0) return null;
+
+		if (_dataSource != null)
+			return index < _dataSource.RowCount ? _dataSource.GetRowTag(index) : null;
+
+		lock (_tableLock)
+		{
+			return index < _rows.Count ? _rows[index].Tag : null;
+		}
+	}
+
+	/// <summary>
 	/// Sets all rows at once.
 	/// </summary>
 	public void SetData(IEnumerable<TableRow> rows)
