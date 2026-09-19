@@ -152,7 +152,7 @@ namespace SharpConsoleUI.Flows
 			{
 				content.StateChanged -= onStateChanged;
 				// Idempotent close, marshalled to the UI thread, so cancel/fault never leaks the window.
-				_ws.EnqueueOnUIThread(() => modal.Close());
+				_ws.EnqueueOnUIThread(() => modal.Close(), "modalWindowHost.ConfigureAwait");
 			}
 		}
 

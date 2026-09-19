@@ -235,7 +235,7 @@ namespace SharpConsoleUI.Input
 							bool shouldConsume = topPortal.ConsumeClickOnDismiss;
 							// Runs on the driver input thread; portal teardown restores screen regions / touches
 							// the shared console buffer and must not race the render loop (a torn flush spews ANSI).
-							_context.EnqueueOnUIThread(() => _context.DesktopPortalService.DismissAllPortals());
+							_context.EnqueueOnUIThread(() => _context.DesktopPortalService.DismissAllPortals(), "inputCoordinator.action");
 							if (shouldConsume)
 								return;
 						}

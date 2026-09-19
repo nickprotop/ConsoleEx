@@ -201,7 +201,7 @@ internal sealed class LogTableDataSource : ITableDataSource, IDisposable
 	private void Marshal(Action action)
 	{
 		var system = _system;
-		if (system != null) system.EnqueueOnUIThread(action);
+		if (system != null) system.EnqueueOnUIThread(action, "logTableDataSource.Marshal");
 		else action(); // not attached yet: apply directly (creation-thread path)
 	}
 

@@ -502,7 +502,7 @@ namespace SharpConsoleUI.Flows
 
 			// Progress reporter: marshals each update to the UI thread and applies non-null fields.
 			var progress = new Progress<Dialogs.ProgressUpdate>(u =>
-				_ws.EnqueueOnUIThread(() => ApplyUpdate(u)));
+				_ws.EnqueueOnUIThread(() => ApplyUpdate(u), "primitiveStepContents.ApplyUpdate"));
 
 			_ = Task.Run(async () =>
 			{

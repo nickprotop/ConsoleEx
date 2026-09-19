@@ -68,7 +68,7 @@ namespace SharpConsoleUI.Windows
 							$"[yellow on grey11] ⏳ Waiting for thread to stop... ({remainingSeconds}s remaining) [/]"
 						});
 						window.Invalidate(Invalidation.Relayout);
-					});
+					}, "windowLifecycleHelper.BeginGracePeriodClose");
 				}
 			};
 			countdownTimer.Start();
@@ -103,7 +103,7 @@ namespace SharpConsoleUI.Windows
 								{
 									window.CompleteClose();
 								}
-							});
+							}, "windowLifecycleHelper.Delay");
 						}
 						else
 						{
@@ -124,13 +124,13 @@ namespace SharpConsoleUI.Windows
 								"[red on yellow] ⚠ Thread did not respond - transforming to error state... [/]"
 							});
 							window.Invalidate(Invalidation.Relayout);
-						});
+						}, "windowLifecycleHelper.Delay");
 
 						await Task.Delay(ControlDefaults.ErrorTransformDelayMs); // Brief pause so user sees message
 
 						if (window._windowSystem != null)
 						{
-							window._windowSystem.EnqueueOnUIThread(() => TransformToErrorWindow(window, statusControl));
+							window._windowSystem.EnqueueOnUIThread(() => TransformToErrorWindow(window, statusControl), "windowLifecycleHelper.Delay");
 						}
 						else
 						{
@@ -151,7 +151,7 @@ namespace SharpConsoleUI.Windows
 						{
 							if (!window._windowSystem.CloseWindow(window, force: true))
 								window.CompleteClose();
-						});
+						}, "windowLifecycleHelper.Delay");
 					}
 					else
 					{

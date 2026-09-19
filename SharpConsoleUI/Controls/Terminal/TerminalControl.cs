@@ -140,7 +140,7 @@ public sealed class TerminalControl
 			{
 				var windowSystem = window.GetConsoleWindowSystem;
 				if (windowSystem != null)
-					windowSystem.EnqueueOnUIThread(() => window.Close(force: true));
+					windowSystem.EnqueueOnUIThread(() => window.Close(force: true), "terminalControl.ReadLoop");
 				else
 					window.Close(force: true);
 			}

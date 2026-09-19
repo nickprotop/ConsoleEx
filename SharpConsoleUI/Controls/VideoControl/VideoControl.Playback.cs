@@ -76,7 +76,7 @@ namespace SharpConsoleUI.Controls
 					{
 						ErrorMessage = VideoDefaults.FfmpegNotFoundMessage;
 						PlaybackState = VideoPlaybackState.Stopped;
-					});
+					}, "videoControl.PlaybackLoopAsync");
 					return;
 				}
 
@@ -86,7 +86,7 @@ namespace SharpConsoleUI.Controls
 				{
 					if (ErrorMessage == VideoDefaults.FfmpegNotFoundMessage)
 						ErrorMessage = null;
-				});
+				}, "videoControl.PlaybackLoopAsync");
 
 				// Determine target cell size from current layout bounds
 				int cellCols = Math.Max(1, ActualWidth - Margin.Left - Margin.Right);
@@ -188,7 +188,7 @@ namespace SharpConsoleUI.Controls
 				Container?.GetConsoleWindowSystem?.EnqueueOnUIThread(() =>
 				{
 					PlaybackState = VideoPlaybackState.Stopped;
-				});
+				}, "videoControl.Delay");
 			}
 		}
 
@@ -209,7 +209,7 @@ namespace SharpConsoleUI.Controls
 					PlaybackState = VideoPlaybackState.Stopped;
 					Core.AsyncEvent.Raise(PlaybackEnded, PlaybackEndedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 				}
-			});
+			}, "videoControl.HandlePlaybackEnd");
 		}
 
 		#endregion

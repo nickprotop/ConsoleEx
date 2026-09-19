@@ -107,7 +107,7 @@ namespace SharpConsoleUI.Flows
 			{
 				window.ActiveBorderForegroundColor = activeBorder;
 				window.InactiveBorderForegroundColor = inactiveBorder;
-			});
+			}, "swapContentHost.action");
 
 			// D2: size the reused window to this step (per the precedence) and re-center for the new
 			// height (Centered() computed position once at build; it does NOT re-center on resize).
@@ -124,7 +124,7 @@ namespace SharpConsoleUI.Flows
 				var desk = _ws.DesktopDimensions;
 				window.Left = System.Math.Max(0, (desk.Width - window.Width) / 2);
 				window.Top = System.Math.Max(0, (desk.Height - window.Height) / 2);
-			});
+			}, "swapContentHost.action");
 
 			FlowStepPresenter.WireBodySelfResolve(content, tcs);
 
@@ -246,7 +246,7 @@ namespace SharpConsoleUI.Flows
 			}
 
 			if (window != null)
-				_ws.EnqueueOnUIThread(() => window.Close());
+				_ws.EnqueueOnUIThread(() => window.Close(), "swapContentHost.Dispose");
 		}
 	}
 }

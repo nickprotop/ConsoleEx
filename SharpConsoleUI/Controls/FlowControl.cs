@@ -149,7 +149,7 @@ namespace SharpConsoleUI.Controls
 			finally
 			{
 				ClearRunning();
-				ws.EnqueueOnUIThread(() => ShowPlaceholder());
+				ws.EnqueueOnUIThread(() => ShowPlaceholder(), "flowControl.action");
 			}
 		}
 
@@ -181,7 +181,7 @@ namespace SharpConsoleUI.Controls
 			finally
 			{
 				ClearRunning();
-				ws.EnqueueOnUIThread(() => ShowPlaceholder());
+				ws.EnqueueOnUIThread(() => ShowPlaceholder(), "flowControl.RunCoreAsync");
 			}
 		}
 
@@ -216,7 +216,7 @@ namespace SharpConsoleUI.Controls
 			finally
 			{
 				ClearRunning();
-				ws.EnqueueOnUIThread(() => ShowPlaceholder());
+				ws.EnqueueOnUIThread(() => ShowPlaceholder(), "flowControl.action");
 			}
 		}
 

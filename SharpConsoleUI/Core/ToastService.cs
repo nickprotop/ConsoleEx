@@ -183,7 +183,8 @@ namespace SharpConsoleUI.Core
 		{
 			_windowSystem = windowSystem;
 			_log = logService;
-			_scheduler = scheduler ?? new TaskToastScheduler(a => _windowSystem.EnqueueOnUIThread(a));
+			_scheduler = scheduler ?? new TaskToastScheduler(
+				a => _windowSystem.EnqueueOnUIThread(a, "toastService.scheduled"));
 		}
 
 		/// <summary>Gets the observable collection of currently active toasts.</summary>
