@@ -61,6 +61,10 @@ namespace SharpConsoleUI.Parsing
 			switch (block)
 			{
 				case ParagraphBlock p:
+					// A paragraph needs air ABOVE it, the same way a heading does. Without it
+					// consecutive paragraphs ran flush together, unlike every standard markdown
+					// renderer. (Issue #79.)
+					SeparateBlock(sb);
 					Indent(sb, indent);
 					WriteInlines(p.Inline, sb, style);
 					sb.Append('\n');
@@ -68,10 +72,8 @@ namespace SharpConsoleUI.Parsing
 
 				case HeadingBlock h:
 					// A heading needs air ABOVE it, not just below: it introduces what follows, so
-					// butting it against the previous block reads as part of that block. Skipped at
-					// the very start of the output, where a leading blank line is just a gap.
-					if (sb.Length > 0)
-						sb.Append('\n');
+					// butting it against the previous block reads as part of that block.
+					SeparateBlock(sb);
 					Indent(sb, indent);
 					WriteHeading(h, sb, style);
 					break;
@@ -204,6 +206,26 @@ namespace SharpConsoleUI.Parsing
 					WriteBlock(child, sb, style, childIndent); // nested lists/blocks
 				}
 			}
+		}
+
+		/// <summary>
+		/// Ensures exactly one blank line sits above the block about to be written.
+		/// </summary>
+		/// <remarks>
+		/// Blocks differ in what they leave behind — a heading already appends its own trailing
+		/// blank line, a paragraph appends a single newline — so each case appending air
+		/// unconditionally stacked up: heading-then-paragraph produced three newlines and a
+		/// double gap. Normalising here keeps one rule for block separation instead of one per
+		/// case, and does nothing at the very start of the output, where a leading blank line
+		/// would just be a gap.
+		/// </remarks>
+		/// <param name="sb">The output buffer.</param>
+		private static void SeparateBlock(StringBuilder sb)
+		{
+			if (sb.Length == 0) return;                       // start of output: no leading gap
+			if (sb.Length >= 2 && sb[sb.Length - 1] == '\n'
+							   && sb[sb.Length - 2] == '\n') return;  // blank line already there
+			sb.Append('\n');
 		}
 
 		private static void Indent(StringBuilder sb, int spaces)

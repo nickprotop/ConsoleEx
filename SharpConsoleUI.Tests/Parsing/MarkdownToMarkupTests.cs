@@ -20,6 +20,86 @@ namespace SharpConsoleUI.Tests.Parsing
 			=> MarkupParser.Parse(MarkdownToMarkup.Convert(md), Fg, Bg);
 
 		[Fact]
+		public void Paragraphs_AreSeparatedByABlankLine()
+		{
+			// Issue #79: consecutive paragraphs ran flush against each other because the
+			// ParagraphBlock case appended a single '\n'. Headings already took air above them;
+			// paragraphs need the same, so the output matches what GitHub or a VS Code preview
+			// shows.
+			var markup = MarkdownToMarkup.Convert("First paragraph.\n\nSecond paragraph.");
+
+			Assert.Equal("First paragraph.\n\nSecond paragraph.", markup);
+		}
+
+		[Fact]
+		public void Paragraph_DoesNotGetALeadingBlankLine()
+		{
+			// The air goes ABOVE a paragraph, but never at the very start of the output, where a
+			// leading blank line is just a gap. Same rule the heading case already follows.
+			var markup = MarkdownToMarkup.Convert("Only paragraph.");
+
+			Assert.Equal("Only paragraph.", markup);
+		}
+
+		[Fact]
+		public void ListItems_StayTightAgainstEachOther()
+		{
+			// A list item's first paragraph is written inline after the bullet and never reaches
+			// WriteBlock, so spacing paragraphs must not push list items apart.
+			var markup = MarkdownToMarkup.Convert("- one\n- two\n- three");
+
+			Assert.DoesNotContain("\n\n", markup);
+		}
+
+		[Fact]
+		public void HeadingFollowedByParagraph_GetsExactlyOneBlankLine()
+		{
+			// A heading already appends its own trailing blank line. When paragraphs also took
+			// air above them, the two stacked into three newlines and a double gap, so block
+			// separation is normalised in one place rather than per case.
+			var markup = MarkdownToMarkup.Convert("# Heading\n\nBody text.");
+
+			Assert.DoesNotContain("\n\n\n", markup);
+			Assert.EndsWith("]Heading[/]\n\nBody text.", markup);
+		}
+
+		[Fact]
+		public void ParagraphBeforeList_KeepsExistingTightSpacing()
+		{
+			// Pins CURRENT behaviour rather than asserting an ideal: lists do not take air above
+			// them, so a paragraph runs straight into a following list. Issue #79 is about
+			// paragraph-to-paragraph spacing and does not ask for this to change; the test is
+			// here so the choice is visible if it ever should.
+			var markup = MarkdownToMarkup.Convert("Intro para.\n\n- a\n- b");
+
+			Assert.Equal("Intro para.\n\u2022 a\n\u2022 b", markup);
+		}
+
+		[Theory]
+		[InlineData("First.\n\nSecond.")]
+		[InlineData("First.\n\n\nSecond.")]
+		[InlineData("First.\n\n\n\n\nSecond.")]
+		[InlineData("One.\n\n\n\nTwo.\n\n\n\nThree.")]
+		[InlineData("# H\n\n\n\nBody.")]
+		public void ExtraBlankLines_CollapseToASingleGap(string markdown)
+		{
+			// Two independent guarantees, which is why this holds rather than happens to pass:
+			// Markdig treats blank lines between blocks as structure, so three or five collapse
+			// to the same block list before rendering; and SeparateBlock only adds air when the
+			// buffer does not already end in a blank line, so nothing can stack on top.
+			var markup = MarkdownToMarkup.Convert(markdown);
+
+			Assert.DoesNotContain("\n\n\n", markup);
+		}
+
+		[Fact]
+		public void LeadingAndTrailingBlankLines_AreTrimmed()
+		{
+			Assert.Equal("Leading blanks.", MarkdownToMarkup.Convert("\n\n\nLeading blanks."));
+			Assert.Equal("Trailing.", MarkdownToMarkup.Convert("Trailing.\n\n\n"));
+		}
+
+		[Fact]
 		public void Bold_EmitsBoldTag_VisibleTextOnly()
 		{
 			var cells = Render("**bold**");
