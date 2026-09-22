@@ -1,5 +1,5 @@
 #!/usr/bin/env dotnet
-#:package SharpConsoleUI@2.6.7
+#:package SharpConsoleUI@2.6.8
 
 // multi-picker.cs — Multi-select checklist for shell pipelines.
 //
