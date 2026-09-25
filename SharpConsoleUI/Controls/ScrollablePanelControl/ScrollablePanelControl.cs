@@ -349,7 +349,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets whether the content can be scrolled downward (more content exists below the viewport).
 		/// </summary>
-		public bool CanScrollDown => _verticalScrollOffset < Math.Max(0, _contentHeight - VisibleContentHeight);
+		public bool CanScrollDown => _verticalScrollOffset < MaxVerticalScrollOffset;
 
 		/// <summary>
 		/// Gets whether the content can be scrolled left (horizontal offset is greater than zero).
@@ -450,6 +450,13 @@ namespace SharpConsoleUI.Controls
 		/// always reachable even when a vertical scrollbar steals columns (Bug A).
 		/// </summary>
 		private int MaxHorizontalScrollOffset => Math.Max(0, _contentWidth - VisibleContentWidth);
+
+		/// <summary>
+		/// The maximum vertical scroll offset: total content height minus the visible content
+		/// height. Computed against <see cref="VisibleContentHeight"/> so the last content line is
+		/// always reachable even when a horizontal scrollbar steals a row (#80).
+		/// </summary>
+		private int MaxVerticalScrollOffset => Math.Max(0, _contentHeight - VisibleContentHeight);
 
 		#endregion
 

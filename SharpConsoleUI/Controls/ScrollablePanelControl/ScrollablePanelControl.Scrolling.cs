@@ -141,7 +141,7 @@ namespace SharpConsoleUI.Controls
 			// Clamp against VisibleContentHeight (viewport minus the horizontal scrollbar row), which is
 			// what every caller already targets. Clamping against the full _viewportHeight stopped one row
 			// short whenever the horizontal scrollbar was shown, hiding the last line under it (#80).
-			int maxOffset = Math.Max(0, _contentHeight - VisibleContentHeight);
+			int maxOffset = MaxVerticalScrollOffset;
 			SetVerticalScrollOffset(Math.Clamp(_verticalScrollOffset + lines, 0, maxOffset), "ScrollVerticalBy");
 
 			// AutoScroll state tracking
@@ -167,7 +167,7 @@ namespace SharpConsoleUI.Controls
 		private void ScrollVerticalTo(int offset)
 		{
 			int oldOffset = _verticalScrollOffset;
-			SetVerticalScrollOffset(Math.Clamp(offset, 0, Math.Max(0, _contentHeight - VisibleContentHeight)), "ScrollVerticalTo");
+			SetVerticalScrollOffset(Math.Clamp(offset, 0, MaxVerticalScrollOffset), "ScrollVerticalTo");
 
 			if (oldOffset != _verticalScrollOffset)
 			{
@@ -272,7 +272,7 @@ namespace SharpConsoleUI.Controls
 				_pendingScrollToBottom = true;
 				return;
 			}
-			ScrollVerticalTo(Math.Max(0, _contentHeight - VisibleContentHeight));
+			ScrollVerticalTo(MaxVerticalScrollOffset);
 		}
 
 		/// <summary>

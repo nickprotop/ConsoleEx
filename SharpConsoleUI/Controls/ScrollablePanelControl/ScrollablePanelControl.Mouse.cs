@@ -202,7 +202,7 @@ namespace SharpConsoleUI.Controls
 						}
 						else if (args.HasFlag(Drivers.MouseFlags.WheeledDown))
 						{
-							int maxScroll = Math.Max(0, _contentHeight - VisibleContentHeight);
+							int maxScroll = MaxVerticalScrollOffset;
 							bool willScroll = _verticalScrollOffset < maxScroll;
 							if (willScroll)
 							{
@@ -317,7 +317,7 @@ namespace SharpConsoleUI.Controls
 					{
 						var (_, _, sbHeight, sbThumbY, sbThumbHeight) = GetScrollbarGeometry();
 						int relY = args.Position.Y - Margin.Top - ContentInsetTop;
-						int maxScroll = Math.Max(0, _contentHeight - VisibleContentHeight);
+						int maxScroll = MaxVerticalScrollOffset;
 
 						if (relY >= sbThumbY && relY < sbThumbY + sbThumbHeight)
 						{
@@ -369,7 +369,7 @@ namespace SharpConsoleUI.Controls
 						// that never had it.
 						if (_autoScrollEverEnabled)
 						{
-							int maxOffset = Math.Max(0, _contentHeight - VisibleContentHeight);
+							int maxOffset = MaxVerticalScrollOffset;
 							_autoScroll = newOffset >= maxOffset;
 						}
 
