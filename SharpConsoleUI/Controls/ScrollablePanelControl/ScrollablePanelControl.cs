@@ -349,7 +349,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets whether the content can be scrolled downward (more content exists below the viewport).
 		/// </summary>
-		public bool CanScrollDown => _verticalScrollOffset < Math.Max(0, _contentHeight - _viewportHeight);
+		public bool CanScrollDown => _verticalScrollOffset < Math.Max(0, _contentHeight - VisibleContentHeight);
 
 		/// <summary>
 		/// Gets whether the content can be scrolled left (horizontal offset is greater than zero).

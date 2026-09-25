@@ -28,6 +28,8 @@ public class FocusManager
 	/// <summary>Fired whenever <see cref="FocusedControl"/> changes.</summary>
 	public event EventHandler<FocusChangedEventArgs>? FocusChanged;
 
+	private long _focusChangeSequence;
+
 	/// <summary>Initializes a new <see cref="FocusManager"/> for the given window.</summary>
 	public FocusManager(Window window)
 	{
@@ -120,7 +122,16 @@ public class FocusManager
 		// Invalidate new control's container to trigger repaint
 		(control as IWindowControl)?.Container?.Invalidate(Invalidation.Relayout);
 
-		FocusChanged?.Invoke(this, new FocusChangedEventArgs(previous, control, reason));
+		// Raise GotFocus / LostFocus on the controls themselves as well as through FocusChanged.
+		// A control only receives FocusChanged if it managed to subscribe, which requires its window
+		// to be reachable when its Container was set — not the case when a container is populated
+		// before it joins a window, as the fluent builders do (#81). Both paths are idempotent per
+		// sequence, so a control reached twice still sees one event.
+		long sequence = ++_focusChangeSequence;
+		(previous as BaseControl)?.RaiseLostFocus(sequence);
+		(control as BaseControl)?.RaiseGotFocus(sequence);
+
+		FocusChanged?.Invoke(this, new FocusChangedEventArgs(previous, control, reason) { Sequence = sequence });
 	}
 
 	/// <summary>Returns <c>true</c> if <paramref name="control"/> is the currently focused control.</summary>
@@ -316,4 +327,12 @@ public record FocusChangedEventArgs(
 	IFocusableControl? Previous,
 	IFocusableControl? Current,
 	FocusReason Reason
-);
+)
+{
+	/// <summary>
+	/// Monotonic id of this focus change, used to deliver GotFocus / LostFocus exactly once when a
+	/// control is reached both through <see cref="FocusManager.FocusChanged"/> and directly by the
+	/// manager. Defaults to -1 for args constructed outside the manager.
+	/// </summary>
+	public long Sequence { get; init; } = -1;
+}

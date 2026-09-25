@@ -132,6 +132,38 @@ namespace SharpConsoleUI.Layout
 			// Collapsed → arrange every body child to nothing (panel hides the body without touching
 			// each child's own Visible). Expanded → a child's own Visible=false still hides just it.
 			bool expanded = panel?.IsExpanded ?? true;
+
+			// Share the leftover body height among Fill children, as VerticalStackLayout does (#83).
+			// This has to happen at ARRANGE time: a grid measures its cells a second time with an
+			// unbounded height, so by measure time a Fill child inside a panel inside a grid cell only
+			// knows its natural height (a ScrollablePanel's 10-row unbounded default, or 0 rows for a
+			// grid whose only row is a star). Arrange is where the real body height is known.
+			double totalFlexFactor = 0;
+			int fixedHeight = 0;
+			foreach (var child in node.Children)
+			{
+				if (!expanded || !child.IsVisible)
+					continue;
+
+				if (IsFillChild(child))
+					totalFlexFactor += child.FlexFactor;
+				else
+					fixedHeight += child.DesiredSize.Height;
+			}
+
+			int remainingHeight = Math.Max(0, regionH - fixedHeight);
+
+			// Hand the truncation remainder to the last Fill child so the body is filled exactly:
+			// two Fill children sharing an odd height would otherwise leave a blank row behind.
+			LayoutNode? lastFillChild = null;
+			foreach (var child in node.Children)
+			{
+				if (expanded && child.IsVisible && IsFillChild(child))
+					lastFillChild = child;
+			}
+
+			int distributedFillHeight = 0;
+
 			foreach (var child in node.Children)
 			{
 				if (!expanded || !child.IsVisible)
@@ -140,13 +172,32 @@ namespace SharpConsoleUI.Layout
 					continue;
 				}
 
-				int childH = child.DesiredSize.Height;
+				int childH;
+				if (IsFillChild(child) && totalFlexFactor > 0)
+				{
+					childH = ReferenceEquals(child, lastFillChild)
+						? Math.Max(0, remainingHeight - distributedFillHeight)
+						: (int)(remainingHeight * (child.FlexFactor / totalFlexFactor));
+					distributedFillHeight += childH;
+				}
+				else
+				{
+					childH = child.DesiredSize.Height;
+				}
+
 				int available = Math.Max(0, bottomLimit - y);
 				int h = Math.Min(childH, available);
 				child.Arrange(new LayoutRect(contentLeft, y, contentWidth, h));
 				y += h;
 			}
 		}
+
+		/// <summary>
+		/// A body child that takes a share of the leftover height rather than its measured height.
+		/// Mirrors VerticalStackLayout: an explicit Height always wins over Fill.
+		/// </summary>
+		private static bool IsFillChild(LayoutNode child) =>
+			child.VerticalAlignment == VerticalAlignment.Fill && child.ExplicitHeight == null;
 
 		/// <summary>
 		/// Computes the maximum number of on-screen rows available to the body, derived from the

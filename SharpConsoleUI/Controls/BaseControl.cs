@@ -45,6 +45,8 @@ namespace SharpConsoleUI.Controls
 		private BindingCollection? _bindings;
 		private IContainer? _container;
 		private Window? _focusSubscribedWindow;
+		private long _lastGotFocusSequence = -1;
+		private long _lastLostFocusSequence = -1;
 
 		/// <inheritdoc/>
 		public event PropertyChangedEventHandler? PropertyChanged;
@@ -90,9 +92,29 @@ namespace SharpConsoleUI.Controls
 		private void OnFocusManagerChanged(object? sender, FocusChangedEventArgs e)
 		{
 			if (e.Current is IFocusableControl current && ReferenceEquals(current, this))
-				GotFocus?.Invoke(this, EventArgs.Empty);
+				RaiseGotFocus(e.Sequence);
 			if (e.Previous is IFocusableControl previous && ReferenceEquals(previous, this))
-				LostFocus?.Invoke(this, EventArgs.Empty);
+				RaiseLostFocus(e.Sequence);
+		}
+
+		// Focus events are raised through these two entry points from BOTH directions: the
+		// FocusManager.FocusChanged subscription above (when this control managed to subscribe), and
+		// FocusManager itself calling the control directly (#81 — a control built before its container
+		// joined a window never got the chance to subscribe). The sequence number makes that
+		// belt-and-braces delivery idempotent: whichever path arrives first wins, the second is a
+		// no-op, so no handler ever sees a focus change twice.
+		internal void RaiseGotFocus(long sequence)
+		{
+			if (_lastGotFocusSequence == sequence) return;
+			_lastGotFocusSequence = sequence;
+			GotFocus?.Invoke(this, EventArgs.Empty);
+		}
+
+		internal void RaiseLostFocus(long sequence)
+		{
+			if (_lastLostFocusSequence == sequence) return;
+			_lastLostFocusSequence = sequence;
+			LostFocus?.Invoke(this, EventArgs.Empty);
 		}
 
 		/// <summary>

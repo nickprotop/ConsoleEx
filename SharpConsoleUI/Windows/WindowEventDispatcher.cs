@@ -233,7 +233,10 @@ namespace SharpConsoleUI.Windows
 						if (leftControl is Controls.IMouseAwareControl leavingControl && leavingControl.WantsMouseEvents)
 						{
 							var leavePosition = GetControlRelativePosition(leftControl, args.WindowPosition);
-							var leaveArgs = args.WithPosition(leavePosition).WithFlags(MouseFlags.MouseLeave);
+							// Replace the flags rather than adding to them: a synthesized hover notification must not
+							// carry the triggering event's wheel/button flags, or a wheel notch that changes the
+							// hovered control is handled twice — once here, once as the real notch (#82).
+							var leaveArgs = args.WithPosition(leavePosition).WithReplacedFlags(MouseFlags.MouseLeave);
 							leavingControl.ProcessMouseEvent(leaveArgs);
 						}
 					}
@@ -246,7 +249,7 @@ namespace SharpConsoleUI.Windows
 						if (enteredControl is Controls.IMouseAwareControl enteringControl && enteringControl.WantsMouseEvents)
 						{
 							var enterPosition = GetControlRelativePosition(enteredControl, args.WindowPosition);
-							var enterArgs = args.WithPosition(enterPosition).WithFlags(MouseFlags.MouseEnter);
+							var enterArgs = args.WithPosition(enterPosition).WithReplacedFlags(MouseFlags.MouseEnter);
 							enteringControl.ProcessMouseEvent(enterArgs);
 						}
 					}
