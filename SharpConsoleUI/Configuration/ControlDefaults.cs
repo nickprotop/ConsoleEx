@@ -75,6 +75,11 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int DefaultMinScrollbarThumbSize = 1;
 
+		/// <summary>
+		/// Shortest scrollbar track that still gets arrow buttons at both ends (default: 3).
+		/// </summary>
+		public const int MinArrowTrackLength = 3;
+
 		// Input defaults
 		/// <summary>
 		/// Debounce delay for rapid input events in milliseconds (default: 300ms)
@@ -206,9 +211,50 @@ namespace SharpConsoleUI.Configuration
 		public const int DefaultEditorViewportHeight = 10;
 
 		/// <summary>
-		/// Number of lines to scroll per mouse wheel tick (default: 1)
+		/// Number of lines scrolled per mouse wheel notch, library-wide (default: 1).
 		/// </summary>
-		public const int DefaultScrollWheelLines = 1;
+		/// <remarks>
+		/// Settable at runtime so an application can change the wheel step everywhere in one line.
+		/// Individual controls override it with their own <c>MouseWheelScrollSpeed</c>. Values below
+		/// 1 are clamped to 1. This is a property rather than a <c>const</c> so that consumers
+		/// compiled against an earlier version observe the value set here instead of a compile-time
+		/// copy.
+		/// </remarks>
+		public static int DefaultScrollWheelLines
+		{
+			get => _defaultScrollWheelLines;
+			set => _defaultScrollWheelLines = Math.Max(1, value);
+		}
+
+		private static int _defaultScrollWheelLines = 1;
+
+		/// <summary>
+		/// Number of lines a scrolling window moves per mouse wheel notch (default: 3).
+		/// </summary>
+		/// <remarks>
+		/// Windows have always scrolled faster than controls. This preserves that, while still
+		/// following <see cref="DefaultScrollWheelLines"/> when an application sets it, so a single
+		/// assignment changes the wheel step everywhere. Setting this explicitly pins the window
+		/// step and stops it following. Values below 1 are clamped to 1.
+		/// </remarks>
+		public static int DefaultWindowScrollWheelLines
+		{
+			get => _defaultWindowScrollWheelLines ?? (DefaultScrollWheelLines != 1 ? DefaultScrollWheelLines : 3);
+			set => _defaultWindowScrollWheelLines = Math.Max(1, value);
+		}
+
+		private static int? _defaultWindowScrollWheelLines;
+
+		/// <summary>
+		/// Unpins <see cref="DefaultWindowScrollWheelLines"/> so it resumes following
+		/// <see cref="DefaultScrollWheelLines"/>. Test-only: assigning through the public setter
+		/// has no way to express "go back to following," since any concrete value pins it. Internal
+		/// so tests can restore true process-wide default state between runs.
+		/// </summary>
+		internal static void ResetDefaultWindowScrollWheelLinesForTests()
+		{
+			_defaultWindowScrollWheelLines = null;
+		}
 
 		/// <summary>
 		/// Default tab size in spaces for multiline editor (default: 4)

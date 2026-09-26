@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
@@ -37,6 +38,7 @@ public sealed class HtmlBuilder : IControlBuilder<HtmlControl>
 	private int _blockSpacing = 1;
 	private ScrollbarVisibility _scrollbarVisibility = ScrollbarVisibility.Auto;
 	private string _loadingText = "Loading...";
+	private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
 
 	// Layout
 	private Margin _margin = new(0, 0, 0, 0);
@@ -178,6 +180,16 @@ public sealed class HtmlBuilder : IControlBuilder<HtmlControl>
 	public HtmlBuilder WithScrollbarVisibility(ScrollbarVisibility visibility)
 	{
 		_scrollbarVisibility = visibility;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the number of lines scrolled per mouse wheel notch.
+	/// Default: <see cref="ControlDefaults.DefaultScrollWheelLines"/>.
+	/// </summary>
+	public HtmlBuilder WithMouseWheelScrollSpeed(int speed)
+	{
+		_mouseWheelScrollSpeed = Math.Max(1, speed);
 		return this;
 	}
 
@@ -341,6 +353,7 @@ public sealed class HtmlBuilder : IControlBuilder<HtmlControl>
 			BlockSpacing = _blockSpacing,
 			ScrollbarVisibility = _scrollbarVisibility,
 			LoadingText = _loadingText,
+			MouseWheelScrollSpeed = _mouseWheelScrollSpeed,
 		};
 
 		if (_foregroundColor.HasValue)

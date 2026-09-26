@@ -233,6 +233,19 @@ try
 				.AddControl(Controls.Label("scrollable child one"))
 				.AddControl(Controls.Label("scrollable child two"))
 				.Build(),
+			// Standalone scrollbar: exercises the shared scrollbar engine's geometry, glyph
+			// rendering and palette resolution under AOT, on both axes.
+			Controls.Scrollbar()
+				.WithMaximum(100)
+				.WithViewportLength(10)
+				.WithValue(30)
+				.Build(),
+			Controls.Scrollbar()
+				.WithOrientation(ScrollbarOrientation.Horizontal)
+				.WithMaximum(80)
+				.WithViewportLength(20)
+				.WithValue(10)
+				.Build(),
 			Controls.HorizontalGrid()
 				.Column(c => c.Add(Controls.Label("left col")))
 				.Column(c => c.Add(Controls.Label("right col")))

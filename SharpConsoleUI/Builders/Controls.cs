@@ -193,6 +193,12 @@ public static class Controls
 	public static TreeControlBuilder Tree() => new TreeControlBuilder();
 
 	/// <summary>
+	/// Creates a new standalone scrollbar control builder
+	/// </summary>
+	/// <returns>A new scrollbar control builder</returns>
+	public static ScrollbarBuilder Scrollbar() => new ScrollbarBuilder();
+
+	/// <summary>
 	/// Creates a new multiline edit control builder
 	/// </summary>
 	/// <param name="content">Optional initial content</param>

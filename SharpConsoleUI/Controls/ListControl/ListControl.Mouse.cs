@@ -43,8 +43,9 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Gets or sets the number of lines to scroll with mouse wheel.
-		/// Default: 3.
+		/// Gets or sets the number of lines scrolled per mouse wheel notch.
+		/// Values below 1 are clamped to 1.
+		/// Default: <see cref="ControlDefaults.DefaultScrollWheelLines"/>.
 		/// </summary>
 		public int MouseWheelScrollSpeed
 		{
@@ -106,21 +107,59 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
-			// Handle scrollbar drag-in-progress (must be checked early)
-			if (args.HasAnyFlag(MouseFlags.Button1Dragged, MouseFlags.Button1Pressed))
+			// Scrollbar gesture capture: once a press lands on the scrollbar, subsequent resent
+			// press/drag events route to it without re-hit-testing, even if the pointer wanders off
+			// the bar into the content column - this is what stops a thumb drag from leaking into
+			// content selection. Content presses are captured too (region Content) so the capture is
+			// always released on Up, but Content gestures fall through to the existing handling below
+			// (this preserves the exact pre-existing content click/double-click/checkbox behavior).
+			if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Dragged,
+				MouseFlags.Button1Released, MouseFlags.Button1Clicked))
 			{
-				if (_isScrollbarDragging)
+				var route = _gesture.Route(args, HitTestRegion);
+				if (route.Phase != GesturePhase.None && route.Region == ListGestureRegion.Scrollbar)
 				{
-					HandleScrollbarDrag(args);
+					switch (route.Phase)
+					{
+						case GesturePhase.Down:
+							if (!HasFocus && CanFocusWithMouse)
+								this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+							_thumbDragging = false;
+							HandleScrollbarThumbPress(args);
+							if (!_thumbDragging)
+								HandleScrollbarClick(args);
+							args.Handled = true;
+							return true;
+
+						case GesturePhase.Move:
+							if (_thumbDragging)
+								HandleScrollbarDrag(args);
+							args.Handled = true;
+							return true;
+
+						case GesturePhase.Up:
+							_thumbDragging = false;
+							args.Handled = true;
+							return true;
+					}
+				}
+
+				// A bare Button1Clicked with no prior captured press (some drivers/tests deliver a click
+				// without a separate Button1Pressed) landing on the scrollbar: synthesize a full click by
+				// hit-testing fresh and dispatching Down then Up, so arrow/track clicks still fire.
+				if (route.Phase == GesturePhase.None && args.HasFlag(MouseFlags.Button1Clicked)
+					&& HitTestRegion(args) == ListGestureRegion.Scrollbar)
+				{
+					if (!HasFocus && CanFocusWithMouse)
+						this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+					_thumbDragging = false;
+					HandleScrollbarThumbPress(args);
+					if (!_thumbDragging)
+						HandleScrollbarClick(args);
+					_thumbDragging = false;
+					args.Handled = true;
 					return true;
 				}
-			}
-
-			// Handle scrollbar drag end
-			if (args.HasFlag(MouseFlags.Button1Released) && _isScrollbarDragging)
-			{
-				_isScrollbarDragging = false;
-				return true;
 			}
 
 			// Calculate which item the mouse is over
@@ -220,26 +259,6 @@ namespace SharpConsoleUI.Controls
 					args.Handled = true;
 					return true;
 				}
-			}
-
-			// Handle scrollbar thumb drag initiation (needs Button1Pressed for responsive dragging)
-			if (mouseOnScrollbar && args.HasFlag(MouseFlags.Button1Pressed))
-			{
-				if (!HasFocus && CanFocusWithMouse)
-					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
-				HandleScrollbarThumbPress(args);
-				args.Handled = true;
-				return true;
-			}
-
-			// Handle scrollbar arrow/track clicks (Button1Clicked only to avoid double-firing)
-			if (mouseOnScrollbar && args.HasFlag(MouseFlags.Button1Clicked))
-			{
-				if (!HasFocus && CanFocusWithMouse)
-					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
-				HandleScrollbarClick(args);
-				args.Handled = true;
-				return true;
 			}
 
 			// Handle mouse clicks - set focus, select item, detect double-click
@@ -372,6 +391,15 @@ namespace SharpConsoleUI.Controls
 
 		#region Scrollbar Interaction
 
+		/// <summary>
+		/// Maps a fresh Button1 press position to the sub-region that should own the resulting gesture.
+		/// Called ONLY on a fresh press by <see cref="MouseGestureCapture{TRegion}"/>; never re-invoked
+		/// mid-gesture, which is what stops a resent-press-on-motion from re-hit-testing a drag that has
+		/// wandered off the scrollbar column into the item area (or vice versa).
+		/// </summary>
+		private ListGestureRegion HitTestRegion(MouseEventArgs args) =>
+			IsClickOnScrollbar(args) ? ListGestureRegion.Scrollbar : ListGestureRegion.Content;
+
 		private bool IsClickOnScrollbar(MouseEventArgs args)
 		{
 			int effectiveMaxVisibleItems = GetEffectiveVisibleItems();
@@ -405,7 +433,7 @@ namespace SharpConsoleUI.Controls
 			var zone = ScrollbarHelper.HitTest(relY, trackHeight, thumbY, thumbHeight);
 			if (zone == ScrollbarHitZone.Thumb)
 			{
-				_isScrollbarDragging = true;
+				_thumbDragging = true;
 				_scrollbarDragStartY = args.Position.Y;
 				_scrollbarDragStartOffset = _scrollOffset;
 			}

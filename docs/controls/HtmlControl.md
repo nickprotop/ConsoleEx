@@ -26,7 +26,7 @@ HtmlControl parses and renders HTML content using the AngleSharp HTML parser, di
 | `LoadingStatus` | `string?` | (read-only) | Current loading phase description |
 | `CurrentUrl` | `string?` | (read-only) | URL of the currently loaded page |
 | `RawHtml` | `string?` | (read-only) | The raw HTML source |
-| `MouseWheelScrollSpeed` | `int` | `3` | Lines scrolled per mouse wheel tick |
+| `MouseWheelScrollSpeed` | `int` | `ControlDefaults.DefaultScrollWheelLines` (1) | Lines scrolled per mouse wheel tick; values below 1 clamp to 1 |
 | `IsEnabled` | `bool` | `true` | Whether the control accepts input |
 
 ## Events
@@ -51,11 +51,21 @@ var html = Controls.Html()
     .WithLinkColor(Color.Cyan1)
     .WithShowImages(true)
     .WithScrollbarVisibility(ScrollbarVisibility.Auto)
+    .WithMouseWheelScrollSpeed(3)
     .OnLinkClicked((sender, e) => Console.WriteLine($"Clicked: {e.Url}"))
     .Fill()
     .Build();
 
 window.AddControl(html);
+```
+
+`WithMouseWheelScrollSpeed(int speed)` sets how many lines scroll per wheel notch (values below 1
+clamp to 1). It defaults to `ControlDefaults.DefaultScrollWheelLines`, so setting that once at
+startup changes the wheel step for every control that hasn't overridden it:
+
+```csharp
+// Change the wheel step everywhere, once at startup:
+ControlDefaults.DefaultScrollWheelLines = 3;
 ```
 
 ### Using Constructor

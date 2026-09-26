@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
@@ -126,6 +127,7 @@ namespace SharpConsoleUI.Controls
 		private ScrollMode _horizontalScrollMode = ScrollMode.None;
 		private ScrollMode _verticalScrollMode = ScrollMode.Scroll;
 		private bool _enableMouseWheel = true;
+		private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
 		private bool _autoScroll = false;
 
 		// Whether AutoScroll has ever been switched on for this panel. Scroll gestures may DETACH and
@@ -289,6 +291,17 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _enableMouseWheel;
 			set { _enableMouseWheel = value; OnPropertyChanged(); }
+		}
+
+		/// <summary>
+		/// Gets or sets the number of lines scrolled per mouse wheel notch.
+		/// Values below 1 are clamped to 1.
+		/// Default: <see cref="ControlDefaults.DefaultScrollWheelLines"/>.
+		/// </summary>
+		public int MouseWheelScrollSpeed
+		{
+			get => _mouseWheelScrollSpeed;
+			set { _mouseWheelScrollSpeed = Math.Max(1, value); OnPropertyChanged(); }
 		}
 
 		/// <summary>

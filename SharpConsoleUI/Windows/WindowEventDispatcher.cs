@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System.Drawing;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
@@ -434,13 +435,13 @@ namespace SharpConsoleUI.Windows
 				{
 					if (args.HasFlag(MouseFlags.WheeledUp))
 					{
-						_window._renderer.ScrollBy(-3);
+						_window._renderer.ScrollBy(-ControlDefaults.DefaultWindowScrollWheelLines);
 						_window.Invalidate(Invalidation.Relayout);
 						return true;
 					}
 					else if (args.HasFlag(MouseFlags.WheeledDown))
 					{
-						_window._renderer.ScrollBy(3);
+						_window._renderer.ScrollBy(ControlDefaults.DefaultWindowScrollWheelLines);
 						_window.Invalidate(Invalidation.Relayout);
 						return true;
 					}

@@ -355,11 +355,10 @@ namespace SharpConsoleUI.Controls
 			// Draw scrollbar if needed
 			if (showScrollbar)
 			{
-				Color thumbColor = HasFocus ? Color.Cyan1 : Color.Grey;
-				Color trackColor = HasFocus ? Color.Grey : Color.Grey23;
+				var palette = ResolveScrollbarPalette();
 				int scrollbarX = startX + contentWidth - 1;
 				ScrollbarHelper.DrawVerticalScrollbar(buffer, scrollbarX, startY, contentHeight,
-					snapshot.Count, effectiveMaxVisibleItems, scrollOffset, thumbColor, trackColor, bgColor);
+					snapshot.Count, effectiveMaxVisibleItems, scrollOffset, palette.Thumb, palette.Track, bgColor);
 			}
 
 			// Fill bottom margin

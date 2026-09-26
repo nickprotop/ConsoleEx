@@ -202,19 +202,12 @@ namespace SharpConsoleUI.Controls
 			if (needsScrollbar)
 			{
 				int scrollbarX = contentAreaX + contentWidth - 1;
-				// Theme scrollbar colors (focus-aware) instead of hardcoded cyan/grey that washed out on light.
-				var theme = Container?.GetConsoleWindowSystem?.Theme;
-				var thumbColor = HasFocus
-					? (theme?.ScrollbarThumbColor ?? Color.Cyan1)
-					: (theme?.ScrollbarThumbUnfocusedColor ?? Color.Grey);
-				var trackColor = HasFocus
-					? (theme?.ScrollbarTrackColor ?? Color.Grey)
-					: (theme?.ScrollbarTrackUnfocusedColor ?? Color.Grey23);
+				var palette = ResolveScrollbarPalette();
 
 				ScrollbarHelper.DrawVerticalScrollbar(
 					buffer, scrollbarX, contentAreaY, viewportHeight,
 					totalHeight, viewportHeight, _scrollOffset,
-					thumbColor, trackColor, bg);
+					palette.Thumb, palette.Track, bg);
 			}
 
 			// Loading overlay: paint a top banner while anything is loading. During navigation

@@ -13,10 +13,33 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Helpers.Scrollbar;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Themes;
 namespace SharpConsoleUI.Controls
 {
+	/// <summary>
+	/// Sub-region gesture ownership for <see cref="ListControl"/> mouse handling. A fresh Button1 press
+	/// hit-tests one of these regions and captures it; every subsequent resent press/drag routes to the
+	/// captured region without re-hit-testing (SGR re-sends Button1Pressed on motion).
+	/// </summary>
+	internal enum ListGestureRegion
+	{
+		/// <summary>
+		/// No region. Must stay first so <c>default(ListGestureRegion)</c> is never a real region:
+		/// <see cref="Helpers.MouseGestureCapture{TRegion}.Route"/> returns <c>default</c> together
+		/// with <see cref="Helpers.GesturePhase.None"/> for an uncaptured bare click, and a region
+		/// worth 0 would make that read as a genuine hit.
+		/// </summary>
+		None = 0,
+
+		/// <summary>The vertical scrollbar column.</summary>
+		Scrollbar,
+
+		/// <summary>The item area.</summary>
+		Content
+	}
+
 	/// <summary>
 	/// A scrollable list control that supports selection, highlighting, and keyboard navigation.
 	/// </summary>
@@ -86,7 +109,13 @@ namespace SharpConsoleUI.Controls
 
 		// Scrollbar state
 		private ScrollbarVisibility _scrollbarVisibility = ScrollbarVisibility.Auto;
-		private bool _isScrollbarDragging = false;
+
+		// Mouse gesture capture: a fresh Button1 press captures one sub-region; every subsequent
+		// resent press/drag routes to it without re-hit-testing (SGR re-sends Button1Pressed on
+		// motion). Replaces the former _isScrollbarDragging latch, which released only on
+		// Button1Released and could leak a captured drag into content when the pointer left the bar.
+		private readonly MouseGestureCapture<ListGestureRegion> _gesture = new();
+		private bool _thumbDragging = false;
 		private int _scrollbarDragStartY;
 		private int _scrollbarDragStartOffset;
 
@@ -429,25 +458,34 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Resolves the scrollbar thumb/track colors via the shared <see cref="ScrollbarPaletteResolver"/>,
+		/// so List follows the same theme cascade (and unfocused/disabled dimming) as every other
+		/// scrollbar-bearing control instead of a bespoke resolution.
+		/// </summary>
+		private ScrollbarPalette ResolveScrollbarPalette()
+		{
+			var theme = Container?.GetConsoleWindowSystem?.Theme;
+			return ScrollbarPaletteResolver.Resolve(new ScrollbarPaletteRequest(
+				ThumbOverride: null,
+				TrackOverride: null,
+				Theme: theme,
+				HasFocus: HasFocus,
+				IsEnabled: IsEnabled,
+				Background: Color.Transparent));
+		}
+
+		/// <summary>
 		/// Resolves the scrollbar thumb color from the theme (<see cref="ITheme.ScrollbarThumbColor"/>),
 		/// falling back to the focus-dependent defaults when the theme does not specify one. Mirrors the
 		/// table control so both scrollbars follow the active theme instead of hardcoded colors.
 		/// </summary>
-		internal Color ResolveScrollbarThumbColor()
-		{
-			var theme = Container?.GetConsoleWindowSystem?.Theme;
-			return theme?.ScrollbarThumbColor ?? (HasFocus ? Color.Cyan1 : Color.Grey);
-		}
+		internal Color ResolveScrollbarThumbColor() => ResolveScrollbarPalette().Thumb;
 
 		/// <summary>
 		/// Resolves the scrollbar track color from the theme (<see cref="ITheme.ScrollbarTrackColor"/>),
 		/// falling back to the focus-dependent defaults when the theme does not specify one.
 		/// </summary>
-		internal Color ResolveScrollbarTrackColor()
-		{
-			var theme = Container?.GetConsoleWindowSystem?.Theme;
-			return theme?.ScrollbarTrackColor ?? (HasFocus ? Color.Grey : Color.Grey23);
-		}
+		internal Color ResolveScrollbarTrackColor() => ResolveScrollbarPalette().Track;
 
 		/// <summary>
 		/// Gets or sets whether the list control is enabled and can be interacted with.

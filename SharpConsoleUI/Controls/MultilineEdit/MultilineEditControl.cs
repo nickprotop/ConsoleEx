@@ -108,6 +108,7 @@ namespace SharpConsoleUI.Controls
 		private bool _skipUpdateScrollPositionsInRender = false;
 		private ScrollbarVisibility _verticalScrollbarVisibility = ScrollbarVisibility.Auto;
 		private int _verticalScrollOffset = 0;
+		private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
 		private int _viewportHeight;
 		private WrapMode _wrapMode = WrapMode.Wrap;
 		private int _lastDragRelativeY = 0;
@@ -521,6 +522,17 @@ namespace SharpConsoleUI.Controls
 				OnPropertyChanged();
 				Invalidate(Invalidation.Repaint);
 			}
+		}
+
+		/// <summary>
+		/// Gets or sets the number of lines scrolled per mouse wheel notch.
+		/// Values below 1 are clamped to 1.
+		/// Default: <see cref="ControlDefaults.DefaultScrollWheelLines"/>.
+		/// </summary>
+		public int MouseWheelScrollSpeed
+		{
+			get => _mouseWheelScrollSpeed;
+			set { _mouseWheelScrollSpeed = Math.Max(1, value); OnPropertyChanged(); }
 		}
 
 		/// <summary>

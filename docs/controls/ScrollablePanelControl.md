@@ -41,6 +41,7 @@ Create a builder with `Controls.ScrollablePanel()` or `new ScrollablePanelBuilde
 .WithVerticalScroll(ScrollMode mode = ScrollMode.Scroll)     // Vertical scroll mode (default: Scroll)
 .WithHorizontalScroll(ScrollMode mode = ScrollMode.Scroll)   // Horizontal scroll mode (default: None)
 .WithMouseWheel(bool enable = true)                          // Enable/disable mouse-wheel scrolling
+.WithMouseWheelScrollSpeed(int speed)                        // Lines scrolled per wheel notch (min 1)
 .WithAutoScroll(bool enabled = true)                         // Auto-scroll to bottom as content is added
 ```
 
@@ -104,6 +105,7 @@ Create a builder with `Controls.ScrollablePanel()` or `new ScrollablePanelBuilde
 | `VerticalScrollMode` | `ScrollMode` | `Scroll` | Vertical scroll behavior (`None`/`Scroll`/`Wrap`) |
 | `HorizontalScrollMode` | `ScrollMode` | `None` | Horizontal scroll behavior (`None`/`Scroll`/`Wrap`) |
 | `EnableMouseWheel` | `bool` | `true` | Whether mouse-wheel scrolling is enabled |
+| `MouseWheelScrollSpeed` | `int` | `ControlDefaults.DefaultScrollWheelLines` (1) | Lines scrolled per wheel notch; values below 1 clamp to 1 |
 | `AutoScroll` | `bool` | `false` | Auto-scroll to bottom when content is added if currently at/near bottom |
 | `VerticalScrollOffset` | `int` | `0` | Current vertical scroll offset in lines (read-only) |
 | `HorizontalScrollOffset` | `int` | `0` | Current horizontal scroll offset in characters (read-only) |
@@ -188,7 +190,17 @@ The panel acts as an opaque focus scope. Keys are first delegated to the focused
 
 ScrollablePanelControl implements `IMouseAwareControl` and always wants mouse events.
 
-- **Mouse wheel up/down**: Forwarded to the child under the cursor first; if unhandled, scrolls the panel viewport (when `EnableMouseWheel` is true). Scrolls by `ControlDefaults.DefaultScrollWheelLines` per notch.
+- **Mouse wheel up/down**: Forwarded to the child under the cursor first; if unhandled, scrolls the panel viewport (when `EnableMouseWheel` is true). Scrolls by `MouseWheelScrollSpeed` lines per notch, which defaults to `ControlDefaults.DefaultScrollWheelLines`.
+
+```csharp
+// Change the wheel step everywhere, once at startup:
+ControlDefaults.DefaultScrollWheelLines = 3;
+
+// Or override it for just this panel:
+var panel = Controls.ScrollablePanel()
+    .WithMouseWheelScrollSpeed(5)
+    .Build();
+```
 - **Scrollbar drag**: Click and drag the scrollbar thumb to scroll; clicking the track jumps the view.
 - **Click on a child**: Focuses the clicked child and routes the click to it.
 - **Click on empty space**: Enters scroll mode (focuses the panel itself).

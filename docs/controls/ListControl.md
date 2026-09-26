@@ -14,6 +14,7 @@ ListControl displays a scrollable list of items with selection support. Users ca
 | `SelectedIndex` | `int` | `-1` | Index of selected item (-1 = none) |
 | `SelectedItem` | `ListItem?` | `null` | Currently selected item |
 | `MaxVisibleItems` | `int` | `10` | Number of visible items |
+| `MouseWheelScrollSpeed` | `int` | `ControlDefaults.DefaultScrollWheelLines` (1) | Items scrolled per mouse wheel notch; values below 1 clamp to 1 |
 | `IsEnabled` | `bool` | `true` | Enable/disable list |
 | `BackgroundColor` | `Color?` | `null` | Background color (uses theme if null) |
 | `ForegroundColor` | `Color?` | `null` | Text color (uses theme if null) |
@@ -42,6 +43,7 @@ var list = Controls.List()
     .AddItem("Elderberry")
     .WithHeight(10)
     .WithColors(Color.White, Color.Grey15)
+    .WithMouseWheelScrollSpeed(2)
     .WithName("fruitList")
     .OnItemActivated((sender, item, window) =>
     {
@@ -111,7 +113,7 @@ window.AddControl(list);
 |--------|--------|
 | **Left Click** | Select item and give focus |
 | **Double Click** | Activate item (fire ItemActivated) |
-| **Scroll Wheel** | Scroll list up/down |
+| **Scroll Wheel** | Scroll list up/down by `MouseWheelScrollSpeed` items |
 
 ## ListItem
 
@@ -429,6 +431,7 @@ if (list != null && list.SelectedItem != null)
 5. **Clear and rebuild**: For filtering, clear Items and rebuild list
 6. **Call Invalidate**: After modifying Items collection
 7. **Check selection**: Always check SelectedIndex >= 0 before accessing SelectedItem
+8. **Adjust the wheel step**: `MouseWheelScrollSpeed` (or `.WithMouseWheelScrollSpeed()`) defaults to `ControlDefaults.DefaultScrollWheelLines`, so setting that once at startup changes the wheel step for every list that hasn't overridden it: `ControlDefaults.DefaultScrollWheelLines = 3;`
 
 ## Common Patterns
 

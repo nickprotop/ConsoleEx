@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
@@ -43,6 +44,7 @@ public sealed class MultilineEditControlBuilder : IControlBuilder<MultilineEditC
 	private Color? _selectionForegroundColor;
 	private Color? _scrollbarColor;
 	private Color? _scrollbarThumbColor;
+	private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
 	private StickyPosition _stickyPosition = StickyPosition.None;
 	private string? _name;
 	private object? _tag;
@@ -256,6 +258,16 @@ public sealed class MultilineEditControlBuilder : IControlBuilder<MultilineEditC
 	{
 		_scrollbarColor = trackColor;
 		_scrollbarThumbColor = thumbColor;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the number of lines scrolled per mouse wheel notch.
+	/// Default: <see cref="ControlDefaults.DefaultScrollWheelLines"/>.
+	/// </summary>
+	public MultilineEditControlBuilder WithMouseWheelScrollSpeed(int speed)
+	{
+		_mouseWheelScrollSpeed = Math.Max(1, speed);
 		return this;
 	}
 
@@ -771,7 +783,8 @@ public sealed class MultilineEditControlBuilder : IControlBuilder<MultilineEditC
 			ShowLineNumbers = _showLineNumbers,
 			ShowEditingHints = _showEditingHints,
 			EscapeExitsEditMode = _escapeExitsEditMode,
-			SyntaxHighlighter = _syntaxHighlighter
+			SyntaxHighlighter = _syntaxHighlighter,
+			MouseWheelScrollSpeed = _mouseWheelScrollSpeed
 		};
 
 		// Set optional colors

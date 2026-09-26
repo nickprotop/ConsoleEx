@@ -330,7 +330,8 @@ Slider, RangeSlider, DatePicker, TimePicker, Dropdown, Menu, Toolbar
 LogViewer, SpectreRenderableControl, LineGraph, SparklineControl, BarGraph
 
 **Layout:** NavigationView (WinUI-inspired, responsive), TabControl,
-HorizontalGrid, ScrollablePanel, SplitterControl, StatusBarControl
+HorizontalGrid, ScrollablePanel, ScrollbarControl (standalone, can drive multiple views),
+SplitterControl, StatusBarControl
 
 **Drawing:** CanvasControl (30+ primitives), ImageControl (Kitty graphics protocol + half-block fallback),
 VideoControl (FFmpeg — Kitty graphics + half-block/ASCII/braille fallbacks), TerminalControl (PTY, Linux)

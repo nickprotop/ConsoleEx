@@ -1,6 +1,6 @@
 # Controls Reference
 
-SharpConsoleUI provides 41 built-in UI controls for building rich console applications.
+SharpConsoleUI provides 42 built-in UI controls for building rich console applications.
 
 > **New to SharpConsoleUI?** Start with the [Tutorials](tutorials/README.md) — step-by-step guides that build real apps from scratch.
 
@@ -113,6 +113,7 @@ Controls for organizing other controls.
 |---------|-------------|---------|
 | **ColumnContainer** | Vertical stack container | Stack controls vertically, padding, alignment |
 | **[ScrollablePanelControl](controls/ScrollablePanelControl.md)** | Scrollable content area | Vertical scrolling, contains multiple controls |
+| **[ScrollbarControl](controls/ScrollbarControl.md)** | Standalone scrollbar | Decoupled from any single view; `ValueChanged`/`UserValueChanged` let one bar drive several views (e.g. a side-by-side diff) with no echo |
 | **[HorizontalGridControl](controls/HorizontalGridControl.md)** | Multi-column layout | Variable-width columns, alignment, splitters |
 | **[GridControl](controls/GridControl.md)** | WinUI-style 2D grid | Fixed/Auto/Star rows & columns, row/col spans, gaps, per-cell styling, any control per cell |
 | **[FlowControl](controls/FlowControl.md)** | Renders a flow inline in a region | Embeds `Flow.Run`/`Flow.Wizard` in a pane (vs. a modal); idle/done placeholder; normal focus scope |

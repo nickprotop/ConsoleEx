@@ -1069,13 +1069,14 @@ public partial class TableControl
 			currentY++;
 		}
 
-		// Draw vertical scrollbar
+		// Draw vertical scrollbar. GetVerticalScrollbarRect() is the single source of truth for this
+		// bar's rectangle, shared with hit testing in TableControl.Mouse.cs.
+		int vScrollbarX = bounds.X + GetVerticalScrollbarRect().x;
 		if (showVScrollbar)
 		{
-			int scrollbarX = startX + contentWidth;
 			int dataRowsHeight = currentY - dataStartY;
 			if (dataRowsHeight > 0)
-				DrawVerticalScrollbar(buffer, scrollbarX, dataStartY, dataRowsHeight, bgColor);
+				DrawVerticalScrollbar(buffer, vScrollbarX, dataStartY, dataRowsHeight, bgColor);
 		}
 
 		// Draw horizontal scrollbar
@@ -1090,7 +1091,7 @@ public partial class TableControl
 			// Corner cell when both scrollbars visible
 			if (showVScrollbar)
 			{
-				int cornerX = startX + contentWidth;
+				int cornerX = vScrollbarX;
 				if (cornerX >= clipRect.X && cornerX < clipRect.Right)
 					buffer.SetNarrowCell(cornerX, currentY, ' ', fgColor, effectiveBg);
 			}

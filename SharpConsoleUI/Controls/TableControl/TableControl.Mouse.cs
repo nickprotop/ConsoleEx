@@ -11,6 +11,7 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Helpers.Scrollbar;
 namespace SharpConsoleUI.Controls;
 
 public partial class TableControl
@@ -124,7 +125,7 @@ public partial class TableControl
 			if (args.HasFlag(MouseFlags.ButtonShift))
 			{
 				int oldH = _horizontalScrollOffset;
-				_horizontalScrollOffset = Math.Max(0, _horizontalScrollOffset - ControlDefaults.DefaultScrollWheelLines);
+				_horizontalScrollOffset = Math.Max(0, _horizontalScrollOffset - _mouseWheelScrollSpeed);
 				if (_horizontalScrollOffset != oldH)
 				{
 					Invalidate(Invalidation.Relayout);
@@ -134,7 +135,7 @@ public partial class TableControl
 			}
 
 			int oldOffset = _scrollOffset;
-			ScrollOffset = Math.Max(0, _scrollOffset - ControlDefaults.DefaultScrollWheelLines);
+			ScrollOffset = Math.Max(0, _scrollOffset - _mouseWheelScrollSpeed);
 			return _scrollOffset != oldOffset; // bubble if didn't scroll
 		}
 
@@ -143,7 +144,7 @@ public partial class TableControl
 			if (args.HasFlag(MouseFlags.ButtonShift))
 			{
 				int oldH = _horizontalScrollOffset;
-				_horizontalScrollOffset += ControlDefaults.DefaultScrollWheelLines;
+				_horizontalScrollOffset += _mouseWheelScrollSpeed;
 				if (_horizontalScrollOffset != oldH)
 				{
 					Invalidate(Invalidation.Relayout);
@@ -154,7 +155,7 @@ public partial class TableControl
 
 			int oldOffset = _scrollOffset;
 			int maxOffset = Math.Max(0, RowCount - GetVisibleRowCount());
-			ScrollOffset = Math.Min(maxOffset, _scrollOffset + ControlDefaults.DefaultScrollWheelLines);
+			ScrollOffset = Math.Min(maxOffset, _scrollOffset + _mouseWheelScrollSpeed);
 			return _scrollOffset != oldOffset; // bubble if didn't scroll
 		}
 
@@ -633,14 +634,15 @@ public partial class TableControl
 	private bool IsClickOnVerticalScrollbar(MouseEventArgs args)
 	{
 		if (!ShouldShowVerticalScrollbar()) return false;
-		int scrollbarX = ActualWidth - Margin.Right - 1;
-		return args.Position.X == scrollbarX;
+		var (x, _, _) = GetVerticalScrollbarRect();
+		return args.Position.X == x;
 	}
 
 	private bool IsClickOnHorizontalScrollbar(MouseEventArgs args)
 	{
-		int maxY = ActualHeight - Margin.Bottom - 1;
-		return ShouldShowHorizontalScrollbar() && args.Position.Y == maxY;
+		if (!ShouldShowHorizontalScrollbar()) return false;
+		var (_, y, _) = GetHorizontalScrollbarRect();
+		return args.Position.Y == y;
 	}
 
 	private bool IsClickOnColumnBorder(MouseEventArgs args)
@@ -659,147 +661,104 @@ public partial class TableControl
 
 	#region Scrollbar Interaction
 
-	private int GetScrollbarContentHeight()
-	{
-		int dataStartY = Margin.Top;
-		if (!string.IsNullOrEmpty(_title)) dataStartY++;
-		if (_borderStyle != BorderStyle.None) dataStartY++;
-		if (_showHeader) dataStartY++;
-		if (_showHeader && _borderStyle != BorderStyle.None) dataStartY++;
-
-		int height = ActualHeight - dataStartY - Margin.Bottom;
-		if (_borderStyle != BorderStyle.None) height--; // bottom border
-		if (ShouldShowHorizontalScrollbar()) height--;
-		return Math.Max(0, height);
-	}
-
-	private int GetScrollbarDataStartY()
-	{
-		int dataStartY = Margin.Top;
-		if (!string.IsNullOrEmpty(_title)) dataStartY++;
-		if (_borderStyle != BorderStyle.None) dataStartY++;
-		if (_showHeader) dataStartY++;
-		if (_showHeader && _borderStyle != BorderStyle.None) dataStartY++;
-		return dataStartY;
-	}
-
 	private void HandleVerticalScrollbarThumbPress(MouseEventArgs args)
 	{
-		int contentAreaHeight = GetScrollbarContentHeight();
-		var (_, _, thumbY, thumbHeight) = GetVerticalScrollbarGeometry(contentAreaHeight);
-		int relY = args.Position.Y - GetScrollbarDataStartY();
+		var (_, rectY, rectHeight) = GetVerticalScrollbarRect();
+		var metrics = VerticalScrollbarMetrics(rectHeight);
+		int relY = args.Position.Y - rectY;
 
-		if (relY >= thumbY && relY < thumbY + thumbHeight)
+		if (ScrollbarInput.HitTest(metrics, relY) == ScrollbarHitZone.Thumb)
 		{
 			_vThumbDragging = true;
 			_scrollbarDragStartY = args.Position.Y;
-			_scrollbarDragStartOffset = _scrollOffset;
+			_scrollbarDragStartThumbPos = ScrollbarGeometry.ThumbPosForOffset(metrics);
 		}
 	}
 
 	private void HandleVerticalScrollbarClick(MouseEventArgs args)
 	{
-		int contentAreaHeight = GetScrollbarContentHeight();
-		var (_, trackHeight, thumbY, thumbHeight) = GetVerticalScrollbarGeometry(contentAreaHeight);
-		int relY = args.Position.Y - GetScrollbarDataStartY();
-		int maxOffset = Math.Max(0, RowCount - GetVisibleRowCount());
+		var (_, rectY, rectHeight) = GetVerticalScrollbarRect();
+		var metrics = VerticalScrollbarMetrics(rectHeight);
+		int relY = args.Position.Y - rectY;
 
-		if (relY == 0 && _scrollOffset > 0)
+		var zone = ScrollbarInput.HitTest(metrics, relY);
+
+		// Arrow/track clicks are gated on scrollability, exactly as before: an arrow at an
+		// already-exhausted end, or track on the side with nothing left to page, does nothing.
+		bool canApply = zone switch
 		{
-			// Arrow up
-			ScrollOffset = Math.Max(0, _scrollOffset - 1);
-		}
-		else if (relY == trackHeight - 1 && _scrollOffset < maxOffset)
+			ScrollbarHitZone.UpArrow => _scrollOffset > 0,
+			ScrollbarHitZone.DownArrow => _scrollOffset < ScrollbarGeometry.MaxOffset(metrics),
+			ScrollbarHitZone.TrackAbove => true,
+			ScrollbarHitZone.TrackBelow => true,
+			_ => false,
+		};
+
+		if (canApply)
 		{
-			// Arrow down
-			ScrollOffset = Math.Min(maxOffset, _scrollOffset + 1);
-		}
-		else if (relY < thumbY)
-		{
-			// Track above thumb: page up
-			ScrollOffset = Math.Max(0, _scrollOffset - GetVisibleRowCount());
-		}
-		else if (relY >= thumbY + thumbHeight)
-		{
-			// Track below thumb: page down
-			ScrollOffset = Math.Min(maxOffset, _scrollOffset + GetVisibleRowCount());
+			// Table's arrow step has always been a literal 1 row (not DefaultScrollWheelLines, which
+			// only governs the wheel handlers) — preserved here.
+			int newOffset = ScrollbarInput.OffsetForZone(metrics, zone, smallChange: 1, largeChange: GetVisibleRowCount());
+
+			// Route through the property (not the field) so a click participates in the AutoScroll
+			// detach/re-attach rule like every other user scroll. The setter clamps and invalidates.
+			ScrollOffset = newOffset;
 		}
 	}
 
 	private void HandleVerticalScrollbarDrag(MouseEventArgs args)
 	{
-		int contentAreaHeight = GetScrollbarContentHeight();
-		var (_, _, _, thumbHeight) = GetVerticalScrollbarGeometry(contentAreaHeight);
+		var (_, _, rectHeight) = GetVerticalScrollbarRect();
+		var metrics = VerticalScrollbarMetrics(rectHeight);
 
-		int totalRows = RowCount;
-		int visibleRows = GetVisibleRowCount();
-		int maxOffset = Math.Max(0, totalRows - visibleRows);
-		int trackRange = Math.Max(1, contentAreaHeight - thumbHeight);
+		if (ScrollbarGeometry.MaxOffset(metrics) <= 0) return;
 
-		if (maxOffset <= 0) return;
-
-		int deltaY = args.Position.Y - _scrollbarDragStartY;
-		int newOffset = _scrollbarDragStartOffset + (int)(deltaY * (double)maxOffset / trackRange);
+		int delta = args.Position.Y - _scrollbarDragStartY;
+		int newOffset = ScrollbarInput.OffsetForDrag(metrics, _scrollbarDragStartThumbPos, delta);
 
 		// Route through the property (not the field) so the drag participates in the AutoScroll
 		// detach/re-attach rule like every other user scroll. The setter clamps and invalidates.
 		ScrollOffset = newOffset;
 	}
 
-	private int GetScrollbarContentWidth()
-	{
-		int contentWidth = ActualWidth - Margin.Left - Margin.Right;
-		if (_borderStyle != BorderStyle.None) contentWidth -= 2; // left + right border
-		if (ShouldShowVerticalScrollbar()) contentWidth--;
-		return Math.Max(0, contentWidth);
-	}
-
 	private void HandleHorizontalScrollbarThumbPress(MouseEventArgs args)
 	{
-		int contentWidth = GetScrollbarContentWidth();
+		var (rectX, _, rectWidth) = GetHorizontalScrollbarRect();
 		int totalColumnsWidth = GetTotalColumnsWidth();
-		var (_, _, thumbX, thumbWidth) = GetHorizontalScrollbarGeometry(contentWidth, totalColumnsWidth);
+		var metrics = HorizontalScrollbarMetrics(rectWidth, totalColumnsWidth);
+		int relX = args.Position.X - rectX;
 
-		int relX = args.Position.X - Margin.Left;
-		if (_borderStyle != BorderStyle.None) relX--;
-
-		if (relX >= thumbX && relX < thumbX + thumbWidth)
+		if (ScrollbarInput.HitTest(metrics, relX) == ScrollbarHitZone.Thumb)
 		{
 			_hThumbDragging = true;
 			_scrollbarDragStartX = args.Position.X;
-			_scrollbarDragStartOffset = _horizontalScrollOffset;
+			_hScrollbarDragStartThumbPos = ScrollbarGeometry.ThumbPosForOffset(metrics);
 		}
 	}
 
 	private void HandleHorizontalScrollbarClick(MouseEventArgs args)
 	{
-		int contentWidth = GetScrollbarContentWidth();
+		var (rectX, _, rectWidth) = GetHorizontalScrollbarRect();
 		int totalColumnsWidth = GetTotalColumnsWidth();
-		var (_, trackWidth, thumbX, thumbWidth) = GetHorizontalScrollbarGeometry(contentWidth, totalColumnsWidth);
+		var metrics = HorizontalScrollbarMetrics(rectWidth, totalColumnsWidth);
+		int relX = args.Position.X - rectX;
+		int maxHScroll = ScrollbarGeometry.MaxOffset(metrics);
 
-		int relX = args.Position.X - Margin.Left;
-		if (_borderStyle != BorderStyle.None) relX--; // account for left border
-		int maxHScroll = Math.Max(0, totalColumnsWidth - contentWidth);
+		var zone = ScrollbarInput.HitTest(metrics, relX);
 
-		if (relX == 0 && _horizontalScrollOffset > 0)
+		bool canApply = zone switch
 		{
-			// Arrow left
-			_horizontalScrollOffset = Math.Max(0, _horizontalScrollOffset - 1);
-		}
-		else if (relX == trackWidth - 1 && _horizontalScrollOffset < maxHScroll)
+			ScrollbarHitZone.UpArrow => _horizontalScrollOffset > 0,
+			ScrollbarHitZone.DownArrow => _horizontalScrollOffset < maxHScroll,
+			ScrollbarHitZone.TrackAbove => true,
+			ScrollbarHitZone.TrackBelow => true,
+			_ => false,
+		};
+
+		if (canApply)
 		{
-			// Arrow right
-			_horizontalScrollOffset = Math.Min(maxHScroll, _horizontalScrollOffset + 1);
-		}
-		else if (relX < thumbX)
-		{
-			// Track left of thumb: page left
-			_horizontalScrollOffset = Math.Max(0, _horizontalScrollOffset - contentWidth);
-		}
-		else if (relX >= thumbX + thumbWidth)
-		{
-			// Track right of thumb: page right
-			_horizontalScrollOffset = Math.Min(maxHScroll, _horizontalScrollOffset + contentWidth);
+			// Table's arrow step has always been a literal 1 column - preserved here.
+			_horizontalScrollOffset = ScrollbarInput.OffsetForZone(metrics, zone, smallChange: 1, largeChange: rectWidth);
 		}
 
 		Invalidate(Invalidation.Relayout);
@@ -807,17 +766,15 @@ public partial class TableControl
 
 	private void HandleHorizontalScrollbarDrag(MouseEventArgs args)
 	{
-		int contentWidth = GetScrollbarContentWidth();
+		var (_, _, rectWidth) = GetHorizontalScrollbarRect();
 		int totalColumnsWidth = GetTotalColumnsWidth();
-		var (_, _, _, thumbWidth) = GetHorizontalScrollbarGeometry(contentWidth, totalColumnsWidth);
+		var metrics = HorizontalScrollbarMetrics(rectWidth, totalColumnsWidth);
 
-		int maxHScroll = Math.Max(0, totalColumnsWidth - contentWidth);
-		int trackRange = Math.Max(1, contentWidth - thumbWidth);
-
+		int maxHScroll = ScrollbarGeometry.MaxOffset(metrics);
 		if (maxHScroll <= 0) return;
 
-		int deltaX = args.Position.X - _scrollbarDragStartX;
-		int newOffset = _scrollbarDragStartOffset + (int)(deltaX * (double)maxHScroll / trackRange);
+		int delta = args.Position.X - _scrollbarDragStartX;
+		int newOffset = ScrollbarInput.OffsetForDrag(metrics, _hScrollbarDragStartThumbPos, delta);
 		_horizontalScrollOffset = Math.Clamp(newOffset, 0, maxHScroll);
 		Invalidate(Invalidation.Relayout);
 	}

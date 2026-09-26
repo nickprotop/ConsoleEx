@@ -39,6 +39,7 @@ By default, `ReadOnly = true` preserves backward-compatible static table renderi
 | `FuzzyFilterEnabled` | `bool` | `false` | Enable fuzzy matching as fallback |
 | `AutoHighlightOnFocus` | `bool` | `true` | Auto-select first row on focus |
 | `MinScrollbarThumbSize` | `int` | `1` | Minimum vertical scrollbar thumb height, in rows |
+| `MouseWheelScrollSpeed` | `int` | `ControlDefaults.DefaultScrollWheelLines` (1) | Rows (or columns, with Shift+wheel) scrolled per wheel notch; values below 1 clamp to 1 |
 
 ## Events
 
@@ -355,6 +356,7 @@ When `DataSource` is set:
 | `.WithVerticalScrollbar(visibility)` | Scrollbar visibility (Auto/Always/Never) |
 | `.WithHorizontalScrollbar(visibility)` | Scrollbar visibility (Auto/Always/Never) |
 | `.WithMinScrollbarThumbSize(size)` | Minimum vertical thumb height in rows (default 1) |
+| `.WithMouseWheelScrollSpeed(speed)` | Rows/columns scrolled per wheel notch, min 1 (default: `ControlDefaults.DefaultScrollWheelLines`) |
 
 ### Events
 
@@ -533,6 +535,19 @@ Column widths are computed using sample-based measurement (header + visible rows
 - Both support `ScrollbarVisibility.Auto` (default), `Always`, or `Never`.
 - On a table with very many rows the proportional vertical thumb shrinks to a single row and becomes
   hard to grab. `MinScrollbarThumbSize` sets a floor for it.
+- `MouseWheelScrollSpeed` sets how many rows (or columns, with Shift+wheel) move per wheel notch —
+  it drives both scroll axes. It defaults to `ControlDefaults.DefaultScrollWheelLines`, so setting
+  that once at startup changes the wheel step for every table that hasn't overridden it:
+
+```csharp
+// Change the wheel step everywhere, once at startup:
+ControlDefaults.DefaultScrollWheelLines = 3;
+
+// Or override it for just this table:
+var table = Controls.Table()
+    .WithMouseWheelScrollSpeed(5)
+    .Build();
+```
 - A table whose columns carry `MinWidth` floors may deliberately overflow its viewport rather than
   crush a column — see [Column Widths](#column-widths). The horizontal scrollbar is how that
   overflow is reached, so leave it on `Auto`.

@@ -6,7 +6,9 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drawing;
+using SharpConsoleUI.Helpers.Scrollbar;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Controls;
@@ -102,6 +104,17 @@ public partial class TableControl
 	{
 		get => _minScrollbarThumbSize;
 		set { if (_minScrollbarThumbSize == value) return; _minScrollbarThumbSize = value; OnPropertyChanged(); Invalidate(Invalidation.Repaint); }
+	}
+
+	/// <summary>
+	/// Gets or sets the number of rows (or columns, horizontally) scrolled per mouse wheel notch.
+	/// Values below 1 are clamped to 1.
+	/// Default: <see cref="ControlDefaults.DefaultScrollWheelLines"/>.
+	/// </summary>
+	public int MouseWheelScrollSpeed
+	{
+		get => _mouseWheelScrollSpeed;
+		set { _mouseWheelScrollSpeed = Math.Max(1, value); OnPropertyChanged(); }
 	}
 
 	#endregion
@@ -223,35 +236,84 @@ public partial class TableControl
 
 	#endregion
 
+	#region Scrollbar Rectangle
+
+	/// <summary>
+	/// The vertical scrollbar's rectangle, control-relative: the column it paints on, the row its
+	/// track starts at, and the track's height. Single source of truth for both the render path
+	/// (<c>TableControl.Rendering.cs</c>) and hit testing (<c>TableControl.Mouse.cs</c>) — before this
+	/// unification the two independently walked title/border/header/separator rows to derive the same
+	/// numbers, which is exactly the kind of duplication that drifts into an off-by-one.
+	/// </summary>
+	/// <remarks>
+	/// The Y math mirrors the render path's top-chrome walk (title, top border, header, header
+	/// separator) exactly; the height counts the same rows the render path fills before the bottom
+	/// border (including the filter status bar), reserving the horizontal scrollbar's row when shown.
+	/// </remarks>
+	internal (int x, int y, int height) GetVerticalScrollbarRect()
+	{
+		int dataStartY = Margin.Top;
+		if (!string.IsNullOrEmpty(_title)) dataStartY++;
+		if (_borderStyle != BorderStyle.None) dataStartY++;
+		if (_showHeader) dataStartY++;
+		if (_showHeader && _borderStyle != BorderStyle.None) dataStartY++;
+
+		int height = ActualHeight - dataStartY - Margin.Bottom;
+		if (_borderStyle != BorderStyle.None) height--; // bottom border
+		if (ShouldShowHorizontalScrollbar()) height--;
+		height = Math.Max(0, height);
+
+		int x = ActualWidth - Margin.Right - 1;
+		return (x, dataStartY, height);
+	}
+
+	/// <summary>
+	/// The horizontal scrollbar's rectangle, control-relative: the row it paints on, the column its
+	/// track starts at, and the track's width. Mirrors <see cref="GetVerticalScrollbarRect"/> for the
+	/// horizontal axis; single source of truth for render and hit testing.
+	/// </summary>
+	internal (int x, int y, int width) GetHorizontalScrollbarRect()
+	{
+		int y = ActualHeight - Margin.Bottom - 1;
+
+		int width = ActualWidth - Margin.Left - Margin.Right;
+		if (_borderStyle != BorderStyle.None) width -= 2; // left + right border
+		if (ShouldShowVerticalScrollbar()) width--;
+		width = Math.Max(0, width);
+
+		int x = Margin.Left + (_borderStyle != BorderStyle.None ? 1 : 0);
+		return (x, y, width);
+	}
+
+	#endregion
+
 	#region Scrollbar Geometry
+
+	/// <summary>
+	/// The shared engine's view of the vertical scrollbar's geometry inputs. <see cref="MinScrollbarThumbSize"/>
+	/// applies to this axis only — the horizontal metrics below deliberately omit it, preserving the
+	/// original asymmetry (the horizontal thumb's minimum has always been the engine default of 1).
+	/// </summary>
+	private ScrollbarMetrics VerticalScrollbarMetrics(int contentAreaHeight) =>
+		new(contentAreaHeight, RowCount, GetVisibleRowCount(), _scrollOffset, _minScrollbarThumbSize);
+
+	/// <summary>The shared engine's view of the horizontal scrollbar's geometry inputs.</summary>
+	private ScrollbarMetrics HorizontalScrollbarMetrics(int contentAreaWidth, int totalColumnsWidth) =>
+		new(contentAreaWidth, totalColumnsWidth, contentAreaWidth, _horizontalScrollOffset);
 
 	/// <summary>
 	/// Calculates the vertical scrollbar geometry (relative to content area).
 	/// </summary>
 	internal (int trackTop, int trackHeight, int thumbY, int thumbHeight) GetVerticalScrollbarGeometry(int contentAreaHeight)
 	{
-		int trackTop = 0;
-		int trackHeight = contentAreaHeight;
-		if (trackHeight <= 0) return (0, 0, 0, 0);
+		if (contentAreaHeight <= 0) return (0, 0, 0, 0);
 
-		int totalRows = RowCount;
-		int visibleRows = GetVisibleRowCount();
-		if (totalRows <= visibleRows) return (trackTop, trackHeight, 0, trackHeight);
+		var metrics = VerticalScrollbarMetrics(contentAreaHeight);
+		if (RowCount <= GetVisibleRowCount()) return (0, contentAreaHeight, 0, contentAreaHeight);
 
-		// Reserve first and last positions for arrows
-		int arrowSlots = trackHeight >= 3 ? 2 : 0;
-		int thumbTrackHeight = trackHeight - arrowSlots;
-		if (thumbTrackHeight <= 0) return (trackTop, trackHeight, 0, trackHeight);
-
-		double viewportRatio = (double)visibleRows / totalRows;
-		int minThumbHeight = Math.Min(_minScrollbarThumbSize, thumbTrackHeight);
-		int thumbHeight = Math.Clamp((int)(thumbTrackHeight * viewportRatio), minThumbHeight, thumbTrackHeight);
-		double scrollRatio = (double)_scrollOffset / Math.Max(1, totalRows - visibleRows);
-		int thumbY = arrowSlots > 0 ? 1 : 0; // start after top arrow
-		int maxThumbPos = thumbTrackHeight - thumbHeight;
-		thumbY += Math.Min((int)(maxThumbPos * scrollRatio), maxThumbPos);
-
-		return (trackTop, trackHeight, thumbY, thumbHeight);
+		return (0, contentAreaHeight,
+			ScrollbarGeometry.ThumbPosForOffset(metrics),
+			ScrollbarGeometry.ThumbLength(metrics));
 	}
 
 	/// <summary>
@@ -259,25 +321,13 @@ public partial class TableControl
 	/// </summary>
 	internal (int trackLeft, int trackWidth, int thumbX, int thumbWidth) GetHorizontalScrollbarGeometry(int contentAreaWidth, int totalColumnsWidth)
 	{
-		int trackLeft = 0;
-		int trackWidth = contentAreaWidth;
-		if (trackWidth <= 0 || totalColumnsWidth <= contentAreaWidth)
-			return (trackLeft, trackWidth, 0, trackWidth);
+		if (contentAreaWidth <= 0 || totalColumnsWidth <= contentAreaWidth)
+			return (0, contentAreaWidth, 0, contentAreaWidth);
 
-		// Reserve first and last positions for arrows
-		int arrowSlots = trackWidth >= 3 ? 2 : 0;
-		int thumbTrackWidth = trackWidth - arrowSlots;
-		if (thumbTrackWidth <= 0) return (trackLeft, trackWidth, 0, trackWidth);
-
-		double viewportRatio = (double)contentAreaWidth / totalColumnsWidth;
-		int thumbWidth = Math.Clamp((int)(thumbTrackWidth * viewportRatio), 1, thumbTrackWidth);
-		int maxHScroll = totalColumnsWidth - contentAreaWidth;
-		double scrollRatio = maxHScroll > 0 ? (double)_horizontalScrollOffset / maxHScroll : 0;
-		int thumbX = arrowSlots > 0 ? 1 : 0; // start after left arrow
-		int maxThumbPos = thumbTrackWidth - thumbWidth;
-		thumbX += Math.Min((int)(maxThumbPos * scrollRatio), maxThumbPos);
-
-		return (trackLeft, trackWidth, thumbX, thumbWidth);
+		var metrics = HorizontalScrollbarMetrics(contentAreaWidth, totalColumnsWidth);
+		return (0, contentAreaWidth,
+			ScrollbarGeometry.ThumbPosForOffset(metrics),
+			ScrollbarGeometry.ThumbLength(metrics));
 	}
 
 	#endregion
@@ -289,32 +339,11 @@ public partial class TableControl
 	/// </summary>
 	internal void DrawVerticalScrollbar(CharacterBuffer buffer, int x, int startY, int height, Color bgColor)
 	{
-		var (trackTop, trackHeight, thumbY, thumbHeight) = GetVerticalScrollbarGeometry(height);
-		if (trackHeight <= 0) return;
+		if (height <= 0) return;
 
-		Color thumbColor = ResolveScrollbarThumbColor();
-		Color trackColor = ResolveScrollbarTrackColor();
-		bool hasArrows = trackHeight >= 3;
-
-		for (int y = 0; y < trackHeight; y++)
-		{
-			int absY = startY + trackTop + y;
-			if (y >= thumbY && y < thumbY + thumbHeight)
-			{
-				buffer.SetNarrowCell(x, absY, '\u2588', thumbColor, bgColor); // █ thumb
-			}
-			else
-			{
-				buffer.SetNarrowCell(x, absY, '\u2502', trackColor, bgColor); // │ track
-			}
-		}
-
-		// Arrow indicators at fixed positions (first and last)
-		if (hasArrows)
-		{
-			buffer.SetNarrowCell(x, startY + trackTop, '\u25b2', thumbColor, bgColor); // ▲
-			buffer.SetNarrowCell(x, startY + trackTop + trackHeight - 1, '\u25bc', thumbColor, bgColor); // ▼
-		}
+		var palette = ResolveScrollbarPalette(bgColor);
+		ScrollbarRenderer.Draw(buffer, ScrollbarAxis.Vertical, x, startY,
+			VerticalScrollbarMetrics(height), palette);
 	}
 
 	/// <summary>
@@ -322,32 +351,11 @@ public partial class TableControl
 	/// </summary>
 	internal void DrawHorizontalScrollbar(CharacterBuffer buffer, int startX, int y, int width, int totalColumnsWidth, Color bgColor)
 	{
-		var (trackLeft, trackWidth, thumbX, thumbWidth) = GetHorizontalScrollbarGeometry(width, totalColumnsWidth);
-		if (trackWidth <= 0) return;
+		if (width <= 0) return;
 
-		Color thumbColor = ResolveScrollbarThumbColor();
-		Color trackColor = ResolveScrollbarTrackColor();
-		bool hasArrows = trackWidth >= 3;
-
-		for (int xOff = 0; xOff < trackWidth; xOff++)
-		{
-			int absX = startX + trackLeft + xOff;
-			if (xOff >= thumbX && xOff < thumbX + thumbWidth)
-			{
-				buffer.SetNarrowCell(absX, y, '\u25ac', thumbColor, bgColor); // ▬ thumb
-			}
-			else
-			{
-				buffer.SetNarrowCell(absX, y, '\u2500', trackColor, bgColor); // ─ track
-			}
-		}
-
-		// Arrow indicators at fixed positions (first and last)
-		if (hasArrows)
-		{
-			buffer.SetNarrowCell(startX + trackLeft, y, '\u25c4', thumbColor, bgColor); // ◄
-			buffer.SetNarrowCell(startX + trackLeft + trackWidth - 1, y, '\u25ba', thumbColor, bgColor); // ►
-		}
+		var palette = ResolveScrollbarPalette(bgColor);
+		ScrollbarRenderer.Draw(buffer, ScrollbarAxis.Horizontal, startX, y,
+			HorizontalScrollbarMetrics(width, totalColumnsWidth), palette);
 	}
 
 	#endregion

@@ -391,8 +391,8 @@ public sealed class ListBuilder : IControlBuilder<ListControl>
 	}
 
 	/// <summary>
-	/// Sets the number of lines to scroll with mouse wheel.
-	/// Default: 3.
+	/// Sets the number of lines scrolled per mouse wheel notch.
+	/// Default: <see cref="ControlDefaults.DefaultScrollWheelLines"/>.
 	/// </summary>
 	public ListBuilder WithMouseWheelScrollSpeed(int speed)
 	{

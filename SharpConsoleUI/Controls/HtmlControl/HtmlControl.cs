@@ -9,11 +9,35 @@
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
+using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Helpers.Scrollbar;
 using SharpConsoleUI.Html;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Controls
 {
+	/// <summary>
+	/// Sub-region gesture ownership for <see cref="HtmlControl"/> mouse handling. A fresh Button1 press
+	/// hit-tests one of these regions and captures it; every subsequent resent press/drag routes to the
+	/// captured region without re-hit-testing (SGR re-sends Button1Pressed on motion).
+	/// </summary>
+	internal enum HtmlGestureRegion
+	{
+		/// <summary>
+		/// No region. Must stay first so <c>default(HtmlGestureRegion)</c> is never a real region:
+		/// <see cref="Helpers.MouseGestureCapture{TRegion}.Route"/> returns <c>default</c> together
+		/// with <see cref="Helpers.GesturePhase.None"/> for an uncaptured bare click, and a region
+		/// worth 0 would make that read as a genuine hit.
+		/// </summary>
+		None = 0,
+
+		/// <summary>The vertical scrollbar column.</summary>
+		Scrollbar,
+
+		/// <summary>The rendered HTML content area.</summary>
+		Content
+	}
+
 	/// <summary>
 	/// A control that renders HTML content in the terminal with scrolling, link interaction, and keyboard navigation.
 	/// </summary>
@@ -56,8 +80,12 @@ namespace SharpConsoleUI.Controls
 		// Scroll state
 		private int _scrollOffset;
 
-		// Scrollbar drag state
-		private bool _isScrollbarDragging;
+		// Mouse gesture capture: a fresh Button1 press captures one sub-region; every subsequent
+		// resent press/drag routes to it without re-hit-testing (SGR re-sends Button1Pressed on
+		// motion). Replaces the former _isScrollbarDragging latch, which released only on
+		// Button1Released and could leak a captured drag into content when the pointer left the bar.
+		private readonly MouseGestureCapture<HtmlGestureRegion> _gesture = new();
+		private bool _thumbDragging;
 		private int _scrollbarDragStartY;
 		private int _scrollbarDragStartOffset;
 
@@ -284,6 +312,24 @@ namespace SharpConsoleUI.Controls
 
 		/// <inheritdoc/>
 		public bool CanReceiveFocus => IsEnabled;
+
+		/// <summary>
+		/// Resolves the scrollbar thumb/track colors via the shared <see cref="ScrollbarPaletteResolver"/>.
+		/// Html already resolved its colors focus-aware from the theme with the same fallback cascade
+		/// (Cyan1/Grey thumb, Grey/Grey23 track) that the resolver now applies uniformly, so this is a
+		/// non-visible refactor for Html - a check that the shared resolver preserves the existing policy.
+		/// </summary>
+		private ScrollbarPalette ResolveScrollbarPalette()
+		{
+			var theme = Container?.GetConsoleWindowSystem?.Theme;
+			return ScrollbarPaletteResolver.Resolve(new ScrollbarPaletteRequest(
+				ThumbOverride: null,
+				TrackOverride: null,
+				Theme: theme,
+				HasFocus: HasFocus,
+				IsEnabled: IsEnabled,
+				Background: Color.Transparent));
+		}
 
 		#endregion
 

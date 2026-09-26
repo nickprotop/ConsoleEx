@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
@@ -42,6 +43,7 @@ public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 	private int? _height;
 	private StickyPosition _stickyPosition = StickyPosition.None;
 	private ScrollbarVisibility _scrollbarVisibility = ScrollbarVisibility.Auto;
+	private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
 	private string? _name;
 	private object? _tag;
 
@@ -317,6 +319,16 @@ public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 	}
 
 	/// <summary>
+	/// Sets the number of lines scrolled per mouse wheel notch.
+	/// Default: <see cref="ControlDefaults.DefaultScrollWheelLines"/>.
+	/// </summary>
+	public TreeControlBuilder WithMouseWheelScrollSpeed(int speed)
+	{
+		_mouseWheelScrollSpeed = Math.Max(1, speed);
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the visibility
 	/// </summary>
 	/// <param name="visible">Whether the control is visible</param>
@@ -478,6 +490,7 @@ public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 			Height = _height,
 			StickyPosition = _stickyPosition,
 			ScrollbarVisibility = _scrollbarVisibility,
+			MouseWheelScrollSpeed = _mouseWheelScrollSpeed,
 			Name = _name,
 			Tag = _tag,
 			ColorRole = _role,

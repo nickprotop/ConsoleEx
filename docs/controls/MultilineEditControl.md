@@ -69,6 +69,7 @@ var builder = Controls.MultilineEdit("optional initial content");
 ```csharp
 .WithVerticalScrollbar(ScrollbarVisibility visibility)   // Auto, Always, Never
 .WithHorizontalScrollbar(ScrollbarVisibility visibility)
+.WithMouseWheelScrollSpeed(int speed)                     // Lines scrolled per wheel notch (min 1)
 ```
 
 ### Color Methods
@@ -177,6 +178,7 @@ var builder = Controls.MultilineEdit("optional initial content");
 | `HorizontalScrollbarVisibility` | `ScrollbarVisibility` | `Auto` | When to show horizontal scrollbar |
 | `VerticalScrollOffset` | `int` | `0` | Lines scrolled from top (read-only) |
 | `HorizontalScrollOffset` | `int` | `0` | Columns scrolled from left (read-only) |
+| `MouseWheelScrollSpeed` | `int` | `ControlDefaults.DefaultScrollWheelLines` (1) | Lines scrolled per wheel notch; values below 1 clamp to 1 |
 
 ### Colors
 
@@ -337,6 +339,20 @@ editor.ClearFind();       // Remove all match highlighting
 | Scrollbar thumb drag | Scroll content smoothly |
 | Scrollbar track click | Page up/down |
 | Scrollbar arrows | Scroll by single line |
+| Mouse wheel | Scroll by `MouseWheelScrollSpeed` lines |
+
+`MouseWheelScrollSpeed` defaults to `ControlDefaults.DefaultScrollWheelLines`, so setting that once
+at startup changes the wheel step for every editor that hasn't overridden it:
+
+```csharp
+// Change the wheel step everywhere, once at startup:
+ControlDefaults.DefaultScrollWheelLines = 3;
+
+// Or override it for just this editor:
+var editor = Controls.MultilineEdit()
+    .WithMouseWheelScrollSpeed(5)
+    .Build();
+```
 
 ## Extensibility
 

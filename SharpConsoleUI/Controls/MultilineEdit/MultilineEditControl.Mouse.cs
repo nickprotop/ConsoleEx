@@ -72,7 +72,7 @@ namespace SharpConsoleUI.Controls
 
 			if (args.HasFlag(MouseFlags.WheeledUp))
 			{
-				int scrollAmount = Math.Min(ControlDefaults.DefaultScrollWheelLines, _verticalScrollOffset);
+				int scrollAmount = Math.Min(_mouseWheelScrollSpeed, _verticalScrollOffset);
 				if (scrollAmount > 0)
 				{
 					_scrollbarInteracted = true;
@@ -89,7 +89,7 @@ namespace SharpConsoleUI.Controls
 			{
 				int totalLines = GetTotalWrappedLineCount();
 				int maxScroll = Math.Max(0, totalLines - GetEffectiveViewportHeight());
-				int scrollAmount = Math.Min(ControlDefaults.DefaultScrollWheelLines, maxScroll - _verticalScrollOffset);
+				int scrollAmount = Math.Min(_mouseWheelScrollSpeed, maxScroll - _verticalScrollOffset);
 				if (scrollAmount > 0)
 				{
 					_scrollbarInteracted = true;

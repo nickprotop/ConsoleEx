@@ -60,6 +60,7 @@ Create a builder with `Controls.Tree()`.
 .WithForegroundColor(color)
 .WithHighlightColors(foreground, background)  // Selected/highlighted item colors
 .WithScrollbarVisibility(ScrollbarVisibility.Auto)
+.WithMouseWheelScrollSpeed(count)         // Rows scrolled per wheel notch (min 1)
 ```
 
 ### Layout
@@ -120,6 +121,7 @@ Create a builder with `Controls.Tree()`.
 | `HighlightForegroundColor` | `Color` | `White` | Foreground for the highlighted/selected item |
 | `ScrollbarVisibility` | `ScrollbarVisibility` | `Auto` | Scrollbar display mode (`Auto`, `Always`, `Never`) |
 | `HoverEnabled` | `bool` | `true` | Enable mouse hover highlighting |
+| `MouseWheelScrollSpeed` | `int` | `ControlDefaults.DefaultScrollWheelLines` (1) | Rows scrolled per wheel notch; values below 1 clamp to 1 |
 | `SelectOnRightClick` | `bool` | `false` | Select the node under the cursor before `MouseRightClick` fires |
 | `LastRightClickedNode` | `TreeNode?` | `null` | Node under the cursor at the most recent right-click |
 | `IsEnabled` | `bool` | `true` | Enable/disable interaction |
@@ -183,7 +185,7 @@ Create a builder with `Controls.Tree()`.
 | **Double Click (parent)** | Toggle expand/collapse |
 | **Double Click (leaf)** | Activate node (fire `NodeActivated`) |
 | **Right Click** | Fire `MouseRightClick`; sets `LastRightClickedNode` (selects node if `SelectOnRightClick` is true) |
-| **Scroll Wheel** | Scroll the tree up/down |
+| **Scroll Wheel** | Scroll the tree up/down by `MouseWheelScrollSpeed` rows |
 | **Hover** | Highlight node under cursor (when `HoverEnabled`) |
 | **Scrollbar drag / arrows / track** | Scroll the tree |
 
@@ -374,7 +376,11 @@ window.AddControl(tree);
 3. **Subscribe to NodeActivated directly**: It is not exposed on the builder; attach it to the built control for leaf activation.
 4. **Choose a guide style**: Use `TreeGuide.Ascii` for terminals with limited box-drawing support.
 5. **Cap visible rows**: Use `WithMaxVisibleItems` so the tree fits its layout and gets a scrollbar.
-6. **Marshal background updates**: When modifying nodes from background threads, use `windowSystem.EnqueueOnUIThread` for UI state and `Container?.Invalidate(Invalidation.Relayout)` to refresh (safe to call directly from a background thread).
+6. **Adjust the wheel step**: `MouseWheelScrollSpeed` (or `.WithMouseWheelScrollSpeed()`) defaults to `ControlDefaults.DefaultScrollWheelLines`, so setting that once at startup changes the wheel step for every tree that hasn't overridden it:
+   ```csharp
+   ControlDefaults.DefaultScrollWheelLines = 3;
+   ```
+7. **Marshal background updates**: When modifying nodes from background threads, use `windowSystem.EnqueueOnUIThread` for UI state and `Container?.Invalidate(Invalidation.Relayout)` to refresh (safe to call directly from a background thread).
 
 ## See Also
 

@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Layout;
@@ -31,6 +32,7 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 	private ScrollMode _horizontalScrollMode = ScrollMode.None;
 	private ScrollMode _verticalScrollMode = ScrollMode.Scroll;
 	private bool _enableMouseWheel = true;
+	private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
 	private bool _autoScroll = false;
 
 	private HorizontalAlignment _alignment = HorizontalAlignment.Left;
@@ -163,6 +165,16 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 	public ScrollablePanelBuilder WithMouseWheel(bool enable = true)
 	{
 		_enableMouseWheel = enable;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the number of lines scrolled per mouse wheel notch.
+	/// Default: <see cref="ControlDefaults.DefaultScrollWheelLines"/>.
+	/// </summary>
+	public ScrollablePanelBuilder WithMouseWheelScrollSpeed(int speed)
+	{
+		_mouseWheelScrollSpeed = Math.Max(1, speed);
 		return this;
 	}
 
@@ -497,6 +509,7 @@ public sealed class ScrollablePanelBuilder : IControlBuilder<ScrollablePanelCont
 			HorizontalScrollMode = _horizontalScrollMode,
 			VerticalScrollMode = _verticalScrollMode,
 			EnableMouseWheel = _enableMouseWheel,
+			MouseWheelScrollSpeed = _mouseWheelScrollSpeed,
 			AutoScroll = _autoScroll,
 			HorizontalAlignment = _alignment,
 			VerticalAlignment = _verticalAlignment,

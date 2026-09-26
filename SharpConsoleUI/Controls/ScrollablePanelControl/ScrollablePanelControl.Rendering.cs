@@ -10,6 +10,7 @@ using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Helpers.Scrollbar;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
 using SharpConsoleUI.Themes;
@@ -233,58 +234,13 @@ namespace SharpConsoleUI.Controls
 
 		#region Scrollbar Rendering
 
-		// Thumb sizing/positioning is shared by both axes and by the drag handlers, so the forward
-		// map (offset → thumb pixel) and the inverse used while dragging round-trip cleanly (Bug D).
+		/// <summary>The shared engine's view of the vertical scrollbar's geometry inputs.</summary>
+		private ScrollbarMetrics VerticalScrollbarMetrics =>
+			new(VisibleContentHeight, _contentHeight, VisibleContentHeight, _verticalScrollOffset);
 
-		/// <summary>The number of track cells reserved for arrows (2 when the track is long enough).</summary>
-		private static int ArrowSlots(int trackLength) => trackLength >= 3 ? 2 : 0;
-
-		/// <summary>The thumb length for a track, from the viewport/content ratio.</summary>
-		private static int ThumbLength(int trackLength, int viewportExtent, int contentExtent)
-		{
-			int arrowSlots = ArrowSlots(trackLength);
-			int thumbTrack = Math.Max(1, trackLength - arrowSlots);
-			double ratio = (double)viewportExtent / Math.Max(1, contentExtent);
-			return Math.Clamp((int)(thumbTrack * ratio), 1, thumbTrack);
-		}
-
-		/// <summary>
-		/// The thumb's start position within the track (including the leading arrow slot) for a
-		/// given scroll offset. Inverse of <see cref="OffsetForThumbPos"/>.
-		/// </summary>
-		private static int ThumbPosForOffset(int trackLength, int viewportExtent, int contentExtent, int scrollOffset)
-		{
-			int arrowSlots = ArrowSlots(trackLength);
-			int thumbTrack = Math.Max(1, trackLength - arrowSlots);
-			int thumbLen = ThumbLength(trackLength, viewportExtent, contentExtent);
-			int pos = arrowSlots > 0 ? 1 : 0;
-			int maxOffset = Math.Max(0, contentExtent - viewportExtent);
-			if (maxOffset > 0)
-			{
-				double scrollRatio = (double)scrollOffset / maxOffset;
-				int maxThumbPos = thumbTrack - thumbLen;
-				pos += Math.Min((int)Math.Round(maxThumbPos * scrollRatio), maxThumbPos);
-			}
-			return pos;
-		}
-
-		/// <summary>
-		/// The scroll offset that places the thumb start at <paramref name="thumbPos"/> within the
-		/// track. Inverse of <see cref="ThumbPosForOffset"/> — uses the same rounding convention so
-		/// a drag to a thumb pixel maps back to the offset whose forward map returns that pixel.
-		/// </summary>
-		private static int OffsetForThumbPos(int trackLength, int viewportExtent, int contentExtent, int thumbPos)
-		{
-			int arrowSlots = ArrowSlots(trackLength);
-			int thumbTrack = Math.Max(1, trackLength - arrowSlots);
-			int thumbLen = ThumbLength(trackLength, viewportExtent, contentExtent);
-			int maxThumbPos = thumbTrack - thumbLen;
-			int maxOffset = Math.Max(0, contentExtent - viewportExtent);
-			if (maxThumbPos <= 0 || maxOffset <= 0) return 0;
-			int rel = Math.Clamp((arrowSlots > 0 ? thumbPos - 1 : thumbPos), 0, maxThumbPos);
-			double scrollRatio = (double)rel / maxThumbPos;
-			return Math.Min((int)Math.Round(maxOffset * scrollRatio), maxOffset);
-		}
+		/// <summary>The shared engine's view of the horizontal scrollbar's geometry inputs.</summary>
+		private ScrollbarMetrics HorizontalScrollbarMetrics =>
+			new(VisibleContentWidth, _contentWidth, VisibleContentWidth, _horizontalScrollOffset);
 
 		private (int scrollbarRelX, int scrollbarTop, int scrollbarHeight, int thumbY, int thumbHeight) GetScrollbarGeometry()
 		{
@@ -309,19 +265,19 @@ namespace SharpConsoleUI.Controls
 			}
 			int scrollbarTop = Margin.Top + ContentInsetTop;
 			// The vertical track spans the content height (the H-scrollbar row, when shown, is below it).
-			int scrollbarHeight = VisibleContentHeight;
+			var metrics = VerticalScrollbarMetrics;
 
-			int thumbHeight = ThumbLength(scrollbarHeight, scrollbarHeight, _contentHeight);
-			int thumbY = ThumbPosForOffset(scrollbarHeight, scrollbarHeight, _contentHeight, _verticalScrollOffset);
+			int thumbHeight = ScrollbarGeometry.ThumbLength(metrics);
+			int thumbY = ScrollbarGeometry.ThumbPosForOffset(metrics);
 
-			return (scrollbarRelX, scrollbarTop, scrollbarHeight, thumbY, thumbHeight);
+			return (scrollbarRelX, scrollbarTop, metrics.TrackLength, thumbY, thumbHeight);
 		}
 
 		// Horizontal scrollbar geometry, mirroring GetScrollbarGeometry. The track sits on the row
 		// directly below the content viewport and spans the visible content width.
 		private (int scrollbarRelX, int scrollbarRelY, int trackWidth, int thumbX, int thumbWidth) GetHScrollbarGeometry()
 		{
-			int trackWidth = VisibleContentWidth;
+			var metrics = HorizontalScrollbarMetrics;
 			int scrollbarRelX = Margin.Left + ContentInsetLeft;
 			// Overlay: paint on the bottom border row (no reserved row). Non-overlay: the reserved row
 			// directly below the content viewport.
@@ -329,85 +285,54 @@ namespace SharpConsoleUI.Controls
 				? Margin.Top + (_viewportHeight + BorderHeight + _padding.Top + _padding.Bottom) - 1  // bottom border row
 				: Margin.Top + ContentInsetTop + VisibleContentHeight;
 
-			int thumbWidth = ThumbLength(trackWidth, trackWidth, _contentWidth);
-			int thumbX = ThumbPosForOffset(trackWidth, trackWidth, _contentWidth, _horizontalScrollOffset);
+			int thumbWidth = ScrollbarGeometry.ThumbLength(metrics);
+			int thumbX = ScrollbarGeometry.ThumbPosForOffset(metrics);
 
-			return (scrollbarRelX, scrollbarRelY, trackWidth, thumbX, thumbWidth);
+			return (scrollbarRelX, scrollbarRelY, metrics.TrackLength, thumbX, thumbWidth);
 		}
 
-		/// <summary>Thumb color: the <see cref="ScrollbarThumbColor"/> override, else the control's ColorRole
-		/// (the scrollbar is a scroll panel's defining chrome), else the theme's scrollbar thumb
-		/// (focus-aware), else a hardcoded fallback.</summary>
-		private Color ResolveScrollbarThumbColor()
+		/// <summary>
+		/// Resolves the scrollbar palette. SPC is the only scrollbar-bearing control whose colour
+		/// cascade includes a ColorRole tier, so that check runs AHEAD of the shared engine resolver:
+		/// an explicit <see cref="ScrollbarThumbColor"/> override wins outright, then the control's
+		/// ColorRole (the scrollbar is a scroll panel's defining chrome), and only then the engine's
+		/// theme/fallback tiers (shared with every other control).
+		/// </summary>
+		private ScrollbarPalette ResolveScrollbarPalette(Color bgColor)
 		{
-			if (_scrollbarThumbColor.HasValue) return _scrollbarThumbColor.Value;
 			var roleState = !IsEnabled ? ColorRoleState.Disabled : (HasFocus ? ColorRoleState.Focused : ColorRoleState.Normal);
-			var roleThumb = ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode);
-			if (roleThumb != null) return roleThumb.Value;
-			var theme = GetConsoleWindowSystem?.Theme;
-			if (theme != null)
-				return (HasFocus ? theme.ScrollbarThumbColor : theme.ScrollbarThumbUnfocusedColor) ?? theme.WindowForegroundColor;
-			return HasFocus ? Color.Cyan1 : Color.Grey;
-		}
+			Color? roleThumb = _scrollbarThumbColor == null
+				? ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, roleState, mode: ColorRoleMode)
+				: null;
 
-		/// <summary>Track color: the <see cref="ScrollbarColor"/> override, else the theme's scrollbar track (focus-aware), else a hardcoded fallback.</summary>
-		private Color ResolveScrollbarTrackColor()
-		{
-			if (_scrollbarColor.HasValue) return _scrollbarColor.Value;
-			var theme = GetConsoleWindowSystem?.Theme;
-			if (theme != null)
-				return (HasFocus ? theme.ScrollbarTrackColor : theme.ScrollbarTrackUnfocusedColor) ?? theme.WindowBackgroundColor;
-			return HasFocus ? Color.Grey : Color.Grey23;
+			var resolved = ScrollbarPaletteResolver.Resolve(new ScrollbarPaletteRequest(
+				ThumbOverride: _scrollbarThumbColor ?? roleThumb,
+				TrackOverride: _scrollbarColor,
+				Theme: GetConsoleWindowSystem?.Theme,
+				HasFocus: HasFocus,
+				IsEnabled: IsEnabled,
+				Background: bgColor));
+
+			return resolved;
 		}
 
 		private void DrawVerticalScrollbar(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect, Color fgColor, Color bgColor)
 		{
-			var (scrollbarRelX, scrollbarTop, scrollbarHeight, thumbY, thumbHeight) = GetScrollbarGeometry();
+			var (scrollbarRelX, scrollbarTop, _, _, _) = GetScrollbarGeometry();
 
 			// Convert control-relative coordinates to buffer-absolute coordinates
 			int scrollbarX = bounds.X + scrollbarRelX;
 			int scrollbarAbsTop = bounds.Y + scrollbarTop;
 
-			// Colors: honor the ScrollbarThumbColor/ScrollbarColor overrides; otherwise fall back to
-			// the focus-aware defaults.
-			Color thumbColor = ResolveScrollbarThumbColor();
-			Color trackColor = ResolveScrollbarTrackColor();
+			var palette = ResolveScrollbarPalette(bgColor);
 
 			// In overlay mode the scrollbar shares the border column: the existing border line IS the
 			// track, so paint ONLY the thumb cells (overriding the border where the thumb sits) and skip
 			// the track fill + arrows, which would otherwise erase/overdraw the frame.
 			bool overlay = OverlayActive;
 
-			for (int y = 0; y < scrollbarHeight; y++)
-			{
-				bool isThumb = y >= thumbY && y < thumbY + thumbHeight;
-				if (overlay && !isThumb)
-					continue; // leave the border line intact as the track
-
-				Color color = isThumb ? thumbColor : trackColor;
-				char ch = isThumb ? '\u2588' : '\u2502';
-				PutClipped(buffer, clipRect, scrollbarX, scrollbarAbsTop + y, ch, color, bgColor);
-			}
-
-			if (!overlay)
-			{
-				// Arrows at top/bottom (non-overlay only \u2014 in overlay they'd overwrite the border corners).
-				PutClipped(buffer, clipRect, scrollbarX, scrollbarAbsTop, '\u25b2', thumbColor, bgColor);
-				PutClipped(buffer, clipRect, scrollbarX, scrollbarAbsTop + scrollbarHeight - 1, '\u25bc', thumbColor, bgColor);
-			}
-		}
-
-		/// <summary>
-		/// Writes a single narrow scrollbar cell only if it lies within <paramref name="clipRect"/>. Scrollbar
-		/// chrome must respect the same clip as the border-draw methods; without this, a nested panel scrolled
-		/// partly past its parent's viewport edge draws scrollbar TRACK cells over the parent's border row
-		/// (issue #61 \u2014 the off-top arrow lands off-buffer, but the track below it crosses the parent border).
-		/// </summary>
-		private static void PutClipped(CharacterBuffer buffer, LayoutRect clipRect, int x, int y, char ch, Color fg, Color bg)
-		{
-			if (x < clipRect.X || x >= clipRect.Right) return;
-			if (y < clipRect.Y || y >= clipRect.Bottom) return;
-			buffer.SetNarrowCell(x, y, ch, fg, bg);
+			ScrollbarRenderer.Draw(buffer, ScrollbarAxis.Vertical, scrollbarX, scrollbarAbsTop,
+				VerticalScrollbarMetrics, palette, clip: clipRect, drawArrows: !overlay, drawTrack: !overlay);
 		}
 
 		/// <summary>
@@ -420,35 +345,19 @@ namespace SharpConsoleUI.Controls
 		{
 			if (trackWidth <= 0) return;
 
-			var (scrollbarRelX, scrollbarRelY, _, thumbX, thumbWidth) = GetHScrollbarGeometry();
+			var (scrollbarRelX, scrollbarRelY, _, _, _) = GetHScrollbarGeometry();
 			int scrollbarX = bounds.X + scrollbarRelX;
 			int scrollbarY = bounds.Y + scrollbarRelY;
 
-			Color thumbColor = ResolveScrollbarThumbColor();
-			Color trackColor = ResolveScrollbarTrackColor();
+			var palette = ResolveScrollbarPalette(bgColor);
 
 			// In overlay mode the scrollbar shares the bottom border row: the border line IS the track,
 			// so paint ONLY the thumb cells and skip the track fill + end arrows (which would erase the
 			// frame / overwrite the corners).
 			bool overlay = OverlayActive;
 
-			for (int x = 0; x < trackWidth; x++)
-			{
-				bool isThumb = x >= thumbX && x < thumbX + thumbWidth;
-				if (overlay && !isThumb)
-					continue; // leave the bottom border intact as the track
-
-				Color color = isThumb ? thumbColor : trackColor;
-				char ch = isThumb ? '\u25ac' : '\u2500'; // U+25AC thumb / U+2500 track
-				PutClipped(buffer, clipRect, scrollbarX + x, scrollbarY, ch, color, bgColor);
-			}
-
-			if (!overlay)
-			{
-				// Left/right arrows at the ends (non-overlay only \u2014 they'd overwrite the border corners).
-				PutClipped(buffer, clipRect, scrollbarX, scrollbarY, '\u25c4', thumbColor, bgColor);                 // U+25C4
-				PutClipped(buffer, clipRect, scrollbarX + trackWidth - 1, scrollbarY, '\u25ba', thumbColor, bgColor); // U+25BA
-			}
+			ScrollbarRenderer.Draw(buffer, ScrollbarAxis.Horizontal, scrollbarX, scrollbarY,
+				HorizontalScrollbarMetrics, palette, clip: clipRect, drawArrows: !overlay, drawTrack: !overlay);
 		}
 
 		#endregion

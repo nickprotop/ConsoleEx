@@ -52,6 +52,7 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 	private ScrollbarVisibility _verticalScrollbarVisibility = ScrollbarVisibility.Auto;
 	private ScrollbarVisibility _horizontalScrollbarVisibility = ScrollbarVisibility.Auto;
 	private int _minScrollbarThumbSize = ControlDefaults.DefaultMinScrollbarThumbSize;
+	private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
 	private ITableDataSource? _dataSource;
 
 	// Event handlers
@@ -688,6 +689,16 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 	}
 
 	/// <summary>
+	/// Sets the number of rows scrolled per mouse wheel notch.
+	/// Default: <see cref="ControlDefaults.DefaultScrollWheelLines"/>.
+	/// </summary>
+	public TableControlBuilder WithMouseWheelScrollSpeed(int speed)
+	{
+		_mouseWheelScrollSpeed = Math.Max(1, speed);
+		return this;
+	}
+
+	/// <summary>
 	/// Sets the virtual data source for lazy loading.
 	/// </summary>
 	public TableControlBuilder WithDataSource(ITableDataSource dataSource)
@@ -781,6 +792,7 @@ public sealed class TableControlBuilder : IControlBuilder<TableControl>
 			VerticalScrollbarVisibility = _verticalScrollbarVisibility,
 			HorizontalScrollbarVisibility = _horizontalScrollbarVisibility,
 			MinScrollbarThumbSize = _minScrollbarThumbSize,
+			MouseWheelScrollSpeed = _mouseWheelScrollSpeed,
 
 			// Base properties
 			HorizontalAlignment = _horizontalAlignment,

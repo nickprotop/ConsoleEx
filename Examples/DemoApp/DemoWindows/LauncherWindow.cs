@@ -28,6 +28,7 @@ public static class LauncherWindow
 				.AddItem("WinUI Layout", subtitle: "WinUI-inspired settings layout", content: MakeInfoPanel("WinUI Layout"))
 					.AddItem("Grid Layout", subtitle: "WinUI-style grid: spans, gaps, per-cell styling", content: MakeInfoPanel("Grid Layout"))
 				.AddItem("Horizontal Splitter", subtitle: "Drag-to-resize horizontal bars", content: MakeInfoPanel("Horizontal Splitter"))
+				.AddItem("Shared Scrollbar", subtitle: "One ScrollbarControl driving two panes in lockstep", content: MakeInfoPanel("Shared Scrollbar"))
 				.AddItem("Status Bar", subtitle: "Clickable status bar with zones", content: MakeInfoPanel("Status Bar"))
 				.AddItem("Toolbar", subtitle: "Multi-height toolbar with auto-sizing", content: MakeInfoPanel("Toolbar")))
 			.AddHeader("Controls", Color.Green, header => header
@@ -266,6 +267,7 @@ public static class LauncherWindow
 			"Data Binding" => DataBindingWindow.Create(ws),
 			"Date & Time" => DateTimeDemo.Create(ws),
 			"Slider" => SliderDemoWindow.Create(ws),
+			"Shared Scrollbar" => ScrollbarDemoWindow.Create(ws),
 			"Spinner" => SpinnerDemoWindow.Create(ws),
 			"Graphs & Charts" => GraphsWindow.Create(ws),
 			"System Monitor" => SystemMonitorWindow.Create(ws),
@@ -873,6 +875,26 @@ public static class LauncherWindow
 				"",
 				"[dim]Controls used:[/]",
 				"  - TerminalControl (PTY)",
+			},
+			"Shared Scrollbar" => new List<string>
+			{
+				"[bold]Shared Scrollbar[/]",
+				"",
+				"A standalone ScrollbarControl (issue #85) driving two",
+				"ScrollablePanelControls at once — a side-by-side diff",
+				"pair that stays in lockstep, with only one visible bar.",
+				"",
+				"[dim]Features:[/]",
+				"  - UserValueChanged pushes the bar's value to both panes",
+				"  - Each pane's Scrolled event writes back to the bar",
+				"  - No echo, no guard flag: a code-set Value only",
+				"    raises ValueChanged, never UserValueChanged",
+				"  - Drag the thumb, click the arrows, or wheel over",
+				"    either pane",
+				"",
+				"[dim]Controls used:[/]",
+				"  - ScrollbarControl, ScrollablePanelControl (x2)",
+				"  - GridControl, MarkupControl",
 			},
 			"Slider" => new List<string>
 			{

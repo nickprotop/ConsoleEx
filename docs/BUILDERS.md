@@ -443,6 +443,28 @@ Controls.ScrollablePanel()
     .Build();
 ```
 
+### ScrollbarBuilder
+
+A standalone scrollbar, not attached to any one view — for composites where several views scroll
+together (a side-by-side diff with one bar for both panes). See
+[ScrollbarControl](controls/ScrollbarControl.md).
+
+```csharp
+Controls.Scrollbar()
+    .WithMaximum(200)           // total content length
+    .WithViewportLength(20)     // visible length
+    .OnUserValueChanged((s, value) =>
+    {
+        leftPane.ScrollVerticalBy(value - leftPane.VerticalScrollOffset);
+        rightPane.ScrollVerticalBy(value - rightPane.VerticalScrollOffset);
+    })
+    .Build();
+```
+
+`OnUserValueChanged` fires only for user interaction (arrow, track, thumb drag, wheel), so writing
+the bar's `Value` back from the views it drives does not echo. `OnValueChanged` fires for every
+change, including code-set. The bar never takes keyboard focus.
+
 ### CollapsiblePanelBuilder
 
 ```csharp
@@ -833,6 +855,7 @@ Controls.Prompt(prompt)             // PromptBuilder
 Controls.Tree()                     // TreeControlBuilder
 Controls.HorizontalGrid()           // HorizontalGridBuilder
 Controls.ScrollablePanel()          // ScrollablePanelBuilder
+Controls.Scrollbar()                // ScrollbarBuilder (standalone bar, drives other views)
 Controls.CollapsiblePanel(title?)   // CollapsiblePanelBuilder (click-to-expand container)
 Controls.Menu()                     // MenuBuilder
 Controls.Toolbar()                  // ToolbarBuilder

@@ -82,6 +82,78 @@ namespace SharpConsoleUI.Controls
 			return mouseX - Margin.Left == scrollbarX;
 		}
 
+		/// <summary>
+		/// Maps a fresh Button1 press position to the sub-region that should own the resulting gesture.
+		/// Called ONLY on a fresh press by <see cref="MouseGestureCapture{TRegion}"/>; never re-invoked
+		/// mid-gesture, which is what stops a resent-press-on-motion from re-hit-testing a drag that has
+		/// wandered off the scrollbar column into the node area (or vice versa).
+		/// </summary>
+		private TreeGestureRegion HitTestRegion(MouseEventArgs args)
+		{
+			int sbContentWidth = (ActualWidth > 0 ? ActualWidth : 40) - Margin.Left - Margin.Right;
+			return IsClickOnScrollbar(args.Position.X, sbContentWidth) ? TreeGestureRegion.Scrollbar : TreeGestureRegion.Content;
+		}
+
+		/// <summary>Starts a scrollbar thumb drag if the press landed on the thumb.</summary>
+		private void HandleScrollbarThumbPress(MouseEventArgs args)
+		{
+			int sbContentHeight = (ActualHeight > 0 ? ActualHeight : 20) - Margin.Top - Margin.Bottom;
+			int effectiveVis = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
+			var (_, trackHeight, thumbY, thumbHeight) = ScrollbarHelper.GetVerticalGeometry(
+				sbContentHeight, _flattenedNodes.Count, effectiveVis, _scrollOffset);
+			int relY = args.Position.Y - Margin.Top;
+			var zone = ScrollbarHelper.HitTest(relY, trackHeight, thumbY, thumbHeight);
+			if (zone == ScrollbarHitZone.Thumb)
+			{
+				_thumbDragging = true;
+				_scrollbarDragStartY = args.Position.Y;
+				_scrollbarDragStartOffset = _scrollOffset;
+			}
+		}
+
+		/// <summary>Handles an arrow/track click on the scrollbar (thumb presses are handled separately).</summary>
+		private void HandleScrollbarClick(MouseEventArgs args)
+		{
+			int sbContentHeight = (ActualHeight > 0 ? ActualHeight : 20) - Margin.Top - Margin.Bottom;
+			int effectiveVis = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
+			var (_, trackHeight, thumbY, thumbHeight) = ScrollbarHelper.GetVerticalGeometry(
+				sbContentHeight, _flattenedNodes.Count, effectiveVis, _scrollOffset);
+			int relY = args.Position.Y - Margin.Top;
+			int maxOffset = Math.Max(0, _flattenedNodes.Count - effectiveVis);
+			var zone = ScrollbarHelper.HitTest(relY, trackHeight, thumbY, thumbHeight);
+			switch (zone)
+			{
+				case ScrollbarHitZone.UpArrow:
+					_scrollOffset = Math.Max(0, _scrollOffset - 1);
+					break;
+				case ScrollbarHitZone.DownArrow:
+					_scrollOffset = Math.Min(maxOffset, _scrollOffset + 1);
+					break;
+				case ScrollbarHitZone.TrackAbove:
+					_scrollOffset = Math.Max(0, _scrollOffset - effectiveVis);
+					break;
+				case ScrollbarHitZone.TrackBelow:
+					_scrollOffset = Math.Min(maxOffset, _scrollOffset + effectiveVis);
+					break;
+			}
+			Invalidate(Invalidation.Relayout);
+		}
+
+		/// <summary>Applies a thumb-drag delta while a thumb drag started on Down is in progress.</summary>
+		private void HandleScrollbarDrag(MouseEventArgs args)
+		{
+			int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
+			int sbContentHeight = (ActualHeight > 0 ? ActualHeight : 20) - Margin.Top - Margin.Bottom;
+			var (_, _, _, thumbHeight) = ScrollbarHelper.GetVerticalGeometry(
+				sbContentHeight, _flattenedNodes.Count, effectiveMaxVisibleItems, _scrollOffset);
+			int maxOffset = Math.Max(0, _flattenedNodes.Count - effectiveMaxVisibleItems);
+			int newOffset = ScrollbarHelper.CalculateDragOffset(
+				args.Position.Y - _scrollbarDragStartY, _scrollbarDragStartOffset,
+				sbContentHeight, thumbHeight, _flattenedNodes.Count, effectiveMaxVisibleItems);
+			_scrollOffset = Math.Clamp(newOffset, 0, maxOffset);
+			Invalidate(Invalidation.Relayout);
+		}
+
 		/// <inheritdoc/>
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
@@ -103,31 +175,70 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
-			// Handle drag-in-progress (must be checked early, before lock)
-			if (args.HasAnyFlag(MouseFlags.Button1Dragged, MouseFlags.Button1Pressed) && _isScrollbarDragging)
+			// Scrollbar gesture capture: once a press lands on the scrollbar, subsequent resent
+			// press/drag events route to it without re-hit-testing, even if the pointer wanders off
+			// the bar into the node area - this is what stops a thumb drag from leaking into node
+			// selection/expansion. Content presses are captured too (region Content) so the capture is
+			// always released on Up, but Content gestures fall through to the existing handling below
+			// (this preserves the exact pre-existing content click/double-click/indicator behavior).
+			if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Dragged,
+				MouseFlags.Button1Released, MouseFlags.Button1Clicked))
 			{
-				lock (_treeLock)
+				var route = _gesture.Route(args, HitTestRegion);
+				if (route.Phase != GesturePhase.None && route.Region == TreeGestureRegion.Scrollbar)
 				{
-					int effectiveMaxVisibleItems = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
-					int sbContentHeight = (ActualHeight > 0 ? ActualHeight : 20) - Margin.Top - Margin.Bottom;
-					var (_, _, _, thumbHeight) = ScrollbarHelper.GetVerticalGeometry(
-						sbContentHeight, _flattenedNodes.Count, effectiveMaxVisibleItems, _scrollOffset);
-					int maxOffset = Math.Max(0, _flattenedNodes.Count - effectiveMaxVisibleItems);
-					int newOffset = ScrollbarHelper.CalculateDragOffset(
-						args.Position.Y - _scrollbarDragStartY, _scrollbarDragStartOffset,
-						sbContentHeight, thumbHeight, _flattenedNodes.Count, effectiveMaxVisibleItems);
-					_scrollOffset = Math.Clamp(newOffset, 0, maxOffset);
-				}
-				Invalidate(Invalidation.Relayout);
-				args.Handled = true;
-				return true;
-			}
+					switch (route.Phase)
+					{
+						case GesturePhase.Down:
+							if (!HasFocus && CanFocusWithMouse)
+								this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+							_thumbDragging = false;
+							lock (_treeLock)
+							{
+								HandleScrollbarThumbPress(args);
+								if (!_thumbDragging)
+									HandleScrollbarClick(args);
+							}
+							args.Handled = true;
+							return true;
 
-			// Handle scrollbar drag end
-			if (args.HasFlag(MouseFlags.Button1Released) && _isScrollbarDragging)
-			{
-				_isScrollbarDragging = false;
-				return true;
+						case GesturePhase.Move:
+							if (_thumbDragging)
+							{
+								lock (_treeLock)
+								{
+									HandleScrollbarDrag(args);
+								}
+							}
+							args.Handled = true;
+							return true;
+
+						case GesturePhase.Up:
+							_thumbDragging = false;
+							args.Handled = true;
+							return true;
+					}
+				}
+
+				// A bare Button1Clicked with no prior captured press (some drivers/tests deliver a click
+				// without a separate Button1Pressed) landing on the scrollbar: synthesize a full click by
+				// hit-testing fresh and dispatching Down then Up, so arrow/track clicks still fire.
+				if (route.Phase == GesturePhase.None && args.HasFlag(MouseFlags.Button1Clicked)
+					&& HitTestRegion(args) == TreeGestureRegion.Scrollbar)
+				{
+					if (!HasFocus && CanFocusWithMouse)
+						this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+					_thumbDragging = false;
+					lock (_treeLock)
+					{
+						HandleScrollbarThumbPress(args);
+						if (!_thumbDragging)
+							HandleScrollbarClick(args);
+					}
+					_thumbDragging = false;
+					args.Handled = true;
+					return true;
+				}
 			}
 
 			// Reset deferred events
@@ -171,7 +282,7 @@ namespace SharpConsoleUI.Controls
 				{
 					if (_scrollOffset > 0)
 					{
-						_scrollOffset = Math.Max(0, _scrollOffset - ControlDefaults.DefaultScrollWheelLines);
+						_scrollOffset = Math.Max(0, _scrollOffset - _mouseWheelScrollSpeed);
 						Invalidate(Invalidation.Relayout);
 						args.Handled = true;
 						return true;
@@ -187,7 +298,7 @@ namespace SharpConsoleUI.Controls
 					int maxScroll = Math.Max(0, _flattenedNodes.Count - effectiveMaxVisibleItems);
 					if (_scrollOffset < maxScroll)
 					{
-						_scrollOffset = Math.Min(maxScroll, _scrollOffset + ControlDefaults.DefaultScrollWheelLines);
+						_scrollOffset = Math.Min(maxScroll, _scrollOffset + _mouseWheelScrollSpeed);
 						Invalidate(Invalidation.Relayout);
 						args.Handled = true;
 						return true;
@@ -252,31 +363,6 @@ namespace SharpConsoleUI.Controls
 						result = true;
 					}
 				}
-				// Handle scrollbar press (Button1Pressed on scrollbar only)
-				else if (mouseOnScrollbar && args.HasFlag(MouseFlags.Button1Pressed))
-				{
-					if (!HasFocus && CanFocusWithMouse)
-						this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
-
-					int sbContentHeight = (ActualHeight > 0 ? ActualHeight : 20) - Margin.Top - Margin.Bottom;
-					int effectiveVis = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
-					var (_, trackHeight, thumbY, thumbHeight) = ScrollbarHelper.GetVerticalGeometry(
-						sbContentHeight, _flattenedNodes.Count, effectiveVis, _scrollOffset);
-					int relY = args.Position.Y - Margin.Top;
-					int maxOffset = Math.Max(0, _flattenedNodes.Count - effectiveVis);
-					var zone = ScrollbarHelper.HitTest(relY, trackHeight, thumbY, thumbHeight);
-					switch (zone)
-					{
-						case ScrollbarHitZone.Thumb:
-							_isScrollbarDragging = true;
-							_scrollbarDragStartY = args.Position.Y;
-							_scrollbarDragStartOffset = _scrollOffset;
-							break;
-					}
-					Invalidate(Invalidation.Relayout);
-					args.Handled = true;
-					result = true;
-				}
 				// Handle mouse click - select node
 				else if (args.HasFlag(MouseFlags.Button1Clicked))
 				{
@@ -286,36 +372,7 @@ namespace SharpConsoleUI.Controls
 						this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
 					}
 
-					// Check if clicking on scrollbar (reuse mouseOnScrollbar computed above)
-					if (mouseOnScrollbar)
-					{
-						int sbContentHeight = (ActualHeight > 0 ? ActualHeight : 20) - Margin.Top - Margin.Bottom;
-						int effectiveVis = _calculatedMaxVisibleItems ?? MaxVisibleItems ?? 10;
-						var (_, trackHeight, thumbY, thumbHeight) = ScrollbarHelper.GetVerticalGeometry(
-							sbContentHeight, _flattenedNodes.Count, effectiveVis, _scrollOffset);
-						int relY = args.Position.Y - Margin.Top;
-						int maxOffset = Math.Max(0, _flattenedNodes.Count - effectiveVis);
-						var zone = ScrollbarHelper.HitTest(relY, trackHeight, thumbY, thumbHeight);
-						switch (zone)
-						{
-							case ScrollbarHitZone.UpArrow:
-								_scrollOffset = Math.Max(0, _scrollOffset - 1);
-								break;
-							case ScrollbarHitZone.DownArrow:
-								_scrollOffset = Math.Min(maxOffset, _scrollOffset + 1);
-								break;
-							case ScrollbarHitZone.TrackAbove:
-								_scrollOffset = Math.Max(0, _scrollOffset - effectiveVis);
-								break;
-							case ScrollbarHitZone.TrackBelow:
-								_scrollOffset = Math.Min(maxOffset, _scrollOffset + effectiveVis);
-								break;
-						}
-						Invalidate(Invalidation.Relayout);
-						args.Handled = true;
-						result = true;
-					}
-					else if (nodeIndex >= 0 && nodeIndex < _flattenedNodes.Count)
+					if (nodeIndex >= 0 && nodeIndex < _flattenedNodes.Count)
 					{
 						// Check if click was on the expand/collapse indicator
 						int indicatorStart = GetIndicatorStartColumn(nodeIndex);

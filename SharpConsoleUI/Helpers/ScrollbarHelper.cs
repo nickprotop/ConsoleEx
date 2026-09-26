@@ -6,7 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using System.Drawing;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Helpers
@@ -27,15 +26,16 @@ namespace SharpConsoleUI.Helpers
 #pragma warning restore CS1591
 
 	/// <summary>
-	/// Shared scrollbar geometry, drawing, and hit testing logic.
-	/// Used by ListControl, TreeControl, and TableControl.
+	/// Shared vertical scrollbar geometry, drawing and hit testing.
 	/// </summary>
+	/// <remarks>
+	/// Kept as public API; the implementation delegates to the internal scrollbar engine in
+	/// <see cref="Scrollbar"/>, which also serves the horizontal axis and the standalone
+	/// <c>ScrollbarControl</c>. Used by ListControl, TreeControl and HtmlControl — TableControl and
+	/// ScrollablePanelControl use the engine directly.
+	/// </remarks>
 	public static class ScrollbarHelper
 	{
-		private const char ThumbChar = '\u2588';    // █
-		private const char TrackChar = '\u2502';    // │
-		private const char UpArrowChar = '\u25b2';  // ▲
-		private const char DownArrowChar = '\u25bc'; // ▼
 		private const int MinArrowTrackHeight = 3;
 
 		/// <summary>
@@ -49,25 +49,18 @@ namespace SharpConsoleUI.Helpers
 		public static (int trackTop, int trackHeight, int thumbY, int thumbHeight)
 			GetVerticalGeometry(int contentAreaHeight, int totalItems, int visibleItems, int scrollOffset)
 		{
-			int trackTop = 0;
-			int trackHeight = contentAreaHeight;
-			if (trackHeight <= 0) return (0, 0, 0, 0);
+			if (contentAreaHeight <= 0) return (0, 0, 0, 0);
 
-			if (totalItems <= visibleItems) return (trackTop, trackHeight, 0, trackHeight);
+			var metrics = new Scrollbar.ScrollbarMetrics(
+				contentAreaHeight, totalItems, visibleItems, scrollOffset);
 
-			// Reserve first and last positions for arrows
-			int arrowSlots = trackHeight >= MinArrowTrackHeight ? 2 : 0;
-			int thumbTrackHeight = trackHeight - arrowSlots;
-			if (thumbTrackHeight <= 0) return (trackTop, trackHeight, 0, trackHeight);
+			// Content that fits keeps the historical shape: the thumb fills the whole track.
+			if (totalItems <= visibleItems)
+				return (0, contentAreaHeight, 0, contentAreaHeight);
 
-			double viewportRatio = (double)visibleItems / totalItems;
-			int thumbHeight = Math.Clamp((int)(thumbTrackHeight * viewportRatio), 1, thumbTrackHeight);
-			double scrollRatio = (double)scrollOffset / Math.Max(1, totalItems - visibleItems);
-			int thumbY = arrowSlots > 0 ? 1 : 0; // start after top arrow
-			int maxThumbPos = thumbTrackHeight - thumbHeight;
-			thumbY += Math.Min((int)(maxThumbPos * scrollRatio), maxThumbPos);
-
-			return (trackTop, trackHeight, thumbY, thumbHeight);
+			return (0, contentAreaHeight,
+				Scrollbar.ScrollbarGeometry.ThumbPosForOffset(metrics),
+				Scrollbar.ScrollbarGeometry.ThumbLength(metrics));
 		}
 
 		/// <summary>
@@ -78,31 +71,12 @@ namespace SharpConsoleUI.Helpers
 			int totalItems, int visibleItems, int scrollOffset,
 			Color thumbColor, Color trackColor, Color bgColor)
 		{
-			var (trackTop, trackHeight, thumbY, thumbHeight) =
-				GetVerticalGeometry(height, totalItems, visibleItems, scrollOffset);
-			if (trackHeight <= 0) return;
+			if (height <= 0) return;
 
-			bool hasArrows = trackHeight >= MinArrowTrackHeight;
-
-			for (int y = 0; y < trackHeight; y++)
-			{
-				int absY = startY + trackTop + y;
-				if (y >= thumbY && y < thumbY + thumbHeight)
-				{
-					buffer.SetNarrowCell(x, absY, ThumbChar, thumbColor, bgColor);
-				}
-				else
-				{
-					buffer.SetNarrowCell(x, absY, TrackChar, trackColor, bgColor);
-				}
-			}
-
-			// Arrow indicators at fixed positions (first and last)
-			if (hasArrows)
-			{
-				buffer.SetNarrowCell(x, startY + trackTop, UpArrowChar, thumbColor, bgColor);
-				buffer.SetNarrowCell(x, startY + trackTop + trackHeight - 1, DownArrowChar, thumbColor, bgColor);
-			}
+			var metrics = new Scrollbar.ScrollbarMetrics(height, totalItems, visibleItems, scrollOffset);
+			Scrollbar.ScrollbarRenderer.Draw(
+				buffer, Scrollbar.ScrollbarAxis.Vertical, x, startY, metrics,
+				new Scrollbar.ScrollbarPalette(thumbColor, trackColor, bgColor));
 		}
 
 		/// <summary>
@@ -113,6 +87,11 @@ namespace SharpConsoleUI.Helpers
 		/// <param name="thumbY">Thumb start position within the track.</param>
 		/// <param name="thumbHeight">Thumb height.</param>
 		/// <returns>The hit zone.</returns>
+		/// <remarks>
+		/// Kept as its own implementation rather than delegating: its four scalar parameters cannot
+		/// rebuild the full <see cref="Scrollbar.ScrollbarMetrics"/> the engine needs. This logic is
+		/// mirrored in <see cref="Scrollbar.ScrollbarInput.HitTest"/> — the two must stay in step.
+		/// </remarks>
 		public static ScrollbarHitZone HitTest(int relativeY, int trackHeight, int thumbY, int thumbHeight)
 		{
 			if (relativeY < 0 || relativeY >= trackHeight)
@@ -150,13 +129,11 @@ namespace SharpConsoleUI.Helpers
 			int contentAreaHeight, int thumbHeight,
 			int totalItems, int visibleItems)
 		{
-			int maxOffset = Math.Max(0, totalItems - visibleItems);
-			int trackRange = Math.Max(1, contentAreaHeight - thumbHeight);
+			var metrics = new Scrollbar.ScrollbarMetrics(
+				contentAreaHeight, totalItems, visibleItems, dragStartOffset);
 
-			if (maxOffset <= 0) return 0;
-
-			int newOffset = dragStartOffset + (int)(dragDeltaY * (double)maxOffset / trackRange);
-			return Math.Clamp(newOffset, 0, maxOffset);
+			int startThumbPos = Scrollbar.ScrollbarGeometry.ThumbPosForOffset(metrics);
+			return Scrollbar.ScrollbarInput.OffsetForDrag(metrics, startThumbPos, dragDeltaY);
 		}
 	}
 }

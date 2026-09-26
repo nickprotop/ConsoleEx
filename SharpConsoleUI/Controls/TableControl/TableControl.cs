@@ -14,6 +14,7 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Helpers.Scrollbar;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
 using SharpConsoleUI.Themes;
@@ -153,6 +154,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private ScrollbarVisibility _verticalScrollbarVisibility = ScrollbarVisibility.Auto;
 	private ScrollbarVisibility _horizontalScrollbarVisibility = ScrollbarVisibility.Auto;
 	private int _minScrollbarThumbSize = ControlDefaults.DefaultMinScrollbarThumbSize;
+	private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
 
 	// Mouse gesture capture: a fresh Button1 press captures one sub-region; every subsequent resent
 	// press/drag routes to it without re-hit-testing (SGR re-sends Button1Pressed on motion). Replaces
@@ -164,10 +166,13 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private bool _vThumbDragging = false;
 	private bool _hThumbDragging = false;
 
-	// Scrollbar dragging state
+	// Scrollbar dragging state. *ThumbPos anchors the drag on the thumb's track position (not the
+	// scroll offset) so ScrollbarInput.OffsetForDrag can invert cursor movement back to an offset that
+	// round-trips - the same anchor ScrollablePanelControl uses.
 	private int _scrollbarDragStartY = 0;
 	private int _scrollbarDragStartX = 0;
-	private int _scrollbarDragStartOffset = 0;
+	private int _scrollbarDragStartThumbPos = 0;
+	private int _hScrollbarDragStartThumbPos = 0;
 
 	// Sorting
 	private bool _sortingEnabled = false;
@@ -1089,16 +1094,31 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		return theme?.TableHoverForegroundColor ?? Color.White;
 	}
 
-	internal Color ResolveScrollbarThumbColor()
+	/// <summary>
+	/// Resolves the table's scrollbar thumb/track colours via the shared engine, reading
+	/// <see cref="ITheme.TableScrollbarThumbColor"/>/<see cref="ITheme.TableScrollbarTrackColor"/>
+	/// (Table's own theme keys, which have no unfocused variants) instead of the general
+	/// <c>Scrollbar*</c> family every other scrollable control uses.
+	/// </summary>
+	/// <remarks>
+	/// Accepted behaviour change from the pre-retrofit code: Table previously read the same
+	/// (focused) theme colour regardless of focus, falling back to a focus-aware hardcoded pair only
+	/// when no theme was set. The shared resolver is focus-aware for the fallback tier only, since the
+	/// two Table theme keys have no unfocused counterpart.
+	/// </remarks>
+	private ScrollbarPalette ResolveScrollbarPalette(Color bgColor)
 	{
 		var theme = Container?.GetConsoleWindowSystem?.Theme;
-		return theme?.TableScrollbarThumbColor ?? ((ComputeHasFocus()) ? Color.Cyan1 : Color.Grey);
-	}
+		bool hasFocus = ComputeHasFocus();
 
-	internal Color ResolveScrollbarTrackColor()
-	{
-		var theme = Container?.GetConsoleWindowSystem?.Theme;
-		return theme?.TableScrollbarTrackColor ?? ((ComputeHasFocus()) ? Color.Grey : Color.Grey23);
+		return ScrollbarPaletteResolver.Resolve(new ScrollbarPaletteRequest(
+			ThumbOverride: null,
+			TrackOverride: null,
+			Theme: theme,
+			HasFocus: hasFocus,
+			IsEnabled: IsEnabled,
+			Background: bgColor,
+			UseTableThemeKeys: true));
 	}
 
 	#endregion

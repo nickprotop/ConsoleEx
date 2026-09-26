@@ -10,6 +10,7 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Helpers.Scrollbar;
 using SharpConsoleUI.Layout;
 
 namespace SharpConsoleUI.Controls
@@ -194,7 +195,7 @@ namespace SharpConsoleUI.Controls
 							bool willScroll = _verticalScrollOffset > 0;
 							if (willScroll)
 							{
-								ScrollVerticalBy(-ControlDefaults.DefaultScrollWheelLines);
+								ScrollVerticalBy(-_mouseWheelScrollSpeed);
 								args.Handled = true;
 								return true;
 							}
@@ -206,7 +207,7 @@ namespace SharpConsoleUI.Controls
 							bool willScroll = _verticalScrollOffset < maxScroll;
 							if (willScroll)
 							{
-								ScrollVerticalBy(ControlDefaults.DefaultScrollWheelLines);
+								ScrollVerticalBy(_mouseWheelScrollSpeed);
 								args.Handled = true;
 								return true;
 							}
@@ -294,7 +295,8 @@ namespace SharpConsoleUI.Controls
 				var (_, hRelY, hTrackWidth, _, _) = GetHScrollbarGeometry();
 				int relY = args.Position.Y - Margin.Top - ContentInsetTop;
 				int relX = args.Position.X - Margin.Left - ContentInsetLeft;
-				if (relY == (hRelY - Margin.Top - ContentInsetTop) && relX >= 0 && relX < hTrackWidth)
+				if (relY == (hRelY - Margin.Top - ContentInsetTop) &&
+					ScrollbarInput.HitTest(HorizontalScrollbarMetrics, relX) != ScrollbarHitZone.None)
 					return SpcGestureRegion.HScrollbar;
 			}
 
@@ -315,36 +317,37 @@ namespace SharpConsoleUI.Controls
 				case GesturePhase.Down:
 					_vThumbDragging = false;
 					{
+						var metrics = VerticalScrollbarMetrics;
 						var (_, _, sbHeight, sbThumbY, sbThumbHeight) = GetScrollbarGeometry();
 						int relY = args.Position.Y - Margin.Top - ContentInsetTop;
-						int maxScroll = MaxVerticalScrollOffset;
 
-						if (relY >= sbThumbY && relY < sbThumbY + sbThumbHeight)
+						var zone = ScrollbarInput.HitTest(metrics, relY);
+						if (zone == ScrollbarHitZone.Thumb)
 						{
 							// Thumb: start drag
 							_vThumbDragging = true;
 							_scrollbarDragStartY = args.Position.Y;
 							_scrollbarDragStartThumbPos = sbThumbY;
 						}
-						else if (relY == 0 && _verticalScrollOffset > 0)
+						else
 						{
-							// Arrow up
-							ScrollVerticalBy(-ControlDefaults.DefaultScrollWheelLines);
-						}
-						else if (relY == sbHeight - 1 && _verticalScrollOffset < maxScroll)
-						{
-							// Arrow down
-							ScrollVerticalBy(ControlDefaults.DefaultScrollWheelLines);
-						}
-						else if (relY < sbThumbY)
-						{
-							// Track above thumb: page up
-							ScrollVerticalBy(-VisibleContentHeight);
-						}
-						else if (relY >= sbThumbY + sbThumbHeight)
-						{
-							// Track below thumb: page down
-							ScrollVerticalBy(VisibleContentHeight);
+							// Arrow/track clicks are gated on scrollability, exactly as before: an arrow at an
+							// already-exhausted end, or track on the side with nothing left to page, does nothing.
+							bool canApply = zone switch
+							{
+								ScrollbarHitZone.UpArrow => _verticalScrollOffset > 0,
+								ScrollbarHitZone.DownArrow => _verticalScrollOffset < MaxVerticalScrollOffset,
+								ScrollbarHitZone.TrackAbove => true,
+								ScrollbarHitZone.TrackBelow => true,
+								_ => false,
+							};
+
+							if (canApply)
+							{
+								int newOffset = ScrollbarInput.OffsetForZone(metrics, zone,
+									ControlDefaults.DefaultScrollWheelLines, VisibleContentHeight);
+								ScrollVerticalTo(newOffset);
+							}
 						}
 					}
 					args.Handled = true;
@@ -355,11 +358,10 @@ namespace SharpConsoleUI.Controls
 					// keeps the drag glued to the scrollbar even when the pointer leaves the track column.
 					if (_vThumbDragging)
 					{
-						var (_, _, sbHeight, _, _) = GetScrollbarGeometry();
 						// Map the dragged-to track row back to an offset using the SAME geometry the thumb
 						// was drawn with, so the thumb tracks the cursor and round-trips (Bug D).
-						int trackRowFromStart = _scrollbarDragStartThumbPos + (args.Position.Y - _scrollbarDragStartY);
-						int newOffset = OffsetForThumbPos(sbHeight, sbHeight, _contentHeight, trackRowFromStart);
+						int delta = args.Position.Y - _scrollbarDragStartY;
+						int newOffset = ScrollbarInput.OffsetForDrag(VerticalScrollbarMetrics, _scrollbarDragStartThumbPos, delta);
 
 						// Detach/re-attach AutoScroll exactly as ScrollVerticalBy does for the wheel. The drag
 						// applies its offset through ScrollVerticalTo, which only moves the offset — so without
@@ -396,35 +398,36 @@ namespace SharpConsoleUI.Controls
 				case GesturePhase.Down:
 					_hThumbDragging = false;
 					{
-						var (_, _, hTrackWidth, hThumbX, hThumbWidth) = GetHScrollbarGeometry();
+						var metrics = HorizontalScrollbarMetrics;
+						var (_, _, _, hThumbX, _) = GetHScrollbarGeometry();
 						int relX = args.Position.X - Margin.Left - ContentInsetLeft;
 
-						if (relX >= hThumbX && relX < hThumbX + hThumbWidth)
+						var zone = ScrollbarInput.HitTest(metrics, relX);
+						if (zone == ScrollbarHitZone.Thumb)
 						{
 							// Thumb: start drag
 							_hThumbDragging = true;
 							_scrollbarDragStartX = args.Position.X;
 							_hScrollbarDragStartThumbPos = hThumbX;
 						}
-						else if (relX == 0 && _horizontalScrollOffset > 0)
+						else
 						{
-							// Left arrow
-							ScrollHorizontalBy(-ControlDefaults.DefaultScrollWheelLines);
-						}
-						else if (relX == hTrackWidth - 1 && CanScrollRight)
-						{
-							// Right arrow
-							ScrollHorizontalBy(ControlDefaults.DefaultScrollWheelLines);
-						}
-						else if (relX < hThumbX)
-						{
-							// Track left of thumb: page left
-							ScrollHorizontalBy(-VisibleContentWidth);
-						}
-						else if (relX >= hThumbX + hThumbWidth)
-						{
-							// Track right of thumb: page right
-							ScrollHorizontalBy(VisibleContentWidth);
+							// Arrow/track clicks are gated on scrollability, exactly as before.
+							bool canApply = zone switch
+							{
+								ScrollbarHitZone.UpArrow => _horizontalScrollOffset > 0,
+								ScrollbarHitZone.DownArrow => CanScrollRight,
+								ScrollbarHitZone.TrackAbove => true,
+								ScrollbarHitZone.TrackBelow => true,
+								_ => false,
+							};
+
+							if (canApply)
+							{
+								int newOffset = ScrollbarInput.OffsetForZone(metrics, zone,
+									ControlDefaults.DefaultScrollWheelLines, VisibleContentWidth);
+								ScrollHorizontalTo(newOffset);
+							}
 						}
 					}
 					args.Handled = true;
@@ -433,9 +436,8 @@ namespace SharpConsoleUI.Controls
 				case GesturePhase.Move:
 					if (_hThumbDragging)
 					{
-						var (_, _, trackWidth, _, _) = GetHScrollbarGeometry();
-						int trackColFromStart = _hScrollbarDragStartThumbPos + (args.Position.X - _scrollbarDragStartX);
-						int newOffset = OffsetForThumbPos(trackWidth, trackWidth, _contentWidth, trackColFromStart);
+						int delta = args.Position.X - _scrollbarDragStartX;
+						int newOffset = ScrollbarInput.OffsetForDrag(HorizontalScrollbarMetrics, _hScrollbarDragStartThumbPos, delta);
 						ScrollHorizontalTo(newOffset);
 					}
 					args.Handled = true;

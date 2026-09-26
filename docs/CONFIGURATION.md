@@ -8,6 +8,7 @@ SharpConsoleUI provides comprehensive configuration options through `ConsoleWind
 - [ConsoleWindowSystemOptions](#consolewindowsystemoptions)
 - [Panel Configuration](#panel-configuration)
 - [Environment Variables](#environment-variables)
+- [ControlDefaults](#controldefaults)
 - [Complete Configuration Examples](#complete-configuration-examples)
 - [RegistryConfiguration](#registryconfiguration)
 
@@ -466,6 +467,52 @@ SHARPCONSOLEUI_PERF_METRICS=true dotnet run
 # Enable debug logging
 SHARPCONSOLEUI_DEBUG_LOG=/tmp/app.log SHARPCONSOLEUI_DEBUG_LEVEL=Debug dotnet run
 ```
+
+## ControlDefaults
+
+`ConsoleWindowSystemOptions` configures the *system*; `ControlDefaults` holds library-wide defaults
+that individual controls start from. Most are compile-time constants, but a few are settable at
+runtime — set them once at startup, before building your windows.
+
+### Mouse wheel step
+
+```csharp
+using SharpConsoleUI.Configuration;
+
+// Every control that has not overridden it, and windows too:
+ControlDefaults.DefaultScrollWheelLines = 3;
+```
+
+| Member | Default | Applies to |
+|--------|---------|------------|
+| `DefaultScrollWheelLines` | `1` | Every scrolling control that has not set its own `MouseWheelScrollSpeed` |
+| `DefaultWindowScrollWheelLines` | `3` | Scrolling a window itself |
+
+Values below 1 are clamped to 1.
+
+`DefaultWindowScrollWheelLines` **follows** `DefaultScrollWheelLines` when your application sets
+that, so the single assignment above changes the wheel step everywhere. Setting it explicitly pins
+it and stops it following:
+
+```csharp
+ControlDefaults.DefaultScrollWheelLines = 3;        // controls AND windows now move 3
+ControlDefaults.DefaultWindowScrollWheelLines = 5;  // windows now move 5, controls stay at 3
+```
+
+Individual controls override the default:
+
+```csharp
+var log = Controls.ScrollablePanel()
+    .WithMouseWheelScrollSpeed(5)   // this panel only
+    .Build();
+```
+
+`MouseWheelScrollSpeed` (and a matching `WithMouseWheelScrollSpeed(int)` builder method) is
+available on `ScrollablePanelControl`, `TableControl`, `TreeControl`, `MultilineEditControl`,
+`ListControl` and `HtmlControl`.
+
+> `DefaultScrollWheelLines` was a `const` before 2.6.9. It is now a settable static property so a
+> value set here is observed by code compiled against an earlier version.
 
 ## RegistryConfiguration
 

@@ -37,23 +37,6 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
-			// Handle scrollbar drag in progress
-			if (args.HasAnyFlag(MouseFlags.Button1Dragged, MouseFlags.Button1Pressed))
-			{
-				if (_isScrollbarDragging)
-				{
-					HandleScrollbarDrag(args);
-					return true;
-				}
-			}
-
-			// Handle scrollbar drag end
-			if (args.HasFlag(MouseFlags.Button1Released) && _isScrollbarDragging)
-			{
-				_isScrollbarDragging = false;
-				return true;
-			}
-
 			int viewportHeight = GetViewportHeight();
 			int contentWidth = ActualWidth - Margin.Left - Margin.Right;
 			int totalHeight = _layoutResult.TotalHeight;
@@ -68,6 +51,57 @@ namespace SharpConsoleUI.Controls
 			// Check if click is on scrollbar
 			int relX = args.Position.X - Margin.Left;
 			bool mouseOnScrollbar = needsScrollbar && relX >= contentWidth - 1;
+
+			// Scrollbar gesture capture: once a press lands on the scrollbar, subsequent resent
+			// press/drag events route to it without re-hit-testing, even if the pointer wanders off
+			// the bar into the content column - this is what stops a thumb drag from leaking into
+			// link clicks. Content presses are captured too (region Content) so the capture is
+			// always released on Up, but Content gestures fall through to the existing handling below
+			// (this preserves the exact pre-existing link-click behavior).
+			if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Dragged,
+				MouseFlags.Button1Released, MouseFlags.Button1Clicked))
+			{
+				var route = _gesture.Route(args, _ => mouseOnScrollbar ? HtmlGestureRegion.Scrollbar : HtmlGestureRegion.Content);
+				if (route.Phase != GesturePhase.None && route.Region == HtmlGestureRegion.Scrollbar)
+				{
+					switch (route.Phase)
+					{
+						case GesturePhase.Down:
+							if (!HasFocus && CanFocusWithMouse)
+								this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+							_thumbDragging = false;
+							HandleScrollbarThumbPress(args);
+							args.Handled = true;
+							return true;
+
+						case GesturePhase.Move:
+							if (_thumbDragging)
+								HandleScrollbarDrag(args);
+							args.Handled = true;
+							return true;
+
+						case GesturePhase.Up:
+							_thumbDragging = false;
+							args.Handled = true;
+							return true;
+					}
+				}
+
+				// A bare Button1Clicked with no prior captured press (some drivers/tests deliver a click
+				// without a separate Button1Pressed) landing on the scrollbar: synthesize a full click by
+				// dispatching Down (HandleScrollbarThumbPress already falls through to the arrow/track zone
+				// handling for a non-thumb hit), so arrow/track clicks still fire.
+				if (route.Phase == GesturePhase.None && args.HasFlag(MouseFlags.Button1Clicked) && mouseOnScrollbar)
+				{
+					if (!HasFocus && CanFocusWithMouse)
+						this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+					_thumbDragging = false;
+					HandleScrollbarThumbPress(args);
+					_thumbDragging = false;
+					args.Handled = true;
+					return true;
+				}
+			}
 
 			// Handle mouse wheel
 			if (args.HasFlag(MouseFlags.WheeledUp))
@@ -97,26 +131,6 @@ namespace SharpConsoleUI.Controls
 			if (args.HasFlag(MouseFlags.Button3Clicked))
 			{
 				MouseRightClick?.Invoke(this, args);
-				return true;
-			}
-
-			// Handle scrollbar thumb press (drag initiation)
-			if (mouseOnScrollbar && args.HasFlag(MouseFlags.Button1Pressed))
-			{
-				if (!HasFocus && CanFocusWithMouse)
-					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
-				HandleScrollbarThumbPress(args);
-				args.Handled = true;
-				return true;
-			}
-
-			// Handle scrollbar arrow/track click
-			if (mouseOnScrollbar && args.HasFlag(MouseFlags.Button1Clicked))
-			{
-				if (!HasFocus && CanFocusWithMouse)
-					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
-				HandleScrollbarClick(args);
-				args.Handled = true;
 				return true;
 			}
 
@@ -198,7 +212,7 @@ namespace SharpConsoleUI.Controls
 			var zone = ScrollbarHelper.HitTest(relY, trackHeight, thumbY, thumbHeight);
 			if (zone == ScrollbarHitZone.Thumb)
 			{
-				_isScrollbarDragging = true;
+				_thumbDragging = true;
 				_scrollbarDragStartY = args.Position.Y;
 				_scrollbarDragStartOffset = _scrollOffset;
 			}
@@ -207,19 +221,6 @@ namespace SharpConsoleUI.Controls
 				// Treat non-thumb press like a click
 				HandleScrollbarZone(zone, viewportHeight);
 			}
-		}
-
-		private void HandleScrollbarClick(MouseEventArgs args)
-		{
-			int viewportHeight = GetViewportHeight();
-			int totalHeight = _layoutResult.TotalHeight;
-			int relY = args.Position.Y - Margin.Top;
-
-			var (_, trackHeight, thumbY, thumbHeight) = ScrollbarHelper.GetVerticalGeometry(
-				viewportHeight, totalHeight, viewportHeight, _scrollOffset);
-
-			var zone = ScrollbarHelper.HitTest(relY, trackHeight, thumbY, thumbHeight);
-			HandleScrollbarZone(zone, viewportHeight);
 		}
 
 		private void HandleScrollbarZone(ScrollbarHitZone zone, int viewportHeight)

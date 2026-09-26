@@ -14,10 +14,33 @@ using SharpConsoleUI.Core;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Helpers.Scrollbar;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Themes;
 namespace SharpConsoleUI.Controls
 {
+	/// <summary>
+	/// Sub-region gesture ownership for <see cref="TreeControl"/> mouse handling. A fresh Button1 press
+	/// hit-tests one of these regions and captures it; every subsequent resent press/drag routes to the
+	/// captured region without re-hit-testing (SGR re-sends Button1Pressed on motion).
+	/// </summary>
+	internal enum TreeGestureRegion
+	{
+		/// <summary>
+		/// No region. Must stay first so <c>default(TreeGestureRegion)</c> is never a real region:
+		/// <see cref="Helpers.MouseGestureCapture{TRegion}.Route"/> returns <c>default</c> together
+		/// with <see cref="Helpers.GesturePhase.None"/> for an uncaptured bare click, and a region
+		/// worth 0 would make that read as a genuine hit.
+		/// </summary>
+		None = 0,
+
+		/// <summary>The vertical scrollbar column.</summary>
+		Scrollbar,
+
+		/// <summary>The tree node area.</summary>
+		Content
+	}
+
 	/// <summary>
 	/// A hierarchical tree control that displays nodes in a collapsible tree structure with keyboard navigation.
 	/// </summary>
@@ -72,10 +95,17 @@ namespace SharpConsoleUI.Controls
 		// Local selection state
 		private int _selectedIndex = 0;
 		private int _scrollOffset = 0;
+		private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
 
 		// Scrollbar state
 		private ScrollbarVisibility _scrollbarVisibility = ScrollbarVisibility.Auto;
-		private bool _isScrollbarDragging = false;
+
+		// Mouse gesture capture: a fresh Button1 press captures one sub-region; every subsequent
+		// resent press/drag routes to it without re-hit-testing (SGR re-sends Button1Pressed on
+		// motion). Replaces the former _isScrollbarDragging latch, which released only on
+		// Button1Released and could leak a captured drag into content when the pointer left the bar.
+		private readonly MouseGestureCapture<TreeGestureRegion> _gesture = new();
+		private bool _thumbDragging = false;
 		private int _scrollbarDragStartY;
 		private int _scrollbarDragStartOffset;
 
@@ -231,6 +261,24 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Resolves the scrollbar thumb/track colors via the shared <see cref="ScrollbarPaletteResolver"/>,
+		/// so Tree follows the same theme cascade (and unfocused/disabled dimming) as every other
+		/// scrollbar-bearing control, instead of the hardcoded Cyan1/Grey it used to paint regardless
+		/// of the active theme.
+		/// </summary>
+		internal ScrollbarPalette ResolveScrollbarPalette()
+		{
+			var theme = Container?.GetConsoleWindowSystem?.Theme;
+			return ScrollbarPaletteResolver.Resolve(new ScrollbarPaletteRequest(
+				ThumbOverride: null,
+				TrackOverride: null,
+				Theme: theme,
+				HasFocus: HasFocus,
+				IsEnabled: IsEnabled,
+				Background: Color.Transparent));
+		}
+
+		/// <summary>
 		/// Gets or sets the maximum number of items to display at once.
 		/// If null, shows as many as will fit in available height.
 		/// </summary>
@@ -267,6 +315,17 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _scrollbarVisibility;
 			set => SetProperty(ref _scrollbarVisibility, value);
+		}
+
+		/// <summary>
+		/// Gets or sets the number of lines scrolled per mouse wheel notch.
+		/// Values below 1 are clamped to 1.
+		/// Default: <see cref="ControlDefaults.DefaultScrollWheelLines"/>.
+		/// </summary>
+		public int MouseWheelScrollSpeed
+		{
+			get => _mouseWheelScrollSpeed;
+			set { _mouseWheelScrollSpeed = Math.Max(1, value); OnPropertyChanged(); }
 		}
 
 		/// <summary>
