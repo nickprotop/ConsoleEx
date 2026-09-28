@@ -26,6 +26,8 @@ public sealed class ScrollbarBuilder : IControlBuilder<ScrollbarControl>
 	private int _viewportLength = 1;
 	private int _value;
 	private int _smallChange = ControlDefaults.DefaultScrollWheelLines;
+	private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
+	private bool _autoHideWhenContentFits;
 	private int? _largeChange;
 	private bool _isActive;
 	private bool _isEnabled = true;
@@ -115,6 +117,29 @@ public sealed class ScrollbarBuilder : IControlBuilder<ScrollbarControl>
 	public ScrollbarBuilder WithSmallChange(int smallChange)
 	{
 		_smallChange = smallChange;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the number of units <see cref="ScrollbarControl.Value"/> moves per mouse wheel notch.
+	/// Separate from the arrow step. Default: <see cref="ControlDefaults.DefaultScrollWheelLines"/>.
+	/// </summary>
+	/// <param name="speed">Units per notch; values below 1 are clamped to 1.</param>
+	/// <returns>This builder.</returns>
+	public ScrollbarBuilder WithMouseWheelScrollSpeed(int speed)
+	{
+		_mouseWheelScrollSpeed = Math.Max(1, speed);
+		return this;
+	}
+
+	/// <summary>
+	/// Hides the bar while its content fits, the way the embedded scrollbars behave.
+	/// </summary>
+	/// <param name="autoHide">True to paint nothing when there is nothing to scroll.</param>
+	/// <returns>This builder.</returns>
+	public ScrollbarBuilder AutoHideWhenContentFits(bool autoHide = true)
+	{
+		_autoHideWhenContentFits = autoHide;
 		return this;
 	}
 
@@ -326,6 +351,8 @@ public sealed class ScrollbarBuilder : IControlBuilder<ScrollbarControl>
 			Maximum = _maximum,
 			ViewportLength = _viewportLength,
 			SmallChange = _smallChange,
+			MouseWheelScrollSpeed = _mouseWheelScrollSpeed,
+			AutoHideWhenContentFits = _autoHideWhenContentFits,
 			IsActive = _isActive,
 			IsEnabled = _isEnabled,
 			ScrollbarColor = _scrollbarColor,

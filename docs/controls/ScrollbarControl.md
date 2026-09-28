@@ -37,8 +37,10 @@ Create a builder with `Controls.Scrollbar()` or `new ScrollbarBuilder()`. A buil
 .WithMaximum(int maximum)                             // Total length of the content being scrolled
 .WithViewportLength(int viewportLength)               // Visible length of the view the bar represents
 .WithValue(int value)                                 // Initial scroll offset
-.WithSmallChange(int smallChange)                     // Amount per arrow click / wheel notch
+.WithSmallChange(int smallChange)                     // Amount per arrow click
+.WithMouseWheelScrollSpeed(int speed)                 // Amount per wheel notch (separate from arrows)
 .WithLargeChange(int largeChange)                     // Amount per track (page) click
+.AutoHideWhenContentFits(bool autoHide = true)        // Paint nothing while everything fits
 ```
 
 ### Appearance & State
@@ -80,8 +82,10 @@ Create a builder with `Controls.Scrollbar()` or `new ScrollbarBuilder()`. A buil
 | `Maximum` | `int` | `0` | Total length of the content being scrolled. Shrinking re-clamps `Value` |
 | `ViewportLength` | `int` | `1` | Visible length of the view the bar represents. Changing it re-clamps `Value` and, when `LargeChange` was never set explicitly, updates the default paging amount |
 | `Value` | `int` | `0` | Current scroll offset, clamped to `[0, Maximum - ViewportLength]` |
-| `SmallChange` | `int` | `ControlDefaults.DefaultScrollWheelLines` | Amount `Value` moves per arrow click or wheel notch |
+| `SmallChange` | `int` | `ControlDefaults.DefaultScrollWheelLines` | Amount `Value` moves per arrow click |
+| `MouseWheelScrollSpeed` | `int` | `ControlDefaults.DefaultScrollWheelLines` | Amount `Value` moves per wheel notch. Separate from `SmallChange`, so raising the library-wide wheel default does not also lengthen the arrow step. Values below 1 clamp to 1 |
 | `LargeChange` | `int` | `ViewportLength` | Amount `Value` moves per track (page) click; defaults to `ViewportLength` until set explicitly |
+| `AutoHideWhenContentFits` | `bool` | `false` | When true, the bar paints nothing while `Maximum <= ViewportLength`, matching the embedded scrollbars. Off by default so a composite can keep the column reserved and avoid layout jump |
 | `IsActive` | `bool` | `false` | Whether the bar paints itself as focused, even though it never holds keyboard focus |
 | `IsEnabled` | `bool` | `true` | Whether the bar responds to mouse input; a disabled bar dims to its unfocused colors |
 | `ScrollbarColor` | `Color?` | `null` | Track color; `null` uses the shared engine's focus-aware theme color |
@@ -108,9 +112,13 @@ ScrollbarControl implements `IMouseAwareControl` and wants mouse events while `I
 - **Arrow click**: Moves `Value` by `SmallChange`.
 - **Track (page) click**: Moves `Value` by `LargeChange` toward the click.
 - **Thumb drag**: Drags the thumb to scrub `Value` continuously.
-- **Mouse wheel**: Moves `Value` by `SmallChange` per notch.
+- **Mouse wheel**: Moves `Value` by `MouseWheelScrollSpeed` per notch.
 
 All of the above call the internal user-input path, so each one raises both `ValueChanged` and `UserValueChanged`.
+
+A wheel notch that cannot move `Value` — the bar is already at an end — is left unhandled, so it
+reaches the containers around the bar. This matches `ScrollablePanelControl` and keeps a bar nested
+in a scrollable page from swallowing the page's scroll.
 
 ## Examples
 

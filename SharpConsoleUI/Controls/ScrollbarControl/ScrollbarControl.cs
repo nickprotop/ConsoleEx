@@ -71,6 +71,8 @@ namespace SharpConsoleUI.Controls
 		private int _viewportLength = 1;
 		private int _value;
 		private int _smallChange = ControlDefaults.DefaultScrollWheelLines;
+		private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
+		private bool _autoHideWhenContentFits;
 		private int? _largeChange;
 		private bool _isActive;
 		private bool _isEnabled = true;
@@ -185,13 +187,50 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Gets or sets the amount <see cref="Value"/> moves for an arrow click or a mouse wheel notch.
+		/// Gets or sets the amount <see cref="Value"/> moves for an arrow click.
 		/// Defaults to <see cref="ControlDefaults.DefaultScrollWheelLines"/>.
 		/// </summary>
+		/// <remarks>
+		/// The mouse wheel has its own step, <see cref="MouseWheelScrollSpeed"/>, so raising the
+		/// library-wide wheel default does not also lengthen the arrow step.
+		/// </remarks>
 		public int SmallChange
 		{
 			get => _smallChange;
 			set => SetProperty(ref _smallChange, Math.Max(1, value));
+		}
+
+		/// <summary>
+		/// Gets or sets the number of units <see cref="Value"/> moves per mouse wheel notch.
+		/// Values below 1 are clamped to 1.
+		/// Default: <see cref="ControlDefaults.DefaultScrollWheelLines"/>.
+		/// </summary>
+		/// <remarks>
+		/// Matches the property of the same name on the scrolling controls, and is deliberately
+		/// separate from <see cref="SmallChange"/>: an application that sets
+		/// <see cref="ControlDefaults.DefaultScrollWheelLines"/> to speed up the wheel should not
+		/// find its arrow buttons stepping that far as well.
+		/// </remarks>
+		public int MouseWheelScrollSpeed
+		{
+			get => _mouseWheelScrollSpeed;
+			set { _mouseWheelScrollSpeed = Math.Max(1, value); OnPropertyChanged(); }
+		}
+
+		/// <summary>
+		/// Gets or sets whether the bar paints nothing while its content fits
+		/// (<see cref="Maximum"/> is not greater than <see cref="ViewportLength"/>).
+		/// Default: <c>false</c>, so the bar is always drawn unless asked otherwise.
+		/// </summary>
+		/// <remarks>
+		/// The embedded scrollbars appear only when there is something to scroll. A standalone bar
+		/// cannot assume that — a composite may want the column reserved so its layout does not
+		/// jump — so this is opt-in.
+		/// </remarks>
+		public bool AutoHideWhenContentFits
+		{
+			get => _autoHideWhenContentFits;
+			set => SetProperty(ref _autoHideWhenContentFits, value);
 		}
 
 		/// <summary>

@@ -49,6 +49,9 @@ namespace SharpConsoleUI.Controls
 				: bounds.Width - Margin.Left - Margin.Right;
 			if (trackLength <= 0) return;
 
+			// Opt-in: draw nothing while everything fits, the way the embedded scrollbars behave.
+			if (_autoHideWhenContentFits && _maximum <= _viewportLength) return;
+
 			int x = bounds.X + Margin.Left;
 			int y = bounds.Y + Margin.Top;
 

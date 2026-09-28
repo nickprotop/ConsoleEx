@@ -28,10 +28,17 @@ namespace SharpConsoleUI.Controls
 			bool isWheel = args.HasFlag(Drivers.MouseFlags.WheeledUp) || args.HasFlag(Drivers.MouseFlags.WheeledDown);
 			if (isWheel)
 			{
+				// A notch that cannot move the value is left unhandled so it reaches the containers
+				// around the bar, matching ScrollablePanelControl. Swallowing it strands a bar that
+				// is already at an end inside a scrollable page.
+				int before = _value;
+
 				if (args.HasFlag(Drivers.MouseFlags.WheeledUp))
-					SetValueFromUser(_value - _smallChange);
+					SetValueFromUser(_value - _mouseWheelScrollSpeed);
 				else
-					SetValueFromUser(_value + _smallChange);
+					SetValueFromUser(_value + _mouseWheelScrollSpeed);
+
+				if (_value == before) return false;
 
 				args.Handled = true;
 				return true;
