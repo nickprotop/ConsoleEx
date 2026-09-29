@@ -57,7 +57,10 @@ namespace SharpConsoleUI.Parsing
 
 			var cells = new List<Cell>();
 			var styleStack = new Stack<MarkupStyle>();
-			var linkStack = new Stack<(int startCell, string url)>();
+			var linkStack = new Stack<(int startCell, string url, int linkIndex)>();
+			// Assigned when a link OPENS: links are recorded on their closing tag, so a nested
+			// link would otherwise be numbered before the one enclosing it.
+			int nextLinkIndex = 0;
 			var frameIsLink = new Stack<bool>(); // one entry per pushed scope ([style tag] OR [link=…])
 			bool fillToWidth = false;
 			var currentFg = defaultFg;
@@ -155,7 +158,7 @@ namespace SharpConsoleUI.Parsing
 					if (tagContent.StartsWith(LinkTagPrefix, StringComparison.OrdinalIgnoreCase))
 					{
 						string url = LinkUrl.Unescape(tagContent.Substring(LinkTagPrefix.Length));
-						linkStack.Push((cells.Count, url));
+						linkStack.Push((cells.Count, url, nextLinkIndex++));
 						frameIsLink.Push(true);
 						continue;
 					}
@@ -165,14 +168,14 @@ namespace SharpConsoleUI.Parsing
 						if (frameIsLink.Count > 0 && frameIsLink.Peek())
 						{
 							frameIsLink.Pop();
-							var (start, url) = linkStack.Pop();
+							var (start, url, linkIndex) = linkStack.Pop();
 							int end = cells.Count;
 							if (end > start)
 							{
 								var sb = new System.Text.StringBuilder();
 								for (int c = start; c < end; c++)
 									if (!cells[c].IsWideContinuation) sb.Append(cells[c].Character.ToString());
-								links.Add(new LinkSpan(start, end, url, sb.ToString()));
+								links.Add(new LinkSpan(start, end, url, sb.ToString(), linkIndex));
 							}
 						}
 						else if (styleStack.Count > 0)
@@ -885,7 +888,7 @@ namespace SharpConsoleUI.Parsing
 					int a = Math.Max(s.StartCol, lineStart);
 					int b = Math.Min(s.EndCol, lineEnd);
 					if (b > a)
-						lineSpans.Add(new LinkSpan(a - lineStart, b - lineStart, s.Url, s.Text));
+						lineSpans.Add(new LinkSpan(a - lineStart, b - lineStart, s.Url, s.Text, s.LinkIndex));
 				}
 
 				if (lineCells.Count <= width)
@@ -1359,7 +1362,7 @@ namespace SharpConsoleUI.Parsing
 					int a = Math.Max(s.StartCol, from);
 					int b = Math.Min(s.EndCol, to);
 					if (b > a)
-						rowSpans.Add(new LinkSpan(a - from, b - from, s.Url, s.Text));
+						rowSpans.Add(new LinkSpan(a - from, b - from, s.Url, s.Text, s.LinkIndex));
 				}
 				linksPerLine.Add(rowSpans);
 			}

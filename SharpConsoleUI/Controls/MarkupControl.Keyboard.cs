@@ -128,12 +128,37 @@ namespace SharpConsoleUI.Controls
 			var result = new List<(int, Parsing.LinkSpan)>();
 			lock (_selectionLock)
 			{
+				// One entry per LINK, not per rendered row. A link whose text wraps is cached as one
+				// span per row, all sharing a LinkIndex; emitting each of them made a wrapped link
+				// several keyboard stops, so Right stepped through its own rows before reaching the
+				// next link (#86). Keep the first row's span — it is where focus lands and where the
+				// highlight starts — and skip the continuations.
+				// LinkIndex restarts at 0 for each parsed group (ParseLines is called and cached per
+				// content group), so a matching index alone is not enough — two separate lines would
+				// both report 0. A continuation also has to be the very next row AND that row has to
+				// be a soft-wrap continuation of the one before it.
+				int lastLinkIndex = -1;
+				int lastRow = -1;
 				for (int row = 0; row < _cachedRowLinks.Count; row++)
 				{
 					var spans = _cachedRowLinks[row];
 					if (spans == null) continue;
+
+					bool continuesPreviousRow =
+						row == lastRow + 1 &&
+						row < _cachedRowIsSoftWrapContinuation.Count &&
+						_cachedRowIsSoftWrapContinuation[row];
+
 					foreach (var span in spans)
+					{
+						// LinkIndex is -1 for spans built without one; those are always their own stop.
+						if (span.LinkIndex >= 0 && span.LinkIndex == lastLinkIndex && continuesPreviousRow)
+							continue;
+						lastLinkIndex = span.LinkIndex;
 						result.Add((row, span));
+					}
+
+					lastRow = row;
 				}
 			}
 			return result;
