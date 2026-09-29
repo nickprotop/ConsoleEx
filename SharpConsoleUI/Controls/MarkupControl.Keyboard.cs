@@ -165,6 +165,49 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// The rows the focused link actually covers, keyed by rendered row index, with the span to
+		/// invert on each. A link that does not wrap yields its single row.
+		/// </summary>
+		/// <param name="stop">The focused entry from <see cref="FlattenLinks"/>.</param>
+		/// <returns>Row index → span to highlight on that row.</returns>
+		/// <remarks>
+		/// Walks forward from the stop's own row for as long as the next row is a soft-wrap
+		/// continuation carrying the same <see cref="Parsing.LinkSpan.LinkIndex"/> — the same rule
+		/// <see cref="FlattenLinks"/> uses to collapse those rows into one stop, so the highlight and
+		/// the navigation can never disagree about where a link ends.
+		/// </remarks>
+		private Dictionary<int, Parsing.LinkSpan> ResolveFocusedLinkRows((int row, Parsing.LinkSpan span) stop)
+		{
+			var rows = new Dictionary<int, Parsing.LinkSpan> { [stop.row] = stop.span };
+			if (stop.span.LinkIndex < 0) return rows;
+
+			lock (_selectionLock)
+			{
+				for (int row = stop.row + 1; row < _cachedRowLinks.Count; row++)
+				{
+					if (row >= _cachedRowIsSoftWrapContinuation.Count || !_cachedRowIsSoftWrapContinuation[row])
+						break;
+
+					var spans = _cachedRowLinks[row];
+					if (spans == null) break;
+
+					bool matched = false;
+					foreach (var span in spans)
+					{
+						if (span.LinkIndex != stop.span.LinkIndex) continue;
+						rows[row] = span;
+						matched = true;
+						break;
+					}
+
+					if (!matched) break;
+				}
+			}
+
+			return rows;
+		}
+
+		/// <summary>
 		/// Keyboard handling for link navigation. Left/Right move between links (no wrap; at the first/last
 		/// link the key bubbles by returning false). Enter activates the focused link. All other keys bubble.
 		/// </summary>

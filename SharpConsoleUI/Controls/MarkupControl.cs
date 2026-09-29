@@ -725,22 +725,20 @@ namespace SharpConsoleUI.Controls
 			UpdateLinkLayoutCache(renderedLinkLines);
 			UpdateLinkVisibilityCache(renderedCellLines.Count, startY, clipRect.Y, clipRect.Bottom);
 
-			// Resolve the focused link's (row, span) once for this paint so the loop can invert its cells.
+			// Resolve the focused link's rows once for this paint so the loop can invert its cells.
+			// A link whose text wraps covers several rows: FlattenLinks reports it as ONE stop (its
+			// first row), but the highlight has to cover every row it spans, or focus appears to sit
+			// on a fragment of the link (#86).
 			bool highlightFocus = ComputeHasFocus() && _focusedLinkIndex >= 0;
-			int focusedRow = -1;
-			Parsing.LinkSpan focusedSpan = default;
+			Dictionary<int, Parsing.LinkSpan>? focusedRowSpans = null;
 			if (highlightFocus)
 			{
 				var flat = FlattenLinks();
 				if (_focusedLinkIndex < flat.Count)
-				{
-					focusedRow = flat[_focusedLinkIndex].row;
-					focusedSpan = flat[_focusedLinkIndex].span;
-				}
-				else
-				{
+					focusedRowSpans = ResolveFocusedLinkRows(flat[_focusedLinkIndex]);
+
+				if (focusedRowSpans == null || focusedRowSpans.Count == 0)
 					highlightFocus = false;
-				}
 			}
 
 			// Fill top margin (outer margin rows above the border/content)
@@ -798,8 +796,8 @@ namespace SharpConsoleUI.Controls
 				var paintLine = ApplySelectionHighlight(i, cellLine);
 
 				// Apply focus highlight (keyboard nav): invert the focused link's cells on its row.
-				if (highlightFocus && i == focusedRow)
-					paintLine = ApplyFocusHighlight(paintLine, focusedSpan);
+				if (highlightFocus && focusedRowSpans!.TryGetValue(i, out var rowFocusSpan))
+					paintLine = ApplyFocusHighlight(paintLine, rowFocusSpan);
 
 				// Paint the line content
 				buffer.WriteCellsClipped(startX + alignOffset, y, paintLine, clipRect);

@@ -123,6 +123,68 @@ public class MarkupWrappedLinkStopTests
 
 	#endregion
 
+	/// <summary>
+	/// The other half of #86: merging the rows into one stop is not enough if focusing it still
+	/// highlights a single row. Every row the link covers must invert.
+	/// </summary>
+	[Fact]
+	public void FocusingAWrappedLink_HighlightsEveryRowItCovers()
+	{
+		var (markup, _) = Render(WrappingMarkup);
+		Assert.Equal(0, FocusedIndex(markup));
+
+		int highlighted = CountHighlightedRows(markup);
+
+		Assert.True(highlighted >= 2,
+			$"the first link wraps across at least two rows, but only {highlighted} row(s) are highlighted");
+	}
+
+	/// <summary>
+	/// Moving focus to the short second link must leave only its single row highlighted — the
+	/// wrapped link's rows have to stop inverting.
+	/// </summary>
+	[Fact]
+	public void FocusingTheShortLink_HighlightsOnlyItsRow()
+	{
+		var (markup, _) = Render(WrappingMarkup);
+		Right(markup);
+		Assert.Equal(1, FocusedIndex(markup));
+
+		Assert.Equal(1, CountHighlightedRows(markup));
+	}
+
+	/// <summary>A colour used nowhere else, so highlighted cells are unambiguous.</summary>
+	private static readonly Color HighlightBg = new(1, 2, 3);
+
+	/// <summary>
+	/// Counts rendered rows carrying at least one focus-highlighted cell.
+	/// </summary>
+	/// <remarks>
+	/// The focus highlight paints a DEFINITE background (see
+	/// <see cref="MarkupControl.FocusedLinkBackgroundColor"/>) rather than inverting, so the test
+	/// sets a sentinel colour and counts exactly it. Earlier attempts here inferred the highlight
+	/// from colour frequency and were wrong twice — once counting the control's own background
+	/// fill, and once flipping the baseline when the highlight became the majority colour.
+	/// </remarks>
+	private static int CountHighlightedRows(MarkupControl markup, int width = 60, int height = 12)
+	{
+		markup.FocusedLinkBackgroundColor = HighlightBg;
+
+		var buffer = new CharacterBuffer(width, height);
+		var bounds = new LayoutRect(0, 0, width, height);
+		markup.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+
+		int rows = 0;
+		for (int y = 0; y < height; y++)
+			for (int x = 0; x < width; x++)
+				if (buffer.GetCell(x, y).Background == HighlightBg)
+				{
+					rows++;
+					break;
+				}
+		return rows;
+	}
+
 	#region Guard rails — the merge must not over-merge
 
 	/// <summary>
