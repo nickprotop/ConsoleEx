@@ -69,20 +69,31 @@ public class PanelBorderTitleTruncationTests
 	/// The row is still a well-formed border: corners at both ends, and the title still opens with
 	/// its leading fence space.
 	/// </summary>
-	/// <remarks>
-	/// The TRAILING fence space is not asserted. A title truncated to the full available width ends
-	/// flush against the closing corner (<c>…┐</c>) — the ellipsis has taken the last column, which
-	/// is the point of filling the border.
-	/// </remarks>
 	[Fact]
-	public void TheTruncatedRow_KeepsItsCornersAndLeadingSpace()
+	public void TheTruncatedRow_KeepsItsCornersAndSpacing()
 	{
 		string row = DrawTop(new string('b', 80));
 
 		Assert.Equal('┌', row[0]);
 		Assert.Equal('┐', row[^1]);
 		Assert.Contains(" b", row);
-		Assert.EndsWith("…┐", row);
+	}
+
+	/// <summary>
+	/// A truncated title closes the same way a title that fits does: ellipsis, fence space, then at
+	/// least one horizontal before the corner. Filling every column up to the corner would leave
+	/// the longest titles as the only ones jammed against it.
+	/// </summary>
+	[Theory]
+	[InlineData(57)]
+	[InlineData(60)]
+	[InlineData(80)]
+	[InlineData(200)]
+	public void ATruncatedTitle_KeepsAFenceAndAHorizontalBeforeTheCorner(int titleLength)
+	{
+		string row = DrawTop(new string('b', titleLength));
+
+		Assert.EndsWith("… ─┐", row);
 	}
 
 	#endregion

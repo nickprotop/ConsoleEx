@@ -108,7 +108,16 @@ namespace SharpConsoleUI.Helpers
 					// Truncate the MARKUP, not the parsed cells: MarkupParser.Truncate measures
 					// display width (so a wide character is never split) and closes any tags it cuts
 					// through, which keeps the surviving text styled.
-					int room = innerWidth - 2 - Configuration.ControlDefaults.TitleEllipsisWidth; // fencing spaces + the ellipsis cell
+					// Leave room for: the two fencing spaces, the ellipsis, and ONE HORIZONTAL EACH
+					// SIDE, so a truncated title closes the same way a title that fits does
+					// (┌─ title… ─┐). The untruncated path always spends a dash on one side
+					// (leftDashes = 1 for Left alignment, rightDashes = 1 for Right) and puts the
+					// slack on the other; reserving only one column here would hand it to the
+					// leading dash and leave the longest titles jammed against the far corner.
+					int room = innerWidth
+						- 2                                                       // fencing spaces
+						- Configuration.ControlDefaults.TitleEllipsisWidth        // the ellipsis
+						- 2;                                                      // a horizontal each side
 					if (room > 0)
 					{
 						headerCells = MarkupParser.Parse(MarkupParser.Truncate(header, room), borderColor, bgColor);
