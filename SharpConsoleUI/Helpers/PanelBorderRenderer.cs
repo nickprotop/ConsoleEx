@@ -99,7 +99,28 @@ namespace SharpConsoleUI.Helpers
 
 				if (headerWithSpaces > innerWidth)
 				{
-					// Header too long — just fill with horizontal
+					// Too wide for its border: keep what fits and mark the cut with an ellipsis,
+					// rather than dropping the title altogether (#87). A title often carries
+					// information that exists nowhere else, and its width depends on the data and
+					// the terminal, so a caller cannot know the border's width in advance — the old
+					// behaviour lost even the part that would have fitted.
+					//
+					// Truncate the MARKUP, not the parsed cells: MarkupParser.Truncate measures
+					// display width (so a wide character is never split) and closes any tags it cuts
+					// through, which keeps the surviving text styled.
+					int room = innerWidth - 2 - Configuration.ControlDefaults.TitleEllipsisWidth; // fencing spaces + the ellipsis cell
+					if (room > 0)
+					{
+						headerCells = MarkupParser.Parse(MarkupParser.Truncate(header, room), borderColor, bgColor);
+						headerCells.Add(new Cell(Configuration.ControlDefaults.TitleEllipsis, borderColor, bgColor));
+						headerLen = headerCells.Count;
+						headerWithSpaces = headerLen + 2;
+					}
+				}
+
+				if (headerWithSpaces > innerWidth)
+				{
+					// Still no room — not even for one character plus the ellipsis. Plain line.
 					for (int i = 0; i < innerWidth; i++)
 					{
 						int px = x + 1 + i;

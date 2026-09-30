@@ -55,6 +55,15 @@ namespace SharpConsoleUI.Configuration
 		public const int DefaultEllipsisLength = 3;
 
 		/// <summary>
+		/// Single-character ellipsis marking a truncated bordered title (U+2026). Reliably 1 cell
+		/// wide, unlike three dots, which would cost two more columns of the title.
+		/// </summary>
+		public const char TitleEllipsis = '\u2026';
+
+		/// <summary>Display columns <see cref="TitleEllipsis"/> occupies.</summary>
+		public const int TitleEllipsisWidth = 1;
+
+		/// <summary>
 		/// Minimum width for text fields (default: 3)
 		/// </summary>
 		public const int DefaultMinTextWidth = 3;
