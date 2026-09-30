@@ -180,6 +180,18 @@ public partial class TableControl
 		_filterBuffer = compound.RawText;
 		_filterMode = FilterMode.Confirmed;
 
+		// Capture the total BEFORE anything narrows, delegated or not. A source that filters itself
+		// changes its own RowCount, so asking afterwards reports the filtered set as the total and
+		// the footer reads "1/1 rows". EnterFilterMode captures this too, but only the interactive
+		// path goes through it — calling ApplyFilter directly must work the same way.
+		if (_filterIndexMap == null && _unfilteredRowCount == 0)
+		{
+			if (_dataSource != null)
+				_unfilteredRowCount = _dataSource.RowCount;
+			else
+				lock (_tableLock) { _unfilteredRowCount = _rows.Count; }
+		}
+
 		// PUSH THE FILTER DOWN when the source can do it itself. Client-side filtering walks every
 		// row calling GetCellValue per column, which pulls a virtualized source fully into memory —
 		// the opposite of what ITableDataSource exists for. A source advertising CanFilter narrows
@@ -187,15 +199,6 @@ public partial class TableControl
 		// null (identity mapping).
 		if (TryDelegateFilter(compound))
 			return;
-
-		// Store unfiltered count before filtering
-		if (_filterIndexMap == null)
-		{
-			if (_dataSource != null)
-				_unfilteredRowCount = _dataSource.RowCount;
-			else
-				lock (_tableLock) { _unfilteredRowCount = _rows.Count; }
-		}
 
 		RecomputeDisplayMap();
 
@@ -231,7 +234,11 @@ public partial class TableControl
 		// The source now reports only matching rows, so no display map is needed: RowCount reads
 		// through to it and MapDisplayToData stays identity.
 		_filterIndexMap = null;
-		_unfilteredRowCount = 0;
+
+		// _unfilteredRowCount is deliberately NOT reset here. It was captured before the source
+		// narrowed and is the only remaining record of the pre-filter total — the source itself can
+		// no longer report it. Clearing it made the footer read "1/1 rows" instead of "1/4 rows".
+		// ClearFilter zeroes it when the filter actually goes away.
 
 		_selectedRowIndex = RowCount > 0 ? 0 : -1;
 		_scrollOffset = 0;
@@ -1004,7 +1011,11 @@ public partial class TableControl
 				break;
 
 			case FilterMode.Confirmed:
-				int filteredCount = _filterIndexMap?.Length ?? 0;
+				// RowCount, not _filterIndexMap.Length. A source that filters itself narrows its own
+				// RowCount and leaves the display map null by design, so counting the map reported
+				// "No matches" while the matching rows were on screen right above this footer.
+				// RowCount already resolves all three cases: display map, data source, own rows.
+				int filteredCount = RowCount;
 				string filterText = _activeFilter?.RawText ?? _filterBuffer;
 				segments.Add((" \u2315 ", Color.Cyan1));
 				segments.Add((filterText, Color.White));
