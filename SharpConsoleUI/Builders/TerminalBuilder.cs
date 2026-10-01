@@ -51,6 +51,13 @@ public class TerminalBuilder
 	/// </summary>
 	public TerminalBuilder KeepOpenOnExit() { _closeWindowOnExit = false; return this; }
 
+	/// <summary>
+	/// Closes the containing window when the process exits. This is already the default — the
+	/// method exists so a terminal that relies on it can say so, rather than leaving the reader
+	/// to look the default up. The counterpart is <see cref="KeepOpenOnExit"/>.
+	/// </summary>
+	public TerminalBuilder CloseWindowOnExit() { _closeWindowOnExit = true; return this; }
+
 	/// <summary>Returns a self-contained TerminalControl (PTY open, shim running, read loop active).</summary>
 	public TerminalControl Build() => new TerminalControl(_exe, _args, _workingDirectory, _logService, _defaultBackground)
 	{

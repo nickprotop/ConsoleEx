@@ -10,6 +10,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
+using System.Threading;
 using Microsoft.Win32.SafeHandles;
 using SharpConsoleUI.Logging;
 
@@ -30,6 +31,7 @@ internal sealed class WindowsPtyBackend : IPtyBackend
 	private Stream? _outputStream;  // parent reads terminal output from here
 	private readonly ILogService? _log;
 	private int _disposed = 0;
+	private int _shutdownBegun = 0;
 
 	public WindowsPtyBackend(string exe, string[]? args, int rows, int cols, string? workingDirectory = null, ILogService? logService = null)
 	{
@@ -123,9 +125,22 @@ internal sealed class WindowsPtyBackend : IPtyBackend
 
 	public int ChildProcessId => _processId;
 
-	public int? ExitCode => _exitCode;
+	public int? ExitCode => _exitCodeSet != 0 ? _exitCode : null;
 
-	private int? _exitCode;
+	// Written by whichever thread reaps the child, read from the UI thread through
+	// TerminalControl.ExitCode. The flag is published with Interlocked AFTER the value, so a
+	// reader that sees the flag set is guaranteed to see the value too.
+	private int _exitCode;
+	private int _exitCodeSet;
+
+	/// <summary>How long a closed ConPTY is given to end the child before it is terminated.</summary>
+	private const uint GracefulExitMs = 200;
+
+	/// <summary>How long the reap waits after terminating before giving up on a status.</summary>
+	private const uint ForcedExitMs = 300;
+
+	/// <summary>Exit status reported for a child this backend had to terminate.</summary>
+	private const uint TerminatedExitCode = 1;
 
 	public int Read(byte[] buf, int count)
 	{
@@ -150,10 +165,17 @@ internal sealed class WindowsPtyBackend : IPtyBackend
 			new WinPtyNative.COORD { X = (short)cols, Y = (short)rows });
 	}
 
-	public void Dispose()
+	/// <inheritdoc/>
+	/// <remarks>
+	/// Windows differs from Linux here: closing the ConPTY and the output stream genuinely does
+	/// unblock a pending read, so no signal is needed to wake the reader. What this method adds
+	/// over the old inline teardown is that the wake is now separate from the blocking wait,
+	/// letting the caller keep the wait off the UI thread.
+	/// </remarks>
+	public void BeginShutdown()
 	{
-		if (System.Threading.Interlocked.Exchange(ref _disposed, 1) != 0) return;
-		_log?.LogDebug($"WindowsPtyBackend.Dispose: closing ConPTY, pid={_processId}", "PTY");
+		if (Interlocked.Exchange(ref _shutdownBegun, 1) != 0) return;
+		_log?.LogDebug($"WindowsPtyBackend.BeginShutdown: closing ConPTY, pid={_processId}", "PTY");
 
 		// Close input first — signals EOF to the child's stdin.
 		try { _inputStream?.Dispose(); } catch { }
@@ -161,28 +183,43 @@ internal sealed class WindowsPtyBackend : IPtyBackend
 
 		// Close the ConPTY — this closes its internal outWrite handle, which causes
 		// the output pipe to deliver EOF to our Read loop.
-		if (_hPcon != IntPtr.Zero)
-		{
-			WinPtyNative.ClosePseudoConsole(_hPcon);
-			_hPcon = IntPtr.Zero;
-		}
+		var hPcon = Interlocked.Exchange(ref _hPcon, IntPtr.Zero);
+		if (hPcon != IntPtr.Zero)
+			WinPtyNative.ClosePseudoConsole(hPcon);
 
-		// Close the output stream — may interrupt any blocked Read().
+		// Close the output stream — interrupts any blocked Read().
 		try { _outputStream?.Dispose(); } catch { }
 		_outputStream = null;
+	}
 
-		// Wait briefly for the process, then close its handle.
+	public void Dispose()
+	{
+		if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+		_log?.LogDebug($"WindowsPtyBackend.Dispose: reaping pid={_processId}", "PTY");
+
+		// In case Dispose was reached without BeginShutdown.
+		BeginShutdown();
+
 		if (_hProcess != IntPtr.Zero)
 		{
-			WinPtyNative.WaitForSingleObject(_hProcess, 1000);
+			if (WinPtyNative.WaitForSingleObject(_hProcess, GracefulExitMs) != 0)
+			{
+				// The child outlived its console. Terminate it rather than leaving it running
+				// with no terminal attached, matching the SIGKILL fallback on Linux.
+				_log?.LogDebug($"WindowsPtyBackend.Dispose: child survived ConPTY close, terminating pid={_processId}", "PTY");
+				try { WinPtyNative.TerminateProcess(_hProcess, TerminatedExitCode); } catch { }
+				WinPtyNative.WaitForSingleObject(_hProcess, ForcedExitMs);
+			}
+
 			// The status must be read before CloseHandle — afterwards there is nothing to ask.
-			// STILL_ACTIVE (259) means the wait above timed out with the process still running:
+			// STILL_ACTIVE (259) means the waits above timed out with the process still running:
 			// that is "unknown", not an exit status (see WinPtyNative.STILL_ACTIVE for the
 			// collision this creates with a real 259).
 			if (WinPtyNative.GetExitCodeProcess(_hProcess, out uint exitCode)
 				&& exitCode != WinPtyNative.STILL_ACTIVE)
 			{
 				_exitCode = unchecked((int)exitCode);
+				Interlocked.Exchange(ref _exitCodeSet, 1);
 			}
 			WinPtyNative.CloseHandle(_hProcess);
 			_hProcess = IntPtr.Zero;

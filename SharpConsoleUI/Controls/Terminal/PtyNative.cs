@@ -62,6 +62,30 @@ internal static class PtyNative
 
 	public const int SIGWINCH = 28;
 
+	/// <summary>Hang-up. Sent to the child's process group first, as a terminal close would.</summary>
+	public const int SIGHUP = 1;
+
+	/// <summary>Uncatchable kill, used only after SIGHUP has been given time to work.</summary>
+	public const int SIGKILL = 9;
+
+	/// <summary>
+	/// Signals the child's whole process group rather than just the leader.
+	/// <para>
+	/// The group is required, not a nicety: the shim calls <c>setsid()</c>, so a command like
+	/// <c>sh -c "sleep 30"</c> runs its real work in a grandchild that a bare <c>kill(pid)</c>
+	/// would leave orphaned and still holding the PTY open.
+	/// </para>
+	/// </summary>
+	/// <param name="pid">The session leader's pid, which is also the process-group id.</param>
+	/// <param name="sig">The signal to deliver.</param>
+	public static void KillGroup(int pid, int sig)
+	{
+		if (pid <= 0) return;
+		// A negative pid addresses the process group. If the group is already gone this fails
+		// with ESRCH, which is the expected outcome of a race with normal exit, not an error.
+		kill(-pid, sig);
+	}
+
 	private const int F_SETFD = 2;
 	private const int FD_CLOEXEC = 1;
 
