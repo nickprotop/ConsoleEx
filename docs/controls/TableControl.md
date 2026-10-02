@@ -501,6 +501,55 @@ bool isFiltering = table.IsFiltering;
 string? filterText = table.ActiveFilterText;
 ```
 
+### Letting the data source filter
+
+An `ITableDataSource` that sets `CanFilter` is handed single-expression filters through
+`ApplyFilter(text, column, op)`, and narrows itself rather than being scanned row by row. That hook
+takes one condition, so compound `AND`/`OR` filters are applied by the table instead — correct, but
+it means a source that could evaluate the whole expression never sees it.
+
+Override `TryApplyFilterToDataSource` to receive the parsed filter whole:
+
+```csharp
+protected override TableFilterResult TryApplyFilterToDataSource(
+    ITableDataSource dataSource, CompoundFilterExpression compound)
+```
+
+Return one of three answers:
+
+| Result | Meaning |
+|--------|---------|
+| `TableFilterResult.NotHandled` | The table filters client-side, as it would by default |
+| `TableFilterResult.SourceNarrowed` | The source narrowed its own `RowCount`; rows are read by identity |
+| `TableFilterResult.WithDisplayRows(indices)` | The source names which rows to show, and keeps reporting all of them |
+
+`SourceNarrowed` is what to use for large, remote or virtualized sources: nothing is materialised,
+the table holds no map, and cells are read only for rows about to be painted.
+
+`WithDisplayRows` is for a source whose visible set its own `RowCount` cannot express — a hierarchy
+keeping a non-matching parent visible because a child matched, or any source wanting a display order
+of its own. It costs one `int` per matching row, and the source must enumerate its complete match
+set before the table paints, since the row count comes from the list length. Cell reads stay lazy
+either way.
+
+Everything after the hand-off — display map, selection, scroll position, the `FilterApplied` event —
+stays with the control, so an override cannot skip it. Sorting a table whose source supplied display
+rows asks the source to sort, rather than rebuilding the map and discarding its choice.
+
+```csharp
+protected override TableFilterResult TryApplyFilterToDataSource(
+    ITableDataSource dataSource, CompoundFilterExpression compound)
+{
+    if (dataSource is not TreeSource tree)
+        return base.TryApplyFilterToDataSource(dataSource, compound);
+
+    // One value per term; each FilterExpression also carries ColumnName and Operator
+    // when the user typed a "col:value" prefix.
+    var needles = compound.Terms.Select(t => t.Alternatives[0].Value);
+    return TableFilterResult.WithDisplayRows(tree.MatchesKeepingParents(needles));
+}
+```
+
 ### Builder Methods
 
 | Method | Description |
