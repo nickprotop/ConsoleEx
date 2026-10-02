@@ -212,28 +212,72 @@ public partial class TableControl
 	}
 
 	/// <summary>
-	/// Hands the filter to the data source when it can apply one itself, returning true if it did.
+	/// Offers a filter to the data source, which answers whether and how it applied it.
 	/// </summary>
+	/// <param name="dataSource">The source to offer the filter to. Never null.</param>
+	/// <param name="compound">The parsed filter, which may hold several AND/OR terms.</param>
+	/// <returns>
+	/// <see cref="TableFilterResult.NotHandled"/> to filter client-side instead, or one of the
+	/// handled outcomes. See <see cref="TableFilterResult"/> for what each one commits the source to.
+	/// </returns>
 	/// <remarks>
-	/// The source hook takes a single (text, column, operator) triple, so only a filter that reduces
-	/// to ONE expression can be expressed through it. A compound AND/OR filter is therefore kept
-	/// client-side: delegating it would silently drop every condition but the first, which is worse
-	/// than being slow.
+	/// <para>
+	/// WHY THIS IS THE OVERRIDABLE PART. <see cref="ITableDataSource.ApplyFilter"/> takes a single
+	/// (text, column, operator) triple, so only a filter reducing to ONE expression fits through it.
+	/// The default therefore keeps every compound AND/OR filter client-side: pushing one down a
+	/// single-expression hook would silently drop all but the first condition, which is worse than
+	/// being slow.
+	/// </para>
+	/// <para>
+	/// That restriction is the interface's, not the source's. A source that CAN evaluate the whole
+	/// expression — a hierarchy that must keep a matching row's parent visible, a remote source that
+	/// would rather not be pulled into memory — overrides this to receive the
+	/// <see cref="CompoundFilterExpression"/> whole. Everything after the hand-off (display map,
+	/// selection, scroll, the <see cref="FilterApplied"/> event) stays with the caller, so an
+	/// override cannot forget it.
+	/// </para>
 	/// </remarks>
-	private bool TryDelegateFilter(CompoundFilterExpression compound)
+	protected virtual TableFilterResult TryApplyFilterToDataSource(
+		ITableDataSource dataSource, CompoundFilterExpression compound)
 	{
-		if (_dataSource == null || !_dataSource.CanFilter)
-			return false;
+		if (!dataSource.CanFilter)
+			return TableFilterResult.NotHandled;
 
 		if (compound.Terms.Count != 1 || compound.Terms[0].Alternatives.Count != 1)
-			return false;
+			return TableFilterResult.NotHandled;
 
 		var expression = compound.Terms[0].Alternatives[0];
-		_dataSource.ApplyFilter(expression.Value, expression.ColumnName, expression.Operator);
+		dataSource.ApplyFilter(expression.Value, expression.ColumnName, expression.Operator);
+		return TableFilterResult.SourceNarrowed;
+	}
 
-		// The source now reports only matching rows, so no display map is needed: RowCount reads
-		// through to it and MapDisplayToData stays identity.
-		_filterIndexMap = null;
+	/// <summary>
+	/// Hands the filter to the data source when it can apply one itself, returning true if it did,
+	/// and owns all the bookkeeping that has to follow either way.
+	/// </summary>
+	private bool TryDelegateFilter(CompoundFilterExpression compound)
+	{
+		if (_dataSource == null)
+			return false;
+
+		var result = TryApplyFilterToDataSource(_dataSource, compound);
+		if (result.Outcome == TableFilterOutcome.NotHandled)
+			return false;
+
+		if (result.Outcome == TableFilterOutcome.DisplayRowsSupplied)
+		{
+			// The source keeps reporting every row and has named the ones to show, so the table
+			// addresses rows through its map. Flagged as the source's so a later sort re-asks the
+			// source instead of rebuilding the map from a client-side scan, which would throw away
+			// the very knowledge the source overrode this to supply.
+			SetSourceFilterMap(BuildSourceDisplayMap(result.DisplayRows!));
+		}
+		else
+		{
+			// The source now reports only matching rows, so no display map is needed: RowCount reads
+			// through to it and MapDisplayToData stays identity.
+			_filterIndexMap = null;
+		}
 
 		// _unfilteredRowCount is deliberately NOT reset here. It was captured before the source
 		// narrowed and is the only remaining record of the pre-filter total — the source itself can
@@ -248,6 +292,37 @@ public partial class TableControl
 		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);
 		return true;
+	}
+
+	/// <summary>
+	/// Copies the source's display rows into the array the table indexes by.
+	/// </summary>
+	/// <remarks>
+	/// COPIED, not aliased, although the result doc says the list is held as given: the table
+	/// stores an <c>int[]</c> and would otherwise re-index an <c>IReadOnlyList</c> on every cell
+	/// read, which paint does per visible row per column.
+	/// <para>
+	/// Indices are validated in debug only. An out-of-range index would otherwise surface deep in
+	/// paint, far from the override that produced it, and the assert names the real culprit; in
+	/// release the hot path trusts the caller rather than re-checking every row.
+	/// </para>
+	/// </remarks>
+	private int[] BuildSourceDisplayMap(IReadOnlyList<int> dataIndices)
+	{
+		var map = new int[dataIndices.Count];
+		for (int i = 0; i < map.Length; i++)
+			map[i] = dataIndices[i];
+
+#if DEBUG
+		int rowCount = _dataSource?.RowCount ?? 0;
+		foreach (int index in map)
+		{
+			System.Diagnostics.Debug.Assert(index >= 0 && index < rowCount,
+				$"TryApplyFilterToDataSource returned display row {index}, outside the source's 0..{rowCount - 1}.");
+		}
+#endif
+
+		return map;
 	}
 
 	/// <summary>
@@ -289,9 +364,10 @@ public partial class TableControl
 	/// </summary>
 	public void ClearFilter()
 	{
-		// A DELEGATED filter leaves _filterIndexMap null (the source narrowed itself), so the guard
-		// below cannot tell "no filter" from "filtered server-side" on its own — ask the source to
-		// drop its filter first, then fall through to reset local state.
+		// A DELEGATED filter may leave _filterIndexMap null (the source narrowed itself), so the
+		// guard below cannot tell "no filter" from "filtered server-side" on its own — ask the
+		// source to drop its filter first, then fall through to reset local state. A source that
+		// supplied display rows instead leaves a map behind, and the same reset clears it.
 		bool delegated = _dataSource != null && _dataSource.CanFilter && _activeFilter != null;
 		if (delegated)
 			_dataSource!.ClearFilter();
@@ -435,6 +511,13 @@ public partial class TableControl
 	{
 		if (string.IsNullOrEmpty(_filterBuffer))
 		{
+			// THE SOURCE HAS TO BE TOLD TOO. Backspacing the last character away ends the filter
+			// just as Esc does, and a source that narrowed itself keeps reporting only the matches
+			// until asked to stop — leaving the table showing a filtered set while believing
+			// nothing is filtered, with no keystroke that puts the rows back.
+			if (_dataSource != null && _dataSource.CanFilter && _activeFilter != null)
+				_dataSource.ClearFilter();
+
 			_filterIndexMap = null;
 			_activeFilter = null;
 			_selectedRowIndex = RowCount > 0 ? 0 : -1;

@@ -185,7 +185,57 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	internal FilterMode _filterMode = FilterMode.None;
 	internal string _filterBuffer = string.Empty;
 	internal int _filterCursorPosition = 0;
-	internal int[]? _filterIndexMap; // maps display index -> data index when filtered (may include sort)
+	private int[]? _filterIndexMapStorage; // maps display index -> data index when filtered (may include sort)
+
+	/// <summary>
+	/// Maps display index to data index while a filter is active, or null when rows are addressed
+	/// by identity — either unfiltered, or filtered by a source that narrowed itself.
+	/// </summary>
+	/// <remarks>
+	/// A property rather than a field so that <see cref="_filterMapFromSource"/> cannot drift out
+	/// of step with it. Fourteen call sites assign this; any one of them forgetting to clear the
+	/// flag would leave the table believing a client-side map came from the source, and silently
+	/// skipping the rebuild that keeps sorting correct. Assigning a map from the source therefore
+	/// goes through <see cref="SetSourceFilterMap"/>, and every other assignment clears the flag
+	/// on its own.
+	/// </remarks>
+	internal int[]? _filterIndexMap
+	{
+		get => _filterIndexMapStorage;
+		set
+		{
+			_filterIndexMapStorage = value;
+			_filterMapFromSource = false;
+		}
+	}
+
+	/// <summary>
+	/// True when <see cref="_filterIndexMap"/> came from the data source rather than a client-side
+	/// scan. The table cannot rebuild such a map: it encodes what the SOURCE decided to show, which
+	/// is the point of <see cref="TableFilterOutcome.DisplayRowsSupplied"/>. Sorting therefore
+	/// re-asks the source instead of rescanning, exactly as it already does for a source that
+	/// narrowed itself.
+	/// </summary>
+	internal bool _filterMapFromSource { get; private set; }
+
+	/// <summary>Installs a display map supplied by the data source, marking it as such.</summary>
+	internal void SetSourceFilterMap(int[] map)
+	{
+		_filterIndexMapStorage = map;
+		_filterMapFromSource = true;
+	}
+
+	/// <summary>
+	/// True when a filter display map is active that the TABLE built and can therefore rebuild.
+	/// </summary>
+	/// <remarks>
+	/// The condition sorting uses to decide between recomputing the combined filter+sort map and
+	/// asking the source to sort itself. A map that came from the source is deliberately excluded:
+	/// recomputing would rescan rows client-side and overwrite what the source chose to show, so
+	/// such a table sorts the way a self-narrowing source already does — through
+	/// <see cref="ITableDataSource.Sort"/>.
+	/// </remarks>
+	private bool HasClientFilterMap => _filterIndexMap != null && !_filterMapFromSource && _activeFilter != null;
 	internal int _unfilteredRowCount = 0;
 	internal CompoundFilterExpression? _activeFilter;
 	internal bool _fuzzyFilterEnabled = false;

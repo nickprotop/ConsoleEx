@@ -96,13 +96,13 @@ public partial class TableControl
 			_sortColumnIndex = -1;
 			_sortIndexMap = null;
 			// If filter is active, recompute without sort
-			if (_filterIndexMap != null && _activeFilter != null)
+			if (HasClientFilterMap)
 				RecomputeDisplayMap();
 		}
 		else
 		{
 			// If filter is active, recompute combined map
-			if (_filterIndexMap != null && _activeFilter != null)
+			if (HasClientFilterMap)
 				RecomputeDisplayMap();
 			else
 				ApplySort();
@@ -137,7 +137,7 @@ public partial class TableControl
 		_sortDirection = SortDirection.None;
 		_sortIndexMap = null;
 		// If filter is active, recompute without sort
-		if (_filterIndexMap != null && _activeFilter != null)
+		if (HasClientFilterMap)
 			RecomputeDisplayMap();
 		Invalidate(Invalidation.Relayout);
 	}

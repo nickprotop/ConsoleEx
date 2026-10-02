@@ -44,6 +44,7 @@ public static class LauncherWindow
 					.AddItem("Form", subtitle: "Labeled inputs, validation, sections, hints", content: MakeInfoPanel("Form"))
 				.AddItem("Table", subtitle: "Interactive employee directory", content: MakeInfoPanel("Table"))
 				.AddItem("DataGrid", subtitle: "Virtual DataGrid with 10K rows", content: MakeInfoPanel("DataGrid"))
+				.AddItem("Source Filtering", subtitle: "Data source handles its own filters", content: MakeInfoPanel("Source Filtering"))
 				.AddItem("Nerd Fonts", subtitle: "NerdFont icon showcase", content: MakeInfoPanel("Nerd Fonts"))
 				.AddItem("Markup Syntax", subtitle: "Rich markup system demo", content: MakeInfoPanel("Markup Syntax"))
 				.AddItem("Markdown", subtitle: "[markdown] tag + clickable, keyboard-navigable links", content: MakeInfoPanel("Markdown"))
@@ -259,6 +260,7 @@ public static class LauncherWindow
 			"Form" => FormDemoWindow.Create(ws),
 			"Table" => TableDemoWindow.Create(ws),
 			"DataGrid" => DataGridWindow.Create(ws),
+			"Source Filtering" => SourceFilterDemoWindow.Create(ws),
 			"Nerd Fonts" => NerdFontWindow.Create(ws),
 			"Markup Syntax" => MarkupSyntaxWindow.Create(ws),
 			"Markdown" => MarkdownDemoWindow.Create(ws),
@@ -538,6 +540,20 @@ public static class LauncherWindow
 				"  - Tab/arrows for cell navigation",
 				"  - Drag column borders to resize",
 				"  - Smooth scrollbar dragging",
+			},
+			"Source Filtering" => new List<string>
+			{
+				"[bold]Data-source Filtering[/]",
+				"",
+				"Two ways a data source can take a filter the",
+				"table would otherwise apply itself, through",
+				"TryApplyFilterToDataSource.",
+				"",
+				"[dim]Tabs:[/]",
+				"  - Tree: supplies display rows, so a matching",
+				"    task keeps its story on screen",
+				"  - Remote: narrows itself, so no map is held",
+				"  - / to filter, two words = two AND terms",
 			},
 			"Nerd Fonts" => new List<string>
 			{
