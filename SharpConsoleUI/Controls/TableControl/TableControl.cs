@@ -187,6 +187,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 	// Which data rows are displayed, in what order: one map for sort and filter together
 	private readonly TableRowView _rowView = new();
+	// Above zero while ComputeDisplayRows or ResolveHiddenSelectedRow runs, when the rows must not change
+	private int _displayRowsHookDepth;
 
 	/// <summary>
 	/// True when a filter display map is active that the TABLE built and can therefore rebuild.

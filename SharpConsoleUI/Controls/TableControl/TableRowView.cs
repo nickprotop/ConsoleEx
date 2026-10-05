@@ -71,7 +71,6 @@ internal sealed class TableRowView
 		Map = map;
 		FromSource = false;
 		BuiltWithFilter = builtWithFilter && map != null;
-		ForgetComputed();
 	}
 
 	/// <summary>
@@ -87,7 +86,11 @@ internal sealed class TableRowView
 	}
 
 	/// <summary>Returns to data order with no filter.</summary>
-	internal void Clear() => SetComputed(null, builtWithFilter: false);
+	internal void Clear()
+	{
+		SetComputed(null, builtWithFilter: false);
+		ForgetComputed();
+	}
 
 	/// <summary>
 	/// Maps a display row index to the actual data row index, accounting for sorting and filtering.
@@ -209,18 +212,32 @@ internal sealed class TableRowView
 
 	/// <summary>
 	/// Updates the last computed display rows across the one change recorded since, when that is
-	/// possible and cheaper than computing them again.
+	/// possible and cheaper than computing them again — or reuses them when nothing changed.
 	/// </summary>
 	/// <param name="key">What the rows are computed from; the last result is only reused under the same key.</param>
 	/// <param name="matches">Whether a data row passes the filter, or null when there is none.</param>
 	/// <param name="order">The total order of the display rows, ties already broken.</param>
 	/// <param name="rows">The updated display rows.</param>
 	/// <returns>False when the rows have to be computed in full.</returns>
+	/// <remarks>
+	/// Nothing changes between two computes when a derived table asks for the rows again because
+	/// something of its own changed, an expanded row say; its own part is cheap to redo, and the
+	/// filter and sort underneath it need not be.
+	/// </remarks>
 	internal bool TryUpdateComputed(in DisplayRowsKey key, Func<int, bool>? matches, Comparison<int> order, out int[] rows)
 	{
 		rows = Array.Empty<int>();
 		var last = _lastComputed;
-		if (last == null || _pendingChangeCount != 1 || !last.Key.Equals(key))
+		if (last == null || !last.Key.Equals(key))
+			return false;
+
+		if (_pendingChangeCount == 0)
+		{
+			rows = last.Rows;
+			return true;
+		}
+
+		if (_pendingChangeCount != 1)
 			return false;
 
 		var change = _pendingChange;
@@ -240,7 +257,11 @@ internal sealed class TableRowView
 	}
 
 	/// <summary>Remembers display rows just computed, so the next change can update them.</summary>
-	internal void RememberComputed(in DisplayRowsKey key, int[] rows) => _lastComputed = new ComputedRows(key, rows);
+	internal void RememberComputed(in DisplayRowsKey key, int[] rows)
+	{
+		_lastComputed = new ComputedRows(key, rows);
+		_pendingChangeCount = 0;
+	}
 
 	/// <summary>
 	/// The markup-stripped text cache for a sort column, one entry per data row, filled lazily by
@@ -256,7 +277,8 @@ internal sealed class TableRowView
 		return _sortText;
 	}
 
-	private void ForgetComputed()
+	/// <summary>Drops the last computed result, so the next compute starts from scratch.</summary>
+	internal void ForgetComputed()
 	{
 		_lastComputed = null;
 		_pendingChangeCount = 0;

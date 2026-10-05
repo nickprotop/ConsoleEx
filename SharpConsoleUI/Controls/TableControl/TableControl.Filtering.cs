@@ -762,7 +762,7 @@ public partial class TableControl
 	#region Filter Computation
 
 	/// <summary>
-	/// Computes the display map client-side from the active filter and sort together.
+	/// Computes the display map client-side, through <see cref="ComputeDisplayRows"/>.
 	/// </summary>
 	/// <remarks>
 	/// Unconditional: the filter paths call it after the data source has declined the filter, when
@@ -771,12 +771,73 @@ public partial class TableControl
 	/// </remarks>
 	internal void RecomputeDisplayMap()
 	{
-		bool sorted = _sortDirection != SortDirection.None && _sortColumnIndex >= 0;
-		var filter = _activeFilter;
+		ThrowIfComputingDisplayRows();
+
+		var query = new TableDisplayQuery(_activeFilter, _filterMode, _sortColumnIndex, _sortDirection);
+		int[]? rows;
+		_displayRowsHookDepth++;
+		try
+		{
+			rows = ComputeDisplayRows(query);
+		}
+		finally
+		{
+			_displayRowsHookDepth--;
+		}
+
+		AssertValidDisplayRows(rows);
+		_rowView.SetComputed(rows, builtWithFilter: query.IsFiltered);
+	}
+
+	/// <summary>
+	/// Decides which data rows the table displays, and in what order.
+	/// </summary>
+	/// <param name="query">The filter and the sort the table wants applied.</param>
+	/// <returns>
+	/// The data rows to display, in display order, or null for every row in data order. Each data
+	/// index may appear at most once and must lie in [0, <see cref="DataRowCount"/>).
+	/// </returns>
+	/// <remarks>
+	/// <para>
+	/// WHY THIS IS OVERRIDABLE. The table can filter and sort a flat list of rows; it cannot know that
+	/// a row is the child of another, that a collapsed parent hides its children, or that a parent
+	/// must stay visible because one of its children matches. A derived table that knows such things
+	/// decides here, and everything that follows — paint, the selection, scrolling, the row count,
+	/// the column widths — follows from the rows it returns. It can still lean on the table's rules
+	/// through <see cref="RowMatchesFilter(int, CompoundFilterExpression)"/> and <see cref="SortRowIndices"/>, or call this base
+	/// method and work from its answer.
+	/// </para>
+	/// <para>
+	/// WHEN IT IS CALLED. For the table's own rows, after every change that can change what is
+	/// displayed — a row added, removed or replaced, a sort, a filter typed or cleared — and whenever
+	/// a derived table calls <see cref="RefreshDisplayRows"/>; with nothing filtered or sorted too,
+	/// since a derived table may hide rows of its own. With a data source, only while the table
+	/// filters it client-side: otherwise the source decides what it reports. Always on the UI thread,
+	/// and never while <see cref="SyncRoot"/> is held, so an override may take it to read rows
+	/// consistently.
+	/// </para>
+	/// <para>
+	/// WHY AN ARRAY. It runs on every change, and the table keeps the result as it is, without
+	/// copying: ownership passes to the table, and the array must not be changed afterwards. An
+	/// override must not change the rows either; doing so throws <see cref="InvalidOperationException"/>
+	/// rather than recursing.
+	/// </para>
+	/// <para>
+	/// THE DEFAULT applies the filter by <see cref="RowMatchesFilter(int, CompoundFilterExpression)"/> and sorts stably by
+	/// <see cref="SortRowIndices"/>. It is kept up to date incrementally: when one insert or removal
+	/// separates two calls under the same filter and sort, it updates its last answer instead of
+	/// recomputing it, so refilling a sorted table row by row stays O(n log n) in all. An override
+	/// that does not call it pays for its own computation on every change.
+	/// </para>
+	/// </remarks>
+	protected virtual int[]? ComputeDisplayRows(TableDisplayQuery query)
+	{
+		var filter = query.Filter;
+		bool sorted = query.IsSorted;
 		if (filter == null && !sorted)
 		{
-			_rowView.Clear();
-			return;
+			_rowView.ForgetComputed();
+			return null;
 		}
 
 		if (_dataSource != null)
@@ -788,21 +849,21 @@ public partial class TableControl
 
 			// Step 2: If sort is active, sort them
 			if (sorted)
-				SortIndices(matches);
+				SortRowIndices(matches, query.SortColumnIndex, query.SortDirection);
 
-			_rowView.SetComputed(matches, builtWithFilter: filter != null);
-			return;
+			return matches;
 		}
 
 		// The table's own rows: updated from the last result across a single insert or removal,
 		// computed in full otherwise. See TableRowView's incremental upkeep for why.
 		lock (_tableLock)
 		{
-			var key = new DisplayRowsKey(filter, _sortColumnIndex, _sortDirection,
-				SortColumn?.CustomRowComparer, SortColumn?.CustomComparer, _fuzzyFilterEnabled);
+			var sortColumn = _columns.ElementAtOrDefault(query.SortColumnIndex);
+			var key = new DisplayRowsKey(filter, query.SortColumnIndex, query.SortDirection,
+				sortColumn?.CustomRowComparer, sortColumn?.CustomComparer, _fuzzyFilterEnabled);
 			Func<int, bool>? passes = filter != null ? dataIndex => RowMatchesFilter(dataIndex, filter) : null;
 			Comparison<int> order = sorted
-				? CreateRowComparison(_sortColumnIndex, _sortDirection)
+				? CreateRowComparison(query.SortColumnIndex, query.SortDirection)
 				: (a, b) => a.CompareTo(b);
 
 			if (!_rowView.TryUpdateComputed(key, passes, order, out int[] rows))
@@ -814,14 +875,34 @@ public partial class TableControl
 					Array.Sort(rows, order);
 			}
 
-			_rowView.SetComputed(rows, builtWithFilter: filter != null);
 			_rowView.RememberComputed(key, rows);
+			return rows;
 		}
 	}
 
-	/// <summary>The in-memory column being sorted by, or null. Callers hold <see cref="_tableLock"/>.</summary>
-	private TableColumn? SortColumn
-		=> _sortColumnIndex >= 0 && _sortColumnIndex < _columns.Count ? _columns[_sortColumnIndex] : null;
+	/// <summary>
+	/// Checks, in debug builds, that display rows name each data row at most once and only rows
+	/// that exist.
+	/// </summary>
+	/// <remarks>
+	/// A bad index would otherwise surface deep in paint, far from the override that produced it; in
+	/// release the hot path trusts the override rather than re-checking every row on every change.
+	/// </remarks>
+	[System.Diagnostics.Conditional("DEBUG")]
+	private void AssertValidDisplayRows(int[]? rows)
+	{
+		if (rows == null) return;
+
+		int dataRowCount = DataRowCount;
+		var seen = new HashSet<int>();
+		foreach (int dataIndex in rows)
+		{
+			System.Diagnostics.Debug.Assert(dataIndex >= 0 && dataIndex < dataRowCount,
+				$"ComputeDisplayRows returned data row {dataIndex}, outside 0..{dataRowCount - 1}.");
+			System.Diagnostics.Debug.Assert(seen.Add(dataIndex),
+				$"ComputeDisplayRows returned data row {dataIndex} more than once.");
+		}
+	}
 
 	/// <summary>
 	/// Shows every row again after the filter text was emptied or stopped parsing: a data source

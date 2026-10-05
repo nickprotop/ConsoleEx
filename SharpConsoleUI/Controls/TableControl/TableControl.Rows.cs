@@ -107,6 +107,8 @@ public partial class TableControl
 	/// </summary>
 	public void ClearRows()
 	{
+		ThrowIfComputingDisplayRows();
+
 		_selectedRowIndex = -1;
 		_selectedColumnIndex = -1;
 		_hoveredRowIndex = -1;
@@ -266,6 +268,86 @@ public partial class TableControl
 		return position < RowCount ? position : -1;
 	}
 
+	/// <summary>
+	/// Recomputes which rows are displayed, keeping the selection on its rows, after something only
+	/// the derived table knows about changed.
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// The table recomputes its display rows itself after every change it can see: rows added,
+	/// removed or replaced, a sort, a filter. A derived table whose <see cref="ComputeDisplayRows"/>
+	/// depends on state of its own — whether a parent is expanded, say — calls this when that state
+	/// changes, and gets the same treatment as a sort: the cursor, the multi-selection and the range
+	/// anchor follow their rows, a cursor whose row is no longer displayed goes to the row
+	/// <see cref="ResolveHiddenSelectedRow"/> names, a cursor that was on screen stays on screen, and
+	/// the column widths and layout are refreshed.
+	/// </para>
+	/// <para>
+	/// Calling it from <see cref="ComputeDisplayRows"/> or <see cref="ResolveHiddenSelectedRow"/>
+	/// throws <see cref="InvalidOperationException"/>: it would recompute the rows while they are
+	/// being computed.
+	/// </para>
+	/// </remarks>
+	protected void RefreshDisplayRows()
+	{
+		ThrowIfComputingDisplayRows();
+
+		var selection = CaptureSelection();
+		RebuildDisplayMap();
+		RestoreSelection(selection);
+		InvalidateColumnWidths();
+		Invalidate(Invalidation.Relayout);
+	}
+
+	/// <summary>
+	/// Names the row the cursor should move to when its own row is still in the table but no longer
+	/// displayed.
+	/// </summary>
+	/// <param name="dataIndex">The data row the cursor was on, now hidden.</param>
+	/// <returns>
+	/// A displayed data row to select instead, or -1 to let the table choose: the row now at the
+	/// cursor's old position.
+	/// </returns>
+	/// <remarks>
+	/// <para>
+	/// The table only ever hides a selected row through a filter, and a filter starts again from its
+	/// first match, so the default has nothing better to offer and returns -1. A derived table that
+	/// hides rows itself knows a better answer: collapsing a parent hides its selected child, and the
+	/// parent is where the cursor belongs.
+	/// </para>
+	/// <para>
+	/// Called on the UI thread, never while <see cref="SyncRoot"/> is held, and only for the table's
+	/// own rows. The selection events follow, since the selected row changes. An answer that is not
+	/// displayed is ignored. Changing the rows from here throws <see cref="InvalidOperationException"/>.
+	/// </para>
+	/// </remarks>
+	protected virtual int ResolveHiddenSelectedRow(int dataIndex) => -1;
+
+	/// <summary>Asks <see cref="ResolveHiddenSelectedRow"/>, with the rows locked against change.</summary>
+	private int ResolveHiddenRow(int dataIndex)
+	{
+		_displayRowsHookDepth++;
+		try
+		{
+			return ResolveHiddenSelectedRow(dataIndex);
+		}
+		finally
+		{
+			_displayRowsHookDepth--;
+		}
+	}
+
+	/// <summary>
+	/// Refuses to change the rows, or recompute which are displayed, while the display rows are being
+	/// computed: a hook doing so would recurse into itself.
+	/// </summary>
+	private void ThrowIfComputingDisplayRows()
+	{
+		if (_displayRowsHookDepth > 0)
+			throw new InvalidOperationException(
+				"The rows cannot be changed, or the displayed rows recomputed, from ComputeDisplayRows or ResolveHiddenSelectedRow.");
+	}
+
 	#endregion
 
 	#region Row Changes
@@ -285,6 +367,8 @@ public partial class TableControl
 	/// <param name="rows">The rows to insert, in order.</param>
 	private void InsertRowsCore(int index, IReadOnlyList<TableRow> rows)
 	{
+		ThrowIfComputingDisplayRows();
+
 		var selection = CaptureSelection();
 
 		lock (_tableLock)
@@ -308,6 +392,8 @@ public partial class TableControl
 	/// <param name="count">How many rows to remove.</param>
 	private void RemoveRowsCore(int index, int count)
 	{
+		ThrowIfComputingDisplayRows();
+
 		var selection = CaptureSelection();
 
 		lock (_tableLock)
@@ -331,6 +417,8 @@ public partial class TableControl
 	/// <param name="rows">The new rows, copied; the caller keeps its list.</param>
 	private void SetDataCore(IReadOnlyList<TableRow> rows)
 	{
+		ThrowIfComputingDisplayRows();
+
 		var selection = CaptureSelection();
 		List<TableRow> oldRows;
 
@@ -489,9 +577,10 @@ public partial class TableControl
 	/// </summary>
 	/// <remarks>
 	/// <para>
-	/// A cursor whose row is still displayed follows it to its new position. One whose row was
-	/// removed lands on the row now at its old position, clamped to the rows there are, which is
-	/// what removing the selected row has always done.
+	/// A cursor whose row is still displayed follows it to its new position. One whose row is still
+	/// in the table but hidden goes to the row <see cref="ResolveHiddenSelectedRow"/> names. One whose
+	/// row was removed, or that has no stand-in, lands on the row now at its old position, clamped to
+	/// the rows there are, which is what removing the selected row has always done.
 	/// </para>
 	/// <para>
 	/// EVENTS ONLY WHEN THE ROW CHANGES. A cursor that merely moves because rows were inserted or
@@ -522,7 +611,11 @@ public partial class TableControl
 			int position = before.Cursor >= 0 ? MapDataToDisplay(before.Cursor) : -1;
 			if (position < 0 || position >= rowCount)
 			{
-				position = rowCount == 0 ? -1 : Math.Clamp(before.CursorPosition, 0, rowCount - 1);
+				// Still a row, only hidden: a derived table may know which row stands in for it.
+				int standIn = before.Cursor >= 0 ? ResolveHiddenRow(before.Cursor) : -1;
+				position = standIn >= 0 && standIn < DataRowCount ? MapDataToDisplay(standIn) : -1;
+				if (position < 0 || position >= rowCount)
+					position = rowCount == 0 ? -1 : Math.Clamp(before.CursorPosition, 0, rowCount - 1);
 				rowChanged = true;
 			}
 

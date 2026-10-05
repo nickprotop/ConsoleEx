@@ -183,4 +183,192 @@ public class TableExtensibilityTests
 	}
 
 	#endregion
+
+	#region Deciding which rows are displayed
+
+	/// <summary>
+	/// Hides rows whose name starts with "-" unless <see cref="ShowHidden"/> is set, on top of the
+	/// table's own filter and sort, and records what it was asked.
+	/// </summary>
+	private sealed class HidingTable : TableControl
+	{
+		public bool ShowHidden { get; set; }
+		public List<TableDisplayQuery> Queries { get; } = new();
+		public Func<int, int> StandIn { get; set; } = _ => -1;
+		public Action? DuringCompute { get; set; }
+		public Action? DuringResolve { get; set; }
+
+		public void Refresh() => RefreshDisplayRows();
+
+		protected override int[]? ComputeDisplayRows(TableDisplayQuery query)
+		{
+			Queries.Add(query);
+			DuringCompute?.Invoke();
+
+			int[]? computed = base.ComputeDisplayRows(query);
+			if (DataSource != null || ShowHidden) return computed;
+
+			int[] rows = computed ?? Enumerable.Range(0, DataRowCount).ToArray();
+			return rows.Where(row => !GetRow(row).Cells[0].StartsWith('-')).ToArray();
+		}
+
+		protected override int ResolveHiddenSelectedRow(int dataIndex)
+		{
+			DuringResolve?.Invoke();
+			return StandIn(dataIndex);
+		}
+	}
+
+	private static HidingTable Hiding()
+	{
+		var table = new HidingTable { SortingEnabled = true };
+		table.AddColumn("Name");
+		table.AddRow("Alice");
+		table.AddRow("-Bob");
+		table.AddRow("Carol");
+		return table;
+	}
+
+	private static List<string> Displayed(TableControl table)
+		=> Enumerable.Range(0, table.RowCount).Select(i => table.GetRow(table.MapDisplayToData(i)).Cells[0]).ToList();
+
+	[Fact]
+	public void AnOverride_DecidesWhichRowsAreDisplayed()
+	{
+		var table = Hiding();
+
+		Assert.Equal(2, table.RowCount);
+		Assert.Equal(["Alice", "Carol"], Displayed(table));
+	}
+
+	[Fact]
+	public void TheOverride_IsAskedEvenWithNothingSortedOrFiltered()
+	{
+		var table = Hiding();
+
+		var last = table.Queries[^1];
+		Assert.False(last.IsFiltered);
+		Assert.False(last.IsSorted);
+	}
+
+	[Fact]
+	public void TheOverride_IsGivenTheTablesFilterAndSort()
+	{
+		var table = Hiding();
+		table.SortByColumn(0);
+		table.SortByColumn(0);
+
+		table.ApplyFilter("a");
+
+		var last = table.Queries[^1];
+		Assert.Equal("a", last.Filter?.RawText);
+		Assert.Equal(FilterMode.Confirmed, last.FilterMode);
+		Assert.Equal(0, last.SortColumnIndex);
+		Assert.Equal(SortDirection.Descending, last.SortDirection);
+		Assert.True(last.IsSorted);
+		Assert.Equal(["Carol", "Alice"], Displayed(table));
+	}
+
+	[Fact]
+	public void RefreshDisplayRows_ShowsTheOverridesNewAnswer_AndKeepsTheCursorOnItsRow()
+	{
+		var table = Hiding();
+		table.SelectedRowIndex = 1;                     // Carol
+
+		table.ShowHidden = true;
+		table.Refresh();
+
+		Assert.Equal(["Alice", "-Bob", "Carol"], Displayed(table));
+		Assert.Equal("Carol", table.SelectedRow?.Cells[0]);
+		Assert.Equal(2, table.SelectedRowIndex);
+	}
+
+	[Fact]
+	public void RefreshDisplayRows_SendsAHiddenCursorToTheRowTheTableNames()
+	{
+		var table = Hiding();
+		table.ShowHidden = true;
+		table.Refresh();
+		table.SelectedRowIndex = 1;                     // -Bob
+		table.StandIn = dataIndex => dataIndex - 1;     // the row above it
+		var changed = new List<string?>();
+		table.SelectedRowItemChanged += (_, row) => changed.Add(row?.Cells[0]);
+
+		table.ShowHidden = false;
+		table.Refresh();
+
+		Assert.Equal("Alice", table.SelectedRow?.Cells[0]);
+		Assert.Equal(["Alice"], changed);
+	}
+
+	[Fact]
+	public void WithoutAStandIn_AHiddenCursorLandsOnTheRowNowAtItsPosition()
+	{
+		var table = Hiding();
+		table.ShowHidden = true;
+		table.Refresh();
+		table.SelectedRowIndex = 1;                     // -Bob
+
+		table.ShowHidden = false;
+		table.Refresh();
+
+		Assert.Equal("Carol", table.SelectedRow?.Cells[0]);
+	}
+
+	[Fact]
+	public void ChangingTheRowsFromComputeDisplayRows_Throws_AndLeavesTheTableUsable()
+	{
+		var table = Hiding();
+		table.DuringCompute = () => table.AddRow("Intruder");
+
+		Assert.Throws<InvalidOperationException>(() => table.AddRow("Dave"));
+
+		table.DuringCompute = null;
+		table.AddRow("Eve");
+		Assert.Contains("Eve", Displayed(table));
+		Assert.DoesNotContain("Intruder", Displayed(table));
+	}
+
+	[Fact]
+	public void RefreshingFromResolveHiddenSelectedRow_Throws()
+	{
+		var table = Hiding();
+		table.ShowHidden = true;
+		table.Refresh();
+		table.SelectedRowIndex = 1;
+		table.DuringResolve = () => table.Refresh();
+
+		table.ShowHidden = false;
+
+		Assert.Throws<InvalidOperationException>(() => table.Refresh());
+	}
+
+	[Fact]
+	public void WithADataSource_TheOverrideIsAskedOnlyWhileFilteringClientSide()
+	{
+		var table = new HidingTable { SortingEnabled = true, DataSource = new LetterSource() };
+		int before = table.Queries.Count;
+
+		table.SortByColumn(0);
+		Assert.Equal(before, table.Queries.Count);
+
+		table.ApplyFilter("b");
+		Assert.Equal(before + 1, table.Queries.Count);
+	}
+
+	/// <summary>Three rows of one letter each; sorts itself, never filters.</summary>
+	private sealed class LetterSource : ITableDataSource
+	{
+		private readonly string[] _letters = ["c", "a", "b"];
+
+		public event System.Collections.Specialized.NotifyCollectionChangedEventHandler? CollectionChanged { add { } remove { } }
+
+		public int RowCount => _letters.Length;
+		public int ColumnCount => 1;
+		public string GetColumnHeader(int columnIndex) => "Letter";
+		public string GetCellValue(int rowIndex, int columnIndex) => _letters[rowIndex];
+		public bool CanSort(int columnIndex) => true;
+	}
+
+	#endregion
 }
