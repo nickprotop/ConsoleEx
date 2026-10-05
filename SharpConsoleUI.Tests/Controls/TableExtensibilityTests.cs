@@ -611,6 +611,108 @@ public class TableExtensibilityTests
 
 	#endregion
 
+	#region Handling keys before the table does
+
+	/// <summary>Offers every key to <see cref="Handler"/>, and records what it was offered.</summary>
+	private sealed class KeyTable : TableControl
+	{
+		public Func<ConsoleKeyInfo, bool> Handler { get; set; } = _ => false;
+		public List<ConsoleKey> Offered { get; } = new();
+
+		protected override bool TryHandleKey(ConsoleKeyInfo key)
+		{
+			Offered.Add(key.Key);
+			return Handler(key);
+		}
+	}
+
+	private static ConsoleKeyInfo Press(ConsoleKey key, char ch = '\0') => new(ch, key, false, false, false);
+
+	/// <summary>An interactive table hosted in a window and given the focus, so keys reach it.</summary>
+	private static KeyTable FocusedKeyTable(bool withRows = true)
+	{
+		var table = new KeyTable { ReadOnly = false, FilteringEnabled = true, InlineEditingEnabled = true };
+		table.AddColumn("Name");
+		if (withRows)
+		{
+			table.AddRow("Alice");
+			table.AddRow("Bob");
+		}
+
+		var system = Infrastructure.TestWindowSystemBuilder.CreateTestSystem(60, 20);
+		var window = new Window(system) { Left = 0, Top = 0, Width = 40, Height = 12 };
+		window.AddControl(table);
+		system.AddWindow(window);
+		window.RenderAndGetVisibleContent();
+		window.FocusControl(table);
+		return table;
+	}
+
+	[Fact]
+	public void AHandledKey_IsNotActedOnByTheTable()
+	{
+		var table = FocusedKeyTable();
+		table.SelectedRowIndex = 0;
+		table.Handler = key => key.Key == ConsoleKey.DownArrow;
+
+		bool handled = table.ProcessKey(Press(ConsoleKey.DownArrow));
+
+		Assert.True(handled);
+		Assert.Equal(0, table.SelectedRowIndex);
+	}
+
+	[Fact]
+	public void AnUnhandledKey_IsActedOnAsBefore()
+	{
+		var table = FocusedKeyTable();
+		table.SelectedRowIndex = 0;
+
+		table.ProcessKey(Press(ConsoleKey.DownArrow));
+
+		Assert.Equal([ConsoleKey.DownArrow], table.Offered);
+		Assert.Equal(1, table.SelectedRowIndex);
+	}
+
+	[Fact]
+	public void KeysTypedIntoAFilter_AreNotOffered()
+	{
+		var table = FocusedKeyTable();
+		table.ProcessKey(Press(ConsoleKey.Oem2, '/'));
+		table.Offered.Clear();
+
+		table.ProcessKey(Press(ConsoleKey.DownArrow));
+		table.ProcessKey(Press(ConsoleKey.B, 'b'));
+
+		Assert.Empty(table.Offered);
+		Assert.Equal("b", table._filterBuffer);
+	}
+
+	[Fact]
+	public void KeysTypedIntoAnEdit_AreNotOffered()
+	{
+		var table = FocusedKeyTable();
+		table.SelectedRowIndex = 0;
+		table.SelectedColumnIndex = 0;
+		table.BeginCellEdit();
+
+		table.ProcessKey(Press(ConsoleKey.LeftArrow));
+
+		Assert.Empty(table.Offered);
+		Assert.True(table.IsEditing);
+	}
+
+	[Fact]
+	public void KeysAreOffered_EvenToATableWithNoRows()
+	{
+		var table = FocusedKeyTable(withRows: false);
+		table.Handler = _ => true;
+
+		Assert.True(table.ProcessKey(Press(ConsoleKey.Insert)));
+		Assert.Equal([ConsoleKey.Insert], table.Offered);
+	}
+
+	#endregion
+
 	#region Data sources
 
 	/// <summary>Three rows of one letter each; sorts itself, never filters.</summary>
