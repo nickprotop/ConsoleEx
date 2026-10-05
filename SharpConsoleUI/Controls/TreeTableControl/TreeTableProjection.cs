@@ -32,8 +32,10 @@ internal sealed class TreeTableProjection
 		Shape = shape;
 		Displayed = new bool[count];
 		HasChildren = new bool[count];
+		IsOpen = new bool[count];
 		IsExpanded = new bool[count];
 		IsLastSibling = new bool[count];
+		HasMatchingDescendant = new bool[count];
 		GuideMarkup = new string?[count];
 		ExpanderMarkup = new string?[count];
 		PrefixMarkup = new string?[count];
@@ -42,20 +44,32 @@ internal sealed class TreeTableProjection
 	/// <summary>The hierarchy this was computed from.</summary>
 	internal TreeTableShape Shape { get; }
 
+	/// <summary>Whether a filter decided which rows are displayed.</summary>
+	internal bool IsFiltered { get; private set; }
+
 	/// <summary>The data rows displayed, in display order.</summary>
 	internal int[] DisplayRows { get; private set; } = Array.Empty<int>();
 
 	/// <summary>Whether each row is displayed.</summary>
 	internal bool[] Displayed { get; }
 
-	/// <summary>Whether each row shows an expander: it has children to show, or children not loaded yet.</summary>
+	/// <summary>
+	/// Whether each row shows an expander: it has children to show — children the filter passes, while
+	/// filtered — or children not loaded yet.
+	/// </summary>
 	internal bool[] HasChildren { get; }
 
-	/// <summary>Whether each row is open in this view.</summary>
+	/// <summary>Whether each row is open in this view, whether or not it has children to show.</summary>
+	internal bool[] IsOpen { get; }
+
+	/// <summary>Whether each row is open and shows children: <see cref="IsOpen"/> where there are any.</summary>
 	internal bool[] IsExpanded { get; }
 
 	/// <summary>Whether each displayed row is the last of the siblings displayed with it.</summary>
 	internal bool[] IsLastSibling { get; }
+
+	/// <summary>While filtered, whether a row has a descendant that matches the filter.</summary>
+	internal bool[] HasMatchingDescendant { get; }
 
 	/// <summary>Whether some displayed row shows an expander, so that rows without one leave its width blank.</summary>
 	internal bool AnyExpandable { get; private set; }
@@ -81,30 +95,82 @@ internal sealed class TreeTableProjection
 	/// Computes what is displayed: the roots, then under each open row its children, in sibling order.
 	/// </summary>
 	/// <param name="shape">The hierarchy.</param>
-	/// <param name="isOpen">Whether a row that has children shows them.</param>
-	/// <param name="siblingOrder">
-	/// The order to show siblings in, ties already broken, or null for the order they were added in.
-	/// Rows are only ever compared with their own siblings, so a sort never moves a row out from under
-	/// its parent.
-	/// </param>
-	internal static TreeTableProjection Compute(TreeTableShape shape, Func<int, bool> isOpen, Comparison<int>? siblingOrder = null)
+	/// <param name="request">How rows open, in what order siblings show, and what the filter passes.</param>
+	/// <remarks>
+	/// <para>
+	/// FILTERING A HIERARCHY. A matching row is shown together with every row above it, since a match
+	/// out of context means little, and those rows are open in the filtered view whatever their own
+	/// state, so the match is not hidden behind a collapsed parent. Rows inside collapsed parents are
+	/// searched like any other. A match's children that do not match themselves stay hidden unless
+	/// the request asks for whole subtrees under matches.
+	/// </para>
+	/// <para>
+	/// In a filtered view a row is open as it was toggled during this filter, else open if a
+	/// descendant matches, else as its own state says; the toggles belong to the filter, so clearing
+	/// it brings the hierarchy back exactly as it was.
+	/// </para>
+	/// </remarks>
+	internal static TreeTableProjection Compute(TreeTableShape shape, in TreeTableViewRequest request)
 	{
 		var view = new TreeTableProjection(shape);
+		int count = shape.Count;
+		var matches = request.Matches;
+		bool[]? passes = null;
 
-		for (int row = 0; row < shape.Count; row++)
+		if (matches != null)
 		{
-			view.HasChildren[row] = shape.Children[row].Length > 0
-				|| shape.Rows[row] is TreeTableRow { HasUnrealizedChildren: true };
-			view.IsExpanded[row] = view.HasChildren[row] && isOpen(row);
+			view.IsFiltered = true;
+
+			// Depth-first order puts every descendant after its ancestor, so walking backwards sees
+			// a row's whole subtree before the row, and walking forwards sees its ancestors first.
+			var subtreeMatches = new bool[count];
+			for (int row = count - 1; row >= 0; row--)
+			{
+				foreach (int child in shape.Children[row])
+				{
+					if (subtreeMatches[child])
+						view.HasMatchingDescendant[row] = true;
+				}
+				subtreeMatches[row] = matches[row] || view.HasMatchingDescendant[row];
+			}
+
+			var underMatch = new bool[count];
+			passes = new bool[count];
+			for (int row = 0; row < count; row++)
+			{
+				int parent = shape.Parents[row];
+				underMatch[row] = parent >= 0 && (matches[parent] || underMatch[parent]);
+				passes[row] = subtreeMatches[row] || (request.ShowSubtreesOfMatches && underMatch[row]);
+			}
 		}
 
-		var displayRows = new List<int>(shape.Count);
+		for (int row = 0; row < count; row++)
+		{
+			if (passes == null)
+			{
+				view.HasChildren[row] = shape.Children[row].Length > 0
+					|| shape.Rows[row] is TreeTableRow { HasUnrealizedChildren: true };
+				view.IsOpen[row] = request.IsOpen(row);
+			}
+			else
+			{
+				view.HasChildren[row] = Array.Exists(shape.Children[row], child => passes[child]);
+				view.IsOpen[row] = request.ToggleInView?.Invoke(row)
+					?? (view.HasMatchingDescendant[row] || request.IsOpen(row));
+			}
+
+			view.IsExpanded[row] = view.HasChildren[row] && view.IsOpen[row];
+		}
+
+		var displayRows = new List<int>(count);
+		var siblingOrder = request.SiblingOrder;
 
 		int[] Ordered(int[] siblings)
 		{
-			if (siblingOrder == null || siblings.Length < 2) return siblings;
+			var shown = passes == null ? siblings : Array.FindAll(siblings, row => passes[row]);
+			if (siblingOrder == null || shown.Length < 2) return shown;
 
-			var ordered = (int[])siblings.Clone();
+			var ordered = ReferenceEquals(shown, siblings) ? (int[])siblings.Clone() : shown;
 			Array.Sort(ordered, siblingOrder);
 			return ordered;
 		}
@@ -143,3 +209,18 @@ internal sealed class TreeTableProjection
 		return -1;
 	}
 }
+
+/// <summary>
+/// What a <see cref="TreeTableProjection"/> is computed from, besides the hierarchy.
+/// </summary>
+/// <param name="IsOpen">A row's own, lasting expansion state.</param>
+/// <param name="SiblingOrder">The order to show siblings in, ties already broken, or null for the order they were added in.</param>
+/// <param name="Matches">Whether each row matches the filter, or null when nothing is filtered.</param>
+/// <param name="ShowSubtreesOfMatches">Whether the rows under a match show although they do not match.</param>
+/// <param name="ToggleInView">How a row was toggled during this filter, or null where it was not.</param>
+internal readonly record struct TreeTableViewRequest(
+	Func<int, bool> IsOpen,
+	Comparison<int>? SiblingOrder = null,
+	bool[]? Matches = null,
+	bool ShowSubtreesOfMatches = false,
+	Func<int, bool?>? ToggleInView = null);

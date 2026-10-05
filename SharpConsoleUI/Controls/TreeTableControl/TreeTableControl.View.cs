@@ -26,6 +26,12 @@ public partial class TreeTableControl
 	private TreeGuide _guide = TreeGuide.Line;
 	private string _indent = ControlDefaults.DefaultTreeIndent;
 	private int _treeColumnIndex;
+	private bool _filterIncludesDescendants;
+
+	// How rows were opened or closed while the current filter was showing, and which filter that is.
+	// Kept apart from the rows' own state, so clearing the filter brings the hierarchy back as it was.
+	private readonly Dictionary<TreeTableRow, bool> _filterToggles = new(ReferenceEqualityComparer.Instance);
+	private CompoundFilterExpression? _togglesFilter;
 
 	#endregion
 
@@ -65,6 +71,28 @@ public partial class TreeTableControl
 	}
 
 	/// <summary>
+	/// Gets or sets whether a filter shows every row under a match, matching or not. Default false: a
+	/// match shows only the rows under it that match too.
+	/// </summary>
+	/// <remarks>
+	/// Either way, a match is shown together with every row above it. Turn this on when finding a
+	/// row should reveal what it contains — a feature together with all its stories — rather than
+	/// only the parts that match.
+	/// </remarks>
+	public bool FilterIncludesDescendants
+	{
+		get => _filterIncludesDescendants;
+		set
+		{
+			if (_filterIncludesDescendants == value) return;
+			_filterIncludesDescendants = value;
+			OnPropertyChanged();
+			if (DataSource == null)
+				RefreshView();
+		}
+	}
+
+	/// <summary>
 	/// Gets or sets the column the guides and expanders are drawn in. Default 0, the first column.
 	/// </summary>
 	/// <remarks>
@@ -91,25 +119,45 @@ public partial class TreeTableControl
 
 	/// <summary>
 	/// Displays the roots, and under each open row its children: what a tree shows. A sort orders
-	/// each row's children among themselves.
+	/// each row's children among themselves; a filter shows each match with the rows above it.
 	/// </summary>
 	/// <remarks>
+	/// <para>
 	/// Sorting a hierarchy as a flat list would tear rows away from their parents, so siblings are
 	/// compared only with each other, by the table's own rules through
 	/// <see cref="TableControl.CompareRows"/>; rows that compare equal keep the order they were added
 	/// in, in either direction.
+	/// </para>
+	/// <para>
+	/// Filtering one as a flat list would show matches out of context, and miss rows inside collapsed
+	/// parents. A match is shown with every row above it, those rows open in the filtered view, and
+	/// every row is searched, collapsed or not, by the table's own rules through
+	/// <see cref="TableControl.RowMatchesFilter(int, CompoundFilterExpression)"/>.
+	/// </para>
 	/// </remarks>
 	protected override int[]? ComputeDisplayRows(TableDisplayQuery query)
 	{
-		// A data source makes the table flat; so, for now, does a filter.
-		if (DataSource != null || query.IsFiltered)
+		// A data source makes the table flat.
+		if (DataSource != null)
 		{
 			_view = null;
 			return base.ComputeDisplayRows(query);
 		}
 
 		TreeTableShape shape;
-		lock (SyncRoot) { shape = _shape; }
+		Dictionary<TreeTableRow, bool> toggles;
+		lock (SyncRoot)
+		{
+			shape = _shape;
+
+			// Rows toggled while filtered belong to that filter: another filter, or none, starts afresh.
+			if (!ReferenceEquals(_togglesFilter, query.Filter))
+			{
+				_filterToggles.Clear();
+				_togglesFilter = query.Filter;
+			}
+			toggles = new Dictionary<TreeTableRow, bool>(_filterToggles, ReferenceEqualityComparer.Instance);
+		}
 
 		Comparison<int>? siblingOrder = null;
 		if (query.IsSorted)
@@ -123,7 +171,22 @@ public partial class TreeTableControl
 			};
 		}
 
-		var view = TreeTableProjection.Compute(shape, row => shape.Rows[row] is TreeTableRow { IsExpanded: true }, siblingOrder);
+		bool[]? matches = null;
+		if (query.Filter is { } filter)
+		{
+			matches = new bool[shape.Count];
+			for (int row = 0; row < shape.Count; row++)
+				matches[row] = RowMatchesFilter(row, filter);
+		}
+
+		var request = new TreeTableViewRequest(
+			IsOpen: row => shape.Rows[row] is TreeTableRow { IsExpanded: true },
+			SiblingOrder: siblingOrder,
+			Matches: matches,
+			ShowSubtreesOfMatches: _filterIncludesDescendants,
+			ToggleInView: toggles.Count == 0 ? null : row => shape.Rows[row] is TreeTableRow treeRow && toggles.TryGetValue(treeRow, out bool open) ? open : null);
+
+		var view = TreeTableProjection.Compute(shape, request);
 		_view = view;
 		return view.DisplayRows;
 	}

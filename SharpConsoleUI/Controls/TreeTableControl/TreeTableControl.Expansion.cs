@@ -46,10 +46,16 @@ public partial class TreeTableControl
 
 	/// <summary>Whether a row is open in what is displayed.</summary>
 	/// <param name="row">A row in this table.</param>
+	/// <remarks>
+	/// Without a filter, the row's own <see cref="TreeTableRow.IsExpanded"/>. While filtered, the
+	/// filtered view's: as the row was opened or closed during this filter, else open if a row under
+	/// it matches, else its own state. Expanding and collapsing while filtered changes only the
+	/// filtered view, so clearing the filter brings the hierarchy back as it was.
+	/// </remarks>
 	public bool IsRowExpanded(TreeTableRow row)
 	{
 		ThrowIfNotHere(row);
-		return row.IsExpanded;
+		lock (SyncRoot) { return IsOpenInView(row); }
 	}
 
 	/// <summary>
@@ -112,8 +118,12 @@ public partial class TreeTableControl
 		{
 			foreach (var row in rows)
 			{
-				if (row.IsExpanded == isExpanded) continue;
-				row.SetExpandedState(isExpanded);
+				if (IsOpenInView(row) == isExpanded) continue;
+
+				if (_togglesFilter != null)
+					_filterToggles[row] = isExpanded;
+				else
+					row.SetExpandedState(isExpanded);
 				changed = true;
 			}
 		}
@@ -123,8 +133,27 @@ public partial class TreeTableControl
 		return changed;
 	}
 
-	/// <summary>Sets a row's lasting state, from <see cref="TreeTableRow.IsExpanded"/>.</summary>
-	internal void SetPersistentExpansion(TreeTableRow row, bool isExpanded) => SetExpanded(new[] { row }, isExpanded);
+	/// <summary>
+	/// Sets a row's lasting state, from <see cref="TreeTableRow.IsExpanded"/>. While filtered it shows
+	/// wherever the row was not opened or closed during the filter.
+	/// </summary>
+	internal void SetPersistentExpansion(TreeTableRow row, bool isExpanded)
+	{
+		ThrowIfDataSource();
+		lock (SyncRoot) { row.SetExpandedState(isExpanded); }
+		RefreshView();
+	}
+
+	/// <summary>Whether a row is open in the view now displayed. Callers hold <see cref="TableControl.SyncRoot"/>.</summary>
+	private bool IsOpenInView(TreeTableRow row)
+	{
+		if (_togglesFilter == null) return row.IsExpanded;
+		if (_filterToggles.TryGetValue(row, out bool toggled)) return toggled;
+
+		var view = _view;
+		int dataIndex = view?.Shape.IndexOf(row) ?? -1;
+		return (dataIndex >= 0 && view!.HasMatchingDescendant[dataIndex]) || row.IsExpanded;
+	}
 
 	/// <summary>The display position of a row in this table, or -1 when it is not displayed.</summary>
 	private int GetDisplayPosition(TableRow row)
