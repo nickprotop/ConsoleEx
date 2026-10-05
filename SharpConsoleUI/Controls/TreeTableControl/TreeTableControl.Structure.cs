@@ -23,9 +23,11 @@ public partial class TreeTableControl
 	// this list until the next change to the hierarchy is handed over.
 	private List<TableRow> _flattened = new();
 
-	// Batching: nested BatchUpdate calls, and whether the hierarchy changed since it was handed over.
+	// Batching: nested BatchUpdate calls, whether the hierarchy changed since it was handed over, and
+	// whether only what is displayed of it changed — a row expanded, say.
 	private int _batchDepth;
 	private bool _structureDirty;
+	private bool _viewDirty;
 
 	#endregion
 
@@ -142,7 +144,14 @@ public partial class TreeTableControl
 		finally
 		{
 			if (--_batchDepth == 0)
+			{
 				FlushStructure();
+				if (_viewDirty)
+				{
+					_viewDirty = false;
+					RefreshDisplayRows();
+				}
+			}
 		}
 	}
 
@@ -320,18 +329,23 @@ public partial class TreeTableControl
 	}
 
 	/// <summary>
-	/// Something that decides how a row looks, but not which rows there are, changed.
+	/// Something that decides what is displayed of the hierarchy, but not the hierarchy itself,
+	/// changed: whether a row has children not loaded yet, say.
 	/// </summary>
-	internal void OnRowShapeChanged()
-	{
-		Invalidate(Invalidation.Relayout);
-	}
+	internal void OnRowShapeChanged() => RefreshView();
 
-	/// <summary>Sets a row's lasting expansion state.</summary>
-	internal void SetPersistentExpansion(TreeTableRow row, bool isExpanded)
+	/// <summary>
+	/// Recomputes what is displayed of the hierarchy — at once, or when the outermost batch ends.
+	/// </summary>
+	private void RefreshView()
 	{
-		lock (SyncRoot) { row.SetExpandedState(isExpanded); }
-		Invalidate(Invalidation.Relayout);
+		if (_batchDepth > 0)
+		{
+			_viewDirty = true;
+			return;
+		}
+
+		RefreshDisplayRows();
 	}
 
 	/// <summary>
@@ -365,9 +379,11 @@ public partial class TreeTableControl
 		{
 			if (!_structureDirty) return;
 
-			flattened = Flatten();
+			_shape = TreeTableShape.Capture(_roots);
+			flattened = _shape.Rows.ToList();
 			_flattened = flattened;
 			_structureDirty = false;
+			_viewDirty = false;
 		}
 
 		base.SetDataCore(flattened);
