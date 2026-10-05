@@ -255,6 +255,18 @@ public partial class TableControl
 		_selectedRowIndex = newIndex;
 
 		EnsureSelectedRowVisible();
+		RaiseSelectedRowChanged();
+		Invalidate(Invalidation.Relayout);
+	}
+
+	/// <summary>
+	/// Raises what a change of the selected row raises: property-changed for
+	/// <see cref="SelectedRowIndex"/>, <see cref="SelectedRowChanged"/>, and for in-memory rows
+	/// <see cref="SelectedRowItemChanged"/> with the row now selected.
+	/// </summary>
+	private void RaiseSelectedRowChanged()
+	{
+		int newIndex = _selectedRowIndex;
 
 		// INPC for SelectedRowIndex so data binding sees selection changes (property + key/mouse all route here).
 		OnPropertyChanged(nameof(SelectedRowIndex));
@@ -271,8 +283,6 @@ public partial class TableControl
 			}
 			Core.AsyncEvent.Raise(SelectedRowItemChanged, SelectedRowItemChangedAsync, this, row, Container?.GetConsoleWindowSystem?.LogService);
 		}
-
-		Invalidate(Invalidation.Relayout);
 	}
 
 	/// <summary>
