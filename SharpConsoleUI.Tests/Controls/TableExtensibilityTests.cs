@@ -713,6 +713,131 @@ public class TableExtensibilityTests
 
 	#endregion
 
+	#region Handling clicks before the table does
+
+	/// <summary>Offers every click to <see cref="Handler"/>, and records what it was offered.</summary>
+	private sealed class ClickTable : TableControl
+	{
+		public Func<TableHitTestResult, int, bool> Handler { get; set; } = (_, _) => false;
+		public List<(TableHitTestResult Hit, int Count)> Offered { get; } = new();
+
+		protected override bool TryHandleClick(TableHitTestResult hit, int clickCount, SharpConsoleUI.Events.MouseEventArgs args)
+		{
+			Offered.Add((hit, clickCount));
+			return Handler(hit, clickCount);
+		}
+	}
+
+	/// <summary>A borderless interactive table with a header on line 0 and rows from line 1, painted.</summary>
+	private static ClickTable PaintedClickTable()
+	{
+		var table = new ClickTable { BorderStyle = BorderStyle.None, ReadOnly = false, SortingEnabled = true };
+		table.AddColumn("Name");
+		table.AddRow("Alice");
+		table.AddRow("Bob");
+		PaintTable(table);
+		return table;
+	}
+
+	private static void ClickAt(TableControl table, int y, SharpConsoleUI.Drivers.MouseFlags flag = SharpConsoleUI.Drivers.MouseFlags.Button1Clicked)
+	{
+		var point = new System.Drawing.Point(1, y);
+		table.ProcessMouseEvent(new SharpConsoleUI.Events.MouseEventArgs(new List<SharpConsoleUI.Drivers.MouseFlags> { flag }, point, point, point));
+	}
+
+	[Fact]
+	public void TheHook_IsToldWhatTheClickLandedOn()
+	{
+		var table = PaintedClickTable();
+
+		ClickAt(table, 2);
+
+		var (hit, count) = Assert.Single(table.Offered);
+		Assert.Equal(TableHitZone.Cell, hit.Zone);
+		Assert.Equal(1, hit.DisplayRowIndex);
+		Assert.Equal(0, hit.ColumnIndex);
+		Assert.Equal(1, count);
+	}
+
+	[Fact]
+	public void AHandledHeaderClick_DoesNotSort_ButIsStillReportedAsAClick()
+	{
+		var table = PaintedClickTable();
+		table.Handler = (hit, _) => hit.Zone == TableHitZone.Header;
+		int headerClicks = 0, clicks = 0;
+		table.HeaderClicked += (_, _) => headerClicks++;
+		table.MouseClick += (_, _) => clicks++;
+
+		ClickAt(table, 0);
+
+		Assert.Equal(-1, table.SortColumnIndex);
+		Assert.Equal(0, headerClicks);
+		Assert.Equal(1, clicks);
+	}
+
+	[Fact]
+	public void ASecondQuickClickOnTheSameRow_CountsAsTwo()
+	{
+		var table = PaintedClickTable();
+		var activated = new List<int>();
+		table.RowActivated += (_, row) => activated.Add(row);
+
+		ClickAt(table, 2);
+		ClickAt(table, 2);
+
+		Assert.Equal([1, 2], table.Offered.Select(o => o.Count));
+		Assert.Equal([1], activated);
+	}
+
+	[Fact]
+	public void AHandledSecondClick_DoesNotActivateTheRow()
+	{
+		var table = PaintedClickTable();
+		table.Handler = (_, count) => count == 2;
+		var activated = new List<int>();
+		table.RowActivated += (_, row) => activated.Add(row);
+
+		ClickAt(table, 2);
+		ClickAt(table, 2);
+
+		Assert.Empty(activated);
+	}
+
+	[Fact]
+	public void AHandledClick_IsNotPairedWithTheNextOne()
+	{
+		var table = PaintedClickTable();
+		bool first = true;
+		table.Handler = (_, _) => { bool take = first; first = false; return take; };
+		var activated = new List<int>();
+		table.RowActivated += (_, row) => activated.Add(row);
+
+		ClickAt(table, 2);
+		ClickAt(table, 2);
+
+		Assert.Equal([1, 1], table.Offered.Select(o => o.Count));
+		Assert.Empty(activated);
+	}
+
+	[Fact]
+	public void ADoubleClickTheTerminalReports_IsOfferedAsTwo_AndStillReported()
+	{
+		var table = PaintedClickTable();
+		table.Handler = (_, _) => true;
+		var activated = new List<int>();
+		int doubleClicks = 0;
+		table.RowActivated += (_, row) => activated.Add(row);
+		table.MouseDoubleClick += (_, _) => doubleClicks++;
+
+		ClickAt(table, 1, SharpConsoleUI.Drivers.MouseFlags.Button1DoubleClicked);
+
+		Assert.Equal(2, Assert.Single(table.Offered).Count);
+		Assert.Empty(activated);
+		Assert.Equal(1, doubleClicks);
+	}
+
+	#endregion
+
 	#region Data sources
 
 	/// <summary>Three rows of one letter each; sorts itself, never filters.</summary>

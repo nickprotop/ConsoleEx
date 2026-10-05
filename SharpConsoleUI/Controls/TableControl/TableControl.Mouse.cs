@@ -167,6 +167,13 @@ public partial class TableControl
 			if (_isEditing)
 				CancelEdit();
 
+			if (TryHandleClick(HitTest(args.Position.X, args.Position.Y), 2, args))
+			{
+				ResetClickPairing();
+				MouseDoubleClick?.Invoke(this, args);
+				return true;
+			}
+
 			int rowIdx = GetRowIndexAtY(args.Position.Y);
 			if (rowIdx >= 0)
 			{
@@ -412,6 +419,16 @@ public partial class TableControl
 		if (!args.HasFlag(MouseFlags.Button1Clicked))
 			return true;
 
+		// A derived table's own click handling comes first; a click it takes is not paired, sorted or
+		// selected on, but is still reported as a click.
+		var hit = HitTest(args.Position.X, args.Position.Y);
+		if (TryHandleClick(hit, CountClicks(hit.DisplayRowIndex), args))
+		{
+			ResetClickPairing();
+			MouseClick?.Invoke(this, args);
+			return true;
+		}
+
 		// Header sort
 		if (IsClickOnHeader(args))
 		{
@@ -549,14 +566,71 @@ public partial class TableControl
 	/// </remarks>
 	private void EndRowGestures()
 	{
+		ResetClickPairing();
+		_isRowDragSelecting = false;
+		_ctrlDragBaseSelection = null;
+	}
+
+	/// <summary>Forgets the last click, so the next one starts a new pairing.</summary>
+	private void ResetClickPairing()
+	{
 		lock (_clickLock)
 		{
 			_lastClickRowIndex = -1;
 			_lastClickTime = DateTime.MinValue;
 		}
-		_isRowDragSelecting = false;
-		_ctrlDragBaseSelection = null;
 	}
+
+	/// <summary>
+	/// How many clicks a click on a display row counts as: 2 when the table's own pairing would take
+	/// it for the second half of a double-click, 1 otherwise. Reads the pairing without changing it.
+	/// </summary>
+	private int CountClicks(int displayRowIndex)
+	{
+		if (displayRowIndex < 0) return 1;
+
+		lock (_clickLock)
+		{
+			bool paired = _lastClickRowIndex == displayRowIndex
+				&& (DateTime.Now - _lastClickTime).TotalMilliseconds < _doubleClickThresholdMs;
+			return paired ? 2 : 1;
+		}
+	}
+
+	#endregion
+
+	#region Clicks For Derived Tables
+
+	/// <summary>
+	/// Offers a click to a derived table before the table acts on it.
+	/// </summary>
+	/// <param name="hit">What the click landed on, as <see cref="HitTest"/> reports it.</param>
+	/// <param name="clickCount">
+	/// 2 when the click completes a double-click on the same row, by the table's own pairing or as a
+	/// double-click the terminal reported; 1 otherwise.
+	/// </param>
+	/// <param name="args">The mouse event.</param>
+	/// <returns>True when the click was handled and the table must do nothing more with it.</returns>
+	/// <remarks>
+	/// <para>
+	/// Called when a left click completes, before the table sorts by a header, changes the selection
+	/// or pairs the click into a double-click, and for a double-click the terminal reports itself.
+	/// By then any edit has been cancelled, the table has the focus, and the press has already moved
+	/// the cursor to the row under it, as TreeControl's clicks do.
+	/// </para>
+	/// <para>
+	/// Returning true suppresses the table's own handling and forgets the click, so two quick clicks
+	/// on, say, a tree's expander toggle it twice rather than activating the row. The table still
+	/// raises <see cref="MouseClick"/> or <see cref="MouseDoubleClick"/>, which report what the mouse
+	/// did, not what the table did with it.
+	/// </para>
+	/// <para>
+	/// Called on the UI thread, never while <see cref="SyncRoot"/> is held. A hook rather than an
+	/// overridable mouse handler, so a derived table takes the clicks it understands and leaves the
+	/// rest — scrollbars, resizing, drag selection — to the table.
+	/// </para>
+	/// </remarks>
+	protected virtual bool TryHandleClick(TableHitTestResult hit, int clickCount, MouseEventArgs args) => false;
 
 	#endregion
 
