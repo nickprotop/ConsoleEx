@@ -788,6 +788,46 @@ try
 		return Fail($"TreeTableControl: {ex.GetType().Name}: {ex.Message}");
 	}
 
+	// 17. TreeTableControl.BindItems — a tree table bound to ObservableCollections of INPC items,
+	//     then the collections and an item changed: add, move, remove, a property change and a
+	//     replaced child collection. Delegates only, so no Expression is compiled; the generic
+	//     binding instantiated over a type from THIS assembly is what NativeAOT must keep.
+	try
+	{
+		var crate = new SmokeTreeItem("Crate", new SmokeTreeItem("Apples"), new SmokeTreeItem("Pears"));
+		var shelf = new System.Collections.ObjectModel.ObservableCollection<SmokeTreeItem> { crate, new SmokeTreeItem("Barrel") };
+		var bound = Controls.TreeTable()
+			.AddColumn("Item")
+			.BindItems(shelf, item => item.Children, item => [item.Name])
+			.Build();
+
+		var boundWindow = new Window(system) { Width = 60, Height = 20, Top = 1, Left = 1, Title = "bound treetable" };
+		boundWindow.AddControl(bound);
+		system.AddWindow(boundWindow);
+		for (int i = 0; i < 2; i++) system.ProcessOnce();
+
+		shelf.Add(new SmokeTreeItem("Sack"));
+		shelf.Move(2, 0);
+		crate.Children.RemoveAt(0);
+		crate.Name = "Big crate";
+		crate.Children = new System.Collections.ObjectModel.ObservableCollection<SmokeTreeItem>(crate.Children.Append(new SmokeTreeItem("Plums")));
+
+		var names = string.Join(",", bound.Rows.Select(row => row.Cells[0]));
+		if (names != "Sack,Big crate,Pears,Plums,Barrel")
+			return Fail($"BindItems rows out of step: {names}");
+
+		for (int i = 0; i < 2; i++) system.ProcessOnce();
+		system.CloseWindow(boundWindow, force: true);
+		controlCount++;
+		Console.Error.WriteLine("AOT SMOKE NOTE: TreeTableControl.BindItems (ObservableCollection + INPC items) exercised");
+	}
+	catch (Exception ex)
+	{
+		if (IsAotFailure(ex))
+			return Fail($"BindItems AOT failure: {ex}");
+		return Fail($"BindItems: {ex.GetType().Name}: {ex.Message}");
+	}
+
 }
 catch (Exception ex)
 {
@@ -809,7 +849,7 @@ Console.Error.WriteLine(
 	$"ChatTranscriptControl (thinking/streaming/gradient/alpha) exercised; " +
 	$"FormControl (builder, AddRadio<T>, GetValues, Submit) exercised; " +
 	$"FormXml (XDocument parse + runtime Regex validator) exercised; " +
-	$"TreeTableControl (builder, sort, filter, events, external subclass) exercised; " +
+	$"TreeTableControl (builder, sort, filter, events, external subclass) + BindItems exercised; " +
 	$"{driver.ScreenSize.Width}x{driver.ScreenSize.Height} rendered.");
 return 0;
 
@@ -823,6 +863,34 @@ static TreeNode[] MakeTree()
 	b.AddChild(new TreeNode("Grandchild B1"));
 	root.AddChild(b);
 	return new[] { root };
+}
+
+// An item for the BindItems section (17): a name and an observable collection of children, both
+// raising PropertyChanged, so the binding follows the item as well as its collections.
+sealed class SmokeTreeItem : INotifyPropertyChanged
+{
+	private string _name;
+	private System.Collections.ObjectModel.ObservableCollection<SmokeTreeItem> _children;
+
+	public SmokeTreeItem(string name, params SmokeTreeItem[] children)
+	{
+		_name = name;
+		_children = new System.Collections.ObjectModel.ObservableCollection<SmokeTreeItem>(children);
+	}
+
+	public event PropertyChangedEventHandler? PropertyChanged;
+
+	public string Name
+	{
+		get => _name;
+		set { _name = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Name))); }
+	}
+
+	public System.Collections.ObjectModel.ObservableCollection<SmokeTreeItem> Children
+	{
+		get => _children;
+		set { _children = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Children))); }
+	}
 }
 
 // A tree table derived OUTSIDE the library (section 16): its own row type, rows with children
