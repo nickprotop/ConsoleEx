@@ -303,6 +303,31 @@ public partial class TableControl
 			renderCols = withCheckbox;
 		}
 
+		// Column positions for hit testing, skipping the checkbox column. Recorded on every paint, not
+		// only when the header is drawn: with ShowHeader off they used to stay empty, and no click
+		// could tell which column it landed on.
+		{
+			int colX = startX + (hasBorder ? 1 : 0);
+			// Skip past checkbox column in colWidths
+			if (_checkboxMode)
+				colX += checkboxColWidth + (hasBorder ? 1 : 0);
+			_renderedColumnX = new int[colCount];
+			_renderedColumnWidths = new int[colCount];
+			for (int c = 0; c < colCount; c++)
+			{
+				_renderedColumnX[c] = colX;
+				_renderedColumnWidths[c] = dataColWidths[c];
+				if (colSnapshot != null && c < colSnapshot.Count)
+				{
+					colSnapshot[c].RenderedX = colX;
+					colSnapshot[c].RenderedWidth = dataColWidths[c];
+				}
+				bool addSep = hasBorder || (_columnSeparator.HasValue && c < colCount - 1);
+				int sepW = hasBorder ? 1 : SeparatorWidth;
+				colX += dataColWidths[c] + (addSep ? sepW : 0);
+			}
+		}
+
 		// Top border
 		if (hasBorder && currentY < maxY)
 		{
@@ -353,29 +378,6 @@ public partial class TableControl
 			TableRowPainter.DrawDataRow(buffer, style, startX, currentY, colWidths, clipRect,
 				headerCells, renderCols, headerFg, headerBg,
 				hScrollOffset: effectiveHScroll, trailingFillWidth: scrollbarGutter);
-
-			// Update column rendered positions for hit testing — skip checkbox column
-			{
-				int colX = startX + (hasBorder ? 1 : 0);
-				// Skip past checkbox column in colWidths
-				if (_checkboxMode)
-					colX += checkboxColWidth + (hasBorder ? 1 : 0);
-				_renderedColumnX = new int[colCount];
-				_renderedColumnWidths = new int[colCount];
-				for (int c = 0; c < colCount; c++)
-				{
-					_renderedColumnX[c] = colX;
-					_renderedColumnWidths[c] = dataColWidths[c];
-					if (colSnapshot != null && c < colSnapshot.Count)
-					{
-						colSnapshot[c].RenderedX = colX;
-						colSnapshot[c].RenderedWidth = dataColWidths[c];
-					}
-					bool addSep = hasBorder || (_columnSeparator.HasValue && c < colCount - 1);
-					int sepW = hasBorder ? 1 : SeparatorWidth;
-					colX += dataColWidths[c] + (addSep ? sepW : 0);
-				}
-			}
 
 			currentY++;
 
