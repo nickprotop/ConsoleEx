@@ -180,6 +180,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private SortDirection _sortDirection = SortDirection.None;
 	// Whether the data source sorted itself and has not been asked to drop that order since
 	private bool _sourceSorted;
+	// Above zero while the table is calling into the data source to sort or filter it
+	private int _sourceCallDepth;
 
 	// Filtering
 	internal bool _filteringEnabled = false;
@@ -515,8 +517,23 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		}
 	}
 
+	/// <summary>
+	/// Follows a change to the data source's rows: a filter map built over them is brought up to
+	/// date, and the selection and scroll are kept within the rows there are.
+	/// </summary>
+	/// <remarks>
+	/// A FILTER MAP NAMES SOURCE ROWS BY INDEX, so a source that adds, removes or reorders rows
+	/// leaves it pointing at the wrong ones: rows that no longer match stay shown, new matches stay
+	/// hidden, and an index past the end can be read. A client-side filter is scanned again; display
+	/// rows the source supplied are asked for again. A change the source raises while the table
+	/// itself is calling into it, sorting or filtering, is left to that call, which brings the map
+	/// up to date when it returns.
+	/// </remarks>
 	private void OnDataSourceCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
 	{
+		if (_sourceCallDepth == 0)
+			RefreshSourceFilterMap();
+
 		if (e.Action == NotifyCollectionChangedAction.Reset)
 		{
 			_selectedRowIndex = RowCount > 0 ? 0 : -1;
@@ -524,6 +541,14 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			_hoveredRowIndex = -1;
 			_scrollOffset = 0;
 			EndRowGestures();
+		}
+		else
+		{
+			int rowCount = RowCount;
+			if (_selectedRowIndex >= rowCount)
+				_selectedRowIndex = rowCount - 1;
+			_selectedRowIndices.RemoveWhere(index => index >= rowCount);
+			_scrollOffset = Math.Clamp(_scrollOffset, 0, Math.Max(0, rowCount - GetVisibleRowCount()));
 		}
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();

@@ -261,7 +261,9 @@ public partial class TableControl
 		if (_dataSource == null)
 			return false;
 
-		var result = TryApplyFilterToDataSource(_dataSource, compound);
+		var source = _dataSource;
+		var result = TableFilterResult.NotHandled;
+		CallSource(() => result = TryApplyFilterToDataSource(source, compound));
 		if (result.Outcome == TableFilterOutcome.NotHandled)
 			return false;
 
@@ -329,6 +331,63 @@ public partial class TableControl
 	}
 
 	/// <summary>
+	/// Calls into the data source to sort or filter it, holding back the table's own response to the
+	/// changes it announces meanwhile: the caller brings the display map up to date itself.
+	/// </summary>
+	/// <remarks>
+	/// A source typically raises a reset from inside its own <c>ApplyFilter</c> or <c>Sort</c>. Left
+	/// to <see cref="OnDataSourceCollectionChanged"/>, that would ask the source for its display rows
+	/// again from inside the call that is producing them, or re-apply a filter being cleared.
+	/// </remarks>
+	private void CallSource(Action call)
+	{
+		_sourceCallDepth++;
+		try
+		{
+			call();
+		}
+		finally
+		{
+			_sourceCallDepth--;
+		}
+	}
+
+	/// <summary>
+	/// Brings a filter map over the data source up to date after the source's rows changed: a
+	/// client-side filter is scanned again, and display rows the source supplied are asked for
+	/// again. A source that narrowed itself keeps its own filter, and needs nothing.
+	/// </summary>
+	private void RefreshSourceFilterMap()
+	{
+		if (_dataSource == null || _activeFilter == null || _rowView.Map == null) return;
+
+		// With a map, the source still reports every row, so the total the footer shows and the
+		// client-side scan covers is the source's count now, not the one taken when the filter
+		// was applied.
+		_unfilteredRowCount = _dataSource.RowCount;
+
+		if (HasClientFilterMap)
+		{
+			RebuildDisplayMap();
+			return;
+		}
+
+		if (!_rowView.FromSource) return;
+
+		var source = _dataSource;
+		var filter = _activeFilter;
+		var result = TableFilterResult.NotHandled;
+		CallSource(() => result = TryApplyFilterToDataSource(source, filter));
+
+		if (result.Outcome == TableFilterOutcome.DisplayRowsSupplied)
+			_rowView.SetFromSource(BuildSourceDisplayMap(result.DisplayRows!));
+		else if (result.Outcome == TableFilterOutcome.SourceNarrowed)
+			_rowView.SetFromSource(null);
+		else
+			RecomputeDisplayMap();
+	}
+
+	/// <summary>
 	/// Filters by a specific column programmatically.
 	/// </summary>
 	public void FilterByColumn(int columnIndex, string value, FilterOperator op = FilterOperator.Contains)
@@ -373,7 +432,7 @@ public partial class TableControl
 		// supplied display rows instead leaves a map behind, and the same reset clears it.
 		bool delegated = _dataSource != null && _dataSource.CanFilter && _activeFilter != null;
 		if (delegated)
-			_dataSource!.ClearFilter();
+			CallSource(_dataSource!.ClearFilter);
 
 		if (!delegated && _filterMode == FilterMode.None && !_rowView.IsFilterMapActive) return;
 
@@ -529,7 +588,7 @@ public partial class TableControl
 			// until asked to stop — leaving the table showing a filtered set while believing
 			// nothing is filtered, with no keystroke that puts the rows back.
 			if (_dataSource != null && _dataSource.CanFilter && _activeFilter != null)
-				_dataSource.ClearFilter();
+				CallSource(_dataSource.ClearFilter);
 
 			// The table's own rows keep the selected row, as Esc does; a data source, having no rows
 			// to follow, starts again from its first row.

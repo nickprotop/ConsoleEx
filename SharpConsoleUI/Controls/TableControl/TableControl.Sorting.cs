@@ -135,7 +135,8 @@ public partial class TableControl
 	/// <summary>Asks the data source to sort itself the way the table is sorted.</summary>
 	private void SortSource()
 	{
-		_dataSource!.Sort(_sortColumnIndex, _sortDirection);
+		var source = _dataSource!;
+		CallSourceToSort(() => source.Sort(_sortColumnIndex, _sortDirection));
 		_sourceSorted = true;
 	}
 
@@ -147,8 +148,21 @@ public partial class TableControl
 	{
 		if (!_sourceSorted || _dataSource == null) return;
 
+		var source = _dataSource;
 		_sourceSorted = false;
-		_dataSource.ClearSort();
+		CallSourceToSort(source.ClearSort);
+	}
+
+	/// <summary>
+	/// Calls into the data source to sort it. The rows it supplied for a filter are in its old order
+	/// afterwards, so they are asked for again, once, whether or not it announced the change.
+	/// </summary>
+	private void CallSourceToSort(Action call)
+	{
+		CallSource(call);
+
+		if (_rowView.FromSource && _rowView.Map != null)
+			RefreshSourceFilterMap();
 	}
 
 	/// <summary>

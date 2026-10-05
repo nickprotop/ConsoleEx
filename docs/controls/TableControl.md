@@ -320,6 +320,7 @@ When `DataSource` is set:
 - Sorting delegates to `DataSource.Sort()` if `CanSort()` returns true; clearing the sort calls `DataSource.ClearSort()` so the source can restore its own order
 - Filtering is handed to the source when `CanFilter` is true — see [Letting the data source filter](#letting-the-data-source-filter)
 - Raising `CollectionChanged` triggers re-measure and re-render; `Reset` also returns the selection to the first row
+- A filter over the source follows its changes: a client-side filter is scanned again, and display rows supplied through `TryApplyFilterToDataSource` are asked for again, also after the source sorts itself
 - `AddRow()`/`ClearRows()` throw if DataSource is set
 
 ## Builder Methods
