@@ -298,4 +298,98 @@ public class TableSelectionPreservationTests
 	}
 
 	#endregion
+
+	#region Sorting keeps the selection on its rows
+
+	[Fact]
+	public void Sorting_KeepsTheCursorOnARowWithoutATag()
+	{
+		var table = PeopleTable();
+		table.SelectedRowIndex = 1;                    // Bob
+
+		table.SortByColumn(0);
+		table.SortByColumn(0);                         // descending: Bob moves to 3
+
+		Assert.Equal("Bob", SelectedName(table));
+		Assert.Equal(3, table.SelectedRowIndex);
+	}
+
+	[Fact]
+	public void Sorting_ReportsTheNewIndexButNotANewRow()
+	{
+		var table = PeopleTable();
+		table.SortByColumn(0);
+		table.SelectedRowIndex = 1;
+		var events = new SelectionEvents(table);
+
+		table.SortByColumn(0);
+
+		Assert.Empty(events.RowChanged);
+		Assert.Empty(events.ItemChanged);
+		Assert.Contains(nameof(TableControl.SelectedRowIndex), events.PropertyChanged);
+	}
+
+	[Fact]
+	public void Sorting_KeepsTheMultiSelectionOnItsRows()
+	{
+		var table = PeopleTable(multiSelect: true);
+		table.ToggleRowSelection(0);                   // Alice
+		table.ToggleRowSelection(1);                   // Bob
+
+		table.SortByColumn(0);
+		table.SortByColumn(0);
+
+		Assert.Equal(["Alice", "Bob"], SelectedNames(table).Order().ToList());
+		Assert.Equal([3, 4], table.GetSelectedIndices());
+	}
+
+	[Fact]
+	public void SortingInCheckboxMode_KeepsTheChecksAndTheSelectionTogether()
+	{
+		var table = PeopleTable(multiSelect: true);
+		table.CheckboxMode = true;
+		table.ToggleRowSelection(0);                   // Alice
+
+		table.SortByColumn(0);
+		table.SortByColumn(0);
+
+		Assert.Equal(["Alice"], table.GetCheckedRows().Select(row => row.Cells[0]));
+		Assert.Equal(["Alice"], SelectedNames(table));
+	}
+
+	[Fact]
+	public void Sorting_KeepsTheRangeAnchorOnItsRow()
+	{
+		var table = PeopleTable(multiSelect: true);
+		table.SelectedRowIndex = 1;                    // anchor: Bob
+		table.RightClickRowForTest(2);                 // Bob..Carol
+
+		table.SortByColumn(0);
+		table.SortByColumn(0);                         // Eve, Dave, Carol, Bob, Alice
+		table.RightClickRowForTest(1);                 // from the anchor (Bob, now 3) to Dave
+
+		Assert.Equal(["Bob", "Carol", "Dave"], SelectedNames(table).Order().ToList());
+	}
+
+	[Fact]
+	public void Sorting_KeepsAVisibleCursorOnScreen()
+	{
+		var table = new TableControl { SortingEnabled = true, ReadOnly = false, Height = 8 };
+		table.AddColumn("Id");
+		for (int i = 0; i < 40; i++)
+			table.AddRow(i.ToString("D2"));
+		var buffer = new SharpConsoleUI.Layout.CharacterBuffer(30, 8);
+		var bounds = new SharpConsoleUI.Layout.LayoutRect(0, 0, 30, 8);
+		table.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+		table.SelectedRowIndex = 1;
+
+		table.SortByColumn(0);
+		table.SortByColumn(0);                         // row 01 moves to position 38
+
+		int visible = table.GetVisibleRowCount();
+		Assert.Equal(38, table.SelectedRowIndex);
+		Assert.InRange(table.SelectedRowIndex, table.ScrollOffset, table.ScrollOffset + visible - 1);
+	}
+
+	#endregion
 }

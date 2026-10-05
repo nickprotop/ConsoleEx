@@ -65,17 +65,8 @@ public partial class TableControl
 			}
 		}
 
-		// Track the currently selected row's data index to preserve selection
-		int selectedDataIndex = _selectedRowIndex >= 0 ? MapDisplayToData(_selectedRowIndex) : -1;
-		object? selectedTag = null;
-		if (selectedDataIndex >= 0 && _dataSource == null)
-		{
-			lock (_tableLock)
-			{
-				if (selectedDataIndex < _rows.Count)
-					selectedTag = _rows[selectedDataIndex].Tag;
-			}
-		}
+		// The selection is kept by row, so it follows its rows to wherever the sort puts them.
+		var selection = CaptureSelection();
 
 		// Cycle sort direction
 		if (_sortColumnIndex == columnIndex)
@@ -108,21 +99,7 @@ public partial class TableControl
 			RebuildDisplayMap();
 		}
 
-		// Restore selection by tag
-		if (selectedTag != null && _dataSource == null)
-		{
-			lock (_tableLock)
-			{
-				for (int i = 0; i < _rows.Count; i++)
-				{
-					if (ReferenceEquals(_rows[i].Tag, selectedTag))
-					{
-						_selectedRowIndex = MapDataToDisplay(i);
-						break;
-					}
-				}
-			}
-		}
+		RestoreSelection(selection);
 
 		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);
