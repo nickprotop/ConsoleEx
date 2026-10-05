@@ -844,11 +844,21 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 	#region Column Width Calculation
 
-	private void InvalidateColumnWidths()
+	/// <summary>
+	/// Drops the cached column widths and text measurements, so the next layout measures the columns
+	/// again.
+	/// </summary>
+	/// <remarks>
+	/// The table invalidates them itself whenever a row, a cell or a column changes. A derived table
+	/// calls this when something ELSE it draws into a cell changes width — a prefix that grew because
+	/// a row moved deeper, say — which the table cannot see.
+	/// </remarks>
+	protected void InvalidateColumnWidths()
 	{
 		_widthCalculator.Invalidate();
 		_measurementCache.InvalidateCache();
 	}
+
 	/// <summary>
 	/// Routes a display-property change on an owned <see cref="TableColumn"/> back to the table:
 	/// busts the cached column widths when the change affects sizing, then invalidates the container

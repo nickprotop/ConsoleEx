@@ -201,6 +201,73 @@ public partial class TableControl
 
 	#endregion
 
+	#region Rows For Derived Tables
+
+	/// <summary>
+	/// The lock that guards the table's rows and columns.
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// The table paints on the render thread from a snapshot taken under this lock, and every change
+	/// to its rows takes it. A derived table keeping its own structure alongside the rows — a parent
+	/// for each row, say — guards that structure with the same lock, so a paint never sees the rows
+	/// and the structure out of step. A second lock of its own would invite the two to be taken in
+	/// opposite orders.
+	/// </para>
+	/// <para>
+	/// Hold it briefly. The table's hooks are never called with it held, and the public members that
+	/// raise events should not be called while holding it either, or a handler running on another
+	/// thread could deadlock against a paint.
+	/// </para>
+	/// </remarks>
+	protected object SyncRoot => _tableLock;
+
+	/// <summary>
+	/// The number of data rows: every in-memory row, or the data source's row count, whatever is
+	/// displayed.
+	/// </summary>
+	/// <remarks>
+	/// <see cref="RowCount"/> counts DISPLAYED rows. The two differ whenever a filter is active or a
+	/// derived table hides rows, and data indices — <see cref="GetRow"/>, the cell accessors, the
+	/// display map — run from zero to this count, not to <see cref="RowCount"/>.
+	/// </remarks>
+	protected int DataRowCount
+	{
+		get
+		{
+			if (_dataSource != null) return _dataSource.RowCount;
+			lock (_tableLock) { return _rows.Count; }
+		}
+	}
+
+	/// <summary>
+	/// The data row displayed at a display position, or -1 when there is no such position.
+	/// </summary>
+	/// <param name="displayIndex">A display position, as <see cref="SelectedRowIndex"/> counts them.</param>
+	/// <remarks>
+	/// Unlike the table's internal mapping, a position past the displayed rows is -1 rather than
+	/// being taken for a data index: that fallback is how the rows a filter excluded were once
+	/// painted underneath its matches.
+	/// </remarks>
+	protected int GetDataRowIndex(int displayIndex)
+		=> displayIndex >= 0 && displayIndex < RowCount ? MapDisplayToData(displayIndex) : -1;
+
+	/// <summary>
+	/// The display position of a data row, or -1 when it is not displayed — filtered out, hidden by a
+	/// derived table, or not a row at all.
+	/// </summary>
+	/// <param name="dataIndex">A data row, as <see cref="GetRow"/> counts them.</param>
+	/// <remarks>O(1): answered from an inverse of the display map, built once per map.</remarks>
+	protected int GetDisplayRowIndex(int dataIndex)
+	{
+		if (dataIndex < 0 || dataIndex >= DataRowCount) return -1;
+
+		int position = MapDataToDisplay(dataIndex);
+		return position < RowCount ? position : -1;
+	}
+
+	#endregion
+
 	#region Row Changes
 
 	/// <summary>Appends rows after the last data row.</summary>

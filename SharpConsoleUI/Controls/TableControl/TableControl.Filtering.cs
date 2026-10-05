@@ -800,7 +800,7 @@ public partial class TableControl
 		{
 			var key = new DisplayRowsKey(filter, _sortColumnIndex, _sortDirection,
 				SortColumn?.CustomRowComparer, SortColumn?.CustomComparer, _fuzzyFilterEnabled);
-			Func<int, bool>? passes = filter != null ? dataIndex => RowMatchesCompoundFilter(dataIndex, filter) : null;
+			Func<int, bool>? passes = filter != null ? dataIndex => RowMatchesFilter(dataIndex, filter) : null;
 			Comparison<int> order = sorted
 				? CreateRowComparison(_sortColumnIndex, _sortDirection)
 				: (a, b) => a.CompareTo(b);
@@ -862,7 +862,7 @@ public partial class TableControl
 
 		for (int i = 0; i < totalRows; i++)
 		{
-			if (RowMatchesCompoundFilter(i, filter))
+			if (RowMatchesFilter(i, filter))
 				matches.Add(i);
 		}
 
@@ -929,10 +929,25 @@ public partial class TableControl
 	}
 
 	/// <summary>
-	/// Tests whether a single row matches a compound filter expression.
-	/// All terms must match (AND), and within each term any alternative must match (OR).
+	/// Tests whether a data row matches a filter by the table's own rules.
 	/// </summary>
-	internal bool RowMatchesCompoundFilter(int dataIndex, CompoundFilterExpression filter)
+	/// <param name="dataIndex">The data row to test.</param>
+	/// <param name="filter">The filter: every term must match (AND), and within a term any alternative (OR).</param>
+	/// <returns>True when the row matches.</returns>
+	/// <remarks>
+	/// <para>
+	/// THE RULES IN ONE PLACE: a column term matches that column's text, a plain term any column's,
+	/// numbers compare as numbers for <c>&gt;</c> and <c>&lt;</c>, markup is ignored, and with
+	/// <see cref="FuzzyFilterEnabled"/> a plain term also matches as a subsequence. A derived table
+	/// that decides for itself which rows a filter shows — keeping the parent of a matching row, for
+	/// instance — calls this for each row rather than reproducing the rules, so its filter means
+	/// exactly what the table's does.
+	/// </para>
+	/// <para>
+	/// Safe to call while the rows are being painted: the cells are read under <see cref="SyncRoot"/>.
+	/// </para>
+	/// </remarks>
+	protected internal bool RowMatchesFilter(int dataIndex, CompoundFilterExpression filter)
 	{
 		foreach (var term in filter.Terms)
 		{
@@ -1029,29 +1044,7 @@ public partial class TableControl
 	/// <summary>
 	/// Sorts an array of data indices by the current sort column.
 	/// </summary>
-	private void SortIndices(int[] indices)
-	{
-		if (_dataSource != null)
-		{
-			// For DataSource, sort by raw cell values
-			int col = _sortColumnIndex;
-			Array.Sort(indices, (a, b) =>
-			{
-				string valA = _dataSource.GetCellValue(a, col);
-				string valB = _dataSource.GetCellValue(b, col);
-				int result = string.Compare(MarkupParser.Remove(valA), MarkupParser.Remove(valB), StringComparison.OrdinalIgnoreCase);
-				if (result == 0) return a.CompareTo(b);
-				return _sortDirection == SortDirection.Descending ? -result : result;
-			});
-		}
-		else
-		{
-			lock (_tableLock)
-			{
-				Array.Sort(indices, CreateRowComparison(_sortColumnIndex, _sortDirection));
-			}
-		}
-	}
+	private void SortIndices(int[] indices) => SortRowIndices(indices, _sortColumnIndex, _sortDirection);
 
 	#endregion
 

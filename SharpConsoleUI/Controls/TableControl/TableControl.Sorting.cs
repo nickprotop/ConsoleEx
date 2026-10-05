@@ -146,66 +146,132 @@ public partial class TableControl
 		RecomputeDisplayMap();
 	}
 
+	#endregion
+
+	#region Comparing Rows
+
 	/// <summary>
-	/// The comparison every sort of in-memory rows uses: the column's
-	/// <see cref="TableColumn.CustomRowComparer"/>, else its <see cref="TableColumn.CustomComparer"/>
-	/// over the raw cell text, else ordinal ignore-case over the text the markup displays, with the
-	/// direction applied. Rows that compare equal keep their data order. Callers hold
-	/// <see cref="_tableLock"/> while it runs.
+	/// Compares two data rows by a column exactly as the table's own sort does.
 	/// </summary>
+	/// <param name="dataIndexA">The first data row.</param>
+	/// <param name="dataIndexB">The second data row.</param>
+	/// <param name="columnIndex">The column to compare by.</param>
+	/// <param name="direction">
+	/// The direction to apply; <see cref="SortDirection.Descending"/> negates the result, anything else
+	/// leaves it ascending.
+	/// </param>
+	/// <returns>Negative, zero or positive, as <see cref="IComparer{T}.Compare"/>.</returns>
 	/// <remarks>
 	/// <para>
-	/// ONE COMPARISON, because there used to be two. Sorting a filtered table went through a
-	/// second copy that knew nothing of <see cref="TableColumn.CustomRowComparer"/>, so the same
-	/// header click ordered the same rows differently depending on whether a filter was active.
+	/// THE TABLE'S RULES, NOT A COPY OF THEM. For in-memory rows: the column's
+	/// <see cref="TableColumn.CustomRowComparer"/>, else its <see cref="TableColumn.CustomComparer"/>
+	/// over the raw cell text, else ordinal ignore-case over the text the markup displays. For a data
+	/// source: the displayed text of its cells. A derived table that orders rows its own way — siblings
+	/// within a parent, say — calls this rather than re-implementing the rules, so a column's comparer
+	/// means the same thing in both.
 	/// </para>
 	/// <para>
-	/// The data-index tie-break makes the sort stable, which <see cref="Array.Sort{T}(T[], Comparison{T})"/>
-	/// is not: past sixteen rows it stops being an insertion sort, and rows with equal keys came out
-	/// in whatever order its partitioning left them. The tie-break is applied after the direction,
-	/// so equal keys read in data order whichever way the column is sorted.
-	/// </para>
-	/// <para>
-	/// THE DEFAULT COMPARES WHAT THE USER READS. Comparing the raw cell sorted <c>[red]Apple[/]</c>
-	/// by the word "red", after "Banana". Filter matching and the data-source sort already strip
-	/// markup; the default sort now does too. Each row is stripped once and the text kept until the
-	/// row or its cells change, rather than stripped per comparison. A
-	/// <see cref="TableColumn.CustomComparer"/> still receives the raw text, as it always has, so any
-	/// comparer written against markup keeps working.
+	/// No tie-break: rows that compare equal return zero, so a caller can apply its own order to them.
+	/// <see cref="SortRowIndices"/> is the stable sort built on it. Takes <see cref="SyncRoot"/> for the
+	/// duration of the comparison, so it is safe to call while the rows are being painted.
 	/// </para>
 	/// </remarks>
-	private Comparison<int> CreateRowComparison(int col, SortDirection direction)
+	protected int CompareRows(int dataIndexA, int dataIndexB, int columnIndex, SortDirection direction)
 	{
-		Comparison<TableRow>? customRowComparer = null;
-		IComparer<string>? customComparer = null;
-		if (col >= 0 && col < _columns.Count)
+		int result;
+		if (_dataSource != null)
 		{
-			customRowComparer = _columns[col].CustomRowComparer;
-			customComparer = _columns[col].CustomComparer;
+			result = CompareSourceRows(dataIndexA, dataIndexB, columnIndex);
+		}
+		else
+		{
+			lock (_tableLock) { result = CompareOwnRows(dataIndexA, dataIndexB, columnIndex); }
 		}
 
-		List<string?>? displayedText = customRowComparer == null && customComparer == null
-			? _rowView.GetSortTextCache(col, _rows.Count)
-			: null;
-
-		string RawCell(int row) => col < _rows[row].Cells.Count ? _rows[row].Cells[col] : string.Empty;
-
-		string DisplayedCell(int row) => displayedText![row] ??= MarkupParser.Remove(RawCell(row));
-
-		return (a, b) =>
-		{
-			int result;
-			if (customRowComparer != null)
-				result = customRowComparer(_rows[a], _rows[b]);
-			else if (customComparer != null)
-				result = customComparer.Compare(RawCell(a), RawCell(b));
-			else
-				result = string.Compare(DisplayedCell(a), DisplayedCell(b), StringComparison.OrdinalIgnoreCase);
-
-			if (result == 0) return a.CompareTo(b);
-			return direction == SortDirection.Descending ? -result : result;
-		};
+		return direction == SortDirection.Descending ? -result : result;
 	}
+
+	/// <summary>
+	/// Sorts data row indices in place by a column, as the table's own sort orders them, keeping rows
+	/// that compare equal in data order.
+	/// </summary>
+	/// <param name="dataIndices">The data rows to sort, in any order; sorted in place.</param>
+	/// <param name="columnIndex">The column to sort by.</param>
+	/// <param name="direction">The direction; see <see cref="CompareRows"/>.</param>
+	/// <remarks>
+	/// <para>
+	/// A span, so a caller sorting several groups — the children of each parent in turn — can sort each
+	/// slice of one buffer without copying it. The lock is taken once for the whole sort rather than
+	/// once per comparison.
+	/// </para>
+	/// <para>
+	/// STABLE, which <see cref="Array.Sort{T}(T[], Comparison{T})"/> on its own is not: past sixteen
+	/// elements it stops being an insertion sort, and equal keys came out in whatever order its
+	/// partitioning left them. Ties are broken on the data index after the direction is applied, so
+	/// equal keys read in data order whichever way the column is sorted.
+	/// </para>
+	/// </remarks>
+	protected void SortRowIndices(Span<int> dataIndices, int columnIndex, SortDirection direction)
+	{
+		if (_dataSource != null)
+		{
+			dataIndices.Sort(CreateRowComparison(columnIndex, direction));
+			return;
+		}
+
+		lock (_tableLock)
+		{
+			dataIndices.Sort(CreateRowComparison(columnIndex, direction));
+		}
+	}
+
+	/// <summary>
+	/// The total order every sort uses: <see cref="CompareRows"/>'s rules, the direction applied, ties
+	/// broken on the data index. For in-memory rows, callers hold <see cref="_tableLock"/> while it runs.
+	/// </summary>
+	/// <remarks>
+	/// ONE COMPARISON, because there used to be two. Sorting a filtered table went through a second
+	/// copy that knew nothing of <see cref="TableColumn.CustomRowComparer"/>, so the same header click
+	/// ordered the same rows differently depending on whether a filter was active.
+	/// </remarks>
+	private Comparison<int> CreateRowComparison(int col, SortDirection direction) => (a, b) =>
+	{
+		int result = _dataSource != null ? CompareSourceRows(a, b, col) : CompareOwnRows(a, b, col);
+		if (result == 0) return a.CompareTo(b);
+		return direction == SortDirection.Descending ? -result : result;
+	};
+
+	/// <summary>Compares two in-memory rows by a column, ascending. Callers hold <see cref="_tableLock"/>.</summary>
+	/// <remarks>
+	/// THE DEFAULT COMPARES WHAT THE USER READS. Comparing the raw cell sorted <c>[red]Apple[/]</c> by
+	/// the word "red", after "Banana". Filter matching and the data-source sort already strip markup;
+	/// the default sort does too. Each row is stripped once and the text kept until the row or its
+	/// cells change, rather than stripped per comparison. A <see cref="TableColumn.CustomComparer"/>
+	/// still receives the raw text, as it always has, so any comparer written against markup keeps
+	/// working.
+	/// </remarks>
+	private int CompareOwnRows(int a, int b, int col)
+	{
+		var column = col >= 0 && col < _columns.Count ? _columns[col] : null;
+		if (column?.CustomRowComparer is { } rowComparer)
+			return rowComparer(_rows[a], _rows[b]);
+		if (column?.CustomComparer is { } comparer)
+			return comparer.Compare(GetOwnCellText(a, col), GetOwnCellText(b, col));
+
+		var displayedText = _rowView.GetSortTextCache(col, _rows.Count);
+		string textA = displayedText[a] ??= MarkupParser.Remove(GetOwnCellText(a, col));
+		string textB = displayedText[b] ??= MarkupParser.Remove(GetOwnCellText(b, col));
+		return string.Compare(textA, textB, StringComparison.OrdinalIgnoreCase);
+	}
+
+	/// <summary>Compares two data-source rows by the text their cells display, ascending.</summary>
+	private int CompareSourceRows(int a, int b, int col)
+		=> string.Compare(MarkupParser.Remove(_dataSource!.GetCellValue(a, col)),
+			MarkupParser.Remove(_dataSource.GetCellValue(b, col)), StringComparison.OrdinalIgnoreCase);
+
+	/// <summary>An in-memory row's raw cell text, or empty past its last cell. Callers hold the lock.</summary>
+	private string GetOwnCellText(int row, int col)
+		=> col < _rows[row].Cells.Count ? _rows[row].Cells[col] : string.Empty;
 
 	#endregion
 }
