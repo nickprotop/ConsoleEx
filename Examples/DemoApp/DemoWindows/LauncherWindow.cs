@@ -542,6 +542,7 @@ public static class LauncherWindow
 				"  - / to filter; a match keeps its parents",
 				"  - Click an expander to toggle a row",
 				"  - Guide styles, indent, lazy-loaded epic",
+				"  - Tab 2: bound to view models (BindItems)",
 			},
 			"DataGrid" => new List<string>
 			{

@@ -1,15 +1,20 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Parsing;
 
 namespace DemoApp.DemoWindows;
 
 /// <summary>
 /// A <see cref="TreeTableControl"/> holding a backlog of work items: epics, features, stories and
 /// tasks, sorted among siblings, filtered by the hierarchy, and one epic whose children load on
-/// demand, after a delay, the way a remote backlog would.
+/// demand, after a delay, the way a remote backlog would. A second tab binds the same control to
+/// view models with BindItems, and changes only the view models.
 /// </summary>
 public static class TreeTableDemoWindow
 {
@@ -26,6 +31,7 @@ public static class TreeTableDemoWindow
 	{
 		var tabs = Controls.TabControl()
 			.AddTab("Backlog", BuildBacklogTab(ws))
+			.AddTab("Bound to view models", BuildBoundTab())
 			.Fill()
 			.Build();
 
@@ -189,13 +195,167 @@ public static class TreeTableDemoWindow
 
 	#endregion
 
+	#region Tab 2 — the same control bound to view models
+
+	private const int EventLogLines = 6;
+
+	private static IWindowControl BuildBoundTab()
+	{
+		var header = Controls.Markup()
+			.AddLine("[bold]Rows that follow their view models[/]")
+			.AddLine("The table is bound with [yellow]BindItems[/] to ObservableCollections of moving boxes. The buttons")
+			.AddLine("change only the view models; the rows follow, keeping the selection and what is open.")
+			.StickyTop()
+			.Build();
+
+		var house = new MoveVm("House",
+			new MoveVm("Kitchen", new MoveVm("Plates"), new MoveVm("Pans"), new MoveVm("Spice rack")),
+			new MoveVm("Garage", new MoveVm("Tools", new MoveVm("Hammer"), new MoveVm("Spirit level"))),
+			new MoveVm("Attic", new MoveVm("Christmas lights")));
+		var roots = new ObservableCollection<MoveVm> { house };
+
+		var log = new List<string>();
+		var logView = Controls.Markup("[dim]Changes are logged here.[/]")
+			.StickyBottom()
+			.Build();
+
+		void Log(string entry)
+		{
+			log.Add(entry);
+			if (log.Count > EventLogLines)
+				log.RemoveAt(0);
+			logView.SetContent(log.Select(line => $"[dim]{line}[/]").ToList());
+		}
+
+		var table = Controls.TreeTable()
+			.AddColumn("Box")
+			.AddColumn("Packed", TextJustification.Center, StateColumnWidth)
+			.Interactive()
+			.WithSorting()
+			.WithFiltering()
+			.Rounded()
+			.WithHeaderColors(Color.White, Color.DarkGreen)
+			.WithName("boxes")
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.WithHorizontalAlignment(HorizontalAlignment.Stretch)
+			.Build();
+
+		table.BindItems(roots,
+			childrenOf: box => box.Children,
+			cellsOf: box => [MarkupParser.Escape(box.Name), box.IsPacked ? Packed : Unpacked],
+			configure: options =>
+			{
+				options.IsExpanded = box => box.IsOpen;
+				options.IsExpandedChanged = (box, isOpen) => box.IsOpen = isOpen;
+			});
+
+		// Subscribed after BindItems, so the binding has written IsOpen back by the time this runs.
+		table.RowExpansionChanged += (_, e) =>
+			Log($"{(e.IsExpanded ? "Opened" : "Closed")} {((MoveVm)e.Row.Tag!).Name}; IsOpen is now {((MoveVm)e.Row.Tag!).IsOpen}");
+
+		MoveVm? Selected() => table.SelectedRow?.Tag as MoveVm;
+
+		void Act(string label, Action<MoveVm, MoveVm?> change)
+		{
+			if (Selected() is not { } box) return;
+
+			change(box, house.FindParentOf(box));
+			Log(label + " " + box.Name);
+		}
+
+		int added = 0;
+		var toolbar = Controls.Toolbar()
+			.WithSpacing(1)
+			.AddButton(Controls.Button("Add box").OnClick((_, _) => Act("Added a box to", (box, _) => box.Children.Add(new MoveVm($"Box {++added}")))))
+			.AddButton(Controls.Button("Remove").OnClick((_, _) => Act("Removed", (box, parent) => parent?.Children.Remove(box))))
+			.AddButton(Controls.Button("Move up").OnClick((_, _) => Act("Moved up", (box, parent) =>
+			{
+				int index = parent?.Children.IndexOf(box) ?? -1;
+				if (index > 0)
+					parent!.Children.Move(index, index - 1);
+			})))
+			.AddButton(Controls.Button("Pack").OnClick((_, _) => Act("Toggled packing of", (box, _) => box.IsPacked = !box.IsPacked)))
+			.AddButton(Controls.Button("Sort contents").OnClick((_, _) => Act("Sorted the contents of", (box, _) =>
+				box.Children = new ObservableCollection<MoveVm>(box.Children.OrderBy(child => child.Name)))))
+			.StickyTop()
+			.Build();
+
+		return Controls.ScrollablePanel()
+			.AddControl(header)
+			.AddControl(toolbar)
+			.AddControl(table)
+			.AddControl(logView)
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.Build();
+	}
+
+	/// <summary>A moving box: a name, whether it is packed and open, and the boxes inside it.</summary>
+	private sealed class MoveVm : INotifyPropertyChanged
+	{
+		private bool _isPacked;
+		private bool _isOpen = true;
+		private ObservableCollection<MoveVm> _children;
+
+		public MoveVm(string name, params MoveVm[] children)
+		{
+			Name = name;
+			_children = new ObservableCollection<MoveVm>(children);
+		}
+
+		public event PropertyChangedEventHandler? PropertyChanged;
+
+		public string Name { get; }
+
+		public bool IsPacked
+		{
+			get => _isPacked;
+			set => Set(ref _isPacked, value, nameof(IsPacked));
+		}
+
+		public bool IsOpen
+		{
+			get => _isOpen;
+			set => Set(ref _isOpen, value, nameof(IsOpen));
+		}
+
+		public ObservableCollection<MoveVm> Children
+		{
+			get => _children;
+			set => Set(ref _children, value, nameof(Children));
+		}
+
+		/// <summary>The box directly holding <paramref name="box"/>, searching from this one.</summary>
+		public MoveVm? FindParentOf(MoveVm box)
+		{
+			foreach (var child in Children)
+			{
+				if (ReferenceEquals(child, box))
+					return this;
+				if (child.FindParentOf(box) is { } parent)
+					return parent;
+			}
+			return null;
+		}
+
+		private void Set<TValue>(ref TValue field, TValue value, string name)
+		{
+			if (EqualityComparer<TValue>.Default.Equals(field, value)) return;
+			field = value;
+			PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+		}
+	}
+
+	#endregion
+
 	private const string New = "[cyan]New[/]";
 	private const string Active = "[yellow]Active[/]";
 	private const string Done = "[green]Done[/]";
+	private const string Packed = "[green]Yes[/]";
+	private const string Unpacked = "[dim]No[/]";
 
 	/// <summary>Orders points numerically, with an unknown "?" last.</summary>
 	private static readonly IComparer<string> PointsComparer = Comparer<string>.Create((x, y) =>
 		(int.TryParse(x, out int a) ? a : int.MaxValue).CompareTo(int.TryParse(y, out int b) ? b : int.MaxValue));
 
-	private static string TitleOf(TableRow row) => SharpConsoleUI.Parsing.MarkupParser.Escape(row.Cells[0]);
+	private static string TitleOf(TableRow row) => MarkupParser.Escape(row.Cells[0]);
 }
