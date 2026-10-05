@@ -654,9 +654,17 @@ public partial class TableControl
 		return args.Position.Y == y;
 	}
 
+	/// <summary>
+	/// Whether a press lands on a column border of the HEADER row, where a resize starts.
+	/// </summary>
+	/// <remarks>
+	/// The header row only. Every row used to count, so with resizing on, a press within a cell of any
+	/// column border on any data row started a resize instead of selecting the row, and a click near a
+	/// border could not reach the row at all. Resizing already required the header to be shown.
+	/// </remarks>
 	private bool IsClickOnColumnBorder(MouseEventArgs args)
 	{
-		if (!_showHeader) return false;
+		if (!IsOnHeaderRow(args.Position.Y)) return false;
 		return _geometry?.GetColumnBorderAt(args.Position.X, ControlDefaults.TableColumnResizeHitTolerance) >= 0;
 	}
 

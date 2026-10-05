@@ -181,4 +181,39 @@ public class TableHitTestTests
 	}
 
 	#endregion
+
+	#region Columns are resized from the header only
+
+	[Fact]
+	public void PressingAColumnBorderOnADataRow_SelectsTheRowInsteadOfResizing()
+	{
+		var table = FixedColumnTable();
+		table.ColumnResizeEnabled = true;
+		Paint(table);
+		int row = table.RowYForTest(1);
+
+		table.ProcessMouseEvent(Mouse(5, row, MouseFlags.Button1Pressed));
+		table.ProcessMouseEvent(Mouse(8, row, MouseFlags.Button1Pressed, MouseFlags.Button1Dragged));
+		table.ProcessMouseEvent(Mouse(8, row, MouseFlags.Button1Released));
+
+		Assert.Equal(5, table.Columns[0].Width);
+		Assert.Equal(1, table.SelectedRowIndex);
+	}
+
+	[Fact]
+	public void PressingAColumnBorderOnTheHeader_ResizesTheColumn()
+	{
+		var table = FixedColumnTable();
+		table.ColumnResizeEnabled = true;
+		Paint(table);
+		int header = table.HeaderRowYForTest();
+
+		table.ProcessMouseEvent(Mouse(5, header, MouseFlags.Button1Pressed));
+		table.ProcessMouseEvent(Mouse(8, header, MouseFlags.Button1Pressed, MouseFlags.Button1Dragged));
+		table.ProcessMouseEvent(Mouse(8, header, MouseFlags.Button1Released));
+
+		Assert.Equal(8, table.Columns[0].Width);
+	}
+
+	#endregion
 }
