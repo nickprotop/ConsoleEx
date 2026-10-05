@@ -386,7 +386,15 @@ public partial class TreeTableControl
 			_viewDirty = false;
 		}
 
-		base.SetDataCore(flattened);
+		_replacedView = _view;
+		try
+		{
+			base.SetDataCore(flattened);
+		}
+		finally
+		{
+			_replacedView = null;
+		}
 	}
 
 	/// <summary>Every row, depth-first in sibling order. Callers hold <see cref="TableControl.SyncRoot"/>.</summary>

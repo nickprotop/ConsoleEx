@@ -208,6 +208,62 @@ internal sealed class TreeTableProjection
 		}
 		return -1;
 	}
+
+	/// <summary>
+	/// The row to select in <paramref name="after"/> once a change removed the selected row from the
+	/// hierarchy <paramref name="before"/> displayed: its nearest next sibling still displayed, else
+	/// its nearest previous one, else its nearest ancestor; -1 when there is none.
+	/// </summary>
+	/// <remarks>
+	/// Siblings are taken in the order <paramref name="before"/> displayed them, so in a sorted view
+	/// the cursor goes to the row that was shown below. When the row went together with some of its
+	/// ancestors, the siblings are those of the topmost row removed.
+	/// </remarks>
+	internal static int FindStandInForRemoved(TreeTableProjection before, TreeTableProjection after, TableRow row)
+	{
+		var shape = before.Shape;
+		int gone = shape.IndexOf(row);
+		if (gone < 0) return -1;
+
+		bool IsInAfter(int oldRow) => after.Shape.IndexOf(shape.Rows[oldRow]) >= 0;
+
+		int DisplayedInAfter(int oldRow)
+		{
+			int index = after.Shape.IndexOf(shape.Rows[oldRow]);
+			return index >= 0 && after.Displayed[index] ? index : -1;
+		}
+
+		while (shape.Parents[gone] >= 0 && !IsInAfter(shape.Parents[gone]))
+			gone = shape.Parents[gone];
+
+		// A removed selected row was displayed, and so were the rows it went with. Its displayed
+		// siblings are the rows at its depth in the stretch of display rows its parent covers.
+		int position = Array.IndexOf(before.DisplayRows, gone);
+		int depth = shape.Depths[gone];
+		for (int p = position + 1; position >= 0 && p < before.DisplayRows.Length; p++)
+		{
+			int sibling = before.DisplayRows[p];
+			if (shape.Depths[sibling] < depth) break;
+
+			int standIn = shape.Depths[sibling] == depth ? DisplayedInAfter(sibling) : -1;
+			if (standIn >= 0) return standIn;
+		}
+		for (int p = position - 1; p >= 0; p--)
+		{
+			int sibling = before.DisplayRows[p];
+			if (shape.Depths[sibling] < depth) break;
+
+			int standIn = shape.Depths[sibling] == depth ? DisplayedInAfter(sibling) : -1;
+			if (standIn >= 0) return standIn;
+		}
+
+		for (int ancestor = shape.Parents[gone]; ancestor >= 0; ancestor = shape.Parents[ancestor])
+		{
+			int standIn = DisplayedInAfter(ancestor);
+			if (standIn >= 0) return standIn;
+		}
+		return -1;
+	}
 }
 
 /// <summary>

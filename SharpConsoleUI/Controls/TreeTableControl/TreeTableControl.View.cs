@@ -23,6 +23,10 @@ public partial class TreeTableControl
 	private TreeTableShape _shape = TreeTableShape.Empty;
 	private TreeTableProjection? _view;
 
+	// While a changed hierarchy is being handed over, the display it replaces: where a removed
+	// selected row's siblings were.
+	private TreeTableProjection? _replacedView;
+
 	private TreeGuide _guide = TreeGuide.Line;
 	private string _indent = ControlDefaults.DefaultTreeIndent;
 	private int _treeColumnIndex;
@@ -199,6 +203,21 @@ public partial class TreeTableControl
 	{
 		var view = _view;
 		return view != null && dataIndex < view.Shape.Count ? view.FindDisplayedAncestor(dataIndex) : -1;
+	}
+
+	/// <summary>
+	/// Moves a cursor whose row was removed to the row's next sibling still displayed, else the
+	/// previous one, else the nearest ancestor displayed.
+	/// </summary>
+	/// <remarks>
+	/// The row the table would choose, the one now at the cursor's position, is whatever followed the
+	/// removed subtree, and may belong to another parent altogether.
+	/// </remarks>
+	protected override int ResolveRemovedSelectedRow(TableRow row)
+	{
+		var before = _replacedView;
+		var after = _view;
+		return before != null && after != null ? TreeTableProjection.FindStandInForRemoved(before, after, row) : -1;
 	}
 
 	#endregion
