@@ -1073,137 +1073,17 @@ public partial class TableControl
 	internal void DrawFilterStatusBar(CharacterBuffer buffer, int x, int y, int width, LayoutRect clipRect,
 		Color fgColor, Color bgColor, BoxChars box, Color borderColor, bool hasBorder)
 	{
-		if (y < clipRect.Y || y >= clipRect.Bottom) return;
+		var status = new TableFilterStatus(
+			Mode: _filterMode,
+			Buffer: _filterBuffer,
+			CursorPosition: _filterCursorPosition,
+			FilterText: _activeFilter?.RawText ?? _filterBuffer,
+			RowCount: RowCount,
+			TotalRows: _unfilteredRowCount > 0 ? _unfilteredRowCount : GetUnfilteredRowCount(),
+			SelectedRowIndex: _selectedRowIndex);
 
-		int totalRows = _unfilteredRowCount > 0 ? _unfilteredRowCount : GetUnfilteredRowCount();
-
-		// Build segments: (text, foreground color)
-		var segments = new List<(string Text, Color Fg)>();
-
-		switch (_filterMode)
-		{
-			case FilterMode.Typing:
-				segments.Add((" \u2315 ", Color.Cyan1));                          // ⌕ filter icon
-				segments.Add((_filterBuffer, Color.White));
-				segments.Add(("\u2581", Color.White));                             // cursor block
-				segments.Add(("  ", fgColor));
-				segments.Add(("Enter", Color.Yellow));
-				segments.Add((" confirm  ", Color.Grey));
-				segments.Add(("Esc", Color.Yellow));
-				segments.Add((" cancel", Color.Grey));
-				break;
-
-			case FilterMode.Confirmed:
-				// RowCount, not _filterIndexMap.Length. A source that filters itself narrows its own
-				// RowCount and leaves the display map null by design, so counting the map reported
-				// "No matches" while the matching rows were on screen right above this footer.
-				// RowCount already resolves all three cases: display map, data source, own rows.
-				int filteredCount = RowCount;
-				string filterText = _activeFilter?.RawText ?? _filterBuffer;
-				segments.Add((" \u2315 ", Color.Cyan1));
-				segments.Add((filterText, Color.White));
-				segments.Add(("  ", fgColor));
-				if (filteredCount == 0)
-				{
-					segments.Add(("No matches", Color.Red));
-				}
-				else
-				{
-					segments.Add(($"{filteredCount}", Color.Green));
-					segments.Add(($"/{totalRows} rows", Color.Grey));
-				}
-				segments.Add(("  ", fgColor));
-				segments.Add(("Esc", Color.Yellow));
-				segments.Add((" clear", Color.Grey));
-				break;
-
-			default:
-				int selRow = _selectedRowIndex >= 0 ? _selectedRowIndex + 1 : 0;
-				int rowCount = RowCount;
-				segments.Add(($" Row {selRow}/{rowCount}", Color.Grey50));
-				segments.Add(("  ", fgColor));
-				segments.Add(("/", Color.Yellow));
-				segments.Add((" filter", Color.Grey50));
-				break;
-		}
-
-		// Render: left border, content, right border
-		int writeX = x;
-
-		if (hasBorder)
-		{
-			if (writeX >= clipRect.X && writeX < clipRect.Right)
-			{
-				Color bg = bgColor;
-				buffer.SetNarrowCell(writeX, y, box.Vertical, borderColor, bg);
-			}
-			writeX++;
-		}
-
-		// Content area
-		int contentWidth = width - (hasBorder ? 2 : 0);
-		int charPos = 0;
-
-		// Track cursor position for typing mode highlight
-		int cursorCharPos = _filterMode == FilterMode.Typing ? UnicodeWidth.GetStringWidth(" \u2315 ") + _filterCursorPosition : -1;
-
-		foreach (var (text, fg) in segments)
-		{
-			foreach (var rune in text.EnumerateRunes())
-			{
-				int runeWidth = UnicodeWidth.GetRuneWidth(rune);
-				if (runeWidth == 0) continue; // skip zero-width characters
-				if (charPos >= contentWidth) break;
-				if (writeX >= clipRect.X && writeX < clipRect.Right)
-				{
-					Color cellFg = fg;
-					Color cellBg = bgColor;
-
-					// Highlight cursor position in typing mode
-					if (charPos == cursorCharPos)
-					{
-						cellFg = Color.Black;
-						cellBg = Color.White;
-					}
-
-					buffer.SetNarrowCell(writeX, y, rune, cellFg, cellBg);
-
-					// Wide character: mark continuation cell
-					if (runeWidth == 2 && charPos + 1 < contentWidth)
-					{
-						var cont = new Cell(' ', cellFg, cellBg) { IsWideContinuation = true };
-						if (writeX + 1 >= clipRect.X && writeX + 1 < clipRect.Right)
-							buffer.SetCell(writeX + 1, y, cont);
-						writeX++;
-						charPos++;
-					}
-				}
-				writeX++;
-				charPos++;
-			}
-			if (charPos >= contentWidth) break;
-		}
-
-		// Fill remaining space
-		while (charPos < contentWidth)
-		{
-			if (writeX >= clipRect.X && writeX < clipRect.Right)
-			{
-				Color bg = bgColor;
-				buffer.SetNarrowCell(writeX, y, ' ', fgColor, bg);
-			}
-			writeX++;
-			charPos++;
-		}
-
-		if (hasBorder)
-		{
-			if (writeX >= clipRect.X && writeX < clipRect.Right)
-			{
-				Color bg = bgColor;
-				buffer.SetNarrowCell(writeX, y, box.Vertical, borderColor, bg);
-			}
-		}
+		TableRowPainter.DrawFilterStatusBar(buffer, x, y, width, clipRect, status,
+			fgColor, bgColor, box, borderColor, hasBorder);
 	}
 
 	#endregion

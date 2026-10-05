@@ -7,472 +7,13 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Drawing;
-using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Parsing;
 
 namespace SharpConsoleUI.Controls;
 
 public partial class TableControl
 {
-	#region Rendering Helpers
-
-	/// <summary>
-	/// Draws a horizontal border line (top, header separator, row separator, or bottom).
-	/// </summary>
-	private void DrawHorizontalLine(CharacterBuffer buffer, int x, int y, int[] colWidths, LayoutRect clipRect,
-		BoxChars box, Color borderColor, Color bgColor, char left, char middle, char right, char fill,
-		int hScrollOffset = 0, int viewportWidth = int.MaxValue)
-	{
-		if (y < clipRect.Y || y >= clipRect.Bottom) return;
-
-		int writeX = x;
-		bool hasBorder = _borderStyle != BorderStyle.None;
-		int contentStartX = x + (hasBorder ? 1 : 0);
-		int maxX = viewportWidth == int.MaxValue ? int.MaxValue : x + viewportWidth;
-
-		// Left border char
-		if (hasBorder && writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
-		{
-			Color bg = bgColor;
-			buffer.SetNarrowCell(writeX, y, left, borderColor, bg);
-		}
-		writeX++;
-
-		int colOffset = 0;
-		for (int c = 0; c < colWidths.Length; c++)
-		{
-			int colEnd = colOffset + colWidths[c];
-
-			// Fill column width with fill char
-			for (int i = 0; i < colWidths[c]; i++)
-			{
-				int charPos = colOffset + i;
-				if (charPos >= hScrollOffset && writeX < maxX)
-				{
-					if (writeX >= clipRect.X && writeX < clipRect.Right)
-					{
-						Color bg = bgColor;
-						buffer.SetNarrowCell(writeX, y, fill, borderColor, bg);
-					}
-					writeX++;
-				}
-				else if (charPos < hScrollOffset)
-				{
-					// Skip chars before scroll offset
-				}
-			}
-
-			// Column separator
-			if (c < colWidths.Length - 1)
-			{
-				if (colEnd >= hScrollOffset && writeX < maxX)
-				{
-					if (writeX >= clipRect.X && writeX < clipRect.Right)
-					{
-						Color bg = bgColor;
-						buffer.SetNarrowCell(writeX, y, middle, borderColor, bg);
-					}
-					writeX++;
-				}
-				colOffset = colEnd + (hasBorder ? 1 : 0);
-			}
-			else
-			{
-				colOffset = colEnd;
-			}
-		}
-
-		// Right border char
-		if (hasBorder && writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
-		{
-			Color bg = bgColor;
-			buffer.SetNarrowCell(writeX, y, right, borderColor, bg);
-		}
-	}
-
-	/// <summary>
-	/// Draws a merged horizontal line (no column separators) — used for status bar borders.
-	/// </summary>
-	private void DrawMergedHorizontalLine(CharacterBuffer buffer, int x, int y, int[] colWidths, LayoutRect clipRect,
-		BoxChars box, Color borderColor, Color bgColor, char left, char right, char fill)
-	{
-		if (y < clipRect.Y || y >= clipRect.Bottom) return;
-
-		// Total inner width: all columns + inner borders
-		int innerWidth = 0;
-		foreach (int w in colWidths) innerWidth += w;
-		innerWidth += colWidths.Length - 1; // inner column separators become fill chars
-
-		int writeX = x;
-
-		// Left border char
-		if (writeX >= clipRect.X && writeX < clipRect.Right)
-		{
-			Color bg = bgColor;
-			buffer.SetNarrowCell(writeX, y, left, borderColor, bg);
-		}
-		writeX++;
-
-		// Fill the entire inner width
-		for (int i = 0; i < innerWidth; i++)
-		{
-			if (writeX >= clipRect.X && writeX < clipRect.Right)
-			{
-				Color bg = bgColor;
-				buffer.SetNarrowCell(writeX, y, fill, borderColor, bg);
-			}
-			writeX++;
-		}
-
-		// Right border char
-		if (writeX >= clipRect.X && writeX < clipRect.Right)
-		{
-			Color bg = bgColor;
-			buffer.SetNarrowCell(writeX, y, right, borderColor, bg);
-		}
-	}
-
-	/// <summary>
-	/// Draws a data row with vertical borders and aligned cell text.
-	/// </summary>
-	private void DrawDataRow(CharacterBuffer buffer, int x, int y, int[] colWidths, LayoutRect clipRect,
-		BoxChars box, Color borderColor, Color borderBg, IList<string> cells, List<TableColumn>? cols,
-		Color rowFg, Color rowBg, bool hasBorder,
-		int hScrollOffset = 0, int viewportWidth = int.MaxValue,
-		bool isSelected = false, int selectedCellIndex = -1, Color? selectedCellBg = null, Color? selectedCellFg = null,
-		int editCellIndex = -1, int editCursorPos = -1,
-		List<(int Column, int Start, int Length)>? filterMatches = null,
-		int trailingFillWidth = 0)
-	{
-		if (y < clipRect.Y || y >= clipRect.Bottom) return;
-
-		int writeX = x;
-		int maxX = viewportWidth == int.MaxValue ? int.MaxValue : x + viewportWidth;
-
-		// Logical position along the row's full (unscrolled) content stream, counted from just after
-		// the left border. Mirrors DrawHorizontalLine's colOffset/charPos scheme so inter-column
-		// separators pan together with cell content; only characters at or past hScrollOffset are
-		// actually written (and advance writeX) - earlier ones are skipped, shifting the visible
-		// window left. The outer left/right border chars are intentionally NOT gated by this (kept
-		// fixed), matching DrawHorizontalLine's treatment of its own border chars.
-		int logicalPos = 0;
-
-		void DrawChar(char ch, Color fg, Color bg)
-		{
-			if (logicalPos >= hScrollOffset)
-			{
-				if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
-					buffer.SetNarrowCell(writeX, y, ch, fg, bg);
-				writeX++;
-			}
-			logicalPos++;
-		}
-
-		void DrawFullCell(Cell cell)
-		{
-			if (logicalPos >= hScrollOffset)
-			{
-				if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
-					buffer.SetCell(writeX, y, cell);
-				writeX++;
-			}
-			logicalPos++;
-		}
-
-		if (hasBorder)
-		{
-			if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
-			{
-				Color bg = borderBg;
-				buffer.SetNarrowCell(writeX, y, box.Vertical, borderColor, bg);
-			}
-			writeX++;
-		}
-
-		for (int c = 0; c < colWidths.Length; c++)
-		{
-			int colW = colWidths[c];
-			string cellText = c < cells.Count ? cells[c] : string.Empty;
-			bool isLastColumn = c == colWidths.Length - 1;
-
-			TextJustification align = TextJustification.Left;
-			if (cols != null && c < cols.Count)
-				align = cols[c].Alignment;
-
-			// Determine cell colors
-			Color cellFg = rowFg;
-			Color cellBg = rowBg;
-			bool isEditCell = editCellIndex == c;
-			if (isEditCell)
-			{
-				// Edit cell: use distinct edit colors
-				cellBg = Color.White;
-				cellFg = Color.Black;
-			}
-			else if (selectedCellIndex == c && selectedCellBg.HasValue)
-			{
-				cellBg = selectedCellBg.Value;
-				cellFg = selectedCellFg ?? rowFg;
-			}
-
-			int cellLogicalStart = logicalPos;
-
-			if (isEditCell)
-			{
-				// Render edit buffer as plain text with cursor using Unicode-aware width
-				var editCells = MarkupParser.Parse(cellText, cellFg, cellBg);
-				int visLen = editCells.Count;
-				int cursorPos = editCursorPos;
-
-				for (int i = 0; i < colW; i++)
-				{
-					Color fg = cellFg;
-					Color bg = cellBg;
-					// Draw cursor with inverted colors
-					if (i == cursorPos)
-					{
-						fg = Color.White;
-						bg = Color.Black;
-					}
-					if (i < visLen)
-					{
-						var srcCell = editCells[i];
-						// If this is a wide base char at the last column position,
-						// replace with space to avoid rendering half a glyph
-						if (i == colW - 1 && !srcCell.IsWideContinuation
-							&& Helpers.UnicodeWidth.IsWideRune(srcCell.Character))
-						{
-							DrawChar(' ', fg, bg);
-						}
-						else
-						{
-							var editCell = new Cell(srcCell.Character, fg, bg, srcCell.Decorations)
-							{
-								IsWideContinuation = srcCell.IsWideContinuation,
-								Combiners = srcCell.Combiners
-							};
-							DrawFullCell(editCell);
-						}
-					}
-					else
-					{
-						DrawChar(' ', fg, bg);
-					}
-				}
-			}
-			else
-			{
-				var cellCells = MarkupParser.Parse(cellText, cellFg, cellBg);
-				int visLen = cellCells.Count;
-				bool wasTruncated = visLen > colW;
-
-				if (visLen > colW)
-				{
-					// Wide-character-aware truncation: if the last kept cell
-					// is the base of a wide character (next cell is continuation),
-					// replace it with a space to avoid rendering half a glyph.
-					cellCells = cellCells.GetRange(0, colW);
-					if (colW > 0 && colW < visLen)
-					{
-						var lastKept = cellCells[colW - 1];
-						if (!lastKept.IsWideContinuation && visLen > colW)
-						{
-							// Check if original list had a continuation cell after this one
-							// A wide base char always has IsWideContinuation on the next cell
-							// We can detect it: if this cell's character is wide, it was split
-							if (Helpers.UnicodeWidth.IsWideRune(lastKept.Character))
-							{
-								cellCells[colW - 1] = new Cell(' ', lastKept.Foreground, lastKept.Background);
-							}
-						}
-					}
-					visLen = colW;
-				}
-
-				int padLeft = 0;
-				int padRight = colW - visLen;
-				if (align == TextJustification.Center)
-				{
-					padLeft = (colW - visLen) / 2;
-					padRight = colW - visLen - padLeft;
-				}
-				else if (align == TextJustification.Right)
-				{
-					padLeft = colW - visLen;
-					padRight = 0;
-				}
-
-
-				int cellStartX = writeX;
-
-				// Left padding
-				for (int i = 0; i < padLeft; i++)
-				{
-					DrawChar(' ', cellFg, cellBg);
-				}
-
-				// Cell content - build match ranges for this column
-				HashSet<int>? highlightIndices = null;
-				if (filterMatches != null && !isSelected)
-				{
-					highlightIndices = new HashSet<int>();
-					foreach (var match in filterMatches)
-					{
-						if (match.Column == c)
-						{
-							for (int hi = match.Start; hi < match.Start + match.Length; hi++)
-								highlightIndices.Add(hi);
-						}
-					}
-					if (highlightIndices.Count == 0) highlightIndices = null;
-				}
-
-				int charIdx = 0;
-				foreach (var cell in cellCells)
-				{
-					// Override background for selected/hovered rows
-					Color bg = isSelected ? cellBg : cell.Background;
-					Color fg = isSelected ? cellFg : cell.Foreground;
-
-					// Apply filter match highlight
-					if (highlightIndices != null && highlightIndices.Contains(charIdx))
-					{
-						bg = Color.DarkYellow;
-					}
-
-					var bufCell = new Cell(cell.Character, fg, bg, cell.Decorations)
-					{
-						IsWideContinuation = cell.IsWideContinuation,
-						Combiners = cell.Combiners
-					};
-					DrawFullCell(bufCell);
-					charIdx++;
-				}
-
-				// Apply truncation fade if enabled and this cell was truncated. Skipped when the scroll
-				// offset cuts into the middle of this same cell (cellStartX/colW would no longer bound
-				// its actually-drawn span in the buffer, which could bleed the fade into the next column).
-				if (_truncationFade && wasTruncated && colW > 4 && cellLogicalStart >= hScrollOffset)
-				{
-					float[] fadeSteps = { 0.10f, 0.35f, 0.65f, 0.90f };
-					int fadeStart = cellStartX + colW - 4;
-					for (int fi = 0; fi < 4; fi++)
-					{
-						int fx = fadeStart + fi;
-						if (fx >= clipRect.X && fx < clipRect.Right)
-						{
-							var existing = buffer.GetCell(fx, y);
-							var fadedFg = ColorBlendHelper.BlendColor(existing.Foreground, existing.Background, fadeSteps[fi]);
-							buffer.SetCellColors(fx, y, fadedFg, existing.Background);
-						}
-					}
-				}
-
-				// Right padding
-				for (int i = 0; i < padRight; i++)
-				{
-					DrawChar(' ', cellFg, cellBg);
-				}
-			}
-
-			// Column separator / right border. The final column's trailing border char is the table's
-			// right edge and, like the left border, stays fixed rather than panning with scroll.
-			if (hasBorder)
-			{
-				if (isLastColumn)
-				{
-					if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
-					{
-						Color bg = borderBg;
-						buffer.SetNarrowCell(writeX, y, box.Vertical, borderColor, bg);
-					}
-					writeX++;
-				}
-				else
-				{
-					DrawChar(box.Vertical, borderColor, borderBg);
-				}
-			}
-			else if (_columnSeparator.HasValue && c < colWidths.Length - 1
-				&& !(_checkboxMode && c == 0))
-			{
-				var sepColor = _columnSeparatorColor ?? borderColor;
-				// Padded separators get a leading and trailing space (" │ ") for breathing room;
-				// flush separators are just the glyph. SeparatorWidth keeps the width budget in sync.
-				if (_columnSeparatorPadded)
-				{
-					DrawChar(' ', cellFg, rowBg);
-				}
-				DrawChar(_columnSeparator.Value, sepColor, rowBg);
-				if (_columnSeparatorPadded)
-				{
-					DrawChar(' ', cellFg, rowBg);
-				}
-			}
-		}
-
-		// Trailing scrollbar gutter: blank cells in the row's own background so a selected/hovered
-		// row extends cleanly up to (but not under) the scrollbar instead of stopping at the last column.
-		for (int i = 0; i < trailingFillWidth; i++)
-		{
-			if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
-				buffer.SetNarrowCell(writeX, y, ' ', rowFg, rowBg);
-			writeX++;
-		}
-	}
-
-	/// <summary>
-	/// Draws a title row centered above the table.
-	/// </summary>
-	private void DrawTitleRow(CharacterBuffer buffer, int x, int y, int totalWidth, LayoutRect clipRect,
-		Color fgColor, Color bgColor)
-	{
-		if (y < clipRect.Y || y >= clipRect.Bottom || string.IsNullOrEmpty(_title)) return;
-
-		var titleCells = MarkupParser.Parse(_title, fgColor, bgColor);
-		int titleLen = titleCells.Count;
-
-		for (int i = 0; i < totalWidth; i++)
-		{
-			int px = x + i;
-			if (px >= clipRect.X && px < clipRect.Right)
-			{
-				Color bg = bgColor;
-				buffer.SetNarrowCell(px, y, ' ', fgColor, bg);
-			}
-		}
-
-		int offset = 0;
-		switch (_titleAlignment)
-		{
-			case TextJustification.Center:
-				offset = Math.Max(0, (totalWidth - titleLen) / 2);
-				break;
-			case TextJustification.Right:
-				offset = Math.Max(0, totalWidth - titleLen);
-				break;
-		}
-
-		for (int i = 0; i < titleLen && offset + i < totalWidth; i++)
-		{
-			int px = x + offset + i;
-			if (px >= clipRect.X && px < clipRect.Right)
-			{
-				Color bg = titleCells[i].Background;
-				var titleCell = new Cell(titleCells[i].Character, titleCells[i].Foreground, bg, titleCells[i].Decorations)
-				{
-					IsWideContinuation = titleCells[i].IsWideContinuation,
-					Combiners = titleCells[i].Combiners
-				};
-				buffer.SetCell(px, y, titleCell);
-			}
-		}
-	}
-
-	#endregion
-
 	#region IDOMPaintable Implementation
 
 	/// <inheritdoc/>
@@ -698,6 +239,8 @@ public partial class TableControl
 
 		bool hasBorder = _borderStyle != BorderStyle.None;
 		var box = GetBoxChars();
+		var style = new TableRowStyle(hasBorder, box, borderColor, effectiveBg,
+			_columnSeparator, _columnSeparatorColor, _columnSeparatorPadded, _checkboxMode, _truncationFade);
 
 		// Selection colors
 		Color selBg = ResolveSelectionBackgroundColor();
@@ -720,7 +263,8 @@ public partial class TableControl
 		if (!string.IsNullOrEmpty(_title) && currentY < maxY)
 		{
 			FillSideMargins(currentY);
-			DrawTitleRow(buffer, startX, currentY, contentWidth, clipRect, headerFg, effectiveBg);
+			TableRowPainter.DrawTitleRow(buffer, startX, currentY, contentWidth, clipRect,
+				_title, _titleAlignment, headerFg, effectiveBg);
 			currentY++;
 		}
 
@@ -762,7 +306,7 @@ public partial class TableControl
 		if (hasBorder && currentY < maxY)
 		{
 			FillSideMargins(currentY);
-			DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
+			TableRowPainter.DrawHorizontalLine(buffer, style, startX, currentY, colWidths, clipRect,
 				box.TopLeft, box.TopTee, box.TopRight, box.Horizontal, hScrollOffset: effectiveHScroll);
 			currentY++;
 		}
@@ -805,8 +349,8 @@ public partial class TableControl
 			if (_checkboxMode)
 				headerCells.Insert(0, "");
 
-			DrawDataRow(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
-				headerCells, renderCols, headerFg, headerBg, hasBorder,
+			TableRowPainter.DrawDataRow(buffer, style, startX, currentY, colWidths, clipRect,
+				headerCells, renderCols, headerFg, headerBg,
 				hScrollOffset: effectiveHScroll, trailingFillWidth: scrollbarGutter);
 
 			// Update column rendered positions for hit testing — skip checkbox column
@@ -838,7 +382,7 @@ public partial class TableControl
 			if (hasBorder && currentY < maxY)
 			{
 				FillSideMargins(currentY);
-				DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
+				TableRowPainter.DrawHorizontalLine(buffer, style, startX, currentY, colWidths, clipRect,
 					box.LeftTee, box.Cross, box.RightTee, box.Horizontal, hScrollOffset: effectiveHScroll);
 				currentY++;
 			}
@@ -863,7 +407,7 @@ public partial class TableControl
 			if (displayR > startRow && _showRowSeparators && hasBorder && currentY < maxY)
 			{
 				FillSideMargins(currentY);
-				DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
+				TableRowPainter.DrawHorizontalLine(buffer, style, startX, currentY, colWidths, clipRect,
 					box.LeftTee, box.Cross, box.RightTee, box.Horizontal, hScrollOffset: effectiveHScroll);
 				currentY++;
 			}
@@ -983,8 +527,8 @@ public partial class TableControl
 			}
 
 			FillSideMargins(currentY);
-			DrawDataRow(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
-				rowCells, renderCols, effectiveRowFg, effectiveRowBg, hasBorder,
+			TableRowPainter.DrawDataRow(buffer, style, startX, currentY, colWidths, clipRect,
+				rowCells, renderCols, effectiveRowFg, effectiveRowBg,
 				hScrollOffset: effectiveHScroll,
 				isSelected: isRowSel || isHovered,
 				selectedCellIndex: selectedCell, selectedCellBg: cellHighlightBg, selectedCellFg: cellHighlightFg,
@@ -1012,8 +556,8 @@ public partial class TableControl
 		while (currentY < paddingStopY)
 		{
 			FillSideMargins(currentY);
-			DrawDataRow(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
-				new List<string>(), renderCols, fgColor, bgColor, hasBorder,
+			TableRowPainter.DrawDataRow(buffer, style, startX, currentY, colWidths, clipRect,
+				new List<string>(), renderCols, fgColor, bgColor,
 				hScrollOffset: effectiveHScroll, trailingFillWidth: scrollbarGutter);
 			currentY++;
 		}
@@ -1025,8 +569,8 @@ public partial class TableControl
 			if (currentY < maxY)
 			{
 				FillSideMargins(currentY);
-				DrawMergedHorizontalLine(buffer, startX, currentY, colWidths, clipRect,
-					box, borderColor, effectiveBg, box.LeftTee, box.RightTee, box.Horizontal);
+				TableRowPainter.DrawMergedHorizontalLine(buffer, style, startX, currentY, colWidths, clipRect,
+					box.LeftTee, box.RightTee, box.Horizontal);
 				currentY++;
 			}
 
@@ -1047,8 +591,8 @@ public partial class TableControl
 			if (currentY < maxY)
 			{
 				FillSideMargins(currentY);
-				DrawMergedHorizontalLine(buffer, startX, currentY, colWidths, clipRect,
-					box, borderColor, effectiveBg, box.BottomLeft, box.BottomRight, box.Horizontal);
+				TableRowPainter.DrawMergedHorizontalLine(buffer, style, startX, currentY, colWidths, clipRect,
+					box.BottomLeft, box.BottomRight, box.Horizontal);
 				currentY++;
 			}
 		}
@@ -1056,7 +600,7 @@ public partial class TableControl
 		{
 			// Standard bottom border with column tees
 			FillSideMargins(currentY);
-			DrawHorizontalLine(buffer, startX, currentY, colWidths, clipRect, box, borderColor, effectiveBg,
+			TableRowPainter.DrawHorizontalLine(buffer, style, startX, currentY, colWidths, clipRect,
 				box.BottomLeft, box.BottomTee, box.BottomRight, box.Horizontal, hScrollOffset: effectiveHScroll);
 			currentY++;
 		}
