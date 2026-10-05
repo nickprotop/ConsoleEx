@@ -139,4 +139,73 @@ public class TableDisplayPipelineTests
 	}
 
 	#endregion
+
+	#region Rows with equal keys keep their data order
+
+	/// <summary>
+	/// 64 rows whose "Group" column holds only "x" or "y", alternating, and whose "Id" column is
+	/// the data order. Enough rows that the sort cannot fall back to an insertion sort, which
+	/// would hide an unstable one.
+	/// </summary>
+	private static TableControl GroupedTable()
+	{
+		var table = new TableControl { SortingEnabled = true };
+		table.AddColumn("Id");
+		table.AddColumn("Group");
+		for (int i = 0; i < 64; i++)
+			table.AddRow(i.ToString("D2"), i % 2 == 0 ? "x" : "y");
+		return table;
+	}
+
+	/// <summary>The ids of the displayed rows in one group, in display order.</summary>
+	private static List<string> IdsIn(TableControl table, string group)
+		=> Enumerable.Range(0, table.RowCount)
+			.Select(i => table.GetRow(table.MapDisplayToData(i)))
+			.Where(row => row.Cells[1] == group)
+			.Select(row => row.Cells[0])
+			.ToList();
+
+	/// <summary>The ids of one group in data order.</summary>
+	private static List<string> DataOrderOf(TableControl table, string group)
+		=> table.Rows.Where(row => row.Cells[1] == group).Select(row => row.Cells[0]).ToList();
+
+	[Fact]
+	public void SortingAscending_KeepsEqualKeysInDataOrder()
+	{
+		var table = GroupedTable();
+
+		table.SortByColumn(1);
+
+		Assert.Equal(DataOrderOf(table, "x"), IdsIn(table, "x"));
+		Assert.Equal(DataOrderOf(table, "y"), IdsIn(table, "y"));
+	}
+
+	[Fact]
+	public void SortingDescending_KeepsEqualKeysInDataOrder()
+	{
+		var table = GroupedTable();
+
+		table.SortByColumn(1);
+		table.SortByColumn(1);
+
+		Assert.Equal(SortDirection.Descending, table.CurrentSortDirection);
+		Assert.Equal("y", table.GetRow(table.MapDisplayToData(0)).Cells[1]);
+		Assert.Equal(DataOrderOf(table, "x"), IdsIn(table, "x"));
+		Assert.Equal(DataOrderOf(table, "y"), IdsIn(table, "y"));
+	}
+
+	[Fact]
+	public void SortingUnderAFilter_KeepsEqualKeysInDataOrder()
+	{
+		var table = GroupedTable();
+		table.ApplyFilter("Group:x|y");
+
+		table.SortByColumn(1);
+
+		Assert.Equal(64, table.RowCount);
+		Assert.Equal(DataOrderOf(table, "x"), IdsIn(table, "x"));
+		Assert.Equal(DataOrderOf(table, "y"), IdsIn(table, "y"));
+	}
+
+	#endregion
 }

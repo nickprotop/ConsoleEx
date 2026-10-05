@@ -172,13 +172,21 @@ public partial class TableControl
 	/// <summary>
 	/// The comparison every sort of in-memory rows uses: the column's
 	/// <see cref="TableColumn.CustomRowComparer"/>, else its <see cref="TableColumn.CustomComparer"/>
-	/// over the raw cell text, else ordinal ignore-case, with the direction applied. Callers hold
-	/// <see cref="_tableLock"/> while it runs.
+	/// over the raw cell text, else ordinal ignore-case, with the direction applied. Rows that
+	/// compare equal keep their data order. Callers hold <see cref="_tableLock"/> while it runs.
 	/// </summary>
 	/// <remarks>
+	/// <para>
 	/// ONE COMPARISON, because there used to be two. Sorting a filtered table went through a
 	/// second copy that knew nothing of <see cref="TableColumn.CustomRowComparer"/>, so the same
 	/// header click ordered the same rows differently depending on whether a filter was active.
+	/// </para>
+	/// <para>
+	/// The data-index tie-break makes the sort stable, which <see cref="Array.Sort{T}(T[], Comparison{T})"/>
+	/// is not: past sixteen rows it stops being an insertion sort, and rows with equal keys came out
+	/// in whatever order its partitioning left them. The tie-break is applied after the direction,
+	/// so equal keys read in data order whichever way the column is sorted.
+	/// </para>
 	/// </remarks>
 	private Comparison<int> CreateRowComparison(int col, SortDirection direction)
 	{
@@ -204,6 +212,7 @@ public partial class TableControl
 					: string.Compare(valA, valB, StringComparison.OrdinalIgnoreCase);
 			}
 
+			if (result == 0) return a.CompareTo(b);
 			return direction == SortDirection.Descending ? -result : result;
 		};
 	}

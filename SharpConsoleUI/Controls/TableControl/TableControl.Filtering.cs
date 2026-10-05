@@ -965,6 +965,7 @@ public partial class TableControl
 				string valA = _dataSource.GetCellValue(a, col);
 				string valB = _dataSource.GetCellValue(b, col);
 				int result = string.Compare(MarkupParser.Remove(valA), MarkupParser.Remove(valB), StringComparison.OrdinalIgnoreCase);
+				if (result == 0) return a.CompareTo(b);
 				return _sortDirection == SortDirection.Descending ? -result : result;
 			});
 		}
