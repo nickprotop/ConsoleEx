@@ -972,24 +972,7 @@ public partial class TableControl
 		{
 			lock (_tableLock)
 			{
-				int col = _sortColumnIndex;
-				IComparer<string>? customComparer = null;
-				if (col >= 0 && col < _columns.Count)
-					customComparer = _columns[col].CustomComparer;
-
-				Array.Sort(indices, (a, b) =>
-				{
-					string valA = col < _rows[a].Cells.Count ? _rows[a].Cells[col] : string.Empty;
-					string valB = col < _rows[b].Cells.Count ? _rows[b].Cells[col] : string.Empty;
-
-					int result;
-					if (customComparer != null)
-						result = customComparer.Compare(valA, valB);
-					else
-						result = string.Compare(valA, valB, StringComparison.OrdinalIgnoreCase);
-
-					return _sortDirection == SortDirection.Descending ? -result : result;
-				});
+				Array.Sort(indices, CreateRowComparison(_sortColumnIndex, _sortDirection));
 			}
 		}
 	}

@@ -57,6 +57,29 @@ public class TableDisplayPipelineTests
 	private static List<string> NamesOnScreen(ConsoleWindowSystem system)
 		=> Screen(system).Select(line => line.Trim()).Where(line => People.Contains(line)).ToList();
 
+	/// <summary>The first cell of every displayed row, in display order.</summary>
+	private static List<string> Displayed(TableControl table)
+		=> Enumerable.Range(0, table.RowCount)
+			.Select(i => table.GetRow(table.MapDisplayToData(i)).Cells[0])
+			.ToList();
+
+	/// <summary>
+	/// Three rows whose <see cref="TableRow.Tag"/> orders them against the alphabet, sorted through
+	/// a <see cref="TableColumn.CustomRowComparer"/> on that tag. Every name contains "Al".
+	/// </summary>
+	private static TableControl TaggedTable()
+	{
+		var table = new TableControl { SortingEnabled = true };
+		table.AddColumn(new TableColumn("Name")
+		{
+			CustomRowComparer = (x, y) => ((int)x.Tag!).CompareTo((int)y.Tag!)
+		});
+		table.AddRow(new TableRow("Albert") { Tag = 3 });
+		table.AddRow(new TableRow("Alan") { Tag = 1 });
+		table.AddRow(new TableRow("Alice") { Tag = 2 });
+		return table;
+	}
+
 	#endregion
 
 	#region A filtered table paints its matches only
@@ -85,6 +108,34 @@ public class TableDisplayPipelineTests
 		Screen(system);
 
 		Assert.Equal(["Alice", "Carol", "Dave"], NamesOnScreen(system));
+	}
+
+	#endregion
+
+	#region A filtered sort orders rows the way an unfiltered one does
+
+	[Fact]
+	public void SortingUnderAFilter_UsesTheColumnsRowComparer()
+	{
+		var table = TaggedTable();
+		table.ApplyFilter("Al");
+
+		table.SortByColumn(0);
+
+		Assert.Equal(["Alan", "Alice", "Albert"], Displayed(table));
+	}
+
+	[Fact]
+	public void FilteringASortedTable_KeepsTheRowComparersOrder()
+	{
+		var table = TaggedTable();
+		table.SortByColumn(0);
+		var unfiltered = Displayed(table);
+
+		table.ApplyFilter("Al");
+
+		Assert.Equal(["Alan", "Alice", "Albert"], unfiltered);
+		Assert.Equal(unfiltered, Displayed(table));
 	}
 
 	#endregion

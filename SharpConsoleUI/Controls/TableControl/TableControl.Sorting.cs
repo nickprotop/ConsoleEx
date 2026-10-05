@@ -163,40 +163,49 @@ public partial class TableControl
 
 			// Build index map
 			var indices = Enumerable.Range(0, rowCount).ToArray();
-
-			// Get custom comparers if available
-			Comparison<TableRow>? customRowComparer = null;
-			IComparer<string>? customComparer = null;
-			if (_sortColumnIndex >= 0 && _sortColumnIndex < _columns.Count)
-			{
-				customRowComparer = _columns[_sortColumnIndex].CustomRowComparer;
-				customComparer = _columns[_sortColumnIndex].CustomComparer;
-			}
-
-			int col = _sortColumnIndex;
-			Array.Sort(indices, (a, b) =>
-			{
-				int result;
-				if (customRowComparer != null)
-					result = customRowComparer(_rows[a], _rows[b]);
-				else if (customComparer != null)
-				{
-					string valA = col < _rows[a].Cells.Count ? _rows[a].Cells[col] : string.Empty;
-					string valB = col < _rows[b].Cells.Count ? _rows[b].Cells[col] : string.Empty;
-					result = customComparer.Compare(valA, valB);
-				}
-				else
-				{
-					string valA = col < _rows[a].Cells.Count ? _rows[a].Cells[col] : string.Empty;
-					string valB = col < _rows[b].Cells.Count ? _rows[b].Cells[col] : string.Empty;
-					result = string.Compare(valA, valB, StringComparison.OrdinalIgnoreCase);
-				}
-
-				return _sortDirection == SortDirection.Descending ? -result : result;
-			});
+			Array.Sort(indices, CreateRowComparison(_sortColumnIndex, _sortDirection));
 
 			_rowView.SetSortMap(indices);
 		}
+	}
+
+	/// <summary>
+	/// The comparison every sort of in-memory rows uses: the column's
+	/// <see cref="TableColumn.CustomRowComparer"/>, else its <see cref="TableColumn.CustomComparer"/>
+	/// over the raw cell text, else ordinal ignore-case, with the direction applied. Callers hold
+	/// <see cref="_tableLock"/> while it runs.
+	/// </summary>
+	/// <remarks>
+	/// ONE COMPARISON, because there used to be two. Sorting a filtered table went through a
+	/// second copy that knew nothing of <see cref="TableColumn.CustomRowComparer"/>, so the same
+	/// header click ordered the same rows differently depending on whether a filter was active.
+	/// </remarks>
+	private Comparison<int> CreateRowComparison(int col, SortDirection direction)
+	{
+		Comparison<TableRow>? customRowComparer = null;
+		IComparer<string>? customComparer = null;
+		if (col >= 0 && col < _columns.Count)
+		{
+			customRowComparer = _columns[col].CustomRowComparer;
+			customComparer = _columns[col].CustomComparer;
+		}
+
+		return (a, b) =>
+		{
+			int result;
+			if (customRowComparer != null)
+				result = customRowComparer(_rows[a], _rows[b]);
+			else
+			{
+				string valA = col < _rows[a].Cells.Count ? _rows[a].Cells[col] : string.Empty;
+				string valB = col < _rows[b].Cells.Count ? _rows[b].Cells[col] : string.Empty;
+				result = customComparer != null
+					? customComparer.Compare(valA, valB)
+					: string.Compare(valA, valB, StringComparison.OrdinalIgnoreCase);
+			}
+
+			return direction == SortDirection.Descending ? -result : result;
+		};
 	}
 
 	#endregion
