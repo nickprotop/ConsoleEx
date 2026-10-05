@@ -36,14 +36,20 @@ internal sealed class TableGeometry
 	/// <param name="columnStarts">The logical start of each data column.</param>
 	/// <param name="columnWidths">The width of each data column.</param>
 	/// <param name="checkboxWidth">The checkbox column's width at logical 0, or 0 without one.</param>
-	internal TableGeometry(int contentLeft, int horizontalScroll, int[] columnStarts, int[] columnWidths, int checkboxWidth)
+	/// <param name="lines">Which lines the paint gave to the title, header, data rows and filter bar.</param>
+	internal TableGeometry(int contentLeft, int horizontalScroll, int[] columnStarts, int[] columnWidths, int checkboxWidth,
+		TableLineBands lines)
 	{
 		ContentLeft = contentLeft;
 		HorizontalScroll = horizontalScroll;
 		_columnStarts = columnStarts;
 		_columnWidths = columnWidths;
 		CheckboxWidth = checkboxWidth;
+		Lines = lines;
 	}
+
+	/// <summary>Which lines the paint gave to the title, header, data rows and filter bar.</summary>
+	internal TableLineBands Lines { get; }
 
 	/// <summary>Control-relative x where logical position 0 is drawn.</summary>
 	internal int ContentLeft { get; }
@@ -111,4 +117,29 @@ internal sealed class TableGeometry
 		}
 		return -1;
 	}
+}
+
+/// <summary>
+/// The lines of a painted table, control-relative: each is -1 when that part was not drawn, and
+/// each range is half-open.
+/// </summary>
+/// <param name="Title">The title line.</param>
+/// <param name="Header">The header line.</param>
+/// <param name="DataTop">The first line of the data area.</param>
+/// <param name="DataBottom">The line after the data area, including the blank lines that pad it.</param>
+/// <param name="FilterBarTop">The first line of the filter bar: the line above the status row.</param>
+/// <param name="FilterBarBottom">The line after the status row.</param>
+internal readonly record struct TableLineBands(
+	int Title,
+	int Header,
+	int DataTop,
+	int DataBottom,
+	int FilterBarTop,
+	int FilterBarBottom)
+{
+	/// <summary>Whether a line is in the data area.</summary>
+	internal bool IsData(int y) => y >= DataTop && y < DataBottom;
+
+	/// <summary>Whether a line is in the filter bar.</summary>
+	internal bool IsFilterBar(int y) => y >= FilterBarTop && y < FilterBarBottom;
 }

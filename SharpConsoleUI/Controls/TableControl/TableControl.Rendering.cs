@@ -186,6 +186,7 @@ public partial class TableControl
 
 		if (contentWidth <= 0 || colCount == 0)
 		{
+			_geometry = null;
 			ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, effectiveBg);
 			return;
 		}
@@ -260,9 +261,16 @@ public partial class TableControl
 				ControlRenderingHelpers.FillRect(buffer, new LayoutRect(bounds.Right - Margin.Right, y, Margin.Right, 1), fgColor, effectiveBg);
 		}
 
+		// The lines each part is drawn on, control-relative, recorded for hit testing (-1 = not drawn)
+		int titleLine = -1;
+		int headerLine = -1;
+		int filterBarTop = -1;
+		int filterBarBottom = -1;
+
 		// Title row
 		if (!string.IsNullOrEmpty(_title) && currentY < maxY)
 		{
+			titleLine = currentY - bounds.Y;
 			FillSideMargins(currentY);
 			TableRowPainter.DrawTitleRow(buffer, startX, currentY, contentWidth, clipRect,
 				_title, _titleAlignment, headerFg, effectiveBg);
@@ -306,9 +314,9 @@ public partial class TableControl
 		// Column geometry for hit testing, in the painter's logical positions (see TableGeometry).
 		// Recorded on every paint, not only when the header is drawn: with ShowHeader off it used to
 		// stay empty, and no click could tell which column it landed on.
+		int contentLeft = startX - bounds.X + (hasBorder ? 1 : 0);
+		var columnStarts = new int[colCount];
 		{
-			int contentLeft = startX - bounds.X + (hasBorder ? 1 : 0);
-			var columnStarts = new int[colCount];
 			int logical = _checkboxMode ? checkboxColWidth + (hasBorder ? 1 : 0) : 0;
 			for (int c = 0; c < colCount; c++)
 			{
@@ -322,8 +330,6 @@ public partial class TableControl
 				int sepW = hasBorder ? 1 : SeparatorWidth;
 				logical += dataColWidths[c] + (addSep ? sepW : 0);
 			}
-			_geometry = new TableGeometry(contentLeft, effectiveHScroll, columnStarts,
-				(int[])dataColWidths.Clone(), _checkboxMode ? checkboxColWidth : 0);
 		}
 
 		// Top border
@@ -377,6 +383,7 @@ public partial class TableControl
 				headerCells, renderCols, headerFg, headerBg,
 				hScrollOffset: effectiveHScroll, trailingFillWidth: scrollbarGutter);
 
+			headerLine = currentY - bounds.Y;
 			currentY++;
 
 			// Header separator
@@ -564,6 +571,7 @@ public partial class TableControl
 				hScrollOffset: effectiveHScroll, trailingFillWidth: scrollbarGutter);
 			currentY++;
 		}
+		int dataEndY = currentY;
 
 		// Filter status bar (separator + status row + bottom border as one merged section)
 		if (_filteringEnabled && !_readOnly && hasBorder)
@@ -571,6 +579,7 @@ public partial class TableControl
 			// Separator: ├────────────────────────────┤ (no column crosses)
 			if (currentY < maxY)
 			{
+				filterBarTop = currentY - bounds.Y;
 				FillSideMargins(currentY);
 				TableRowPainter.DrawMergedHorizontalLine(buffer, style, startX, currentY, colWidths, clipRect,
 					box.LeftTee, box.RightTee, box.Horizontal);
@@ -588,6 +597,7 @@ public partial class TableControl
 				DrawFilterStatusBar(buffer, startX, currentY, statusWidth, clipRect,
 					fgColor, effectiveBg, box, borderColor, hasBorder);
 				currentY++;
+				filterBarBottom = currentY - bounds.Y;
 			}
 
 			// Bottom border: ╰────────────────────────────╯ (no column tees)
@@ -646,6 +656,11 @@ public partial class TableControl
 		}
 
 		ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, effectiveBg);
+
+		// Published once the paint is complete, so a hit test never sees half of one.
+		_geometry = new TableGeometry(contentLeft, effectiveHScroll, columnStarts,
+			(int[])dataColWidths.Clone(), _checkboxMode ? checkboxColWidth : 0,
+			new TableLineBands(titleLine, headerLine, dataStartY - bounds.Y, dataEndY - bounds.Y, filterBarTop, filterBarBottom));
 
 		// Apply row animation overlays (flash, highlight, fade-out)
 		if (HasActiveRowAnimations)

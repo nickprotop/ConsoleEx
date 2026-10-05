@@ -216,4 +216,157 @@ public class TableHitTestTests
 	}
 
 	#endregion
+
+	#region HitTest names every part of the table
+
+	/// <summary>
+	/// A bordered, titled, filterable table of two six-cell columns and three rows, painted 14 lines
+	/// tall: title 0, top border 1, header 2, header separator 3, rows 4..6, padding 7..10, filter
+	/// bar 11..12, bottom border 13. Column 0 is drawn at x = 1..6, column 1 at x = 8..13.
+	/// </summary>
+	private static TableControl ChromeTable()
+	{
+		var table = new TableControl
+		{
+			Title = "T",
+			ReadOnly = false,
+			FilteringEnabled = true,
+			SortingEnabled = true,
+			Height = 14,
+		};
+		table.AddColumn("A", TextJustification.Left, 6);
+		table.AddColumn("B", TextJustification.Left, 6);
+		for (int r = 0; r < 3; r++)
+			table.AddRow($"a{r}", $"b{r}");
+		var buffer = new CharacterBuffer(BufferWidth, 14);
+		var bounds = new LayoutRect(0, 0, BufferWidth, 14);
+		table.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+		return table;
+	}
+
+	private static void AssertHit(TableHitTestResult hit, TableHitZone zone, int displayRow = -1, int dataRow = -1, int column = -1, int offset = -1)
+	{
+		Assert.Equal(zone, hit.Zone);
+		Assert.Equal(displayRow, hit.DisplayRowIndex);
+		Assert.Equal(dataRow, hit.DataRowIndex);
+		Assert.Equal(column, hit.ColumnIndex);
+		Assert.Equal(offset, hit.CellOffset);
+	}
+
+	[Fact]
+	public void BeforeItIsPainted_NothingIsHit()
+	{
+		var table = FixedColumnTable();
+
+		AssertHit(table.HitTest(1, 1), TableHitZone.None);
+	}
+
+	[Fact]
+	public void TheTitleAndTheHeader_AreNamed_WithTheHeadersColumn()
+	{
+		var table = ChromeTable();
+
+		AssertHit(table.HitTest(3, 0), TableHitZone.Title);
+		AssertHit(table.HitTest(9, 2), TableHitZone.Header, column: 1, offset: 1);
+		AssertHit(table.HitTest(7, 2), TableHitZone.Header);
+	}
+
+	[Fact]
+	public void ACell_IsNamedWithItsRowColumnAndOffset()
+	{
+		var table = ChromeTable();
+
+		AssertHit(table.HitTest(3, 4), TableHitZone.Cell, displayRow: 0, dataRow: 0, column: 0, offset: 2);
+		AssertHit(table.HitTest(9, 5), TableHitZone.Cell, displayRow: 1, dataRow: 1, column: 1, offset: 1);
+	}
+
+	[Fact]
+	public void UnderASort_ACellNamesBothItsDisplayAndItsDataRow()
+	{
+		var table = ChromeTable();
+		table.SortByColumn(0);
+		table.SortByColumn(0);
+
+		AssertHit(table.HitTest(3, 4), TableHitZone.Cell, displayRow: 0, dataRow: 2, column: 0, offset: 2);
+	}
+
+	[Fact]
+	public void TheBordersOfADataRow_AreTheRowWithoutAColumn()
+	{
+		var table = ChromeTable();
+
+		AssertHit(table.HitTest(0, 4), TableHitZone.Row, displayRow: 0, dataRow: 0);
+		AssertHit(table.HitTest(7, 4), TableHitZone.Row, displayRow: 0, dataRow: 0);
+	}
+
+	[Fact]
+	public void BelowTheLastRow_IsTheEmptyDataArea()
+	{
+		var table = ChromeTable();
+
+		AssertHit(table.HitTest(3, 8), TableHitZone.EmptyDataArea);
+	}
+
+	[Fact]
+	public void TheFilterBar_AndTheLineAboveIt_AreTheFilterBar()
+	{
+		var table = ChromeTable();
+
+		AssertHit(table.HitTest(3, 11), TableHitZone.FilterBar);
+		AssertHit(table.HitTest(3, 12), TableHitZone.FilterBar);
+	}
+
+	[Fact]
+	public void TheHorizontalBorders_AreNoPart()
+	{
+		var table = ChromeTable();
+
+		AssertHit(table.HitTest(3, 1), TableHitZone.None);
+		AssertHit(table.HitTest(3, 3), TableHitZone.None);
+		AssertHit(table.HitTest(3, 13), TableHitZone.None);
+	}
+
+	[Fact]
+	public void TheCheckbox_IsNamedWithItsRow_AndTheFirstColumnAfterIt()
+	{
+		var table = FixedColumnTable();
+		table.CheckboxMode = true;
+		Paint(table);
+		int row = table.RowYForTest(1);
+
+		AssertHit(table.HitTest(1, row), TableHitZone.Checkbox, displayRow: 1, dataRow: 1, offset: 1);
+		AssertHit(table.HitTest(4, row), TableHitZone.Cell, displayRow: 1, dataRow: 1, column: 0, offset: 0);
+	}
+
+	[Fact]
+	public void WhileScrolled_TheOffsetCountsFromTheColumnsOwnEdge()
+	{
+		var table = ScrolledTable();
+
+		AssertHit(table.HitTest(0, table.RowYForTest(0)), TableHitZone.Cell, displayRow: 0, dataRow: 0, column: 1, offset: 2);
+	}
+
+	[Fact]
+	public void TheVerticalScrollbar_IsNamedBeforeTheRowItOverlaps()
+	{
+		var table = new TableControl { ReadOnly = false, BorderStyle = BorderStyle.None };
+		table.AddColumn("Id");
+		for (int i = 0; i < 30; i++)
+			table.AddRow(i.ToString());
+		Paint(table);
+
+		AssertHit(table.HitTest(BufferWidth - 1, table.RowYForTest(0)), TableHitZone.VerticalScrollbar);
+	}
+
+	[Fact]
+	public void TheHorizontalScrollbar_IsNamed()
+	{
+		var table = ScrolledTable();
+		table.HorizontalScrollbarVisibility = ScrollbarVisibility.Always;
+		Paint(table, width: 20);
+
+		AssertHit(table.HitTest(3, BufferHeight - 1), TableHitZone.HorizontalScrollbar);
+	}
+
+	#endregion
 }

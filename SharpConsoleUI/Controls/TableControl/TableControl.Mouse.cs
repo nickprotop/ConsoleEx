@@ -617,6 +617,67 @@ public partial class TableControl
 	/// <summary>True if (x, y) is on the header row.</summary>
 	public bool IsOnHeader(int x, int y) => IsOnHeaderRow(y);
 
+	/// <summary>
+	/// Says what part of the table a position falls on: which zone, and which row, column and offset
+	/// within the cell where there is one.
+	/// </summary>
+	/// <param name="x">The x position, control-relative, as <see cref="MouseEventArgs.Position"/> reports it.</param>
+	/// <param name="y">The y position, control-relative.</param>
+	/// <returns>
+	/// The hit, or <see cref="TableHitTestResult.None"/> for a position on no part of the table and
+	/// for a table that has not been painted yet.
+	/// </returns>
+	/// <remarks>
+	/// <para>
+	/// Answered from where the last paint put everything, the same record the table's own mouse
+	/// handling reads, so it agrees with what is on screen: horizontal scrolling, borders, padded
+	/// separators and the checkbox column are accounted for, and the header need not be shown.
+	/// </para>
+	/// <para>
+	/// The scrollbars are tested first, as the table's own pointer handling tests them, so a
+	/// position on a scrollbar is reported as the scrollbar even where it overlaps a row.
+	/// </para>
+	/// </remarks>
+	public TableHitTestResult HitTest(int x, int y)
+	{
+		var geometry = _geometry;
+		if (geometry == null) return TableHitTestResult.None;
+
+		if (IsOnVerticalScrollbar(x))
+			return new TableHitTestResult(TableHitZone.VerticalScrollbar, -1, -1, -1, -1);
+		if (IsOnHorizontalScrollbar(y))
+			return new TableHitTestResult(TableHitZone.HorizontalScrollbar, -1, -1, -1, -1);
+
+		var lines = geometry.Lines;
+		if (y == lines.Title)
+			return new TableHitTestResult(TableHitZone.Title, -1, -1, -1, -1);
+
+		if (y == lines.Header)
+		{
+			int headerColumn = geometry.GetColumnAt(x, out int headerOffset);
+			return new TableHitTestResult(TableHitZone.Header, -1, -1, headerColumn, headerOffset);
+		}
+
+		if (lines.IsFilterBar(y))
+			return new TableHitTestResult(TableHitZone.FilterBar, -1, -1, -1, -1);
+
+		if (!lines.IsData(y))
+			return TableHitTestResult.None;
+
+		int displayRow = GetRowIndexAtY(y);
+		if (displayRow < 0)
+			return new TableHitTestResult(TableHitZone.EmptyDataArea, -1, -1, -1, -1);
+
+		int dataRow = MapDisplayToData(displayRow);
+		if (_checkboxMode && geometry.IsOnCheckbox(x))
+			return new TableHitTestResult(TableHitZone.Checkbox, displayRow, dataRow, -1, geometry.ToLogical(x));
+
+		int column = geometry.GetColumnAt(x, out int cellOffset);
+		return column >= 0
+			? new TableHitTestResult(TableHitZone.Cell, displayRow, dataRow, column, cellOffset)
+			: new TableHitTestResult(TableHitZone.Row, displayRow, dataRow, -1, -1);
+	}
+
 	/// <summary>Returns the Y coordinate of the header row, for unit-testing header hit detection.</summary>
 	internal int HeaderRowYForTest()
 	{
@@ -640,18 +701,22 @@ public partial class TableControl
 		return dataStartY + rowOffset;
 	}
 
-	private bool IsClickOnVerticalScrollbar(MouseEventArgs args)
+	private bool IsClickOnVerticalScrollbar(MouseEventArgs args) => IsOnVerticalScrollbar(args.Position.X);
+
+	private bool IsClickOnHorizontalScrollbar(MouseEventArgs args) => IsOnHorizontalScrollbar(args.Position.Y);
+
+	private bool IsOnVerticalScrollbar(int x)
 	{
 		if (!ShouldShowVerticalScrollbar()) return false;
-		var (x, _, _) = GetVerticalScrollbarRect();
-		return args.Position.X == x;
+		var (barX, _, _) = GetVerticalScrollbarRect();
+		return x == barX;
 	}
 
-	private bool IsClickOnHorizontalScrollbar(MouseEventArgs args)
+	private bool IsOnHorizontalScrollbar(int y)
 	{
 		if (!ShouldShowHorizontalScrollbar()) return false;
-		var (_, y, _) = GetHorizontalScrollbarRect();
-		return args.Position.Y == y;
+		var (_, barY, _) = GetHorizontalScrollbarRect();
+		return y == barY;
 	}
 
 	/// <summary>
