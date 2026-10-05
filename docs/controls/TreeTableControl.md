@@ -283,6 +283,16 @@ Create a builder with `Controls.TreeTable()` or `TreeTableControl.Create()`. Eve
 .OnRowExpansionChanged((sender, e) => { ... })
 ```
 
+## Binding to Items
+
+`BindItems` (namespace `SharpConsoleUI.DataBinding`) shows a hierarchy of view models, one row per item, and keeps the rows in step as the items and their `ObservableCollection`s change: added, removed, moved and replaced items, item property changes, and expansion in both directions. See [Data Binding](../binding.md#binding-a-tree-table-to-items).
+
+```csharp
+table.BindItems(backlog.Roots,
+    childrenOf: item => item.Children,
+    cellsOf: item => [item.Title, item.Owner]);
+```
+
 ## Extending TreeTableControl
 
 TreeTableControl is built on the [extension points of TableControl](TableControl.md#extending-tablecontrol) and adds its own. Each is protected and runs on the UI thread.

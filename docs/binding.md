@@ -159,6 +159,57 @@ menuItem.Bind(vm, v => v.CanSave, m => m.IsEnabled);
 
 ---
 
+## Binding a tree table to items
+
+`Bind` connects one property to one property. A [TreeTableControl](controls/TreeTableControl.md)
+shows a whole hierarchy, so it binds to items with `BindItems`: you say where the roots are, how
+to get an item's children, and what cells an item shows.
+
+```csharp
+public sealed class WorkItemVm : ViewModelBase
+{
+    private string _title = "";
+    public string Title { get => _title; set => SetProperty(ref _title, value); }
+
+    private string _owner = "";
+    public string Owner { get => _owner; set => SetProperty(ref _owner, value); }
+
+    private bool _isOpen = true;
+    public bool IsOpen { get => _isOpen; set => SetProperty(ref _isOpen, value); }
+
+    public ObservableCollection<WorkItemVm> Children { get; } = new();
+}
+
+var table = Controls.TreeTable()
+    .AddColumn("Title")
+    .AddColumn("Owner")
+    .BindItems(backlog.Roots,                                   // ObservableCollection<WorkItemVm>
+        childrenOf: item => item.Children,
+        cellsOf: item => [item.Title, item.Owner],
+        configure: options =>
+        {
+            options.IsExpanded = item => item.IsOpen;           // view model -> row
+            options.IsExpandedChanged = (item, open) => item.IsOpen = open;   // row -> view model
+        })
+    .Build();
+```
+
+- Each row's `Tag` is its item, so `table.SelectedRow?.Tag` is the selected view model.
+- A collection that implements `INotifyCollectionChanged` is followed change by change: an added
+  item gets a row in its place, a removed one loses its row and its subtree, a moved one keeps its
+  row, with its selection and expansion. A reset keeps the rows of the items still there.
+- An item that implements `INotifyPropertyChanged` updates its row's cells when it changes, and
+  its children when `childrenOf` returns another collection.
+- `options.ItemComparer` decides which items are the same item across a reset or a replace;
+  `options.HasUnrealizedChildren` loads an item's children only when its row is first opened;
+  `options.UpdateRow` styles a row after its cells are set.
+- Every change is one batch, so one recompute. Rows added to the table in other ways keep their
+  places among the bound ones. Calling `BindItems` again replaces the binding and its rows.
+
+Like `Bind`, `BindItems` marshals nothing: change the items and collections on the UI thread.
+
+---
+
 ## Lifetime and disposal
 
 Each binding is an `IDisposable` subscription stored in the control's `Bindings` collection.
@@ -191,7 +242,7 @@ The binding layer is **AOT- and trim-safe**. `Bind` / `BindTwoWay` compile membe
 `Expression<Func<>>` trees, but under NativeAOT (`IsDynamicCodeSupported=false`)
 `System.Linq.Expressions` falls back to its **interpreter** instead of `Reflection.Emit`, so the
 bindings run correctly in a native binary. The library's AOT smoke gate exercises this path. See
-[AOT.md](AOT.md).
+[AOT.md](AOT.md). `BindItems` takes plain delegates, so it compiles nothing at all.
 
 ---
 

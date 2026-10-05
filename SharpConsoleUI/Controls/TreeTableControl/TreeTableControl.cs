@@ -56,6 +56,9 @@ public partial class TreeTableControl : TableControl
 		get { lock (SyncRoot) { return _roots.ToList().AsReadOnly(); } }
 	}
 
+	/// <summary>The binding to items made by <c>BindItems</c>, replaced by the next one.</summary>
+	internal DataBinding.ITreeTableItemsBinding? ItemsBinding { get; set; }
+
 	/// <summary>
 	/// Creates a new TreeTableControlBuilder for fluent configuration.
 	/// </summary>
