@@ -110,10 +110,14 @@ public partial class TableControl
 	/// </summary>
 	public void ClearSort()
 	{
+		var selection = CaptureSelection();
+
 		_sortColumnIndex = -1;
 		_sortDirection = SortDirection.None;
 		if (_dataSource == null || HasClientFilterMap)
 			RebuildDisplayMap();
+
+		RestoreSelection(selection);
 		Invalidate(Invalidation.Relayout);
 	}
 

@@ -375,6 +375,10 @@ public partial class TableControl
 
 		if (!delegated && _filterMode == FilterMode.None && !_rowView.IsFilterMapActive) return;
 
+		// Unlike applying a filter, which starts at its first match, clearing one keeps the row the
+		// user was on: every row is shown again, so it is still there to keep.
+		var selection = CaptureSelection();
+
 		_filterMode = FilterMode.None;
 		_filterBuffer = string.Empty;
 		_filterCursorPosition = 0;
@@ -394,6 +398,7 @@ public partial class TableControl
 			RebuildDisplayMap();
 		}
 
+		RestoreSelection(selection);
 		Core.AsyncEvent.Raise(FilterCleared, FilterClearedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);
@@ -524,10 +529,20 @@ public partial class TableControl
 			if (_dataSource != null && _dataSource.CanFilter && _activeFilter != null)
 				_dataSource.ClearFilter();
 
+			// The table's own rows keep the selected row, as Esc does; a data source, having no rows
+			// to follow, starts again from its first row.
+			var selection = CaptureSelection();
 			_activeFilter = null;
 			ShowUnfilteredRows();
-			_selectedRowIndex = RowCount > 0 ? 0 : -1;
-			_scrollOffset = 0;
+			if (selection.IsTracked)
+			{
+				RestoreSelection(selection);
+			}
+			else
+			{
+				_selectedRowIndex = RowCount > 0 ? 0 : -1;
+				_scrollOffset = 0;
+			}
 		}
 		else
 		{

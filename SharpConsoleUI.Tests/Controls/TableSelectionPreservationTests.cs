@@ -392,4 +392,80 @@ public class TableSelectionPreservationTests
 	}
 
 	#endregion
+
+	#region Clearing the sort or the filter keeps the selected row
+
+	[Fact]
+	public void ClearingTheSort_KeepsTheCursorOnItsRow()
+	{
+		var table = PeopleTable();
+		table.SortByColumn(0);
+		table.SortByColumn(0);
+		table.SelectedRowIndex = 0;                    // Eve
+		var events = new SelectionEvents(table);
+
+		table.ClearSort();
+
+		Assert.Equal("Eve", SelectedName(table));
+		Assert.Equal(4, table.SelectedRowIndex);
+		Assert.Empty(events.RowChanged);
+	}
+
+	[Fact]
+	public void ClearingTheFilter_KeepsTheCursorOnItsRow()
+	{
+		var table = PeopleTable();
+		table.ApplyFilter("a");                        // Alice, Carol, Dave
+		table.SelectedRowIndex = 1;                    // Carol
+		var events = new SelectionEvents(table);
+
+		table.ClearFilter();
+
+		Assert.Equal("Carol", SelectedName(table));
+		Assert.Equal(2, table.SelectedRowIndex);
+		Assert.Empty(events.RowChanged);
+	}
+
+	[Fact]
+	public void ClearingTheFilter_KeepsTheMultiSelectionOnItsRows()
+	{
+		var table = PeopleTable(multiSelect: true);
+		table.ApplyFilter("a");
+		table.ToggleRowSelection(1);                   // Carol
+		table.ToggleRowSelection(2);                   // Dave
+
+		table.ClearFilter();
+
+		Assert.Equal(["Carol", "Dave"], SelectedNames(table));
+	}
+
+	[Fact]
+	public void BackspacingTheFilterToEmpty_KeepsTheCursorOnItsRow()
+	{
+		var table = PeopleTable();
+		table.ReadOnly = false;
+		table.FilteringEnabled = true;
+		table.EnterFilterMode();
+		table.ProcessFilterKey(new ConsoleKeyInfo('v', ConsoleKey.V, false, false, false));   // Dave, Eve
+		table.SelectedRowIndex = 1;                                                       // Eve
+
+		table.ProcessFilterKey(new ConsoleKeyInfo('\0', ConsoleKey.Backspace, false, false, false));
+
+		Assert.Equal("Eve", SelectedName(table));
+		Assert.Equal(4, table.SelectedRowIndex);
+	}
+
+	[Fact]
+	public void ApplyingAFilter_StillStartsAtTheFirstMatch()
+	{
+		var table = PeopleTable();
+		table.SelectedRowIndex = 3;                    // Dave
+
+		table.ApplyFilter("a");
+
+		Assert.Equal(0, table.SelectedRowIndex);
+		Assert.Equal("Alice", SelectedName(table));
+	}
+
+	#endregion
 }
