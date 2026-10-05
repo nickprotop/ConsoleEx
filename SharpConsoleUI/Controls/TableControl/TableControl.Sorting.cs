@@ -6,6 +6,8 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Parsing;
+
 namespace SharpConsoleUI.Controls;
 
 public partial class TableControl
@@ -172,8 +174,9 @@ public partial class TableControl
 	/// <summary>
 	/// The comparison every sort of in-memory rows uses: the column's
 	/// <see cref="TableColumn.CustomRowComparer"/>, else its <see cref="TableColumn.CustomComparer"/>
-	/// over the raw cell text, else ordinal ignore-case, with the direction applied. Rows that
-	/// compare equal keep their data order. Callers hold <see cref="_tableLock"/> while it runs.
+	/// over the raw cell text, else ordinal ignore-case over the text the markup displays, with the
+	/// direction applied. Rows that compare equal keep their data order. Callers hold
+	/// <see cref="_tableLock"/> while it runs.
 	/// </summary>
 	/// <remarks>
 	/// <para>
@@ -187,6 +190,13 @@ public partial class TableControl
 	/// in whatever order its partitioning left them. The tie-break is applied after the direction,
 	/// so equal keys read in data order whichever way the column is sorted.
 	/// </para>
+	/// <para>
+	/// THE DEFAULT COMPARES WHAT THE USER READS. Comparing the raw cell sorted <c>[red]Apple[/]</c>
+	/// by the word "red", after "Banana". Filter matching and the data-source sort already strip
+	/// markup; the default sort now does too. Each row is stripped once per comparison built, not
+	/// once per comparison. A <see cref="TableColumn.CustomComparer"/> still receives the raw text,
+	/// as it always has, so any comparer written against markup keeps working.
+	/// </para>
 	/// </remarks>
 	private Comparison<int> CreateRowComparison(int col, SortDirection direction)
 	{
@@ -198,19 +208,23 @@ public partial class TableControl
 			customComparer = _columns[col].CustomComparer;
 		}
 
+		string?[]? displayedText = customRowComparer == null && customComparer == null
+			? new string?[_rows.Count]
+			: null;
+
+		string RawCell(int row) => col < _rows[row].Cells.Count ? _rows[row].Cells[col] : string.Empty;
+
+		string DisplayedCell(int row) => displayedText![row] ??= MarkupParser.Remove(RawCell(row));
+
 		return (a, b) =>
 		{
 			int result;
 			if (customRowComparer != null)
 				result = customRowComparer(_rows[a], _rows[b]);
+			else if (customComparer != null)
+				result = customComparer.Compare(RawCell(a), RawCell(b));
 			else
-			{
-				string valA = col < _rows[a].Cells.Count ? _rows[a].Cells[col] : string.Empty;
-				string valB = col < _rows[b].Cells.Count ? _rows[b].Cells[col] : string.Empty;
-				result = customComparer != null
-					? customComparer.Compare(valA, valB)
-					: string.Compare(valA, valB, StringComparison.OrdinalIgnoreCase);
-			}
+				result = string.Compare(DisplayedCell(a), DisplayedCell(b), StringComparison.OrdinalIgnoreCase);
 
 			if (result == 0) return a.CompareTo(b);
 			return direction == SortDirection.Descending ? -result : result;

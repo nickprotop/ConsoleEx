@@ -208,4 +208,62 @@ public class TableDisplayPipelineTests
 	}
 
 	#endregion
+
+	#region The default sort reads the text, not the markup
+
+	/// <summary>Fruit whose markup, read as text, would sort them differently from their names.</summary>
+	private static TableControl MarkedUpTable()
+	{
+		var table = new TableControl { SortingEnabled = true };
+		table.AddColumn("Fruit");
+		table.AddRow("[red]Apple[/]");
+		table.AddRow("Banana");
+		table.AddRow("[blue]Cherry[/]");
+		return table;
+	}
+
+	[Fact]
+	public void TheDefaultSort_OrdersByTheTextTheMarkupShows()
+	{
+		var table = MarkedUpTable();
+
+		table.SortByColumn(0);
+
+		Assert.Equal(["[red]Apple[/]", "Banana", "[blue]Cherry[/]"], Displayed(table));
+	}
+
+	[Fact]
+	public void TheDefaultSort_UnderAFilter_OrdersByTheTextTheMarkupShows()
+	{
+		var table = MarkedUpTable();
+		table.ApplyFilter("a");
+
+		table.SortByColumn(0);
+
+		Assert.Equal(["[red]Apple[/]", "Banana"], Displayed(table));
+	}
+
+	[Fact]
+	public void ACustomComparer_StillReceivesTheRawCellText()
+	{
+		var seen = new List<string>();
+		var table = new TableControl { SortingEnabled = true };
+		table.AddColumn(new TableColumn("Fruit")
+		{
+			CustomComparer = Comparer<string>.Create((x, y) =>
+			{
+				seen.Add(x);
+				seen.Add(y);
+				return string.CompareOrdinal(x, y);
+			})
+		});
+		table.AddRow("[red]Apple[/]");
+		table.AddRow("Banana");
+
+		table.SortByColumn(0);
+
+		Assert.Contains("[red]Apple[/]", seen);
+	}
+
+	#endregion
 }
