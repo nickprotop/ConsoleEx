@@ -248,9 +248,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private readonly TextMeasurementCache _measurementCache;
 	private readonly TableColumnWidthCalculator _widthCalculator;
 
-	// Rendered column geometry (always populated during PaintDOM for hit testing)
-	private int[] _renderedColumnX = Array.Empty<int>();
-	private int[] _renderedColumnWidths = Array.Empty<int>();
+	// Where the last paint put the columns, for hit testing; null before the first paint
+	private TableGeometry? _geometry;
 
 	// Column width overrides (for resize in DataSource mode)
 	private readonly Dictionary<int, int> _columnWidthOverrides = new();
@@ -964,13 +963,14 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	internal int GetTotalColumnsWidth()
 	{
 		// Use rendered column widths (works for both DataSource and in-memory)
-		if (_renderedColumnWidths.Length > 0)
+		var geometry = _geometry;
+		if (geometry != null && geometry.ColumnCount > 0)
 		{
 			int total = 0;
-			foreach (int w in _renderedColumnWidths) total += w;
+			for (int c = 0; c < geometry.ColumnCount; c++) total += geometry.GetColumnWidth(c);
 			bool hasBorder = _borderStyle != BorderStyle.None;
-			if (hasBorder) total += _renderedColumnWidths.Length + 1;
-			else if (_columnSeparator.HasValue) total += Math.Max(0, _renderedColumnWidths.Length - 1) * SeparatorWidth;
+			if (hasBorder) total += geometry.ColumnCount + 1;
+			else if (_columnSeparator.HasValue) total += Math.Max(0, geometry.ColumnCount - 1) * SeparatorWidth;
 			return total;
 		}
 

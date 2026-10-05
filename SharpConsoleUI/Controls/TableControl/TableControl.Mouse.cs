@@ -593,28 +593,11 @@ public partial class TableControl
 		return displayIndex;
 	}
 
-	private int GetColumnIndexAtX(int relativeX)
-	{
-		// Use rendered column geometry (populated during PaintDOM, works for both DataSource and in-memory)
-		for (int c = 0; c < _renderedColumnX.Length; c++)
-		{
-			int colStart = _renderedColumnX[c] - ActualX;
-			int colEnd = colStart + _renderedColumnWidths[c];
-			if (relativeX >= colStart && relativeX < colEnd)
-				return c;
-		}
-		return -1;
-	}
+	// The geometry of the last paint (works for both DataSource and in-memory), scrolled as painted.
+	private int GetColumnIndexAtX(int relativeX) => _geometry?.GetColumnAt(relativeX, out _) ?? -1;
 
-	private bool IsClickOnCheckbox(int relativeX)
-	{
-		if (!_checkboxMode || _renderedColumnX == null || _renderedColumnX.Length == 0) return false;
-		// Checkbox is a silent column rendered before the first data column
-		bool hasBorder = _borderStyle != BorderStyle.None;
-		int checkboxStart = _renderedColumnX[0] - ActualX - ControlDefaults.TableCheckboxColumnWidth - (hasBorder ? 1 : 0);
-		int checkboxEnd = checkboxStart + ControlDefaults.TableCheckboxColumnWidth;
-		return relativeX >= checkboxStart && relativeX < checkboxEnd;
-	}
+	// Checkbox is a silent column rendered before the first data column
+	private bool IsClickOnCheckbox(int relativeX) => _checkboxMode && _geometry?.IsOnCheckbox(relativeX) == true;
 
 	private bool IsClickOnHeader(MouseEventArgs args) => IsOnHeaderRow(args.Position.Y);
 
@@ -674,13 +657,7 @@ public partial class TableControl
 	private bool IsClickOnColumnBorder(MouseEventArgs args)
 	{
 		if (!_showHeader) return false;
-		for (int c = 0; c < _renderedColumnX.Length; c++)
-		{
-			int colEnd = _renderedColumnX[c] - ActualX + _renderedColumnWidths[c];
-			if (Math.Abs(args.Position.X - colEnd) <= ControlDefaults.TableColumnResizeHitTolerance)
-				return true;
-		}
-		return false;
+		return _geometry?.GetColumnBorderAt(args.Position.X, ControlDefaults.TableColumnResizeHitTolerance) >= 0;
 	}
 
 	#endregion
@@ -811,17 +788,13 @@ public partial class TableControl
 
 	private void BeginColumnResize(MouseEventArgs args)
 	{
-		for (int c = 0; c < _renderedColumnX.Length; c++)
-		{
-			int colEnd = _renderedColumnX[c] - ActualX + _renderedColumnWidths[c];
-			if (Math.Abs(args.Position.X - colEnd) <= ControlDefaults.TableColumnResizeHitTolerance)
-			{
-				_resizingColumnIndex = c;
-				_resizeDragStartX = args.Position.X;
-				_resizeDragStartWidth = _renderedColumnWidths[c];
-				return;
-			}
-		}
+		var geometry = _geometry;
+		int c = geometry?.GetColumnBorderAt(args.Position.X, ControlDefaults.TableColumnResizeHitTolerance) ?? -1;
+		if (c < 0) return;
+
+		_resizingColumnIndex = c;
+		_resizeDragStartX = args.Position.X;
+		_resizeDragStartWidth = geometry!.GetColumnWidth(c);
 	}
 
 	private void HandleColumnResizeDrag(MouseEventArgs args)

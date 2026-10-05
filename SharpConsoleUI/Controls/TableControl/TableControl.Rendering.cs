@@ -303,29 +303,27 @@ public partial class TableControl
 			renderCols = withCheckbox;
 		}
 
-		// Column positions for hit testing, skipping the checkbox column. Recorded on every paint, not
-		// only when the header is drawn: with ShowHeader off they used to stay empty, and no click
-		// could tell which column it landed on.
+		// Column geometry for hit testing, in the painter's logical positions (see TableGeometry).
+		// Recorded on every paint, not only when the header is drawn: with ShowHeader off it used to
+		// stay empty, and no click could tell which column it landed on.
 		{
-			int colX = startX + (hasBorder ? 1 : 0);
-			// Skip past checkbox column in colWidths
-			if (_checkboxMode)
-				colX += checkboxColWidth + (hasBorder ? 1 : 0);
-			_renderedColumnX = new int[colCount];
-			_renderedColumnWidths = new int[colCount];
+			int contentLeft = startX - bounds.X + (hasBorder ? 1 : 0);
+			var columnStarts = new int[colCount];
+			int logical = _checkboxMode ? checkboxColWidth + (hasBorder ? 1 : 0) : 0;
 			for (int c = 0; c < colCount; c++)
 			{
-				_renderedColumnX[c] = colX;
-				_renderedColumnWidths[c] = dataColWidths[c];
+				columnStarts[c] = logical;
 				if (colSnapshot != null && c < colSnapshot.Count)
 				{
-					colSnapshot[c].RenderedX = colX;
+					colSnapshot[c].RenderedX = bounds.X + contentLeft + logical;
 					colSnapshot[c].RenderedWidth = dataColWidths[c];
 				}
 				bool addSep = hasBorder || (_columnSeparator.HasValue && c < colCount - 1);
 				int sepW = hasBorder ? 1 : SeparatorWidth;
-				colX += dataColWidths[c] + (addSep ? sepW : 0);
+				logical += dataColWidths[c] + (addSep ? sepW : 0);
 			}
+			_geometry = new TableGeometry(contentLeft, effectiveHScroll, columnStarts,
+				(int[])dataColWidths.Clone(), _checkboxMode ? checkboxColWidth : 0);
 		}
 
 		// Top border

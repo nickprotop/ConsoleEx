@@ -98,4 +98,87 @@ public class TableHitTestTests
 	}
 
 	#endregion
+
+	#region Hit testing follows the horizontal scroll
+
+	/// <summary>
+	/// A borderless table of five auto-width columns whose ten-cell floors keep them ten wide,
+	/// painted 20 cells wide and scrolled 12 cells to the right: column 1 (logical 10..19) starts on
+	/// screen at x = -2, column 2 at x = 8.
+	/// </summary>
+	/// <remarks>
+	/// Floors, not fixed widths, because fixed widths that do not fit are shrunk proportionally and
+	/// never scroll; only a floor lets the columns overflow the viewport.
+	/// </remarks>
+	private static TableControl ScrolledTable(bool checkboxes = false, bool resizable = false)
+	{
+		var table = new TableControl
+		{
+			BorderStyle = BorderStyle.None,
+			ReadOnly = false,
+			CellNavigationEnabled = true,
+			CheckboxMode = checkboxes,
+			ColumnResizeEnabled = resizable,
+		};
+		for (int c = 0; c < 5; c++)
+			table.AddColumn(new TableColumn($"H{c}") { MinWidth = 10 });
+		for (int r = 0; r < 2; r++)
+			table.AddRow(Enumerable.Range(0, 5).Select(c => $"r{r}c{c}".PadRight(10, '.')).ToArray());
+		Paint(table, width: 20);
+		table.HorizontalScrollOffset = 12;
+		Paint(table, width: 20);
+		return table;
+	}
+
+	[Fact]
+	public void WhileScrolled_TheColumnAtAPosition_IsTheOneDrawnThere()
+	{
+		var table = ScrolledTable();
+
+		Assert.Equal(1, table.GetColumnIndexAt(0));
+		Assert.Equal(1, table.GetColumnIndexAt(7));
+		Assert.Equal(2, table.GetColumnIndexAt(8));
+	}
+
+	[Fact]
+	public void WhileScrolled_ClickingACell_SelectsTheColumnDrawnThere()
+	{
+		var table = ScrolledTable();
+
+		table.ProcessMouseEvent(Mouse(9, table.RowYForTest(0), MouseFlags.Button1Clicked));
+
+		Assert.Equal(2, table.SelectedColumnIndex);
+	}
+
+	[Fact]
+	public void WhileScrolled_OnlyTheCheckboxCellsStillOnScreen_ToggleACheckbox()
+	{
+		// The four checkbox cells are logical 0..3; scrolled by 2, only x = 0..1 still show them,
+		// and x = 2 is the first data column.
+		var table = ScrolledTable(checkboxes: true);
+		table.HorizontalScrollOffset = 2;
+		Paint(table, width: 20);
+		table.ToggleRowSelection(1);
+
+		table.ProcessMouseEvent(Mouse(2, table.RowYForTest(0), MouseFlags.Button1Clicked));
+
+		Assert.False(table.GetRow(1).IsChecked, "a plain click outside the checkbox clears the other checks");
+		Assert.True(table.GetRow(0).IsChecked);
+	}
+
+	[Fact]
+	public void WhileScrolled_PressingAColumnBorder_ResizesThatColumn()
+	{
+		var table = ScrolledTable(resizable: true);
+		int header = table.HeaderRowYForTest();
+		int borderOfColumn1 = 8;                       // logical 20, minus the scroll of 12
+
+		table.ProcessMouseEvent(Mouse(borderOfColumn1, header, MouseFlags.Button1Pressed));
+		table.ProcessMouseEvent(Mouse(borderOfColumn1 + 3, header, MouseFlags.Button1Pressed, MouseFlags.Button1Dragged));
+		table.ProcessMouseEvent(Mouse(borderOfColumn1 + 3, header, MouseFlags.Button1Released));
+
+		Assert.Equal(13, table.Columns[1].Width);
+	}
+
+	#endregion
 }
