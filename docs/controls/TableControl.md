@@ -289,7 +289,7 @@ public int? GetColumnMinWidth(int columnIndex) => columnIndex switch
 The `ITableDataSource` interface enables virtual data binding for large datasets. Only visible rows are queried — the control never loads all data into memory.
 
 ```csharp
-public interface ITableDataSource
+public interface ITableDataSource : INotifyCollectionChanged
 {
     int RowCount { get; }
     int ColumnCount { get; }
@@ -306,8 +306,9 @@ public interface ITableDataSource
     object? GetRowTag(int rowIndex) => null;
     bool CanSort(int columnIndex) => false;
     void Sort(int columnIndex, SortDirection direction) { }
-
-    event EventHandler? DataChanged;
+    bool CanFilter => false;
+    void ApplyFilter(string filterText, string? columnName, FilterOperator op) { }
+    void ClearFilter() { }
 }
 ```
 
@@ -316,7 +317,8 @@ When `DataSource` is set:
 - Only visible rows are queried via `GetCellValue()`
 - Column widths auto-measure from visible rows
 - Sorting delegates to `DataSource.Sort()` if `CanSort()` returns true
-- `DataChanged` event triggers re-measure and re-render
+- Filtering is handed to the source when `CanFilter` is true — see [Letting the data source filter](#letting-the-data-source-filter)
+- Raising `CollectionChanged` triggers re-measure and re-render; `Reset` also returns the selection to the first row
 - `AddRow()`/`ClearRows()` throw if DataSource is set
 
 ## Builder Methods
@@ -570,6 +572,109 @@ protected override TableFilterResult TryApplyFilterToDataSource(
 When `SortingEnabled = true`, clicking a column header cycles through: Ascending -> Descending -> None. A sort indicator (up/down triangle) appears in the header.
 
 For in-memory rows, sorting creates an internal index map. For `ITableDataSource`, sorting delegates to `DataSource.Sort()` if `CanSort()` returns true.
+
+How in-memory rows are ordered:
+
+- A column's `CustomRowComparer` wins, then its `CustomComparer` (given the raw cell text), then an
+  ordinal, case-insensitive comparison of the text the cell displays — markup is ignored, so
+  `[red]Apple[/]` sorts under A.
+- The sort is stable: rows that compare equal keep the order they were added in, ascending and
+  descending alike.
+- The same rules apply whether or not a filter is active.
+- Rows added, inserted, removed or replaced while sorted take their sorted place; the sort stays on.
+  Editing a cell does not re-sort, so an edited row does not jump away under the cursor.
+- The selection stays on its rows when the order changes, and when the sort or a filter is cleared.
+
+## Hit Testing
+
+`HitTest(x, y)` says what part of the table a position falls on, in the same control-relative
+coordinates `MouseEventArgs.Position` reports:
+
+```csharp
+table.MouseRightClick += (_, e) =>
+{
+    var hit = table.HitTest(e.Position.X, e.Position.Y);
+    if (hit.Zone == TableHitZone.Cell)
+        ShowCellMenu(table.GetRow(hit.DataRowIndex), hit.ColumnIndex);
+};
+```
+
+`Zone` is one of `None`, `Title`, `Header`, `Cell`, `Row` (a data row's borders or gutter),
+`Checkbox`, `EmptyDataArea`, `FilterBar`, `VerticalScrollbar` and `HorizontalScrollbar`. A hit on a
+row reports it twice: `DisplayRowIndex`, as the selection counts rows, and `DataRowIndex`, as
+`GetRow` counts them — they differ under a sort or a filter. `CellOffset` counts cells from the
+column's left edge as laid out, so horizontal scrolling does not change it. Before the first paint
+every position is `None`.
+
+## Extending TableControl
+
+`TableControl` can be subclassed. A derived table — one that nests rows, say — reuses the table's
+painting, scrolling, selection, sorting and filtering, and supplies only what it knows that the table
+cannot. Every member below is protected, and runs on the UI thread.
+
+### Deciding which rows are displayed
+
+| Member | What it is for |
+|--------|----------------|
+| `ComputeDisplayRows(TableDisplayQuery)` | Return the data rows to display, in order, or `null` for all rows in data order. Called after every change that can alter what is shown. The default applies the filter and a stable sort, kept up to date incrementally. |
+| `RefreshDisplayRows()` | Ask again after state only the derived table knows about changed, such as a parent being expanded. The selection follows its rows. |
+| `ResolveHiddenSelectedRow(int)` | Name the row the cursor moves to when its own row is still there but hidden. Default `-1`: the row now at its old position. |
+| `RowMatchesFilter(int, CompoundFilterExpression)` | The table's own matching rules, fuzzy fallback included. |
+| `CompareRows(...)`, `SortRowIndices(...)` | The table's own comparison, and the stable sort built on it, over a span. |
+| `DataRowCount`, `GetDataRowIndex(int)`, `GetDisplayRowIndex(int)` | Map between data rows and display positions; `-1` for none. |
+| `SyncRoot` | The lock that guards the rows. Guard any structure kept beside them with it. |
+
+`RowCount` counts displayed rows; `DataRowCount` counts every row, and data indices — `GetRow`, the
+cell accessors — run up to it.
+
+### Changing rows
+
+| Member | What it is for |
+|--------|----------------|
+| `InsertRowsCore`, `RemoveRowsCore`, `SetDataCore` | Every public row mutator funnels into one of these. Override to keep a structure of your own in step, and call the base to make the change. |
+| `CreateRow(string[])` | The row the text overloads of `AddRow` and `InsertRow` create — return your own row type here. |
+| `OnRowContentChanged(TableRow)` | Called after a row's cells change. The table does not re-sort on its own; call `RefreshDisplayRows` here if your order depends on content. |
+
+Changing the rows, or calling `RefreshDisplayRows`, from inside `ComputeDisplayRows` or
+`ResolveHiddenSelectedRow` throws `InvalidOperationException` rather than recursing.
+
+### Drawing and input
+
+| Member | What it is for |
+|--------|----------------|
+| `GetCellPrefixMarkup(int dataRow, int column)` | Markup drawn in front of a cell's value: guide lines, an expander, a glyph. Alignment, truncation, filter highlighting and editing apply to the value alone; auto width counts the prefix. |
+| `InvalidateColumnWidths()` | Re-measure after a prefix changed width without the rows changing. |
+| `TryHandleKey(ConsoleKeyInfo)` | Offered every key before navigation, after filter typing and editing. Return `true` to take it. |
+| `TryHandleClick(TableHitTestResult, int clickCount, MouseEventArgs)` | Offered every completed left click before sorting, selection and double-click pairing. Return `true` to take it. |
+
+The hooks are never called while `SyncRoot` is held, and none of them should block.
+
+```csharp
+// A table that hides rows tagged "draft" unless asked to show them, marks them with a
+// glyph, and toggles them with D.
+public sealed class DraftAwareTable : TableControl
+{
+    private bool _showDrafts;
+
+    protected override int[]? ComputeDisplayRows(TableDisplayQuery query)
+    {
+        int[] rows = base.ComputeDisplayRows(query) ?? Enumerable.Range(0, DataRowCount).ToArray();
+        return _showDrafts ? rows : rows.Where(r => GetRow(r).Tag is not "draft").ToArray();
+    }
+
+    protected override string? GetCellPrefixMarkup(int dataRowIndex, int columnIndex)
+        => columnIndex == 0 && GetRow(dataRowIndex).Tag is "draft" ? "[dim]~ [/]" : null;
+
+    protected override bool TryHandleKey(ConsoleKeyInfo key)
+    {
+        if (key.Key != ConsoleKey.D) return false;
+
+        _showDrafts = !_showDrafts;
+        RefreshDisplayRows();
+        return true;
+    }
+}
+```
 
 ## Virtual Rendering
 
