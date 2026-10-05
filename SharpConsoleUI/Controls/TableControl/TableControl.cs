@@ -588,6 +588,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		{
 			var column = new TableColumn(header, alignment, width) { Owner = this };
 			_columns.Add(column);
+			_rowView.RecordReset();
 		}
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
@@ -601,7 +602,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	{
 		if (_dataSource != null)
 			throw new InvalidOperationException("Cannot add columns when DataSource is set.");
-		lock (_tableLock) { column.Owner = this; _columns.Add(column); }
+		lock (_tableLock) { column.Owner = this; _columns.Add(column); _rowView.RecordReset(); }
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Invalidate(Invalidation.Relayout);
@@ -618,6 +619,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			{
 				_columns[index].Owner = null;
 				_columns.RemoveAt(index);
+				_rowView.RecordReset();
 			}
 			else
 				return;
@@ -637,6 +639,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			foreach (var column in _columns)
 				column.Owner = null;
 			_columns.Clear();
+			_rowView.RecordReset();
 		}
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
@@ -845,7 +848,6 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		_widthCalculator.Invalidate();
 		_measurementCache.InvalidateCache();
 	}
-
 	/// <summary>
 	/// Routes a display-property change on an owned <see cref="TableColumn"/> back to the table:
 	/// busts the cached column widths when the change affects sizing, then invalidates the container
@@ -854,7 +856,12 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	internal void OnColumnDisplayChanged(TableColumn column, bool widthAffecting, Invalidation mode)
 	{
 		if (DataSource != null) return; // in-memory columns unused in data-source mode
-		if (widthAffecting) InvalidateColumnWidths();
+		if (widthAffecting)
+		{
+			InvalidateColumnWidths();
+			// A renamed header changes what a column-specific filter matches.
+			lock (_tableLock) { _rowView.RecordReset(); }
+		}
 		Container?.Invalidate(mode);
 	}
 
@@ -863,10 +870,19 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// busts the cached column widths when the change affects sizing, then invalidates the container
 	/// with the given mode. No-ops in DataSource mode, where in-memory rows are unused.
 	/// </summary>
+	/// <remarks>
+	/// A cell change does not re-sort or re-filter on its own, as it never has; but it does mean the
+	/// display rows can no longer be updated incrementally from the last result, so the next change
+	/// to the rows recomputes them.
+	/// </remarks>
 	internal void OnRowDisplayChanged(TableRow row, bool widthAffecting, Invalidation mode)
 	{
 		if (DataSource != null) return; // in-memory rows unused in data-source mode
-		if (widthAffecting) InvalidateColumnWidths();
+		if (widthAffecting)
+		{
+			InvalidateColumnWidths();
+			lock (_tableLock) { _rowView.RecordReset(); }
+		}
 		Container?.Invalidate(mode);
 	}
 

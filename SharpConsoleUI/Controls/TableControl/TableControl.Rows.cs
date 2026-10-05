@@ -116,7 +116,6 @@ public partial class TableControl
 		_filterMode = FilterMode.None;
 		_filterBuffer = string.Empty;
 		_activeFilter = null;
-		_rowView.Clear();
 		SetDataCore(Array.Empty<TableRow>());
 		SelectedRowChanged?.Invoke(this, -1);
 	}
@@ -213,7 +212,7 @@ public partial class TableControl
 	}
 
 	/// <summary>
-	/// Inserts rows at a data index, keeping the selection on the rows it was on.
+	/// Inserts rows at a data index, keeping the sort, the filter and the selection.
 	/// </summary>
 	/// <param name="index">The data index to insert at, clamped to the data row count.</param>
 	/// <param name="rows">The rows to insert, in order.</param>
@@ -226,16 +225,17 @@ public partial class TableControl
 			index = Math.Clamp(index, 0, _rows.Count);
 			foreach (var row in rows) row.Owner = this;
 			_rows.InsertRange(index, rows);
+			_rowView.RecordInsert(index, rows.Count);
 		}
 
 		selection.ShiftForInsert(index, rows.Count);
-		_rowView.Clear();
+		RebuildDisplayMap();
 		RestoreSelection(selection);
 		InvalidateAfterRowChange();
 	}
 
 	/// <summary>
-	/// Removes a range of data rows, keeping the selection on the rows that remain.
+	/// Removes a range of data rows, keeping the sort, the filter and the selection.
 	/// </summary>
 	/// <param name="index">The first data index to remove; the range is already validated.</param>
 	/// <param name="count">How many rows to remove.</param>
@@ -248,16 +248,18 @@ public partial class TableControl
 			for (int i = index; i < index + count; i++)
 				_rows[i].Owner = null;
 			_rows.RemoveRange(index, count);
+			_rowView.RecordRemove(index, count);
 		}
 
 		selection.ShiftForRemove(index, count);
-		_rowView.Clear();
+		RebuildDisplayMap();
 		RestoreSelection(selection);
 		InvalidateAfterRowChange();
 	}
 
 	/// <summary>
-	/// Replaces every row, keeping the selection on the rows the new set still contains.
+	/// Replaces every row, applying the sort and the filter to the new set and keeping the
+	/// selection on the rows it still contains.
 	/// </summary>
 	/// <param name="rows">The new rows, copied; the caller keeps its list.</param>
 	private void SetDataCore(IReadOnlyList<TableRow> rows)
@@ -271,12 +273,13 @@ public partial class TableControl
 			foreach (var oldRow in oldRows) oldRow.Owner = null;
 			_rows = new List<TableRow>(rows);
 			foreach (var row in _rows) row.Owner = this;
+			_rowView.RecordReset();
 		}
 
 		selection.RemapByIdentity(oldRows, rows);
-		// Drops a sort map but keeps a filter map, as SetData always has; both go stale here.
-		if (!_rowView.IsFilterMapActive)
-			_rowView.Clear();
+		// A data source's rows are not these; its map is left as the source made it.
+		if (_dataSource == null)
+			RebuildDisplayMap();
 		RestoreSelection(selection);
 		InvalidateAfterRowChange();
 	}

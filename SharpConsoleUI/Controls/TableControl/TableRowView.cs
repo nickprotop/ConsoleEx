@@ -6,6 +6,8 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
+
 namespace SharpConsoleUI.Controls;
 
 /// <summary>
@@ -69,6 +71,7 @@ internal sealed class TableRowView
 		Map = map;
 		FromSource = false;
 		BuiltWithFilter = builtWithFilter && map != null;
+		ForgetComputed();
 	}
 
 	/// <summary>
@@ -80,6 +83,7 @@ internal sealed class TableRowView
 		Map = map;
 		FromSource = true;
 		BuiltWithFilter = false;
+		ForgetComputed();
 	}
 
 	/// <summary>Returns to data order with no filter.</summary>
@@ -142,4 +146,189 @@ internal sealed class TableRowView
 
 	/// <summary>A data-to-display inverse, together with the map it was built from.</summary>
 	private sealed record InverseMap(int[] Map, int[] Inverse);
+
+	#region Incremental upkeep
+
+	// WHY THIS EXISTS. Keeping the sort and filter when rows change means recomputing the display
+	// rows on every change. Recomputed from scratch, a sorted table refilled row by row — ClearRows,
+	// then AddRow in a loop, the most common way to load one — costs O(n log n) per row and
+	// O(n² log n) in all: about a minute at ten thousand rows. So the table records each change
+	// here, and when exactly one insert or removal separates two computes under the same filter and
+	// sort, the last result is updated instead: a removal drops and shifts indices, an insert shifts
+	// them and places each new matching row by binary search, which costs O(log n) comparisons.
+	// Anything else — a replaced row set, an edited cell, a changed column — is a reset and gets a
+	// full compute.
+
+	private RowChange _pendingChange;
+	private int _pendingChangeCount;
+	private ComputedRows? _lastComputed;
+
+	// The text each data row's sort column displays, markup stripped, kept across computes so an
+	// insert strips only the rows its binary search visits. Follows inserts and removals like the
+	// result does, and is dropped on a reset.
+	private List<string?>? _sortText;
+	private int _sortTextColumn = -1;
+
+	/// <summary>Records that <paramref name="count"/> rows were inserted at data index <paramref name="index"/>.</summary>
+	internal void RecordInsert(int index, int count)
+	{
+		Record(new RowChange(RowChangeKind.Insert, index, count));
+
+		if (_sortText != null && index <= _sortText.Count)
+			_sortText.InsertRange(index, new string?[count]);
+		else
+			_sortText = null;
+	}
+
+	/// <summary>Records that <paramref name="count"/> rows were removed at data index <paramref name="index"/>.</summary>
+	internal void RecordRemove(int index, int count)
+	{
+		Record(new RowChange(RowChangeKind.Remove, index, count));
+
+		if (_sortText != null && index + count <= _sortText.Count)
+			_sortText.RemoveRange(index, count);
+		else
+			_sortText = null;
+	}
+
+	/// <summary>
+	/// Records a change the last result cannot be updated across: the rows replaced, a cell edited,
+	/// a column changed.
+	/// </summary>
+	internal void RecordReset()
+	{
+		Record(new RowChange(RowChangeKind.Reset, 0, 0));
+		_sortText = null;
+	}
+
+	private void Record(RowChange change)
+	{
+		_pendingChange = change;
+		_pendingChangeCount++;
+	}
+
+	/// <summary>
+	/// Updates the last computed display rows across the one change recorded since, when that is
+	/// possible and cheaper than computing them again.
+	/// </summary>
+	/// <param name="key">What the rows are computed from; the last result is only reused under the same key.</param>
+	/// <param name="matches">Whether a data row passes the filter, or null when there is none.</param>
+	/// <param name="order">The total order of the display rows, ties already broken.</param>
+	/// <param name="rows">The updated display rows.</param>
+	/// <returns>False when the rows have to be computed in full.</returns>
+	internal bool TryUpdateComputed(in DisplayRowsKey key, Func<int, bool>? matches, Comparison<int> order, out int[] rows)
+	{
+		rows = Array.Empty<int>();
+		var last = _lastComputed;
+		if (last == null || _pendingChangeCount != 1 || !last.Key.Equals(key))
+			return false;
+
+		var change = _pendingChange;
+		switch (change.Kind)
+		{
+			case RowChangeKind.Insert when change.Count <= ControlDefaults.TableIncrementalUpdateMaxRows:
+				rows = InsertRows(last.Rows, change.Index, change.Count, matches, order);
+				return true;
+
+			case RowChangeKind.Remove:
+				rows = RemoveRows(last.Rows, change.Index, change.Count);
+				return true;
+
+			default:
+				return false;
+		}
+	}
+
+	/// <summary>Remembers display rows just computed, so the next change can update them.</summary>
+	internal void RememberComputed(in DisplayRowsKey key, int[] rows) => _lastComputed = new ComputedRows(key, rows);
+
+	/// <summary>
+	/// The markup-stripped text cache for a sort column, one entry per data row, filled lazily by
+	/// the comparison.
+	/// </summary>
+	internal List<string?> GetSortTextCache(int column, int dataRowCount)
+	{
+		if (_sortText == null || _sortTextColumn != column || _sortText.Count != dataRowCount)
+		{
+			_sortText = new List<string?>(new string?[dataRowCount]);
+			_sortTextColumn = column;
+		}
+		return _sortText;
+	}
+
+	private void ForgetComputed()
+	{
+		_lastComputed = null;
+		_pendingChangeCount = 0;
+	}
+
+	private static int[] InsertRows(int[] previous, int index, int count, Func<int, bool>? matches, Comparison<int> order)
+	{
+		var rows = new List<int>(previous.Length + count);
+		foreach (int dataIndex in previous)
+			rows.Add(dataIndex >= index ? dataIndex + count : dataIndex);
+
+		for (int dataIndex = index; dataIndex < index + count; dataIndex++)
+		{
+			if (matches != null && !matches(dataIndex)) continue;
+			rows.Insert(FindInsertPosition(rows, dataIndex, order), dataIndex);
+		}
+
+		return rows.ToArray();
+	}
+
+	private static int FindInsertPosition(List<int> rows, int dataIndex, Comparison<int> order)
+	{
+		int low = 0;
+		int high = rows.Count;
+		while (low < high)
+		{
+			int middle = low + ((high - low) >> 1);
+			if (order(rows[middle], dataIndex) < 0)
+				low = middle + 1;
+			else
+				high = middle;
+		}
+		return low;
+	}
+
+	private static int[] RemoveRows(int[] previous, int index, int count)
+	{
+		var rows = new List<int>(previous.Length);
+		foreach (int dataIndex in previous)
+		{
+			if (dataIndex < index)
+				rows.Add(dataIndex);
+			else if (dataIndex >= index + count)
+				rows.Add(dataIndex - count);
+		}
+		return rows.ToArray();
+	}
+
+	private enum RowChangeKind { Insert, Remove, Reset }
+
+	private readonly record struct RowChange(RowChangeKind Kind, int Index, int Count);
+
+	private sealed record ComputedRows(DisplayRowsKey Key, int[] Rows);
+
+	#endregion
 }
+
+/// <summary>
+/// What a table's default display rows are computed from. Two computes under equal keys differ only
+/// by the rows that changed between them, which is what lets <see cref="TableRowView"/> update the
+/// last result instead of recomputing it.
+/// </summary>
+/// <param name="Filter">The active filter, compared by reference: a re-typed filter is a new filter.</param>
+/// <param name="SortColumn">The sort column, or -1.</param>
+/// <param name="Direction">The sort direction.</param>
+/// <param name="RowComparer">The sort column's row comparer, if any.</param>
+/// <param name="Comparer">The sort column's cell comparer, if any.</param>
+/// <param name="FuzzyFilter">Whether fuzzy matching was on.</param>
+internal readonly record struct DisplayRowsKey(
+	object? Filter,
+	int SortColumn,
+	SortDirection Direction,
+	object? RowComparer,
+	object? Comparer,
+	bool FuzzyFilter);

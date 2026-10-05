@@ -754,25 +754,56 @@ public partial class TableControl
 	internal void RecomputeDisplayMap()
 	{
 		bool sorted = _sortDirection != SortDirection.None && _sortColumnIndex >= 0;
-		if (_activeFilter == null && !sorted)
+		var filter = _activeFilter;
+		if (filter == null && !sorted)
 		{
 			_rowView.Clear();
 			return;
 		}
 
-		// Step 1: The filter's matches, or every row when only sorting
-		int[] rows;
-		if (_activeFilter != null)
-			rows = ComputeFilteredIndices(_activeFilter);
-		else
-			rows = Enumerable.Range(0, GetUnfilteredRowCount()).ToArray();
+		if (_dataSource != null)
+		{
+			// Step 1: The filter's matches, or every row when only sorting
+			int[] matches = filter != null
+				? ComputeFilteredIndices(filter)
+				: Enumerable.Range(0, GetUnfilteredRowCount()).ToArray();
 
-		// Step 2: If sort is active, sort them
-		if (sorted)
-			SortIndices(rows);
+			// Step 2: If sort is active, sort them
+			if (sorted)
+				SortIndices(matches);
 
-		_rowView.SetComputed(rows, builtWithFilter: _activeFilter != null);
+			_rowView.SetComputed(matches, builtWithFilter: filter != null);
+			return;
+		}
+
+		// The table's own rows: updated from the last result across a single insert or removal,
+		// computed in full otherwise. See TableRowView's incremental upkeep for why.
+		lock (_tableLock)
+		{
+			var key = new DisplayRowsKey(filter, _sortColumnIndex, _sortDirection,
+				SortColumn?.CustomRowComparer, SortColumn?.CustomComparer, _fuzzyFilterEnabled);
+			Func<int, bool>? passes = filter != null ? dataIndex => RowMatchesCompoundFilter(dataIndex, filter) : null;
+			Comparison<int> order = sorted
+				? CreateRowComparison(_sortColumnIndex, _sortDirection)
+				: (a, b) => a.CompareTo(b);
+
+			if (!_rowView.TryUpdateComputed(key, passes, order, out int[] rows))
+			{
+				rows = filter != null
+					? ComputeFilteredIndices(filter)
+					: Enumerable.Range(0, _rows.Count).ToArray();
+				if (sorted)
+					Array.Sort(rows, order);
+			}
+
+			_rowView.SetComputed(rows, builtWithFilter: filter != null);
+			_rowView.RememberComputed(key, rows);
+		}
 	}
+
+	/// <summary>The in-memory column being sorted by, or null. Callers hold <see cref="_tableLock"/>.</summary>
+	private TableColumn? SortColumn
+		=> _sortColumnIndex >= 0 && _sortColumnIndex < _columns.Count ? _columns[_sortColumnIndex] : null;
 
 	/// <summary>
 	/// Shows every row again after the filter text was emptied or stopped parsing: a data source

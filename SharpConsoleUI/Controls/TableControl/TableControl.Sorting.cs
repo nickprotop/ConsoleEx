@@ -187,9 +187,10 @@ public partial class TableControl
 	/// <para>
 	/// THE DEFAULT COMPARES WHAT THE USER READS. Comparing the raw cell sorted <c>[red]Apple[/]</c>
 	/// by the word "red", after "Banana". Filter matching and the data-source sort already strip
-	/// markup; the default sort now does too. Each row is stripped once per comparison built, not
-	/// once per comparison. A <see cref="TableColumn.CustomComparer"/> still receives the raw text,
-	/// as it always has, so any comparer written against markup keeps working.
+	/// markup; the default sort now does too. Each row is stripped once and the text kept until the
+	/// row or its cells change, rather than stripped per comparison. A
+	/// <see cref="TableColumn.CustomComparer"/> still receives the raw text, as it always has, so any
+	/// comparer written against markup keeps working.
 	/// </para>
 	/// </remarks>
 	private Comparison<int> CreateRowComparison(int col, SortDirection direction)
@@ -202,8 +203,8 @@ public partial class TableControl
 			customComparer = _columns[col].CustomComparer;
 		}
 
-		string?[]? displayedText = customRowComparer == null && customComparer == null
-			? new string?[_rows.Count]
+		List<string?>? displayedText = customRowComparer == null && customComparer == null
+			? _rowView.GetSortTextCache(col, _rows.Count)
 			: null;
 
 		string RawCell(int row) => col < _rows[row].Cells.Count ? _rows[row].Cells[col] : string.Empty;

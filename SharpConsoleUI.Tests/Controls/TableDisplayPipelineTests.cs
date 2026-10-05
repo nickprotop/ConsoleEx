@@ -362,4 +362,158 @@ public class TableDisplayPipelineTests
 	}
 
 	#endregion
+
+	#region Changing the rows keeps the sort and the filter
+
+	[Fact]
+	public void AddingARowToASortedTable_PutsItInSortedPlace()
+	{
+		var table = PeopleTable();
+		table.SortingEnabled = true;
+		table.SortByColumn(0);
+		table.SortByColumn(0);
+
+		table.AddRow("Bert");
+
+		Assert.Equal(["Eve", "Dave", "Carol", "Bob", "Bert", "Alice"], Displayed(table));
+	}
+
+	[Fact]
+	public void InsertingAndRemovingRows_KeepTheSort()
+	{
+		var table = PeopleTable();
+		table.SortingEnabled = true;
+		table.SortByColumn(0);
+
+		table.InsertRows(0, [new TableRow("Zoe"), new TableRow("Aaron")]);
+		table.RemoveRow(table.Rows.ToList().FindIndex(r => r.Cells[0] == "Carol"));
+
+		Assert.Equal(["Aaron", "Alice", "Bob", "Dave", "Eve", "Zoe"], Displayed(table));
+	}
+
+	[Fact]
+	public void AddingRowsToAFilteredTable_ShowsOnlyTheNewMatches()
+	{
+		var table = PeopleTable();
+		table.ApplyFilter("a");
+
+		table.AddRow("Frank");
+		table.AddRow("Gus");
+
+		Assert.Equal(["Alice", "Carol", "Dave", "Frank"], Displayed(table));
+	}
+
+	[Fact]
+	public void ReplacingTheRows_FiltersAndSortsTheNewOnes()
+	{
+		var table = PeopleTable();
+		table.SortingEnabled = true;
+		table.SortByColumn(0);
+		table.ApplyFilter("a");
+
+		table.SetData([new TableRow("Zara"), new TableRow("Bob"), new TableRow("Anna")]);
+
+		Assert.Equal(["Anna", "Zara"], Displayed(table));
+	}
+
+	[Fact]
+	public void RefillingASortedTable_RowByRow_KeepsTheSort()
+	{
+		var table = PeopleTable();
+		table.SortingEnabled = true;
+		table.SortByColumn(0);
+
+		table.ClearRows();
+		foreach (var name in new[] { "Mia", "Leo", "Ava" })
+			table.AddRow(name);
+
+		Assert.Equal(0, table.SortColumnIndex);
+		Assert.Equal(["Ava", "Leo", "Mia"], Displayed(table));
+	}
+
+	[Fact]
+	public void AddingRowsUnderAFilter_PaintsTheMatchesOnly()
+	{
+		var table = PeopleTable(height: 9);
+		var system = Host(table);
+		table.ApplyFilter("e");
+
+		table.AddRow("Bert");
+
+		Assert.Equal(["Alice", "Dave", "Eve", "Bert"], Screen(system).Select(l => l.Trim()).Where(l => l.Length > 0 && l != "Name").ToList());
+	}
+
+	[Fact]
+	public void AddingRowsToASortedTable_ComparesEachNewRowOnlyAgainstASortedFew()
+	{
+		// A sort kept across mutations must not re-sort the whole table per row: refilling a sorted
+		// table row by row would then cost O(n² log n) comparisons.
+		int comparisons = 0;
+		var table = new TableControl { SortingEnabled = true };
+		table.AddColumn(new TableColumn("Key")
+		{
+			CustomComparer = Comparer<string>.Create((x, y) =>
+			{
+				comparisons++;
+				return string.CompareOrdinal(x, y);
+			})
+		});
+		table.SortByColumn(0);
+		var random = new Random(7);
+		const int n = 2000;
+
+		for (int i = 0; i < n; i++)
+			table.AddRow(random.Next(100000).ToString("D6"));
+
+		Assert.True(comparisons <= n * (Math.Log2(n) + 2), $"{comparisons} comparisons for {n} rows");
+		var keys = Displayed(table);
+		Assert.Equal(keys.Order(StringComparer.Ordinal).ToList(), keys);
+	}
+
+	[Fact]
+	public void RandomRowChanges_ShowWhatAFullRecomputeShows()
+	{
+		var random = new Random(42);
+		var table = new TableControl { SortingEnabled = true };
+		table.AddColumn("Name");
+		table.AddColumn("Group");
+		string RandomName() => $"{(char)('a' + random.Next(6))}{random.Next(10)}";
+		for (int i = 0; i < 40; i++)
+			table.AddRow(RandomName(), random.Next(3).ToString());
+		table.SortByColumn(1);
+		table.ApplyFilter("Group:0|1");
+
+		for (int step = 0; step < 300; step++)
+		{
+			int count = table.Rows.Count;
+			switch (random.Next(4))
+			{
+				case 0:
+					table.AddRow(RandomName(), random.Next(3).ToString());
+					break;
+				case 1:
+					table.InsertRow(random.Next(count + 1), RandomName(), random.Next(3).ToString());
+					break;
+				case 2 when count > 0:
+					table.RemoveRow(random.Next(count));
+					break;
+				default:
+					table.InsertRows(random.Next(count + 1),
+						Enumerable.Range(0, random.Next(1, 4)).Select(_ => new TableRow(RandomName(), random.Next(3).ToString())));
+					break;
+			}
+
+			var expected = table.Rows
+				.Select((row, index) => (row, index))
+				.Where(x => x.row.Cells[1] != "2")
+				.OrderBy(x => x.row.Cells[1], StringComparer.OrdinalIgnoreCase)
+				.ThenBy(x => x.index)
+				.Select(x => x.index)
+				.ToList();
+			var actual = Enumerable.Range(0, table.RowCount).Select(table.MapDisplayToData).ToList();
+			Assert.True(expected.SequenceEqual(actual), $"display rows diverged at step {step}");
+		}
+	}
+
+	#endregion
 }

@@ -1250,6 +1250,12 @@ namespace SharpConsoleUI.Configuration
 		/// <summary>Fewest rows a TableControl samples when sizing an auto-width column from its content (default: 50).</summary>
 		public const int TableColumnWidthSampleRows = 50;
 
+		/// <summary>
+		/// Most rows one insert into a sorted or filtered TableControl may add for the display rows to be
+		/// updated in place; a larger insert recomputes them, which is then cheaper (default: 64).
+		/// </summary>
+		public const int TableIncrementalUpdateMaxRows = 64;
+
 		#endregion
 	}
 }
