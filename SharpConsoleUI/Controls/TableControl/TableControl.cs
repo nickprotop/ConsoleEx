@@ -886,7 +886,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// <remarks>
 	/// A cell change does not re-sort or re-filter on its own, as it never has; but it does mean the
 	/// display rows can no longer be updated incrementally from the last result, so the next change
-	/// to the rows recomputes them.
+	/// to the rows recomputes them. It is also passed on to <see cref="OnRowContentChanged"/>.
 	/// </remarks>
 	internal void OnRowDisplayChanged(TableRow row, bool widthAffecting, Invalidation mode)
 	{
@@ -897,6 +897,32 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			lock (_tableLock) { _rowView.RecordReset(); }
 		}
 		Container?.Invalidate(mode);
+
+		if (widthAffecting)
+			OnRowContentChanged(row);
+	}
+
+	/// <summary>
+	/// Called after one of the table's rows changed its cells: a cell set, added or removed, the
+	/// cells replaced, or an inline edit committed.
+	/// </summary>
+	/// <param name="row">The row whose cells changed.</param>
+	/// <remarks>
+	/// <para>
+	/// The table does not re-sort or re-filter when a cell changes, so a row being edited does not
+	/// jump away under the cursor. A derived table whose order or visibility depends on a row's
+	/// content can decide otherwise here — typically by calling <see cref="RefreshDisplayRows"/>,
+	/// which keeps the selection on its row. The default does nothing.
+	/// </para>
+	/// <para>
+	/// Called on the thread that changed the cells, which by the library's threading rule is the UI
+	/// thread. The table never changes a cell while holding <see cref="SyncRoot"/>, so this is not
+	/// called with it held unless the code changing the cells holds it. A change to a row's colours,
+	/// enabled state or check mark is not a content change and does not call this.
+	/// </para>
+	/// </remarks>
+	protected virtual void OnRowContentChanged(TableRow row)
+	{
 	}
 
 	/// <summary>

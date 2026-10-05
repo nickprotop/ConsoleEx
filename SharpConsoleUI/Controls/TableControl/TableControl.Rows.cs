@@ -128,13 +128,17 @@ public partial class TableControl
 	/// </summary>
 	public void UpdateCell(int row, int column, string value)
 	{
+		TableRow target;
 		lock (_tableLock)
 		{
 			if (row >= 0 && row < _rows.Count && column >= 0 && column < _rows[row].Cells.Count)
-				_rows[row].Cells[column] = value;
+				target = _rows[row];
 			else
 				return;
 		}
+
+		// Outside the lock: the change notifies OnRowContentChanged, which is never called with it held.
+		target.Cells[column] = value;
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCachedEntry(value);
 		Invalidate(Invalidation.Relayout);

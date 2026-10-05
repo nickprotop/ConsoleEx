@@ -517,6 +517,100 @@ public class TableExtensibilityTests
 
 	#endregion
 
+	#region Hearing that a row's cells changed
+
+	/// <summary>Records content changes, and can re-sort when one arrives.</summary>
+	private sealed class ContentWatchingTable : TableControl
+	{
+		public List<string> Changed { get; } = new();
+		public List<bool> WasEditing { get; } = new();
+		public List<bool> HeldTheLock { get; } = new();
+		public bool RefreshOnChange { get; set; }
+
+		protected override void OnRowContentChanged(TableRow row)
+		{
+			Changed.Add(row.Cells[0]);
+			WasEditing.Add(IsEditing);
+			HeldTheLock.Add(Monitor.IsEntered(SyncRoot));
+			if (RefreshOnChange)
+				RefreshDisplayRows();
+		}
+	}
+
+	private static ContentWatchingTable Watching()
+	{
+		var table = new ContentWatchingTable { SortingEnabled = true, ReadOnly = false };
+		table.AddColumn("Name");
+		table.AddRow("Alice");
+		table.AddRow("Bob");
+		table.AddRow("Carol");
+		return table;
+	}
+
+	[Fact]
+	public void UpdatingACell_IsReported_OutsideTheLock()
+	{
+		var table = Watching();
+
+		table.UpdateCell(1, 0, "Bea");
+
+		Assert.Equal(["Bea"], table.Changed);
+		Assert.Equal([false], table.HeldTheLock);
+	}
+
+	[Fact]
+	public void ChangingACellThroughItsRow_IsReported()
+	{
+		var table = Watching();
+
+		table.GetRow(2).Cells[0] = "Cleo";
+
+		Assert.Equal(["Cleo"], table.Changed);
+	}
+
+	[Fact]
+	public void CommittingAnEdit_IsReported_AfterTheEditEnded()
+	{
+		var table = Watching();
+		table.InlineEditingEnabled = true;
+		table.SelectedRowIndex = 0;
+		table.SelectedColumnIndex = 0;
+		table.BeginCellEdit();
+
+		table.CommitEdit();
+
+		Assert.Equal(["Alice"], table.Changed);
+		Assert.Equal([false], table.WasEditing);
+		Assert.Equal([false], table.HeldTheLock);
+	}
+
+	[Fact]
+	public void ChangingARowsColours_IsNotAContentChange()
+	{
+		var table = Watching();
+
+		table.GetRow(0).ForegroundColor = Color.Red;
+		table.GetRow(0).IsEnabled = false;
+
+		Assert.Empty(table.Changed);
+	}
+
+	[Fact]
+	public void ATableThatRefreshesOnAChange_ReSortsAndKeepsTheSelectionOnItsRow()
+	{
+		var table = Watching();
+		table.SortByColumn(0);
+		table.SelectedRowIndex = 1;                     // Bob
+		table.RefreshOnChange = true;
+
+		table.UpdateCell(1, 0, "Zed");
+
+		Assert.Equal(["Alice", "Carol", "Zed"], Displayed(table));
+		Assert.Equal("Zed", table.SelectedRow?.Cells[0]);
+	}
+
+	#endregion
+
 	#region Data sources
 
 	/// <summary>Three rows of one letter each; sorts itself, never filters.</summary>
