@@ -53,7 +53,7 @@ A `TreeTableRow` belongs to one parent and one table at a time. Rows can be buil
 // Build a subtree detached, then add it
 var reports = new TreeTableRow("Feature: Reports", "Di");
 reports.AddChild("Story: Export", "Di");
-table.AddRow(reports);               // a root; InsertRootRow(index, reports) to place it
+table.AddRootRow(reports);           // or InsertRootRow(index, reports)
 
 // Change it in place
 var export = reports.Children[0];
@@ -241,6 +241,7 @@ Every `TableControl` property applies as well.
 | Method | Description |
 |--------|-------------|
 | `AddRootRow(params string[])` | Adds a root row and returns it |
+| `AddRootRow(TreeTableRow)` | Adds a row with its subtree as the last root |
 | `InsertRootRow(int, TreeTableRow)` | Inserts a row with its subtree among the roots |
 | `RemoveRow(TableRow)` | Removes a row at any depth with its subtree; false if not in the table |
 | `MoveRow(TableRow, TreeTableRow?, int)` | Moves a row with its subtree under another parent, or among the roots |

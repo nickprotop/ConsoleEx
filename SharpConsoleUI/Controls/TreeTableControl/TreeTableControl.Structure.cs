@@ -43,6 +43,11 @@ public partial class TreeTableControl
 		return row;
 	}
 
+	/// <summary>Adds a row, with the rows nested under it, as the last root.</summary>
+	/// <param name="row">A row without a parent and not in a table.</param>
+	/// <returns><paramref name="row"/>.</returns>
+	public TreeTableRow AddRootRow(TreeTableRow row) => InsertRootRow(int.MaxValue, row);
+
 	/// <summary>Inserts a row, with the rows nested under it, among the roots.</summary>
 	/// <param name="rootIndex">The root position, clamped to [0, the number of roots].</param>
 	/// <param name="row">A row without a parent and not in a table.</param>
@@ -208,7 +213,7 @@ public partial class TreeTableControl
 
 	/// <summary>
 	/// Creates the <see cref="TreeTableRow"/> for cell text added through this table: by
-	/// <see cref="AddRootRow"/>, <see cref="TreeTableRow.AddChild(string[])"/> on a row in this table,
+	/// <see cref="AddRootRow(string[])"/>, <see cref="TreeTableRow.AddChild(string[])"/> on a row in this table,
 	/// and the inherited <c>AddRow(string[])</c> and <c>InsertRow(int, string[])</c>.
 	/// </summary>
 	/// <param name="cells">The new row's cell values.</param>

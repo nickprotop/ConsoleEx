@@ -95,6 +95,28 @@ public class TreeTableStructureTests
 	}
 
 	[Fact]
+	public void AddRootRow_AddsASubtreeAsTheLastRoot()
+	{
+		var table = Backlog();
+		var epic = new TreeTableRow("Epic");
+		epic.AddChild("Feature");
+
+		var added = table.AddRootRow(epic);
+
+		Assert.Same(epic, added);
+		Assert.Same(epic, table.RootRows[^1]);
+		Assert.Equal(["Feature B", "Story B1", "Epic", "Feature"], Titles(table.Rows).Skip(5));
+	}
+
+	[Fact]
+	public void AddRootRow_RefusesARowThatBelongsSomewhere()
+	{
+		var table = Backlog();
+
+		Assert.Throws<InvalidOperationException>(() => table.AddRootRow(Row(table, "Story A2")));
+	}
+
+	[Fact]
 	public void ChildrenAddedThroughAnAttachedRow_AppearAtOnce()
 	{
 		var table = Backlog();
