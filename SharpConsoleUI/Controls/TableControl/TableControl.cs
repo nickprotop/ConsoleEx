@@ -283,9 +283,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 	// Performance caches
 	private readonly TextMeasurementCache _measurementCache;
-	private int[]? _cachedColumnWidths;
-	private int _cachedColumnWidthsForWidth = -1;
-	private int _cachedColumnWidthsScrollOffset = -1;
+	private readonly TableColumnWidthCalculator _widthCalculator;
 
 	// Rendered column geometry (always populated during PaintDOM for hit testing)
 	private int[] _renderedColumnX = Array.Empty<int>();
@@ -316,6 +314,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	public TableControl()
 	{
 		_measurementCache = new TextMeasurementCache(MarkupParser.StripLength);
+		_widthCalculator = new TableColumnWidthCalculator(_measurementCache);
 	}
 
 	#endregion
@@ -1177,9 +1176,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 	private void InvalidateColumnWidths()
 	{
-		_cachedColumnWidths = null;
-		_cachedColumnWidthsForWidth = -1;
-		_cachedColumnWidthsScrollOffset = -1;
+		_widthCalculator.Invalidate();
 		_measurementCache.InvalidateCache();
 	}
 
@@ -1208,170 +1205,12 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	}
 
 	/// <summary>
-	/// Computes column widths for the given total available width.
+	/// Computes the widths of the table's own columns for the given total available width.
 	/// Uses sample-based measurement for auto-width columns (visible rows + small buffer).
 	/// </summary>
-	/// <summary>
-	/// Shrinks natural column widths to fit <paramref name="contentWidth"/>, honouring each auto
-	/// column's minimum-width floor.
-	/// </summary>
-	/// <remarks>
-	/// Shared by the <see cref="TableColumn"/> and <see cref="ITableDataSource"/> paths, which differ
-	/// only in how "is this column fixed?" and "what is its floor?" are answered — hence the two
-	/// delegates rather than two copies of the arithmetic.
-	///
-	/// <para>Fixed-width columns have no floor concept: they are already explicit, so theirs stays 1.
-	/// A null or non-positive <c>MinWidth</c> also means 1 (no floor), matching the behaviour before
-	/// floors existed.</para>
-	///
-	/// <para>When honouring every floor needs more room than there is, the total is allowed to exceed
-	/// <paramref name="contentWidth"/>. The table then pans with its horizontal scrollbar rather than
-	/// crushing a column below a usable width — that overflow is the point of the feature, not a bug.</para>
-	/// </remarks>
-	/// <param name="widths">Natural widths, shrunk in place.</param>
-	/// <param name="colCount">Number of columns.</param>
-	/// <param name="contentWidth">Space available for content.</param>
-	/// <param name="fixedTotal">Total width of the fixed columns.</param>
-	/// <param name="autoTotal">Total natural width of the auto columns.</param>
-	/// <param name="totalNatural">Total natural width of every column.</param>
-	/// <param name="isFixed">Whether the column at an index has an explicit width.</param>
-	/// <param name="minWidthOf">The configured floor for the column at an index, or null for none.</param>
-	private static void ShrinkToFit(int[] widths, int colCount, int contentWidth,
-		int fixedTotal, int autoTotal, int totalNatural,
-		Func<int, bool> isFixed, Func<int, int?> minWidthOf)
-	{
-		// A fixed column is already explicit, so it has no floor; anything unset or non-positive
-		// means "no floor", i.e. 1.
-		int Floor(int c) => isFixed(c) ? 1 : Math.Max(1, minWidthOf(c) ?? 1);
-
-		int autoTarget = contentWidth - fixedTotal;
-		if (autoTarget > 0 && autoTotal > 0)
-		{
-			// Enough room for the fixed columns: distribute what is left across the auto ones.
-			double ratio = (double)autoTarget / autoTotal;
-			int assigned = fixedTotal;
-			int lastAutoCol = -1;
-			for (int c = 0; c < colCount; c++)
-			{
-				if (isFixed(c)) continue;
-				widths[c] = Math.Max(Floor(c), (int)(widths[c] * ratio));
-				assigned += widths[c];
-				lastAutoCol = c;
-			}
-			// Rounding leftovers go to the last auto column so the row fills exactly.
-			if (lastAutoCol >= 0)
-				widths[lastAutoCol] = Math.Max(Floor(lastAutoCol), widths[lastAutoCol] + (contentWidth - assigned));
-		}
-		else
-		{
-			// Not even the fixed columns fit — shrink everything proportionally, floors still applying.
-			double ratio = (double)contentWidth / totalNatural;
-			int assigned = 0;
-			for (int c = 0; c < colCount - 1; c++)
-			{
-				widths[c] = Math.Max(Floor(c), (int)(widths[c] * ratio));
-				assigned += widths[c];
-			}
-			widths[colCount - 1] = Math.Max(Floor(colCount - 1), contentWidth - assigned);
-		}
-	}
-
 	internal int[] ComputeColumnWidths(int availableWidth, List<TableColumn> cols, List<TableRow>? rows, int scrollOffset = 0, int visibleRowCount = 50)
-	{
-		int colCount = cols.Count;
-		if (colCount == 0) return Array.Empty<int>();
-
-		// Check cache - invalidate on significant scroll change
-		int scrollBucket = scrollOffset / Math.Max(1, visibleRowCount / 2);
-		if (_cachedColumnWidths != null && _cachedColumnWidthsForWidth == availableWidth && _cachedColumnWidthsScrollOffset == scrollBucket)
-			return _cachedColumnWidths;
-
-		bool hasBorder = _borderStyle != BorderStyle.None;
-		int separatorOverhead = hasBorder ? (colCount + 1)
-			: (_columnSeparator.HasValue ? Math.Max(0, colCount - 1) * SeparatorWidth : 0);
-		int contentWidth = availableWidth - separatorOverhead;
-		if (contentWidth < colCount) contentWidth = colCount;
-
-		var widths = new int[colCount];
-		int autoCount = 0;
-
-		// Determine sample range for auto-width columns
-		int sampleStart = Math.Max(0, scrollOffset);
-		int sampleEnd = Math.Min(rows?.Count ?? 0, scrollOffset + Math.Max(50, visibleRowCount));
-
-		for (int c = 0; c < colCount; c++)
-		{
-			if (cols[c].Width.HasValue)
-			{
-				widths[c] = cols[c].Width!.Value;
-			}
-			else
-			{
-				// Sample-based measurement: header + visible rows + buffer
-				int maxW = _measurementCache.GetCachedLength(cols[c].Header);
-
-				if (rows != null)
-				{
-					for (int r = sampleStart; r < sampleEnd; r++)
-					{
-						if (c < rows[r].Cells.Count)
-						{
-							int cellW = _measurementCache.GetCachedLength(rows[r].Cells[c]);
-							if (cellW > maxW) maxW = cellW;
-						}
-					}
-				}
-
-				widths[c] = maxW;
-				autoCount++;
-			}
-		}
-
-		// Distribute remaining space
-		int totalNatural = 0;
-		for (int c = 0; c < colCount; c++) totalNatural += widths[c];
-
-		if (HorizontalAlignment == HorizontalAlignment.Stretch && totalNatural < contentWidth)
-		{
-			int remaining = contentWidth - totalNatural;
-			int distributeCount = autoCount > 0 ? autoCount : colCount;
-			int perCol = remaining / distributeCount;
-			int extraCols = remaining % distributeCount;
-
-			for (int c = 0; c < colCount; c++)
-			{
-				bool isAutoCol = !cols[c].Width.HasValue;
-				if (autoCount > 0 && !isAutoCol) continue;
-
-				widths[c] += perCol;
-				if (extraCols > 0) { widths[c]++; extraCols--; }
-			}
-		}
-		else if (totalNatural > contentWidth)
-		{
-			// Shrink only auto-width columns first; preserve fixed-width columns
-			int fixedTotal = 0;
-			int autoTotal = 0;
-			for (int c = 0; c < colCount; c++)
-			{
-				if (cols[c].Width.HasValue)
-					fixedTotal += widths[c];
-				else
-					autoTotal += widths[c];
-			}
-
-			ShrinkToFit(widths, colCount, contentWidth, fixedTotal, autoTotal, totalNatural,
-				isFixed: c => cols[c].Width.HasValue,
-				minWidthOf: c => cols[c].MinWidth);
-		}
-
-		// Cache results
-		_cachedColumnWidths = widths;
-		_cachedColumnWidthsForWidth = availableWidth;
-		_cachedColumnWidthsScrollOffset = scrollBucket;
-
-		return widths;
-	}
+		=> _widthCalculator.Compute(new TableColumnWidthSource(cols, rows),
+			CreateWidthLayout(availableWidth, scrollOffset, visibleRowCount), useCache: true);
 
 	/// <summary>
 	/// Computes column widths for DataSource mode.
@@ -1380,85 +1219,13 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	{
 		if (_dataSource == null) return Array.Empty<int>();
 
-		int colCount = _dataSource.ColumnCount;
-		if (colCount == 0) return Array.Empty<int>();
-
-		bool hasBorder = _borderStyle != BorderStyle.None;
-		int borderOverhead = hasBorder ? (colCount + 1)
-			: (_columnSeparator.HasValue ? Math.Max(0, colCount - 1) * SeparatorWidth : 0);
-		int contentWidth = availableWidth - borderOverhead;
-		if (contentWidth < colCount) contentWidth = colCount;
-
-		var widths = new int[colCount];
-		int autoCount = 0;
-
-		int sampleStart = Math.Max(0, scrollOffset);
-		int sampleEnd = Math.Min(_dataSource.RowCount, scrollOffset + Math.Max(50, visibleRowCount));
-
-		for (int c = 0; c < colCount; c++)
-		{
-			// Check for user resize override first
-			if (_columnWidthOverrides.TryGetValue(c, out int overrideWidth))
-			{
-				widths[c] = overrideWidth;
-			}
-			else if (_dataSource.GetColumnWidth(c) is int colWidth)
-			{
-				widths[c] = colWidth;
-			}
-			else
-			{
-				int maxW = _measurementCache.GetCachedLength(_dataSource.GetColumnHeader(c));
-				for (int r = sampleStart; r < sampleEnd; r++)
-				{
-					int cellW = _measurementCache.GetCachedLength(_dataSource.GetCellValue(r, c));
-					if (cellW > maxW) maxW = cellW;
-				}
-				widths[c] = maxW;
-				autoCount++;
-			}
-		}
-
-		int totalNatural = 0;
-		for (int c = 0; c < colCount; c++) totalNatural += widths[c];
-
-		if (HorizontalAlignment == HorizontalAlignment.Stretch && totalNatural < contentWidth)
-		{
-			int remaining = contentWidth - totalNatural;
-			int distributeCount = autoCount > 0 ? autoCount : colCount;
-			int perCol = remaining / distributeCount;
-			int extraCols = remaining % distributeCount;
-
-			for (int c = 0; c < colCount; c++)
-			{
-				int? dsColWidth = _dataSource.GetColumnWidth(c);
-				bool isAutoCol = !dsColWidth.HasValue && !_columnWidthOverrides.ContainsKey(c);
-				if (autoCount > 0 && !isAutoCol) continue;
-				widths[c] += perCol;
-				if (extraCols > 0) { widths[c]++; extraCols--; }
-			}
-		}
-		else if (totalNatural > contentWidth)
-		{
-			// Shrink only auto-width columns first; preserve fixed/overridden columns
-			int fixedTotal = 0;
-			int autoTotal = 0;
-			for (int c = 0; c < colCount; c++)
-			{
-				bool isFixed = _columnWidthOverrides.ContainsKey(c) || _dataSource.GetColumnWidth(c).HasValue;
-				if (isFixed)
-					fixedTotal += widths[c];
-				else
-					autoTotal += widths[c];
-			}
-
-			ShrinkToFit(widths, colCount, contentWidth, fixedTotal, autoTotal, totalNatural,
-				isFixed: c => _columnWidthOverrides.ContainsKey(c) || _dataSource.GetColumnWidth(c).HasValue,
-				minWidthOf: c => _dataSource.GetColumnMinWidth(c));
-		}
-
-		return widths;
+		return _widthCalculator.Compute(new TableDataSourceWidthSource(_dataSource, _columnWidthOverrides),
+			CreateWidthLayout(availableWidth, scrollOffset, visibleRowCount), useCache: false);
 	}
+
+	private TableWidthLayout CreateWidthLayout(int availableWidth, int scrollOffset, int visibleRowCount)
+		=> new(availableWidth, _borderStyle != BorderStyle.None, _columnSeparator, SeparatorWidth,
+			HorizontalAlignment == HorizontalAlignment.Stretch, scrollOffset, visibleRowCount);
 
 	#endregion
 
