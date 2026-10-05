@@ -503,6 +503,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			_sortColumnIndex = -1;
 			_sortDirection = SortDirection.None;
 			_rowView.Clear();
+			EndRowGestures();
 			_filterMode = FilterMode.None;
 			_filterBuffer = string.Empty;
 			_activeFilter = null;
@@ -518,6 +519,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			_selectedRowIndices.Clear();
 			_hoveredRowIndex = -1;
 			_scrollOffset = 0;
+			EndRowGestures();
 		}
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();

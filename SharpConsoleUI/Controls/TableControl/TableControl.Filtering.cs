@@ -206,6 +206,7 @@ public partial class TableControl
 		_scrollOffset = 0;
 		_selectedRowIndices.Clear();
 
+		EndRowGestures();
 		Core.AsyncEvent.Raise(FilterApplied, FilterAppliedAsync, this, compound.RawText, Container?.GetConsoleWindowSystem?.LogService);
 		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);
@@ -289,6 +290,7 @@ public partial class TableControl
 		_scrollOffset = 0;
 		_selectedRowIndices.Clear();
 
+		EndRowGestures();
 		Core.AsyncEvent.Raise(FilterApplied, FilterAppliedAsync, this, compound.RawText, Container?.GetConsoleWindowSystem?.LogService);
 		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);
@@ -566,6 +568,7 @@ public partial class TableControl
 		}
 
 		_selectedRowIndices.Clear();
+		EndRowGestures();
 		FilterTextChanged?.Invoke(this, _filterBuffer);
 		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);

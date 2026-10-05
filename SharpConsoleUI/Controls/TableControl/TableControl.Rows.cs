@@ -441,6 +441,9 @@ public partial class TableControl
 	/// </remarks>
 	private void RestoreSelection(RowSelection before)
 	{
+		// The rows moved under the pointer, whether or not the selection can follow them.
+		EndRowGestures();
+
 		if (!before.IsTracked) return;
 
 		int rowCount = RowCount;

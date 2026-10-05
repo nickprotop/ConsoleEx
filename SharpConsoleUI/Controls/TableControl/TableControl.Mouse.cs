@@ -534,6 +534,32 @@ public partial class TableControl
 
 	#endregion
 
+	#region Gestures Across Row Changes
+
+	/// <summary>
+	/// Ends what the pointer was in the middle of when the displayed rows change underneath it: a
+	/// first click waiting for its second, and a drag selecting a range.
+	/// </summary>
+	/// <remarks>
+	/// Both are held as display positions, which after a sort, a filter or a row change name other
+	/// rows. A click on Bob followed, after a sort, by a click at the same position on Dave paired
+	/// into a double-click and activated Dave; a drag carried on extending from a position its first
+	/// row had left. Hover is left alone on purpose: it follows the pointer, not a row, so the row now
+	/// under the pointer is the right one to highlight.
+	/// </remarks>
+	private void EndRowGestures()
+	{
+		lock (_clickLock)
+		{
+			_lastClickRowIndex = -1;
+			_lastClickTime = DateTime.MinValue;
+		}
+		_isRowDragSelecting = false;
+		_ctrlDragBaseSelection = null;
+	}
+
+	#endregion
+
 	#region Hit Testing
 
 	private int GetRowIndexAtY(int relativeY)

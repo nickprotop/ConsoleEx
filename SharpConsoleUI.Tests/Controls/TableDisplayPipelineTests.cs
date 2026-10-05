@@ -563,4 +563,74 @@ public class TableDisplayPipelineTests
 	}
 
 	#endregion
+
+	#region Reordering the rows ends a pending double-click and a drag
+
+	/// <summary>An interactive <see cref="PeopleTable"/>, painted so clicks can be hit-tested.</summary>
+	private static TableControl ClickablePeopleTable(bool multiSelect = false)
+	{
+		var table = PeopleTable();
+		table.ReadOnly = false;
+		table.SortingEnabled = true;
+		table.MultiSelectEnabled = multiSelect;
+		var buffer = new CharacterBuffer(30, 10);
+		var bounds = new LayoutRect(0, 0, 30, 10);
+		table.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+		return table;
+	}
+
+	private static SharpConsoleUI.Events.MouseEventArgs Mouse(int y, params SharpConsoleUI.Drivers.MouseFlags[] flags)
+	{
+		var point = new System.Drawing.Point(2, y);
+		return new SharpConsoleUI.Events.MouseEventArgs(new List<SharpConsoleUI.Drivers.MouseFlags>(flags), point, point, point);
+	}
+
+	private static void Click(TableControl table, int displayRow)
+		=> table.ProcessMouseEvent(Mouse(table.RowYForTest(displayRow), SharpConsoleUI.Drivers.MouseFlags.Button1Clicked));
+
+	[Fact]
+	public void TwoClicksOnARow_ActivateIt()
+	{
+		var table = ClickablePeopleTable();
+		var activated = new List<int>();
+		table.RowActivated += (_, row) => activated.Add(row);
+
+		Click(table, 1);
+		Click(table, 1);
+
+		Assert.Equal([1], activated);
+	}
+
+	[Fact]
+	public void TwoClicksAtOnePosition_DoNotActivate_WhenASortMovedADifferentRowThere()
+	{
+		var table = ClickablePeopleTable();
+		var activated = new List<int>();
+		table.RowActivated += (_, row) => activated.Add(row);
+
+		Click(table, 1);                               // Bob
+		table.SortByColumn(0);
+		table.SortByColumn(0);                         // position 1 now holds Dave
+		Click(table, 1);
+
+		Assert.Empty(activated);
+	}
+
+	[Fact]
+	public void ADragSelect_EndsWhenTheRowsAreReordered()
+	{
+		var table = ClickablePeopleTable(multiSelect: true);
+		var pressed = SharpConsoleUI.Drivers.MouseFlags.Button1Pressed;
+		var dragged = SharpConsoleUI.Drivers.MouseFlags.Button1Dragged;
+		table.ProcessMouseEvent(Mouse(table.RowYForTest(0), pressed));
+		table.ProcessMouseEvent(Mouse(table.RowYForTest(2), pressed, dragged));   // Alice..Carol
+
+		table.SortByColumn(0);
+		table.SortByColumn(0);
+		table.ProcessMouseEvent(Mouse(table.RowYForTest(0), pressed, dragged));
+
+		Assert.Equal(["Alice", "Bob", "Carol"], table.GetSelectedRows().Select(r => r.Cells[0]).Order());
+	}
+
+	#endregion
 }
