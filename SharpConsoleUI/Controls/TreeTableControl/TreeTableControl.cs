@@ -56,6 +56,11 @@ public partial class TreeTableControl : TableControl
 		get { lock (SyncRoot) { return _roots.ToList().AsReadOnly(); } }
 	}
 
+	/// <summary>
+	/// Creates a new TreeTableControlBuilder for fluent configuration.
+	/// </summary>
+	public static new Builders.TreeTableControlBuilder Create() => new Builders.TreeTableControlBuilder();
+
 	/// <inheritdoc/>
 	protected override void OnDisposing()
 	{

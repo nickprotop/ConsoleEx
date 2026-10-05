@@ -297,6 +297,12 @@ public static class Controls
 	public static TableControlBuilder Table() => new TableControlBuilder();
 
 	/// <summary>
+	/// Creates a new tree table control builder
+	/// </summary>
+	/// <returns>A new tree table control builder</returns>
+	public static TreeTableControlBuilder TreeTable() => new TreeTableControlBuilder();
+
+	/// <summary>
 	/// Creates a new panel builder for bordered content panels
 	/// </summary>
 	/// <returns>A new panel builder</returns>
