@@ -94,7 +94,7 @@ public partial class TableControl
 		if (_sortDirection == SortDirection.None)
 		{
 			_sortColumnIndex = -1;
-			_sortIndexMap = null;
+			_rowView.SetSortMap(null);
 			// If filter is active, recompute without sort
 			if (HasClientFilterMap)
 				RecomputeDisplayMap();
@@ -135,7 +135,7 @@ public partial class TableControl
 	{
 		_sortColumnIndex = -1;
 		_sortDirection = SortDirection.None;
-		_sortIndexMap = null;
+		_rowView.SetSortMap(null);
 		// If filter is active, recompute without sort
 		if (HasClientFilterMap)
 			RecomputeDisplayMap();
@@ -148,7 +148,7 @@ public partial class TableControl
 		{
 			// Delegate sorting to the data source
 			_dataSource.Sort(_sortColumnIndex, _sortDirection);
-			_sortIndexMap = null;
+			_rowView.SetSortMap(null);
 			return;
 		}
 
@@ -157,7 +157,7 @@ public partial class TableControl
 			int rowCount = _rows.Count;
 			if (rowCount == 0)
 			{
-				_sortIndexMap = null;
+				_rowView.SetSortMap(null);
 				return;
 			}
 
@@ -195,7 +195,7 @@ public partial class TableControl
 				return _sortDirection == SortDirection.Descending ? -result : result;
 			});
 
-			_sortIndexMap = indices;
+			_rowView.SetSortMap(indices);
 		}
 	}
 

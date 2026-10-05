@@ -184,7 +184,7 @@ public partial class TableControl
 		// changes its own RowCount, so asking afterwards reports the filtered set as the total and
 		// the footer reads "1/1 rows". EnterFilterMode captures this too, but only the interactive
 		// path goes through it — calling ApplyFilter directly must work the same way.
-		if (_filterIndexMap == null && _unfilteredRowCount == 0)
+		if (_rowView.FilterMap == null && _unfilteredRowCount == 0)
 		{
 			if (_dataSource != null)
 				_unfilteredRowCount = _dataSource.RowCount;
@@ -270,13 +270,13 @@ public partial class TableControl
 			// addresses rows through its map. Flagged as the source's so a later sort re-asks the
 			// source instead of rebuilding the map from a client-side scan, which would throw away
 			// the very knowledge the source overrode this to supply.
-			SetSourceFilterMap(BuildSourceDisplayMap(result.DisplayRows!));
+			_rowView.SetSourceFilterMap(BuildSourceDisplayMap(result.DisplayRows!));
 		}
 		else
 		{
 			// The source now reports only matching rows, so no display map is needed: RowCount reads
 			// through to it and MapDisplayToData stays identity.
-			_filterIndexMap = null;
+			_rowView.SetFilterMap(null);
 		}
 
 		// _unfilteredRowCount is deliberately NOT reset here. It was captured before the source
@@ -364,7 +364,7 @@ public partial class TableControl
 	/// </summary>
 	public void ClearFilter()
 	{
-		// A DELEGATED filter may leave _filterIndexMap null (the source narrowed itself), so the
+		// A DELEGATED filter may leave the filter map null (the source narrowed itself), so the
 		// guard below cannot tell "no filter" from "filtered server-side" on its own — ask the
 		// source to drop its filter first, then fall through to reset local state. A source that
 		// supplied display rows instead leaves a map behind, and the same reset clears it.
@@ -372,13 +372,13 @@ public partial class TableControl
 		if (delegated)
 			_dataSource!.ClearFilter();
 
-		if (!delegated && _filterMode == FilterMode.None && _filterIndexMap == null) return;
+		if (!delegated && _filterMode == FilterMode.None && _rowView.FilterMap == null) return;
 
 		_filterMode = FilterMode.None;
 		_filterBuffer = string.Empty;
 		_filterCursorPosition = 0;
 		_activeFilter = null;
-		_filterIndexMap = null;
+		_rowView.SetFilterMap(null);
 		_unfilteredRowCount = 0;
 
 		// If sort is still active, ensure sort map is intact
@@ -410,7 +410,7 @@ public partial class TableControl
 		_activeFilter = null;
 
 		// Store unfiltered count
-		if (_filterIndexMap == null)
+		if (_rowView.FilterMap == null)
 		{
 			if (_dataSource != null)
 				_unfilteredRowCount = _dataSource.RowCount;
@@ -518,7 +518,7 @@ public partial class TableControl
 			if (_dataSource != null && _dataSource.CanFilter && _activeFilter != null)
 				_dataSource.ClearFilter();
 
-			_filterIndexMap = null;
+			_rowView.SetFilterMap(null);
 			_activeFilter = null;
 			_selectedRowIndex = RowCount > 0 ? 0 : -1;
 			_scrollOffset = 0;
@@ -537,7 +537,7 @@ public partial class TableControl
 				if (compound != null)
 					RecomputeDisplayMap();
 				else
-					_filterIndexMap = null;
+					_rowView.SetFilterMap(null);
 
 				_selectedRowIndex = RowCount > 0 ? 0 : -1;
 				_scrollOffset = 0;
@@ -744,7 +744,7 @@ public partial class TableControl
 	{
 		if (_activeFilter == null)
 		{
-			_filterIndexMap = null;
+			_rowView.SetFilterMap(null);
 			return;
 		}
 
@@ -757,7 +757,7 @@ public partial class TableControl
 			SortIndices(filtered);
 		}
 
-		_filterIndexMap = filtered;
+		_rowView.SetFilterMap(filtered);
 	}
 
 	/// <summary>

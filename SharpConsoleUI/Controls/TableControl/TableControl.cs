@@ -178,52 +178,15 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private bool _sortingEnabled = false;
 	private int _sortColumnIndex = -1;
 	private SortDirection _sortDirection = SortDirection.None;
-	private int[]? _sortIndexMap; // maps display index -> data index when sorted
 
 	// Filtering
 	internal bool _filteringEnabled = false;
 	internal FilterMode _filterMode = FilterMode.None;
 	internal string _filterBuffer = string.Empty;
 	internal int _filterCursorPosition = 0;
-	private int[]? _filterIndexMapStorage; // maps display index -> data index when filtered (may include sort)
 
-	/// <summary>
-	/// Maps display index to data index while a filter is active, or null when rows are addressed
-	/// by identity — either unfiltered, or filtered by a source that narrowed itself.
-	/// </summary>
-	/// <remarks>
-	/// A property rather than a field so that <see cref="_filterMapFromSource"/> cannot drift out
-	/// of step with it. Fourteen call sites assign this; any one of them forgetting to clear the
-	/// flag would leave the table believing a client-side map came from the source, and silently
-	/// skipping the rebuild that keeps sorting correct. Assigning a map from the source therefore
-	/// goes through <see cref="SetSourceFilterMap"/>, and every other assignment clears the flag
-	/// on its own.
-	/// </remarks>
-	internal int[]? _filterIndexMap
-	{
-		get => _filterIndexMapStorage;
-		set
-		{
-			_filterIndexMapStorage = value;
-			_filterMapFromSource = false;
-		}
-	}
-
-	/// <summary>
-	/// True when <see cref="_filterIndexMap"/> came from the data source rather than a client-side
-	/// scan. The table cannot rebuild such a map: it encodes what the SOURCE decided to show, which
-	/// is the point of <see cref="TableFilterOutcome.DisplayRowsSupplied"/>. Sorting therefore
-	/// re-asks the source instead of rescanning, exactly as it already does for a source that
-	/// narrowed itself.
-	/// </summary>
-	internal bool _filterMapFromSource { get; private set; }
-
-	/// <summary>Installs a display map supplied by the data source, marking it as such.</summary>
-	internal void SetSourceFilterMap(int[] map)
-	{
-		_filterIndexMapStorage = map;
-		_filterMapFromSource = true;
-	}
+	// Which data rows are displayed, in what order (sort and filter maps)
+	private readonly TableRowView _rowView = new();
 
 	/// <summary>
 	/// True when a filter display map is active that the TABLE built and can therefore rebuild.
@@ -235,7 +198,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// such a table sorts the way a self-narrowing source already does — through
 	/// <see cref="ITableDataSource.Sort"/>.
 	/// </remarks>
-	private bool HasClientFilterMap => _filterIndexMap != null && !_filterMapFromSource && _activeFilter != null;
+	private bool HasClientFilterMap => _rowView.FilterMap != null && !_rowView.FilterMapFromSource && _activeFilter != null;
 	internal int _unfilteredRowCount = 0;
 	internal CompoundFilterExpression? _activeFilter;
 	internal bool _fuzzyFilterEnabled = false;
@@ -401,7 +364,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	{
 		get
 		{
-			if (_filterIndexMap != null) return _filterIndexMap.Length;
+			if (_rowView.FilterMap != null) return _rowView.FilterMap.Length;
 			if (_dataSource != null) return _dataSource.RowCount;
 			lock (_tableLock) { return _rows.Count; }
 		}
@@ -539,8 +502,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			_horizontalScrollOffset = 0;
 			_sortColumnIndex = -1;
 			_sortDirection = SortDirection.None;
-			_sortIndexMap = null;
-			_filterIndexMap = null;
+			_rowView.SetSortMap(null);
+			_rowView.SetFilterMap(null);
 			_filterMode = FilterMode.None;
 			_filterBuffer = string.Empty;
 			_activeFilter = null;
@@ -724,8 +687,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		if (_dataSource != null)
 			throw new InvalidOperationException("Cannot add rows when DataSource is set.");
 		lock (_tableLock) { _rows.Add(new TableRow(cells) { Owner = this }); }
-		_sortIndexMap = null;
-		_filterIndexMap = null;
+		_rowView.SetSortMap(null);
+		_rowView.SetFilterMap(null);
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Invalidate(Invalidation.Relayout);
@@ -739,8 +702,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		if (_dataSource != null)
 			throw new InvalidOperationException("Cannot add rows when DataSource is set.");
 		lock (_tableLock) { row.Owner = this; _rows.Add(row); }
-		_sortIndexMap = null;
-		_filterIndexMap = null;
+		_rowView.SetSortMap(null);
+		_rowView.SetFilterMap(null);
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Invalidate(Invalidation.Relayout);
@@ -761,8 +724,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 				_rows.Add(row);
 			}
 		}
-		_sortIndexMap = null;
-		_filterIndexMap = null;
+		_rowView.SetSortMap(null);
+		_rowView.SetFilterMap(null);
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Invalidate(Invalidation.Relayout);
@@ -798,8 +761,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		}
 
 		AdjustSelectionAfterInsert(index, 1);
-		_sortIndexMap = null;
-		_filterIndexMap = null;
+		_rowView.SetSortMap(null);
+		_rowView.SetFilterMap(null);
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Invalidate(Invalidation.Relayout);
@@ -827,8 +790,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		}
 
 		AdjustSelectionAfterInsert(index, rowList.Count);
-		_sortIndexMap = null;
-		_filterIndexMap = null;
+		_rowView.SetSortMap(null);
+		_rowView.SetFilterMap(null);
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Invalidate(Invalidation.Relayout);
@@ -887,8 +850,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			}
 		}
 
-		_sortIndexMap = null;
-		_filterIndexMap = null;
+		_rowView.SetSortMap(null);
+		_rowView.SetFilterMap(null);
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Invalidate(Invalidation.Relayout);
@@ -910,8 +873,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		_scrollOffset = 0;
 		_horizontalScrollOffset = 0;
 		_selectedRowIndices.Clear();
-		_sortIndexMap = null;
-		_filterIndexMap = null;
+		_rowView.SetSortMap(null);
+		_rowView.SetFilterMap(null);
 		_filterMode = FilterMode.None;
 		_filterBuffer = string.Empty;
 		_activeFilter = null;
@@ -1002,7 +965,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			_rows = new List<TableRow>(rows);
 			foreach (var row in _rows) row.Owner = this;
 		}
-		_sortIndexMap = null;
+		_rowView.SetSortMap(null);
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Invalidate(Invalidation.Relayout);
@@ -1234,35 +1197,12 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// <summary>
 	/// Maps a display row index to the actual data row index, accounting for sorting.
 	/// </summary>
-	internal int MapDisplayToData(int displayIndex)
-	{
-		if (_filterIndexMap != null && displayIndex >= 0 && displayIndex < _filterIndexMap.Length)
-			return _filterIndexMap[displayIndex];
-		if (_sortIndexMap != null && displayIndex >= 0 && displayIndex < _sortIndexMap.Length)
-			return _sortIndexMap[displayIndex];
-		return displayIndex;
-	}
+	internal int MapDisplayToData(int displayIndex) => _rowView.MapDisplayToData(displayIndex);
 
 	/// <summary>
 	/// Maps a data row index to the display row index, accounting for filtering and sorting.
 	/// </summary>
-	internal int MapDataToDisplay(int dataIndex)
-	{
-		if (_filterIndexMap != null)
-		{
-			for (int i = 0; i < _filterIndexMap.Length; i++)
-			{
-				if (_filterIndexMap[i] == dataIndex) return i;
-			}
-			return dataIndex;
-		}
-		if (_sortIndexMap == null) return dataIndex;
-		for (int i = 0; i < _sortIndexMap.Length; i++)
-		{
-			if (_sortIndexMap[i] == dataIndex) return i;
-		}
-		return dataIndex;
-	}
+	internal int MapDataToDisplay(int dataIndex) => _rowView.MapDataToDisplay(dataIndex);
 
 	internal BoxChars GetBoxChars()
 	{
