@@ -9,73 +9,87 @@
 namespace SharpConsoleUI.Controls;
 
 /// <summary>
-/// Which data rows a <see cref="TableControl"/> displays, and in what order: the maps from a
-/// display position to a data row, and back.
+/// Which data rows a <see cref="TableControl"/> displays, and in what order: the map from a display
+/// position to a data row, and back.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The maps used to be loose fields on the control, assigned from fourteen places. Holding them
-/// here means the rules that keep them consistent — above all that a map supplied by the data
-/// source is flagged as such — are enforced by the type rather than remembered at every call site.
+/// ONE MAP. There used to be two, a sort map over every row and a filter map that might also be
+/// sorted, with the filter map winning whenever it existed. Each could go stale while the other was
+/// in use: sorting under a filter rebuilt only the filter map, so backspacing the filter away fell
+/// back to a sort map from before, and the rows showed one order under the header's indicator for
+/// another. A single map, rebuilt from the table's whole state, cannot disagree with itself.
 /// </para>
 /// <para>
-/// Two maps exist today: a sort map over every row, and a filter map that may also be sorted. A
-/// filter map wins whenever one is present.
+/// The map records where it came from, because the table treats the two origins differently. A map
+/// the table computed can be recomputed at any time. A map the data source supplied — or the
+/// source's own narrowing, which leaves no map at all — encodes what the SOURCE decided to show, and
+/// must never be rebuilt from a client-side scan. Every change goes through
+/// <see cref="SetComputed"/>, <see cref="SetFromSource"/> or <see cref="Clear"/>, so the origin
+/// cannot drift out of step with the map it describes.
 /// </para>
 /// </remarks>
 internal sealed class TableRowView
 {
 	/// <summary>
-	/// Maps display index to data index while sorted without a filter, or null for data order.
+	/// Maps display index to data index, or null when rows are addressed by identity: unsorted and
+	/// unfiltered, or filtered by a source that narrowed itself.
 	/// </summary>
-	internal int[]? SortMap { get; private set; }
+	internal int[]? Map { get; private set; }
 
 	/// <summary>
-	/// Maps display index to data index while a filter is active, or null when rows are addressed
-	/// by identity — either unfiltered, or filtered by a source that narrowed itself.
+	/// True when the data source decided what shows: it either supplied <see cref="Map"/>, or
+	/// narrowed itself and left the map null. The table must not rebuild either from its own scan.
 	/// </summary>
-	internal int[]? FilterMap { get; private set; }
+	internal bool FromSource { get; private set; }
+
+	/// <summary>True when the table computed <see cref="Map"/> with a filter applied.</summary>
+	internal bool BuiltWithFilter { get; private set; }
 
 	/// <summary>
-	/// True when <see cref="FilterMap"/> came from the data source rather than a client-side scan.
-	/// The table cannot rebuild such a map: it encodes what the SOURCE decided to show, which is the
-	/// point of <see cref="TableFilterOutcome.DisplayRowsSupplied"/>. Sorting therefore re-asks the
-	/// source instead of rescanning, exactly as it already does for a source that narrowed itself.
+	/// True when the map narrows the rows to a filter's matches, whoever computed it.
 	/// </summary>
 	/// <remarks>
-	/// Set only by <see cref="SetSourceFilterMap"/> and cleared by every other assignment of the
-	/// filter map, so the flag cannot drift out of step with the map it describes. Any assignment
-	/// forgetting to clear it would leave the table believing a client-side map came from the
-	/// source, and silently skipping the rebuild that keeps sorting correct.
+	/// NOT the same as "a map exists". A sort map, or any other map a table computes without a
+	/// filter, holds every row; mistaking one for a filter would, among other things, stop the
+	/// table recording its unfiltered row count when filtering starts.
 	/// </remarks>
-	internal bool FilterMapFromSource { get; private set; }
+	internal bool IsFilterMapActive => Map != null && (FromSource || BuiltWithFilter);
 
-	/// <summary>Installs or clears the sort map.</summary>
-	internal void SetSortMap(int[]? map) => SortMap = map;
+	/// <summary>True when the map is a filter's matches that the TABLE computed and can recompute.</summary>
+	internal bool HasClientFilterMap => Map != null && BuiltWithFilter;
 
-	/// <summary>Installs or clears a filter map the table built itself.</summary>
-	internal void SetFilterMap(int[]? map)
+	/// <summary>Installs a map the table computed, or null for data order.</summary>
+	/// <param name="map">The display map, or null.</param>
+	/// <param name="builtWithFilter">Whether a filter decided which rows the map holds.</param>
+	internal void SetComputed(int[]? map, bool builtWithFilter)
 	{
-		FilterMap = map;
-		FilterMapFromSource = false;
-	}
-
-	/// <summary>Installs a display map supplied by the data source, marking it as such.</summary>
-	internal void SetSourceFilterMap(int[] map)
-	{
-		FilterMap = map;
-		FilterMapFromSource = true;
+		Map = map;
+		FromSource = false;
+		BuiltWithFilter = builtWithFilter && map != null;
 	}
 
 	/// <summary>
-	/// Maps a display row index to the actual data row index, accounting for sorting.
+	/// Records the data source's answer to a filter: the display rows it supplied, or null when it
+	/// narrowed itself.
+	/// </summary>
+	internal void SetFromSource(int[]? map)
+	{
+		Map = map;
+		FromSource = true;
+		BuiltWithFilter = false;
+	}
+
+	/// <summary>Returns to data order with no filter.</summary>
+	internal void Clear() => SetComputed(null, builtWithFilter: false);
+
+	/// <summary>
+	/// Maps a display row index to the actual data row index, accounting for sorting and filtering.
 	/// </summary>
 	internal int MapDisplayToData(int displayIndex)
 	{
-		if (FilterMap != null && displayIndex >= 0 && displayIndex < FilterMap.Length)
-			return FilterMap[displayIndex];
-		if (SortMap != null && displayIndex >= 0 && displayIndex < SortMap.Length)
-			return SortMap[displayIndex];
+		if (Map != null && displayIndex >= 0 && displayIndex < Map.Length)
+			return Map[displayIndex];
 		return displayIndex;
 	}
 
@@ -84,18 +98,10 @@ internal sealed class TableRowView
 	/// </summary>
 	internal int MapDataToDisplay(int dataIndex)
 	{
-		if (FilterMap != null)
+		if (Map == null) return dataIndex;
+		for (int i = 0; i < Map.Length; i++)
 		{
-			for (int i = 0; i < FilterMap.Length; i++)
-			{
-				if (FilterMap[i] == dataIndex) return i;
-			}
-			return dataIndex;
-		}
-		if (SortMap == null) return dataIndex;
-		for (int i = 0; i < SortMap.Length; i++)
-		{
-			if (SortMap[i] == dataIndex) return i;
+			if (Map[i] == dataIndex) return i;
 		}
 		return dataIndex;
 	}

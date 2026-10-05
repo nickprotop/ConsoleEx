@@ -20,8 +20,7 @@ public partial class TableControl
 		if (_dataSource != null)
 			throw new InvalidOperationException("Cannot add rows when DataSource is set.");
 		lock (_tableLock) { _rows.Add(new TableRow(cells) { Owner = this }); }
-		_rowView.SetSortMap(null);
-		_rowView.SetFilterMap(null);
+		_rowView.Clear();
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Invalidate(Invalidation.Relayout);
@@ -35,8 +34,7 @@ public partial class TableControl
 		if (_dataSource != null)
 			throw new InvalidOperationException("Cannot add rows when DataSource is set.");
 		lock (_tableLock) { row.Owner = this; _rows.Add(row); }
-		_rowView.SetSortMap(null);
-		_rowView.SetFilterMap(null);
+		_rowView.Clear();
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Invalidate(Invalidation.Relayout);
@@ -57,8 +55,7 @@ public partial class TableControl
 				_rows.Add(row);
 			}
 		}
-		_rowView.SetSortMap(null);
-		_rowView.SetFilterMap(null);
+		_rowView.Clear();
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Invalidate(Invalidation.Relayout);
@@ -94,8 +91,7 @@ public partial class TableControl
 		}
 
 		AdjustSelectionAfterInsert(index, 1);
-		_rowView.SetSortMap(null);
-		_rowView.SetFilterMap(null);
+		_rowView.Clear();
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Invalidate(Invalidation.Relayout);
@@ -123,8 +119,7 @@ public partial class TableControl
 		}
 
 		AdjustSelectionAfterInsert(index, rowList.Count);
-		_rowView.SetSortMap(null);
-		_rowView.SetFilterMap(null);
+		_rowView.Clear();
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Invalidate(Invalidation.Relayout);
@@ -183,8 +178,7 @@ public partial class TableControl
 			}
 		}
 
-		_rowView.SetSortMap(null);
-		_rowView.SetFilterMap(null);
+		_rowView.Clear();
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Invalidate(Invalidation.Relayout);
@@ -206,8 +200,7 @@ public partial class TableControl
 		_scrollOffset = 0;
 		_horizontalScrollOffset = 0;
 		_selectedRowIndices.Clear();
-		_rowView.SetSortMap(null);
-		_rowView.SetFilterMap(null);
+		_rowView.Clear();
 		_filterMode = FilterMode.None;
 		_filterBuffer = string.Empty;
 		_activeFilter = null;
@@ -298,7 +291,9 @@ public partial class TableControl
 			_rows = new List<TableRow>(rows);
 			foreach (var row in _rows) row.Owner = this;
 		}
-		_rowView.SetSortMap(null);
+		// Drops a sort map but keeps a filter map, as SetData always has; both go stale here.
+		if (!_rowView.IsFilterMapActive)
+			_rowView.Clear();
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();
 		Invalidate(Invalidation.Relayout);

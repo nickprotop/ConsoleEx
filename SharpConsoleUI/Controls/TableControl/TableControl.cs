@@ -185,7 +185,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	internal string _filterBuffer = string.Empty;
 	internal int _filterCursorPosition = 0;
 
-	// Which data rows are displayed, in what order (sort and filter maps)
+	// Which data rows are displayed, in what order: one map for sort and filter together
 	private readonly TableRowView _rowView = new();
 
 	/// <summary>
@@ -198,7 +198,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// such a table sorts the way a self-narrowing source already does — through
 	/// <see cref="ITableDataSource.Sort"/>.
 	/// </remarks>
-	private bool HasClientFilterMap => _rowView.FilterMap != null && !_rowView.FilterMapFromSource && _activeFilter != null;
+	private bool HasClientFilterMap => _rowView.HasClientFilterMap && _activeFilter != null;
 	internal int _unfilteredRowCount = 0;
 	internal CompoundFilterExpression? _activeFilter;
 	internal bool _fuzzyFilterEnabled = false;
@@ -364,7 +364,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	{
 		get
 		{
-			if (_rowView.FilterMap != null) return _rowView.FilterMap.Length;
+			if (_rowView.Map != null) return _rowView.Map.Length;
 			if (_dataSource != null) return _dataSource.RowCount;
 			lock (_tableLock) { return _rows.Count; }
 		}
@@ -502,8 +502,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			_horizontalScrollOffset = 0;
 			_sortColumnIndex = -1;
 			_sortDirection = SortDirection.None;
-			_rowView.SetSortMap(null);
-			_rowView.SetFilterMap(null);
+			_rowView.Clear();
 			_filterMode = FilterMode.None;
 			_filterBuffer = string.Empty;
 			_activeFilter = null;

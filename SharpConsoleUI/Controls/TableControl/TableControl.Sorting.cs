@@ -94,20 +94,18 @@ public partial class TableControl
 		}
 
 		if (_sortDirection == SortDirection.None)
-		{
 			_sortColumnIndex = -1;
-			_rowView.SetSortMap(null);
-			// If filter is active, recompute without sort
-			if (HasClientFilterMap)
-				RecomputeDisplayMap();
+
+		// A data source sorts itself unless the table is filtering it client-side; there it owns the
+		// map and sorts the matches the same way it sorts its own rows.
+		if (_dataSource != null && !HasClientFilterMap)
+		{
+			if (_sortDirection != SortDirection.None)
+				_dataSource.Sort(_sortColumnIndex, _sortDirection);
 		}
 		else
 		{
-			// If filter is active, recompute combined map
-			if (HasClientFilterMap)
-				RecomputeDisplayMap();
-			else
-				ApplySort();
+			RebuildDisplayMap();
 		}
 
 		// Restore selection by tag
@@ -137,38 +135,34 @@ public partial class TableControl
 	{
 		_sortColumnIndex = -1;
 		_sortDirection = SortDirection.None;
-		_rowView.SetSortMap(null);
-		// If filter is active, recompute without sort
-		if (HasClientFilterMap)
-			RecomputeDisplayMap();
+		if (_dataSource == null || HasClientFilterMap)
+			RebuildDisplayMap();
 		Invalidate(Invalidation.Relayout);
 	}
 
-	private void ApplySort()
+	/// <summary>
+	/// Recomputes the display map from the table's whole state, filter and sort together, except
+	/// where the data source owns the answer.
+	/// </summary>
+	/// <remarks>
+	/// THE ONE WAY THE MAP IS REBUILT, replacing a sort routine and a filter routine that each
+	/// rebuilt their own map and left the other stale. A data source's answer to a filter is never
+	/// recomputed from a client-side scan, and without a client-side filter a source is read by
+	/// identity, having sorted itself through <see cref="ITableDataSource.Sort"/>.
+	/// </remarks>
+	private void RebuildDisplayMap()
 	{
 		if (_dataSource != null)
 		{
-			// Delegate sorting to the data source
-			_dataSource.Sort(_sortColumnIndex, _sortDirection);
-			_rowView.SetSortMap(null);
-			return;
-		}
-
-		lock (_tableLock)
-		{
-			int rowCount = _rows.Count;
-			if (rowCount == 0)
+			if (_rowView.FromSource) return;
+			if (_activeFilter == null)
 			{
-				_rowView.SetSortMap(null);
+				_rowView.Clear();
 				return;
 			}
-
-			// Build index map
-			var indices = Enumerable.Range(0, rowCount).ToArray();
-			Array.Sort(indices, CreateRowComparison(_sortColumnIndex, _sortDirection));
-
-			_rowView.SetSortMap(indices);
 		}
+
+		RecomputeDisplayMap();
 	}
 
 	/// <summary>

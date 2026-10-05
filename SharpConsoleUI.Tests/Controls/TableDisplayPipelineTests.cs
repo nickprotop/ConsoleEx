@@ -266,4 +266,61 @@ public class TableDisplayPipelineTests
 	}
 
 	#endregion
+
+	#region One display map, so the order on screen is the order on the header
+
+	/// <summary>Three people whose first and last names sort in opposite orders.</summary>
+	private static TableControl FirstLastTable()
+	{
+		var table = new TableControl { SortingEnabled = true, FilteringEnabled = true, ReadOnly = false };
+		table.AddColumn("First");
+		table.AddColumn("Last");
+		table.AddRow("Ann", "Zed");
+		table.AddRow("Bob", "Young");
+		table.AddRow("Cid", "Xu");
+		return table;
+	}
+
+	private static ConsoleKeyInfo Key(ConsoleKey key, char ch = '\0') => new(ch, key, false, false, false);
+
+	[Fact]
+	public void BackspacingAFilterToEmpty_ShowsTheSortTheHeaderShows()
+	{
+		var table = FirstLastTable();
+		table.SortByColumn(0);
+		table.EnterFilterMode();
+		table.ProcessFilterKey(Key(ConsoleKey.U, 'u'));
+		table.SortByColumn(1);
+
+		table.ProcessFilterKey(Key(ConsoleKey.Backspace));
+
+		Assert.Equal(1, table.SortColumnIndex);
+		Assert.Equal(["Cid", "Bob", "Ann"], Displayed(table));
+	}
+
+	[Fact]
+	public void ClearingAFilter_ShowsTheSortChangedWhileItWasActive()
+	{
+		var table = FirstLastTable();
+		table.SortByColumn(0);
+		table.ApplyFilter("n|b|d");
+		table.SortByColumn(1);
+
+		table.ClearFilter();
+
+		Assert.Equal(["Cid", "Bob", "Ann"], Displayed(table));
+	}
+
+	[Fact]
+	public void ASortedTable_CountsAllItsRowsWhenFilteringStarts()
+	{
+		var table = FirstLastTable();
+		table.SortByColumn(0);
+
+		table.EnterFilterMode();
+
+		Assert.Equal(3, table._unfilteredRowCount);
+	}
+
+	#endregion
 }

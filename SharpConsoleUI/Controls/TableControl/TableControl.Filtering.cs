@@ -184,7 +184,7 @@ public partial class TableControl
 		// changes its own RowCount, so asking afterwards reports the filtered set as the total and
 		// the footer reads "1/1 rows". EnterFilterMode captures this too, but only the interactive
 		// path goes through it — calling ApplyFilter directly must work the same way.
-		if (_rowView.FilterMap == null && _unfilteredRowCount == 0)
+		if (!_rowView.IsFilterMapActive && _unfilteredRowCount == 0)
 		{
 			if (_dataSource != null)
 				_unfilteredRowCount = _dataSource.RowCount;
@@ -270,13 +270,14 @@ public partial class TableControl
 			// addresses rows through its map. Flagged as the source's so a later sort re-asks the
 			// source instead of rebuilding the map from a client-side scan, which would throw away
 			// the very knowledge the source overrode this to supply.
-			_rowView.SetSourceFilterMap(BuildSourceDisplayMap(result.DisplayRows!));
+			_rowView.SetFromSource(BuildSourceDisplayMap(result.DisplayRows!));
 		}
 		else
 		{
 			// The source now reports only matching rows, so no display map is needed: RowCount reads
-			// through to it and MapDisplayToData stays identity.
-			_rowView.SetFilterMap(null);
+			// through to it and MapDisplayToData stays identity. Still recorded as the source's
+			// answer, so nothing rebuilds a map over the narrowed rows from a client-side scan.
+			_rowView.SetFromSource(null);
 		}
 
 		// _unfilteredRowCount is deliberately NOT reset here. It was captured before the source
@@ -372,20 +373,25 @@ public partial class TableControl
 		if (delegated)
 			_dataSource!.ClearFilter();
 
-		if (!delegated && _filterMode == FilterMode.None && _rowView.FilterMap == null) return;
+		if (!delegated && _filterMode == FilterMode.None && !_rowView.IsFilterMapActive) return;
 
 		_filterMode = FilterMode.None;
 		_filterBuffer = string.Empty;
 		_filterCursorPosition = 0;
 		_activeFilter = null;
-		_rowView.SetFilterMap(null);
 		_unfilteredRowCount = 0;
 
-		// If sort is still active, ensure sort map is intact
-		if (_sortDirection != SortDirection.None)
+		// A data source sorts itself and is read by identity again; the table's own rows get the
+		// map rebuilt from the sort as it is NOW, which may have changed while the filter was on.
+		if (_dataSource != null)
 		{
-			// Re-apply sort without filter
-			ApplySort();
+			_rowView.Clear();
+			if (_sortDirection != SortDirection.None)
+				_dataSource.Sort(_sortColumnIndex, _sortDirection);
+		}
+		else
+		{
+			RebuildDisplayMap();
 		}
 
 		Core.AsyncEvent.Raise(FilterCleared, FilterClearedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
@@ -410,7 +416,7 @@ public partial class TableControl
 		_activeFilter = null;
 
 		// Store unfiltered count
-		if (_rowView.FilterMap == null)
+		if (!_rowView.IsFilterMapActive)
 		{
 			if (_dataSource != null)
 				_unfilteredRowCount = _dataSource.RowCount;
@@ -518,8 +524,8 @@ public partial class TableControl
 			if (_dataSource != null && _dataSource.CanFilter && _activeFilter != null)
 				_dataSource.ClearFilter();
 
-			_rowView.SetFilterMap(null);
 			_activeFilter = null;
+			ShowUnfilteredRows();
 			_selectedRowIndex = RowCount > 0 ? 0 : -1;
 			_scrollOffset = 0;
 		}
@@ -537,7 +543,7 @@ public partial class TableControl
 				if (compound != null)
 					RecomputeDisplayMap();
 				else
-					_rowView.SetFilterMap(null);
+					ShowUnfilteredRows();
 
 				_selectedRowIndex = RowCount > 0 ? 0 : -1;
 				_scrollOffset = 0;
@@ -738,26 +744,46 @@ public partial class TableControl
 	#region Filter Computation
 
 	/// <summary>
-	/// Recomputes the combined filter+sort display map.
+	/// Computes the display map client-side from the active filter and sort together.
 	/// </summary>
+	/// <remarks>
+	/// Unconditional: the filter paths call it after the data source has declined the filter, when
+	/// the map is the table's to build whatever the source answered before. Everything else goes
+	/// through <see cref="RebuildDisplayMap"/>, which leaves a source's own answer alone.
+	/// </remarks>
 	internal void RecomputeDisplayMap()
 	{
-		if (_activeFilter == null)
+		bool sorted = _sortDirection != SortDirection.None && _sortColumnIndex >= 0;
+		if (_activeFilter == null && !sorted)
 		{
-			_rowView.SetFilterMap(null);
+			_rowView.Clear();
 			return;
 		}
 
-		// Step 1: Compute filtered indices (compound filter)
-		var filtered = ComputeFilteredIndices(_activeFilter);
+		// Step 1: The filter's matches, or every row when only sorting
+		int[] rows;
+		if (_activeFilter != null)
+			rows = ComputeFilteredIndices(_activeFilter);
+		else
+			rows = Enumerable.Range(0, GetUnfilteredRowCount()).ToArray();
 
-		// Step 2: If sort is active, sort the filtered indices
-		if (_sortDirection != SortDirection.None && _sortColumnIndex >= 0)
-		{
-			SortIndices(filtered);
-		}
+		// Step 2: If sort is active, sort them
+		if (sorted)
+			SortIndices(rows);
 
-		_rowView.SetFilterMap(filtered);
+		_rowView.SetComputed(rows, builtWithFilter: _activeFilter != null);
+	}
+
+	/// <summary>
+	/// Shows every row again after the filter text was emptied or stopped parsing: a data source
+	/// is read by identity, the table's own rows keep the current sort.
+	/// </summary>
+	private void ShowUnfilteredRows()
+	{
+		if (_dataSource != null)
+			_rowView.Clear();
+		else
+			RebuildDisplayMap();
 	}
 
 	/// <summary>
