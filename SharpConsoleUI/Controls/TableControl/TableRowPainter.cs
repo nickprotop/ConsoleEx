@@ -26,6 +26,13 @@ namespace SharpConsoleUI.Controls;
 internal static class TableRowPainter
 {
 	/// <summary>
+	/// How far each of a truncated cell's last cells blends toward the background when
+	/// <see cref="TableControl.TruncationFade"/> is on, nearest the text first. Its length is the
+	/// number of cells that fade.
+	/// </summary>
+	private static readonly float[] TruncationFadeSteps = { 0.10f, 0.35f, 0.65f, 0.90f };
+
+	/// <summary>
 	/// Draws a horizontal border line (top, header separator, row separator, or bottom).
 	/// </summary>
 	internal static void DrawHorizontalLine(CharacterBuffer buffer, in TableRowStyle style, int x, int y,
@@ -370,17 +377,17 @@ internal static class TableRowPainter
 				// Apply truncation fade if enabled and this cell was truncated. Skipped when the scroll
 				// offset cuts into the middle of this same cell (cellStartX/colW would no longer bound
 				// its actually-drawn span in the buffer, which could bleed the fade into the next column).
-				if (style.TruncationFade && wasTruncated && colW > 4 && cellLogicalStart >= hScrollOffset)
+				int fadeCells = TruncationFadeSteps.Length;
+				if (style.TruncationFade && wasTruncated && colW > fadeCells && cellLogicalStart >= hScrollOffset)
 				{
-					float[] fadeSteps = { 0.10f, 0.35f, 0.65f, 0.90f };
-					int fadeStart = cellStartX + colW - 4;
-					for (int fi = 0; fi < 4; fi++)
+					int fadeStart = cellStartX + colW - fadeCells;
+					for (int fi = 0; fi < fadeCells; fi++)
 					{
 						int fx = fadeStart + fi;
 						if (fx >= clipRect.X && fx < clipRect.Right)
 						{
 							var existing = buffer.GetCell(fx, y);
-							var fadedFg = ColorBlendHelper.BlendColor(existing.Foreground, existing.Background, fadeSteps[fi]);
+							var fadedFg = ColorBlendHelper.BlendColor(existing.Foreground, existing.Background, TruncationFadeSteps[fi]);
 							buffer.SetCellColors(fx, y, fadedFg, existing.Background);
 						}
 					}

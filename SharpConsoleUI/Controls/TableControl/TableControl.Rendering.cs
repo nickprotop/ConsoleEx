@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
@@ -45,7 +46,7 @@ public partial class TableControl
 			contentWidth = Math.Max(1, contentWidth - 1 - ScrollbarGutterWidth);
 
 		// Reserve space for checkbox column
-		int cbWidth = _checkboxMode ? 4 : 0;
+		int cbWidth = _checkboxMode ? ControlDefaults.TableCheckboxColumnWidth : 0;
 		bool hasBorder = _borderStyle != BorderStyle.None;
 		int dataContentWidth2 = contentWidth;
 		if (_checkboxMode)
@@ -196,7 +197,7 @@ public partial class TableControl
 		int columnContentWidth = Math.Max(1, contentWidth - scrollbarGutter);
 
 		// Reserve space for checkbox column before computing data column widths
-		int checkboxColWidth = _checkboxMode ? 4 : 0;
+		int checkboxColWidth = _checkboxMode ? ControlDefaults.TableCheckboxColumnWidth : 0;
 		int dataContentWidth = columnContentWidth;
 		if (_checkboxMode)
 		{
@@ -297,7 +298,7 @@ public partial class TableControl
 		if (_checkboxMode && renderCols != null)
 		{
 			var withCheckbox = new List<TableColumn>(renderCols.Count + 1);
-			withCheckbox.Add(new TableColumn { Header = "", Alignment = TextJustification.Left, Width = 4 });
+			withCheckbox.Add(new TableColumn { Header = "", Alignment = TextJustification.Left, Width = ControlDefaults.TableCheckboxColumnWidth });
 			withCheckbox.AddRange(renderCols);
 			renderCols = withCheckbox;
 		}

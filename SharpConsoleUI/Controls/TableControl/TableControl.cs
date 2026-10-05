@@ -875,14 +875,14 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// Computes the widths of the table's own columns for the given total available width.
 	/// Uses sample-based measurement for auto-width columns (visible rows + small buffer).
 	/// </summary>
-	internal int[] ComputeColumnWidths(int availableWidth, List<TableColumn> cols, List<TableRow>? rows, int scrollOffset = 0, int visibleRowCount = 50)
+	internal int[] ComputeColumnWidths(int availableWidth, List<TableColumn> cols, List<TableRow>? rows, int scrollOffset = 0, int visibleRowCount = ControlDefaults.TableColumnWidthSampleRows)
 		=> _widthCalculator.Compute(new TableColumnWidthSource(cols, rows),
 			CreateWidthLayout(availableWidth, scrollOffset, visibleRowCount), useCache: true);
 
 	/// <summary>
 	/// Computes column widths for DataSource mode.
 	/// </summary>
-	internal int[] ComputeColumnWidthsFromDataSource(int availableWidth, int scrollOffset = 0, int visibleRowCount = 50)
+	internal int[] ComputeColumnWidthsFromDataSource(int availableWidth, int scrollOffset = 0, int visibleRowCount = ControlDefaults.TableColumnWidthSampleRows)
 	{
 		if (_dataSource == null) return Array.Empty<int>();
 

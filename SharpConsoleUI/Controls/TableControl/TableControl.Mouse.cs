@@ -585,8 +585,8 @@ public partial class TableControl
 		if (!_checkboxMode || _renderedColumnX == null || _renderedColumnX.Length == 0) return false;
 		// Checkbox is a silent column rendered before the first data column
 		bool hasBorder = _borderStyle != BorderStyle.None;
-		int checkboxStart = _renderedColumnX[0] - ActualX - 4 - (hasBorder ? 1 : 0);
-		int checkboxEnd = checkboxStart + 4;
+		int checkboxStart = _renderedColumnX[0] - ActualX - ControlDefaults.TableCheckboxColumnWidth - (hasBorder ? 1 : 0);
+		int checkboxEnd = checkboxStart + ControlDefaults.TableCheckboxColumnWidth;
 		return relativeX >= checkboxStart && relativeX < checkboxEnd;
 	}
 
@@ -651,7 +651,7 @@ public partial class TableControl
 		for (int c = 0; c < _renderedColumnX.Length; c++)
 		{
 			int colEnd = _renderedColumnX[c] - ActualX + _renderedColumnWidths[c];
-			if (Math.Abs(args.Position.X - colEnd) <= 1)
+			if (Math.Abs(args.Position.X - colEnd) <= ControlDefaults.TableColumnResizeHitTolerance)
 				return true;
 		}
 		return false;
@@ -788,7 +788,7 @@ public partial class TableControl
 		for (int c = 0; c < _renderedColumnX.Length; c++)
 		{
 			int colEnd = _renderedColumnX[c] - ActualX + _renderedColumnWidths[c];
-			if (Math.Abs(args.Position.X - colEnd) <= 1)
+			if (Math.Abs(args.Position.X - colEnd) <= ControlDefaults.TableColumnResizeHitTolerance)
 			{
 				_resizingColumnIndex = c;
 				_resizeDragStartX = args.Position.X;
@@ -801,7 +801,7 @@ public partial class TableControl
 	private void HandleColumnResizeDrag(MouseEventArgs args)
 	{
 		int deltaX = args.Position.X - _resizeDragStartX;
-		int newWidth = Math.Max(3, _resizeDragStartWidth + deltaX); // Minimum 3 chars
+		int newWidth = Math.Max(ControlDefaults.TableMinResizeColumnWidth, _resizeDragStartWidth + deltaX);
 
 		if (_dataSource != null)
 		{

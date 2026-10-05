@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 
@@ -75,7 +76,7 @@ internal sealed class TableColumnWidthCalculator
 
 		// Determine sample range for auto-width columns
 		int sampleStart = Math.Max(0, layout.ScrollOffset);
-		int sampleEnd = Math.Min(source.RowCount, layout.ScrollOffset + Math.Max(50, layout.VisibleRowCount));
+		int sampleEnd = Math.Min(source.RowCount, layout.ScrollOffset + Math.Max(ControlDefaults.TableColumnWidthSampleRows, layout.VisibleRowCount));
 
 		for (int c = 0; c < colCount; c++)
 		{

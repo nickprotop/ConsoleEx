@@ -1235,5 +1235,21 @@ namespace SharpConsoleUI.Configuration
 		public const int TabScrollIndicatorWidth = 1;
 
 		#endregion
+
+		#region Table
+
+		/// <summary>Cells the checkbox column takes in a TableControl's checkbox mode, room for <c>"[x] "</c> (default: 4).</summary>
+		public const int TableCheckboxColumnWidth = 4;
+
+		/// <summary>Narrowest a TableControl column can be dragged to while resizing it (default: 3).</summary>
+		public const int TableMinResizeColumnWidth = 3;
+
+		/// <summary>Cells either side of a TableControl column border where a press still starts a resize (default: 1).</summary>
+		public const int TableColumnResizeHitTolerance = 1;
+
+		/// <summary>Fewest rows a TableControl samples when sizing an auto-width column from its content (default: 50).</summary>
+		public const int TableColumnWidthSampleRows = 50;
+
+		#endregion
 	}
 }
