@@ -392,8 +392,10 @@ public partial class TableControl
 		// Track data row rendering area for scrollbar
 		int dataStartY = currentY;
 
-		// Data rows - virtual rendering (only visible rows)
-		int rowCount = rowSnapshot?.Count ?? RowCount;
+		// Data rows - virtual rendering (only visible rows). RowCount, not the snapshot's count: the
+		// snapshot holds every data row, and the display positions past a filter's matches fell back
+		// to identity in MapDisplayToData, painting the unmatched rows below the matches.
+		int rowCount = RowCount;
 		int startRow = _scrollOffset;
 		int endRow = Math.Min(rowCount, _scrollOffset + GetVisibleRowCount());
 
