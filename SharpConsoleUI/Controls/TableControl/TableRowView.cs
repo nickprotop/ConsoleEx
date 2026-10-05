@@ -31,6 +31,8 @@ namespace SharpConsoleUI.Controls;
 /// </remarks>
 internal sealed class TableRowView
 {
+	private InverseMap? _inverse;
+
 	/// <summary>
 	/// Maps display index to data index, or null when rows are addressed by identity: unsorted and
 	/// unfiltered, or filtered by a source that narrowed itself.
@@ -94,15 +96,50 @@ internal sealed class TableRowView
 	}
 
 	/// <summary>
-	/// Maps a data row index to the display row index, accounting for filtering and sorting.
+	/// Maps a data row index to the display row index, accounting for filtering and sorting, or -1
+	/// when the map does not display that row.
 	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// A hidden row used to map to its own data index, which is a display position belonging to some
+	/// other row: anything locating a row through this landed on the wrong one instead of learning
+	/// that the row is not shown.
+	/// </para>
+	/// <para>
+	/// O(1) through an inverse map, built on first use after the map changes, where this used to scan
+	/// the map on every call. Restoring a multi-selection after every change asks once per selected
+	/// row. The inverse is sized by the largest index in the map, since every data row past it is
+	/// hidden anyway; a data index the table does not have maps to -1 the same way.
+	/// </para>
+	/// </remarks>
 	internal int MapDataToDisplay(int dataIndex)
 	{
-		if (Map == null) return dataIndex;
-		for (int i = 0; i < Map.Length; i++)
-		{
-			if (Map[i] == dataIndex) return i;
-		}
-		return dataIndex;
+		var map = Map;
+		if (map == null) return dataIndex;
+
+		// Keyed by the map it inverts, so a map swapped in by another thread mid-call cannot be read
+		// through the previous map's inverse.
+		var cached = _inverse;
+		if (cached == null || !ReferenceEquals(cached.Map, map))
+			_inverse = cached = new InverseMap(map, BuildInverse(map));
+
+		var inverse = cached.Inverse;
+		return dataIndex >= 0 && dataIndex < inverse.Length ? inverse[dataIndex] : -1;
 	}
+
+	private static int[] BuildInverse(int[] map)
+	{
+		int length = 0;
+		foreach (int dataIndex in map)
+			length = Math.Max(length, dataIndex + 1);
+
+		var inverse = new int[length];
+		Array.Fill(inverse, -1);
+		for (int display = 0; display < map.Length; display++)
+			inverse[map[display]] = display;
+		return inverse;
+	}
+
+	/// <summary>A data-to-display inverse, together with the map it was built from.</summary>
+	private sealed record InverseMap(int[] Map, int[] Inverse);
 }

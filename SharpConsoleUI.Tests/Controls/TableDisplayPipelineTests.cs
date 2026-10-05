@@ -323,4 +323,43 @@ public class TableDisplayPipelineTests
 	}
 
 	#endregion
+
+	#region A hidden row has no display position
+
+	[Fact]
+	public void ARowTheFilterHides_MapsToNoDisplayPosition()
+	{
+		var table = PeopleTable();
+
+		table.ApplyFilter("a");
+
+		Assert.Equal(-1, table.MapDataToDisplay(1));   // Bob
+		Assert.Equal(-1, table.MapDataToDisplay(4));   // Eve
+	}
+
+	[Fact]
+	public void ADisplayedRow_MapsToItsPositionUnderSortAndFilter()
+	{
+		var table = PeopleTable();
+		table.SortingEnabled = true;
+		table.ApplyFilter("a");
+
+		table.SortByColumn(0);
+		table.SortByColumn(0);
+
+		Assert.Equal(["Dave", "Carol", "Alice"], Displayed(table));
+		Assert.Equal(0, table.MapDataToDisplay(3));    // Dave
+		Assert.Equal(1, table.MapDataToDisplay(2));    // Carol
+		Assert.Equal(2, table.MapDataToDisplay(0));    // Alice
+	}
+
+	[Fact]
+	public void WithoutAMap_EveryRowIsItsOwnDisplayPosition()
+	{
+		var table = PeopleTable();
+
+		Assert.Equal(3, table.MapDataToDisplay(3));
+	}
+
+	#endregion
 }
