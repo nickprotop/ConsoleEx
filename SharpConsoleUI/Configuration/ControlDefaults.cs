@@ -1257,5 +1257,18 @@ namespace SharpConsoleUI.Configuration
 		public const int TableIncrementalUpdateMaxRows = 64;
 
 		#endregion
+
+		#region Tree Guides
+
+		/// <summary>Indicator in front of an expanded tree node with children, as plain text (narrow ASCII).</summary>
+		public const string TreeExpandedIndicator = "[-] ";
+
+		/// <summary>Indicator in front of a collapsed tree node with children, as plain text (narrow ASCII).</summary>
+		public const string TreeCollapsedIndicator = "[+] ";
+
+		/// <summary>What follows each ancestor level's guide line in a tree (default: two spaces).</summary>
+		public const string DefaultTreeIndent = "  ";
+
+		#endregion
 	}
 }
