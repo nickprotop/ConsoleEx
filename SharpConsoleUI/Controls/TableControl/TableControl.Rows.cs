@@ -334,13 +334,42 @@ public partial class TableControl
 	/// </remarks>
 	protected virtual int ResolveHiddenSelectedRow(int dataIndex) => -1;
 
-	/// <summary>Asks <see cref="ResolveHiddenSelectedRow"/>, with the rows locked against change.</summary>
-	private int ResolveHiddenRow(int dataIndex)
+	/// <summary>
+	/// Names the row the cursor should move to when its own row was removed from the table.
+	/// </summary>
+	/// <param name="row">The row the cursor was on, no longer in the table.</param>
+	/// <returns>
+	/// A displayed data row to select instead, counted in the rows as they are now, or -1 to let the
+	/// table choose: the row now at the cursor's old position.
+	/// </returns>
+	/// <remarks>
+	/// <para>
+	/// In a flat list the row that takes the removed row's place is the natural next stop, so the
+	/// default returns -1 and keeps what removing the selected row has always done. A derived table
+	/// whose rows have a structure knows better: in a tree, the row now below a removed subtree can
+	/// belong to another parent, and the next sibling, or the parent, is where the cursor belongs.
+	/// </para>
+	/// <para>
+	/// Called after the rows changed and the display rows were recomputed, on the UI thread, never
+	/// while <see cref="SyncRoot"/> is held, and only when the cursor's own row was removed. The
+	/// selection events follow, since the selected row changes. An answer that is not displayed is
+	/// ignored. Changing the rows from here throws <see cref="InvalidOperationException"/>.
+	/// </para>
+	/// </remarks>
+	protected virtual int ResolveRemovedSelectedRow(TableRow row) => -1;
+
+	/// <summary>
+	/// Asks <see cref="ResolveHiddenSelectedRow"/> or <see cref="ResolveRemovedSelectedRow"/> for the
+	/// row standing in for the cursor's, with the rows locked against change.
+	/// </summary>
+	private int ResolveStandInRow(in RowSelection before)
 	{
 		_displayRowsHookDepth++;
 		try
 		{
-			return ResolveHiddenSelectedRow(dataIndex);
+			if (before.Cursor >= 0)
+				return ResolveHiddenSelectedRow(before.Cursor);
+			return before.CursorRow != null ? ResolveRemovedSelectedRow(before.CursorRow) : -1;
 		}
 		finally
 		{
@@ -356,7 +385,7 @@ public partial class TableControl
 	{
 		if (_displayRowsHookDepth > 0)
 			throw new InvalidOperationException(
-				"The rows cannot be changed, or the displayed rows recomputed, from ComputeDisplayRows or ResolveHiddenSelectedRow.");
+				"The rows cannot be changed, or the displayed rows recomputed, from ComputeDisplayRows, ResolveHiddenSelectedRow or ResolveRemovedSelectedRow.");
 	}
 
 	#endregion
@@ -431,7 +460,8 @@ public partial class TableControl
 	/// <param name="count">How many rows to remove; the range lies within the data rows.</param>
 	/// <remarks>
 	/// One complete change, as <see cref="InsertRowsCore"/> is. Called by <see cref="RemoveRow(int)"/>.
-	/// A selected row that is removed hands the cursor to the row now in its place.
+	/// A selected row that is removed hands the cursor to the row <see cref="ResolveRemovedSelectedRow"/>
+	/// names, by default the row now in its place.
 	/// </remarks>
 	protected virtual void RemoveRowsCore(int index, int count)
 	{
@@ -517,6 +547,9 @@ public partial class TableControl
 	{
 		/// <summary>The cursor's data row, -1 for none, or <see cref="RemovedRow"/>.</summary>
 		internal int Cursor;
+
+		/// <summary>The cursor's row, kept to name it once a change has removed it.</summary>
+		internal TableRow? CursorRow;
 
 		/// <summary>The cursor's display position before the change.</summary>
 		internal int CursorPosition;
@@ -609,9 +642,21 @@ public partial class TableControl
 				selected.Add(MapDisplayToData(position));
 		}
 
+		int cursor = DataRowAt(_selectedRowIndex);
+		TableRow? cursorRow = null;
+		if (cursor >= 0)
+		{
+			lock (_tableLock)
+			{
+				if (cursor < _rows.Count)
+					cursorRow = _rows[cursor];
+			}
+		}
+
 		return new RowSelection
 		{
-			Cursor = DataRowAt(_selectedRowIndex),
+			Cursor = cursor,
+			CursorRow = cursorRow,
 			CursorPosition = _selectedRowIndex,
 			CursorWasVisible = _selectedRowIndex >= _scrollOffset && _selectedRowIndex < _scrollOffset + GetVisibleRowCount(),
 			Anchor = DataRowAt(_selectionAnchorRowIndex),
@@ -626,9 +671,10 @@ public partial class TableControl
 	/// <remarks>
 	/// <para>
 	/// A cursor whose row is still displayed follows it to its new position. One whose row is still
-	/// in the table but hidden goes to the row <see cref="ResolveHiddenSelectedRow"/> names. One whose
-	/// row was removed, or that has no stand-in, lands on the row now at its old position, clamped to
-	/// the rows there are, which is what removing the selected row has always done.
+	/// in the table but hidden goes to the row <see cref="ResolveHiddenSelectedRow"/> names, and one
+	/// whose row was removed to the row <see cref="ResolveRemovedSelectedRow"/> names. One without a
+	/// stand-in lands on the row now at its old position, clamped to the rows there are, which is what
+	/// removing the selected row has always done.
 	/// </para>
 	/// <para>
 	/// EVENTS ONLY WHEN THE ROW CHANGES. A cursor that merely moves because rows were inserted or
@@ -659,8 +705,8 @@ public partial class TableControl
 			int position = before.Cursor >= 0 ? MapDataToDisplay(before.Cursor) : -1;
 			if (position < 0 || position >= rowCount)
 			{
-				// Still a row, only hidden: a derived table may know which row stands in for it.
-				int standIn = before.Cursor >= 0 ? ResolveHiddenRow(before.Cursor) : -1;
+				// Hidden or removed: a derived table may know which row stands in for it.
+				int standIn = ResolveStandInRow(in before);
 				position = standIn >= 0 && standIn < DataRowCount ? MapDataToDisplay(standIn) : -1;
 				if (position < 0 || position >= rowCount)
 					position = rowCount == 0 ? -1 : Math.Clamp(before.CursorPosition, 0, rowCount - 1);

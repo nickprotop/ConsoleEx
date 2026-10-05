@@ -619,6 +619,7 @@ cannot. Every member below is protected, and runs on the UI thread.
 | `ComputeDisplayRows(TableDisplayQuery)` | Return the data rows to display, in order, or `null` for all rows in data order. Called after every change that can alter what is shown. The default applies the filter and a stable sort, kept up to date incrementally. |
 | `RefreshDisplayRows()` | Ask again after state only the derived table knows about changed, such as a parent being expanded. The selection follows its rows. |
 | `ResolveHiddenSelectedRow(int)` | Name the row the cursor moves to when its own row is still there but hidden. Default `-1`: the row now at its old position. |
+| `ResolveRemovedSelectedRow(TableRow)` | Name the row the cursor moves to when its own row was removed. Default `-1`: the row now at its old position. |
 | `RowMatchesFilter(int, CompoundFilterExpression)` | The table's own matching rules, fuzzy fallback included. |
 | `CompareRows(...)`, `SortRowIndices(...)` | The table's own comparison, and the stable sort built on it, over a span. |
 | `DataRowCount`, `GetDataRowIndex(int)`, `GetDisplayRowIndex(int)` | Map between data rows and display positions; `-1` for none. |
@@ -635,8 +636,9 @@ cell accessors — run up to it.
 | `CreateRow(string[])` | The row the text overloads of `AddRow` and `InsertRow` create — return your own row type here. |
 | `OnRowContentChanged(TableRow)` | Called after a row's cells change. The table does not re-sort on its own; call `RefreshDisplayRows` here if your order depends on content. |
 
-Changing the rows, or calling `RefreshDisplayRows`, from inside `ComputeDisplayRows` or
-`ResolveHiddenSelectedRow` throws `InvalidOperationException` rather than recursing.
+Changing the rows, or calling `RefreshDisplayRows`, from inside `ComputeDisplayRows`,
+`ResolveHiddenSelectedRow` or `ResolveRemovedSelectedRow` throws `InvalidOperationException` rather
+than recursing.
 
 ### Drawing and input
 

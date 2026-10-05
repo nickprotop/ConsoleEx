@@ -359,6 +359,112 @@ public class TableExtensibilityTests
 
 	#endregion
 
+	#region Choosing where the cursor goes when its row is removed
+
+	/// <summary>Names a stand-in for a removed selected row, and records what it was asked.</summary>
+	private sealed class StandInTable : TableControl
+	{
+		public List<string> Asked { get; } = new();
+		public Func<int> StandIn { get; set; } = () => -1;
+		public Action? DuringResolve { get; set; }
+
+		protected override int ResolveRemovedSelectedRow(TableRow row)
+		{
+			Asked.Add(row.Cells[0]);
+			DuringResolve?.Invoke();
+			return StandIn();
+		}
+	}
+
+	private static StandInTable Crew()
+	{
+		var table = new StandInTable();
+		table.AddColumn("Name");
+		table.AddRow("Alice");
+		table.AddRow("Bob");
+		table.AddRow("Carol");
+		table.AddRow("Dave");
+		return table;
+	}
+
+	[Fact]
+	public void RemovingTheSelectedRow_SendsTheCursorToTheRowTheTableNames()
+	{
+		var table = Crew();
+		table.SelectedRowIndex = 1;                     // Bob
+		table.StandIn = () => 0;                        // Alice
+		var changed = new List<string?>();
+		table.SelectedRowItemChanged += (_, row) => changed.Add(row?.Cells[0]);
+
+		table.RemoveRow(1);
+
+		Assert.Equal(["Bob"], table.Asked);
+		Assert.Equal("Alice", table.SelectedRow?.Cells[0]);
+		Assert.Equal(["Alice"], changed);
+	}
+
+	[Fact]
+	public void WithoutAStandIn_TheCursorLandsOnTheRowNowInItsPlace()
+	{
+		var table = Crew();
+		table.SelectedRowIndex = 1;
+
+		table.RemoveRow(1);
+
+		Assert.Equal("Carol", table.SelectedRow?.Cells[0]);
+	}
+
+	[Fact]
+	public void AStandInThatIsNotDisplayed_IsIgnored()
+	{
+		var table = Crew();
+		table.ApplyFilter("o");                         // Bob, Carol
+		table.SelectedRowIndex = 0;                     // Bob
+		table.StandIn = () => 0;                        // Alice, filtered out
+
+		table.RemoveRow(1);
+
+		Assert.Equal("Carol", table.SelectedRow?.Cells[0]);
+	}
+
+	[Fact]
+	public void RemovingAnotherRow_DoesNotAsk()
+	{
+		var table = Crew();
+		table.SelectedRowIndex = 0;
+
+		table.RemoveRow(1);
+
+		Assert.Empty(table.Asked);
+		Assert.Equal("Alice", table.SelectedRow?.Cells[0]);
+	}
+
+	[Fact]
+	public void ReplacingTheRows_AsksForASelectedRowLeftOut()
+	{
+		var table = Crew();
+		table.SelectedRowIndex = 1;
+		var kept = new[] { table.GetRow(0), table.GetRow(3) };
+		table.StandIn = () => 1;                        // Dave
+
+		table.SetData(kept);
+
+		Assert.Equal(["Bob"], table.Asked);
+		Assert.Equal("Dave", table.SelectedRow?.Cells[0]);
+	}
+
+	[Fact]
+	public void ChangingTheRowsFromResolveRemovedSelectedRow_Throws()
+	{
+		var table = Crew();
+		table.SelectedRowIndex = 1;
+		table.DuringResolve = () => table.AddRow("Intruder");
+
+		Assert.Throws<InvalidOperationException>(() => table.RemoveRow(1));
+	}
+
+	#endregion
+
 	#region A prefix in front of a cell's value
 
 	/// <summary>Draws <see cref="Prefix"/> in front of cells, and records which cells it was asked about.</summary>

@@ -187,7 +187,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 	// Which data rows are displayed, in what order: one map for sort and filter together
 	private readonly TableRowView _rowView = new();
-	// Above zero while ComputeDisplayRows or ResolveHiddenSelectedRow runs, when the rows must not change
+	// Above zero while ComputeDisplayRows or ResolveHidden/RemovedSelectedRow runs, when the rows must not change
 	private int _displayRowsHookDepth;
 
 	/// <summary>
