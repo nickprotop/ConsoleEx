@@ -129,7 +129,9 @@ public partial class TreeTableControl
 	/// <para>
 	/// Batches nest; only the outermost one ends the batch. Until it ends, <see cref="TableControl.Rows"/>,
 	/// <see cref="TableControl.RowCount"/> and the display show the table as it was before the batch
-	/// began. If <paramref name="update"/> throws, the changes made so far are still applied.
+	/// began, and <see cref="RowExpansionChanged"/> is held back until then too, so it is raised once
+	/// what changed is displayed. If <paramref name="update"/> throws, the changes made so far are still
+	/// applied and announced.
 	/// </para>
 	/// </remarks>
 	public void BatchUpdate(Action update)
@@ -151,6 +153,7 @@ public partial class TreeTableControl
 					_viewDirty = false;
 					RefreshDisplayRows();
 				}
+				RaisePendingExpansionChanges();
 			}
 		}
 	}

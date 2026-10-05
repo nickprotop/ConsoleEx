@@ -81,7 +81,11 @@ public class TreeTableRow : TableRow
 	/// <see cref="TreeNode.IsExpanded"/>.
 	/// </summary>
 	/// <remarks>
-	/// The row's own, lasting state. Setting it on a row in a table expands or collapses the row there.
+	/// The row's own, lasting state. Setting it on a row in a table expands or collapses the row there,
+	/// raising <see cref="TreeTableControl.RowExpansionChanging"/>, which can cancel it, and
+	/// <see cref="TreeTableControl.RowExpansionChanged"/>. While the table is filtered, what is
+	/// displayed is the filtered view's, see <see cref="TreeTableControl.IsRowExpanded"/>; this state
+	/// shows again when the filter is cleared.
 	/// </remarks>
 	public bool IsExpanded
 	{
@@ -103,7 +107,8 @@ public class TreeTableRow : TableRow
 	/// </summary>
 	/// <remarks>
 	/// For loading a hierarchy on demand: set it on a row whose children are expensive to fetch, add
-	/// them when the row is first expanded, and set it back to false.
+	/// them from <see cref="TreeTableControl.RowExpansionChanging"/> when the row is first expanded,
+	/// and set it back to false. Children added there are displayed together with the expansion.
 	/// </remarks>
 	public bool HasUnrealizedChildren
 	{

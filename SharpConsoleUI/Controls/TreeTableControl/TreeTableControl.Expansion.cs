@@ -6,10 +6,56 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Events;
+
 namespace SharpConsoleUI.Controls;
 
 public partial class TreeTableControl
 {
+	#region Fields
+
+	// Expansions applied but not yet announced: RowExpansionChanged is raised once the outermost batch
+	// has ended and what they show is displayed.
+	private List<TreeTableRowExpansionEventArgs> _pendingExpansionChanges = new();
+
+	#endregion
+
+	#region Events
+
+	/// <summary>
+	/// Occurs before a row is expanded or collapsed, by any means: the methods, setting
+	/// <see cref="TreeTableRow.IsExpanded"/>, a key or a click. Set
+	/// <see cref="TreeTableRowExpansionChangingEventArgs.Cancel"/> to keep the row as it is.
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// The place to load children on demand: a row with <see cref="TreeTableRow.HasUnrealizedChildren"/>
+	/// shows an expander before it has children, and children added from this handler are displayed
+	/// together with the expansion, in the same recompute.
+	/// </para>
+	/// <para>
+	/// Synchronous only, since the answer is needed before the change, and raised on the UI thread,
+	/// never while <see cref="TableControl.SyncRoot"/> is held. A bulk change such as
+	/// <see cref="ExpandAll"/> raises it for each row that would change, and a cancelled row is left
+	/// out while the others change.
+	/// </para>
+	/// </remarks>
+	public event EventHandler<TreeTableRowExpansionChangingEventArgs>? RowExpansionChanging;
+
+	/// <summary>
+	/// Occurs after a row was expanded or collapsed, by any means, once the rows displayed reflect it.
+	/// </summary>
+	/// <remarks>
+	/// Raised after the selection events the change caused, and in a <see cref="BatchUpdate"/> when
+	/// the outermost batch ends. A bulk change raises it once for each row that changed.
+	/// </remarks>
+	public event EventHandler<TreeTableRowExpansionEventArgs>? RowExpansionChanged;
+
+	/// <summary>Async counterpart of <see cref="RowExpansionChanged"/>.</summary>
+	public event Core.AsyncEventHandler<TreeTableRowExpansionEventArgs>? RowExpansionChangedAsync;
+
+	#endregion
+
 	#region Expanding and Collapsing
 
 	/// <summary>Opens a row, showing the rows nested under it.</summary>
@@ -109,39 +155,85 @@ public partial class TreeTableControl
 		return SetExpanded(new[] { row }, isExpanded);
 	}
 
-	/// <summary>Sets several rows' state at once, with one recompute.</summary>
+	/// <summary>Sets several rows' state in what is displayed, with one recompute.</summary>
 	private bool SetExpanded(IReadOnlyList<TreeTableRow> rows, bool isExpanded)
-	{
-		ThrowIfDataSource();
-		bool changed = false;
-		lock (SyncRoot)
-		{
-			foreach (var row in rows)
-			{
-				if (IsOpenInView(row) == isExpanded) continue;
-
-				if (_togglesFilter != null)
-					_filterToggles[row] = isExpanded;
-				else
-					row.SetExpandedState(isExpanded);
-				changed = true;
-			}
-		}
-
-		if (changed)
-			RefreshView();
-		return changed;
-	}
+		=> ChangeExpansion(rows, isExpanded, ownState: false);
 
 	/// <summary>
 	/// Sets a row's lasting state, from <see cref="TreeTableRow.IsExpanded"/>. While filtered it shows
 	/// wherever the row was not opened or closed during the filter.
 	/// </summary>
 	internal void SetPersistentExpansion(TreeTableRow row, bool isExpanded)
+		=> ChangeExpansion(new[] { row }, isExpanded, ownState: true);
+
+	/// <summary>
+	/// Expands or collapses rows, the one path every change takes: asks
+	/// <see cref="RowExpansionChanging"/> for each row that would change, applies the changes not
+	/// cancelled in one batch, and announces them through <see cref="RowExpansionChanged"/> once they
+	/// are displayed.
+	/// </summary>
+	/// <param name="rows">The rows to change.</param>
+	/// <param name="isExpanded">Whether they are to be open.</param>
+	/// <param name="ownState">
+	/// True to set the rows' own <see cref="TreeTableRow.IsExpanded"/>; false to set what is
+	/// displayed, which while filtered is the filtered view only.
+	/// </param>
+	private bool ChangeExpansion(IReadOnlyList<TreeTableRow> rows, bool isExpanded, bool ownState)
 	{
 		ThrowIfDataSource();
-		lock (SyncRoot) { row.SetExpandedState(isExpanded); }
-		RefreshView();
+		bool changed = false;
+
+		bool IsAlready(TreeTableRow row) => ownState ? row.IsExpanded == isExpanded : IsOpenInView(row) == isExpanded;
+
+		BatchUpdate(() =>
+		{
+			foreach (var row in rows)
+			{
+				bool isFilteredView;
+				lock (SyncRoot)
+				{
+					if (row.Table != this || IsAlready(row)) continue;
+					isFilteredView = !ownState && _togglesFilter != null;
+				}
+
+				var changing = new TreeTableRowExpansionChangingEventArgs(row, isExpanded, isFilteredView);
+				RowExpansionChanging?.Invoke(this, changing);
+				if (changing.Cancel) continue;
+
+				lock (SyncRoot)
+				{
+					// The handler may have removed the row, or changed it itself.
+					if (row.Table != this || IsAlready(row)) continue;
+
+					if (isFilteredView)
+						_filterToggles[row] = isExpanded;
+					else
+						row.SetExpandedState(isExpanded);
+				}
+
+				_pendingExpansionChanges.Add(new TreeTableRowExpansionEventArgs(row, isExpanded, isFilteredView));
+				changed = true;
+			}
+
+			if (changed)
+				RefreshView();
+		});
+
+		return changed;
+	}
+
+	/// <summary>
+	/// Raises <see cref="RowExpansionChanged"/> for the expansions applied, once the outermost batch
+	/// has ended and they are displayed.
+	/// </summary>
+	private void RaisePendingExpansionChanges()
+	{
+		if (_pendingExpansionChanges.Count == 0) return;
+
+		var changes = _pendingExpansionChanges;
+		_pendingExpansionChanges = new List<TreeTableRowExpansionEventArgs>();
+		foreach (var change in changes)
+			Core.AsyncEvent.Raise(RowExpansionChanged, RowExpansionChangedAsync, this, change, Container?.GetConsoleWindowSystem?.LogService);
 	}
 
 	/// <summary>Whether a row is open in the view now displayed. Callers hold <see cref="TableControl.SyncRoot"/>.</summary>

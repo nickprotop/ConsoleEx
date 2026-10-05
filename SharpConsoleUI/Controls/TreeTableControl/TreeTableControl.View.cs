@@ -128,15 +128,13 @@ public partial class TreeTableControl
 	/// <remarks>
 	/// <para>
 	/// Sorting a hierarchy as a flat list would tear rows away from their parents, so siblings are
-	/// compared only with each other, by the table's own rules through
-	/// <see cref="TableControl.CompareRows"/>; rows that compare equal keep the order they were added
-	/// in, in either direction.
+	/// compared only with each other, through <see cref="CompareSiblings"/>; rows that compare equal
+	/// keep the order they were added in, in either direction.
 	/// </para>
 	/// <para>
 	/// Filtering one as a flat list would show matches out of context, and miss rows inside collapsed
 	/// parents. A match is shown with every row above it, those rows open in the filtered view, and
-	/// every row is searched, collapsed or not, by the table's own rules through
-	/// <see cref="TableControl.RowMatchesFilter(int, CompoundFilterExpression)"/>.
+	/// every row is searched, collapsed or not, through <see cref="IsFilterMatch"/>.
 	/// </para>
 	/// </remarks>
 	protected override int[]? ComputeDisplayRows(TableDisplayQuery query)
@@ -170,7 +168,7 @@ public partial class TreeTableControl
 			var direction = query.SortDirection;
 			siblingOrder = (a, b) =>
 			{
-				int result = CompareRows(a, b, column, direction);
+				int result = CompareSiblings(shape.Rows[a], shape.Rows[b], column, direction);
 				return result != 0 ? result : a.CompareTo(b);
 			};
 		}
@@ -180,7 +178,7 @@ public partial class TreeTableControl
 		{
 			matches = new bool[shape.Count];
 			for (int row = 0; row < shape.Count; row++)
-				matches[row] = RowMatchesFilter(row, filter);
+				matches[row] = IsFilterMatch(shape.Rows[row], filter);
 		}
 
 		var request = new TreeTableViewRequest(
@@ -194,6 +192,55 @@ public partial class TreeTableControl
 		_view = view;
 		return view.DisplayRows;
 	}
+
+	/// <summary>
+	/// Whether a row matches the filter by itself, before the hierarchy is considered: a match is then
+	/// shown with every row above it.
+	/// </summary>
+	/// <param name="row">A row in this table, collapsed or not.</param>
+	/// <param name="filter">The filter applied.</param>
+	/// <returns>True when the row matches.</returns>
+	/// <remarks>
+	/// <para>
+	/// The default is the table's own matching through
+	/// <see cref="TableControl.RowMatchesFilter(int, CompoundFilterExpression)"/>, so column, compound
+	/// and fuzzy filters mean what they mean to a table. Override to match on more than the cells —
+	/// a row type of your own carrying data that is not displayed, say — and call the base to keep the
+	/// table's rules for the rest.
+	/// </para>
+	/// <para>
+	/// Asked for every row while the displayed rows are computed, on the UI thread, never while
+	/// <see cref="TableControl.SyncRoot"/> is held; changing the rows from here throws
+	/// <see cref="InvalidOperationException"/>.
+	/// </para>
+	/// </remarks>
+	protected virtual bool IsFilterMatch(TableRow row, CompoundFilterExpression filter)
+		=> RowMatchesFilter(_shape.IndexOf(row), filter);
+
+	/// <summary>
+	/// Compares two rows with the same parent for a sort: the order they are displayed in among their
+	/// siblings.
+	/// </summary>
+	/// <param name="x">A row.</param>
+	/// <param name="y">A sibling of <paramref name="x"/>.</param>
+	/// <param name="columnIndex">The column sorted by.</param>
+	/// <param name="direction">The direction sorted in; the result is for that direction.</param>
+	/// <returns>Less than zero when <paramref name="x"/> comes first, more when it comes second, zero for a tie.</returns>
+	/// <remarks>
+	/// <para>
+	/// The default is the table's own comparison through <see cref="TableControl.CompareRows"/>, so a
+	/// column's comparers mean what they mean to a table. Override to order siblings by more than a
+	/// column — folders before files, say — and call the base for the rest. Ties keep the order the
+	/// rows were added in, whichever the direction.
+	/// </para>
+	/// <para>
+	/// Asked while the displayed rows are computed, on the UI thread, never while
+	/// <see cref="TableControl.SyncRoot"/> is held; changing the rows from here throws
+	/// <see cref="InvalidOperationException"/>.
+	/// </para>
+	/// </remarks>
+	protected virtual int CompareSiblings(TableRow x, TableRow y, int columnIndex, SortDirection direction)
+		=> CompareRows(_shape.IndexOf(x), _shape.IndexOf(y), columnIndex, direction);
 
 	/// <summary>
 	/// Moves a cursor whose row was hidden, by collapsing one of its ancestors, to the nearest

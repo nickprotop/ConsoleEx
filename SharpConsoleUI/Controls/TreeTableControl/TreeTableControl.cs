@@ -55,4 +55,14 @@ public partial class TreeTableControl : TableControl
 	{
 		get { lock (SyncRoot) { return _roots.ToList().AsReadOnly(); } }
 	}
+
+	/// <inheritdoc/>
+	protected override void OnDisposing()
+	{
+		base.OnDisposing();
+
+		RowExpansionChanging = null;
+		RowExpansionChanged = null;
+		RowExpansionChangedAsync = null;
+	}
 }
