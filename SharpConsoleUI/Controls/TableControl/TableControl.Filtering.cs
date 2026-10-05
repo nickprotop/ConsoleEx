@@ -393,7 +393,7 @@ public partial class TableControl
 		{
 			_rowView.Clear();
 			if (_sortDirection != SortDirection.None)
-				_dataSource.Sort(_sortColumnIndex, _sortDirection);
+				SortSource();
 		}
 		else
 		{

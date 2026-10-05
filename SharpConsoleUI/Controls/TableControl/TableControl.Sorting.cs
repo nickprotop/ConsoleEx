@@ -92,10 +92,16 @@ public partial class TableControl
 		if (_dataSource != null && !HasClientFilterMap)
 		{
 			if (_sortDirection != SortDirection.None)
-				_dataSource.Sort(_sortColumnIndex, _sortDirection);
+				SortSource();
+			else
+				ClearSourceSort();
 		}
 		else
 		{
+			// Under a client-side filter the matches are read in the source's order, so an order the
+			// source still holds from before the filter goes first, then the map is rebuilt over it.
+			if (_sortDirection == SortDirection.None)
+				ClearSourceSort();
 			RebuildDisplayMap();
 		}
 
@@ -108,17 +114,41 @@ public partial class TableControl
 	/// <summary>
 	/// Clears any active sort, restoring original order.
 	/// </summary>
+	/// <remarks>
+	/// A data source that sorted itself is asked to restore its own order through
+	/// <see cref="ITableDataSource.ClearSort"/>.
+	/// </remarks>
 	public void ClearSort()
 	{
 		var selection = CaptureSelection();
 
 		_sortColumnIndex = -1;
 		_sortDirection = SortDirection.None;
+		ClearSourceSort();
 		if (_dataSource == null || HasClientFilterMap)
 			RebuildDisplayMap();
 
 		RestoreSelection(selection);
 		Invalidate(Invalidation.Relayout);
+	}
+
+	/// <summary>Asks the data source to sort itself the way the table is sorted.</summary>
+	private void SortSource()
+	{
+		_dataSource!.Sort(_sortColumnIndex, _sortDirection);
+		_sourceSorted = true;
+	}
+
+	/// <summary>
+	/// Asks the data source to drop the order it sorted itself into, if it did, so its rows do not
+	/// keep a sort the header no longer shows.
+	/// </summary>
+	private void ClearSourceSort()
+	{
+		if (!_sourceSorted || _dataSource == null) return;
+
+		_sourceSorted = false;
+		_dataSource.ClearSort();
 	}
 
 	/// <summary>

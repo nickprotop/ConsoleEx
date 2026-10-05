@@ -306,6 +306,7 @@ public interface ITableDataSource : INotifyCollectionChanged
     object? GetRowTag(int rowIndex) => null;
     bool CanSort(int columnIndex) => false;
     void Sort(int columnIndex, SortDirection direction) { }
+    void ClearSort() { }
     bool CanFilter => false;
     void ApplyFilter(string filterText, string? columnName, FilterOperator op) { }
     void ClearFilter() { }
@@ -316,7 +317,7 @@ When `DataSource` is set:
 - Internal `_rows`/`_columns` lists are ignored
 - Only visible rows are queried via `GetCellValue()`
 - Column widths auto-measure from visible rows
-- Sorting delegates to `DataSource.Sort()` if `CanSort()` returns true
+- Sorting delegates to `DataSource.Sort()` if `CanSort()` returns true; clearing the sort calls `DataSource.ClearSort()` so the source can restore its own order
 - Filtering is handed to the source when `CanFilter` is true — see [Letting the data source filter](#letting-the-data-source-filter)
 - Raising `CollectionChanged` triggers re-measure and re-render; `Reset` also returns the selection to the first row
 - `AddRow()`/`ClearRows()` throw if DataSource is set
@@ -571,7 +572,9 @@ protected override TableFilterResult TryApplyFilterToDataSource(
 
 When `SortingEnabled = true`, clicking a column header cycles through: Ascending -> Descending -> None. A sort indicator (up/down triangle) appears in the header.
 
-For in-memory rows, sorting creates an internal index map. For `ITableDataSource`, sorting delegates to `DataSource.Sort()` if `CanSort()` returns true.
+For in-memory rows, sorting creates an internal index map. For `ITableDataSource`, sorting delegates to `DataSource.Sort()` if `CanSort()` returns true, and
+clearing the sort, by a header click, `ClearSort()` or `SortingEnabled = false`, calls
+`DataSource.ClearSort()` on a source that sorted itself.
 
 How in-memory rows are ordered:
 

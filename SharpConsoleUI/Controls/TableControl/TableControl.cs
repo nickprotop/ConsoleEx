@@ -178,6 +178,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private bool _sortingEnabled = false;
 	private int _sortColumnIndex = -1;
 	private SortDirection _sortDirection = SortDirection.None;
+	// Whether the data source sorted itself and has not been asked to drop that order since
+	private bool _sourceSorted;
 
 	// Filtering
 	internal bool _filteringEnabled = false;
@@ -503,6 +505,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			_horizontalScrollOffset = 0;
 			_sortColumnIndex = -1;
 			_sortDirection = SortDirection.None;
+			_sourceSorted = false;
 			_rowView.Clear();
 			EndRowGestures();
 			_filterMode = FilterMode.None;
