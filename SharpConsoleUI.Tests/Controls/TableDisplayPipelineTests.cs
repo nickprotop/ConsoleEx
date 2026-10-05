@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Layout;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 
@@ -513,6 +514,52 @@ public class TableDisplayPipelineTests
 			var actual = Enumerable.Range(0, table.RowCount).Select(table.MapDisplayToData).ToList();
 			Assert.True(expected.SequenceEqual(actual), $"display rows diverged at step {step}");
 		}
+	}
+
+	#endregion
+
+	#region Auto-width columns are sized from the rows on screen
+
+	private const string LongName = "zebra-crossing-attendant";
+
+	/// <summary>
+	/// 60 short names and one long one at data row 55, past the 50 rows a column is sampled over
+	/// from the top of the data. Sorted descending, the long name is the first row on screen.
+	/// </summary>
+	private static TableControl LongNameLastTable()
+	{
+		var table = new TableControl { BorderStyle = BorderStyle.None, SortingEnabled = true, Height = 12 };
+		table.AddColumn("Name");
+		table.AddColumn("Id", TextJustification.Left, 4);
+		for (int i = 0; i < 60; i++)
+			table.AddRow(i == 55 ? LongName : $"a{i:D2}", i.ToString());
+		table.SortByColumn(0);
+		table.SortByColumn(0);
+		return table;
+	}
+
+	[Fact]
+	public void ASortedTable_SizesItsColumnsFromTheRowsOnScreen()
+	{
+		var table = LongNameLastTable();
+		var system = Host(table, width: 60);
+
+		var screen = Screen(system);
+
+		Assert.Equal(LongName, Displayed(table)[0]);
+		Assert.Contains(screen, line => line.Contains(LongName));
+	}
+
+	[Fact]
+	public void AFilteredTable_SizesItsColumnsFromTheRowsOnScreen()
+	{
+		var table = LongNameLastTable();
+		table.ClearSort();
+		var system = Host(table, width: 60);
+
+		table.ApplyFilter("e");
+
+		Assert.Contains(Screen(system), line => line.Contains(LongName));
 	}
 
 	#endregion

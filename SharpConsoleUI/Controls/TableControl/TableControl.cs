@@ -890,18 +890,27 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// Computes the widths of the table's own columns for the given total available width.
 	/// Uses sample-based measurement for auto-width columns (visible rows + small buffer).
 	/// </summary>
-	internal int[] ComputeColumnWidths(int availableWidth, List<TableColumn> cols, List<TableRow>? rows, int scrollOffset = 0, int visibleRowCount = ControlDefaults.TableColumnWidthSampleRows)
-		=> _widthCalculator.Compute(new TableColumnWidthSource(cols, rows),
+	/// <param name="availableWidth">Cells available to the columns and their separators.</param>
+	/// <param name="cols">The columns to size.</param>
+	/// <param name="rows">The data rows to sample.</param>
+	/// <param name="scrollOffset">The first displayed row on screen, where sampling starts.</param>
+	/// <param name="visibleRowCount">How many rows are on screen.</param>
+	/// <param name="displayRows">
+	/// The display map to sample through, so the rows measured are the rows shown; null samples
+	/// <paramref name="rows"/> in data order.
+	/// </param>
+	internal int[] ComputeColumnWidths(int availableWidth, List<TableColumn> cols, List<TableRow>? rows, int scrollOffset = 0, int visibleRowCount = ControlDefaults.TableColumnWidthSampleRows, int[]? displayRows = null)
+		=> _widthCalculator.Compute(new TableColumnWidthSource(cols, rows, displayRows),
 			CreateWidthLayout(availableWidth, scrollOffset, visibleRowCount), useCache: true);
 
 	/// <summary>
-	/// Computes column widths for DataSource mode.
+	/// Computes column widths for DataSource mode, sampling the rows displayed.
 	/// </summary>
 	internal int[] ComputeColumnWidthsFromDataSource(int availableWidth, int scrollOffset = 0, int visibleRowCount = ControlDefaults.TableColumnWidthSampleRows)
 	{
 		if (_dataSource == null) return Array.Empty<int>();
 
-		return _widthCalculator.Compute(new TableDataSourceWidthSource(_dataSource, _columnWidthOverrides),
+		return _widthCalculator.Compute(new TableDataSourceWidthSource(_dataSource, _columnWidthOverrides, _rowView.Map),
 			CreateWidthLayout(availableWidth, scrollOffset, visibleRowCount), useCache: false);
 	}
 

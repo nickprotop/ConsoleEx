@@ -213,12 +213,17 @@ internal sealed class TableColumnWidthCalculator
 /// <summary>
 /// The questions <see cref="TableColumnWidthCalculator"/> asks about the columns it sizes.
 /// </summary>
+/// <remarks>
+/// Rows are DISPLAY rows. Sampling used to read data rows from the display scroll offset onwards,
+/// so under a sort or a filter a column was measured over rows that were not on screen and a long
+/// value shown at the top could be truncated to the width of values nowhere in view.
+/// </remarks>
 internal interface ITableWidthSource
 {
 	/// <summary>Number of columns.</summary>
 	int ColumnCount { get; }
 
-	/// <summary>Number of rows that can be sampled.</summary>
+	/// <summary>Number of displayed rows that can be sampled.</summary>
 	int RowCount { get; }
 
 	/// <summary>The column's explicit width, or null when it is sized from its content.</summary>
@@ -230,7 +235,7 @@ internal interface ITableWidthSource
 	/// <summary>The column's header text.</summary>
 	string GetHeader(int column);
 
-	/// <summary>The cell's text, or null when the row has no such cell.</summary>
+	/// <summary>The text of a displayed row's cell, or null when the row has no such cell.</summary>
 	string? GetCell(int row, int column);
 }
 
@@ -239,19 +244,24 @@ internal readonly struct TableColumnWidthSource : ITableWidthSource
 {
 	private readonly List<TableColumn> _columns;
 	private readonly List<TableRow>? _rows;
+	private readonly int[]? _displayRows;
 
 	/// <summary>Creates a source over the given column and row snapshots.</summary>
-	internal TableColumnWidthSource(List<TableColumn> columns, List<TableRow>? rows)
+	/// <param name="columns">The columns to size.</param>
+	/// <param name="rows">The data rows, or null when there are none.</param>
+	/// <param name="displayRows">The display map from display row to data row, or null for data order.</param>
+	internal TableColumnWidthSource(List<TableColumn> columns, List<TableRow>? rows, int[]? displayRows = null)
 	{
 		_columns = columns;
 		_rows = rows;
+		_displayRows = displayRows;
 	}
 
 	/// <inheritdoc/>
 	public int ColumnCount => _columns.Count;
 
 	/// <inheritdoc/>
-	public int RowCount => _rows?.Count ?? 0;
+	public int RowCount => _rows == null ? 0 : _displayRows?.Length ?? _rows.Count;
 
 	/// <inheritdoc/>
 	public int? GetFixedWidth(int column) => _columns[column].Width;
@@ -265,7 +275,10 @@ internal readonly struct TableColumnWidthSource : ITableWidthSource
 	/// <inheritdoc/>
 	public string? GetCell(int row, int column)
 	{
-		var cells = _rows![row].Cells;
+		int dataRow = _displayRows != null ? _displayRows[row] : row;
+		if (dataRow >= _rows!.Count) return null;
+
+		var cells = _rows[dataRow].Cells;
 		return column < cells.Count ? cells[column] : null;
 	}
 }
@@ -278,19 +291,24 @@ internal readonly struct TableDataSourceWidthSource : ITableWidthSource
 {
 	private readonly ITableDataSource _dataSource;
 	private readonly Dictionary<int, int> _widthOverrides;
+	private readonly int[]? _displayRows;
 
 	/// <summary>Creates a source over the data source and the user's resize overrides.</summary>
-	internal TableDataSourceWidthSource(ITableDataSource dataSource, Dictionary<int, int> widthOverrides)
+	/// <param name="dataSource">The source whose columns are sized.</param>
+	/// <param name="widthOverrides">Widths the user dragged columns to, by column.</param>
+	/// <param name="displayRows">The display map from display row to source row, or null for identity.</param>
+	internal TableDataSourceWidthSource(ITableDataSource dataSource, Dictionary<int, int> widthOverrides, int[]? displayRows = null)
 	{
 		_dataSource = dataSource;
 		_widthOverrides = widthOverrides;
+		_displayRows = displayRows;
 	}
 
 	/// <inheritdoc/>
 	public int ColumnCount => _dataSource.ColumnCount;
 
 	/// <inheritdoc/>
-	public int RowCount => _dataSource.RowCount;
+	public int RowCount => _displayRows?.Length ?? _dataSource.RowCount;
 
 	/// <inheritdoc/>
 	public int? GetFixedWidth(int column)
@@ -303,7 +321,8 @@ internal readonly struct TableDataSourceWidthSource : ITableWidthSource
 	public string GetHeader(int column) => _dataSource.GetColumnHeader(column);
 
 	/// <inheritdoc/>
-	public string? GetCell(int row, int column) => _dataSource.GetCellValue(row, column);
+	public string? GetCell(int row, int column)
+		=> _dataSource.GetCellValue(_displayRows != null ? _displayRows[row] : row, column);
 }
 
 /// <summary>

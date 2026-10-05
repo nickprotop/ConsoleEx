@@ -56,7 +56,7 @@ public partial class TableControl
 		if (_dataSource != null)
 			colWidths = ComputeColumnWidthsFromDataSource(dataContentWidth2, _scrollOffset, GetVisibleRowCount());
 		else
-			colWidths = ComputeColumnWidths(dataContentWidth2, colSnapshot!, rowSnapshot!, _scrollOffset, GetVisibleRowCount());
+			colWidths = ComputeColumnWidths(dataContentWidth2, colSnapshot!, rowSnapshot!, _scrollOffset, GetVisibleRowCount(), _rowView.Map);
 
 		int borderOverhead = hasBorder ? (colCount + 1)
 			: (_columnSeparator.HasValue ? Math.Max(0, colCount - 1) * SeparatorWidth : 0);
@@ -209,7 +209,7 @@ public partial class TableControl
 		if (_dataSource != null)
 			dataColWidths = ComputeColumnWidthsFromDataSource(dataContentWidth, _scrollOffset, GetVisibleRowCount());
 		else
-			dataColWidths = ComputeColumnWidths(dataContentWidth, colSnapshot!, rowSnapshot!, _scrollOffset, GetVisibleRowCount());
+			dataColWidths = ComputeColumnWidths(dataContentWidth, colSnapshot!, rowSnapshot!, _scrollOffset, GetVisibleRowCount(), _rowView.Map);
 
 		// Prepend silent checkbox column to colWidths so all drawing infrastructure handles it
 		int[] colWidths;

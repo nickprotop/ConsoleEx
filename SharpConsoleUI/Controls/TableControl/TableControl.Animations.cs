@@ -331,7 +331,7 @@ public partial class TableControl
 		int[] colWidths;
 		lock (_tableLock)
 		{
-			colWidths = ComputeColumnWidths(ActualWidth, _columns, _rows, _scrollOffset, GetVisibleRowCount());
+			colWidths = ComputeColumnWidths(ActualWidth, _columns, _rows, _scrollOffset, GetVisibleRowCount(), _rowView.Map);
 		}
 
 		if (columnIndex >= colWidths.Length)
