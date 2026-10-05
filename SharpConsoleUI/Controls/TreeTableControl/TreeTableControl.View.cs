@@ -90,12 +90,19 @@ public partial class TreeTableControl
 	#region Computing the Display
 
 	/// <summary>
-	/// Displays the roots, and under each open row its children: what a tree shows.
+	/// Displays the roots, and under each open row its children: what a tree shows. A sort orders
+	/// each row's children among themselves.
 	/// </summary>
+	/// <remarks>
+	/// Sorting a hierarchy as a flat list would tear rows away from their parents, so siblings are
+	/// compared only with each other, by the table's own rules through
+	/// <see cref="TableControl.CompareRows"/>; rows that compare equal keep the order they were added
+	/// in, in either direction.
+	/// </remarks>
 	protected override int[]? ComputeDisplayRows(TableDisplayQuery query)
 	{
-		// A data source makes the table flat; so, for now, do a sort and a filter.
-		if (DataSource != null || query.IsSorted || query.IsFiltered)
+		// A data source makes the table flat; so, for now, does a filter.
+		if (DataSource != null || query.IsFiltered)
 		{
 			_view = null;
 			return base.ComputeDisplayRows(query);
@@ -104,7 +111,19 @@ public partial class TreeTableControl
 		TreeTableShape shape;
 		lock (SyncRoot) { shape = _shape; }
 
-		var view = TreeTableProjection.Compute(shape, row => shape.Rows[row] is TreeTableRow { IsExpanded: true });
+		Comparison<int>? siblingOrder = null;
+		if (query.IsSorted)
+		{
+			int column = query.SortColumnIndex;
+			var direction = query.SortDirection;
+			siblingOrder = (a, b) =>
+			{
+				int result = CompareRows(a, b, column, direction);
+				return result != 0 ? result : a.CompareTo(b);
+			};
+		}
+
+		var view = TreeTableProjection.Compute(shape, row => shape.Rows[row] is TreeTableRow { IsExpanded: true }, siblingOrder);
 		_view = view;
 		return view.DisplayRows;
 	}

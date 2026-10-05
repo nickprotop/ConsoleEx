@@ -82,7 +82,12 @@ internal sealed class TreeTableProjection
 	/// </summary>
 	/// <param name="shape">The hierarchy.</param>
 	/// <param name="isOpen">Whether a row that has children shows them.</param>
-	internal static TreeTableProjection Compute(TreeTableShape shape, Func<int, bool> isOpen)
+	/// <param name="siblingOrder">
+	/// The order to show siblings in, ties already broken, or null for the order they were added in.
+	/// Rows are only ever compared with their own siblings, so a sort never moves a row out from under
+	/// its parent.
+	/// </param>
+	internal static TreeTableProjection Compute(TreeTableShape shape, Func<int, bool> isOpen, Comparison<int>? siblingOrder = null)
 	{
 		var view = new TreeTableProjection(shape);
 
@@ -95,8 +100,18 @@ internal sealed class TreeTableProjection
 
 		var displayRows = new List<int>(shape.Count);
 
-		void Show(int[] siblings)
+		int[] Ordered(int[] siblings)
 		{
+			if (siblingOrder == null || siblings.Length < 2) return siblings;
+
+			var ordered = (int[])siblings.Clone();
+			Array.Sort(ordered, siblingOrder);
+			return ordered;
+		}
+
+		void Show(int[] unordered)
+		{
+			var siblings = Ordered(unordered);
 			for (int i = 0; i < siblings.Length; i++)
 			{
 				int row = siblings[i];
