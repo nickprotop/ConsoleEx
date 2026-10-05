@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Layout;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Controls;
@@ -355,6 +356,168 @@ public class TableExtensibilityTests
 		table.ApplyFilter("b");
 		Assert.Equal(before + 1, table.Queries.Count);
 	}
+
+	#endregion
+
+	#region A prefix in front of a cell's value
+
+	/// <summary>Draws <see cref="Prefix"/> in front of cells, and records which cells it was asked about.</summary>
+	private sealed class PrefixTable : TableControl
+	{
+		public Func<int, int, string?> Prefix { get; set; } = (_, _) => null;
+		public HashSet<int> AskedColumns { get; } = new();
+
+		protected override string? GetCellPrefixMarkup(int dataRowIndex, int columnIndex)
+		{
+			AskedColumns.Add(columnIndex);
+			return Prefix(dataRowIndex, columnIndex);
+		}
+	}
+
+	/// <summary>A borderless table with one column of names, header on line 0, rows from line 1.</summary>
+	private static PrefixTable Prefixed(string prefix, int? width = null,
+		TextJustification alignment = TextJustification.Left, params string[] names)
+	{
+		var table = new PrefixTable { BorderStyle = BorderStyle.None, Prefix = (_, _) => prefix };
+		table.AddColumn("Name", alignment, width);
+		foreach (var name in names.Length > 0 ? names : ["Alice", "Bob"])
+			table.AddRow(name);
+		return table;
+	}
+
+	private static CharacterBuffer PaintTable(TableControl table)
+	{
+		var buffer = new CharacterBuffer(30, 6);
+		var bounds = new LayoutRect(0, 0, 30, 6);
+		table.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+		return buffer;
+	}
+
+	private static string Line(CharacterBuffer buffer, int y, int width = 30)
+		=> string.Concat(Enumerable.Range(0, width).Select(x => buffer.GetCell(x, y).Character.ToString())).TrimEnd();
+
+	[Fact]
+	public void APrefix_IsDrawnInFrontOfTheValue()
+	{
+		var buffer = PaintTable(Prefixed(">> "));
+
+		Assert.Equal(">> Alice", Line(buffer, 1));
+	}
+
+	[Fact]
+	public void TheHeader_GetsNoPrefix()
+	{
+		var buffer = PaintTable(Prefixed(">> "));
+
+		Assert.StartsWith("Name", Line(buffer, 0));
+	}
+
+	[Fact]
+	public void AnAlignedValue_IsAlignedInWhatThePrefixLeaves()
+	{
+		var buffer = PaintTable(Prefixed("> ", width: 10, alignment: TextJustification.Right));
+
+		Assert.Equal(">    Alice", Line(buffer, 1, width: 10));
+	}
+
+	[Fact]
+	public void ALongValue_IsCutWhileThePrefixIsKept()
+	{
+		var buffer = PaintTable(Prefixed("> ", width: 6, names: "Alexandra"));
+
+		Assert.Equal("> Alex", Line(buffer, 1, width: 6));
+	}
+
+	[Fact]
+	public void AnAutoWidthColumn_MakesRoomForThePrefix()
+	{
+		var buffer = PaintTable(Prefixed("--> "));
+
+		Assert.Equal("--> Alice", Line(buffer, 1));
+	}
+
+	[Fact]
+	public void AWideGlyphCutAtTheCellsEdge_IsBlankedNotHalved()
+	{
+		var buffer = PaintTable(Prefixed("ab漢", width: 3));
+
+		Assert.Equal("ab ", Line(buffer, 1, width: 3).PadRight(3));
+	}
+
+	[Fact]
+	public void AFilterHighlight_FallsOnTheValueOnly()
+	{
+		// Applying a filter selects its first match, and a selected row is not highlighted, so the
+		// second match is the one to look at.
+		var table = Prefixed("li ", names: ["Alice", "Elias"]);
+		table.ApplyFilter("li");
+
+		var buffer = PaintTable(table);
+
+		Assert.Equal("li Elias", Line(buffer, 2));
+		Assert.NotEqual(Color.DarkYellow, buffer.GetCell(0, 2).Background);
+		Assert.NotEqual(Color.DarkYellow, buffer.GetCell(1, 2).Background);
+		Assert.Equal(Color.DarkYellow, buffer.GetCell(4, 2).Background);
+		Assert.Equal(Color.DarkYellow, buffer.GetCell(5, 2).Background);
+	}
+
+	[Fact]
+	public void EditingACell_EditsTheValueAfterThePrefix()
+	{
+		var table = Prefixed(">> ");
+		table.ReadOnly = false;
+		table.InlineEditingEnabled = true;
+		table.SelectedRowIndex = 0;
+		table.SelectedColumnIndex = 0;
+		string? oldValue = null;
+		table.CellEditCompleted += (_, edit) => oldValue = edit.OldValue;
+
+		table.BeginCellEdit();
+		var buffer = PaintTable(table);
+		table.CommitEdit();
+
+		Assert.Equal(">> Alice", Line(buffer, 1));
+		Assert.Equal("Alice", oldValue);
+		Assert.Equal("Alice", table.GetCell(0, 0));
+	}
+
+	[Fact]
+	public void ASelectedRow_DrawsThePrefixInTheRowsColours()
+	{
+		var table = Prefixed("[red]>>[/] ");
+		table.ReadOnly = false;
+		table.SelectedRowIndex = 0;
+
+		var buffer = PaintTable(table);
+
+		Assert.Equal(buffer.GetCell(3, 1).Foreground, buffer.GetCell(0, 1).Foreground);
+		Assert.Equal(buffer.GetCell(3, 1).Background, buffer.GetCell(0, 1).Background);
+	}
+
+	[Fact]
+	public void AnUnselectedRow_KeepsThePrefixsOwnColours()
+	{
+		var buffer = PaintTable(Prefixed("[red]>>[/] "));
+
+		Assert.Equal(Color.Red, buffer.GetCell(0, 1).Foreground);
+	}
+
+	[Fact]
+	public void InCheckboxMode_ThePrefixIsAskedForDataColumnsAndDrawnAfterTheCheckbox()
+	{
+		var table = Prefixed(">");
+		table.AddColumn("Other");
+		table.CheckboxMode = true;
+
+		var buffer = PaintTable(table);
+
+		Assert.Equal([0, 1], table.AskedColumns.Order());
+		Assert.StartsWith("[ ] >Alice", Line(buffer, 1));
+	}
+
+	#endregion
+
+	#region Data sources
 
 	/// <summary>Three rows of one letter each; sorts itself, never filters.</summary>
 	private sealed class LetterSource : ITableDataSource

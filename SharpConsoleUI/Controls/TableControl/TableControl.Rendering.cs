@@ -15,6 +15,63 @@ namespace SharpConsoleUI.Controls;
 
 public partial class TableControl
 {
+	#region Cell Prefixes
+
+	/// <summary>
+	/// Markup to draw at the left edge of a cell, in front of its value, or null for none.
+	/// </summary>
+	/// <param name="dataRowIndex">The data row, as <see cref="GetRow"/> counts rows (or the data source's row).</param>
+	/// <param name="columnIndex">The data column; the checkbox column is never asked about.</param>
+	/// <returns>The prefix's markup, or null.</returns>
+	/// <remarks>
+	/// <para>
+	/// FOR WHAT A CELL SHOWS BUT DOES NOT CONTAIN: a tree's guide lines and expander in front of a
+	/// name, a status glyph in front of a value. Writing such things into the cell text would make
+	/// them part of the value — filtered, sorted, edited and copied — and would shift the value's
+	/// alignment with every level of indentation.
+	/// </para>
+	/// <para>
+	/// The prefix takes the cell's first cells and the value is laid out in what is left: alignment,
+	/// truncation, the truncation fade, filter-match highlighting and inline editing all apply to the
+	/// value alone. A prefix wider than the cell is cut at the cell's edge, never a glyph in half.
+	/// Auto-width columns count it, so it does not push the value out of view. A selected or hovered
+	/// row draws it in the row's colours, as it draws the value; otherwise the markup's own colours
+	/// apply. <see cref="HitTest"/> counts a cell's offset from the cell's left edge, so a click on the
+	/// prefix can be told from a click on the value.
+	/// </para>
+	/// <para>
+	/// WHY MARKUP AND NOT A PAINT CALLBACK. Clipping, horizontal scrolling and wide characters stay the
+	/// table's business, done the one way it does them for every cell.
+	/// </para>
+	/// <para>
+	/// Called for the data rows being painted and those sampled for auto width, on the UI thread and
+	/// never while <see cref="SyncRoot"/> is held. A prefix that changes width without the rows
+	/// changing needs <see cref="InvalidateColumnWidths"/> to be re-measured.
+	/// </para>
+	/// </remarks>
+	protected virtual string? GetCellPrefixMarkup(int dataRowIndex, int columnIndex) => null;
+
+	/// <summary>
+	/// The prefixes of one row's cells, indexed as the painter indexes columns (the checkbox column
+	/// first, in checkbox mode), or null when the row has none.
+	/// </summary>
+	private string?[]? GetCellPrefixes(int dataRowIndex, int dataColumnCount, int paintedColumnCount)
+	{
+		string?[]? prefixes = null;
+		int shift = paintedColumnCount - dataColumnCount;
+		for (int c = 0; c < dataColumnCount; c++)
+		{
+			string? prefix = GetCellPrefixMarkup(dataRowIndex, c);
+			if (string.IsNullOrEmpty(prefix)) continue;
+
+			prefixes ??= new string?[paintedColumnCount];
+			prefixes[c + shift] = prefix;
+		}
+		return prefixes;
+	}
+
+	#endregion
+
 	#region IDOMPaintable Implementation
 
 	/// <inheritdoc/>
@@ -544,7 +601,8 @@ public partial class TableControl
 				selectedCellIndex: selectedCell, selectedCellBg: cellHighlightBg, selectedCellFg: cellHighlightFg,
 				editCellIndex: editCellIndex, editCursorPos: editCursorPos,
 				filterMatches: filterMatches,
-				trailingFillWidth: scrollbarGutter);
+				trailingFillWidth: scrollbarGutter,
+				cellPrefixes: GetCellPrefixes(dataR, colCount, colWidths.Length));
 
 			// Update row rendered position for hit testing (for in-memory rows)
 			if (_dataSource == null && rowSnapshot != null && dataR < rowSnapshot.Count)

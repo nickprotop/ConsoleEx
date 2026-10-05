@@ -93,7 +93,10 @@ internal sealed class TableColumnWidthCalculator
 				{
 					if (source.GetCell(r, c) is string cell)
 					{
+						// A prefix drawn in front of the value is part of the cell's width.
 						int cellW = _measurementCache.GetCachedLength(cell);
+						if (source.GetCellPrefix(r, c) is string prefix)
+							cellW += _measurementCache.GetCachedLength(prefix);
 						if (cellW > maxW) maxW = cellW;
 					}
 				}
@@ -237,6 +240,9 @@ internal interface ITableWidthSource
 
 	/// <summary>The text of a displayed row's cell, or null when the row has no such cell.</summary>
 	string? GetCell(int row, int column);
+
+	/// <summary>The markup drawn in front of a displayed row's cell value, or null for none.</summary>
+	string? GetCellPrefix(int row, int column);
 }
 
 /// <summary>Sizes the table's own <see cref="TableColumn"/>s from its <see cref="TableRow"/>s.</summary>
@@ -245,16 +251,20 @@ internal readonly struct TableColumnWidthSource : ITableWidthSource
 	private readonly List<TableColumn> _columns;
 	private readonly List<TableRow>? _rows;
 	private readonly int[]? _displayRows;
+	private readonly Func<int, int, string?>? _prefixOf;
 
 	/// <summary>Creates a source over the given column and row snapshots.</summary>
 	/// <param name="columns">The columns to size.</param>
 	/// <param name="rows">The data rows, or null when there are none.</param>
 	/// <param name="displayRows">The display map from display row to data row, or null for data order.</param>
-	internal TableColumnWidthSource(List<TableColumn> columns, List<TableRow>? rows, int[]? displayRows = null)
+	/// <param name="prefixOf">The prefix markup of a data row's cell, or null when cells have none.</param>
+	internal TableColumnWidthSource(List<TableColumn> columns, List<TableRow>? rows, int[]? displayRows = null,
+		Func<int, int, string?>? prefixOf = null)
 	{
 		_columns = columns;
 		_rows = rows;
 		_displayRows = displayRows;
+		_prefixOf = prefixOf;
 	}
 
 	/// <inheritdoc/>
@@ -275,12 +285,17 @@ internal readonly struct TableColumnWidthSource : ITableWidthSource
 	/// <inheritdoc/>
 	public string? GetCell(int row, int column)
 	{
-		int dataRow = _displayRows != null ? _displayRows[row] : row;
+		int dataRow = DataRowOf(row);
 		if (dataRow >= _rows!.Count) return null;
 
 		var cells = _rows[dataRow].Cells;
 		return column < cells.Count ? cells[column] : null;
 	}
+
+	/// <inheritdoc/>
+	public string? GetCellPrefix(int row, int column) => _prefixOf?.Invoke(DataRowOf(row), column);
+
+	private int DataRowOf(int row) => _displayRows != null ? _displayRows[row] : row;
 }
 
 /// <summary>
@@ -292,16 +307,20 @@ internal readonly struct TableDataSourceWidthSource : ITableWidthSource
 	private readonly ITableDataSource _dataSource;
 	private readonly Dictionary<int, int> _widthOverrides;
 	private readonly int[]? _displayRows;
+	private readonly Func<int, int, string?>? _prefixOf;
 
 	/// <summary>Creates a source over the data source and the user's resize overrides.</summary>
 	/// <param name="dataSource">The source whose columns are sized.</param>
 	/// <param name="widthOverrides">Widths the user dragged columns to, by column.</param>
 	/// <param name="displayRows">The display map from display row to source row, or null for identity.</param>
-	internal TableDataSourceWidthSource(ITableDataSource dataSource, Dictionary<int, int> widthOverrides, int[]? displayRows = null)
+	/// <param name="prefixOf">The prefix markup of a source row's cell, or null when cells have none.</param>
+	internal TableDataSourceWidthSource(ITableDataSource dataSource, Dictionary<int, int> widthOverrides,
+		int[]? displayRows = null, Func<int, int, string?>? prefixOf = null)
 	{
 		_dataSource = dataSource;
 		_widthOverrides = widthOverrides;
 		_displayRows = displayRows;
+		_prefixOf = prefixOf;
 	}
 
 	/// <inheritdoc/>
@@ -321,8 +340,12 @@ internal readonly struct TableDataSourceWidthSource : ITableWidthSource
 	public string GetHeader(int column) => _dataSource.GetColumnHeader(column);
 
 	/// <inheritdoc/>
-	public string? GetCell(int row, int column)
-		=> _dataSource.GetCellValue(_displayRows != null ? _displayRows[row] : row, column);
+	public string? GetCell(int row, int column) => _dataSource.GetCellValue(SourceRowOf(row), column);
+
+	/// <inheritdoc/>
+	public string? GetCellPrefix(int row, int column) => _prefixOf?.Invoke(SourceRowOf(row), column);
+
+	private int SourceRowOf(int row) => _displayRows != null ? _displayRows[row] : row;
 }
 
 /// <summary>

@@ -153,7 +153,9 @@ internal static class TableRowPainter
 	}
 
 	/// <summary>
-	/// Draws a data row with vertical borders and aligned cell text.
+	/// Draws a data row with vertical borders and aligned cell text. <c>cellPrefixes</c> holds markup
+	/// to draw at the left edge of each cell, in front of its value, indexed like <c>colWidths</c>;
+	/// null entries, or a null list, draw none.
 	/// </summary>
 	internal static void DrawDataRow(CharacterBuffer buffer, in TableRowStyle style, int x, int y,
 		int[] colWidths, LayoutRect clipRect, IList<string> cells, List<TableColumn>? cols,
@@ -162,7 +164,8 @@ internal static class TableRowPainter
 		bool isSelected = false, int selectedCellIndex = -1, Color? selectedCellBg = null, Color? selectedCellFg = null,
 		int editCellIndex = -1, int editCursorPos = -1,
 		List<(int Column, int Start, int Length)>? filterMatches = null,
-		int trailingFillWidth = 0)
+		int trailingFillWidth = 0,
+		IReadOnlyList<string?>? cellPrefixes = null)
 	{
 		if (y < clipRect.Y || y >= clipRect.Bottom) return;
 
@@ -204,6 +207,34 @@ internal static class TableRowPainter
 			logicalPos++;
 		}
 
+		// Draws a cell's prefix, clipped to the cell, and returns the cells it took. A selected or
+		// hovered row draws it in the row's colours, as it draws the value; otherwise the markup's own
+		// colours apply over the cell's.
+		int DrawCellPrefix(string prefix, int width, Color fg, Color bg)
+		{
+			var prefixCells = MarkupParser.Parse(prefix, fg, bg);
+			int count = Math.Min(prefixCells.Count, width);
+			for (int i = 0; i < count; i++)
+			{
+				var src = prefixCells[i];
+
+				// A wide glyph cut by the cell's edge would draw half of itself into the next column.
+				if (i == count - 1 && count < prefixCells.Count && !src.IsWideContinuation
+					&& Helpers.UnicodeWidth.IsWideRune(src.Character))
+				{
+					DrawChar(' ', fg, bg);
+					continue;
+				}
+
+				DrawFullCell(new Cell(src.Character, isSelected ? fg : src.Foreground, isSelected ? bg : src.Background, src.Decorations)
+				{
+					IsWideContinuation = src.IsWideContinuation,
+					Combiners = src.Combiners
+				});
+			}
+			return count;
+		}
+
 		if (hasBorder)
 		{
 			if (writeX >= clipRect.X && writeX < clipRect.Right && writeX < maxX)
@@ -239,6 +270,13 @@ internal static class TableRowPainter
 				cellBg = selectedCellBg.Value;
 				cellFg = selectedCellFg ?? rowFg;
 			}
+
+			// A prefix in front of the value takes the cell's first cells; the value is then aligned,
+			// truncated, faded, highlighted and edited in what is left, as if the cell were narrower.
+			// An edited cell keeps the row's colours for its prefix, so only the value looks editable.
+			string? prefix = cellPrefixes != null && c < cellPrefixes.Count ? cellPrefixes[c] : null;
+			if (!string.IsNullOrEmpty(prefix))
+				colW -= DrawCellPrefix(prefix, colW, isEditCell ? rowFg : cellFg, isEditCell ? rowBg : cellBg);
 
 			int cellLogicalStart = logicalPos;
 

@@ -913,7 +913,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// <paramref name="rows"/> in data order.
 	/// </param>
 	internal int[] ComputeColumnWidths(int availableWidth, List<TableColumn> cols, List<TableRow>? rows, int scrollOffset = 0, int visibleRowCount = ControlDefaults.TableColumnWidthSampleRows, int[]? displayRows = null)
-		=> _widthCalculator.Compute(new TableColumnWidthSource(cols, rows, displayRows),
+		=> _widthCalculator.Compute(new TableColumnWidthSource(cols, rows, displayRows, GetCellPrefixMarkup),
 			CreateWidthLayout(availableWidth, scrollOffset, visibleRowCount), useCache: true);
 
 	/// <summary>
@@ -923,7 +923,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	{
 		if (_dataSource == null) return Array.Empty<int>();
 
-		return _widthCalculator.Compute(new TableDataSourceWidthSource(_dataSource, _columnWidthOverrides, _rowView.Map),
+		return _widthCalculator.Compute(new TableDataSourceWidthSource(_dataSource, _columnWidthOverrides, _rowView.Map, GetCellPrefixMarkup),
 			CreateWidthLayout(availableWidth, scrollOffset, visibleRowCount), useCache: false);
 	}
 
