@@ -71,6 +71,7 @@ Controls for selecting items from lists or hierarchies.
 | **[ListControl](controls/ListControl.md)** | Scrollable list with selection | Single selection, item activation, keyboard navigation |
 | **[TableControl](controls/TableControl.md)** | Interactive data grid | Virtual data, sorting, filtering (AND/OR), inline editing, multi-select, cell navigation, scrollbars |
 | **[TreeControl](controls/TreeControl.md)** | Hierarchical tree view | Expand/collapse nodes, selection, keyboard navigation |
+| **[TreeTableControl](controls/TreeTableControl.md)** | Table whose rows nest | Expandable rows with every table feature, tree-aware sorting and filtering, lazy loading |
 | **[DropdownControl](controls/DropdownControl.md)** | Dropdown selection list | Click to expand, keyboard navigation, portal rendering |
 | **[RadioControl](controls/RadioControl.md)** | Single-select radio group | Typed `RadioGroup<T>` coordination, `Required`/`AllowDeselect` policies, label wrap, cross-layout grouping |
 | **[MenuControl](controls/MenuControl.md)** | Menu bar with dropdowns | Horizontal/vertical menus, submenus, separators, keyboard shortcuts |
@@ -419,6 +420,7 @@ Browse detailed documentation for specific controls:
 
 ### Advanced Controls
 - [TableControl](controls/TableControl.md) - Interactive data grid with virtual data
+- [TreeTableControl](controls/TreeTableControl.md) - Table whose rows nest, with tree-aware sorting and filtering
 - [TabControl](controls/TabControl.md) - Multi-page tab container
 - [CollapsiblePanel](controls/CollapsiblePanel.md) - Click-to-expand container for progressive disclosure
 - [NavigationView](controls/NavigationView.md) - Sidebar navigation with content area

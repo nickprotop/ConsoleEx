@@ -611,6 +611,7 @@ every position is `None`.
 `TableControl` can be subclassed. A derived table — one that nests rows, say — reuses the table's
 painting, scrolling, selection, sorting and filtering, and supplies only what it knows that the table
 cannot. Every member below is protected, and runs on the UI thread.
+[TreeTableControl](TreeTableControl.md) is built on these members alone.
 
 ### Deciding which rows are displayed
 
@@ -711,6 +712,7 @@ var table = Controls.Table()
 ## See Also
 
 - [ListControl](ListControl.md) - For simple item lists
+- [TreeTableControl](TreeTableControl.md) - A table whose rows nest
 - [Controls Reference](../CONTROLS.md) - All controls overview
 
 ---
