@@ -838,6 +838,119 @@ public class TableExtensibilityTests
 
 	#endregion
 
+	#region Every row change goes through the core methods
+
+	/// <summary>A row type of the derived table's own.</summary>
+	private sealed class NoteRow : TableRow
+	{
+		public NoteRow(string[] cells) : base(cells) { }
+	}
+
+	/// <summary>Records each core call, then lets the base make the change.</summary>
+	private sealed class CoreTable : TableControl
+	{
+		public List<string> Calls { get; } = new();
+
+		/// <summary>Calls the core directly, as a derived table's own API would.</summary>
+		public void InsertDirectly(TableRow row) => InsertRowsCore(0, [row]);
+
+		protected override TableRow CreateRow(string[] cells)
+		{
+			Calls.Add($"CreateRow({string.Join(",", cells)})");
+			return new NoteRow(cells);
+		}
+
+		protected override void InsertRowsCore(int index, IReadOnlyList<TableRow> rows)
+		{
+			Calls.Add($"Insert({index},{rows.Count})");
+			base.InsertRowsCore(index, rows);
+		}
+
+		protected override void RemoveRowsCore(int index, int count)
+		{
+			Calls.Add($"Remove({index},{count})");
+			base.RemoveRowsCore(index, count);
+		}
+
+		protected override void SetDataCore(IReadOnlyList<TableRow> rows)
+		{
+			Calls.Add($"SetData({rows.Count})");
+			base.SetDataCore(rows);
+		}
+	}
+
+	private static CoreTable Cored()
+	{
+		var table = new CoreTable();
+		table.AddColumn("Name");
+		table.AddRow(new TableRow("Alice"));
+		table.AddRow(new TableRow("Bob"));
+		table.Calls.Clear();
+		return table;
+	}
+
+	[Fact]
+	public void TheTextOverloads_CreateTheirRowsThroughCreateRow()
+	{
+		var table = Cored();
+
+		table.AddRow("Carol");
+		table.InsertRow(0, "Zed");
+
+		Assert.Equal(["CreateRow(Carol)", "Insert(2,1)", "CreateRow(Zed)", "Insert(0,1)"], table.Calls);
+		Assert.IsType<NoteRow>(table.GetRow(0));
+		Assert.IsType<NoteRow>(table.GetRow(3));
+	}
+
+	[Fact]
+	public void EveryAddAndInsert_GoesThroughInsertRowsCore()
+	{
+		var table = Cored();
+
+		table.AddRow(new TableRow("Carol"));
+		table.AddRows([new TableRow("Dave"), new TableRow("Eve")]);
+		table.InsertRow(1, new TableRow("Fay"));
+		table.InsertRows(0, [new TableRow("Gus")]);
+
+		Assert.Equal(["Insert(2,1)", "Insert(3,2)", "Insert(1,1)", "Insert(0,1)"], table.Calls);
+		Assert.Equal(7, table.Rows.Count);
+	}
+
+	[Fact]
+	public void AddingOrInsertingNoRows_DoesNotReachTheCore()
+	{
+		var table = Cored();
+
+		table.AddRows([]);
+		table.InsertRows(1, []);
+
+		Assert.Empty(table.Calls);
+	}
+
+	[Fact]
+	public void RemovingClearingAndReplacing_GoThroughTheirCores()
+	{
+		var table = Cored();
+
+		table.RemoveRow(9);
+		table.RemoveRow(1);
+		table.SetData([new TableRow("Hal"), new TableRow("Ida")]);
+		table.ClearRows();
+
+		Assert.Equal(["Remove(1,1)", "SetData(2)", "SetData(0)"], table.Calls);
+		Assert.Empty(table.Rows);
+	}
+
+	[Fact]
+	public void TheInsertCore_RefusesWhileADataSourceIsSet()
+	{
+		var table = new CoreTable { DataSource = new LetterSource() };
+
+		Assert.Throws<InvalidOperationException>(() => table.InsertDirectly(new TableRow("x")));
+	}
+
+	#endregion
+
 	#region Data sources
 
 	/// <summary>Three rows of one letter each; sorts itself, never filters.</summary>

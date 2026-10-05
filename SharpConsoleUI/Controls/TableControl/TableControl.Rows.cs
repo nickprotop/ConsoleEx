@@ -19,7 +19,8 @@ public partial class TableControl
 	{
 		if (_dataSource != null)
 			throw new InvalidOperationException("Cannot add rows when DataSource is set.");
-		AppendRows(new[] { new TableRow(cells) });
+		ThrowIfComputingDisplayRows();
+		AppendRows(new[] { CreateRow(cells) });
 	}
 
 	/// <summary>
@@ -29,6 +30,7 @@ public partial class TableControl
 	{
 		if (_dataSource != null)
 			throw new InvalidOperationException("Cannot add rows when DataSource is set.");
+		ThrowIfComputingDisplayRows();
 		AppendRows(new[] { row });
 	}
 
@@ -43,6 +45,7 @@ public partial class TableControl
 		var rowList = rows.ToList();
 		if (rowList.Count == 0) return;
 
+		ThrowIfComputingDisplayRows();
 		AppendRows(rowList);
 	}
 
@@ -54,7 +57,7 @@ public partial class TableControl
 	/// <param name="cells">The cell values for the new row.</param>
 	public void InsertRow(int index, params string[] cells)
 	{
-		InsertRow(index, new TableRow(cells));
+		InsertRow(index, CreateRow(cells));
 	}
 
 	/// <summary>
@@ -68,6 +71,7 @@ public partial class TableControl
 		if (_dataSource != null)
 			throw new InvalidOperationException("Cannot insert rows when DataSource is set.");
 
+		ThrowIfComputingDisplayRows();
 		InsertRowsCore(index, new[] { row });
 	}
 
@@ -85,6 +89,7 @@ public partial class TableControl
 		var rowList = rows.ToList();
 		if (rowList.Count == 0) return;
 
+		ThrowIfComputingDisplayRows();
 		InsertRowsCore(index, rowList);
 	}
 
@@ -99,6 +104,7 @@ public partial class TableControl
 				return;
 		}
 
+		ThrowIfComputingDisplayRows();
 		RemoveRowsCore(index, 1);
 	}
 
@@ -202,6 +208,7 @@ public partial class TableControl
 	/// </summary>
 	public void SetData(IEnumerable<TableRow> rows)
 	{
+		ThrowIfComputingDisplayRows();
 		SetDataCore(rows as IReadOnlyList<TableRow> ?? rows.ToList());
 	}
 
@@ -356,6 +363,25 @@ public partial class TableControl
 
 	#region Row Changes
 
+	// EVERY CHANGE TO THE ROWS GOES THROUGH THREE METHODS. Each public mutator — the AddRow, AddRows,
+	// InsertRow and InsertRows overloads, RemoveRow, ClearRows and SetData — validates its arguments
+	// and calls InsertRowsCore, RemoveRowsCore or SetDataCore, the way Collection<T>.InsertItem and
+	// RemoveItem work. A derived table that keeps a structure of its own alongside the rows overrides
+	// these to keep it in step, and calls the base to make the change, whichever public member was
+	// used and also from its own API.
+
+	/// <summary>
+	/// Creates the row for the overloads that take cell text: <see cref="AddRow(string[])"/> and
+	/// <see cref="InsertRow(int, string[])"/>.
+	/// </summary>
+	/// <param name="cells">The row's cell values.</param>
+	/// <returns>A new, unattached row.</returns>
+	/// <remarks>
+	/// The one way a derived table's rows created from text get its own row type, so that a table
+	/// whose rows carry more than cells can still be filled through the inherited overloads.
+	/// </remarks>
+	protected virtual TableRow CreateRow(string[] cells) => new TableRow(cells);
+
 	/// <summary>Appends rows after the last data row.</summary>
 	private void AppendRows(IReadOnlyList<TableRow> rows)
 	{
@@ -367,10 +393,19 @@ public partial class TableControl
 	/// <summary>
 	/// Inserts rows at a data index, keeping the sort, the filter and the selection.
 	/// </summary>
-	/// <param name="index">The data index to insert at, clamped to the data row count.</param>
-	/// <param name="rows">The rows to insert, in order.</param>
-	private void InsertRowsCore(int index, IReadOnlyList<TableRow> rows)
+	/// <param name="index">The data index to insert at; clamped to the data row count.</param>
+	/// <param name="rows">The rows to insert, in order; never empty.</param>
+	/// <remarks>
+	/// One complete change: the selection is recorded by row, the rows are inserted under
+	/// <see cref="SyncRoot"/>, the displayed rows are recomputed, the selection is put back on its
+	/// rows, and the layout is refreshed. Called by every add and insert overload. Throws
+	/// <see cref="InvalidOperationException"/> while a data source is set, or when called from
+	/// <see cref="ComputeDisplayRows"/>.
+	/// </remarks>
+	protected virtual void InsertRowsCore(int index, IReadOnlyList<TableRow> rows)
 	{
+		if (_dataSource != null)
+			throw new InvalidOperationException("Cannot insert rows when DataSource is set.");
 		ThrowIfComputingDisplayRows();
 
 		var selection = CaptureSelection();
@@ -392,9 +427,13 @@ public partial class TableControl
 	/// <summary>
 	/// Removes a range of data rows, keeping the sort, the filter and the selection.
 	/// </summary>
-	/// <param name="index">The first data index to remove; the range is already validated.</param>
-	/// <param name="count">How many rows to remove.</param>
-	private void RemoveRowsCore(int index, int count)
+	/// <param name="index">The first data index to remove.</param>
+	/// <param name="count">How many rows to remove; the range lies within the data rows.</param>
+	/// <remarks>
+	/// One complete change, as <see cref="InsertRowsCore"/> is. Called by <see cref="RemoveRow(int)"/>.
+	/// A selected row that is removed hands the cursor to the row now in its place.
+	/// </remarks>
+	protected virtual void RemoveRowsCore(int index, int count)
 	{
 		ThrowIfComputingDisplayRows();
 
@@ -419,7 +458,12 @@ public partial class TableControl
 	/// selection on the rows it still contains.
 	/// </summary>
 	/// <param name="rows">The new rows, copied; the caller keeps its list.</param>
-	private void SetDataCore(IReadOnlyList<TableRow> rows)
+	/// <remarks>
+	/// One complete change, as <see cref="InsertRowsCore"/> is. Called by <see cref="SetData"/>, and by
+	/// <see cref="ClearRows"/> with no rows after it has reset the selection, the scroll and the filter.
+	/// Rows that stay are found again by reference.
+	/// </remarks>
+	protected virtual void SetDataCore(IReadOnlyList<TableRow> rows)
 	{
 		ThrowIfComputingDisplayRows();
 
