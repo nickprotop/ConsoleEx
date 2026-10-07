@@ -405,30 +405,27 @@ public partial class TreeTableControl
 	}
 
 	/// <summary>
-	/// The root position of the first root whose row is at or after <paramref name="dataIndex"/> in
-	/// the depth-first list, or the end. Callers hold <see cref="TableControl.SyncRoot"/>.
+	/// The position among the live roots of the first root whose row is at or after
+	/// <paramref name="dataIndex"/> in <see cref="TableControl.Rows"/>, or the end. Callers hold
+	/// <see cref="TableControl.SyncRoot"/>.
 	/// </summary>
+	/// <remarks>
+	/// The index counts the rows the table holds: the hierarchy as last handed over. Inside a batch
+	/// the live roots have moved on from it, so the root is found in the snapshot and then, by
+	/// identity, among the live roots: rows added one after another in a batch keep their order. A
+	/// root removed in the batch hands over to the next one still there.
+	/// </remarks>
 	private int GetRootIndexAtOrAfter(int dataIndex)
 	{
-		int position = 0;
-		for (int root = 0; root < _roots.Count; root++)
+		var shape = _shape;
+		foreach (int root in shape.Roots)
 		{
-			if (position >= dataIndex)
-				return root;
-			position += CountWithDescendants(_roots[root]);
+			if (root < dataIndex) continue;
+
+			int live = _roots.FindIndex(row => ReferenceEquals(row, shape.Rows[root]));
+			if (live >= 0) return live;
 		}
 		return _roots.Count;
-	}
-
-	private static int CountWithDescendants(TableRow row)
-	{
-		int count = 1;
-		if (row is TreeTableRow treeRow)
-		{
-			foreach (var child in treeRow.ChildList)
-				count += CountWithDescendants(child);
-		}
-		return count;
 	}
 
 	/// <summary>Whether a row is in this table, at any depth.</summary>

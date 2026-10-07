@@ -431,5 +431,37 @@ public class TreeTableStructureTests
 		Assert.Single(table.Rows);
 	}
 
+	[Fact]
+	public void RowsAddedOneByOneInABatch_KeepTheirOrder()
+	{
+		var table = Backlog();
+
+		table.BatchUpdate(() =>
+		{
+			table.AddRow("Feature C");
+			table.AddRow("Feature D");
+			table.AddRows([new TreeTableRow("Feature E")]);
+		});
+
+		Assert.Equal(["Feature A", "Feature B", "Feature C", "Feature D", "Feature E"], Titles(table.RootRows));
+	}
+
+	[Fact]
+	public void AnInsertInABatch_CountsTheRowsTheTableHolds()
+	{
+		// Rows still lists the table as it was before the batch: index 5 is Feature B, and index 7,
+		// the end, appends as AddRow does.
+		var table = Backlog();
+
+		table.BatchUpdate(() =>
+		{
+			table.AddRow("Feature C");
+			table.InsertRow(7, "Feature D");
+			table.InsertRow(5, "Feature A2");
+		});
+
+		Assert.Equal(["Feature A", "Feature A2", "Feature B", "Feature C", "Feature D"], Titles(table.RootRows));
+	}
+
 	#endregion
 }
