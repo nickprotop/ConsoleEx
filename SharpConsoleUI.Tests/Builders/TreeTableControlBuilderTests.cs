@@ -134,4 +134,21 @@ public class TreeTableControlBuilderTests
 		Assert.Equal(constructed.TreeColumnIndex, built.TreeColumnIndex);
 		Assert.Equal(constructed.FilterIncludesDescendants, built.FilterIncludesDescendants);
 	}
+
+	[Fact]
+	public void ManyRows_AreBuiltInOneRecompute_NotOnePerRow()
+	{
+		// One recompute per row made this quadratic: some 2.7 s for 5000 rows, against some 50 ms in
+		// one batch. The bound leaves room for a slow machine and none for the quadratic build.
+		var builder = Builders.Controls.TreeTable().AddColumn("Asteroid");
+		for (int i = 0; i < 5000; i++)
+			builder.AddRow($"Asteroid {i}");
+		var watch = System.Diagnostics.Stopwatch.StartNew();
+
+		var table = builder.Build();
+
+		Assert.True(watch.ElapsedMilliseconds < 1000, $"Building took {watch.ElapsedMilliseconds} ms.");
+		Assert.Equal(5000, table.RowCount);
+		Assert.Equal("Asteroid 4999", table.Rows[^1].Cells[0]);
+	}
 }

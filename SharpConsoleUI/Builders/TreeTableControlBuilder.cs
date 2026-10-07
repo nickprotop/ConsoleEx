@@ -148,7 +148,9 @@ public sealed class TreeTableControlBuilder : TableControlBuilderBase<TreeTableC
 		if (_onRowExpansionChanged != null)
 			table.RowExpansionChanged += _onRowExpansionChanged;
 
-		return Apply(table);
+		// One batch, so the rows the builder adds one by one make one recompute rather than one each.
+		table.BatchUpdate(() => Apply(table));
+		return table;
 	}
 
 	/// <summary>
