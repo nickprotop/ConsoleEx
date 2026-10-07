@@ -192,11 +192,19 @@ public class TreeTableRow : TableRow
 		if (child.Parent != null || child.Table != null)
 			throw new InvalidOperationException("The row already belongs to a parent or a table; remove it from there first.");
 
+		if (IsSelfOrNestedUnder(child))
+			throw new InvalidOperationException("A row cannot be nested under itself or one of its own descendants.");
+	}
+
+	/// <summary>Whether this row is <paramref name="row"/> or nested under it, at any depth.</summary>
+	internal bool IsSelfOrNestedUnder(TableRow row)
+	{
 		for (var ancestor = this; ancestor != null; ancestor = ancestor.Parent)
 		{
-			if (ReferenceEquals(ancestor, child))
-				throw new InvalidOperationException("A row cannot be nested under itself or one of its own descendants.");
+			if (ReferenceEquals(ancestor, row))
+				return true;
 		}
+		return false;
 	}
 
 	/// <summary>Links a child in, without telling any table.</summary>

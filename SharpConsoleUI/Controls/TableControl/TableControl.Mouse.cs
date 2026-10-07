@@ -529,13 +529,11 @@ public partial class TableControl
 			lock (_clickLock)
 			{
 				var now = DateTime.Now;
-				if (_lastClickRowIndex == rowIdx &&
-					(now - _lastClickTime).TotalMilliseconds < _doubleClickThresholdMs)
+				if (IsPairedClick(rowIdx, now))
 				{
 					Core.AsyncEvent.Raise(RowActivated, RowActivatedAsync, this, rowIdx, Container?.GetConsoleWindowSystem?.LogService);
 					MouseDoubleClick?.Invoke(this, args);
-					_lastClickTime = DateTime.MinValue;
-					_lastClickRowIndex = -1;
+					ResetClickPairing();
 				}
 				else
 				{
@@ -591,11 +589,16 @@ public partial class TableControl
 
 		lock (_clickLock)
 		{
-			bool paired = _lastClickRowIndex == displayRowIndex
-				&& (DateTime.Now - _lastClickTime).TotalMilliseconds < _doubleClickThresholdMs;
-			return paired ? 2 : 1;
+			return IsPairedClick(displayRowIndex, DateTime.Now) ? 2 : 1;
 		}
 	}
+
+	/// <summary>
+	/// Whether a click on a display row at <paramref name="now"/> is the second half of a
+	/// double-click. Callers hold the click lock.
+	/// </summary>
+	private bool IsPairedClick(int displayRowIndex, DateTime now)
+		=> _lastClickRowIndex == displayRowIndex && (now - _lastClickTime).TotalMilliseconds < _doubleClickThresholdMs;
 
 	#endregion
 

@@ -200,9 +200,7 @@ internal sealed class TreeTableItemsBinding<T> : ITreeTableItemsBinding where T 
 	/// <summary>Stops following an item and everything under it.</summary>
 	private void Forget(Node node)
 	{
-		if (node.ItemHandler != null && node.Item is INotifyPropertyChanged notifying)
-			notifying.PropertyChanged -= node.ItemHandler;
-		node.ItemHandler = null;
+		UnfollowItem(node);
 
 		if (node.Children != null)
 		{
@@ -347,16 +345,7 @@ internal sealed class TreeTableItemsBinding<T> : ITreeTableItemsBinding where T 
 
 		// Nothing new and nothing out of order, as after a reset that only removed or re-sent items:
 		// the rows stay where they are.
-		if (Array.TrueForAll(kept, node => node != null) && IsInOrder(siblings, kept!))
-		{
-			for (int i = 0; i < items.Count; i++)
-			{
-				siblings.Nodes.Add(kept[i]!);
-				if (!ReferenceEquals(kept[i]!.Item, items[i]))
-					Repoint(kept[i]!, items[i]);
-			}
-			return;
-		}
+		bool inOrder = Array.TrueForAll(kept, node => node != null) && IsInOrder(siblings, kept!);
 
 		for (int i = 0; i < items.Count; i++)
 		{
@@ -369,7 +358,8 @@ internal sealed class TreeTableItemsBinding<T> : ITreeTableItemsBinding where T 
 			siblings.Nodes.Add(node);
 			if (!ReferenceEquals(node.Item, items[i]))
 				Repoint(node, items[i]);
-			_table.MoveRow(node.Row, siblings.Parent, PositionFor(siblings, i, node.Row));
+			if (!inOrder)
+				_table.MoveRow(node.Row, siblings.Parent, PositionFor(siblings, i, node.Row));
 		}
 	}
 
@@ -427,12 +417,17 @@ internal sealed class TreeTableItemsBinding<T> : ITreeTableItemsBinding where T 
 		notifying.PropertyChanged += node.ItemHandler;
 	}
 
+	private static void UnfollowItem(Node node)
+	{
+		if (node.ItemHandler != null && node.Item is INotifyPropertyChanged notifying)
+			notifying.PropertyChanged -= node.ItemHandler;
+		node.ItemHandler = null;
+	}
+
 	/// <summary>Shows a different, equal item in a row, keeping the row.</summary>
 	private void Repoint(Node node, T item)
 	{
-		if (node.ItemHandler != null && node.Item is INotifyPropertyChanged old)
-			old.PropertyChanged -= node.ItemHandler;
-		node.ItemHandler = null;
+		UnfollowItem(node);
 
 		node.Item = item;
 		node.Row.Tag = item;

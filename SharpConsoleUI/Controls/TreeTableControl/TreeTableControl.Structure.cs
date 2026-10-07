@@ -19,10 +19,6 @@ public partial class TreeTableControl
 	// Plain TableRows in the table, which carry no parent or table of their own to check against.
 	private readonly HashSet<TableRow> _plainRows = new(ReferenceEqualityComparer.Instance);
 
-	// What the table was last given: every row, depth-first in sibling order. Data indices refer to
-	// this list until the next change to the hierarchy is handed over.
-	private List<TableRow> _flattened = new();
-
 	// Batching: nested BatchUpdate calls, whether the hierarchy changed since it was handed over, and
 	// whether only what is displayed of it changed — a row expanded, say.
 	private int _batchDepth;
@@ -100,14 +96,8 @@ public partial class TreeTableControl
 		if (newParent != null && row is not TreeTableRow)
 			throw new InvalidOperationException("A plain TableRow can only be a root; use a TreeTableRow to nest it.");
 
-		if (newParent != null)
-		{
-			for (var ancestor = newParent; ancestor != null; ancestor = ancestor.Parent)
-			{
-				if (ReferenceEquals(ancestor, row))
-					throw new InvalidOperationException("A row cannot be moved under itself or one of its own descendants.");
-			}
-		}
+		if (newParent != null && newParent.IsSelfOrNestedUnder(row))
+			throw new InvalidOperationException("A row cannot be moved under itself or one of its own descendants.");
 
 		ChangeStructure(() =>
 		{
@@ -191,13 +181,8 @@ public partial class TreeTableControl
 		ArgumentNullException.ThrowIfNull(tag);
 		lock (SyncRoot)
 		{
-			foreach (var row in Flatten())
-			{
-				if (tag.Equals(row.Tag))
-					return row;
-			}
+			return FindFirstWithTag(_roots, tag);
 		}
-		return null;
 	}
 
 	#endregion
@@ -249,7 +234,7 @@ public partial class TreeTableControl
 	/// <summary>Removes the rows at those positions in <see cref="TableControl.Rows"/>, with the rows nested under them.</summary>
 	protected override void RemoveRowsCore(int index, int count)
 	{
-		var doomed = _flattened.Skip(index).Take(count).ToList();
+		var doomed = _shape.Rows.Skip(index).Take(count).ToList();
 		ChangeStructure(() =>
 		{
 			foreach (var row in doomed)
@@ -287,8 +272,7 @@ public partial class TreeTableControl
 
 			foreach (var row in rows)
 			{
-				if (row is TreeTableRow { Parent: not null } nested)
-					nested.Parent!.DetachChild(nested);
+				Unlink(row);
 				_roots.Add(row);
 				Attach(row);
 			}
@@ -382,14 +366,13 @@ public partial class TreeTableControl
 	/// </remarks>
 	private void FlushStructure()
 	{
-		List<TableRow> flattened;
+		TreeTableShape shape;
 		lock (SyncRoot)
 		{
 			if (!_structureDirty) return;
 
-			_shape = TreeTableShape.Capture(_roots);
-			flattened = _shape.Rows.ToList();
-			_flattened = flattened;
+			shape = TreeTableShape.Capture(_roots);
+			_shape = shape;
 			_structureDirty = false;
 			_viewDirty = false;
 		}
@@ -397,7 +380,7 @@ public partial class TreeTableControl
 		_replacedView = _view;
 		try
 		{
-			base.SetDataCore(flattened);
+			base.SetDataCore(shape.Rows);
 		}
 		finally
 		{
@@ -405,23 +388,20 @@ public partial class TreeTableControl
 		}
 	}
 
-	/// <summary>Every row, depth-first in sibling order. Callers hold <see cref="TableControl.SyncRoot"/>.</summary>
-	private List<TableRow> Flatten()
+	/// <summary>
+	/// The first of <paramref name="rows"/> and the rows nested under them, depth-first in sibling
+	/// order, whose tag equals <paramref name="tag"/>. Callers hold <see cref="TableControl.SyncRoot"/>.
+	/// </summary>
+	private static TableRow? FindFirstWithTag(IEnumerable<TableRow> rows, object tag)
 	{
-		var rows = new List<TableRow>();
-		foreach (var root in _roots)
-			AddWithDescendants(root, rows);
-		return rows;
-	}
-
-	private static void AddWithDescendants(TableRow row, List<TableRow> rows)
-	{
-		rows.Add(row);
-		if (row is TreeTableRow treeRow)
+		foreach (var row in rows)
 		{
-			foreach (var child in treeRow.ChildList)
-				AddWithDescendants(child, rows);
+			if (tag.Equals(row.Tag))
+				return row;
+			if (row is TreeTableRow treeRow && FindFirstWithTag(treeRow.ChildList, tag) is { } nested)
+				return nested;
 		}
+		return null;
 	}
 
 	/// <summary>

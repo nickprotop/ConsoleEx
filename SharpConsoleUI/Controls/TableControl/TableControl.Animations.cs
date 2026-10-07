@@ -30,14 +30,13 @@ public partial class TableControl
 	/// </remarks>
 	internal sealed class RowAnimationEntry
 	{
-		public RowAnimationEntry(TableRow? row, int dataIndex, int columnIndex, Color overlayColor, float intensity, bool isRemoval)
+		public RowAnimationEntry(TableRow? row, int dataIndex, int columnIndex, Color overlayColor, float intensity)
 		{
 			Row = row;
 			DataIndex = dataIndex;
 			ColumnIndex = columnIndex;
 			OverlayColor = overlayColor;
 			Intensity = intensity;
-			IsRemoval = isRemoval;
 		}
 
 		/// <summary>The table's own row being animated, or null for a data source's row.</summary>
@@ -57,9 +56,6 @@ public partial class TableControl
 
 		/// <summary>Current overlay intensity, updated as the animation runs.</summary>
 		public float Intensity { get; set; }
-
-		/// <summary>Whether the row is removed when the animation completes.</summary>
-		public bool IsRemoval { get; }
 
 		/// <summary>Whether only one cell is overlaid.</summary>
 		public bool CellOnly => ColumnIndex >= 0;
@@ -178,7 +174,7 @@ public partial class TableControl
 		var manager = GetAnimationManager();
 		if (manager == null) return null;
 
-		var entries = rows.Select(row => new RowAnimationEntry(row, -1, -1, Color.Black, 0f, true)).ToList();
+		var entries = rows.Select(row => new RowAnimationEntry(row, -1, -1, Color.Black, 0f)).ToList();
 		_rowAnimationEntries.AddRange(entries);
 
 		return manager.Animate(
@@ -265,7 +261,7 @@ public partial class TableControl
 		var row = _dataSource == null ? RowAtDisplayPosition(rowIndex) : null;
 		if (_dataSource == null && row == null) return null;
 
-		var entry = new RowAnimationEntry(row, dataIndex, columnIndex, color, from, false);
+		var entry = new RowAnimationEntry(row, dataIndex, columnIndex, color, from);
 		_rowAnimationEntries.Add(entry);
 
 		return manager.Animate(

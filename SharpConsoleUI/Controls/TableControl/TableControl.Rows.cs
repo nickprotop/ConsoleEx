@@ -306,8 +306,7 @@ public partial class TableControl
 		var selection = CaptureSelection();
 		RebuildDisplayMap();
 		RestoreSelection(selection);
-		InvalidateColumnWidths();
-		Invalidate(Invalidation.Relayout);
+		InvalidateAfterRowChange();
 	}
 
 	/// <summary>
@@ -521,7 +520,6 @@ public partial class TableControl
 	private void InvalidateAfterRowChange()
 	{
 		InvalidateColumnWidths();
-		_measurementCache.InvalidateCache();
 		Invalidate(Invalidation.Relayout);
 	}
 
@@ -638,8 +636,9 @@ public partial class TableControl
 		var selected = new List<int>(_selectedRowIndices.Count);
 		foreach (int position in _selectedRowIndices)
 		{
-			if (position >= 0 && position < rowCount)
-				selected.Add(MapDisplayToData(position));
+			int dataRow = DataRowAt(position);
+			if (dataRow >= 0)
+				selected.Add(dataRow);
 		}
 
 		int cursor = DataRowAt(_selectedRowIndex);

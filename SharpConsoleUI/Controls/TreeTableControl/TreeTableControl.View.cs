@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Helpers;
@@ -277,11 +278,10 @@ public partial class TreeTableControl
 	/// </summary>
 	protected override string? GetCellPrefixMarkup(int dataRowIndex, int columnIndex)
 	{
-		var view = _view;
-		if (DataSource != null || view == null || columnIndex != _treeColumnIndex || dataRowIndex < 0 || dataRowIndex >= view.Shape.Count)
+		if (DataSource != null || columnIndex != _treeColumnIndex || !TryGetView(dataRowIndex, out var view))
 			return null;
 
-		string prefix = view.PrefixMarkup[dataRowIndex] ??= BuildPrefixMarkup(view, dataRowIndex);
+		string prefix = view.PrefixMarkup[dataRowIndex] ?? BuildPrefixMarkup(view, dataRowIndex, out _, out _);
 		return prefix.Length == 0 ? null : prefix;
 	}
 
@@ -327,13 +327,20 @@ public partial class TreeTableControl
 		return context.ShowsExpanderGutter ? new string(' ', TreeGuideHelper.ExpanderWidth) : string.Empty;
 	}
 
-	/// <summary>Builds and keeps a row's guide, expander and the two together.</summary>
-	private string BuildPrefixMarkup(TreeTableProjection view, int dataRowIndex)
+	/// <summary>Builds and keeps a row's guide, expander and the two together, where not built yet.</summary>
+	private string BuildPrefixMarkup(TreeTableProjection view, int dataRowIndex, out string guide, out string expander)
 	{
 		var context = new TreeTableRowContext(view, dataRowIndex, _guide, _indent);
-		string guide = view.GuideMarkup[dataRowIndex] ??= GetGuideMarkup(in context) ?? string.Empty;
-		string expander = view.ExpanderMarkup[dataRowIndex] ??= GetExpanderMarkup(in context) ?? string.Empty;
-		return guide + expander;
+		guide = view.GuideMarkup[dataRowIndex] ??= GetGuideMarkup(in context) ?? string.Empty;
+		expander = view.ExpanderMarkup[dataRowIndex] ??= GetExpanderMarkup(in context) ?? string.Empty;
+		return view.PrefixMarkup[dataRowIndex] ??= guide + expander;
+	}
+
+	/// <summary>The display computed last, when it has a row at <paramref name="dataRowIndex"/>.</summary>
+	private bool TryGetView(int dataRowIndex, [NotNullWhen(true)] out TreeTableProjection? view)
+	{
+		view = _view;
+		return view != null && dataRowIndex >= 0 && dataRowIndex < view.Shape.Count;
 	}
 
 	/// <summary>Drops the drawn guides and expanders, after a setting that changes them.</summary>

@@ -261,27 +261,8 @@ public partial class TableControl
 		if (_dataSource == null)
 			return false;
 
-		var source = _dataSource;
-		var result = TableFilterResult.NotHandled;
-		CallSource(() => result = TryApplyFilterToDataSource(source, compound));
-		if (result.Outcome == TableFilterOutcome.NotHandled)
+		if (AskSourceToFilter(_dataSource, compound) == TableFilterOutcome.NotHandled)
 			return false;
-
-		if (result.Outcome == TableFilterOutcome.DisplayRowsSupplied)
-		{
-			// The source keeps reporting every row and has named the ones to show, so the table
-			// addresses rows through its map. Flagged as the source's so a later sort re-asks the
-			// source instead of rebuilding the map from a client-side scan, which would throw away
-			// the very knowledge the source overrode this to supply.
-			_rowView.SetFromSource(BuildSourceDisplayMap(result.DisplayRows!));
-		}
-		else
-		{
-			// The source now reports only matching rows, so no display map is needed: RowCount reads
-			// through to it and MapDisplayToData stays identity. Still recorded as the source's
-			// answer, so nothing rebuilds a map over the narrowed rows from a client-side scan.
-			_rowView.SetFromSource(null);
-		}
 
 		// _unfilteredRowCount is deliberately NOT reset here. It was captured before the source
 		// narrowed and is the only remaining record of the pre-filter total — the source itself can
@@ -297,6 +278,35 @@ public partial class TableControl
 		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);
 		return true;
+	}
+
+	/// <summary>
+	/// Asks the data source to apply a filter itself and, when it does, takes its answer as the
+	/// display map.
+	/// </summary>
+	/// <returns>What the source did; on <see cref="TableFilterOutcome.NotHandled"/> the map is untouched.</returns>
+	private TableFilterOutcome AskSourceToFilter(ITableDataSource source, CompoundFilterExpression filter)
+	{
+		var result = TableFilterResult.NotHandled;
+		CallSource(() => result = TryApplyFilterToDataSource(source, filter));
+
+		if (result.Outcome == TableFilterOutcome.DisplayRowsSupplied)
+		{
+			// The source keeps reporting every row and has named the ones to show, so the table
+			// addresses rows through its map. Flagged as the source's so a later sort re-asks the
+			// source instead of rebuilding the map from a client-side scan, which would throw away
+			// the very knowledge the source overrode this to supply.
+			_rowView.SetFromSource(BuildSourceDisplayMap(result.DisplayRows!));
+		}
+		else if (result.Outcome == TableFilterOutcome.SourceNarrowed)
+		{
+			// The source now reports only matching rows, so no display map is needed: RowCount reads
+			// through to it and MapDisplayToData stays identity. Still recorded as the source's
+			// answer, so nothing rebuilds a map over the narrowed rows from a client-side scan.
+			_rowView.SetFromSource(null);
+		}
+
+		return result.Outcome;
 	}
 
 	/// <summary>
@@ -374,16 +384,7 @@ public partial class TableControl
 
 		if (!_rowView.FromSource) return;
 
-		var source = _dataSource;
-		var filter = _activeFilter;
-		var result = TableFilterResult.NotHandled;
-		CallSource(() => result = TryApplyFilterToDataSource(source, filter));
-
-		if (result.Outcome == TableFilterOutcome.DisplayRowsSupplied)
-			_rowView.SetFromSource(BuildSourceDisplayMap(result.DisplayRows!));
-		else if (result.Outcome == TableFilterOutcome.SourceNarrowed)
-			_rowView.SetFromSource(null);
-		else
+		if (AskSourceToFilter(_dataSource, _activeFilter) == TableFilterOutcome.NotHandled)
 			RecomputeDisplayMap();
 	}
 
@@ -1181,11 +1182,6 @@ public partial class TableControl
 		}
 		return pi == pattern.Length;
 	}
-
-	/// <summary>
-	/// Sorts an array of data indices by the current sort column.
-	/// </summary>
-	private void SortIndices(int[] indices) => SortRowIndices(indices, _sortColumnIndex, _sortDirection);
 
 	#endregion
 

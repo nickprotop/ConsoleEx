@@ -254,6 +254,9 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private readonly TextMeasurementCache _measurementCache;
 	private readonly TableColumnWidthCalculator _widthCalculator;
 
+	// GetCellPrefixMarkup as the width sources ask it, created once rather than on every measure
+	private readonly Func<int, int, string?> _cellPrefixOf;
+
 	// Where the last paint put the columns, for hit testing; null before the first paint
 	private TableGeometry? _geometry;
 
@@ -283,6 +286,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	{
 		_measurementCache = new TextMeasurementCache(MarkupParser.StripLength);
 		_widthCalculator = new TableColumnWidthCalculator(_measurementCache);
+		_cellPrefixOf = GetCellPrefixMarkup;
 	}
 
 	#endregion
@@ -973,7 +977,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// <paramref name="rows"/> in data order.
 	/// </param>
 	internal int[] ComputeColumnWidths(int availableWidth, List<TableColumn> cols, List<TableRow>? rows, int scrollOffset = 0, int visibleRowCount = ControlDefaults.TableColumnWidthSampleRows, int[]? displayRows = null)
-		=> _widthCalculator.Compute(new TableColumnWidthSource(cols, rows, displayRows, GetCellPrefixMarkup),
+		=> _widthCalculator.Compute(new TableColumnWidthSource(cols, rows, displayRows, _cellPrefixOf),
 			CreateWidthLayout(availableWidth, scrollOffset, visibleRowCount), useCache: true);
 
 	/// <summary>
@@ -983,7 +987,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	{
 		if (_dataSource == null) return Array.Empty<int>();
 
-		return _widthCalculator.Compute(new TableDataSourceWidthSource(_dataSource, _columnWidthOverrides, _rowView.Map, GetCellPrefixMarkup),
+		return _widthCalculator.Compute(new TableDataSourceWidthSource(_dataSource, _columnWidthOverrides, _rowView.Map, _cellPrefixOf),
 			CreateWidthLayout(availableWidth, scrollOffset, visibleRowCount), useCache: false);
 	}
 

@@ -44,9 +44,6 @@ internal sealed class TreeTableProjection
 	/// <summary>The hierarchy this was computed from.</summary>
 	internal TreeTableShape Shape { get; }
 
-	/// <summary>Whether a filter decided which rows are displayed.</summary>
-	internal bool IsFiltered { get; private set; }
-
 	/// <summary>The data rows displayed, in display order.</summary>
 	internal int[] DisplayRows { get; private set; } = Array.Empty<int>();
 
@@ -119,8 +116,6 @@ internal sealed class TreeTableProjection
 
 		if (matches != null)
 		{
-			view.IsFiltered = true;
-
 			// Depth-first order puts every descendant after its ancestor, so walking backwards sees
 			// a row's whole subtree before the row, and walking forwards sees its ancestors first.
 			var subtreeMatches = new bool[count];
@@ -144,9 +139,11 @@ internal sealed class TreeTableProjection
 			}
 		}
 
+		Predicate<int>? isPassed = passes == null ? null : row => passes[row];
+
 		for (int row = 0; row < count; row++)
 		{
-			if (passes == null)
+			if (isPassed == null)
 			{
 				view.HasChildren[row] = shape.Children[row].Length > 0
 					|| shape.Rows[row] is TreeTableRow { HasUnrealizedChildren: true };
@@ -154,7 +151,7 @@ internal sealed class TreeTableProjection
 			}
 			else
 			{
-				view.HasChildren[row] = Array.Exists(shape.Children[row], child => passes[child]);
+				view.HasChildren[row] = Array.Exists(shape.Children[row], isPassed);
 				view.IsOpen[row] = request.ToggleInView?.Invoke(row)
 					?? (view.HasMatchingDescendant[row] || request.IsOpen(row));
 			}
@@ -167,7 +164,7 @@ internal sealed class TreeTableProjection
 
 		int[] Ordered(int[] siblings)
 		{
-			var shown = passes == null ? siblings : Array.FindAll(siblings, row => passes[row]);
+			var shown = isPassed == null ? siblings : Array.FindAll(siblings, isPassed);
 			if (siblingOrder == null || shown.Length < 2) return shown;
 
 			var ordered = ReferenceEquals(shown, siblings) ? (int[])siblings.Clone() : shown;
@@ -276,7 +273,7 @@ internal sealed class TreeTableProjection
 /// <param name="ToggleInView">How a row was toggled during this filter, or null where it was not.</param>
 internal readonly record struct TreeTableViewRequest(
 	Func<int, bool> IsOpen,
-	Comparison<int>? SiblingOrder = null,
-	bool[]? Matches = null,
-	bool ShowSubtreesOfMatches = false,
-	Func<int, bool?>? ToggleInView = null);
+	Comparison<int>? SiblingOrder,
+	bool[]? Matches,
+	bool ShowSubtreesOfMatches,
+	Func<int, bool?>? ToggleInView);

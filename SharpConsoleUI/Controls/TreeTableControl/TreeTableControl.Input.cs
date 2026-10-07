@@ -37,10 +37,9 @@ public partial class TreeTableControl
 		if (DataSource != null || (key.Modifiers & (ConsoleModifiers.Control | ConsoleModifiers.Alt)) != 0)
 			return false;
 
-		var view = _view;
 		int position = SelectedRowIndex;
 		int dataIndex = position >= 0 ? GetDataRowIndex(position) : -1;
-		if (view == null || dataIndex < 0 || dataIndex >= view.Shape.Count || view.Shape.Rows[dataIndex] is not TreeTableRow row)
+		if (!TryGetView(dataIndex, out var view) || view.Shape.Rows[dataIndex] is not TreeTableRow row)
 			return false;
 
 		bool expandable = view.HasChildren[dataIndex];
@@ -118,16 +117,15 @@ public partial class TreeTableControl
 		if (DataSource != null || hit.Zone != TableHitZone.Cell || hit.ColumnIndex != _treeColumnIndex)
 			return false;
 
-		var view = _view;
 		int dataIndex = hit.DataRowIndex;
-		if (view == null || dataIndex < 0 || dataIndex >= view.Shape.Count || !view.HasChildren[dataIndex]
+		if (!TryGetView(dataIndex, out var view) || !view.HasChildren[dataIndex]
 			|| view.Shape.Rows[dataIndex] is not TreeTableRow row)
 			return false;
 
 		// Built when the row was painted; built here if it was not.
-		view.PrefixMarkup[dataIndex] ??= BuildPrefixMarkup(view, dataIndex);
-		int expanderStart = MarkupParser.StripLength(view.GuideMarkup[dataIndex] ?? string.Empty);
-		int expanderEnd = expanderStart + MarkupParser.StripLength(view.ExpanderMarkup[dataIndex] ?? string.Empty);
+		BuildPrefixMarkup(view, dataIndex, out string guide, out string expander);
+		int expanderStart = MarkupParser.StripLength(guide);
+		int expanderEnd = expanderStart + MarkupParser.StripLength(expander);
 		if (hit.CellOffset < expanderStart || hit.CellOffset >= expanderEnd)
 			return false;
 

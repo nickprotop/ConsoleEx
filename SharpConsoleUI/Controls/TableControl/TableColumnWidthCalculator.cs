@@ -251,15 +251,15 @@ internal readonly struct TableColumnWidthSource : ITableWidthSource
 	private readonly List<TableColumn> _columns;
 	private readonly List<TableRow>? _rows;
 	private readonly int[]? _displayRows;
-	private readonly Func<int, int, string?>? _prefixOf;
+	private readonly Func<int, int, string?> _prefixOf;
 
 	/// <summary>Creates a source over the given column and row snapshots.</summary>
 	/// <param name="columns">The columns to size.</param>
 	/// <param name="rows">The data rows, or null when there are none.</param>
 	/// <param name="displayRows">The display map from display row to data row, or null for data order.</param>
-	/// <param name="prefixOf">The prefix markup of a data row's cell, or null when cells have none.</param>
-	internal TableColumnWidthSource(List<TableColumn> columns, List<TableRow>? rows, int[]? displayRows = null,
-		Func<int, int, string?>? prefixOf = null)
+	/// <param name="prefixOf">The prefix markup of a data row's cell, or null for none.</param>
+	internal TableColumnWidthSource(List<TableColumn> columns, List<TableRow>? rows, int[]? displayRows,
+		Func<int, int, string?> prefixOf)
 	{
 		_columns = columns;
 		_rows = rows;
@@ -293,7 +293,7 @@ internal readonly struct TableColumnWidthSource : ITableWidthSource
 	}
 
 	/// <inheritdoc/>
-	public string? GetCellPrefix(int row, int column) => _prefixOf?.Invoke(DataRowOf(row), column);
+	public string? GetCellPrefix(int row, int column) => _prefixOf(DataRowOf(row), column);
 
 	private int DataRowOf(int row) => _displayRows != null ? _displayRows[row] : row;
 }
@@ -307,15 +307,15 @@ internal readonly struct TableDataSourceWidthSource : ITableWidthSource
 	private readonly ITableDataSource _dataSource;
 	private readonly Dictionary<int, int> _widthOverrides;
 	private readonly int[]? _displayRows;
-	private readonly Func<int, int, string?>? _prefixOf;
+	private readonly Func<int, int, string?> _prefixOf;
 
 	/// <summary>Creates a source over the data source and the user's resize overrides.</summary>
 	/// <param name="dataSource">The source whose columns are sized.</param>
 	/// <param name="widthOverrides">Widths the user dragged columns to, by column.</param>
 	/// <param name="displayRows">The display map from display row to source row, or null for identity.</param>
-	/// <param name="prefixOf">The prefix markup of a source row's cell, or null when cells have none.</param>
+	/// <param name="prefixOf">The prefix markup of a source row's cell, or null for none.</param>
 	internal TableDataSourceWidthSource(ITableDataSource dataSource, Dictionary<int, int> widthOverrides,
-		int[]? displayRows = null, Func<int, int, string?>? prefixOf = null)
+		int[]? displayRows, Func<int, int, string?> prefixOf)
 	{
 		_dataSource = dataSource;
 		_widthOverrides = widthOverrides;
@@ -343,7 +343,7 @@ internal readonly struct TableDataSourceWidthSource : ITableWidthSource
 	public string? GetCell(int row, int column) => _dataSource.GetCellValue(SourceRowOf(row), column);
 
 	/// <inheritdoc/>
-	public string? GetCellPrefix(int row, int column) => _prefixOf?.Invoke(SourceRowOf(row), column);
+	public string? GetCellPrefix(int row, int column) => _prefixOf(SourceRowOf(row), column);
 
 	private int SourceRowOf(int row) => _displayRows != null ? _displayRows[row] : row;
 }

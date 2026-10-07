@@ -222,17 +222,13 @@ public partial class TableControl
 	/// </remarks>
 	protected int CompareRows(int dataIndexA, int dataIndexB, int columnIndex, SortDirection direction)
 	{
-		int result;
 		if (_dataSource != null)
-		{
-			result = CompareSourceRows(dataIndexA, dataIndexB, columnIndex);
-		}
-		else
-		{
-			lock (_tableLock) { result = CompareOwnRows(dataIndexA, dataIndexB, columnIndex); }
-		}
+			return CompareDirected(dataIndexA, dataIndexB, columnIndex, direction);
 
-		return direction == SortDirection.Descending ? -result : result;
+		lock (_tableLock)
+		{
+			return CompareDirected(dataIndexA, dataIndexB, columnIndex, direction);
+		}
 	}
 
 	/// <summary>
@@ -280,10 +276,19 @@ public partial class TableControl
 	/// </remarks>
 	private Comparison<int> CreateRowComparison(int col, SortDirection direction) => (a, b) =>
 	{
-		int result = _dataSource != null ? CompareSourceRows(a, b, col) : CompareOwnRows(a, b, col);
-		if (result == 0) return a.CompareTo(b);
-		return direction == SortDirection.Descending ? -result : result;
+		int result = CompareDirected(a, b, col, direction);
+		return result != 0 ? result : a.CompareTo(b);
 	};
+
+	/// <summary>
+	/// Compares two data rows by a column in a direction, without a tie-break. For in-memory rows,
+	/// callers hold <see cref="_tableLock"/>.
+	/// </summary>
+	private int CompareDirected(int a, int b, int col, SortDirection direction)
+	{
+		int result = _dataSource != null ? CompareSourceRows(a, b, col) : CompareOwnRows(a, b, col);
+		return direction == SortDirection.Descending ? -result : result;
+	}
 
 	/// <summary>Compares two in-memory rows by a column, ascending. Callers hold <see cref="_tableLock"/>.</summary>
 	/// <remarks>
