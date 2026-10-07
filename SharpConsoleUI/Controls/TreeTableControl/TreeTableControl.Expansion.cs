@@ -181,6 +181,7 @@ public partial class TreeTableControl
 	private bool ChangeExpansion(IReadOnlyList<TreeTableRow> rows, bool isExpanded, bool ownState)
 	{
 		ThrowIfDataSource();
+		ThrowIfComputingDisplayRows();
 		bool changed = false;
 
 		bool IsAlready(TreeTableRow row) => ownState ? row.IsExpanded == isExpanded : IsOpenInView(row) == isExpanded;

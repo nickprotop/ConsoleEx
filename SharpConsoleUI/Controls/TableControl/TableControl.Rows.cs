@@ -380,7 +380,16 @@ public partial class TableControl
 	/// Refuses to change the rows, or recompute which are displayed, while the display rows are being
 	/// computed: a hook doing so would recurse into itself.
 	/// </summary>
-	private void ThrowIfComputingDisplayRows()
+	/// <exception cref="InvalidOperationException">
+	/// Called from <see cref="ComputeDisplayRows"/>, <see cref="ResolveHiddenSelectedRow"/> or
+	/// <see cref="ResolveRemovedSelectedRow"/>, or from anything they call.
+	/// </exception>
+	/// <remarks>
+	/// The table checks this itself before it changes its rows. A derived table that keeps a structure
+	/// of its own beside the rows calls it before changing that structure, so a hook that tries to is
+	/// refused before anything has changed, rather than after the structure and the rows have parted.
+	/// </remarks>
+	protected void ThrowIfComputingDisplayRows()
 	{
 		if (_displayRowsHookDepth > 0)
 			throw new InvalidOperationException(

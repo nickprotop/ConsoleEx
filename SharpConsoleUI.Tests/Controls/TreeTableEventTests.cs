@@ -350,4 +350,77 @@ public class TreeTableEventTests
 	}
 
 	#endregion
+
+	#region Changing the tree from inside a display hook
+
+	/// <summary>Tries to change the tree from inside its own filter and sibling order.</summary>
+	private sealed class MeddlingTable : TreeTableControl
+	{
+		public Action<MeddlingTable>? WhileMatching { get; set; }
+
+		public Action<MeddlingTable>? WhileComparing { get; set; }
+
+		protected override bool IsFilterMatch(TableRow row, CompoundFilterExpression filter)
+		{
+			WhileMatching?.Invoke(this);
+			return base.IsFilterMatch(row, filter);
+		}
+
+		protected override int CompareSiblings(TableRow x, TableRow y, int columnIndex, SortDirection direction)
+		{
+			WhileComparing?.Invoke(this);
+			return base.CompareSiblings(x, y, columnIndex, direction);
+		}
+	}
+
+	private static MeddlingTable Meddling()
+	{
+		var table = new MeddlingTable { FilteringEnabled = true, SortingEnabled = true };
+		table.AddColumn("Room");
+		table.AddRootRow("Kitchen").AddChild("Pantry");
+		table.AddRootRow("Garage");
+		return table;
+	}
+
+	[Fact]
+	public void AddingARowFromTheFilter_IsRefused_BeforeTheTreeChanges()
+	{
+		var table = Meddling();
+		table.WhileMatching = t => t.AddRootRow("Intruder");
+
+		Assert.Throws<InvalidOperationException>(() => table.ApplyFilter("a"));
+
+		table.WhileMatching = null;
+		table.ClearFilter();
+		Assert.Equal(["Kitchen", "Garage"], table.RootRows.Select(r => r.Cells[0]));
+		Assert.Equal(["Kitchen", "Pantry", "Garage"], Displayed(table));
+	}
+
+	[Fact]
+	public void CollapsingARowFromTheSiblingOrder_IsRefused_BeforeTheRowChanges()
+	{
+		var table = Meddling();
+		var kitchen = (TreeTableRow)table.Rows[0];
+		table.WhileComparing = _ => kitchen.IsExpanded = false;
+
+		Assert.Throws<InvalidOperationException>(() => table.SortByColumn(0));
+
+		Assert.True(kitchen.IsExpanded);
+	}
+
+	[Fact]
+	public void AfterARefusedChange_TheTreeStillTakesChanges()
+	{
+		var table = Meddling();
+		table.WhileMatching = t => t.AddRootRow("Intruder");
+		Assert.Throws<InvalidOperationException>(() => table.ApplyFilter("a"));
+		table.WhileMatching = null;
+		table.ClearFilter();
+
+		table.AddRootRow("Attic");
+
+		Assert.Equal(["Kitchen", "Pantry", "Garage", "Attic"], Displayed(table));
+	}
+
+	#endregion
 }

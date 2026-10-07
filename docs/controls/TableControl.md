@@ -640,6 +640,7 @@ cell accessors — run up to it.
 | `InsertRowsCore`, `RemoveRowsCore`, `SetDataCore` | Every public row mutator funnels into one of these. Override to keep a structure of your own in step, and call the base to make the change. |
 | `CreateRow(string[])` | The row the text overloads of `AddRow` and `InsertRow` create — return your own row type here. |
 | `OnRowContentChanged(TableRow)` | Called after a row's cells change. The table does not re-sort on its own; call `RefreshDisplayRows` here if your order depends on content. |
+| `ThrowIfComputingDisplayRows()` | Call before changing a structure kept beside the rows, so a display hook trying to change it is refused before anything has changed. |
 
 Changing the rows, or calling `RefreshDisplayRows`, from inside `ComputeDisplayRows`,
 `ResolveHiddenSelectedRow` or `ResolveRemovedSelectedRow` throws `InvalidOperationException` rather

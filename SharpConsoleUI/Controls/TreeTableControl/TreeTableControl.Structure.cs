@@ -346,6 +346,8 @@ public partial class TreeTableControl
 	/// </summary>
 	private void ChangeStructure(Action change)
 	{
+		ThrowIfComputingDisplayRows();
+
 		lock (SyncRoot)
 		{
 			change();
