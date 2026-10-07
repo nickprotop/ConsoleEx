@@ -180,6 +180,8 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	private SortDirection _sortDirection = SortDirection.None;
 	// Whether the data source sorted itself and has not been asked to drop that order since
 	private bool _sourceSorted;
+	// Whether the data source took a filter from the table and has not been asked to drop it since
+	private bool _sourceFiltered;
 	// Above zero while the table is calling into the data source to sort or filter it
 	private int _sourceCallDepth;
 
@@ -512,6 +514,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			_sortColumnIndex = -1;
 			_sortDirection = SortDirection.None;
 			_sourceSorted = false;
+			_sourceFiltered = false;
 			_rowView.Clear();
 			EndRowGestures();
 			_filterMode = FilterMode.None;

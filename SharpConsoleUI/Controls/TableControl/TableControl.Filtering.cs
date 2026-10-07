@@ -262,7 +262,13 @@ public partial class TableControl
 			return false;
 
 		if (AskSourceToFilter(_dataSource, compound) == TableFilterOutcome.NotHandled)
+		{
+			// The table filters this one client-side, over every row the source reports, so a filter
+			// the source took for an earlier one has to go first.
+			ReleaseSourceFilter();
 			return false;
+		}
+		_sourceFiltered = true;
 
 		// _unfilteredRowCount is deliberately NOT reset here. It was captured before the source
 		// narrowed and is the only remaining record of the pre-filter total — the source itself can
@@ -278,6 +284,18 @@ public partial class TableControl
 		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);
 		return true;
+	}
+
+	/// <summary>
+	/// Tells the data source to drop a filter the table gave it, if it took one, so it reports every
+	/// row again.
+	/// </summary>
+	private void ReleaseSourceFilter()
+	{
+		if (!_sourceFiltered || _dataSource == null) return;
+
+		_sourceFiltered = false;
+		CallSource(_dataSource.ClearFilter);
 	}
 
 	/// <summary>
@@ -434,6 +452,7 @@ public partial class TableControl
 		bool delegated = _dataSource != null && _dataSource.CanFilter && _activeFilter != null;
 		if (delegated)
 			CallSource(_dataSource!.ClearFilter);
+		_sourceFiltered = false;
 
 		if (!delegated && _filterMode == FilterMode.None && !_rowView.IsFilterMapActive) return;
 
@@ -571,14 +590,16 @@ public partial class TableControl
 	/// </summary>
 	internal void ApplyFilterLive()
 	{
-		if (string.IsNullOrEmpty(_filterBuffer))
+		// Text that does not parse, blanks say, is no filter, exactly as empty text is.
+		var compound = string.IsNullOrEmpty(_filterBuffer) ? null : ParseCompoundFilterExpression(_filterBuffer);
+
+		if (compound == null)
 		{
-			// THE SOURCE HAS TO BE TOLD TOO. Backspacing the last character away ends the filter
-			// just as Esc does, and a source that narrowed itself keeps reporting only the matches
-			// until asked to stop — leaving the table showing a filtered set while believing
-			// nothing is filtered, with no keystroke that puts the rows back.
-			if (_dataSource != null && _dataSource.CanFilter && _activeFilter != null)
-				CallSource(_dataSource.ClearFilter);
+			// THE SOURCE HAS TO BE TOLD TOO. Emptying or blanking the text ends the filter just as
+			// Esc does, and a source that narrowed itself keeps reporting only the matches until
+			// asked to stop, leaving the table showing a filtered set while believing nothing is
+			// filtered. A filter the source cannot take tells it the same way, in TryDelegateFilter.
+			ReleaseSourceFilter();
 
 			// The table's own rows keep the selected row, as Esc does; a data source, having no rows
 			// to follow, starts again from its first row.
@@ -597,19 +618,15 @@ public partial class TableControl
 		}
 		else
 		{
-			var compound = ParseCompoundFilterExpression(_filterBuffer);
 			_activeFilter = compound;
 
 			// Live typing goes through the same seam as the programmatic API, so a source that
 			// filters itself is not scanned row-by-row on every keystroke. TryDelegateFilter already
 			// resets selection and scroll, so only the client-side branch needs to do it here —
 			// but FilterTextChanged below must still fire either way.
-			if (compound == null || !TryDelegateFilter(compound))
+			if (!TryDelegateFilter(compound))
 			{
-				if (compound != null)
-					RecomputeDisplayMap();
-				else
-					ShowUnfilteredRows();
+				RecomputeDisplayMap();
 
 				_selectedRowIndex = RowCount > 0 ? 0 : -1;
 				_scrollOffset = 0;
