@@ -380,6 +380,30 @@ public class TreeTableBindingTests
 	}
 
 	[Fact]
+	public void BindingAgain_LetsTheOldItemsGo()
+	{
+		var table = new TreeTableControl();
+		table.AddColumn("Part");
+		var oldItem = BindAShipAndForgetIt(table);
+
+		table.BindItems(new ObservableCollection<Part> { new Part("Cockpit") }, part => part.Parts, part => [part.Name]);
+		GC.Collect();
+		GC.WaitForPendingFinalizers();
+		GC.Collect();
+
+		Assert.False(oldItem.IsAlive);
+	}
+
+	/// <summary>Binds a ship nothing else holds, and returns a weak reference to one of its parts.</summary>
+	[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+	private static WeakReference BindAShipAndForgetIt(TreeTableControl table)
+	{
+		var ship = Starship();
+		table.BindItems(ship, part => part.Parts, part => [part.Name]);
+		return new WeakReference(ship[0].Parts[1]);
+	}
+
+	[Fact]
 	public void DisposingTheBindings_StopsFollowingTheItems()
 	{
 		var ship = Starship();

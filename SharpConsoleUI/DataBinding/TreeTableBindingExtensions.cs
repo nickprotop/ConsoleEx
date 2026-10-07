@@ -62,7 +62,12 @@ public static class TreeTableBindingExtensions
 		var options = new TreeTableItemsOptions<T>();
 		configure?.Invoke(options);
 
-		table.ItemsBinding?.Release();
+		if (table.ItemsBinding is { } previous)
+		{
+			previous.Release();
+			table.Bindings.Remove(previous);
+		}
+
 		var binding = new TreeTableItemsBinding<T>(table, roots, childrenOf, cellsOf, options);
 		table.ItemsBinding = binding;
 		table.Bindings.Add(binding);
