@@ -91,6 +91,84 @@ public class TableDataSourceSortTests
 	private static List<string> Displayed(TableControl table, ITableDataSource source)
 		=> Enumerable.Range(0, table.RowCount).Select(i => source.GetCellValue(table.MapDisplayToData(i), 0)).ToList();
 
+	/// <summary>Filters and sorts itself, and like many sources, forgets its order when its filter is cleared.</summary>
+	private sealed class ForgetfulSource : ITableDataSource
+	{
+		private static readonly string[] Original = ["Venus", "Mars", "Earth", "Jupiter"];
+
+		private List<string> _rows = Original.ToList();
+
+		public event NotifyCollectionChangedEventHandler? CollectionChanged;
+
+		public int SortCalls { get; private set; }
+
+		public bool CanFilter => true;
+
+		public int RowCount => _rows.Count;
+
+		public int ColumnCount => 1;
+
+		public string GetColumnHeader(int columnIndex) => "Planet";
+
+		public string GetCellValue(int rowIndex, int columnIndex) => _rows[rowIndex];
+
+		public bool CanSort(int columnIndex) => true;
+
+		public void Sort(int columnIndex, SortDirection direction)
+		{
+			SortCalls++;
+			_rows = _rows.OrderBy(row => row, StringComparer.Ordinal).ToList();
+			Raise();
+		}
+
+		public void ApplyFilter(string filterText, string? columnName, FilterOperator op)
+		{
+			_rows = _rows.Where(row => row.Contains(filterText, StringComparison.OrdinalIgnoreCase)).ToList();
+			Raise();
+		}
+
+		public void ClearFilter()
+		{
+			_rows = Original.ToList();
+			Raise();
+		}
+
+		private void Raise() => CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+	}
+
+	#endregion
+
+	#region Ending a filter keeps the source sorted
+
+	[Fact]
+	public void BackspacingAFilterAway_SortsTheSourceAgain_AsClearingItDoes()
+	{
+		var source = new ForgetfulSource();
+		var table = new TableControl { SortingEnabled = true, FilteringEnabled = true, ReadOnly = false, DataSource = source };
+		table.SortByColumn(0);
+		table.EnterFilterMode();
+		table.ProcessFilterKey(new ConsoleKeyInfo('r', ConsoleKey.R, false, false, false));
+
+		table.ProcessFilterKey(new ConsoleKeyInfo('\b', ConsoleKey.Backspace, false, false, false));
+
+		Assert.Equal(2, source.SortCalls);
+		Assert.Equal(["Earth", "Jupiter", "Mars", "Venus"], Displayed(table, source));
+		Assert.Equal(SortDirection.Ascending, table.CurrentSortDirection);
+	}
+
+	[Fact]
+	public void ClearingAFilter_SortsTheSourceAgain()
+	{
+		var source = new ForgetfulSource();
+		var table = new TableControl { SortingEnabled = true, FilteringEnabled = true, DataSource = source };
+		table.SortByColumn(0);
+		table.ApplyFilter("r");
+
+		table.ClearFilter();
+
+		Assert.Equal(["Earth", "Jupiter", "Mars", "Venus"], Displayed(table, source));
+	}
+
 	#endregion
 
 	#region The source hears that the sort went away

@@ -446,18 +446,7 @@ public partial class TableControl
 		_activeFilter = null;
 		_unfilteredRowCount = 0;
 
-		// A data source sorts itself and is read by identity again; the table's own rows get the
-		// map rebuilt from the sort as it is NOW, which may have changed while the filter was on.
-		if (_dataSource != null)
-		{
-			_rowView.Clear();
-			if (_sortDirection != SortDirection.None)
-				SortSource();
-		}
-		else
-		{
-			RebuildDisplayMap();
-		}
+		ShowUnfilteredRows();
 
 		RestoreSelection(selection);
 		Core.AsyncEvent.Raise(FilterCleared, FilterClearedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
@@ -964,15 +953,27 @@ public partial class TableControl
 	}
 
 	/// <summary>
-	/// Shows every row again after the filter text was emptied or stopped parsing: a data source
-	/// is read by identity, the table's own rows keep the current sort.
+	/// Shows every row again once no filter applies: cleared, emptied by backspacing, or no longer
+	/// parsing.
 	/// </summary>
+	/// <remarks>
+	/// A data source is read by identity again and asked to sort itself once more, since a source
+	/// that filtered itself may have dropped its order with its filter; the table's own rows get
+	/// the map rebuilt from the sort as it is now, which may have changed while the filter was on.
+	/// Every way of ending a filter comes here, so they all leave the rows in the same order.
+	/// </remarks>
 	private void ShowUnfilteredRows()
 	{
 		if (_dataSource != null)
+		{
 			_rowView.Clear();
+			if (_sortDirection != SortDirection.None)
+				SortSource();
+		}
 		else
+		{
 			RebuildDisplayMap();
+		}
 	}
 
 	/// <summary>
