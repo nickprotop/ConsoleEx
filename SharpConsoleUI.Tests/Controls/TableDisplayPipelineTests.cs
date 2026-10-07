@@ -36,6 +36,17 @@ public class TableDisplayPipelineTests
 	}
 
 	/// <summary>Hosts the table in a frameless maximized window on a headless screen.</summary>
+	/// <summary>Paints the table straight into a buffer, the same size every time, and returns its rows.</summary>
+	private static List<string> PaintLines(TableControl table)
+	{
+		var buffer = new CharacterBuffer(60, 12);
+		var bounds = new LayoutRect(0, 0, 60, 12);
+		table.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+		return Enumerable.Range(0, 12)
+			.Select(y => string.Concat(Enumerable.Range(0, 60).Select(x => buffer.GetCell(x, y).Character.ToString())).TrimEnd())
+			.ToList();
+	}
+
 	private static ConsoleWindowSystem Host(TableControl table, int width = 30, int height = 14)
 	{
 		var system = ChromeGeometry.CreateSystem(width, height);
@@ -560,6 +571,23 @@ public class TableDisplayPipelineTests
 		table.ApplyFilter("e");
 
 		Assert.Contains(Screen(system), line => line.Contains(LongName));
+	}
+
+	[Fact]
+	public void ClearingTheSort_SizesTheColumnsForTheRowsBackOnScreen()
+	{
+		// The long name is the first data row; sorted ascending it is the last, far off screen.
+		var table = new TableControl { BorderStyle = BorderStyle.None, SortingEnabled = true, Height = 12 };
+		table.AddColumn("Name");
+		table.AddColumn("Id", TextJustification.Left, 4);
+		for (int i = 0; i < 200; i++)
+			table.AddRow(i == 0 ? LongName : $"a{i:D3}", i.ToString());
+		table.SortByColumn(0);
+		PaintLines(table);                              // widths measured from the sorted rows
+
+		table.ClearSort();
+
+		Assert.Contains(PaintLines(table), line => line.Contains(LongName));
 	}
 
 	#endregion

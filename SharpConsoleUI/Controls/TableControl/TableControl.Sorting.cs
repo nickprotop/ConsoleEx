@@ -129,6 +129,7 @@ public partial class TableControl
 			RebuildDisplayMap();
 
 		RestoreSelection(selection);
+		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);
 	}
 
