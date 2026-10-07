@@ -513,6 +513,11 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			_filterMode = FilterMode.None;
 			_filterBuffer = string.Empty;
 			_activeFilter = null;
+
+			// Back to the table's own rows: ComputeDisplayRows decides which are displayed, as after
+			// any other change to what is shown, so a derived table hiding rows of its own is asked.
+			if (_dataSource == null)
+				RebuildDisplayMap();
 			Invalidate(Invalidation.Relayout);
 		}
 	}

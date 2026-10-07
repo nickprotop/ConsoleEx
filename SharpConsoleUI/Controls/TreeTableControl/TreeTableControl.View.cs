@@ -271,11 +271,14 @@ public partial class TreeTableControl
 
 	#region Drawing the Hierarchy
 
-	/// <summary>Draws the guides and the expander in front of the tree column's value.</summary>
+	/// <summary>
+	/// Draws the guides and the expander in front of the tree column's value; nothing while a data
+	/// source makes the table flat.
+	/// </summary>
 	protected override string? GetCellPrefixMarkup(int dataRowIndex, int columnIndex)
 	{
 		var view = _view;
-		if (view == null || columnIndex != _treeColumnIndex || dataRowIndex < 0 || dataRowIndex >= view.Shape.Count)
+		if (DataSource != null || view == null || columnIndex != _treeColumnIndex || dataRowIndex < 0 || dataRowIndex >= view.Shape.Count)
 			return null;
 
 		string prefix = view.PrefixMarkup[dataRowIndex] ??= BuildPrefixMarkup(view, dataRowIndex);

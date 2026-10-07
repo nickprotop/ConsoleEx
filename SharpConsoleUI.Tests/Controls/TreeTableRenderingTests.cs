@@ -219,4 +219,46 @@ public class TreeTableRenderingTests
 	}
 
 	#endregion
+
+	#region A data source makes the table flat
+
+	/// <summary>Two comets, flat, as a data source reports them.</summary>
+	private sealed class CometSource : ITableDataSource
+	{
+		public event System.Collections.Specialized.NotifyCollectionChangedEventHandler? CollectionChanged { add { } remove { } }
+
+		public int RowCount => 2;
+
+		public int ColumnCount => 1;
+
+		public string GetColumnHeader(int columnIndex) => "Comet";
+
+		public string GetCellValue(int rowIndex, int columnIndex) => rowIndex == 0 ? "Halley" : "Encke";
+	}
+
+	[Fact]
+	public void WithADataSource_TheTreesGuidesAndExpandersAreNotDrawn()
+	{
+		var table = Backlog();
+
+		table.DataSource = new CometSource();
+
+		Assert.Equal(["Comet", "Halley", "Encke"], Lines(table));
+	}
+
+	[Fact]
+	public void RemovingTheDataSource_ShowsTheTreeAsItWas()
+	{
+		var table = Backlog();
+		table.Collapse((TreeTableRow)table.Rows[1]);   // Story A1 hides its tasks
+		var expected = Lines(table);
+		table.DataSource = new CometSource();
+		Lines(table);
+
+		table.DataSource = null;
+
+		Assert.Equal(expected, Lines(table));
+	}
+
+	#endregion
 }
