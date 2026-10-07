@@ -387,12 +387,16 @@ public partial class TableControl
 	/// </summary>
 	private void RefreshSourceFilterMap()
 	{
-		if (_dataSource == null || _activeFilter == null || _rowView.Map == null) return;
+		if (_dataSource == null) return;
 
-		// With a map, the source still reports every row, so the total the footer shows and the
-		// client-side scan covers is the source's count now, not the one taken when the filter
-		// was applied.
-		_unfilteredRowCount = _dataSource.RowCount;
+		// Unless the source narrowed itself, it reports every row, so the total the footer shows and
+		// a client-side scan covers is its count now, not the one taken when the filter began. That
+		// holds while a filter is being typed and has no map yet, as much as once it has one.
+		bool narrowedItself = _sourceFiltered && _rowView.Map == null;
+		if (!narrowedItself && (_rowView.Map != null || _unfilteredRowCount > 0))
+			_unfilteredRowCount = _dataSource.RowCount;
+
+		if (_activeFilter == null || _rowView.Map == null) return;
 
 		if (HasClientFilterMap)
 		{

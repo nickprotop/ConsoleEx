@@ -103,6 +103,43 @@ public class TableDataSourceChangeTests
 
 	#endregion
 
+	#region A filter being typed covers the rows the source has now
+
+	private static void Type(TableControl table, string text)
+	{
+		foreach (char c in text)
+			table.ProcessFilterKey(new ConsoleKeyInfo(c, ConsoleKey.A, false, false, false));
+	}
+
+	[Fact]
+	public void RowsRemovedBeforeTheFirstKeystroke_AreNotReadPastTheEnd()
+	{
+		var source = new CrewSource();
+		var table = new TableControl { FilteringEnabled = true, ReadOnly = false, DataSource = source };
+		table.EnterFilterMode();
+		source.RemoveAt(3);
+		source.RemoveAt(2);
+
+		Type(table, "o");
+
+		Assert.Equal(["Ada Anchor", "Bo Bilge"], Displayed(table, source));
+	}
+
+	[Fact]
+	public void RowsAddedBeforeTheFirstKeystroke_AreSearched()
+	{
+		var source = new CrewSource();
+		var table = new TableControl { FilteringEnabled = true, ReadOnly = false, DataSource = source };
+		table.EnterFilterMode();
+		source.Add("Eve Echo");
+
+		Type(table, "echo");
+
+		Assert.Equal(["Eve Echo"], Displayed(table, source));
+	}
+
+	#endregion
+
 	#region A client-side filter is scanned again
 
 	[Fact]
