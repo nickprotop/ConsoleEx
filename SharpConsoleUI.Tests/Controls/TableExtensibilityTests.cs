@@ -944,6 +944,33 @@ public class TableExtensibilityTests
 
 	#endregion
 
+	#region A removal checks its range where it removes
+
+	/// <summary>Calls RemoveRowsCore directly, as a derived table or a stale caller might.</summary>
+	private sealed class TrimmingTable : TableControl
+	{
+		public void Trim(int index, int count) => RemoveRowsCore(index, count);
+	}
+
+	[Theory]
+	[InlineData(3, 1)]                                  // past the end, as after the rows shrank
+	[InlineData(2, 5)]                                  // running past the end
+	[InlineData(-1, 1)]
+	public void ARangeNoLongerInTheRows_RemovesNothing(int index, int count)
+	{
+		var table = new TrimmingTable();
+		table.AddColumn("Name");
+		table.AddRow("Alice");
+		table.AddRow("Bob");
+		table.AddRow("Carol");
+
+		table.Trim(index, count);
+
+		Assert.Equal(3, table.Rows.Count);
+	}
+
+	#endregion
+
 	#region Every row change goes through the core methods
 
 	/// <summary>A row type of the derived table's own.</summary>

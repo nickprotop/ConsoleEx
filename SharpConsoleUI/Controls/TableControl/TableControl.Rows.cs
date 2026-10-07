@@ -465,9 +465,11 @@ public partial class TableControl
 	/// Removes a range of data rows, keeping the sort, the filter and the selection.
 	/// </summary>
 	/// <param name="index">The first data index to remove.</param>
-	/// <param name="count">How many rows to remove; the range lies within the data rows.</param>
+	/// <param name="count">How many rows to remove.</param>
 	/// <remarks>
 	/// One complete change, as <see cref="InsertRowsCore"/> is. Called by <see cref="RemoveRow(int)"/>.
+	/// A range that does not lie within the data rows, as it is when the rows changed after the caller
+	/// checked them, removes nothing, as <see cref="RemoveRow(int)"/> does with an index out of range.
 	/// A selected row that is removed hands the cursor to the row <see cref="ResolveRemovedSelectedRow"/>
 	/// names, by default the row now in its place.
 	/// </remarks>
@@ -479,6 +481,10 @@ public partial class TableControl
 
 		lock (_tableLock)
 		{
+			// Checked again under the lock that removes: the caller checked under an earlier one.
+			if (index < 0 || count <= 0 || index > _rows.Count - count)
+				return;
+
 			for (int i = index; i < index + count; i++)
 				_rows[i].Owner = null;
 			_rows.RemoveRange(index, count);
