@@ -716,7 +716,7 @@ public partial class TableControl
 		ControlRenderingHelpers.FillBottomMargin(buffer, bounds, clipRect, bounds.Bottom - Margin.Bottom, fgColor, effectiveBg);
 
 		// Published once the paint is complete, so a hit test never sees half of one.
-		_geometry = new TableGeometry(contentLeft, effectiveHScroll, columnStarts,
+		_geometry = new TableGeometry(contentLeft, startX - bounds.X + contentWidth - (hasBorder ? 1 : 0), effectiveHScroll, columnStarts,
 			(int[])dataColWidths.Clone(), _checkboxMode ? checkboxColWidth : 0,
 			new TableLineBands(titleLine, headerLine, dataStartY - bounds.Y, dataEndY - bounds.Y, filterBarTop, filterBarBottom));
 

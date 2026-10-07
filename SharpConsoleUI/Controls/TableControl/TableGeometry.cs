@@ -32,15 +32,17 @@ internal sealed class TableGeometry
 
 	/// <summary>Records the column layout of one paint.</summary>
 	/// <param name="contentLeft">Control-relative x where logical position 0 is drawn.</param>
+	/// <param name="contentRight">Control-relative x just past the last cell a row can show.</param>
 	/// <param name="horizontalScroll">The horizontal scroll the paint applied.</param>
 	/// <param name="columnStarts">The logical start of each data column.</param>
 	/// <param name="columnWidths">The width of each data column.</param>
 	/// <param name="checkboxWidth">The checkbox column's width at logical 0, or 0 without one.</param>
 	/// <param name="lines">Which lines the paint gave to the title, header, data rows and filter bar.</param>
-	internal TableGeometry(int contentLeft, int horizontalScroll, int[] columnStarts, int[] columnWidths, int checkboxWidth,
+	internal TableGeometry(int contentLeft, int contentRight, int horizontalScroll, int[] columnStarts, int[] columnWidths, int checkboxWidth,
 		TableLineBands lines)
 	{
 		ContentLeft = contentLeft;
+		ContentRight = contentRight;
 		HorizontalScroll = horizontalScroll;
 		_columnStarts = columnStarts;
 		_columnWidths = columnWidths;
@@ -53,6 +55,9 @@ internal sealed class TableGeometry
 
 	/// <summary>Control-relative x where logical position 0 is drawn.</summary>
 	internal int ContentLeft { get; }
+
+	/// <summary>Control-relative x just past the last cell a row can show: the right border or the scrollbar.</summary>
+	internal int ContentRight { get; }
 
 	/// <summary>The horizontal scroll the paint applied.</summary>
 	internal int HorizontalScroll { get; }

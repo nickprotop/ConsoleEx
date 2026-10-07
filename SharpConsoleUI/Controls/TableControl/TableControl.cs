@@ -533,6 +533,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	{
 		if (_sourceCallDepth == 0)
 			RefreshSourceFilterMap();
+		FollowSourceAnimations(e);
 
 		if (e.Action == NotifyCollectionChangedAction.Reset)
 		{
