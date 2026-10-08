@@ -384,6 +384,8 @@ SharpConsoleUI is an independent project.
 
 - [@changlv](https://github.com/changlv) — CJK and wide-character handling, theme derivation and
   control colour roles, markup and CollapsiblePanel behaviour (30 issues, 5 discussions, 5 PRs)
+- [@DerPeit](https://github.com/DerPeit) — TreeTableControl and the extensible TableControl it
+  stands on, scrolling, focus and panel fixes, a private security report (11 issues, 1 PR)
 - [@joezearing](https://github.com/joezearing) — mouse input decoding, column sizing, scrollbars
 - [@3x0dv5](https://github.com/3x0dv5) — LogViewerControl auto-follow, no-colour terminal handling
 - [@nanov](https://github.com/nanov) — macOS ARM64 ioctl crash fix
