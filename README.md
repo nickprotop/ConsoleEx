@@ -373,7 +373,10 @@ Full reference: [nickprotop.github.io/ConsoleEx/docfx/_site/CONTROLS.html](https
 
 ## License
 
-MIT — [Nikolaos Protopapas](https://github.com/nickprotop)
+MIT — [Nikolaos Protopapas](https://github.com/nickprotop), a
+[.NET Foundation](https://dotnetfoundation.org) member.
+
+SharpConsoleUI is an independent project.
 
 ## Acknowledgments
 
