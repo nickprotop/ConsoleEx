@@ -778,7 +778,7 @@ public static class LauncherWindow
 				"[bold]Image Viewer[/]",
 				"",
 				"Load and display real image files (PNG, JPEG, BMP,",
-				"GIF, WebP, TIFF) with half-block Unicode rendering.",
+				"GIF, WebP, QOI) with half-block Unicode rendering.",
 				"",
 				"[dim]Features:[/]",
 				"  - File picker for loading images",

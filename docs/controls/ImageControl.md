@@ -13,7 +13,7 @@ terminals that support the Kitty graphics protocol (Kitty, WezTerm, Ghostty) it 
 full pixel resolution; elsewhere it falls back to half-block cells, which gives two vertical pixels
 per character row. Detection is automatic — you do not choose the path.
 
-Supported formats are PNG, JPEG, BMP, GIF, WebP and TIFF, loaded from a path, a stream, or an
+Supported formats are PNG, JPEG, BMP, GIF, WebP, TGA, PBM and QOI, loaded from a path, a stream, or an
 ImageSharp image.
 
 ## Quick Start

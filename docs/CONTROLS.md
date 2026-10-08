@@ -102,7 +102,7 @@ Controls for custom graphics and free-form drawing.
 | Control | Description | Details |
 |---------|-------------|---------|
 | **[CanvasControl](controls/CanvasControl.md)** | Free-form drawing surface | 30+ drawing primitives, retained & immediate modes, thread-safe async painting |
-| **[ImageControl](controls/ImageControl.md)** | Image display with Kitty graphics | Full-resolution via Kitty/WezTerm/Ghostty with half-block fallback; PNG/JPEG/BMP/GIF/WebP/TIFF; async loading |
+| **[ImageControl](controls/ImageControl.md)** | Image display with Kitty graphics | Full-resolution via Kitty/WezTerm/Ghostty with half-block fallback; PNG/JPEG/BMP/GIF/WebP/TGA/PBM/QOI; async loading |
 | **[VideoControl](controls/VideoControl.md)** | Terminal video player | Kitty graphics + half-block/ASCII/braille fallbacks (auto-detected); FFmpeg decode; overlay bar; dynamic resize; looping |
 
 ## Layout Controls

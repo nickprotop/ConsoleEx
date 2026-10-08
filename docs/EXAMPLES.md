@@ -510,7 +510,7 @@ dotnet run --project Examples/DemoApp
 ```
 
 **Key Features:**
-- Load PNG, JPEG, BMP, GIF, WebP, TIFF files via file picker dialog
+- Load PNG, JPEG, BMP, GIF, WebP, QOI files via file picker dialog
 - Half-block rendering (2 vertical pixels per character cell)
 - Four scale modes: Fit, Fill, Stretch, None
 - Resizable window with live image rescaling

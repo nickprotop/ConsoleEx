@@ -242,16 +242,39 @@ namespace SharpConsoleUI.Html
 			var bytes = ParseDataUri(dataUri);
 			if (bytes.Length == 0)
 				return null;
+
+			// BOUNDED, because this runs on the UI thread. Layout decodes inline images in place
+			// (HtmlBlockFlow), and layout happens during paint, so a decoder that takes a long
+			// time over hostile input freezes the whole application rather than one control —
+			// there is no cancellation token down here to cut it short.
+			//
+			// Formats with a known non-terminating path are excluded at the decoder instead (see
+			// PixelBuffer's decoder options), so nothing is expected to reach this timeout. It is
+			// the backstop for the next such bug, in a format we do still decode: the image is
+			// dropped and its alt text shown, which is what a failed decode already does.
 			try
 			{
-				using var stream = new MemoryStream(bytes);
-				return PixelBuffer.FromStream(stream);
+				var decode = Task.Run(() =>
+				{
+					using var stream = new MemoryStream(bytes);
+					return PixelBuffer.FromStream(stream);
+				});
+
+				return decode.Wait(TimeSpan.FromSeconds(InlineDecodeTimeoutSeconds)) && decode.IsCompletedSuccessfully
+					? decode.Result
+					: null;
 			}
 			catch
 			{
 				return null;
 			}
 		}
+
+		/// <summary>
+		/// How long an inline <c>data:</c> image may take to decode before it is abandoned. Far
+		/// longer than any legitimate decode of a 10 MB image, so it never fires in normal use.
+		/// </summary>
+		private const int InlineDecodeTimeoutSeconds = 5;
 
 		private static byte[] ParseDataUri(string dataUri)
 		{

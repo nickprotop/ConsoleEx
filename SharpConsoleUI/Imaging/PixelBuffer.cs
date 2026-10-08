@@ -8,6 +8,15 @@
 
 using SharpConsoleUI.Configuration;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Bmp;
+using SixLabors.ImageSharp.Formats.Gif;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Pbm;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Formats.Qoi;
+using SixLabors.ImageSharp.Formats.Tga;
+using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.PixelFormats;
 
 namespace SharpConsoleUI.Imaging
@@ -143,26 +152,67 @@ namespace SharpConsoleUI.Imaging
 		}
 
 		/// <summary>
+		/// The decoders an image is allowed to be decoded with. Every format the library supports,
+		/// minus TIFF.
+		/// </summary>
+		/// <remarks>
+		/// TIFF IS DELIBERATELY ABSENT, and this is a security boundary rather than a tidy-up.
+		/// Images reach here from places the application does not control — a <c>data:</c> URI or
+		/// an <c>&lt;img&gt;</c> in HTML from the network, a file the user opened — and the TIFF
+		/// decoder in the 3.x line, which no longer receives fixes, has two heap
+		/// out-of-bounds writes in its CCITT fax paths (CVE-2026-106117, CVE-2026-106118) plus a
+		/// BigTIFF header that spins forever on 24 bytes of input (GHSA-wmxv-xphr-5c9g).
+		/// <para>
+		/// Listing the decoders we want, instead of removing the one we do not, means a format
+		/// added by a future ImageSharp version is not silently enabled here. A TIFF now fails
+		/// with <see cref="UnknownImageFormatException"/> before any TIFF code runs — both classic
+		/// and BigTIFF, since the fax overflows are in classic TIFF.
+		/// </para>
+		/// </remarks>
+		private static readonly DecoderOptions SafeDecoderOptions = new()
+		{
+			// Fully qualified: SharpConsoleUI.Configuration is a namespace of ours, so the bare
+			// name resolves to that rather than to ImageSharp's type.
+			Configuration = new SixLabors.ImageSharp.Configuration(
+				new PngConfigurationModule(),
+				new JpegConfigurationModule(),
+				new GifConfigurationModule(),
+				new BmpConfigurationModule(),
+				new PbmConfigurationModule(),
+				new TgaConfigurationModule(),
+				new WebpConfigurationModule(),
+				new QoiConfigurationModule()),
+		};
+
+		/// <summary>
 		/// Creates a PixelBuffer by loading an image from a file path.
-		/// Supports PNG, JPEG, BMP, GIF, TIFF, TGA, PBM, and WebP formats.
+		/// Supports PNG, JPEG, BMP, GIF, TGA, PBM, QOI, and WebP formats.
 		/// </summary>
 		/// <param name="filePath">Path to the image file.</param>
 		/// <returns>A PixelBuffer containing the decoded image pixels.</returns>
+		/// <exception cref="UnknownImageFormatException">
+		/// The data is not one of the supported formats. A TIFF lands here by design — see
+		/// <see cref="SafeDecoderOptions"/>.
+		/// </exception>
 		public static PixelBuffer FromFile(string filePath)
 		{
-			using var image = SixLabors.ImageSharp.Image.Load<Rgb24>(filePath);
+			using var image = SixLabors.ImageSharp.Image.Load<Rgb24>(SafeDecoderOptions, filePath);
 			return FromImageSharp(image);
 		}
 
 		/// <summary>
 		/// Creates a PixelBuffer by loading an image from a stream.
-		/// Supports PNG, JPEG, BMP, GIF, TIFF, TGA, PBM, and WebP formats.
+		/// Supports PNG, JPEG, BMP, GIF, TGA, PBM, QOI, and WebP formats.
 		/// </summary>
 		/// <param name="stream">Stream containing image data.</param>
 		/// <returns>A PixelBuffer containing the decoded image pixels.</returns>
+		/// <exception cref="UnknownImageFormatException">
+		/// The data is not one of the supported formats. A TIFF lands here by design — see
+		/// <see cref="SafeDecoderOptions"/>.
+		/// </exception>
 		public static PixelBuffer FromStream(Stream stream)
 		{
-			using var image = SixLabors.ImageSharp.Image.Load<Rgb24>(stream);
+			using var image = SixLabors.ImageSharp.Image.Load<Rgb24>(SafeDecoderOptions, stream);
 			return FromImageSharp(image);
 		}
 

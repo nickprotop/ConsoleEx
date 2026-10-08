@@ -66,7 +66,7 @@ cd MyApp && dotnet run
 | **Data** | ListControl, TreeControl, TableControl (virtual DataGrid with sorting/editing), HorizontalGridControl |
 | **Navigation** | MenuControl, ToolbarControl, TabControl |
 | **Layout** | ColumnContainer, SplitterControl, ScrollablePanelControl, PanelControl |
-| **Drawing** | CanvasControl, ImageControl (PNG/JPEG/BMP/GIF/WebP/TIFF) |
+| **Drawing** | CanvasControl, ImageControl (PNG/JPEG/BMP/GIF/WebP/QOI) |
 | **Advanced** | TerminalControl (PTY-backed shell), ProgressBarControl, SpectreRenderableControl |
 
 ## Key Features

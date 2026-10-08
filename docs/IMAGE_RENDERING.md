@@ -63,7 +63,11 @@ var buffer = PixelBuffer.FromArgbArray(argbArray, width, height);
 
 ## Loading Images from Files
 
-SharpConsoleUI can load real image files using [SixLabors.ImageSharp](https://github.com/SixLabors/ImageSharp). Supported formats: **PNG, JPEG, BMP, GIF, TIFF, TGA, PBM, WebP**.
+SharpConsoleUI can load real image files using [SixLabors.ImageSharp](https://github.com/SixLabors/ImageSharp). Supported formats: **PNG, JPEG, BMP, GIF, TGA, PBM, QOI, WebP**.
+
+> TIFF is deliberately not decoded. The TIFF decoder in the ImageSharp 3.x line, which no
+> longer receives fixes, carries two heap out-of-bounds writes and a header that never
+> terminates, and images often arrive from somewhere the application does not control.
 
 ### From a File Path
 
@@ -96,7 +100,7 @@ var buffer = PixelBuffer.FromImageSharp(image);
 
 ```csharp
 var path = await FileDialogs.ShowFilePickerAsync(windowSystem,
-    filter: "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp;*.tiff");
+    filter: "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp;*.qoi");
 
 if (path != null)
 {

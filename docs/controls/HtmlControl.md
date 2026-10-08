@@ -145,7 +145,7 @@ HtmlControl implements `IFocusableControl` and `IInteractiveControl`:
 `<table>`, `<thead>`, `<tbody>`, `<tfoot>`, `<tr>`, `<th>`, `<td>` — with column width calculation, borders, and header styling.
 
 ### Images
-`<img src="..." alt="...">` — rendered using half-block pixel art when `ShowImages` is enabled. Supports PNG, JPEG, BMP, GIF, WebP, TIFF. Images respect the HTML `width` attribute. Progressive loading fetches and renders images in the background after initial text layout.
+`<img src="..." alt="...">` — rendered using half-block pixel art when `ShowImages` is enabled. Supports PNG, JPEG, BMP, GIF, WebP, TGA, PBM, QOI (not TIFF). Images respect the HTML `width` attribute. Progressive loading fetches and renders images in the background after initial text layout.
 
 ## Examples
 

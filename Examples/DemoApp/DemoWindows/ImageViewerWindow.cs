@@ -14,7 +14,7 @@ internal static class ImageViewerWindow
 
 	private static readonly string[] ScaleModeLabels = { "Fit", "Fill", "Stretch", "None" };
 
-	private const string ImageFilter = "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tiff;*.tga;*.webp;*.pbm";
+	private const string ImageFilter = "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tga;*.webp;*.pbm;*.qoi";
 
 	public static Window Create(ConsoleWindowSystem ws)
 	{
