@@ -14,45 +14,24 @@ namespace SharpConsoleUI.Controls
 {
 	public partial class TreeControl
 	{
+		// The expand indicators as markup, escaped once rather than per node per paint.
+		private static readonly string ExpandedIndicatorMarkup = Parsing.MarkupParser.Escape(TreeGuideHelper.GetExpanderText(true));
+		private static readonly string CollapsedIndicatorMarkup = Parsing.MarkupParser.Escape(TreeGuideHelper.GetExpanderText(false));
+
 		/// <summary>
 		/// Build the tree prefix for a node based on its depth and position
 		/// </summary>
-		private string BuildTreePrefix(int depth, bool[] ancestorIsLast, (string cross, string corner, string tee, string vertical, string horizontal) guides)
+		private string BuildTreePrefix(int depth, bool[] ancestorIsLast, TreeGuideChars guides)
 		{
 			if (depth == 0)
 				return "";
 
 			_prefixBuilder.Clear();
-
-			// For each ancestor level, draw a vertical continuation line if that ancestor
-			// still has siblings below it, or spaces if it was the last child.
-			for (int i = 0; i < depth - 1; i++)
-			{
-				_prefixBuilder.Append(ancestorIsLast[i] ? " " : guides.vertical);
-				_prefixBuilder.Append(_indent);
-			}
-
-			// Add appropriate connector for the current node
-			bool isLast = ancestorIsLast[depth - 1];
-			string connector = isLast ? guides.corner : guides.tee;
-
-			_prefixBuilder.Append(connector);
-			_prefixBuilder.Append(guides.horizontal);
-			_prefixBuilder.Append(" ");
-
+			TreeGuideHelper.AppendPrefix(_prefixBuilder, ancestorIsLast, guides, _indent);
 			return _prefixBuilder.ToString();
 		}
 
-		private (string cross, string corner, string tee, string vertical, string horizontal) GetGuideChars()
-		{
-			return _guide switch
-			{
-				TreeGuide.Ascii => ("+", "\\", "+", "|", "-"),
-				TreeGuide.DoubleLine => ("╬", "╚", "╠", "║", "═"),
-				TreeGuide.BoldLine => ("┿", "┗", "┣", "┃", "━"),
-				_ => ("┼", "└", "├", "│", "─"),
-			};
-		}
+		private TreeGuideChars GetGuideChars() => TreeGuideHelper.GetGuideChars(_guide);
 
 		/// <summary>
 		/// Returns the display-column width of the expand/collapse indicator for a node at the given index.
@@ -96,7 +75,7 @@ namespace SharpConsoleUI.Controls
 				bool[] ancestorIsLast = GetAncestorIsLastArray(node);
 				string prefix = BuildTreePrefix(depth, ancestorIsLast, guideChars);
 				string displayText = node.Text ?? string.Empty;
-				string expandIndicator = node.Children.Count > 0 ? "[[-]] " : "";
+				string expandIndicator = node.Children.Count > 0 ? ExpandedIndicatorMarkup : "";
 				int itemWidth = GetCachedTextLength(prefix + expandIndicator + displayText);
 				if (itemWidth > maxItemWidth) maxItemWidth = itemWidth;
 			}
@@ -278,7 +257,7 @@ namespace SharpConsoleUI.Controls
 
 				// Add expand/collapse indicator on the left side
 				// Escape brackets so Spectre markup in displayText (e.g. colored badges) is processed correctly
-				string expandIndicator = node.Children.Count > 0 ? (node.IsExpanded ? "[[-]] " : "[[+]] ") : "";
+				string expandIndicator = node.Children.Count > 0 ? (node.IsExpanded ? ExpandedIndicatorMarkup : CollapsedIndicatorMarkup) : "";
 
 				// Build full node text
 				string nodeText = prefix + expandIndicator + displayText;

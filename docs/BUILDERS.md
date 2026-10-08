@@ -421,6 +421,26 @@ Controls.Tree()
 
 Use `AddRootNodes(params TreeNode[])` to add several roots at once.
 
+### TreeTableControlBuilder
+
+```csharp
+// Every TableControlBuilder method, plus the hierarchy's own.
+// AddRootRow with cell text returns the new row, so you can nest by capturing it.
+var builder = Controls.TreeTable()
+    .AddColumn("Title")
+    .AddColumn("Owner")
+    .Interactive()
+    .WithSorting()
+    .WithGuide(TreeGuide.Line);
+
+var feature = builder.AddRootRow("Feature: Login", "Pat");
+feature.AddChild("Story: Form", "Bo").AddChild("Task: Layout", "Bo");
+
+var table = builder.Build();
+```
+
+See [TreeTableControl](controls/TreeTableControl.md#builder-api) for the hierarchy's builder methods.
+
 ### HorizontalGridBuilder
 
 ```csharp
@@ -878,6 +898,7 @@ Controls.Wizard()                   // WizardBuilder
 
 // Data and graphs
 Controls.Table()                    // TableBuilder (data grid)
+Controls.TreeTable()                // TreeTableControlBuilder (data grid whose rows nest)
 Controls.Sparkline()                // SparklineBuilder (time-series graphs)
 Controls.BarGraph()                 // BarGraphBuilder (horizontal bar graphs)
 Controls.LineGraph()                // LineGraphBuilder

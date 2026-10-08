@@ -31,6 +31,19 @@ public sealed class BindingCollection : IDisposable
 	}
 
 	/// <summary>
+	/// Removes a binding without disposing it, once its owner has ended it some other way, so the
+	/// collection does not keep it, and all it references, alive until the control is disposed.
+	/// </summary>
+	/// <returns>False when the binding was not in the collection.</returns>
+	internal bool Remove(IDisposable binding)
+	{
+		lock (_lock)
+		{
+			return _bindings?.Remove(binding) ?? false;
+		}
+	}
+
+	/// <summary>
 	/// Disposes all bindings and prevents new ones from being added.
 	/// </summary>
 	public void Dispose()

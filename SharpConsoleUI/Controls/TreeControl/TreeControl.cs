@@ -89,7 +89,7 @@ namespace SharpConsoleUI.Controls
 		private Color? _foregroundColorValue;
 		private TreeGuide _guide = TreeGuide.Line;
 		private int? _height;
-		private string _indent = "  ";
+		private string _indent = ControlDefaults.DefaultTreeIndent;
 		private bool _isEnabled = true;
 
 		// Local selection state

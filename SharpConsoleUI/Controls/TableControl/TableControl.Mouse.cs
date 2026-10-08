@@ -167,6 +167,13 @@ public partial class TableControl
 			if (_isEditing)
 				CancelEdit();
 
+			if (TryHandleClick(HitTest(args.Position.X, args.Position.Y), 2, args))
+			{
+				ResetClickPairing();
+				MouseDoubleClick?.Invoke(this, args);
+				return true;
+			}
+
 			int rowIdx = GetRowIndexAtY(args.Position.Y);
 			if (rowIdx >= 0)
 			{
@@ -412,6 +419,16 @@ public partial class TableControl
 		if (!args.HasFlag(MouseFlags.Button1Clicked))
 			return true;
 
+		// A derived table's own click handling comes first; a click it takes is not paired, sorted or
+		// selected on, but is still reported as a click.
+		var hit = HitTest(args.Position.X, args.Position.Y);
+		if (TryHandleClick(hit, CountClicks(hit.DisplayRowIndex), args))
+		{
+			ResetClickPairing();
+			MouseClick?.Invoke(this, args);
+			return true;
+		}
+
 		// Header sort
 		if (IsClickOnHeader(args))
 		{
@@ -512,13 +529,11 @@ public partial class TableControl
 			lock (_clickLock)
 			{
 				var now = DateTime.Now;
-				if (_lastClickRowIndex == rowIdx &&
-					(now - _lastClickTime).TotalMilliseconds < _doubleClickThresholdMs)
+				if (IsPairedClick(rowIdx, now))
 				{
 					Core.AsyncEvent.Raise(RowActivated, RowActivatedAsync, this, rowIdx, Container?.GetConsoleWindowSystem?.LogService);
 					MouseDoubleClick?.Invoke(this, args);
-					_lastClickTime = DateTime.MinValue;
-					_lastClickRowIndex = -1;
+					ResetClickPairing();
 				}
 				else
 				{
@@ -531,6 +546,94 @@ public partial class TableControl
 		MouseClick?.Invoke(this, args);
 		return true;
 	}
+
+	#endregion
+
+	#region Gestures Across Row Changes
+
+	/// <summary>
+	/// Ends what the pointer was in the middle of when the displayed rows change underneath it: a
+	/// first click waiting for its second, and a drag selecting a range.
+	/// </summary>
+	/// <remarks>
+	/// Both are held as display positions, which after a sort, a filter or a row change name other
+	/// rows. A click on Bob followed, after a sort, by a click at the same position on Dave paired
+	/// into a double-click and activated Dave; a drag carried on extending from a position its first
+	/// row had left. Hover is left alone on purpose: it follows the pointer, not a row, so the row now
+	/// under the pointer is the right one to highlight.
+	/// </remarks>
+	private void EndRowGestures()
+	{
+		ResetClickPairing();
+		_isRowDragSelecting = false;
+		_ctrlDragBaseSelection = null;
+	}
+
+	/// <summary>Forgets the last click, so the next one starts a new pairing.</summary>
+	private void ResetClickPairing()
+	{
+		lock (_clickLock)
+		{
+			_lastClickRowIndex = -1;
+			_lastClickTime = DateTime.MinValue;
+		}
+	}
+
+	/// <summary>
+	/// How many clicks a click on a display row counts as: 2 when the table's own pairing would take
+	/// it for the second half of a double-click, 1 otherwise. Reads the pairing without changing it.
+	/// </summary>
+	private int CountClicks(int displayRowIndex)
+	{
+		if (displayRowIndex < 0) return 1;
+
+		lock (_clickLock)
+		{
+			return IsPairedClick(displayRowIndex, DateTime.Now) ? 2 : 1;
+		}
+	}
+
+	/// <summary>
+	/// Whether a click on a display row at <paramref name="now"/> is the second half of a
+	/// double-click. Callers hold the click lock.
+	/// </summary>
+	private bool IsPairedClick(int displayRowIndex, DateTime now)
+		=> _lastClickRowIndex == displayRowIndex && (now - _lastClickTime).TotalMilliseconds < _doubleClickThresholdMs;
+
+	#endregion
+
+	#region Clicks For Derived Tables
+
+	/// <summary>
+	/// Offers a click to a derived table before the table acts on it.
+	/// </summary>
+	/// <param name="hit">What the click landed on, as <see cref="HitTest"/> reports it.</param>
+	/// <param name="clickCount">
+	/// 2 when the click completes a double-click on the same row, by the table's own pairing or as a
+	/// double-click the terminal reported; 1 otherwise.
+	/// </param>
+	/// <param name="args">The mouse event.</param>
+	/// <returns>True when the click was handled and the table must do nothing more with it.</returns>
+	/// <remarks>
+	/// <para>
+	/// Called when a left click completes, before the table sorts by a header, changes the selection
+	/// or pairs the click into a double-click, and for a double-click the terminal reports itself.
+	/// By then any edit has been cancelled, the table has the focus, and the press has already moved
+	/// the cursor to the row under it, as TreeControl's clicks do.
+	/// </para>
+	/// <para>
+	/// Returning true suppresses the table's own handling and forgets the click, so two quick clicks
+	/// on, say, a tree's expander toggle it twice rather than activating the row. The table still
+	/// raises <see cref="MouseClick"/> or <see cref="MouseDoubleClick"/>, which report what the mouse
+	/// did, not what the table did with it.
+	/// </para>
+	/// <para>
+	/// Called on the UI thread, never while <see cref="SyncRoot"/> is held. A hook rather than an
+	/// overridable mouse handler, so a derived table takes the clicks it understands and leaves the
+	/// rest — scrollbars, resizing, drag selection — to the table.
+	/// </para>
+	/// </remarks>
+	protected virtual bool TryHandleClick(TableHitTestResult hit, int clickCount, MouseEventArgs args) => false;
 
 	#endregion
 
@@ -567,28 +670,11 @@ public partial class TableControl
 		return displayIndex;
 	}
 
-	private int GetColumnIndexAtX(int relativeX)
-	{
-		// Use rendered column geometry (populated during PaintDOM, works for both DataSource and in-memory)
-		for (int c = 0; c < _renderedColumnX.Length; c++)
-		{
-			int colStart = _renderedColumnX[c] - ActualX;
-			int colEnd = colStart + _renderedColumnWidths[c];
-			if (relativeX >= colStart && relativeX < colEnd)
-				return c;
-		}
-		return -1;
-	}
+	// The geometry of the last paint (works for both DataSource and in-memory), scrolled as painted.
+	private int GetColumnIndexAtX(int relativeX) => _geometry?.GetColumnAt(relativeX, out _) ?? -1;
 
-	private bool IsClickOnCheckbox(int relativeX)
-	{
-		if (!_checkboxMode || _renderedColumnX == null || _renderedColumnX.Length == 0) return false;
-		// Checkbox is a silent column rendered before the first data column
-		bool hasBorder = _borderStyle != BorderStyle.None;
-		int checkboxStart = _renderedColumnX[0] - ActualX - 4 - (hasBorder ? 1 : 0);
-		int checkboxEnd = checkboxStart + 4;
-		return relativeX >= checkboxStart && relativeX < checkboxEnd;
-	}
+	// Checkbox is a silent column rendered before the first data column
+	private bool IsClickOnCheckbox(int relativeX) => _checkboxMode && _geometry?.IsOnCheckbox(relativeX) == true;
 
 	private bool IsClickOnHeader(MouseEventArgs args) => IsOnHeaderRow(args.Position.Y);
 
@@ -607,6 +693,67 @@ public partial class TableControl
 
 	/// <summary>True if (x, y) is on the header row.</summary>
 	public bool IsOnHeader(int x, int y) => IsOnHeaderRow(y);
+
+	/// <summary>
+	/// Says what part of the table a position falls on: which zone, and which row, column and offset
+	/// within the cell where there is one.
+	/// </summary>
+	/// <param name="x">The x position, control-relative, as <see cref="MouseEventArgs.Position"/> reports it.</param>
+	/// <param name="y">The y position, control-relative.</param>
+	/// <returns>
+	/// The hit, or <see cref="TableHitTestResult.None"/> for a position on no part of the table and
+	/// for a table that has not been painted yet.
+	/// </returns>
+	/// <remarks>
+	/// <para>
+	/// Answered from where the last paint put everything, the same record the table's own mouse
+	/// handling reads, so it agrees with what is on screen: horizontal scrolling, borders, padded
+	/// separators and the checkbox column are accounted for, and the header need not be shown.
+	/// </para>
+	/// <para>
+	/// The scrollbars are tested first, as the table's own pointer handling tests them, so a
+	/// position on a scrollbar is reported as the scrollbar even where it overlaps a row.
+	/// </para>
+	/// </remarks>
+	public TableHitTestResult HitTest(int x, int y)
+	{
+		var geometry = _geometry;
+		if (geometry == null) return TableHitTestResult.None;
+
+		if (IsOnVerticalScrollbar(x))
+			return new TableHitTestResult(TableHitZone.VerticalScrollbar, -1, -1, -1, -1);
+		if (IsOnHorizontalScrollbar(y))
+			return new TableHitTestResult(TableHitZone.HorizontalScrollbar, -1, -1, -1, -1);
+
+		var lines = geometry.Lines;
+		if (y == lines.Title)
+			return new TableHitTestResult(TableHitZone.Title, -1, -1, -1, -1);
+
+		if (y == lines.Header)
+		{
+			int headerColumn = geometry.GetColumnAt(x, out int headerOffset);
+			return new TableHitTestResult(TableHitZone.Header, -1, -1, headerColumn, headerOffset);
+		}
+
+		if (lines.IsFilterBar(y))
+			return new TableHitTestResult(TableHitZone.FilterBar, -1, -1, -1, -1);
+
+		if (!lines.IsData(y))
+			return TableHitTestResult.None;
+
+		int displayRow = GetRowIndexAtY(y);
+		if (displayRow < 0)
+			return new TableHitTestResult(TableHitZone.EmptyDataArea, -1, -1, -1, -1);
+
+		int dataRow = MapDisplayToData(displayRow);
+		if (_checkboxMode && geometry.IsOnCheckbox(x))
+			return new TableHitTestResult(TableHitZone.Checkbox, displayRow, dataRow, -1, geometry.ToLogical(x));
+
+		int column = geometry.GetColumnAt(x, out int cellOffset);
+		return column >= 0
+			? new TableHitTestResult(TableHitZone.Cell, displayRow, dataRow, column, cellOffset)
+			: new TableHitTestResult(TableHitZone.Row, displayRow, dataRow, -1, -1);
+	}
 
 	/// <summary>Returns the Y coordinate of the header row, for unit-testing header hit detection.</summary>
 	internal int HeaderRowYForTest()
@@ -631,30 +778,36 @@ public partial class TableControl
 		return dataStartY + rowOffset;
 	}
 
-	private bool IsClickOnVerticalScrollbar(MouseEventArgs args)
+	private bool IsClickOnVerticalScrollbar(MouseEventArgs args) => IsOnVerticalScrollbar(args.Position.X);
+
+	private bool IsClickOnHorizontalScrollbar(MouseEventArgs args) => IsOnHorizontalScrollbar(args.Position.Y);
+
+	private bool IsOnVerticalScrollbar(int x)
 	{
 		if (!ShouldShowVerticalScrollbar()) return false;
-		var (x, _, _) = GetVerticalScrollbarRect();
-		return args.Position.X == x;
+		var (barX, _, _) = GetVerticalScrollbarRect();
+		return x == barX;
 	}
 
-	private bool IsClickOnHorizontalScrollbar(MouseEventArgs args)
+	private bool IsOnHorizontalScrollbar(int y)
 	{
 		if (!ShouldShowHorizontalScrollbar()) return false;
-		var (_, y, _) = GetHorizontalScrollbarRect();
-		return args.Position.Y == y;
+		var (_, barY, _) = GetHorizontalScrollbarRect();
+		return y == barY;
 	}
 
+	/// <summary>
+	/// Whether a press lands on a column border of the HEADER row, where a resize starts.
+	/// </summary>
+	/// <remarks>
+	/// The header row only. Every row used to count, so with resizing on, a press within a cell of any
+	/// column border on any data row started a resize instead of selecting the row, and a click near a
+	/// border could not reach the row at all. Resizing already required the header to be shown.
+	/// </remarks>
 	private bool IsClickOnColumnBorder(MouseEventArgs args)
 	{
-		if (!_showHeader) return false;
-		for (int c = 0; c < _renderedColumnX.Length; c++)
-		{
-			int colEnd = _renderedColumnX[c] - ActualX + _renderedColumnWidths[c];
-			if (Math.Abs(args.Position.X - colEnd) <= 1)
-				return true;
-		}
-		return false;
+		if (!IsOnHeaderRow(args.Position.Y)) return false;
+		return _geometry?.GetColumnBorderAt(args.Position.X, ControlDefaults.TableColumnResizeHitTolerance) >= 0;
 	}
 
 	#endregion
@@ -785,23 +938,19 @@ public partial class TableControl
 
 	private void BeginColumnResize(MouseEventArgs args)
 	{
-		for (int c = 0; c < _renderedColumnX.Length; c++)
-		{
-			int colEnd = _renderedColumnX[c] - ActualX + _renderedColumnWidths[c];
-			if (Math.Abs(args.Position.X - colEnd) <= 1)
-			{
-				_resizingColumnIndex = c;
-				_resizeDragStartX = args.Position.X;
-				_resizeDragStartWidth = _renderedColumnWidths[c];
-				return;
-			}
-		}
+		var geometry = _geometry;
+		int c = geometry?.GetColumnBorderAt(args.Position.X, ControlDefaults.TableColumnResizeHitTolerance) ?? -1;
+		if (c < 0) return;
+
+		_resizingColumnIndex = c;
+		_resizeDragStartX = args.Position.X;
+		_resizeDragStartWidth = geometry!.GetColumnWidth(c);
 	}
 
 	private void HandleColumnResizeDrag(MouseEventArgs args)
 	{
 		int deltaX = args.Position.X - _resizeDragStartX;
-		int newWidth = Math.Max(3, _resizeDragStartWidth + deltaX); // Minimum 3 chars
+		int newWidth = Math.Max(ControlDefaults.TableMinResizeColumnWidth, _resizeDragStartWidth + deltaX);
 
 		if (_dataSource != null)
 		{

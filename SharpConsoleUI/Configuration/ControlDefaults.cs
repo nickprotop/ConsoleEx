@@ -1235,5 +1235,40 @@ namespace SharpConsoleUI.Configuration
 		public const int TabScrollIndicatorWidth = 1;
 
 		#endregion
+
+		#region Table
+
+		/// <summary>Cells the checkbox column takes in a TableControl's checkbox mode, room for <c>"[x] "</c> (default: 4).</summary>
+		public const int TableCheckboxColumnWidth = 4;
+
+		/// <summary>Narrowest a TableControl column can be dragged to while resizing it (default: 3).</summary>
+		public const int TableMinResizeColumnWidth = 3;
+
+		/// <summary>Cells either side of a TableControl column border where a press still starts a resize (default: 1).</summary>
+		public const int TableColumnResizeHitTolerance = 1;
+
+		/// <summary>Fewest rows a TableControl samples when sizing an auto-width column from its content (default: 50).</summary>
+		public const int TableColumnWidthSampleRows = 50;
+
+		/// <summary>
+		/// Most rows one insert into a sorted or filtered TableControl may add for the display rows to be
+		/// updated in place; a larger insert recomputes them, which is then cheaper (default: 64).
+		/// </summary>
+		public const int TableIncrementalUpdateMaxRows = 64;
+
+		#endregion
+
+		#region Tree Guides
+
+		/// <summary>Indicator in front of an expanded tree node with children, as plain text (narrow ASCII).</summary>
+		public const string TreeExpandedIndicator = "[-] ";
+
+		/// <summary>Indicator in front of a collapsed tree node with children, as plain text (narrow ASCII).</summary>
+		public const string TreeCollapsedIndicator = "[+] ";
+
+		/// <summary>What follows each ancestor level's guide line in a tree (default: two spaces).</summary>
+		public const string DefaultTreeIndent = "  ";
+
+		#endregion
 	}
 }

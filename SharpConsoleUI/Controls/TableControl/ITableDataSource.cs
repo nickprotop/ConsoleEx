@@ -114,6 +114,17 @@ public interface ITableDataSource : INotifyCollectionChanged
 	void Sort(int columnIndex, SortDirection direction) { }
 
 	/// <summary>
+	/// Drops the order applied by <see cref="Sort"/>, restoring the source's own order.
+	/// </summary>
+	/// <remarks>
+	/// Called when the table's sort is cleared after the source sorted itself: a header click
+	/// cycling to no sort, <c>TableControl.ClearSort</c>, or sorting being disabled. Without it the
+	/// rows would keep an order the header no longer shows. The default does nothing, which keeps
+	/// the order of the last sort.
+	/// </remarks>
+	void ClearSort() { }
+
+	/// <summary>
 	/// Gets whether the data source supports server-side filtering.
 	/// </summary>
 	bool CanFilter => false;

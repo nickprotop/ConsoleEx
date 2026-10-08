@@ -184,7 +184,7 @@ public partial class TableControl
 		// changes its own RowCount, so asking afterwards reports the filtered set as the total and
 		// the footer reads "1/1 rows". EnterFilterMode captures this too, but only the interactive
 		// path goes through it — calling ApplyFilter directly must work the same way.
-		if (_filterIndexMap == null && _unfilteredRowCount == 0)
+		if (!_rowView.IsFilterMapActive && _unfilteredRowCount == 0)
 		{
 			if (_dataSource != null)
 				_unfilteredRowCount = _dataSource.RowCount;
@@ -206,6 +206,7 @@ public partial class TableControl
 		_scrollOffset = 0;
 		_selectedRowIndices.Clear();
 
+		EndRowGestures();
 		Core.AsyncEvent.Raise(FilterApplied, FilterAppliedAsync, this, compound.RawText, Container?.GetConsoleWindowSystem?.LogService);
 		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);
@@ -260,24 +261,14 @@ public partial class TableControl
 		if (_dataSource == null)
 			return false;
 
-		var result = TryApplyFilterToDataSource(_dataSource, compound);
-		if (result.Outcome == TableFilterOutcome.NotHandled)
+		if (AskSourceToFilter(_dataSource, compound) == TableFilterOutcome.NotHandled)
+		{
+			// The table filters this one client-side, over every row the source reports, so a filter
+			// the source took for an earlier one has to go first.
+			ReleaseSourceFilter();
 			return false;
-
-		if (result.Outcome == TableFilterOutcome.DisplayRowsSupplied)
-		{
-			// The source keeps reporting every row and has named the ones to show, so the table
-			// addresses rows through its map. Flagged as the source's so a later sort re-asks the
-			// source instead of rebuilding the map from a client-side scan, which would throw away
-			// the very knowledge the source overrode this to supply.
-			SetSourceFilterMap(BuildSourceDisplayMap(result.DisplayRows!));
 		}
-		else
-		{
-			// The source now reports only matching rows, so no display map is needed: RowCount reads
-			// through to it and MapDisplayToData stays identity.
-			_filterIndexMap = null;
-		}
+		_sourceFiltered = true;
 
 		// _unfilteredRowCount is deliberately NOT reset here. It was captured before the source
 		// narrowed and is the only remaining record of the pre-filter total — the source itself can
@@ -288,10 +279,52 @@ public partial class TableControl
 		_scrollOffset = 0;
 		_selectedRowIndices.Clear();
 
+		EndRowGestures();
 		Core.AsyncEvent.Raise(FilterApplied, FilterAppliedAsync, this, compound.RawText, Container?.GetConsoleWindowSystem?.LogService);
 		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);
 		return true;
+	}
+
+	/// <summary>
+	/// Tells the data source to drop a filter the table gave it, if it took one, so it reports every
+	/// row again.
+	/// </summary>
+	private void ReleaseSourceFilter()
+	{
+		if (!_sourceFiltered || _dataSource == null) return;
+
+		_sourceFiltered = false;
+		CallSource(_dataSource.ClearFilter);
+	}
+
+	/// <summary>
+	/// Asks the data source to apply a filter itself and, when it does, takes its answer as the
+	/// display map.
+	/// </summary>
+	/// <returns>What the source did; on <see cref="TableFilterOutcome.NotHandled"/> the map is untouched.</returns>
+	private TableFilterOutcome AskSourceToFilter(ITableDataSource source, CompoundFilterExpression filter)
+	{
+		var result = TableFilterResult.NotHandled;
+		CallSource(() => result = TryApplyFilterToDataSource(source, filter));
+
+		if (result.Outcome == TableFilterOutcome.DisplayRowsSupplied)
+		{
+			// The source keeps reporting every row and has named the ones to show, so the table
+			// addresses rows through its map. Flagged as the source's so a later sort re-asks the
+			// source instead of rebuilding the map from a client-side scan, which would throw away
+			// the very knowledge the source overrode this to supply.
+			_rowView.SetFromSource(BuildSourceDisplayMap(result.DisplayRows!));
+		}
+		else if (result.Outcome == TableFilterOutcome.SourceNarrowed)
+		{
+			// The source now reports only matching rows, so no display map is needed: RowCount reads
+			// through to it and MapDisplayToData stays identity. Still recorded as the source's
+			// answer, so nothing rebuilds a map over the narrowed rows from a client-side scan.
+			_rowView.SetFromSource(null);
+		}
+
+		return result.Outcome;
 	}
 
 	/// <summary>
@@ -323,6 +356,58 @@ public partial class TableControl
 #endif
 
 		return map;
+	}
+
+	/// <summary>
+	/// Calls into the data source to sort or filter it, holding back the table's own response to the
+	/// changes it announces meanwhile: the caller brings the display map up to date itself.
+	/// </summary>
+	/// <remarks>
+	/// A source typically raises a reset from inside its own <c>ApplyFilter</c> or <c>Sort</c>. Left
+	/// to <see cref="OnDataSourceCollectionChanged"/>, that would ask the source for its display rows
+	/// again from inside the call that is producing them, or re-apply a filter being cleared.
+	/// </remarks>
+	private void CallSource(Action call)
+	{
+		_sourceCallDepth++;
+		try
+		{
+			call();
+		}
+		finally
+		{
+			_sourceCallDepth--;
+		}
+	}
+
+	/// <summary>
+	/// Brings a filter map over the data source up to date after the source's rows changed: a
+	/// client-side filter is scanned again, and display rows the source supplied are asked for
+	/// again. A source that narrowed itself keeps its own filter, and needs nothing.
+	/// </summary>
+	private void RefreshSourceFilterMap()
+	{
+		if (_dataSource == null) return;
+
+		// Unless the source narrowed itself, it reports every row, so the total the footer shows and
+		// a client-side scan covers is its count now, not the one taken when the filter began. That
+		// holds while a filter is being typed and has no map yet, as much as once it has one.
+		bool narrowedItself = _sourceFiltered && _rowView.Map == null;
+		if (!narrowedItself && (_rowView.Map != null || _unfilteredRowCount > 0))
+			_unfilteredRowCount = _dataSource.RowCount;
+
+		if (_activeFilter == null || _rowView.Map == null) return;
+
+		if (HasClientFilterMap)
+		{
+			RebuildDisplayMap();
+			return;
+		}
+
+		if (!_rowView.FromSource) return;
+
+		if (AskSourceToFilter(_dataSource, _activeFilter) == TableFilterOutcome.NotHandled)
+			RecomputeDisplayMap();
 	}
 
 	/// <summary>
@@ -364,30 +449,30 @@ public partial class TableControl
 	/// </summary>
 	public void ClearFilter()
 	{
-		// A DELEGATED filter may leave _filterIndexMap null (the source narrowed itself), so the
+		// A DELEGATED filter may leave the filter map null (the source narrowed itself), so the
 		// guard below cannot tell "no filter" from "filtered server-side" on its own — ask the
 		// source to drop its filter first, then fall through to reset local state. A source that
 		// supplied display rows instead leaves a map behind, and the same reset clears it.
 		bool delegated = _dataSource != null && _dataSource.CanFilter && _activeFilter != null;
 		if (delegated)
-			_dataSource!.ClearFilter();
+			CallSource(_dataSource!.ClearFilter);
+		_sourceFiltered = false;
 
-		if (!delegated && _filterMode == FilterMode.None && _filterIndexMap == null) return;
+		if (!delegated && _filterMode == FilterMode.None && !_rowView.IsFilterMapActive) return;
+
+		// Unlike applying a filter, which starts at its first match, clearing one keeps the row the
+		// user was on: every row is shown again, so it is still there to keep.
+		var selection = CaptureSelection();
 
 		_filterMode = FilterMode.None;
 		_filterBuffer = string.Empty;
 		_filterCursorPosition = 0;
 		_activeFilter = null;
-		_filterIndexMap = null;
 		_unfilteredRowCount = 0;
 
-		// If sort is still active, ensure sort map is intact
-		if (_sortDirection != SortDirection.None)
-		{
-			// Re-apply sort without filter
-			ApplySort();
-		}
+		ShowUnfilteredRows();
 
+		RestoreSelection(selection);
 		Core.AsyncEvent.Raise(FilterCleared, FilterClearedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);
@@ -410,7 +495,7 @@ public partial class TableControl
 		_activeFilter = null;
 
 		// Store unfiltered count
-		if (_filterIndexMap == null)
+		if (!_rowView.IsFilterMapActive)
 		{
 			if (_dataSource != null)
 				_unfilteredRowCount = _dataSource.RowCount;
@@ -509,35 +594,43 @@ public partial class TableControl
 	/// </summary>
 	internal void ApplyFilterLive()
 	{
-		if (string.IsNullOrEmpty(_filterBuffer))
-		{
-			// THE SOURCE HAS TO BE TOLD TOO. Backspacing the last character away ends the filter
-			// just as Esc does, and a source that narrowed itself keeps reporting only the matches
-			// until asked to stop — leaving the table showing a filtered set while believing
-			// nothing is filtered, with no keystroke that puts the rows back.
-			if (_dataSource != null && _dataSource.CanFilter && _activeFilter != null)
-				_dataSource.ClearFilter();
+		// Text that does not parse, blanks say, is no filter, exactly as empty text is.
+		var compound = string.IsNullOrEmpty(_filterBuffer) ? null : ParseCompoundFilterExpression(_filterBuffer);
 
-			_filterIndexMap = null;
+		if (compound == null)
+		{
+			// THE SOURCE HAS TO BE TOLD TOO. Emptying or blanking the text ends the filter just as
+			// Esc does, and a source that narrowed itself keeps reporting only the matches until
+			// asked to stop, leaving the table showing a filtered set while believing nothing is
+			// filtered. A filter the source cannot take tells it the same way, in TryDelegateFilter.
+			ReleaseSourceFilter();
+
+			// The table's own rows keep the selected row, as Esc does; a data source, having no rows
+			// to follow, starts again from its first row.
+			var selection = CaptureSelection();
 			_activeFilter = null;
-			_selectedRowIndex = RowCount > 0 ? 0 : -1;
-			_scrollOffset = 0;
+			ShowUnfilteredRows();
+			if (selection.IsTracked)
+			{
+				RestoreSelection(selection);
+			}
+			else
+			{
+				_selectedRowIndex = RowCount > 0 ? 0 : -1;
+				_scrollOffset = 0;
+			}
 		}
 		else
 		{
-			var compound = ParseCompoundFilterExpression(_filterBuffer);
 			_activeFilter = compound;
 
 			// Live typing goes through the same seam as the programmatic API, so a source that
 			// filters itself is not scanned row-by-row on every keystroke. TryDelegateFilter already
 			// resets selection and scroll, so only the client-side branch needs to do it here —
 			// but FilterTextChanged below must still fire either way.
-			if (compound == null || !TryDelegateFilter(compound))
+			if (!TryDelegateFilter(compound))
 			{
-				if (compound != null)
-					RecomputeDisplayMap();
-				else
-					_filterIndexMap = null;
+				RecomputeDisplayMap();
 
 				_selectedRowIndex = RowCount > 0 ? 0 : -1;
 				_scrollOffset = 0;
@@ -545,6 +638,7 @@ public partial class TableControl
 		}
 
 		_selectedRowIndices.Clear();
+		EndRowGestures();
 		FilterTextChanged?.Invoke(this, _filterBuffer);
 		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);
@@ -738,26 +832,170 @@ public partial class TableControl
 	#region Filter Computation
 
 	/// <summary>
-	/// Recomputes the combined filter+sort display map.
+	/// Computes the display map client-side, through <see cref="ComputeDisplayRows"/>.
 	/// </summary>
+	/// <remarks>
+	/// Unconditional: the filter paths call it after the data source has declined the filter, when
+	/// the map is the table's to build whatever the source answered before. Everything else goes
+	/// through <see cref="RebuildDisplayMap"/>, which leaves a source's own answer alone.
+	/// </remarks>
 	internal void RecomputeDisplayMap()
 	{
-		if (_activeFilter == null)
+		ThrowIfComputingDisplayRows();
+
+		var query = new TableDisplayQuery(_activeFilter, _filterMode, _sortColumnIndex, _sortDirection);
+		int[]? rows;
+		_displayRowsHookDepth++;
+		try
 		{
-			_filterIndexMap = null;
-			return;
+			rows = ComputeDisplayRows(query);
+		}
+		finally
+		{
+			_displayRowsHookDepth--;
 		}
 
-		// Step 1: Compute filtered indices (compound filter)
-		var filtered = ComputeFilteredIndices(_activeFilter);
+		AssertValidDisplayRows(rows);
+		_rowView.SetComputed(rows, builtWithFilter: query.IsFiltered);
+	}
 
-		// Step 2: If sort is active, sort the filtered indices
-		if (_sortDirection != SortDirection.None && _sortColumnIndex >= 0)
+	/// <summary>
+	/// Decides which data rows the table displays, and in what order.
+	/// </summary>
+	/// <param name="query">The filter and the sort the table wants applied.</param>
+	/// <returns>
+	/// The data rows to display, in display order, or null for every row in data order. Each data
+	/// index may appear at most once and must lie in [0, <see cref="DataRowCount"/>).
+	/// </returns>
+	/// <remarks>
+	/// <para>
+	/// WHY THIS IS OVERRIDABLE. The table can filter and sort a flat list of rows; it cannot know that
+	/// a row is the child of another, that a collapsed parent hides its children, or that a parent
+	/// must stay visible because one of its children matches. A derived table that knows such things
+	/// decides here, and everything that follows — paint, the selection, scrolling, the row count,
+	/// the column widths — follows from the rows it returns. It can still lean on the table's rules
+	/// through <see cref="RowMatchesFilter(int, CompoundFilterExpression)"/> and <see cref="SortRowIndices"/>, or call this base
+	/// method and work from its answer.
+	/// </para>
+	/// <para>
+	/// WHEN IT IS CALLED. For the table's own rows, after every change that can change what is
+	/// displayed — a row added, removed or replaced, a sort, a filter typed or cleared — and whenever
+	/// a derived table calls <see cref="RefreshDisplayRows"/>; with nothing filtered or sorted too,
+	/// since a derived table may hide rows of its own. With a data source, only while the table
+	/// filters it client-side: otherwise the source decides what it reports. Always on the UI thread,
+	/// and never while <see cref="SyncRoot"/> is held, so an override may take it to read rows
+	/// consistently.
+	/// </para>
+	/// <para>
+	/// WHY AN ARRAY. It runs on every change, and the table keeps the result as it is, without
+	/// copying: ownership passes to the table, and the array must not be changed afterwards. An
+	/// override must not change the rows either; doing so throws <see cref="InvalidOperationException"/>
+	/// rather than recursing.
+	/// </para>
+	/// <para>
+	/// THE DEFAULT applies the filter by <see cref="RowMatchesFilter(int, CompoundFilterExpression)"/> and sorts stably by
+	/// <see cref="SortRowIndices"/>. It is kept up to date incrementally: when one insert or removal
+	/// separates two calls under the same filter and sort, it updates its last answer instead of
+	/// recomputing it, so refilling a sorted table row by row stays O(n log n) in all. An override
+	/// that does not call it pays for its own computation on every change.
+	/// </para>
+	/// </remarks>
+	protected virtual int[]? ComputeDisplayRows(TableDisplayQuery query)
+	{
+		var filter = query.Filter;
+		bool sorted = query.IsSorted;
+		if (filter == null && !sorted)
 		{
-			SortIndices(filtered);
+			_rowView.ForgetComputed();
+			return null;
 		}
 
-		_filterIndexMap = filtered;
+		if (_dataSource != null)
+		{
+			// Step 1: The filter's matches, or every row when only sorting
+			int[] matches = filter != null
+				? ComputeFilteredIndices(filter)
+				: Enumerable.Range(0, GetUnfilteredRowCount()).ToArray();
+
+			// Step 2: If sort is active, sort them
+			if (sorted)
+				SortRowIndices(matches, query.SortColumnIndex, query.SortDirection);
+
+			return matches;
+		}
+
+		// The table's own rows: updated from the last result across a single insert or removal,
+		// computed in full otherwise. See TableRowView's incremental upkeep for why.
+		lock (_tableLock)
+		{
+			var sortColumn = _columns.ElementAtOrDefault(query.SortColumnIndex);
+			var key = new DisplayRowsKey(filter, query.SortColumnIndex, query.SortDirection,
+				sortColumn?.CustomRowComparer, sortColumn?.CustomComparer, _fuzzyFilterEnabled);
+			Func<int, bool>? passes = filter != null ? dataIndex => RowMatchesFilter(dataIndex, filter) : null;
+			Comparison<int> order = sorted
+				? CreateRowComparison(query.SortColumnIndex, query.SortDirection)
+				: (a, b) => a.CompareTo(b);
+
+			if (!_rowView.TryUpdateComputed(key, passes, order, out int[] rows))
+			{
+				rows = filter != null
+					? ComputeFilteredIndices(filter)
+					: Enumerable.Range(0, _rows.Count).ToArray();
+				if (sorted)
+					Array.Sort(rows, order);
+			}
+
+			_rowView.RememberComputed(key, rows);
+			return rows;
+		}
+	}
+
+	/// <summary>
+	/// Checks, in debug builds, that display rows name each data row at most once and only rows
+	/// that exist.
+	/// </summary>
+	/// <remarks>
+	/// A bad index would otherwise surface deep in paint, far from the override that produced it; in
+	/// release the hot path trusts the override rather than re-checking every row on every change.
+	/// </remarks>
+	[System.Diagnostics.Conditional("DEBUG")]
+	private void AssertValidDisplayRows(int[]? rows)
+	{
+		if (rows == null) return;
+
+		int dataRowCount = DataRowCount;
+		var seen = new HashSet<int>();
+		foreach (int dataIndex in rows)
+		{
+			System.Diagnostics.Debug.Assert(dataIndex >= 0 && dataIndex < dataRowCount,
+				$"ComputeDisplayRows returned data row {dataIndex}, outside 0..{dataRowCount - 1}.");
+			System.Diagnostics.Debug.Assert(seen.Add(dataIndex),
+				$"ComputeDisplayRows returned data row {dataIndex} more than once.");
+		}
+	}
+
+	/// <summary>
+	/// Shows every row again once no filter applies: cleared, emptied by backspacing, or no longer
+	/// parsing.
+	/// </summary>
+	/// <remarks>
+	/// A data source is read by identity again and asked to sort itself once more, since a source
+	/// that filtered itself may have dropped its order with its filter; the table's own rows get
+	/// the map rebuilt from the sort as it is now, which may have changed while the filter was on.
+	/// Every way of ending a filter comes here, so they all leave the rows in the same order.
+	/// </remarks>
+	private void ShowUnfilteredRows()
+	{
+		if (_dataSource != null)
+		{
+			_rowView.Clear();
+			if (_sortDirection != SortDirection.None)
+				SortSource();
+		}
+		else
+		{
+			RebuildDisplayMap();
+		}
 	}
 
 	/// <summary>
@@ -787,7 +1025,7 @@ public partial class TableControl
 
 		for (int i = 0; i < totalRows; i++)
 		{
-			if (RowMatchesCompoundFilter(i, filter))
+			if (RowMatchesFilter(i, filter))
 				matches.Add(i);
 		}
 
@@ -854,10 +1092,25 @@ public partial class TableControl
 	}
 
 	/// <summary>
-	/// Tests whether a single row matches a compound filter expression.
-	/// All terms must match (AND), and within each term any alternative must match (OR).
+	/// Tests whether a data row matches a filter by the table's own rules.
 	/// </summary>
-	internal bool RowMatchesCompoundFilter(int dataIndex, CompoundFilterExpression filter)
+	/// <param name="dataIndex">The data row to test.</param>
+	/// <param name="filter">The filter: every term must match (AND), and within a term any alternative (OR).</param>
+	/// <returns>True when the row matches.</returns>
+	/// <remarks>
+	/// <para>
+	/// THE RULES IN ONE PLACE: a column term matches that column's text, a plain term any column's,
+	/// numbers compare as numbers for <c>&gt;</c> and <c>&lt;</c>, markup is ignored, and with
+	/// <see cref="FuzzyFilterEnabled"/> a plain term also matches as a subsequence. A derived table
+	/// that decides for itself which rows a filter shows — keeping the parent of a matching row, for
+	/// instance — calls this for each row rather than reproducing the rules, so its filter means
+	/// exactly what the table's does.
+	/// </para>
+	/// <para>
+	/// Safe to call while the rows are being painted: the cells are read under <see cref="SyncRoot"/>.
+	/// </para>
+	/// </remarks>
+	protected internal bool RowMatchesFilter(int dataIndex, CompoundFilterExpression filter)
 	{
 		foreach (var term in filter.Terms)
 		{
@@ -951,49 +1204,6 @@ public partial class TableControl
 		return pi == pattern.Length;
 	}
 
-	/// <summary>
-	/// Sorts an array of data indices by the current sort column.
-	/// </summary>
-	private void SortIndices(int[] indices)
-	{
-		if (_dataSource != null)
-		{
-			// For DataSource, sort by raw cell values
-			int col = _sortColumnIndex;
-			Array.Sort(indices, (a, b) =>
-			{
-				string valA = _dataSource.GetCellValue(a, col);
-				string valB = _dataSource.GetCellValue(b, col);
-				int result = string.Compare(MarkupParser.Remove(valA), MarkupParser.Remove(valB), StringComparison.OrdinalIgnoreCase);
-				return _sortDirection == SortDirection.Descending ? -result : result;
-			});
-		}
-		else
-		{
-			lock (_tableLock)
-			{
-				int col = _sortColumnIndex;
-				IComparer<string>? customComparer = null;
-				if (col >= 0 && col < _columns.Count)
-					customComparer = _columns[col].CustomComparer;
-
-				Array.Sort(indices, (a, b) =>
-				{
-					string valA = col < _rows[a].Cells.Count ? _rows[a].Cells[col] : string.Empty;
-					string valB = col < _rows[b].Cells.Count ? _rows[b].Cells[col] : string.Empty;
-
-					int result;
-					if (customComparer != null)
-						result = customComparer.Compare(valA, valB);
-					else
-						result = string.Compare(valA, valB, StringComparison.OrdinalIgnoreCase);
-
-					return _sortDirection == SortDirection.Descending ? -result : result;
-				});
-			}
-		}
-	}
-
 	#endregion
 
 	#region Match Highlighting
@@ -1073,137 +1283,17 @@ public partial class TableControl
 	internal void DrawFilterStatusBar(CharacterBuffer buffer, int x, int y, int width, LayoutRect clipRect,
 		Color fgColor, Color bgColor, BoxChars box, Color borderColor, bool hasBorder)
 	{
-		if (y < clipRect.Y || y >= clipRect.Bottom) return;
+		var status = new TableFilterStatus(
+			Mode: _filterMode,
+			Buffer: _filterBuffer,
+			CursorPosition: _filterCursorPosition,
+			FilterText: _activeFilter?.RawText ?? _filterBuffer,
+			RowCount: RowCount,
+			TotalRows: _unfilteredRowCount > 0 ? _unfilteredRowCount : GetUnfilteredRowCount(),
+			SelectedRowIndex: _selectedRowIndex);
 
-		int totalRows = _unfilteredRowCount > 0 ? _unfilteredRowCount : GetUnfilteredRowCount();
-
-		// Build segments: (text, foreground color)
-		var segments = new List<(string Text, Color Fg)>();
-
-		switch (_filterMode)
-		{
-			case FilterMode.Typing:
-				segments.Add((" \u2315 ", Color.Cyan1));                          // ⌕ filter icon
-				segments.Add((_filterBuffer, Color.White));
-				segments.Add(("\u2581", Color.White));                             // cursor block
-				segments.Add(("  ", fgColor));
-				segments.Add(("Enter", Color.Yellow));
-				segments.Add((" confirm  ", Color.Grey));
-				segments.Add(("Esc", Color.Yellow));
-				segments.Add((" cancel", Color.Grey));
-				break;
-
-			case FilterMode.Confirmed:
-				// RowCount, not _filterIndexMap.Length. A source that filters itself narrows its own
-				// RowCount and leaves the display map null by design, so counting the map reported
-				// "No matches" while the matching rows were on screen right above this footer.
-				// RowCount already resolves all three cases: display map, data source, own rows.
-				int filteredCount = RowCount;
-				string filterText = _activeFilter?.RawText ?? _filterBuffer;
-				segments.Add((" \u2315 ", Color.Cyan1));
-				segments.Add((filterText, Color.White));
-				segments.Add(("  ", fgColor));
-				if (filteredCount == 0)
-				{
-					segments.Add(("No matches", Color.Red));
-				}
-				else
-				{
-					segments.Add(($"{filteredCount}", Color.Green));
-					segments.Add(($"/{totalRows} rows", Color.Grey));
-				}
-				segments.Add(("  ", fgColor));
-				segments.Add(("Esc", Color.Yellow));
-				segments.Add((" clear", Color.Grey));
-				break;
-
-			default:
-				int selRow = _selectedRowIndex >= 0 ? _selectedRowIndex + 1 : 0;
-				int rowCount = RowCount;
-				segments.Add(($" Row {selRow}/{rowCount}", Color.Grey50));
-				segments.Add(("  ", fgColor));
-				segments.Add(("/", Color.Yellow));
-				segments.Add((" filter", Color.Grey50));
-				break;
-		}
-
-		// Render: left border, content, right border
-		int writeX = x;
-
-		if (hasBorder)
-		{
-			if (writeX >= clipRect.X && writeX < clipRect.Right)
-			{
-				Color bg = bgColor;
-				buffer.SetNarrowCell(writeX, y, box.Vertical, borderColor, bg);
-			}
-			writeX++;
-		}
-
-		// Content area
-		int contentWidth = width - (hasBorder ? 2 : 0);
-		int charPos = 0;
-
-		// Track cursor position for typing mode highlight
-		int cursorCharPos = _filterMode == FilterMode.Typing ? UnicodeWidth.GetStringWidth(" \u2315 ") + _filterCursorPosition : -1;
-
-		foreach (var (text, fg) in segments)
-		{
-			foreach (var rune in text.EnumerateRunes())
-			{
-				int runeWidth = UnicodeWidth.GetRuneWidth(rune);
-				if (runeWidth == 0) continue; // skip zero-width characters
-				if (charPos >= contentWidth) break;
-				if (writeX >= clipRect.X && writeX < clipRect.Right)
-				{
-					Color cellFg = fg;
-					Color cellBg = bgColor;
-
-					// Highlight cursor position in typing mode
-					if (charPos == cursorCharPos)
-					{
-						cellFg = Color.Black;
-						cellBg = Color.White;
-					}
-
-					buffer.SetNarrowCell(writeX, y, rune, cellFg, cellBg);
-
-					// Wide character: mark continuation cell
-					if (runeWidth == 2 && charPos + 1 < contentWidth)
-					{
-						var cont = new Cell(' ', cellFg, cellBg) { IsWideContinuation = true };
-						if (writeX + 1 >= clipRect.X && writeX + 1 < clipRect.Right)
-							buffer.SetCell(writeX + 1, y, cont);
-						writeX++;
-						charPos++;
-					}
-				}
-				writeX++;
-				charPos++;
-			}
-			if (charPos >= contentWidth) break;
-		}
-
-		// Fill remaining space
-		while (charPos < contentWidth)
-		{
-			if (writeX >= clipRect.X && writeX < clipRect.Right)
-			{
-				Color bg = bgColor;
-				buffer.SetNarrowCell(writeX, y, ' ', fgColor, bg);
-			}
-			writeX++;
-			charPos++;
-		}
-
-		if (hasBorder)
-		{
-			if (writeX >= clipRect.X && writeX < clipRect.Right)
-			{
-				Color bg = bgColor;
-				buffer.SetNarrowCell(writeX, y, box.Vertical, borderColor, bg);
-			}
-		}
+		TableRowPainter.DrawFilterStatusBar(buffer, x, y, width, clipRect, status,
+			fgColor, bgColor, box, borderColor, hasBorder);
 	}
 
 	#endregion

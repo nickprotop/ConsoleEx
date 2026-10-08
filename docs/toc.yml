@@ -96,6 +96,8 @@
           href: controls/ListControl.md
         - name: TreeControl
           href: controls/TreeControl.md
+        - name: TreeTableControl
+          href: controls/TreeTableControl.md
     - name: Graphs and Progress
       href: CONTROLS.md#display-controls
       items:

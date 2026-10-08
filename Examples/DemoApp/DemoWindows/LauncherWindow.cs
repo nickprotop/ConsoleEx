@@ -43,6 +43,7 @@ public static class LauncherWindow
 					.AddItem("Radio Buttons", subtitle: "Grouped single-select — typed values, wrap, alignment, grid grouping", content: MakeInfoPanel("Radio Buttons"))
 					.AddItem("Form", subtitle: "Labeled inputs, validation, sections, hints", content: MakeInfoPanel("Form"))
 				.AddItem("Table", subtitle: "Interactive employee directory", content: MakeInfoPanel("Table"))
+				.AddItem("Tree Table", subtitle: "A table whose rows nest", content: MakeInfoPanel("Tree Table"))
 				.AddItem("DataGrid", subtitle: "Virtual DataGrid with 10K rows", content: MakeInfoPanel("DataGrid"))
 				.AddItem("Source Filtering", subtitle: "Data source handles its own filters", content: MakeInfoPanel("Source Filtering"))
 				.AddItem("Nerd Fonts", subtitle: "NerdFont icon showcase", content: MakeInfoPanel("Nerd Fonts"))
@@ -259,6 +260,7 @@ public static class LauncherWindow
 			"Radio Buttons" => RadioDemoWindow.Create(ws),
 			"Form" => FormDemoWindow.Create(ws),
 			"Table" => TableDemoWindow.Create(ws),
+			"Tree Table" => TreeTableDemoWindow.Create(ws),
 			"DataGrid" => DataGridWindow.Create(ws),
 			"Source Filtering" => SourceFilterDemoWindow.Create(ws),
 			"Nerd Fonts" => NerdFontWindow.Create(ws),
@@ -525,6 +527,22 @@ public static class LauncherWindow
 				"  - Tab/arrows for cell navigation",
 				"  - Drag column borders to resize",
 				"  - Markup-colored status column",
+			},
+			"Tree Table" => new List<string>
+			{
+				"[bold]Tree Table[/]",
+				"",
+				"A backlog of epics, features, stories and tasks",
+				"in a table whose rows nest: every table feature,",
+				"with sorting and filtering that follow the tree.",
+				"",
+				"[dim]Features:[/]",
+				"  - Right/Left/Space/+/-/* open and close rows",
+				"  - Click a header to sort among siblings",
+				"  - / to filter; a match keeps its parents",
+				"  - Click an expander to toggle a row",
+				"  - Guide styles, indent, lazy-loaded epic",
+				"  - Tab 2: bound to view models (BindItems)",
 			},
 			"DataGrid" => new List<string>
 			{

@@ -38,9 +38,11 @@ using SharpConsoleUI.Imaging;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
 using Spectre.Console;
-// Spectre.Console's namespace also defines Color and TreeNode; alias the SharpConsoleUI
+// Spectre.Console's namespace also defines Color, TreeNode, TableRow and TreeGuide; alias the SharpConsoleUI
 // types so the rest of the file keeps referring to the library's versions.
 using Color = SharpConsoleUI.Color;
+using TableRow = SharpConsoleUI.Controls.TableRow;
+using TreeGuide = SharpConsoleUI.Controls.TreeGuide;
 using TreeNode = SharpConsoleUI.Controls.TreeNode;
 
 // PTY SHIM RE-ENTRY GUARD — must be the FIRST executable statement.
@@ -719,6 +721,113 @@ try
 		return Fail($"FormXml: {ex.GetType().Name}: {ex.Message}");
 	}
 
+	// 16. TreeTableControl — a nested tree built through its builder, sorted among siblings,
+	//     filtered by the hierarchy, expanded and collapsed with its events (a lazily loaded row
+	//     included), and a subclass defined in THIS assembly overriding the protected extension
+	//     points, so the derived-table surface is proven from outside the library under AOT.
+	try
+	{
+		int expansions = 0;
+		var treeBuilder = Controls.TreeTable()
+			.AddColumn("Item")
+			.AddColumn("Pts", TextJustification.Right, 4)
+			.Interactive()
+			.WithSorting()
+			.WithFiltering()
+			.WithGuide(TreeGuide.Ascii)
+			.OnRowExpansionChanging((_, e) =>
+			{
+				if (e.IsExpanded && e.Row.HasUnrealizedChildren)
+				{
+					e.Row.AddChild("Loaded later", "1");
+					e.Row.HasUnrealizedChildren = false;
+				}
+			})
+			.OnRowExpansionChanged((_, _) => expansions++);
+		var epic = treeBuilder.AddRootRow("Epic", "8");
+		epic.AddChild("Story b", "5").AddChild("Task", "2");
+		epic.AddChild("Story a", "3");
+		treeBuilder.AddRootRow(new TreeTableRow("Lazy", "1") { IsExpanded = false, HasUnrealizedChildren = true });
+		var tree = treeBuilder.Build();
+
+		var subclass = new SmokeTreeTable();
+		subclass.AddColumn("Item");
+		var folder = subclass.AddRootRow("zeta folder");
+		folder.AddChild("file");
+		subclass.AddRootRow("alpha file");
+		subclass.SortByColumn(0);
+
+		var treeWindow = new Window(system) { Width = 60, Height = 20, Top = 1, Left = 1, Title = "treetable" };
+		treeWindow.AddControl(tree);
+		treeWindow.AddControl(subclass);
+		system.AddWindow(treeWindow);
+		for (int i = 0; i < 3; i++) system.ProcessOnce();
+
+		tree.SortByColumn(0);
+		tree.ApplyFilter("task");
+		if (tree.RowCount != 3)
+			return Fail($"TreeTableControl filter kept {tree.RowCount} rows, expected Epic > Story b > Task");
+		tree.ClearFilter();
+		tree.Expand((TreeTableRow)tree.RootRows[1]);
+		tree.CollapseAll();
+		tree.ExpandAll();
+		if (expansions == 0 || tree.RowCount != 6)
+			return Fail($"TreeTableControl expansion: {expansions} events, {tree.RowCount} rows");
+		if (subclass.FirstDisplayed != "zeta folder")
+			return Fail("TreeTableControl subclass CompareSiblings override not applied");
+
+		for (int i = 0; i < 2; i++) system.ProcessOnce();
+		system.CloseWindow(treeWindow, force: true);
+		controlCount++;
+		Console.Error.WriteLine("AOT SMOKE NOTE: TreeTableControl (builder, sort, filter, events, lazy row, external subclass) exercised");
+	}
+	catch (Exception ex)
+	{
+		if (IsAotFailure(ex))
+			return Fail($"TreeTableControl AOT failure: {ex}");
+		return Fail($"TreeTableControl: {ex.GetType().Name}: {ex.Message}");
+	}
+
+	// 17. TreeTableControl.BindItems — a tree table bound to ObservableCollections of INPC items,
+	//     then the collections and an item changed: add, move, remove, a property change and a
+	//     replaced child collection. Delegates only, so no Expression is compiled; the generic
+	//     binding instantiated over a type from THIS assembly is what NativeAOT must keep.
+	try
+	{
+		var crate = new SmokeTreeItem("Crate", new SmokeTreeItem("Apples"), new SmokeTreeItem("Pears"));
+		var shelf = new System.Collections.ObjectModel.ObservableCollection<SmokeTreeItem> { crate, new SmokeTreeItem("Barrel") };
+		var bound = Controls.TreeTable()
+			.AddColumn("Item")
+			.BindItems(shelf, item => item.Children, item => [item.Name])
+			.Build();
+
+		var boundWindow = new Window(system) { Width = 60, Height = 20, Top = 1, Left = 1, Title = "bound treetable" };
+		boundWindow.AddControl(bound);
+		system.AddWindow(boundWindow);
+		for (int i = 0; i < 2; i++) system.ProcessOnce();
+
+		shelf.Add(new SmokeTreeItem("Sack"));
+		shelf.Move(2, 0);
+		crate.Children.RemoveAt(0);
+		crate.Name = "Big crate";
+		crate.Children = new System.Collections.ObjectModel.ObservableCollection<SmokeTreeItem>(crate.Children.Append(new SmokeTreeItem("Plums")));
+
+		var names = string.Join(",", bound.Rows.Select(row => row.Cells[0]));
+		if (names != "Sack,Big crate,Pears,Plums,Barrel")
+			return Fail($"BindItems rows out of step: {names}");
+
+		for (int i = 0; i < 2; i++) system.ProcessOnce();
+		system.CloseWindow(boundWindow, force: true);
+		controlCount++;
+		Console.Error.WriteLine("AOT SMOKE NOTE: TreeTableControl.BindItems (ObservableCollection + INPC items) exercised");
+	}
+	catch (Exception ex)
+	{
+		if (IsAotFailure(ex))
+			return Fail($"BindItems AOT failure: {ex}");
+		return Fail($"BindItems: {ex.GetType().Name}: {ex.Message}");
+	}
+
 }
 catch (Exception ex)
 {
@@ -740,6 +849,7 @@ Console.Error.WriteLine(
 	$"ChatTranscriptControl (thinking/streaming/gradient/alpha) exercised; " +
 	$"FormControl (builder, AddRadio<T>, GetValues, Submit) exercised; " +
 	$"FormXml (XDocument parse + runtime Regex validator) exercised; " +
+	$"TreeTableControl (builder, sort, filter, events, external subclass) + BindItems exercised; " +
 	$"{driver.ScreenSize.Width}x{driver.ScreenSize.Height} rendered.");
 return 0;
 
@@ -753,6 +863,68 @@ static TreeNode[] MakeTree()
 	b.AddChild(new TreeNode("Grandchild B1"));
 	root.AddChild(b);
 	return new[] { root };
+}
+
+// An item for the BindItems section (17): a name and an observable collection of children, both
+// raising PropertyChanged, so the binding follows the item as well as its collections.
+sealed class SmokeTreeItem : INotifyPropertyChanged
+{
+	private string _name;
+	private System.Collections.ObjectModel.ObservableCollection<SmokeTreeItem> _children;
+
+	public SmokeTreeItem(string name, params SmokeTreeItem[] children)
+	{
+		_name = name;
+		_children = new System.Collections.ObjectModel.ObservableCollection<SmokeTreeItem>(children);
+	}
+
+	public event PropertyChangedEventHandler? PropertyChanged;
+
+	public string Name
+	{
+		get => _name;
+		set { _name = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Name))); }
+	}
+
+	public System.Collections.ObjectModel.ObservableCollection<SmokeTreeItem> Children
+	{
+		get => _children;
+		set { _children = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Children))); }
+	}
+}
+
+// A tree table derived OUTSIDE the library (section 16): its own row type, rows with children
+// sorted first, tags searched by the filter, and a two-cell expander. Everything it overrides is
+// protected API, so a trim or AOT gap in that surface fails here.
+sealed class SmokeTreeTable : TreeTableControl
+{
+	// Read through the protected mapping, as a derived table would.
+	public string FirstDisplayed => GetRow(GetDataRowIndex(0)).Cells[0];
+
+	protected override TreeTableRow CreateTreeRow(IReadOnlyList<string> cells) => new SmokeTreeRow(cells);
+
+	protected override int CompareSiblings(TableRow x, TableRow y, int columnIndex, SortDirection direction)
+	{
+		bool xNests = x is TreeTableRow { Children.Count: > 0 };
+		bool yNests = y is TreeTableRow { Children.Count: > 0 };
+		return xNests != yNests ? (xNests ? -1 : 1) : base.CompareSiblings(x, y, columnIndex, direction);
+	}
+
+	protected override bool IsFilterMatch(TableRow row, CompoundFilterExpression filter)
+		=> row.Tag is string tag && tag.Contains(filter.RawText, StringComparison.OrdinalIgnoreCase)
+			|| base.IsFilterMatch(row, filter);
+
+	protected override string GetExpanderMarkup(in TreeTableRowContext context)
+	{
+		if (context.HasChildren)
+			return context.IsExpanded ? "v " : "> ";
+		return context.ShowsExpanderGutter ? "  " : string.Empty;
+	}
+}
+
+sealed class SmokeTreeRow : TreeTableRow
+{
+	public SmokeTreeRow(IEnumerable<string> cells) : base(cells) { }
 }
 
 // Value enum for the RadioControl<T> / RadioGroup<T> AOT exercise (section 5f1).

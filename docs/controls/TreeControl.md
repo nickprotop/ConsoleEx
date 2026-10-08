@@ -385,6 +385,7 @@ window.AddControl(tree);
 ## See Also
 
 - [ListControl](ListControl.md) - For flat, single-selection lists
+- [TreeTableControl](TreeTableControl.md) - For a hierarchy with columns
 - [DropdownControl](DropdownControl.md) - For compact selection
 - [MenuControl](MenuControl.md) - For menu-based navigation
 - [NavigationView](NavigationView.md) - For sidebar navigation

@@ -25,6 +25,10 @@ public partial class TableControl
 		if (_isEditing)
 			return ProcessEditKey(key);
 
+		// A derived table's own keys come next, ahead of navigation
+		if (TryHandleKey(key))
+			return true;
+
 		int rowCount = RowCount;
 		if (rowCount == 0) return false;
 
@@ -213,6 +217,27 @@ public partial class TableControl
 				return false;
 		}
 	}
+
+	/// <summary>
+	/// Offers a key to a derived table before the table acts on it.
+	/// </summary>
+	/// <param name="key">The key pressed.</param>
+	/// <returns>True when the key was handled and the table must do nothing more with it.</returns>
+	/// <remarks>
+	/// <para>
+	/// Called after the modes that own every key — typing a filter, editing a cell — have had their
+	/// turn, so it never sees those keys, and before everything else: navigation, activation, Space,
+	/// Ctrl+A and the <c>/</c> that starts a filter. Returning true suppresses all of that for this
+	/// key. It is offered keys even when the table has no rows. Only called while the table is
+	/// enabled and has focus, on the UI thread, and never while <see cref="SyncRoot"/> is held.
+	/// </para>
+	/// <para>
+	/// A hook rather than an overridable key handler, so a derived table adds keys without taking
+	/// over the ones it does not handle: Right to expand a parent, say, while Up and Down stay the
+	/// table's. To act on a key and still let the table have it, do the work and return false.
+	/// </para>
+	/// </remarks>
+	protected virtual bool TryHandleKey(ConsoleKeyInfo key) => false;
 
 	/// <summary>
 	/// Moves the cursor to <paramref name="newIndex"/>. Plain Up/Down resets the range anchor to the new

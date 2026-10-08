@@ -150,7 +150,10 @@ public partial class TableControl
 		if (!_isEditing) return;
 
 		int dataIdx = MapDisplayToData(_selectedRowIndex);
+		int editedRow = _selectedRowIndex;
+		int editedColumn = _selectedColumnIndex;
 		string oldValue;
+		TableRow? target = null;
 
 		if (_dataSource != null)
 		{
@@ -176,8 +179,8 @@ public partial class TableControl
 					return;
 				}
 
-				oldValue = _rows[dataIdx].Cells[_selectedColumnIndex];
-				_rows[dataIdx].Cells[_selectedColumnIndex] = _editBuffer;
+				target = _rows[dataIdx];
+				oldValue = target.Cells[_selectedColumnIndex];
 			}
 		}
 
@@ -185,9 +188,16 @@ public partial class TableControl
 		string committedValue = _editBuffer;
 		_editBuffer = string.Empty;
 		_editCursorPosition = 0;
+
+		// Written after the edit has ended and outside the lock: the change notifies
+		// OnRowContentChanged, and a derived table re-sorting from there must neither find an edit
+		// still open nor be called with the lock held. The event still names the cell as edited.
+		if (target != null)
+			target.Cells[editedColumn] = committedValue;
+
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCachedEntry(committedValue);
-		Core.AsyncEvent.Raise(CellEditCompleted, CellEditCompletedAsync, this, (_selectedRowIndex, _selectedColumnIndex, oldValue, committedValue), Container?.GetConsoleWindowSystem?.LogService);
+		Core.AsyncEvent.Raise(CellEditCompleted, CellEditCompletedAsync, this, (editedRow, editedColumn, oldValue, committedValue), Container?.GetConsoleWindowSystem?.LogService);
 		Invalidate(Invalidation.Relayout);
 	}
 
