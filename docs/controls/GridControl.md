@@ -20,6 +20,11 @@ var grid = Controls.Grid()
     .Rows(GridLength.Auto(), GridLength.Star(1))
     .RowGap(1)
     .ColumnGap(2)
+    // Required whenever the grid has Star tracks: they divide the grid's LEFTOVER space, and a
+    // grid left on its default Left/Top alignment is only as big as its Auto content. Without
+    // these two lines the Star row here is zero rows tall and leftPanel/rightPanel never appear.
+    .WithAlignment(HorizontalAlignment.Stretch)
+    .WithVerticalAlignment(VerticalAlignment.Fill)
     .Place(Controls.Markup("[bold]Header[/]").Build(), 0, 0, colSpan: 2)
     .Place(leftPanel, 1, 0)
     .Place(rightPanel, 1, 1)
@@ -39,6 +44,19 @@ Every row and column is described by a `GridLength`, created with one of three f
 | `GridLength.Star(weight, min?, max?)` | Star | A proportional share of the leftover space, by `weight` |
 
 `Star` tracks split whatever space remains after the `Fixed` and `Auto` tracks are sized, in proportion to their weights — `Star(2)` gets twice the share of `Star(1)`. Every factory takes optional `min`/`max` cell clamps.
+
+> **A grid with `Star` tracks must be told to fill its container.** The grid's own alignment
+> defaults to `Left`/`Top`, which sizes it to its content — so there is no leftover space, every
+> star track resolves to zero, and the children in them are never painted. Nothing throws and
+> nothing is logged; the area is simply blank. Add both:
+>
+> ```csharp
+> .WithAlignment(HorizontalAlignment.Stretch)
+> .WithVerticalAlignment(VerticalAlignment.Fill)
+> ```
+>
+> The examples below leave these out to keep each one to the feature it shows. Any grid you
+> actually run needs them.
 
 ```csharp
 var grid = Controls.Grid()
@@ -554,7 +572,7 @@ grid[0, 0].Content = resultsPanel;
 
 1. **Reach for a grid when the layout is 2D**: use `GridControl` for matrices and tiled dashboards; use [HorizontalGridControl](HorizontalGridControl.md) for a single row of resizable columns and [ScrollablePanelControl](ScrollablePanelControl.md) for a single scrollable column.
 2. **Mix track types**: give chrome (toolbars, headers) `Auto` rows, fixed sidebars `Cells(n)`, and the main content `Star` tracks so it absorbs leftover space.
-3. **Use `Stretch`/`Fill` alignment for full-bleed grids**: combine `WithAlignment(HorizontalAlignment.Stretch)` and `WithVerticalAlignment(VerticalAlignment.Fill)` so the grid fills its window.
+3. **Use `Stretch`/`Fill` alignment for full-bleed grids**: combine `WithAlignment(HorizontalAlignment.Stretch)` and `WithVerticalAlignment(VerticalAlignment.Fill)` so the grid fills its window. **A grid with `Star` tracks and the default `Left`/`Top` alignment renders nothing at all** — a star track is a share of leftover space, and a grid that was never told to fill its container has none to share, so every star row resolves to zero height and the children are never painted. There is no error; the area is simply blank. If a grid disappears, check its own alignment before anything else.
 4. **Frame tiles with the cell surface, not nested panels**: `grid.Cell(r, c).Border` / `.Background` give per-cell chrome without wrapping each child in a `PanelControl`.
 5. **Compose to scroll**: the grid never scrolls itself — wrap it (or a single cell) in a `ScrollablePanelControl`.
 6. **Mutate on the UI thread**: `Place`, `AddControl`, cell writes, and `RowDefinitions`/`ColumnDefinitions` edits should run on the UI thread; from background work, marshal with `EnqueueOnUIThread`.
