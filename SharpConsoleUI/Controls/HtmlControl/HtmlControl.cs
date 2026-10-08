@@ -464,8 +464,12 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void StartBackgroundImageLoad(CancellationToken ct)
 		{
-			_loadingStatus = "Preparing images...";
-			_ = AnimateLoadingSpinnerAsync(ct);
+			// NO STATUS SET HERE. The text is already laid out and must stay on screen: a status
+			// makes the paint show the loading spinner INSTEAD of the content, so setting one
+			// before knowing whether there is anything to download hid the text behind a spinner
+			// for however long it took the task below to start — which, under load, is long
+			// enough to see. The loader sets it only once it has remote images to fetch, and
+			// starts the spinner animation itself at the same time.
 			_ = Task.Run(() => LoadImagesProgressivelyAsync(ct, raiseLoadingCompleted: false));
 		}
 
@@ -550,14 +554,13 @@ namespace SharpConsoleUI.Controls
 
 				_isLoading = false;
 				_isNavigating = false;
-				// Leave _loadingStatus set only if Phase 3 will pick it up — otherwise clear it
-				// so the spinner animation loop exits. We hand off the status to the image
-				// loader before clearing navigation state to avoid a one-frame blank gap.
+				// Cleared either way, including when Phase 3 follows, which also lets the spinner
+				// animation loop exit. A status makes the paint show the spinner INSTEAD of the
+				// content, so holding one here to bridge the gap to the image load hid the page
+				// we had just laid out. Phase 3 raises its own once it knows there are remote
+				// images worth waiting for.
 				bool handingOffToImages = _showImages;
-				if (!handingOffToImages)
-					_loadingStatus = null;
-				else
-					_loadingStatus = "Preparing images...";
+				_loadingStatus = null;
 				Invalidate(Invalidation.Relayout);
 				Core.AsyncEvent.Raise(ContentLoaded, ContentLoadedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 
@@ -693,7 +696,10 @@ namespace SharpConsoleUI.Controls
 				long lastCommitTicks = 0;
 				bool htmlChanged = false;
 
+				// First point at which a spinner is justified: there are remote images and they
+				// will take time. Restart the animation, since nothing is driving it now.
 				_loadingStatus = $"Loading images (0/{_imageLoadTotal})...";
+				_ = AnimateLoadingSpinnerAsync(ct);
 				Invalidate(Invalidation.Relayout);
 
 				// Fetch a few images at a time (like a browser does per host; more gets
