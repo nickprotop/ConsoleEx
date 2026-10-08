@@ -121,6 +121,10 @@ namespace SharpConsoleUI.Controls
 		private string? _loadingStatus;
 		private int _imageLoadTotal;
 		private int _imageLoadCompleted;
+		// Images downloaded for the current URL load (URL → decoded buffer, null = failed).
+		// Every relayout of that page reads from it, so a resize, theme switch or CSS reload
+		// never downloads the images again. Written only under _contentLock.
+		private Dictionary<string, Imaging.PixelBuffer?>? _imageCache;
 		// True between LoadUrlAsync start and first content commit — used to dim the
 		// previous page and render a banner while fetching, without discarding context.
 		private bool _isNavigating;
@@ -412,6 +416,7 @@ namespace SharpConsoleUI.Controls
 				_rawHtml = html;
 				_baseUrl = null;
 				_currentUrl = null;
+				_imageCache = null;
 				_scrollOffset = 0;
 				_hoveredLinkLineIndex = -1;
 				_hoveredLinkIndex = -1;
@@ -433,6 +438,7 @@ namespace SharpConsoleUI.Controls
 				_rawHtml = html;
 				_baseUrl = baseUrl;
 				_currentUrl = null;
+				_imageCache = null;
 				_scrollOffset = 0;
 				_hoveredLinkLineIndex = -1;
 				_hoveredLinkIndex = -1;
@@ -491,14 +497,19 @@ namespace SharpConsoleUI.Controls
 				_loadingStatus = "Rendering...";
 				Invalidate(Invalidation.Relayout);
 
-				// Phase 2: Render text immediately (no images) — progressive rendering
-				lock (_contentLock)
+				// Phase 2: Render text immediately (no images) — progressive rendering.
+				// Off the UI thread: laying out a large page still takes a noticeable moment.
+				await Task.Run(() =>
 				{
-					_rawHtml = html;
-					_baseUrl = url;
-					int layoutWidth = _lastLayoutWidth > 0 ? _lastLayoutWidth : 80;
-					RunLayoutWithoutImages(layoutWidth);
-				}
+					lock (_contentLock)
+					{
+						_rawHtml = html;
+						_baseUrl = url;
+						_imageCache = _showImages ? new Dictionary<string, Imaging.PixelBuffer?>() : null;
+						int layoutWidth = _lastLayoutWidth > 0 ? _lastLayoutWidth : 80;
+						RunLayoutWithoutImages(layoutWidth);
+					}
+				}, linkedToken);
 
 				_isLoading = false;
 				_isNavigating = false;
@@ -516,7 +527,7 @@ namespace SharpConsoleUI.Controls
 				// Phase 2b: Load external CSS stylesheets in background.
 				// When done, re-layout with CSS-aware computed styles (correct image widths etc.)
 				if (url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-					_ = _layoutEngine.LoadCssAsync(html, url).ContinueWith(_ =>
+					_ = Task.Run(() => _layoutEngine.LoadCssAsync(html, url)).ContinueWith(_ =>
 					{
 						_lastLayoutWidth = -1; // force re-layout on next measure
 						InvalidateLinkCache();
@@ -526,7 +537,9 @@ namespace SharpConsoleUI.Controls
 				// Phase 3: If ShowImages, re-layout with images in background
 				if (handingOffToImages)
 				{
-					_ = LoadImagesProgressivelyAsync(linkedToken);
+					// Run on the thread pool so downloads, decoding and relayouts never land on
+					// the UI thread through its SynchronizationContext.
+					_ = Task.Run(() => LoadImagesProgressivelyAsync(linkedToken));
 				}
 				else
 				{
@@ -600,8 +613,8 @@ namespace SharpConsoleUI.Controls
 					return;
 				}
 
-				// Collect all image URLs from the HTML
-				var imageUrls = _layoutEngine.GetImageUrls(_rawHtml, _baseUrl);
+				// Collect all image URLs from the HTML (a page often repeats an image — fetch once)
+				var imageUrls = _layoutEngine.GetImageUrls(_rawHtml, _baseUrl).Distinct().ToList();
 				if (imageUrls.Count == 0)
 				{
 					_loadingStatus = null;
@@ -616,11 +629,15 @@ namespace SharpConsoleUI.Controls
 				int capturedWidth;
 				string? capturedHtml;
 				string? capturedBaseUrl;
+				Dictionary<string, Imaging.PixelBuffer?> imageCache;
 				lock (_contentLock)
 				{
 					capturedWidth = _lastLayoutWidth > 0 ? _lastLayoutWidth : 80;
 					capturedHtml = _rawHtml;
 					capturedBaseUrl = _baseUrl;
+					// Image cache: URL → PixelBuffer (or null for failed). Shared with RunLayout so
+					// relayouts during and after loading reuse the downloaded images.
+					imageCache = _imageCache ??= new Dictionary<string, Imaging.PixelBuffer?>();
 				}
 				if (capturedHtml == null)
 				{
@@ -628,58 +645,40 @@ namespace SharpConsoleUI.Controls
 					return;
 				}
 
-				// Image cache: URL → PixelBuffer (or null for failed)
-				var imageCache = new Dictionary<string, Imaging.PixelBuffer?>();
-
 				// Throttled re-layout: commit the partial image cache to the layout at most
-				// once every ThrottleMs. A full re-layout of a large page (e.g. Wikipedia Cat)
-				// can take ~1s, so re-laying out per image (20+ times) would stall the UI.
-				// Throttling gives the user visible progress — images pop in in batches of
-				// whatever arrived during the interval — without burning CPU.
+				// once every ThrottleMs, so images pop in in batches as they arrive instead of
+				// re-laying out the whole page once per image.
 				const int ThrottleMs = 750;
 				long lastCommitTicks = 0;
 				bool htmlChanged = false;
 
-				// Fetch images one-by-one; after each, if the throttle has elapsed, re-layout
-				// with whatever images are cached so far. Missing images still render as alt
-				// text (HtmlBlockFlow.ProcessImage handles partial caches cleanly).
-				foreach (var url in imageUrls)
+				_loadingStatus = $"Loading images (0/{_imageLoadTotal})...";
+				Invalidate(Invalidation.Relayout);
+
+				// Fetch a few images at a time (like a browser does per host; more gets
+				// rate-limited by hosts such as Wikimedia). After each arrives, if the throttle
+				// has elapsed, re-layout with whatever is cached so far. Missing images still
+				// render as alt text (HtmlBlockFlow.ProcessImage handles partial caches cleanly).
+				var gate = new SemaphoreSlim(HtmlConstants.MaxConcurrentImageFetches);
+				var pending = imageUrls.Select(u => FetchImageAsync(u, gate, ct)).ToList();
+				while (pending.Count > 0)
 				{
-					ct.ThrowIfCancellationRequested();
+					var finished = await Task.WhenAny(pending).ConfigureAwait(false);
+					pending.Remove(finished);
+					var (url, buffer) = await finished.ConfigureAwait(false);
 
-					_loadingStatus = $"Loading images ({_imageLoadCompleted + 1}/{_imageLoadTotal})...";
-					Invalidate(Invalidation.Relayout);
-
-					try
-					{
-						var response = await HtmlImageLoader.HttpClient.GetAsync(url, ct);
-						var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
-						if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ||
-							contentType.Contains("svg", StringComparison.OrdinalIgnoreCase))
-						{
-							imageCache[url] = null;
-						}
-						else
-						{
-							var bytes = await response.Content.ReadAsByteArrayAsync(ct);
-							using var stream = new System.IO.MemoryStream(bytes);
-							var buffer = Imaging.PixelBuffer.FromStream(stream);
-							imageCache[url] = buffer;
-						}
-					}
-					catch
-					{
-						imageCache[url] = null;
-					}
+					lock (_contentLock)
+						imageCache[url] = buffer;
 
 					_imageLoadCompleted++;
+					_loadingStatus = $"Loading images ({_imageLoadCompleted}/{_imageLoadTotal})...";
+					Invalidate(Invalidation.Relayout);
 
 					// Throttled commit — only re-layout if ThrottleMs elapsed since last commit
 					// and there are still images pending (the final commit after the loop
 					// guarantees the last batch lands regardless of timing).
 					long nowTicks = Environment.TickCount64;
-					bool isLast = _imageLoadCompleted >= _imageLoadTotal;
-					if (!isLast && (nowTicks - lastCommitTicks) >= ThrottleMs)
+					if (pending.Count > 0 && (nowTicks - lastCommitTicks) >= ThrottleMs)
 					{
 						if (!TryCommitPartialImageLayout(capturedHtml, capturedWidth, capturedBaseUrl, imageCache))
 						{
@@ -727,6 +726,42 @@ namespace SharpConsoleUI.Controls
 			{
 				if (raiseCompleted)
 					Core.AsyncEvent.Raise(LoadingCompleted, LoadingCompletedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
+			}
+		}
+
+		/// <summary>
+		/// Downloads and decodes one image, waiting on <paramref name="gate"/> for a fetch slot.
+		/// Returns a null buffer for anything that isn't a decodable raster image; throws only
+		/// when <paramref name="ct"/> is cancelled.
+		/// </summary>
+		private static async Task<(string Url, Imaging.PixelBuffer? Buffer)> FetchImageAsync(
+			string url, SemaphoreSlim gate, CancellationToken ct)
+		{
+			await gate.WaitAsync(ct).ConfigureAwait(false);
+			try
+			{
+				using var response = await HtmlImageLoader.HttpClient.GetAsync(url, ct).ConfigureAwait(false);
+				var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
+				if (!response.IsSuccessStatusCode ||
+					!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ||
+					contentType.Contains("svg", StringComparison.OrdinalIgnoreCase))
+					return (url, null);
+
+				var bytes = await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+				using var stream = new System.IO.MemoryStream(bytes);
+				return (url, Imaging.PixelBuffer.FromStream(stream));
+			}
+			catch (OperationCanceledException) when (ct.IsCancellationRequested)
+			{
+				throw;
+			}
+			catch
+			{
+				return (url, null);
+			}
+			finally
+			{
+				gate.Release();
 			}
 		}
 
@@ -839,6 +874,9 @@ namespace SharpConsoleUI.Controls
 					VisitedLinkColor,
 					_baseUrl,
 					_showImages,
+					// For a URL load, the images downloaded so far — never re-download them
+					// synchronously on a resize, theme switch or CSS reload.
+					imageCache: _imageCache,
 					graphicsProtocol: gp);
 			}
 			catch (Exception ex)

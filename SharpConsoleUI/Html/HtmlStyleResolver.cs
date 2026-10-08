@@ -8,6 +8,8 @@
 
 #pragma warning disable CS1591
 
+using System.Runtime.CompilerServices;
+using AngleSharp.Css;
 using AngleSharp.Css.Dom;
 using AngleSharp.Dom;
 
@@ -70,32 +72,181 @@ namespace SharpConsoleUI.Html
 			["fuchsia"] = Color.Fuchsia,
 		};
 
+		// The CSS-derived part of an element's style depends only on the element, never on
+		// the caller's default colors, so it is computed once per element and reused by every
+		// later layout pass (image batches, resizes). Colors stay nullable so each caller's
+		// defaults still apply where the CSS sets none.
+		private readonly struct CachedStyle
+		{
+			public readonly ICssStyleDeclaration? Declaration;
+			public readonly ResolvedStyle Style;
+			public readonly Color? Foreground;
+			public readonly Color? Background;
+
+			public CachedStyle(ICssStyleDeclaration? declaration, ResolvedStyle style, Color? foreground, Color? background)
+			{
+				Declaration = declaration;
+				Style = style;
+				Foreground = foreground;
+				Background = background;
+			}
+		}
+
+		private sealed class DocumentStyles
+		{
+			public IStyleCollection? Styles;
+			public readonly Dictionary<IElement, CachedStyle> Elements = new();
+		}
+
+		// Keyed weakly on the document, so the cache lives exactly as long as the parsed DOM.
+		// The DOM must not change after its elements are first resolved; HtmlLayoutEngine only
+		// rewrites URLs right after parsing, before any layout.
+		private static readonly ConditionalWeakTable<IDocument, DocumentStyles> _documentStyles = new();
+
+		// Properties whose cascaded value may still hold var()/calc(), which only the full
+		// (much slower) computed-style path can resolve.
+		private static readonly string[] UnresolvedCheckProperties =
+		{
+			"color", "background-color", "display", "border", "border-style", "width",
+			"margin-top", "margin-bottom", "margin-left", "margin-right",
+			"padding-top", "padding-bottom", "padding-left", "padding-right",
+		};
+
 		/// <summary>
 		/// Resolves the effective style for the given element.
 		/// </summary>
 		public static ResolvedStyle Resolve(IElement element, Color defaultFg, Color defaultBg)
 		{
-			var style = new ResolvedStyle
+			var cached = GetCachedStyle(element);
+			var style = cached.Style;
+			style.Foreground = cached.Foreground ?? defaultFg;
+			style.Background = cached.Background ?? defaultBg;
+			return style;
+		}
+
+		private static CachedStyle GetCachedStyle(IElement element)
+		{
+			var document = element.Owner;
+			if (document == null)
+				return ComputeStyle(element, ComputeCurrentStyleSafe(element));
+
+			var docStyles = _documentStyles.GetValue(document, _ => new DocumentStyles());
+			lock (docStyles)
 			{
-				Foreground = defaultFg,
-				Background = defaultBg,
-				Decorations = TextDecoration.None,
-				Alignment = TextAlignment.Left,
-			};
+				if (docStyles.Elements.TryGetValue(element, out var cached))
+					return cached;
 
-			// Walk ancestors to accumulate inherited decorations from semantic tags
-			style.Decorations = GetInheritedDecorations(element);
+				docStyles.Styles ??= CreateStyleCollection(document);
 
-			// Read computed CSS (may throw on complex media queries without a render device)
-			ICssStyleDeclaration? css;
+				// Compute top-down from the nearest cached ancestor: each element inherits
+				// from its parent's declaration instead of AngleSharp re-cascading the whole
+				// ancestor chain for every element (that walk made large pages take seconds).
+				var pending = new Stack<IElement>();
+				for (var e = element; e != null && !docStyles.Elements.ContainsKey(e); e = e.ParentElement)
+					pending.Push(e);
+
+				while (pending.Count > 0)
+				{
+					var e = pending.Pop();
+					ICssStyleDeclaration? parentDeclaration = null;
+					if (e.ParentElement != null && docStyles.Elements.TryGetValue(e.ParentElement, out var parentStyle))
+						parentDeclaration = parentStyle.Declaration;
+
+					var declaration = docStyles.Styles != null
+						? ComputeDeclaration(docStyles.Styles, e, parentDeclaration)
+						: ComputeCurrentStyleSafe(e);
+					docStyles.Elements[e] = ComputeStyle(e, declaration);
+				}
+
+				return docStyles.Elements[element];
+			}
+		}
+
+		private static IStyleCollection? CreateStyleCollection(IDocument document)
+		{
 			try
 			{
-				css = element.ComputeCurrentStyle();
+				var window = document.DefaultView;
+				if (window == null)
+					return null;
+				var device = document.Context?.GetService<IRenderDevice>() ?? new DefaultRenderDevice();
+				return window.GetStyleCollection(device);
 			}
 			catch
 			{
-				css = null;
+				return null;
 			}
+		}
+
+		private static ICssStyleDeclaration? ComputeDeclaration(IStyleCollection styles, IElement element, ICssStyleDeclaration? parent)
+		{
+			ICssStyleDeclaration? cascaded;
+			try
+			{
+				cascaded = styles.ComputeCascadedStyle(element, parent!);
+			}
+			catch
+			{
+				cascaded = null;
+			}
+
+			if (cascaded != null && !HasUnresolvedValues(cascaded))
+				return cascaded;
+
+			try
+			{
+				return styles.ComputeDeclarations(element);
+			}
+			catch
+			{
+				return cascaded;
+			}
+		}
+
+		private static bool HasUnresolvedValues(ICssStyleDeclaration css)
+		{
+			try
+			{
+				foreach (var property in UnresolvedCheckProperties)
+				{
+					var value = css.GetPropertyValue(property);
+					if (value.Contains("var(", StringComparison.OrdinalIgnoreCase) ||
+						value.Contains("calc(", StringComparison.OrdinalIgnoreCase))
+						return true;
+				}
+				return false;
+			}
+			catch
+			{
+				return true;
+			}
+		}
+
+		private static ICssStyleDeclaration? ComputeCurrentStyleSafe(IElement element)
+		{
+			// May throw on complex media queries without a render device
+			try
+			{
+				return element.ComputeCurrentStyle();
+			}
+			catch
+			{
+				return null;
+			}
+		}
+
+		private static CachedStyle ComputeStyle(IElement element, ICssStyleDeclaration? css)
+		{
+			var style = new ResolvedStyle
+			{
+				Decorations = TextDecoration.None,
+				Alignment = TextAlignment.Left,
+			};
+			Color? foreground = null;
+			Color? background = null;
+
+			// Walk ancestors to accumulate inherited decorations from semantic tags
+			style.Decorations = GetInheritedDecorations(element);
 
 			if (css != null)
 			{
@@ -143,18 +294,14 @@ namespace SharpConsoleUI.Html
 					var color = css.GetPropertyValue("color");
 					if (!string.IsNullOrEmpty(color))
 					{
-						var parsed = ParseCssColor(color);
-						if (parsed.HasValue)
-							style.Foreground = parsed.Value;
+						foreground = ParseCssColor(color);
 					}
 
 					// Background color
 					var bgColor = css.GetPropertyValue("background-color");
 					if (!string.IsNullOrEmpty(bgColor))
 					{
-						var parsed = ParseCssColor(bgColor);
-						if (parsed.HasValue)
-							style.Background = parsed.Value;
+						background = ParseCssColor(bgColor);
 					}
 
 					// Text alignment
@@ -240,7 +387,7 @@ namespace SharpConsoleUI.Html
 				}
 			}
 
-			return style;
+			return new CachedStyle(css, style, foreground, background);
 		}
 
 		/// <summary>

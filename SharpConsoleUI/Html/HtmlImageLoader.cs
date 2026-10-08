@@ -129,11 +129,35 @@ namespace SharpConsoleUI.Html
 			if (targetHeight < 1)
 				targetHeight = 1;
 
-			if (graphicsProtocol != null && graphicsProtocol.SupportsKittyGraphics)
-				return RenderKitty(buffer, targetWidth, targetHeight, background, graphicsProtocol);
+			bool kitty = graphicsProtocol != null && graphicsProtocol.SupportsKittyGraphics;
+			var key = new RenderKey(targetWidth, targetHeight, background, kitty ? graphicsProtocol : null);
 
-			return RenderHalfBlock(buffer, targetWidth, targetHeight, background);
+			// Every relayout (image batches, resize, theme change) renders each image again;
+			// reuse the rows instead of rescaling — and, for Kitty, instead of PNG-encoding and
+			// transmitting a fresh copy of the image to the terminal under a new id each time.
+			var renders = _renderCache.GetValue(buffer, _ => new Dictionary<RenderKey, Cell[][]>());
+			Cell[][]? rows;
+			lock (renders)
+			{
+				if (!renders.TryGetValue(key, out rows))
+				{
+					rows = kitty
+						? RenderKitty(buffer, targetWidth, targetHeight, background, graphicsProtocol!)
+						: RenderHalfBlock(buffer, targetWidth, targetHeight, background);
+					renders[key] = rows;
+				}
+			}
+
+			// Hand out copies so the cached rows can't be altered through a layout line.
+			var copy = new Cell[rows.Length][];
+			for (int i = 0; i < rows.Length; i++)
+				copy[i] = (Cell[])rows[i].Clone();
+			return copy;
 		}
+
+		private readonly record struct RenderKey(int Width, int Height, Color Background, IGraphicsProtocol? KittyProtocol);
+
+		private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PixelBuffer, Dictionary<RenderKey, Cell[][]>> _renderCache = new();
 
 		/// <summary>
 		/// Renders using half-block characters (universal fallback).

@@ -64,5 +64,9 @@ namespace SharpConsoleUI.Html
 		// Image alt text
 		public const string ImageAltPrefix = "[";
 		public const string ImageAltSuffix = "]";
+
+		// Image loading: parallel downloads per page (a browser uses ~6 per host; image hosts
+		// such as Wikimedia answer 429 Too Many Requests when hit much harder than that)
+		public const int MaxConcurrentImageFetches = 4;
 	}
 }
