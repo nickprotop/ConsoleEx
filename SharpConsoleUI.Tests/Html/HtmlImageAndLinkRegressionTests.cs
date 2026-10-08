@@ -18,7 +18,12 @@ namespace SharpConsoleUI.Tests.Html
 	{
 		private const string Pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
 
-		// A non-routable address: a synchronous fetch would hang until the HTTP timeout
+		// A non-routable address: a synchronous fetch would hang until the HTTP timeout.
+		//
+		// The point of these tests is that NOTHING waits for it — so each one disposes its
+		// control, which cancels the in-flight download. Left running, the fetch sits on the
+		// shared HttpClient's 15s timeout past the end of the test and can trip the collection's
+		// own timeout, taking the pure-layout tests in this class down with it.
 		private const string UnreachableImage = "http://10.255.255.1/cat.png";
 
 		private static LayoutResult Layout(string html) =>
@@ -27,7 +32,7 @@ namespace SharpConsoleUI.Tests.Html
 		[Fact]
 		public void SetContent_WithShowImages_DoesNotBlockOnRemoteImages()
 		{
-			var html = new HtmlControl { ShowImages = true };
+			using var html = new HtmlControl { ShowImages = true };
 
 			var sw = Stopwatch.StartNew();
 			html.SetContent($"<p>Text</p><img src=\"{UnreachableImage}\" alt=\"cat\">");
@@ -39,7 +44,7 @@ namespace SharpConsoleUI.Tests.Html
 		[Fact]
 		public void SetContent_WithShowImages_ShowsAltTextWhileRemoteImageLoads()
 		{
-			var html = new HtmlControl { ShowImages = true };
+			using var html = new HtmlControl { ShowImages = true };
 			html.SetContent($"<p>Text</p><img src=\"{UnreachableImage}\" alt=\"cat\">");
 
 			var text = string.Join("\n", ContainerTestHelpers.RenderToLines(html, 80, 20));
@@ -50,7 +55,7 @@ namespace SharpConsoleUI.Tests.Html
 		[Fact]
 		public void SetContent_WithShowImages_RendersDataUriImageImmediately()
 		{
-			var html = new HtmlControl { ShowImages = true };
+			using var html = new HtmlControl { ShowImages = true };
 			html.SetContent($"<p>Text</p><img src=\"{Pixel}\" alt=\"pixel\">");
 
 			var text = string.Join("\n", ContainerTestHelpers.RenderToLines(html, 80, 20));
