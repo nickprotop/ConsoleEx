@@ -196,6 +196,7 @@ namespace SharpConsoleUI.Html
 				return new LayoutResult(Array.Empty<LayoutLine>(), 0);
 			}
 
+			HtmlInlineFlow.ResetLinkIds();
 			var lines = HtmlBlockFlow.FlowBlocks(
 				body,
 				maxWidth,

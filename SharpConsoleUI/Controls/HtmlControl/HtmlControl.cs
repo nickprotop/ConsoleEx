@@ -199,7 +199,11 @@ namespace SharpConsoleUI.Controls
 		public bool ShowImages
 		{
 			get => _showImages;
-			set => SetProperty(ref _showImages, value);
+			set
+			{
+				if (SetProperty(ref _showImages, value))
+					OnShowImagesChanged();
+			}
 		}
 
 		/// <summary>
@@ -409,36 +413,28 @@ namespace SharpConsoleUI.Controls
 		/// Sets the HTML content to display.
 		/// </summary>
 		/// <param name="html">The HTML string to render.</param>
-		public void SetContent(string html)
-		{
-			lock (_contentLock)
-			{
-				_rawHtml = html;
-				_baseUrl = null;
-				_currentUrl = null;
-				_imageCache = null;
-				_scrollOffset = 0;
-				_hoveredLinkLineIndex = -1;
-				_hoveredLinkIndex = -1;
-				int layoutWidth = _lastLayoutWidth > 0 ? _lastLayoutWidth : 80;
-				RunLayout(layoutWidth);
-			}
-			Invalidate(Invalidation.Relayout);
-		}
+		public void SetContent(string html) => SetContentCore(html, null);
 
 		/// <summary>
 		/// Sets the HTML content to display with a base URL for resolving relative links.
 		/// </summary>
 		/// <param name="html">The HTML string to render.</param>
 		/// <param name="baseUrl">The base URL for resolving relative links.</param>
-		public void SetContent(string html, string baseUrl)
+		public void SetContent(string html, string baseUrl) => SetContentCore(html, baseUrl);
+
+		private void SetContentCore(string html, string? baseUrl)
 		{
+			// The new content replaces whatever a URL load or an earlier image load was producing
+			var ct = RestartLoad(CancellationToken.None);
+
 			lock (_contentLock)
 			{
 				_rawHtml = html;
 				_baseUrl = baseUrl;
 				_currentUrl = null;
-				_imageCache = null;
+				// Text shows right away; remote images download in the background and pop in
+				// (inline data: images render immediately — HtmlBlockFlow decodes them in place)
+				_imageCache = _showImages ? new Dictionary<string, Imaging.PixelBuffer?>() : null;
 				_scrollOffset = 0;
 				_hoveredLinkLineIndex = -1;
 				_hoveredLinkIndex = -1;
@@ -446,6 +442,50 @@ namespace SharpConsoleUI.Controls
 				RunLayout(layoutWidth);
 			}
 			Invalidate(Invalidation.Relayout);
+
+			if (_showImages)
+				StartBackgroundImageLoad(ct);
+		}
+
+		/// <summary>
+		/// Cancels any in-flight URL or image load and returns the token for the next one.
+		/// </summary>
+		private CancellationToken RestartLoad(CancellationToken external)
+		{
+			_loadCts?.Cancel();
+			_loadCts?.Dispose();
+			_loadCts = CancellationTokenSource.CreateLinkedTokenSource(external);
+			return _loadCts.Token;
+		}
+
+		/// <summary>
+		/// Downloads the current content's remote images in the background (for content set
+		/// directly rather than loaded from a URL, so no LoadingCompleted is raised).
+		/// </summary>
+		private void StartBackgroundImageLoad(CancellationToken ct)
+		{
+			_loadingStatus = "Preparing images...";
+			_ = AnimateLoadingSpinnerAsync(ct);
+			_ = Task.Run(() => LoadImagesProgressivelyAsync(ct, raiseLoadingCompleted: false));
+		}
+
+		private void OnShowImagesChanged()
+		{
+			if (_rawHtml == null)
+				return;
+
+			var ct = RestartLoad(CancellationToken.None);
+			lock (_contentLock)
+			{
+				_imageCache = _showImages ? new Dictionary<string, Imaging.PixelBuffer?>() : null;
+				_loadingStatus = null;
+				if (_lastLayoutWidth > 0)
+					RunLayout(_lastLayoutWidth);
+			}
+			Invalidate(Invalidation.Relayout);
+
+			if (_showImages)
+				StartBackgroundImageLoad(ct);
 		}
 
 		/// <summary>
@@ -465,10 +505,7 @@ namespace SharpConsoleUI.Controls
 		public async Task LoadUrlAsync(string url, CancellationToken ct)
 		{
 			// Cancel any previous load
-			_loadCts?.Cancel();
-			_loadCts?.Dispose();
-			_loadCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			var linkedToken = _loadCts.Token;
+			var linkedToken = RestartLoad(ct);
 
 			_isLoading = true;
 			_isNavigating = true;
@@ -602,9 +639,9 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
-		private async Task LoadImagesProgressivelyAsync(CancellationToken ct)
+		private async Task LoadImagesProgressivelyAsync(CancellationToken ct, bool raiseLoadingCompleted = true)
 		{
-			bool raiseCompleted = true;
+			bool raiseCompleted = raiseLoadingCompleted;
 			try
 			{
 				if (string.IsNullOrEmpty(_rawHtml))
@@ -613,8 +650,12 @@ namespace SharpConsoleUI.Controls
 					return;
 				}
 
-				// Collect all image URLs from the HTML (a page often repeats an image — fetch once)
-				var imageUrls = _layoutEngine.GetImageUrls(_rawHtml, _baseUrl).Distinct().ToList();
+				// Collect the remote image URLs from the HTML (a page often repeats an image — fetch
+				// once). Inline data: images need no download; layout decodes them in place.
+				var imageUrls = _layoutEngine.GetImageUrls(_rawHtml, _baseUrl)
+					.Where(u => u.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+								u.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+					.Distinct().ToList();
 				if (imageUrls.Count == 0)
 				{
 					_loadingStatus = null;

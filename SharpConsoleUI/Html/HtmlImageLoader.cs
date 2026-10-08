@@ -234,6 +234,25 @@ namespace SharpConsoleUI.Html
 			return url;
 		}
 
+		/// <summary>
+		/// Decodes a <c>data:</c> URI image. Returns null if it isn't a decodable base64 raster image.
+		/// </summary>
+		internal static PixelBuffer? DecodeDataUri(string dataUri)
+		{
+			var bytes = ParseDataUri(dataUri);
+			if (bytes.Length == 0)
+				return null;
+			try
+			{
+				using var stream = new MemoryStream(bytes);
+				return PixelBuffer.FromStream(stream);
+			}
+			catch
+			{
+				return null;
+			}
+		}
+
 		private static byte[] ParseDataUri(string dataUri)
 		{
 			const int MaxDataUriBytes = 10 * 1024 * 1024; // 10 MB encoded

@@ -558,6 +558,16 @@ namespace SharpConsoleUI.Html
 							? HtmlImageLoader.RenderFromBuffer(cachedBuffer, effectiveWidth, ctx.DefaultBg, ctx.GraphicsProtocol)
 							: null;
 					}
+					else if (normalizedSrc.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+					{
+						// Inline data — nothing to download, decode it right here (once: the cache
+						// keeps the buffer for later layouts)
+						var decoded = HtmlImageLoader.DecodeDataUri(normalizedSrc);
+						ctx.ImageCache[normalizedSrc] = decoded;
+						imageRows = decoded != null
+							? HtmlImageLoader.RenderFromBuffer(decoded, effectiveWidth, ctx.DefaultBg, ctx.GraphicsProtocol)
+							: null;
+					}
 					else
 					{
 						// Not in cache — show alt text (will be loaded progressively)

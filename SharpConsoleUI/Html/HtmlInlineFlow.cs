@@ -30,6 +30,16 @@ namespace SharpConsoleUI.Html
 			"dl", "dt", "dd", "form", "fieldset"
 		};
 
+		// Link ids must be unique across the whole document, not per inline run: the control
+		// highlights and Tab-navigates links by id, so per-paragraph ids starting at 0 lit up
+		// the first link of every paragraph together. A layout runs on one thread, so a
+		// thread-static counter reset by HtmlLayoutEngine.LayoutDocument numbers the document
+		// (FlowBlocks recurses for grid cells, so it cannot reset it).
+		[ThreadStatic]
+		private static int t_nextLinkId;
+
+		internal static void ResetLinkIds() => t_nextLinkId = 0;
+
 		/// <summary>
 		/// Flows inline nodes into wrapped LayoutLines.
 		/// </summary>
@@ -289,7 +299,6 @@ namespace SharpConsoleUI.Html
 			private int _currentLinkStartX = -1;
 			private string _currentLinkText = "";
 			private int _currentLinkId;
-			private int _nextLinkId;
 
 			public void AddCell(Cell cell, string? linkUrl)
 			{
@@ -305,7 +314,16 @@ namespace SharpConsoleUI.Html
 						_currentLinkUrl = linkUrl;
 						_currentLinkStartX = CurrentX;
 						_currentLinkText = "";
-						_currentLinkId = _nextLinkId++;
+						_currentLinkId = t_nextLinkId++;
+					}
+					else
+					{
+						// Left the link: without this every following plain cell would close yet
+						// another region starting at the link (same id), making plain text clickable
+						// and flipping the focus highlight on and off across it
+						_currentLinkUrl = null;
+						_currentLinkStartX = -1;
+						_currentLinkText = "";
 					}
 				}
 
