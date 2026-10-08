@@ -37,9 +37,53 @@ the full set of standards your code will be reviewed against. The highlights:
 you through building a composite control, a primitive control (`BadgeControl`), and a dialog
 (`Dialogs.PickAsync`) end to end — from an empty file to an open PR.
 
+## Before You Push: the CI gates
+
+CI blocks a PR on five checks. Each one runs locally with a single command, so none of them
+needs to be discovered from a red build:
+
+```bash
+# 1. Formatting. Tabs, and whatever else the analyzers normalise.
+dotnet format SharpConsoleUI/SharpConsoleUI.csproj
+
+# 2. The library must build warning-clean (CS/CA/IDE/IL, every target framework).
+dotnet build SharpConsoleUI/SharpConsoleUI.csproj -c Release --no-incremental
+
+# 3. The whole suite, which is where a regression usually shows up first.
+dotnet test SharpConsoleUI.Tests/SharpConsoleUI.Tests.csproj
+
+# 4. NativeAOT. Trim and AOT analyzer warnings are errors here.
+dotnet publish SharpConsoleUI.Tests/aot.test/AotSmoke.csproj -c Release
+```
+
+`NU1902` on `SixLabors.ImageSharp` is expected and is not one of the gates. The advisory it
+points at is in the TIFF decoder, which the library refuses to use — see `PixelBuffer`. NuGet
+flags the package rather than the usage, so the notice stays until the dependency changes.
+
+The fifth is the file-header banner: every `.cs` file under `SharpConsoleUI/` needs the
+Author / Email / `License: MIT` block in its first eight lines. Copy it from any neighbouring
+file when you add one.
+
+A sixth check reports file sizes but does not block — see the limits in
+[`docs/CODE_QUALITY.md`](docs/CODE_QUALITY.md).
+
+## Tests
+
+A change to behaviour wants a test, and the suite is large enough that adding one is usually
+quick. Two things are worth knowing, both learned the hard way:
+
+- **Assert that state survives a re-render.** A test that checks a value right after an action,
+  and never renders again, passes against bugs that drop that state on the next layout pass.
+- **Include one test that drives the real path.** Build the real container nesting, use the real
+  input route (`InputStateService.EnqueueKey` + `system.Input.ProcessInput` for keys), and assert
+  the observable end state. Isolated component tests have gone green while the live app was
+  visibly broken.
+
+For anything touching scrolling, the mouse or layout, also drive the DemoApp and look at it.
+
 ## Submitting Changes
 
-1. Ensure the solution builds without errors: `dotnet build`
+1. Run the gates above
 2. Test your changes with the DemoApp and relevant examples
 3. Commit with a clear message describing what and why
 4. Push to your fork and open a Pull Request
