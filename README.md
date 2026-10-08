@@ -336,8 +336,13 @@ SplitterControl, StatusBarControl
 **Drawing:** CanvasControl (30+ primitives), ImageControl (Kitty graphics protocol + half-block fallback),
 VideoControl (FFmpeg — Kitty graphics + half-block/ASCII/braille fallbacks), TerminalControl (PTY, Linux)
 
+Images decode as PNG, JPEG, BMP, GIF, WebP, TGA, PBM and QOI. TIFF is deliberately excluded:
+images often arrive from somewhere the application does not control, and the TIFF decoder in the
+ImageSharp 3.x line, which no longer receives fixes, has two heap out-of-bounds writes and a
+header that never terminates.
+
 **Selection:** ListControl, TableControl (virtual data, 10k+ rows, sort, filter,
-inline edit), TreeControl
+inline edit), TreeTableControl (nested rows, tree-aware sort and filter), TreeControl
 
 Full reference: [nickprotop.github.io/ConsoleEx/docfx/_site/CONTROLS.html](https://nickprotop.github.io/ConsoleEx/docfx/_site/CONTROLS.html)
 
