@@ -132,8 +132,11 @@ namespace SharpConsoleUI.Controls
 			get { lock (_contentLock) { return string.Join("\n", _content); } }
 			set
 			{
-				lock (_contentLock) { _content = SplitContentPreservingTagRegions(value); }
-				BumpContentVersion();
+				lock (_contentLock)
+				{
+					_content = SplitContentPreservingTagRegions(value);
+					BumpContentVersion();
+				}
 				InvalidateLinkCount();
 				OnPropertyChanged();
 				Invalidate(Invalidation.Relayout);
@@ -319,8 +322,11 @@ namespace SharpConsoleUI.Controls
 		/// <param name="lines">The lines of text to display, supporting Spectre.Console markup syntax.</param>
 		public void SetContent(List<string> lines)
 		{
-			lock (_contentLock) { _content = lines; }
-			BumpContentVersion();
+			lock (_contentLock)
+			{
+				_content = lines;
+				BumpContentVersion();
+			}
 			InvalidateLinkCount();
 			OnPropertyChanged(nameof(Text));
 			Invalidate(Invalidation.Relayout);
@@ -449,7 +455,11 @@ namespace SharpConsoleUI.Controls
 		/// <param name="line">The line to append, supporting markup syntax.</param>
 		public void AppendLine(string line)
 		{
-			lock (_contentLock) { _content.Add(line ?? string.Empty); }
+			lock (_contentLock)
+			{
+				_content.Add(line ?? string.Empty);
+				BumpContentVersion();
+			}
 			OnContentAppended();
 		}
 
@@ -463,6 +473,7 @@ namespace SharpConsoleUI.Controls
 			{
 				foreach (var line in lines)
 					_content.Add(line ?? string.Empty);
+				BumpContentVersion();
 			}
 			OnContentAppended();
 		}
@@ -494,6 +505,7 @@ namespace SharpConsoleUI.Controls
 
 				for (int i = startIndex; i < parts.Length; i++)
 					_content.Add(parts[i]);
+				BumpContentVersion();
 			}
 			OnContentAppended();
 		}
@@ -510,7 +522,6 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Shared post-append bookkeeping: any active selection is now stale, so clear it.</summary>
 		private void OnContentAppended()
 		{
-			BumpContentVersion();
 			if (_enableSelection && _hasSelection)
 				ClearSelection();
 			InvalidateLinkCount();
