@@ -97,6 +97,9 @@ For anything touching scrolling, the mouse or layout, also drive the DemoApp and
 - Use GitHub Issues to report bugs or request features
 - Include steps to reproduce for bugs
 - Include your OS, .NET version, and terminal emulator
+- If one of this library's dependencies is failing your restore or your NuGet audit, open an
+  issue here rather than only tracking it on your side. See
+  [`SECURITY.md`](SECURITY.md#a-dependency-of-this-library-is-blocking-your-build).
 
 ## Questions?
 

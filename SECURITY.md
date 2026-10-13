@@ -20,6 +20,17 @@ Include:
 - Potential impact
 - Suggested fix (if any)
 
+## A Dependency of This Library Is Blocking Your Build
+
+A vulnerability in something SharpConsoleUI depends on is not a vulnerability in
+SharpConsoleUI, and it needs no private report. If a transitive dependency is failing your
+restore or your audit, **open a public issue here**. Say which advisory, which version of
+SharpConsoleUI you are on, and whether you are blocked or have worked around it.
+
+This is worth doing even when you have already suppressed the advisory locally and are waiting
+for a release. The maintainer does not see issues opened in your repository, and a fix may
+already exist, or may be waiting on nothing more than knowing that somebody needs it.
+
 ## Response Timeline
 
 - **Acknowledgment**: Within 48 hours
