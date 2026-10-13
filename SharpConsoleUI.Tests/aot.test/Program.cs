@@ -8,7 +8,7 @@
 
 // NativeAOT smoke test. Exercises a BROAD slice of the library — the window system,
 // ~40 controls, the markup parser, the [markdown] tag (Markdig), syntax highlighters,
-// Spectre.Console integration, AngleSharp (HtmlControl), ImageSharp (ImageControl), and
+// Spectre.Console integration, AngleSharp (HtmlControl), StbImageSharp (ImageControl), and
 // the two subprocess-backed controls (TerminalControl / VideoControl) — under a native
 // executable, then exits cleanly. Run by CI after `dotnet publish -p:PublishAot=true` to
 // prove the library stays AOT-compatible: an AOT runtime failure (reflection that only
@@ -430,7 +430,7 @@ try
 		return Fail($"HtmlControl: {ex.Message}");
 	}
 
-	// 8. ImageControl — ImageSharp PNG decode under AOT (ImageSharp is an AOT risk).
+	// 8. ImageControl — PNG decode under AOT (image decoding is an AOT risk).
 	//    Decode a tiny in-memory 2x2 PNG via PixelBuffer.FromStream (exercises the real decoder).
 	try
 	{
@@ -446,7 +446,7 @@ try
 	}
 	catch (Exception ex)
 	{
-		return Fail($"ImageControl (ImageSharp): {ex.Message}");
+		return Fail($"ImageControl (StbImageSharp): {ex.Message}");
 	}
 
 	// 9. TerminalControl — ACTUALLY START a PTY-backed shell under AOT.

@@ -37,7 +37,7 @@ The smoke test instantiates and renders the broad control surface under the nati
 - the `[markdown]` tag (Markdig) including a syntax-highlighted code block,
 - syntax highlighting (`SyntaxHighlighters.For(...)`), including a TextMate grammar loaded lazily and its native Oniguruma regex engine,
 - `SpectreRenderableControl` (Spectre.Console),
-- `ImageControl` decoding an in-memory image (ImageSharp),
+- `ImageControl` decoding an in-memory image (StbImageSharp),
 - `HtmlControl` rendering HTML with CSS `calc()` (AngleSharp + AngleSharp.Css),
 - the **data-binding engine** — a one-way `Bind` and a two-way `BindTwoWay` driven by `INotifyPropertyChanged`. These compile member-access `Expression<Func<>>` trees via `LambdaExpression.Compile()`; under NativeAOT (`IsDynamicCodeSupported=false`) `System.Linq.Expressions` transparently falls back to its **interpreter** instead of `Reflection.Emit`, so the path is AOT-reachable and correct. The smoke test asserts the bound value is actually applied, so a silent no-op would fail the gate.
 - the **`[gradient=…]` markup tag** — `MarkupParser.Parse` → `ColorGradient.Parse` → `typeof(Color).GetProperty(name, …)`. Because `typeof(Color)` is a closed type *literal* (not `object.GetType()`), trim analysis preserves `Color`'s static color properties and the named-color lookup resolves under NativeAOT (the smoke test verifies the interpolated color is non-default).

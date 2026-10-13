@@ -13,8 +13,8 @@ terminals that support the Kitty graphics protocol (Kitty, WezTerm, Ghostty) it 
 full pixel resolution; elsewhere it falls back to half-block cells, which gives two vertical pixels
 per character row. Detection is automatic — you do not choose the path.
 
-Supported formats are PNG, JPEG, BMP, GIF, WebP, TGA, PBM and QOI, loaded from a path, a stream, or an
-ImageSharp image.
+Supported formats are PNG, JPEG, BMP, GIF and TGA, loaded from a path, a stream, or an
+decoded image.
 
 ## Quick Start
 
@@ -42,7 +42,7 @@ var image = Controls.Image()
 | Properties (`Source`, `ScaleMode`, `MinimumWidth`, `MinimumHeight`) | [ImageControl → Properties](../IMAGE_RENDERING.md#properties) |
 | All builder methods | [ImageControl → Builder API](../IMAGE_RENDERING.md#builder-api) |
 | Creating and filling pixel data | [PixelBuffer](../IMAGE_RENDERING.md#pixelbuffer) |
-| Loading from files, streams, ImageSharp, or a file picker | [Loading Images from Files](../IMAGE_RENDERING.md#loading-images-from-files) |
+| Loading from files, streams, raw pixels, or a file picker | [Loading Images from Files](../IMAGE_RENDERING.md#loading-images-from-files) |
 | `Fit` / `Fill` / `Stretch` / `None` and how they behave | [Scale Modes](../IMAGE_RENDERING.md#scale-modes) |
 | How alignment interacts with scale mode | [Alignment and Scale Mode Interaction](../IMAGE_RENDERING.md#alignment-and-scale-mode-interaction) |
 | Terminal support and how detection works | [Kitty Graphics Protocol](../IMAGE_RENDERING.md#kitty-graphics-protocol) |

@@ -510,14 +510,14 @@ dotnet run --project Examples/DemoApp
 ```
 
 **Key Features:**
-- Load PNG, JPEG, BMP, GIF, WebP, QOI files via file picker dialog
+- Load PNG, JPEG, BMP, GIF, TGA files via file picker dialog
 - Half-block rendering (2 vertical pixels per character cell)
 - Four scale modes: Fit, Fill, Stretch, None
 - Resizable window with live image rescaling
 - Keyboard shortcuts: Ctrl+O to open, S to cycle scale, Esc to close
 
 **APIs Demonstrated:**
-- `PixelBuffer.FromFile()` — decode image files via SixLabors.ImageSharp
+- `PixelBuffer.FromFile()` — decode image files via StbImageSharp
 - `ImageControl` with `ScaleMode` switching
 - `FileDialogs.ShowFilePickerAsync()` with format filter
 - `HorizontalGridControl` for toolbar layout

@@ -56,10 +56,6 @@ dotnet test SharpConsoleUI.Tests/SharpConsoleUI.Tests.csproj
 dotnet publish SharpConsoleUI.Tests/aot.test/AotSmoke.csproj -c Release
 ```
 
-`NU1902` on `SixLabors.ImageSharp` is expected and is not one of the gates. The advisory it
-points at is in the TIFF decoder, which the library refuses to use — see `PixelBuffer`. NuGet
-flags the package rather than the usage, so the notice stays until the dependency changes.
-
 The fifth is the file-header banner: every `.cs` file under `SharpConsoleUI/` needs the
 Author / Email / `License: MIT` block in its first eight lines. Copy it from any neighbouring
 file when you add one.

@@ -249,11 +249,11 @@ namespace SharpConsoleUI.Tests.Html
 		[Fact]
 		public void ImageAlt_ShowsErrorOnFailure()
 		{
-			// SVG data URI will fail in ImageSharp decoder
+			// SVG data URI will fail in the image decoder
 			var html = "<html><body><img src=\"data:image/svg+xml,<svg></svg>\" alt=\"icon\"></body></html>";
 			var result = EngineLayout(html, showImages: true);
 			var text = HtmlTestHelpers.LinesToText(result.Lines);
-			// Should show alt text; SVG can't be decoded by ImageSharp
+			// Should show alt text; SVG is not a decodable raster format
 			Assert.Contains("icon", text);
 		}
 

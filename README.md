@@ -336,10 +336,10 @@ SplitterControl, StatusBarControl
 **Drawing:** CanvasControl (30+ primitives), ImageControl (Kitty graphics protocol + half-block fallback),
 VideoControl (FFmpeg — Kitty graphics + half-block/ASCII/braille fallbacks), TerminalControl (PTY, Linux)
 
-Images decode as PNG, JPEG, BMP, GIF, WebP, TGA, PBM and QOI. TIFF is deliberately excluded:
-images often arrive from somewhere the application does not control, and the TIFF decoder in the
-ImageSharp 3.x line, which no longer receives fixes, has two heap out-of-bounds writes and a
-header that never terminates.
+Images decode as PNG, JPEG, BMP, GIF and TGA, identified by content rather than by file
+extension. TIFF is not decodable at all: images often arrive from somewhere the application does
+not control, and TIFF decoders have carried two heap out-of-bounds writes and a header that never
+terminates, so no TIFF decoder is linked into the library.
 
 **Selection:** ListControl, TableControl (virtual data, 10k+ rows, sort, filter,
 inline edit), TreeTableControl (nested rows, tree-aware sort and filter), TreeControl

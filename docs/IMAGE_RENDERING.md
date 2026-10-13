@@ -63,11 +63,12 @@ var buffer = PixelBuffer.FromArgbArray(argbArray, width, height);
 
 ## Loading Images from Files
 
-SharpConsoleUI can load real image files using [SixLabors.ImageSharp](https://github.com/SixLabors/ImageSharp). Supported formats: **PNG, JPEG, BMP, GIF, TGA, PBM, QOI, WebP**.
+SharpConsoleUI can load real image files using [StbImageSharp](https://github.com/StbSharp/StbImageSharp). Supported formats: **PNG, JPEG, BMP, GIF, TGA**, identified by content rather than by file extension.
 
-> TIFF is deliberately not decoded. The TIFF decoder in the ImageSharp 3.x line, which no
-> longer receives fixes, carries two heap out-of-bounds writes and a header that never
-> terminates, and images often arrive from somewhere the application does not control.
+> TIFF is not decodable at all. TIFF decoders have carried two heap out-of-bounds writes and a
+> header that never terminates, and images often arrive from somewhere the application does not
+> control, so no TIFF decoder is linked into the library. A TIFF, like any other unsupported
+> input, raises `UnsupportedImageFormatException`.
 
 ### From a File Path
 
@@ -83,24 +84,34 @@ using var stream = File.OpenRead("photo.jpg");
 var buffer = PixelBuffer.FromStream(stream);
 ```
 
-### From an ImageSharp Image
+### From Another Imaging Library
 
-If you already have an `Image<Rgb24>` (e.g., after applying ImageSharp processing), convert it directly:
+If another library already produced the pixels — because you need a format this one does not
+decode, or you applied processing of your own — copy them into a byte buffer and hand them over.
+No imaging dependency is shared with SharpConsoleUI.
 
 ```csharp
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+// Tightly packed 24-bit RGB, row-major (3 bytes per pixel).
+var buffer = PixelBuffer.FromRgb24Bytes(rgbBytes, width, height);
 
-using var image = Image.Load<Rgb24>("photo.png");
-image.Mutate(x => x.Resize(200, 100)); // optional pre-processing
-var buffer = PixelBuffer.FromImageSharp(image);
+// Or 32-bit RGBA, where the alpha byte is ignored.
+var buffer = PixelBuffer.FromRgba32Bytes(rgbaBytes, width, height);
+```
+
+With ImageSharp, for example:
+
+```csharp
+using var image = Image.Load<Rgb24>("photo.webp");
+var pixels = new byte[image.Width * image.Height * 3];
+image.CopyPixelDataTo(pixels);
+var buffer = PixelBuffer.FromRgb24Bytes(pixels, image.Width, image.Height);
 ```
 
 ### With File Picker Dialog
 
 ```csharp
 var path = await FileDialogs.ShowFilePickerAsync(windowSystem,
-    filter: "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp;*.qoi");
+    filter: "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tga");
 
 if (path != null)
 {

@@ -9,8 +9,7 @@
 using System.IO.Compression;
 using System.Text;
 using SharpConsoleUI.Configuration;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using StbImageWriteSharp;
 
 namespace SharpConsoleUI.Imaging
 {
@@ -318,7 +317,7 @@ namespace SharpConsoleUI.Imaging
 		#region PNG Encoding
 
 		/// <summary>
-		/// Encodes a PixelBuffer as PNG bytes using ImageSharp.
+		/// Encodes a PixelBuffer as PNG bytes.
 		/// </summary>
 		public static byte[] EncodePng(PixelBuffer source, int targetWidth = 0, int targetHeight = 0)
 		{
@@ -329,23 +328,25 @@ namespace SharpConsoleUI.Imaging
 				effectiveSource = source.Resize(targetWidth, targetHeight);
 			}
 
-			using var image = new Image<Rgb24>(effectiveSource.Width, effectiveSource.Height);
+			int width = effectiveSource.Width;
+			int height = effectiveSource.Height;
+			var rgb = new byte[width * height * 3];
 
-			image.ProcessPixelRows(accessor =>
+			for (int y = 0; y < height; y++)
 			{
-				for (int y = 0; y < accessor.Height; y++)
+				int row = y * width * 3;
+				for (int x = 0; x < width; x++)
 				{
-					var row = accessor.GetRowSpan(y);
-					for (int x = 0; x < row.Length; x++)
-					{
-						var pixel = effectiveSource.GetPixel(x, y);
-						row[x] = new Rgb24(pixel.R, pixel.G, pixel.B);
-					}
+					var pixel = effectiveSource.GetPixel(x, y);
+					int i = row + x * 3;
+					rgb[i] = pixel.R;
+					rgb[i + 1] = pixel.G;
+					rgb[i + 2] = pixel.B;
 				}
-			});
+			}
 
 			using var ms = new MemoryStream();
-			image.SaveAsPng(ms);
+			new ImageWriter().WritePng(rgb, width, height, StbImageWriteSharp.ColorComponents.RedGreenBlue, ms);
 			return ms.ToArray();
 		}
 

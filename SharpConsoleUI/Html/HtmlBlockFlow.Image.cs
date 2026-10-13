@@ -127,7 +127,7 @@ namespace SharpConsoleUI.Html
 				var errorSuffix = "";
 				if (imageError != null)
 				{
-					// Truncate long ImageSharp error messages (e.g., "Image cannot be loaded. Available decoders:...")
+					// Truncate long decoder error messages.
 					var shortError = imageError.Split('\n')[0];
 					if (shortError.Length > 60) shortError = shortError.Substring(0, 57) + "...";
 					errorSuffix = $" ({shortError})";

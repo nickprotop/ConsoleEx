@@ -7,17 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Configuration;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats;
-using SixLabors.ImageSharp.Formats.Bmp;
-using SixLabors.ImageSharp.Formats.Gif;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Formats.Pbm;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.Formats.Qoi;
-using SixLabors.ImageSharp.Formats.Tga;
-using SixLabors.ImageSharp.Formats.Webp;
-using SixLabors.ImageSharp.PixelFormats;
+using StbImageSharp;
 
 namespace SharpConsoleUI.Imaging
 {
@@ -152,90 +142,146 @@ namespace SharpConsoleUI.Imaging
 		}
 
 		/// <summary>
-		/// The decoders an image is allowed to be decoded with. Every format the library supports,
-		/// minus TIFF.
+		/// Decodes image data into a <see cref="PixelBuffer"/>.
 		/// </summary>
 		/// <remarks>
-		/// TIFF IS DELIBERATELY ABSENT, and this is a security boundary rather than a tidy-up.
-		/// Images reach here from places the application does not control — a <c>data:</c> URI or
-		/// an <c>&lt;img&gt;</c> in HTML from the network, a file the user opened — and the TIFF
-		/// decoder in the 3.x line, which no longer receives fixes, has two heap
-		/// out-of-bounds writes in its CCITT fax paths (CVE-2026-106117, CVE-2026-106118) plus a
-		/// BigTIFF header that spins forever on 24 bytes of input (GHSA-wmxv-xphr-5c9g).
+		/// The decoder recognises PNG, JPEG, BMP, GIF and TGA, and identifies each from its
+		/// content rather than from a file extension or a <c>Content-Type</c>.
 		/// <para>
-		/// Listing the decoders we want, instead of removing the one we do not, means a format
-		/// added by a future ImageSharp version is not silently enabled here. A TIFF now fails
-		/// with <see cref="UnknownImageFormatException"/> before any TIFF code runs — both classic
-		/// and BigTIFF, since the fax overflows are in classic TIFF.
+		/// TIFF IS NOT DECODABLE HERE, and that is a security property rather than an omission.
+		/// Images reach this method from places the application does not control — a <c>data:</c>
+		/// URI or an <c>&lt;img&gt;</c> in HTML from the network, a file the user opened. TIFF
+		/// decoders have carried heap out-of-bounds writes in their CCITT fax paths
+		/// (CVE-2026-106117, CVE-2026-106118) and a BigTIFF header that spins forever on 24 bytes
+		/// of input (GHSA-wmxv-xphr-5c9g). No TIFF decoder is linked into the library at all, so a
+		/// TIFF is refused on inspection, before any format-specific parsing runs.
 		/// </para>
 		/// </remarks>
-		private static readonly DecoderOptions SafeDecoderOptions = new()
+		private static PixelBuffer Decode(byte[] data)
 		{
-			// Fully qualified: SharpConsoleUI.Configuration is a namespace of ours, so the bare
-			// name resolves to that rather than to ImageSharp's type.
-			Configuration = new SixLabors.ImageSharp.Configuration(
-				new PngConfigurationModule(),
-				new JpegConfigurationModule(),
-				new GifConfigurationModule(),
-				new BmpConfigurationModule(),
-				new PbmConfigurationModule(),
-				new TgaConfigurationModule(),
-				new WebpConfigurationModule(),
-				new QoiConfigurationModule()),
-		};
+			ImageResult image;
+			try
+			{
+				image = ImageResult.FromMemory(data, StbImageSharp.ColorComponents.RedGreenBlue);
+			}
+			catch (Exception ex)
+			{
+				// The decoder reports an unrecognised or malformed image by throwing. Translate it
+				// so callers have one documented type to catch regardless of the backend.
+				throw new UnsupportedImageFormatException(
+					"The data is not in a supported image format (PNG, JPEG, BMP, GIF or TGA).", ex);
+			}
+
+			if (image.Width <= 0 || image.Height <= 0)
+				throw new UnsupportedImageFormatException("The image reports empty dimensions.");
+
+			if (image.Width > MaxPixelBufferDimension || image.Height > MaxPixelBufferDimension)
+				throw new ArgumentOutOfRangeException(
+					nameof(data),
+					$"Image dimensions {image.Width}x{image.Height} exceed maximum {MaxPixelBufferDimension}.");
+
+			return FromRgb24Bytes(image.Data, image.Width, image.Height);
+		}
 
 		/// <summary>
 		/// Creates a PixelBuffer by loading an image from a file path.
-		/// Supports PNG, JPEG, BMP, GIF, TGA, PBM, QOI, and WebP formats.
+		/// Supports PNG, JPEG, BMP, GIF and TGA formats.
 		/// </summary>
 		/// <param name="filePath">Path to the image file.</param>
 		/// <returns>A PixelBuffer containing the decoded image pixels.</returns>
-		/// <exception cref="UnknownImageFormatException">
+		/// <exception cref="UnsupportedImageFormatException">
 		/// The data is not one of the supported formats. A TIFF lands here by design — see
-		/// <see cref="SafeDecoderOptions"/>.
+		/// <see cref="Decode"/>.
 		/// </exception>
 		public static PixelBuffer FromFile(string filePath)
 		{
-			using var image = SixLabors.ImageSharp.Image.Load<Rgb24>(SafeDecoderOptions, filePath);
-			return FromImageSharp(image);
+			return Decode(File.ReadAllBytes(filePath));
 		}
 
 		/// <summary>
 		/// Creates a PixelBuffer by loading an image from a stream.
-		/// Supports PNG, JPEG, BMP, GIF, TGA, PBM, QOI, and WebP formats.
+		/// Supports PNG, JPEG, BMP, GIF and TGA formats.
 		/// </summary>
 		/// <param name="stream">Stream containing image data.</param>
 		/// <returns>A PixelBuffer containing the decoded image pixels.</returns>
-		/// <exception cref="UnknownImageFormatException">
+		/// <exception cref="UnsupportedImageFormatException">
 		/// The data is not one of the supported formats. A TIFF lands here by design — see
-		/// <see cref="SafeDecoderOptions"/>.
+		/// <see cref="Decode"/>.
 		/// </exception>
 		public static PixelBuffer FromStream(Stream stream)
 		{
-			using var image = SixLabors.ImageSharp.Image.Load<Rgb24>(SafeDecoderOptions, stream);
-			return FromImageSharp(image);
+			if (stream is MemoryStream ms)
+				return Decode(ms.ToArray());
+
+			using var copy = new MemoryStream();
+			stream.CopyTo(copy);
+			return Decode(copy.ToArray());
 		}
 
 		/// <summary>
-		/// Creates a PixelBuffer from an ImageSharp Image&lt;Rgb24&gt;.
+		/// Creates a PixelBuffer from tightly packed 24-bit RGB bytes in row-major order
+		/// (left to right, top to bottom, three bytes per pixel).
 		/// </summary>
-		public static PixelBuffer FromImageSharp(Image<Rgb24> image)
+		/// <param name="rgb">The pixel bytes. Length must be at least <c>width * height * 3</c>.</param>
+		/// <param name="width">Image width in pixels.</param>
+		/// <param name="height">Image height in pixels.</param>
+		/// <remarks>
+		/// This is the seam for pixels produced by another imaging library: copy that library's
+		/// pixels into a byte buffer and hand it here, and no imaging dependency is shared with
+		/// SharpConsoleUI.
+		/// </remarks>
+		public static PixelBuffer FromRgb24Bytes(ReadOnlySpan<byte> rgb, int width, int height)
 		{
-			var buffer = new PixelBuffer(image.Width, image.Height);
+			if (width <= 0) throw new ArgumentOutOfRangeException(nameof(width));
+			if (height <= 0) throw new ArgumentOutOfRangeException(nameof(height));
 
-			image.ProcessPixelRows(accessor =>
+			long required = (long)width * height * 3;
+			if (rgb.Length < required)
+				throw new ArgumentException(
+					$"Expected at least {required} bytes for {width}x{height} RGB, got {rgb.Length}.",
+					nameof(rgb));
+
+			var buffer = new PixelBuffer(width, height);
+			for (int y = 0; y < height; y++)
 			{
-				for (int y = 0; y < accessor.Height; y++)
+				int row = y * width * 3;
+				for (int x = 0; x < width; x++)
 				{
-					var row = accessor.GetRowSpan(y);
-					for (int x = 0; x < row.Length; x++)
-					{
-						ref var pixel = ref row[x];
-						buffer._pixels[x, y] = new ImagePixel(pixel.R, pixel.G, pixel.B);
-					}
+					int i = row + x * 3;
+					buffer._pixels[x, y] = new ImagePixel(rgb[i], rgb[i + 1], rgb[i + 2]);
 				}
-			});
+			}
+			return buffer;
+		}
 
+		/// <summary>
+		/// Creates a PixelBuffer from tightly packed 32-bit RGBA bytes in row-major order
+		/// (left to right, top to bottom, four bytes per pixel). The alpha byte is ignored.
+		/// </summary>
+		/// <param name="rgba">The pixel bytes. Length must be at least <c>width * height * 4</c>.</param>
+		/// <param name="width">Image width in pixels.</param>
+		/// <param name="height">Image height in pixels.</param>
+		public static PixelBuffer FromRgba32Bytes(ReadOnlySpan<byte> rgba, int width, int height)
+		{
+			if (width <= 0) throw new ArgumentOutOfRangeException(nameof(width));
+			if (height <= 0) throw new ArgumentOutOfRangeException(nameof(height));
+
+			long required = (long)width * height * 4;
+			if (rgba.Length < required)
+				throw new ArgumentException(
+					$"Expected at least {required} bytes for {width}x{height} RGBA, got {rgba.Length}.",
+					nameof(rgba));
+
+			var buffer = new PixelBuffer(width, height);
+			for (int y = 0; y < height; y++)
+			{
+				int row = y * width * 4;
+				for (int x = 0; x < width; x++)
+				{
+					int i = row + x * 4;
+					buffer._pixels[x, y] = new ImagePixel(rgba[i], rgba[i + 1], rgba[i + 2]);
+				}
+			}
 			return buffer;
 		}
 

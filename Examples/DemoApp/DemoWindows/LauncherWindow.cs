@@ -796,7 +796,7 @@ public static class LauncherWindow
 				"[bold]Image Viewer[/]",
 				"",
 				"Load and display real image files (PNG, JPEG, BMP,",
-				"GIF, WebP, QOI) with half-block Unicode rendering.",
+				"GIF, TGA) with half-block Unicode rendering.",
 				"",
 				"[dim]Features:[/]",
 				"  - File picker for loading images",
@@ -804,7 +804,7 @@ public static class LauncherWindow
 				"  - Keyboard shortcuts: Ctrl+O, S, Esc",
 				"  - Resizable window with live rescaling",
 				"",
-				"[dim]Powered by SixLabors.ImageSharp[/]",
+				"[dim]Powered by StbImageSharp[/]",
 			},
 			"Flows" => new List<string>
 			{

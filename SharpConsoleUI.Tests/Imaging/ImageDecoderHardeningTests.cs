@@ -9,26 +9,17 @@
 using System.Diagnostics;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Imaging;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Bmp;
-using SixLabors.ImageSharp.Formats.Gif;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Formats.Pbm;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.Formats.Qoi;
-using SixLabors.ImageSharp.Formats.Tga;
-using SixLabors.ImageSharp.Formats.Webp;
-using SixLabors.ImageSharp.PixelFormats;
+using StbImageWriteSharp;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Imaging;
 
 /// <summary>
 /// Images reach the decoder from places the application does not control — a <c>data:</c> URI in
-/// HTML, an <c>&lt;img&gt;</c> fetched from the network, a file the user picked. The TIFF decoder
-/// in the ImageSharp 3.x line, which no longer receives fixes, carries two heap out-of-bounds
-/// writes in its CCITT fax paths and a BigTIFF header that never terminates, so TIFF is refused
-/// before any of its code runs.
+/// HTML, an <c>&lt;img&gt;</c> fetched from the network, a file the user picked. TIFF decoders have
+/// carried two heap out-of-bounds writes in their CCITT fax paths and a BigTIFF header that never
+/// terminates. No TIFF decoder is linked into the library, so a TIFF is refused on inspection,
+/// before any format-specific parsing runs.
 /// </summary>
 public class ImageDecoderHardeningTests
 {
@@ -78,7 +69,7 @@ public class ImageDecoderHardeningTests
 		using var stream = new MemoryStream(NonTerminatingBigTiff());
 
 		var stopwatch = Stopwatch.StartNew();
-		Assert.Throws<UnknownImageFormatException>(() => PixelBuffer.FromStream(stream));
+		Assert.Throws<UnsupportedImageFormatException>(() => PixelBuffer.FromStream(stream));
 		stopwatch.Stop();
 
 		Assert.True(stopwatch.Elapsed.TotalSeconds < 2,
@@ -94,7 +85,7 @@ public class ImageDecoderHardeningTests
 	{
 		using var stream = new MemoryStream(ClassicTiffHeader());
 
-		Assert.Throws<UnknownImageFormatException>(() => PixelBuffer.FromStream(stream));
+		Assert.Throws<UnsupportedImageFormatException>(() => PixelBuffer.FromStream(stream));
 	}
 
 	[Fact]
@@ -104,7 +95,7 @@ public class ImageDecoderHardeningTests
 		File.WriteAllBytes(path, ClassicTiffHeader());
 		try
 		{
-			Assert.Throws<UnknownImageFormatException>(() => PixelBuffer.FromFile(path));
+			Assert.Throws<UnsupportedImageFormatException>(() => PixelBuffer.FromFile(path));
 		}
 		finally
 		{
@@ -123,12 +114,8 @@ public class ImageDecoderHardeningTests
 	[Theory]
 	[InlineData("png")]
 	[InlineData("jpeg")]
-	[InlineData("gif")]
 	[InlineData("bmp")]
-	[InlineData("webp")]
 	[InlineData("tga")]
-	[InlineData("pbm")]
-	[InlineData("qoi")]
 	public void SupportedFormats_StillDecode(string format)
 	{
 		using var stream = new MemoryStream(Encode(format));
@@ -139,26 +126,144 @@ public class ImageDecoderHardeningTests
 		Assert.Equal(4, buffer.Height);
 	}
 
+	/// <summary>
+	/// GIF has no encoder here, so it is covered by a hand-built 4x4 single-frame file. It stays
+	/// in the supported set because HTML pages still carry GIFs.
+	/// </summary>
+	[Fact]
+	public void AGif_StillDecodes()
+	{
+		using var stream = new MemoryStream(MinimalGif4x4());
+
+		var buffer = PixelBuffer.FromStream(stream);
+
+		Assert.Equal(4, buffer.Width);
+		Assert.Equal(4, buffer.Height);
+	}
+
+	/// <summary>
+	/// Formats the library no longer decodes. They must fail as an unsupported format — the same
+	/// documented exception any other undecodable input produces — and not crash or hang.
+	/// </summary>
+	[Theory]
+	[InlineData("webp")]
+	[InlineData("qoi")]
+	public void FormatsNoLongerSupported_AreRefusedCleanly(string format)
+	{
+		using var stream = new MemoryStream(UnsupportedFormatHeader(format));
+
+		Assert.Throws<UnsupportedImageFormatException>(() => PixelBuffer.FromStream(stream));
+	}
+
+	/// <summary>Round-trips 24-bit RGB through the raw-pixel seam for externally decoded images.</summary>
+	[Fact]
+	public void FromRgb24Bytes_ReadsPixelsInRowMajorOrder()
+	{
+		// 2x1: red then green.
+		byte[] rgb = { 255, 0, 0, 0, 255, 0 };
+
+		var buffer = PixelBuffer.FromRgb24Bytes(rgb, 2, 1);
+
+		Assert.Equal(255, buffer.GetPixel(0, 0).R);
+		Assert.Equal(0, buffer.GetPixel(0, 0).G);
+		Assert.Equal(0, buffer.GetPixel(1, 0).R);
+		Assert.Equal(255, buffer.GetPixel(1, 0).G);
+	}
+
+	/// <summary>The RGBA seam drops alpha rather than blending it.</summary>
+	[Fact]
+	public void FromRgba32Bytes_IgnoresAlpha()
+	{
+		byte[] rgba = { 10, 20, 30, 0, 40, 50, 60, 255 };
+
+		var buffer = PixelBuffer.FromRgba32Bytes(rgba, 2, 1);
+
+		Assert.Equal(10, buffer.GetPixel(0, 0).R);
+		Assert.Equal(30, buffer.GetPixel(0, 0).B);
+		Assert.Equal(40, buffer.GetPixel(1, 0).R);
+		Assert.Equal(60, buffer.GetPixel(1, 0).B);
+	}
+
+	[Fact]
+	public void FromRgb24Bytes_RejectsAShortBuffer()
+	{
+		Assert.Throws<ArgumentException>(() => PixelBuffer.FromRgb24Bytes(new byte[5], 2, 1));
+	}
+
 	private static byte[] Encode(string format)
 	{
-		using var image = new Image<Rgb24>(4, 4);
-		var encoder = format switch
+		// A 4x4 RGB image, encoded through the real writer so each file is a genuine one.
+		var rgb = new byte[4 * 4 * 3];
+		for (int i = 0; i < rgb.Length; i += 3)
 		{
-			"png" => (SixLabors.ImageSharp.Formats.IImageEncoder)new PngEncoder(),
-			"jpeg" => new JpegEncoder(),
-			"gif" => new GifEncoder(),
-			"bmp" => new BmpEncoder(),
-			"webp" => new WebpEncoder(),
-			"tga" => new TgaEncoder(),
-			"pbm" => new PbmEncoder(),
-			"qoi" => new QoiEncoder(),
-			_ => throw new ArgumentOutOfRangeException(nameof(format), format, null),
-		};
+			rgb[i] = 200;
+			rgb[i + 1] = 100;
+			rgb[i + 2] = 50;
+		}
 
 		var ms = new MemoryStream();
-		image.Save(ms, encoder);
+		var writer = new ImageWriter();
+		switch (format)
+		{
+			case "png":
+				writer.WritePng(rgb, 4, 4, StbImageWriteSharp.ColorComponents.RedGreenBlue, ms);
+				break;
+			case "jpeg":
+				writer.WriteJpg(rgb, 4, 4, StbImageWriteSharp.ColorComponents.RedGreenBlue, ms, 90);
+				break;
+			case "bmp":
+				writer.WriteBmp(rgb, 4, 4, StbImageWriteSharp.ColorComponents.RedGreenBlue, ms);
+				break;
+			case "tga":
+				writer.WriteTga(rgb, 4, 4, StbImageWriteSharp.ColorComponents.RedGreenBlue, ms);
+				break;
+			default:
+				throw new ArgumentOutOfRangeException(nameof(format), format, null);
+		}
 		return ms.ToArray();
 	}
+
+	/// <summary>A 4x4 GIF87a with a 2-colour table and one LZW-coded frame.</summary>
+	private static byte[] MinimalGif4x4()
+	{
+		return new byte[]
+		{
+			0x47, 0x49, 0x46, 0x38, 0x37, 0x61, // GIF87a
+			0x04, 0x00, 0x04, 0x00,             // 4x4
+			0x80, 0x00, 0x00,                   // global colour table, 2 entries
+			0xFF, 0x00, 0x00,                   // red
+			0x00, 0x00, 0xFF,                   // blue
+			0x2C,                               // image descriptor
+			0x00, 0x00, 0x00, 0x00,             // left, top
+			0x04, 0x00, 0x04, 0x00,             // 4x4
+			0x00,                               // no local table
+			0x02,                               // LZW minimum code size
+			0x03, 0x44, 0x01, 0x00,             // one data sub-block
+			0x00,                               // block terminator
+			0x3B,                               // trailer
+		};
+	}
+
+	/// <summary>Valid file headers for formats the library no longer decodes.</summary>
+	private static byte[] UnsupportedFormatHeader(string format) => format switch
+	{
+		// RIFF....WEBPVP8
+		"webp" => new byte[]
+		{
+			0x52, 0x49, 0x46, 0x46, 0x20, 0x00, 0x00, 0x00,
+			0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x20,
+			0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		},
+		// qoif + 4x4, 3 channels, sRGB
+		"qoi" => new byte[]
+		{
+			0x71, 0x6F, 0x69, 0x66,
+			0x00, 0x00, 0x00, 0x04,
+			0x00, 0x00, 0x00, 0x04,
+			0x03, 0x00,
+		},
+		_ => throw new ArgumentOutOfRangeException(nameof(format), format, null),
+	};
 
 	#endregion
 
