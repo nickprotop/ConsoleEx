@@ -1118,6 +1118,21 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const int MarkupViewportOverscanRows = 2;
 
+		/// <summary>Whole-document parse slots for measure/paint and natural-width probes of the current content.</summary>
+		internal const int MarkupParseCacheCapacity = 4;
+
+		/// <summary>Minimum entry budget for width/style variants of the current markup groups.</summary>
+		internal const int MarkupGroupCacheMinimumBudget = 512;
+
+		/// <summary>Group-cache entries budgeted per live group for recent parse variants.</summary>
+		internal const int MarkupGroupCacheBudgetMultiplier = 4;
+
+		/// <summary>Build generations retained by budget-based eviction to keep width probes hot.</summary>
+		internal const int MarkupGroupCacheRecentBuilds = 4;
+
+		/// <summary>Hard-reset threshold relative to the group-cache entry budget.</summary>
+		internal const int MarkupGroupCacheResetMultiplier = 2;
+
 		#region ScrollablePanel
 
 		/// <summary>

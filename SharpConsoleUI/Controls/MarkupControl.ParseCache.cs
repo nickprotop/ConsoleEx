@@ -41,8 +41,8 @@ namespace SharpConsoleUI.Controls
 		private static void CountParse() => Interlocked.Increment(ref _parseCount);
 
 		// Bumped on every content mutation; part of the parse-cache key so any content change is a miss.
-		// Interlocked/Volatile so a background-thread content mutation (CLAUDE.md rule 13) cannot tear or
-		// be reordered against the UI-thread cache-key read in EnsureParsed.
+		// Mutators advance it under _contentLock alongside the content change, so a concurrent input-
+		// thread re-measure cannot observe new text with the old version.
 		private int _contentVersion = 0;
 
 		/// <summary>Test-only: current content version (bumped on each content mutation).</summary>
@@ -55,7 +55,7 @@ namespace SharpConsoleUI.Controls
 			lock (_contentLock) { return _content.ToList(); }
 		}
 
-		/// <summary>Invalidate the parse cache by advancing the content version. Call from every content mutator.</summary>
+		/// <summary>Advance the content version under _contentLock, in the same critical section as the mutation.</summary>
 		private void BumpContentVersion() => Interlocked.Increment(ref _contentVersion);
 
 		/// <summary>The inputs a parse depends on. Equality of two keys ⇒ identical parse output ⇒ cache hit.</summary>
@@ -88,10 +88,12 @@ namespace SharpConsoleUI.Controls
 		// (full viewport and viewport-minus-scrollbar) before arranging at one of them, so a single
 		// slot is evicted on every paint. A 4-slot ring keeps every recently-used width hot, so the
 		// full measure→narrow-measure→paint sequence completes with three hits after warmup.
-		private const int ParseCacheCapacity = 4;
+		private const int ParseCacheCapacity = ControlDefaults.MarkupParseCacheCapacity;
 		private readonly ParseKey?[] _cacheKeys = new ParseKey?[ParseCacheCapacity];
 		private readonly ParsedContent?[] _cacheEntries = new ParsedContent?[ParseCacheCapacity];
 		private int _cacheNextSlot = 0;
+		// Last successfully built content version. Width/style rebuilds of that version keep L2 hot.
+		private int _parseCacheContentVersion = -1;
 
 		/// <summary>Most-recently produced parse, used by Selection.GetRowCellsForCopy to resolve
 		/// off-screen rows during a multi-row copy. Holds the same reference as the newest LRU slot.</summary>
@@ -360,8 +362,6 @@ namespace SharpConsoleUI.Controls
 				lineRowCounts[sourceIndex] = rows.Count - before;
 			}
 
-			PruneGroupCache(groups.Count);
-
 			var prefix = new int[snapshot.Count + 1];
 			for (int i = 0; i < snapshot.Count; i++)
 				prefix[i + 1] = prefix[i] + lineRowCounts[i];
@@ -376,9 +376,22 @@ namespace SharpConsoleUI.Controls
 				RowPrefix = prefix,
 			};
 
+			// Only retire replaced text after a successful build. A failed parse must not mark the
+			// version as processed and prevent cleanup on retry. Never discard unchanged groups' widths.
+			if (_parseCacheContentVersion != version)
+			{
+				RetireObsoleteGroups(groups);
+				Array.Clear(_cacheKeys);
+				Array.Clear(_cacheEntries);
+				_cacheNextSlot = 0;
+				_parseCacheContentVersion = version;
+			}
+			PruneGroupCache(groups.Count);
+
 			if (dynamic)
 			{
-				for (int i = 0; i < ParseCacheCapacity; i++) { _cacheKeys[i] = null; _cacheEntries[i] = null; }
+				Array.Clear(_cacheKeys);
+				Array.Clear(_cacheEntries);
 			}
 			else
 			{
@@ -391,6 +404,33 @@ namespace SharpConsoleUI.Controls
 			return result;
 		}
 
+		/// <summary>Retires replaced groups regardless of the entry budget; unchanged texts keep all widths.</summary>
+		private void RetireObsoleteGroups(List<(string text, int sourceIndex)> groups)
+		{
+			if (groups.Count == 0)
+			{
+				_groupCache.Clear();
+				return;
+			}
+			if (_groupCache.Count == 0) return;
+
+			// Streaming Markdown usually forms one group. Avoid allocating a set for that case.
+			HashSet<string>? liveTexts = null;
+			if (groups.Count > 1)
+			{
+				liveTexts = new HashSet<string>(groups.Count, StringComparer.Ordinal);
+				foreach (var group in groups) liveTexts.Add(group.text);
+			}
+			foreach (var entry in _groupCache)
+			{
+				bool live = liveTexts != null
+					? liveTexts.Contains(entry.Key.Text)
+					: string.Equals(entry.Key.Text, groups[0].text, StringComparison.Ordinal);
+				// Dictionary.Remove preserves enumerators on every supported runtime (.NET 8+).
+				if (!live) _groupCache.Remove(entry.Key);
+			}
+		}
+
 		/// <summary>
 		/// Bounds the per-group cache. Entries are kept for a few builds so the widths a single frame
 		/// asks for all stay hot — the scroll-panel overflow probe measures at the viewport width and
@@ -398,29 +438,26 @@ namespace SharpConsoleUI.Controls
 		/// <c>int.MaxValue</c>. Evicting per build would make those widths evict each other and
 		/// re-parse the buffer every frame, which is the defect this cache exists to remove.
 		/// <para>
-		/// Past the budget, anything the recent builds did not touch goes: that is what retires lines
-		/// scrolled out of a bounded scrollback. If everything is recent the cache is cleared outright
+		/// Replaced texts are retired separately on a content-version change. Past the budget, variants
+		/// the recent builds did not touch go. If everything is recent the cache is cleared outright
 		/// rather than allowed to grow without bound — a correctness-preserving reset, since a miss
 		/// only costs a re-parse.
 		/// </para>
 		/// </summary>
 		private void PruneGroupCache(int liveGroups)
 		{
-			int budget = Math.Max(512, liveGroups * 4);
+			int budget = Math.Max(ControlDefaults.MarkupGroupCacheMinimumBudget, liveGroups * ControlDefaults.MarkupGroupCacheBudgetMultiplier);
 			if (_groupCache.Count <= budget)
 				return;
 
-			int cutoff = _groupGeneration - 3;
-			var stale = new List<GroupKey>();
+			int cutoff = _groupGeneration - (ControlDefaults.MarkupGroupCacheRecentBuilds - 1);
 			foreach (var entry in _groupCache)
 			{
 				if (entry.Value.Generation < cutoff)
-					stale.Add(entry.Key);
+					_groupCache.Remove(entry.Key);
 			}
-			foreach (var key in stale)
-				_groupCache.Remove(key);
 
-			if (_groupCache.Count > budget * 2)
+			if (_groupCache.Count > budget * ControlDefaults.MarkupGroupCacheResetMultiplier)
 				_groupCache.Clear();
 		}
 
