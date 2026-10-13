@@ -393,12 +393,12 @@ SharpConsoleUI is an independent project.
 **Contributors**
 
 - [@changlv](https://github.com/changlv) — CJK and wide-character handling, theme derivation and
-  control colour roles, markup and CollapsiblePanel behaviour (30 issues, 5 discussions, 5 PRs)
+  control colour roles, markup and CollapsiblePanel behaviour
 - [@DerPeit](https://github.com/DerPeit) — TreeTableControl and the extensible TableControl it
-  stands on, scrolling, focus and panel fixes, a private security report (11 issues, 1 PR)
+  stands on, scrolling, focus and panel fixes, a private security report
 - [@OzeroHAX](https://github.com/OzeroHAX) — MarkupControl parse-cache lifetime: obsolete
   documents are released when content is replaced, which is what streaming Markdown does on
-  every token (1 PR)
+  every token
 - [@joezearing](https://github.com/joezearing) — mouse input decoding, column sizing, scrollbars
 - [@3x0dv5](https://github.com/3x0dv5) — LogViewerControl auto-follow, no-colour terminal handling
 - [@HarryCordewener](https://github.com/HarryCordewener) — TabControl header overflow: the active
