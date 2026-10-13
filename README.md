@@ -287,6 +287,11 @@ Cross-platform TUI client for MUSH/MUCK/MUD worlds: telnet negotiation, ANSI/MXP
 Cross-platform database client bringing a Navicat-like management workflow to the terminal. A heavy user of the data-grid surface: `ITableDataSource` virtualization, modal dialogs, portals, and the result-grid filter. By [dameng324](https://github.com/dameng324).
 [github.com/dameng324/CxSql](https://github.com/dameng324/CxSql)
 
+#### WinASM65 — 6502 assembler and monitor
+
+Assembler for 6502 based systems with an interactive monitor: a file tree, a tabbed source editor with its own 6502 syntax highlighter and a listing gutter, and a RAM pane fed by emulator write watchpoints rather than polling. Drives Mesen2 and MesenCE over a Lua bridge. By [CodewinBzn](https://github.com/CodewinBzn).
+[github.com/CodewinBzn/WinASM65](https://github.com/CodewinBzn/WinASM65)
+
 #### qairt-tui — Snapdragon NPU model runner
 
 Keyboard-driven .NET 10 console for taking HuggingFace models onto a Qualcomm Snapdragon X2 Elite NPU via the `geniex` runtime — find, convert, pull, chat, serve, and benchmark. Self-contained win-arm64/x64 releases, built on compositor windows, dialogs, toasts, and markup. By [Forrest Technologies](https://github.com/Forrest-Technologies).
