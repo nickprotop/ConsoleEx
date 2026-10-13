@@ -401,6 +401,8 @@ SharpConsoleUI is an independent project.
   every token (1 PR)
 - [@joezearing](https://github.com/joezearing) — mouse input decoding, column sizing, scrollbars
 - [@3x0dv5](https://github.com/3x0dv5) — LogViewerControl auto-follow, no-colour terminal handling
+- [@HarryCordewener](https://github.com/HarryCordewener) — TabControl header overflow: the active
+  tab stays visible when the header row runs out of room
 - [@nanov](https://github.com/nanov) — macOS ARM64 ioctl crash fix
 
 **Prior art and analysis**
