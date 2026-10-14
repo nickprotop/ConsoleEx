@@ -17,6 +17,15 @@ namespace SharpConsoleUI
 	/// Handles rendering of windows and their content to the console display.
 	/// Manages window borders, scrollbars, and content rendering with support for overlapping windows.
 	/// </summary>
+	/// <remarks>
+	/// NOT THREAD-SAFE: the pooled window lists and the compositing scratch buffer below are shared
+	/// mutable state that a render rewrites in place. Every entry point here is meant to run on the
+	/// render thread, under the lock the render coordinator holds while it drives a frame, and that
+	/// is an invariant by convention rather than one the type system enforces — this type is public,
+	/// but the system's instance of it is reached only through an internal member, so a consumer
+	/// cannot call into the live one. Keep it that way: a new call site that is not on the render
+	/// thread corrupts the scratch buffer rather than failing cleanly.
+	/// </remarks>
 	public class Renderer
 	{
 		private ConsoleWindowSystem _consoleWindowSystem;
@@ -378,7 +387,8 @@ namespace SharpConsoleUI
 			_overlappingWindowsPool.Sort((a, b) => a.ZIndex.CompareTo(b.ZIndex));
 
 			// Calculate visible regions
-			var visibleRegions = _consoleWindowSystem.VisibleRegions.CalculateVisibleRegions(window, _overlappingWindowsPool);
+			// No-copy: the result is a pooled buffer, iterated here and never retained.
+			var visibleRegions = _consoleWindowSystem.VisibleRegions.CalculateVisibleRegionsNoCopy(window, _overlappingWindowsPool);
 
 			if (visibleRegions.Count == 0)
 			{

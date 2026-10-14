@@ -262,8 +262,9 @@ namespace SharpConsoleUI.Rendering
 						}
 
 						// Calculate exposed desktop regions (areas not covered by any window)
+						// No-copy: iterated immediately below and never retained.
 						var exposedRegions = _windowSystemContext.VisibleRegions
-							.CalculateVisibleRegions(desktopRect, _overlappingClearsPool);
+							.CalculateVisibleRegionsNoCopy(desktopRect, _overlappingClearsPool);
 
 						foreach (var region in exposedRegions)
 						{
@@ -315,8 +316,9 @@ namespace SharpConsoleUI.Rendering
 						var overlappingWindows = _overlappingClearsPool;
 
 						// Calculate visible regions (areas NOT covered by windows)
+						// No-copy: iterated immediately below and never retained.
 						var visibleRegions = _windowSystemContext.VisibleRegions
-							.CalculateVisibleRegions(clearRect, overlappingWindows);
+							.CalculateVisibleRegionsNoCopy(clearRect, overlappingWindows);
 
 						// Only clear visible regions (never overwrite windows!)
 						foreach (var region in visibleRegions)

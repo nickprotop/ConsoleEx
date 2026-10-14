@@ -157,6 +157,64 @@ public class TerminalTransparencyForegroundTests
 	/// Renders one frame of a directly-constructed <see cref="ConsoleBuffer"/> and returns the ANSI it wrote.
 	/// Render() targets Console.Out, so the capture is the production byte stream.
 	/// </summary>
+	// ---------------------------------------------------------------------
+	// 3. The cache never outlives what it describes
+	// ---------------------------------------------------------------------
+
+	/// <summary>
+	/// THE INVARIANT BEHIND BOTH CACHE BUGS: a cached SGR is only ever handed back for the colours it
+	/// was built from. The first bug was the uninitialised cache passing as Transparent-on-Transparent
+	/// (above); the second was the ArgumentOutOfRangeException fallback storing a bare reset keyed on
+	/// the colours that were asked for, so every later cell of those colours got the reset too and a
+	/// whole run rendered unformatted. That path is defensive and cannot be provoked from outside, so
+	/// what is pinned here is the property it violated: distinct colours never share an SGR, and a
+	/// repeated colour is stable no matter what was formatted in between.
+	/// </summary>
+	[Fact]
+	public void CachedSgr_IsNeverReusedAcrossDifferentColours()
+	{
+		var red = new Color(200, 30, 30);
+		var blue = new Color(30, 30, 200);
+
+		string interleaved = Render(TerminalTransparencyMode.PreserveWindowColor, buffer =>
+		{
+			buffer.SetNarrowCell(0, 0, 'A', red, Color.Black);
+			buffer.SetNarrowCell(1, 0, 'B', blue, Color.Black);
+			buffer.SetNarrowCell(2, 0, 'C', red, Color.Black);
+		});
+
+		// Each colour emits its own SGR; neither inherited the other's, and neither collapsed to a
+		// bare reset, which is what a poisoned cache produced.
+		Assert.Contains("38;2;200;30;30", interleaved, StringComparison.Ordinal);
+		Assert.Contains("38;2;30;30;200", interleaved, StringComparison.Ordinal);
+		Assert.Contains("A", interleaved, StringComparison.Ordinal);
+		Assert.Contains("B", interleaved, StringComparison.Ordinal);
+		Assert.Contains("C", interleaved, StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// A colour formatted again after other colours intervened must come back identical. A cache that
+	/// stored a value not describing its key would diverge on the second occurrence.
+	/// </summary>
+	[Fact]
+	public void TheSameColour_FormatsIdenticallyBeforeAndAfterOtherColours()
+	{
+		var green = new Color(20, 180, 90);
+
+		string alone = Render(TerminalTransparencyMode.PreserveWindowColor, buffer =>
+			buffer.SetNarrowCell(0, 0, 'G', green, Color.Black));
+
+		string afterOthers = Render(TerminalTransparencyMode.PreserveWindowColor, buffer =>
+		{
+			buffer.SetNarrowCell(0, 0, 'X', new Color(1, 2, 3), Color.Black);
+			buffer.SetNarrowCell(1, 0, 'Y', Color.Transparent, Color.Transparent);
+			buffer.SetNarrowCell(2, 0, 'G', green, Color.Black);
+		});
+
+		Assert.Contains("38;2;20;180;90", alone, StringComparison.Ordinal);
+		Assert.Contains("38;2;20;180;90", afterOthers, StringComparison.Ordinal);
+	}
+
 	private static string Render(TerminalTransparencyMode mode, Action<ConsoleBuffer> paint)
 	{
 		var buffer = new ConsoleBuffer(20, 2, new ConsoleWindowSystemOptions { TerminalTransparencyMode = mode });

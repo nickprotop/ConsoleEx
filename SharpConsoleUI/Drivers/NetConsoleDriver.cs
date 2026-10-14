@@ -1825,8 +1825,15 @@ namespace SharpConsoleUI.Drivers
 
 				return true;
 			}
-			catch
+			catch (Exception ex)
 			{
+				// A MALFORMED SEQUENCE IS EXPECTED; A BUG IN HERE IS NOT. This catch spans the whole
+				// parse, so it swallowed real defects — an index slip, a bad cast — exactly as quietly
+				// as it swallowed a truncated escape sequence from the terminal, and the symptom was
+				// only ever "the mouse does nothing". Returning false is still right, because the
+				// caller falls back to treating the bytes as keys, but say so where it can be read.
+				_consoleWindowSystem?.LogService?.LogError(
+					$"Failed to parse mouse sequence of {sequence.Length} bytes", ex, "Input");
 				return false;
 			}
 		}

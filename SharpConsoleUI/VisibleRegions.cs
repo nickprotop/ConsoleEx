@@ -14,6 +14,14 @@ namespace SharpConsoleUI
 	/// Calculates visible regions of windows by subtracting overlapping areas from higher z-order windows.
 	/// Used by the rendering system to determine which portions of a window need to be drawn.
 	/// </summary>
+	/// <remarks>
+	/// NOT THREAD-SAFE, AND SHARED. One instance is reachable from both <see cref="Renderer"/> and
+	/// the render coordinator, and it carries mutable pooled buffers that every call rewrites, so two
+	/// concurrent calls would hand each other's rectangles back. It is safe today only because every
+	/// call is made from the render path while that path holds its own lock, which is an invariant
+	/// nothing in the type system enforces. Keep new call sites on the render thread; anything else
+	/// needs its own instance.
+	/// </remarks>
 	public class VisibleRegions
 	{
 		private readonly ConsoleWindowSystem _consoleWindowSystem;
@@ -43,29 +51,8 @@ namespace SharpConsoleUI
 			_regionsBuffer1.Clear();
 			_regionsBuffer1.Add(new Rectangle(window.Left, window.Top, window.Width, window.Height));
 
-			var current = _regionsBuffer1;
-			var next = _regionsBuffer2;
-
-			// For each overlapping window, subtract its area from the visible regions
-			foreach (var other in overlappingWindows)
-			{
-				var overlappingRect = new Rectangle(
-					other.Left,
-					other.Top,
-					other.Width,
-					other.Height);
-
-				next.Clear();
-				SubtractRectangle(current, overlappingRect, next);
-
-				// Swap buffers for next iteration
-				var temp = current;
-				current = next;
-				next = temp;
-			}
-
 			// Return copy for caller (they expect ownership)
-			return new List<Rectangle>(current);
+			return new List<Rectangle>(SubtractAll(overlappingWindows));
 		}
 
 		/// <summary>
@@ -81,10 +68,47 @@ namespace SharpConsoleUI
 			_regionsBuffer1.Clear();
 			_regionsBuffer1.Add(area);  // Start with full area
 
+			// Return copy for caller (they expect ownership)
+			return new List<Rectangle>(SubtractAll(overlappingWindows));
+		}
+
+		/// <summary>
+		/// The no-copy form of <see cref="CalculateVisibleRegions(Window, List{Window})"/>, for the
+		/// render path.
+		/// </summary>
+		/// <remarks>
+		/// THE RESULT IS A POOLED BUFFER OWNED BY THIS INSTANCE. It stays valid only until the next
+		/// call on this <see cref="VisibleRegions"/>, so a caller must finish with it — iterate it,
+		/// copy what it needs out of it — before calling again. The public overloads copy for exactly
+		/// this reason; they allocated a List per window per frame, which is what this avoids.
+		/// <para>
+		/// Not thread-safe, for the same reason: see the class remarks.
+		/// </para>
+		/// </remarks>
+		internal List<Rectangle> CalculateVisibleRegionsNoCopy(Window window, List<Window> overlappingWindows)
+		{
+			_regionsBuffer1.Clear();
+			_regionsBuffer1.Add(new Rectangle(window.Left, window.Top, window.Width, window.Height));
+			return SubtractAll(overlappingWindows);
+		}
+
+		/// <inheritdoc cref="CalculateVisibleRegionsNoCopy(Window, List{Window})"/>
+		internal List<Rectangle> CalculateVisibleRegionsNoCopy(Rectangle area, List<Window> overlappingWindows)
+		{
+			_regionsBuffer1.Clear();
+			_regionsBuffer1.Add(area);
+			return SubtractAll(overlappingWindows);
+		}
+
+		/// <summary>
+		/// Subtracts every window in turn from whatever <see cref="_regionsBuffer1"/> was seeded with,
+		/// ping-ponging between the two pooled buffers, and returns the one holding the result.
+		/// </summary>
+		private List<Rectangle> SubtractAll(List<Window> overlappingWindows)
+		{
 			var current = _regionsBuffer1;
 			var next = _regionsBuffer2;
 
-			// For each overlapping window, subtract its area from the visible regions
 			foreach (var other in overlappingWindows)
 			{
 				var overlappingRect = new Rectangle(
@@ -102,8 +126,7 @@ namespace SharpConsoleUI
 				next = temp;
 			}
 
-			// Return copy for caller (they expect ownership)
-			return new List<Rectangle>(current);
+			return current;
 		}
 
 		private bool DoRectanglesIntersect(Rectangle r1, Rectangle r2)

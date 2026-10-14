@@ -126,6 +126,12 @@ namespace SharpConsoleUI.Drivers
 		private TextDecoration _lastCellDecorations;
 
 		/// <summary>
+		/// Drops the cached SGR sequence, so the next cell rebuilds from scratch rather than matching
+		/// a value that does not describe the colours it is keyed on.
+		/// </summary>
+		private void InvalidateCellAnsiCache() => _lastCellAnsi = null;
+
+		/// <summary>
 		/// The foreground to actually emit for <paramref name="character"/>: the cell's own, unless it is a
 		/// blank whose foreground cannot be seen, in which case terminal-default.
 		/// </summary>
@@ -214,12 +220,26 @@ namespace SharpConsoleUI.Drivers
 
 			sb.Append('m');
 
-			try { _lastCellAnsi = sb.ToString(); }
-			catch (ArgumentOutOfRangeException) { _lastCellAnsi = "\x1b[0m"; }
+			string ansi;
+			try
+			{
+				ansi = sb.ToString();
+			}
+			catch (ArgumentOutOfRangeException)
+			{
+				// A BARE RESET MUST NOT BE CACHED UNDER THESE COLOURS. Caching it keyed on the colours
+				// that were asked for made every later cell of the same colour return the reset too, so
+				// one transient failure left a whole run of cells unformatted with nothing to show why.
+				// Drop the cache instead: the next cell rebuilds, and only this one is wrong.
+				InvalidateCellAnsiCache();
+				return "\x1b[0m";
+			}
+
+			_lastCellAnsi = ansi;
 			_lastCellFg = fg;
 			_lastCellBg = bg;
 			_lastCellDecorations = decorations;
-			return _lastCellAnsi;
+			return ansi;
 		}
 
 		/// <summary>
