@@ -569,6 +569,8 @@ public partial class TableControl
 				return true;
 
 			case ConsoleKey.Home:
+				// Home and End move the TEXT cursor, so they are not passed to the rows: they are the
+				// only navigation keys the editor genuinely uses.
 				_filterCursorPosition = 0;
 				Invalidate(Invalidation.Repaint);
 				return true;
@@ -577,6 +579,17 @@ public partial class TableControl
 				_filterCursorPosition = _filterBuffer.Length;
 				Invalidate(Invalidation.Repaint);
 				return true;
+
+			// MOVE THROUGH THE MATCHES WHILE STILL TYPING. A single-line editor has no use for up,
+			// down or paging — these used to fall to the default below and be swallowed, so pressing
+			// Down while typing a filter did nothing at all. Passing them to the rows lets one narrow
+			// a list and walk the matches without confirming and reopening the filter, and the filter
+			// text is left untouched. Left/Right/Home/End stay with the text, where a cursor exists.
+			case ConsoleKey.UpArrow:
+			case ConsoleKey.DownArrow:
+			case ConsoleKey.PageUp:
+			case ConsoleKey.PageDown:
+				return ProcessRowNavigationKey(key);
 
 			default:
 				if (!char.IsControl(key.KeyChar))

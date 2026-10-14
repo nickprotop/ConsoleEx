@@ -350,4 +350,217 @@ public class TableFilterBarInputTests
 	}
 
 	#endregion
+
+	#region Row navigation from inside the filter editor
+
+	/// <summary>
+	/// Up, down and paging used to fall to the filter editor's default branch and be SWALLOWED, so
+	/// pressing Down while typing a filter did nothing. They now move through the matches, leaving
+	/// the filter text alone, so one can narrow a list and walk it without confirming and reopening
+	/// the filter.
+	/// </summary>
+	[Fact]
+	public void ArrowsInTheFilterEditor_MoveThroughTheMatches()
+	{
+		var (table, system, _) = Build();
+
+		Send(system, new ConsoleKeyInfo('/', ConsoleKey.Divide, false, false, false));
+		Send(system, Ch('N'));  // matches every row, so there is room to move
+
+		Assert.Equal(FilterMode.Typing, table.CurrentFilterMode);
+		int start = table.SelectedRowIndex;
+
+		Send(system, new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false));
+		Assert.Equal(start + 1, table.SelectedRowIndex);
+
+		Send(system, new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false));
+		Assert.Equal(start + 2, table.SelectedRowIndex);
+
+		Send(system, new ConsoleKeyInfo('\0', ConsoleKey.UpArrow, false, false, false));
+		Assert.Equal(start + 1, table.SelectedRowIndex);
+
+		// Still typing, and the text was not touched by the navigation.
+		Assert.Equal(FilterMode.Typing, table.CurrentFilterMode);
+	}
+
+	/// <summary>Paging works the same way, by a viewport at a time.</summary>
+	[Fact]
+	public void PagingInTheFilterEditor_MovesByAPage()
+	{
+		var (table, system, _) = Build();
+
+		Send(system, new ConsoleKeyInfo('/', ConsoleKey.Divide, false, false, false));
+		Send(system, Ch('N'));
+		table.SelectedRowIndex = 0;
+
+		Send(system, new ConsoleKeyInfo('\0', ConsoleKey.PageDown, false, false, false));
+		int afterPageDown = table.SelectedRowIndex;
+		Assert.True(afterPageDown > 1, $"PageDown should move more than one row, moved to {afterPageDown}");
+
+		Send(system, new ConsoleKeyInfo('\0', ConsoleKey.PageUp, false, false, false));
+		Assert.Equal(0, table.SelectedRowIndex);
+		Assert.Equal(FilterMode.Typing, table.CurrentFilterMode);
+	}
+
+	/// <summary>
+	/// HOME AND END STAY WITH THE TEXT. They are the only navigation keys the single-line editor
+	/// genuinely uses, so they must not reach the rows — otherwise there is no way to get to the
+	/// start of a filter you are editing.
+	/// </summary>
+	[Fact]
+	public void HomeAndEndInTheFilterEditor_MoveTheTextCursorNotTheSelection()
+	{
+		var (table, system, _) = Build();
+
+		Send(system, new ConsoleKeyInfo('/', ConsoleKey.Divide, false, false, false));
+		foreach (char c in "Name0")
+			Send(system, Ch(c));
+
+		table.SelectedRowIndex = 2;
+		int before = table.SelectedRowIndex;
+
+		Send(system, new ConsoleKeyInfo('\0', ConsoleKey.Home, false, false, false));
+		Assert.Equal(before, table.SelectedRowIndex);
+
+		Send(system, new ConsoleKeyInfo('\0', ConsoleKey.End, false, false, false));
+		Assert.Equal(before, table.SelectedRowIndex);
+
+		// Home really moved the text cursor: typing at it prepends rather than appends.
+		Send(system, new ConsoleKeyInfo('\0', ConsoleKey.Home, false, false, false));
+		Send(system, Ch('Z'));
+		Assert.Equal(0, table.RowCount);  // "ZName0" matches nothing
+	}
+
+	/// <summary>Left and Right stay with the text too, where a cursor exists.</summary>
+	[Fact]
+	public void LeftAndRightInTheFilterEditor_StayWithTheText()
+	{
+		var (table, system, _) = Build();
+
+		Send(system, new ConsoleKeyInfo('/', ConsoleKey.Divide, false, false, false));
+		Send(system, Ch('N'));
+		table.SelectedRowIndex = 2;
+		int before = table.SelectedRowIndex;
+
+		Send(system, new ConsoleKeyInfo('\0', ConsoleKey.LeftArrow, false, false, false));
+		Send(system, new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, false));
+
+		Assert.Equal(before, table.SelectedRowIndex);
+	}
+
+	/// <summary>Navigating from the editor still announces the move, as any selection change must.</summary>
+	[Fact]
+	public void NavigatingFromTheFilterEditor_RaisesSelectedRowChanged()
+	{
+		var (table, system, _) = Build();
+
+		Send(system, new ConsoleKeyInfo('/', ConsoleKey.Divide, false, false, false));
+		Send(system, Ch('N'));
+
+		int raises = 0;
+		table.SelectedRowChanged += (_, _) => raises++;
+
+		Send(system, new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false));
+
+		Assert.Equal(1, raises);
+	}
+
+	#endregion
+
+	#region TreeTableControl inherits both fixes
+
+	/// <summary>
+	/// <see cref="TreeTableControl"/> derives from <see cref="TableControl"/> and overrides
+	/// <c>TryHandleClick</c> and <c>TryHandleKey</c>, but neither the row-resolution path nor the
+	/// filter-key path, so both fixes reach it. These pin that, because an override added later
+	/// could silently take the behaviour back.
+	/// </summary>
+	private static (TreeTableControl table, ConsoleWindowSystem system, Window window) BuildTree()
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Left = 0, Top = 0, Width = 60, Height = 16, Title = "Tree" };
+
+		var table = new TreeTableControl
+		{
+			FilteringEnabled = true,
+			ReadOnly = false,
+			ShowHeader = true,
+			VerticalAlignment = VerticalAlignment.Fill,
+			HorizontalAlignment = HorizontalAlignment.Stretch,
+		};
+		table.AddColumn("Name");
+		// Enough rows, expanded, to overflow the viewport — the scrollable case the old guard missed.
+		for (int i = 0; i < 6; i++)
+		{
+			var root = table.AddRootRow($"Root{i}");
+			root.AddChild($"Child{i}a");
+			root.AddChild($"Child{i}b");
+		}
+		table.ExpandAll();
+
+		window.AddControl(table);
+		system.WindowStateService.AddWindow(window);
+		system.WindowStateService.SetActiveWindow(window);
+		system.Render.UpdateDisplay();
+		window.FocusControl(table);
+		system.Render.UpdateDisplay();
+
+		return (table, system, window);
+	}
+
+	[Fact]
+	public void TreeTable_ClickingTheFilterBar_DoesNotMoveTheSelection()
+	{
+		var (table, system, window) = BuildTree();
+		table.SelectedRowIndex = 1;
+
+		int barRow = FilterBarRow(window);
+		Assert.True(barRow > 0, "the filter bar should be painted and findable");
+
+		int before = table.SelectedRowIndex;
+		int raises = 0;
+		table.SelectedRowChanged += (_, _) => raises++;
+
+		RealClick(system, 10, barRow);
+
+		Assert.Equal(before, table.SelectedRowIndex);
+		Assert.Equal(0, raises);
+	}
+
+	[Fact]
+	public void TreeTable_BothLinesOfTheFilterBar_HitTestAsFilterBarWithNoRow()
+	{
+		var (table, _, window) = BuildTree();
+
+		var barLines = new List<int>();
+		for (int y = 0; y < window.Height; y++)
+		{
+			if (table.HitTest(10, y).Zone == TableHitZone.FilterBar)
+				barLines.Add(y);
+		}
+
+		Assert.Equal(2, barLines.Count);
+		foreach (int y in barLines)
+			Assert.Equal(-1, table.HitTest(10, y).DisplayRowIndex);
+
+		// Still selectable above the bar, so the guard did not swallow the tree body.
+		Assert.Equal(TableHitZone.Cell, table.HitTest(10, barLines[0] - 1).Zone);
+	}
+
+	[Fact]
+	public void TreeTable_BackspaceOnAnEmptyFilter_StaysInFilterMode()
+	{
+		var (table, system, _) = BuildTree();
+
+		Send(system, new ConsoleKeyInfo('/', ConsoleKey.Divide, false, false, false));
+		Assert.Equal(FilterMode.Typing, table.CurrentFilterMode);
+
+		Send(system, Ch('R'));
+		Send(system, new ConsoleKeyInfo('\b', ConsoleKey.Backspace, false, false, false));
+		Send(system, new ConsoleKeyInfo('\b', ConsoleKey.Backspace, false, false, false));
+
+		Assert.Equal(FilterMode.Typing, table.CurrentFilterMode);
+	}
+
+	#endregion
 }

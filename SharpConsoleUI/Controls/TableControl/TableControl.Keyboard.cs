@@ -11,24 +11,21 @@ namespace SharpConsoleUI.Controls;
 
 public partial class TableControl
 {
-	/// <inheritdoc/>
-	public bool ProcessKey(ConsoleKeyInfo key)
+	/// <summary>
+	/// Moves the selection by row or by page for the four keys that do nothing else: up, down,
+	/// page up and page down. Returns false when the key is not one of them, or when the selection
+	/// is already at that end, so a caller can fall through.
+	/// </summary>
+	/// <remarks>
+	/// Shared with the filter editor, which passes these keys here rather than swallowing them: a
+	/// single-line text field has no use for them, and walking the matches while still typing is
+	/// worth more than consuming them. Deliberately NOT Home/End — those move the text cursor while
+	/// a filter is being typed — and not Left/Right, for the same reason. Modifier-extended
+	/// selection goes through <c>ExtendOrMoveSelection</c> exactly as the main path does, so
+	/// Shift+Down extends from the filter editor too.
+	/// </remarks>
+	private bool ProcessRowNavigationKey(ConsoleKeyInfo key)
 	{
-		if (!_isEnabled || !HasFocus)
-			return false;
-
-		// Handle filter typing mode
-		if (_filterMode == FilterMode.Typing)
-			return ProcessFilterKey(key);
-
-		// Handle editing mode (only available when not read-only)
-		if (_isEditing)
-			return ProcessEditKey(key);
-
-		// A derived table's own keys come next, ahead of navigation
-		if (TryHandleKey(key))
-			return true;
-
 		int rowCount = RowCount;
 		if (rowCount == 0) return false;
 
@@ -52,6 +49,59 @@ public partial class TableControl
 				}
 				return false;
 
+			case ConsoleKey.PageDown:
+				if (_hoveredRowIndex != -1) _hoveredRowIndex = -1;
+				if (_selectedRowIndex < rowCount - 1)
+				{
+					SetSelectedRow(Math.Min(rowCount - 1, _selectedRowIndex + GetVisibleRowCount()));
+					return true;
+				}
+				return false;
+
+			case ConsoleKey.PageUp:
+				if (_hoveredRowIndex != -1) _hoveredRowIndex = -1;
+				if (_selectedRowIndex > 0)
+				{
+					SetSelectedRow(Math.Max(0, _selectedRowIndex - GetVisibleRowCount()));
+					return true;
+				}
+				return false;
+
+			default:
+				return false;
+		}
+	}
+
+	/// <inheritdoc/>
+	public bool ProcessKey(ConsoleKeyInfo key)
+	{
+		if (!_isEnabled || !HasFocus)
+			return false;
+
+		// Handle filter typing mode
+		if (_filterMode == FilterMode.Typing)
+			return ProcessFilterKey(key);
+
+		// Handle editing mode (only available when not read-only)
+		if (_isEditing)
+			return ProcessEditKey(key);
+
+		// A derived table's own keys come next, ahead of navigation
+		if (TryHandleKey(key))
+			return true;
+
+		int rowCount = RowCount;
+		if (rowCount == 0) return false;
+
+		switch (key.Key)
+		{
+			// Row and page movement lives in ProcessRowNavigationKey, shared with the filter editor.
+			case ConsoleKey.DownArrow:
+			case ConsoleKey.UpArrow:
+			case ConsoleKey.PageDown:
+			case ConsoleKey.PageUp:
+				return ProcessRowNavigationKey(key);
+
 			case ConsoleKey.Home:
 				if (_hoveredRowIndex != -1) _hoveredRowIndex = -1;
 				if (rowCount > 0)
@@ -66,26 +116,6 @@ public partial class TableControl
 				if (rowCount > 0)
 				{
 					SetSelectedRow(rowCount - 1);
-					return true;
-				}
-				return false;
-
-			case ConsoleKey.PageDown:
-				if (_hoveredRowIndex != -1) _hoveredRowIndex = -1;
-				if (_selectedRowIndex < rowCount - 1)
-				{
-					int visibleRows = GetVisibleRowCount();
-					SetSelectedRow(Math.Min(rowCount - 1, _selectedRowIndex + visibleRows));
-					return true;
-				}
-				return false;
-
-			case ConsoleKey.PageUp:
-				if (_hoveredRowIndex != -1) _hoveredRowIndex = -1;
-				if (_selectedRowIndex > 0)
-				{
-					int visibleRows = GetVisibleRowCount();
-					SetSelectedRow(Math.Max(0, _selectedRowIndex - visibleRows));
 					return true;
 				}
 				return false;

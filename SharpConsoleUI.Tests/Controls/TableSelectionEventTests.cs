@@ -521,4 +521,78 @@ public class TableSelectionEventTests
 	}
 
 	#endregion
+
+	#region TreeTableControl, where the two indices diverge most
+
+	/// <summary>
+	/// A COLLAPSED TREE IS THE SHARPEST CASE for the display-versus-data distinction, and it needs no
+	/// filter at all: collapsing hides rows, so display index 1 can be data index 3. A consumer
+	/// reading <see cref="TableControl.SelectedRowIndex"/> against its own list got a different row
+	/// entirely — the same mistake the report describes, reachable just by collapsing a node.
+	/// <see cref="TreeTableControl"/> never touches the selection field or the event, so it inherits
+	/// the mapping and the raising; this pins that.
+	/// </summary>
+	[Fact]
+	public void TreeTable_Collapsed_SelectedDataIndexNamesTheRealRow()
+	{
+		var table = new TreeTableControl { ReadOnly = false, FilteringEnabled = true };
+		table.AddColumn("Name");
+		var alpha = table.AddRootRow("Alpha");
+		alpha.AddChild("A-one");
+		alpha.AddChild("A-two");
+		var beta = table.AddRootRow("Beta");
+		beta.AddChild("B-one");
+		table.ExpandAll();
+		foreach (var row in table.Rows)
+			row.Tag = row.Cells[0];
+
+		// Expanded, every row is shown, so the two indices agree.
+		Assert.Equal(5, table.RowCount);
+		table.SelectedRowIndex = 3;
+		Assert.Equal(3, table.SelectedDataIndex);
+		Assert.Equal("Beta", table.SelectedRowTag);
+
+		table.CollapseAll();
+		Assert.Equal(2, table.RowCount);
+
+		// Beta is now the SECOND displayed row but still the FOURTH row there is.
+		table.SelectedRowIndex = 1;
+		Assert.Equal(3, table.SelectedDataIndex);
+		Assert.NotEqual(table.SelectedRowIndex, table.SelectedDataIndex);
+		Assert.Equal("Beta", table.SelectedRowTag);
+
+		// Reading the display index as if it were a data index names A-one, the wrong row.
+		Assert.Equal("A-one", table.GetRowTagAt(table.SelectedRowIndex));
+		Assert.Equal("Beta", table.GetRowTagAt(table.SelectedDataIndex));
+	}
+
+	/// <summary>A filter over a collapsed tree still announces the move, and still resolves.</summary>
+	[Fact]
+	public void TreeTable_Filtering_RaisesAndResolves()
+	{
+		var table = new TreeTableControl { ReadOnly = false, FilteringEnabled = true };
+		table.AddColumn("Name");
+		var alpha = table.AddRootRow("Alpha");
+		alpha.AddChild("A-one");
+		var beta = table.AddRootRow("Beta");
+		beta.AddChild("B-one");
+		table.ExpandAll();
+		foreach (var row in table.Rows)
+			row.Tag = row.Cells[0];
+
+		table.SelectedRowIndex = 3;
+		Assert.Equal("B-one", table.SelectedRowTag);
+
+		int raises = 0;
+		object? seen = null;
+		table.SelectedRowChanged += (_, _) => { raises++; seen = table.SelectedRowTag; };
+
+		table.ApplyFilter("Alpha");
+
+		Assert.True(raises >= 1, "filtering a tree moved the selection and must announce it");
+		Assert.Equal(table.SelectedRowTag, seen);
+		Assert.Equal(table.GetRowTagAt(table.SelectedDataIndex), table.SelectedRowTag);
+	}
+
+	#endregion
 }
