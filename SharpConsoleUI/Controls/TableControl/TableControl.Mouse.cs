@@ -641,6 +641,17 @@ public partial class TableControl
 
 	private int GetRowIndexAtY(int relativeY)
 	{
+		// ONLY THE DATA AREA HOLDS ROWS. The arithmetic below walks down from the top through the
+		// title, border and header, but it knows nothing of what is painted BELOW the rows — the
+		// filter bar and its separator. A click there produced a row offset past the last row, which
+		// only the RowCount check rejected, and that check passes whenever the list is scrolled far
+		// enough that _scrollOffset plus the offset still lands on a real row: clicking "Row 1/25 /
+		// filter" jumped the selection to row 12. The painted bands say where the data actually ends,
+		// so ask them first and let the arithmetic resolve the row only within that band.
+		var bands = _geometry?.Lines;
+		if (bands.HasValue && bands.Value.DataBottom >= 0 && !bands.Value.IsData(relativeY))
+			return -1;
+
 		int dataStartY = 0;
 		bool hasBorder = _borderStyle != BorderStyle.None;
 

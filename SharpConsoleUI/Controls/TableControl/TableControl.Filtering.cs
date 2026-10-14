@@ -531,15 +531,16 @@ public partial class TableControl
 				return true;
 
 			case ConsoleKey.Backspace:
+				// BACKSPACE EDITS, IT DOES NOT LEAVE. Backspacing on an empty buffer used to call
+				// ClearFilter and drop out of filter mode, so deleting the last character of a filter
+				// and pressing it once more — the natural way to retype a filter from scratch — closed
+				// the filter bar instead. No other text input in the library dismisses itself that way,
+				// and Esc is already the key for leaving. On an empty buffer it now does nothing.
 				if (_filterCursorPosition > 0)
 				{
 					_filterBuffer = _filterBuffer.Remove(_filterCursorPosition - 1, 1);
 					_filterCursorPosition--;
 					ApplyFilterLive();
-				}
-				else if (_filterBuffer.Length == 0)
-				{
-					ClearFilter();
 				}
 				return true;
 
