@@ -115,6 +115,7 @@ public partial class TableControl
 	{
 		ThrowIfComputingDisplayRows();
 
+		bool hadSelection = _selectedRowIndex != -1;
 		_selectedRowIndex = -1;
 		_selectedColumnIndex = -1;
 		_hoveredRowIndex = -1;
@@ -125,7 +126,9 @@ public partial class TableControl
 		_filterBuffer = string.Empty;
 		_activeFilter = null;
 		SetDataCore(Array.Empty<TableRow>());
-		SelectedRowChanged?.Invoke(this, -1);
+		// Through the helper, so INPC and the async handlers fire as they do everywhere else.
+		if (hadSelection)
+			RaiseSelectedRowChanged();
 	}
 
 
@@ -708,7 +711,16 @@ public partial class TableControl
 		// The rows moved under the pointer, whether or not the selection can follow them.
 		EndRowGestures();
 
-		if (!before.IsTracked) return;
+		if (!before.IsTracked)
+		{
+			// A DATA SOURCE HAS NO ROWS TO FOLLOW, BUT THE INDEX STILL HAS TO MEAN SOMETHING. The
+			// captured selection is numeric, and the rows it counted have just been replaced — on
+			// the way out of a filter, a display index into the matches is about to index every row
+			// instead. Leaving it put kept a cursor that pointed at an unrelated row, and said
+			// nothing about it. Reseat to the first row, as applying a filter does, and raise.
+			ResetSelectionToFirstRow();
+			return;
+		}
 
 		int rowCount = RowCount;
 		int oldPosition = _selectedRowIndex;

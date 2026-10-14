@@ -506,6 +506,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 			InvalidateColumnWidths();
 			_measurementCache.InvalidateCache();
+			bool hadSelection = _selectedRowIndex != -1;
 			_selectedRowIndex = -1;
 			_selectedColumnIndex = -1;
 			_hoveredRowIndex = -1;
@@ -525,6 +526,11 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			// any other change to what is shown, so a derived table hiding rows of its own is asked.
 			if (_dataSource == null)
 				RebuildDisplayMap();
+
+			// Swapping the source replaces every row, so a selection carried over from the old one
+			// names nothing. Raised after the map is rebuilt, so a handler reads the new table.
+			if (hadSelection)
+				RaiseSelectedRowChanged();
 			Invalidate(Invalidation.Relayout);
 		}
 	}
@@ -549,19 +555,36 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 		if (e.Action == NotifyCollectionChangedAction.Reset)
 		{
-			_selectedRowIndex = RowCount > 0 ? 0 : -1;
 			_selectedRowIndices.Clear();
 			_hoveredRowIndex = -1;
-			_scrollOffset = 0;
 			EndRowGestures();
+			// A Reset says every row was replaced, so the selected row is not the row it was.
+			//
+			// NO SELECTION STAYS NO SELECTION. A follow-the-tail view — a log pane whose buffer is at
+			// capacity, where every append evicts a row and rebuilds — never selects anything, and
+			// moving its cursor to row 0 invents a selection the user never made. That is visible:
+			// LogViewerControl opens its detail pane on SelectedRowChanged, which shrinks the table.
+			// The scroll offset is left alone for the same reason, and clamped instead, so a viewport
+			// the user scrolled to survives the rebuild.
+			//
+			// The guard is here, not in the helper: a FILTER does seat the cursor from nothing
+			// (arrow-down after typing a filter has always landed on the second match), while a Reset
+			// must not, because an evicting buffer rebuilds through this same path on every append.
+			if (_selectedRowIndex >= 0)
+				ResetSelectionToFirstRow(resetScroll: false);
+			_scrollOffset = Math.Clamp(_scrollOffset, 0, Math.Max(0, RowCount - GetVisibleRowCount()));
 		}
 		else
 		{
 			int rowCount = RowCount;
+			int oldIndex = _selectedRowIndex;
 			if (_selectedRowIndex >= rowCount)
 				_selectedRowIndex = rowCount - 1;
 			_selectedRowIndices.RemoveWhere(index => index >= rowCount);
 			_scrollOffset = Math.Clamp(_scrollOffset, 0, Math.Max(0, rowCount - GetVisibleRowCount()));
+			// Rows removed off the end can drag the cursor onto a different row.
+			if (_selectedRowIndex != oldIndex)
+				RaiseSelectedRowChanged();
 		}
 		InvalidateColumnWidths();
 		_measurementCache.InvalidateCache();

@@ -202,11 +202,11 @@ public partial class TableControl
 
 		RecomputeDisplayMap();
 
-		_selectedRowIndex = RowCount > 0 ? 0 : -1;
-		_scrollOffset = 0;
 		_selectedRowIndices.Clear();
 
 		EndRowGestures();
+		// The display map is final, so a handler reading the selection back resolves it correctly.
+		ResetSelectionToFirstRow();
 		Core.AsyncEvent.Raise(FilterApplied, FilterAppliedAsync, this, compound.RawText, Container?.GetConsoleWindowSystem?.LogService);
 		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);
@@ -275,11 +275,11 @@ public partial class TableControl
 		// no longer report it. Clearing it made the footer read "1/1 rows" instead of "1/4 rows".
 		// ClearFilter zeroes it when the filter actually goes away.
 
-		_selectedRowIndex = RowCount > 0 ? 0 : -1;
-		_scrollOffset = 0;
 		_selectedRowIndices.Clear();
 
 		EndRowGestures();
+		// The source has narrowed itself, so RowCount is the filtered total already.
+		ResetSelectionToFirstRow();
 		Core.AsyncEvent.Raise(FilterApplied, FilterAppliedAsync, this, compound.RawText, Container?.GetConsoleWindowSystem?.LogService);
 		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);
@@ -597,6 +597,9 @@ public partial class TableControl
 		// Text that does not parse, blanks say, is no filter, exactly as empty text is.
 		var compound = string.IsNullOrEmpty(_filterBuffer) ? null : ParseCompoundFilterExpression(_filterBuffer);
 
+		// Set by whichever branch moves the cursor to the first row, so the raise happens once below.
+		bool reseat = false;
+
 		if (compound == null)
 		{
 			// THE SOURCE HAS TO BE TOLD TOO. Emptying or blanking the text ends the filter just as
@@ -612,12 +615,12 @@ public partial class TableControl
 			ShowUnfilteredRows();
 			if (selection.IsTracked)
 			{
+				// Raises for itself, and only if the row actually changed.
 				RestoreSelection(selection);
 			}
 			else
 			{
-				_selectedRowIndex = RowCount > 0 ? 0 : -1;
-				_scrollOffset = 0;
+				reseat = true;
 			}
 		}
 		else
@@ -626,19 +629,20 @@ public partial class TableControl
 
 			// Live typing goes through the same seam as the programmatic API, so a source that
 			// filters itself is not scanned row-by-row on every keystroke. TryDelegateFilter already
-			// resets selection and scroll, so only the client-side branch needs to do it here —
-			// but FilterTextChanged below must still fire either way.
+			// reseats the selection and raises for it, so only the client-side branch needs to do it
+			// here — but FilterTextChanged below must still fire either way.
 			if (!TryDelegateFilter(compound))
 			{
 				RecomputeDisplayMap();
-
-				_selectedRowIndex = RowCount > 0 ? 0 : -1;
-				_scrollOffset = 0;
+				reseat = true;
 			}
 		}
 
 		_selectedRowIndices.Clear();
 		EndRowGestures();
+		// After the map and the multi-selection are settled, so a handler reads back a consistent table.
+		if (reseat)
+			ResetSelectionToFirstRow();
 		FilterTextChanged?.Invoke(this, _filterBuffer);
 		InvalidateColumnWidths();
 		Invalidate(Invalidation.Relayout);

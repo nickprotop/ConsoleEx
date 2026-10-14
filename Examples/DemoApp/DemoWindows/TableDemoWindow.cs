@@ -49,12 +49,15 @@ public static class TableDemoWindow
 			.WithHorizontalAlignment(HorizontalAlignment.Stretch)
 			.OnSelectedRowChanged((sender, rowIdx) =>
 			{
-				if (rowIdx >= 0 && rowIdx < employees.Count)
+				// NOT rowIdx: that counts DISPLAYED rows, so under a filter row 0 of the matches is
+				// not employees[0]. SelectedDataIndex maps it back to the row in the full list.
+				int dataIdx = ((TableControl)sender!).SelectedDataIndex;
+				if (dataIdx >= 0 && dataIdx < employees.Count)
 				{
-					var emp = employees[rowIdx];
+					var emp = employees[dataIdx];
 					statusBar.SetContent(new List<string>
 					{
-						$"[dim]Row {rowIdx + 1}: {emp.Name} - {emp.Department} | Sort: Header | Filter: / | Edit: F2 | Esc: Close[/]"
+						$"[dim]Row {dataIdx + 1}: {emp.Name} - {emp.Department} | Sort: Header | Filter: / | Edit: F2 | Esc: Close[/]"
 					});
 				}
 			})
