@@ -167,4 +167,150 @@ public class ChatTranscriptControlTests
 		Assert.Equal(true, chat.BodySelectionEnabledForTest(asst));
 		Assert.Equal(true, chat.BodySelectionEnabledForTest(usr));
 	}
+
+	#region RestyleMessages — a theme switch must reach messages already on screen
+
+	/* A role style is copied into a message's panel when the message is BUILT, and the body is
+	   rendered once from the MarkdownStyle in force at that moment. So after a theme switch the
+	   blocks already in the transcript keep the old theme's colours while new ones get the new
+	   theme — which is what showed up in cxagent. SetRoleStyle alone cannot fix it, and a host
+	   cannot re-add the old messages because the control exposes no way to read their content
+	   back. RestyleMessages re-applies the CURRENT role style to every existing entry. */
+
+	[Fact]
+	public void RestyleMessages_AppliesTheNewBackgroundToAnExistingMessage()
+	{
+		var chat = Build();
+		var before = new Color(10, 20, 30);
+		var after = new Color(200, 100, 50);
+
+		chat.SetRoleStyle(ChatRole.User, new ChatRoleStyle { Background = before });
+		var id = chat.AddMessage(ChatRole.User, "hello");
+		Assert.Equal(before, chat.BackgroundForTest(id));
+
+		chat.SetRoleStyle(ChatRole.User, new ChatRoleStyle { Background = after });
+		chat.RestyleMessages();
+
+		Assert.Equal(after, chat.BackgroundForTest(id));
+	}
+
+	[Fact]
+	public void RestyleMessages_ClearsABackgroundTheNewStyleDoesNotSet()
+	{
+		var chat = Build();
+		chat.SetRoleStyle(ChatRole.User, new ChatRoleStyle { Background = new Color(10, 20, 30) });
+		var id = chat.AddMessage(ChatRole.User, "hello");
+		Assert.NotNull(chat.BackgroundForTest(id));
+
+		// A role that drops its background must LOSE it, not keep the old one: leaving the stale
+		// colour in place is the same bug seen from the other side.
+		chat.SetRoleStyle(ChatRole.User, new ChatRoleStyle());
+		chat.RestyleMessages();
+
+		Assert.Null(chat.BackgroundForTest(id));
+	}
+
+	[Fact]
+	public void RestyleMessages_LeavesTheExpandedStateAlone()
+	{
+		var chat = Build();
+		chat.SetRoleStyle(ChatRole.User, new ChatRoleStyle { Collapsible = true });
+		var collapsed = chat.AddMessage(ChatRole.User, "first");
+		var expanded = chat.AddMessage(ChatRole.User, "second");
+
+		// What the USER did, which a restyle must not undo.
+		chat.PanelForTest(collapsed).IsExpanded = false;
+		chat.PanelForTest(expanded).IsExpanded = true;
+
+		// A style that would have started every message collapsed, to prove StartCollapsed is not
+		// re-applied over the user's own toggle.
+		chat.SetRoleStyle(ChatRole.User, new ChatRoleStyle { Collapsible = true, StartCollapsed = true });
+		chat.RestyleMessages();
+
+		Assert.False(chat.PanelForTest(collapsed).IsExpanded);
+		Assert.True(chat.PanelForTest(expanded).IsExpanded);
+	}
+
+	[Fact]
+	public void RestyleMessages_KeepsAPerMessageMarkdownOverride()
+	{
+		var chat = Build();
+		chat.SetRoleStyle(ChatRole.Assistant, new ChatRoleStyle { Markdown = true });
+		var id = chat.AddMessage(ChatRole.Assistant, "**bold**");
+
+		// Forced to markup for this message only; the role still says markdown.
+		chat.SetMarkdownMode(id, false);
+		Assert.False(chat.EffectiveMarkdownForTest(id));
+
+		chat.SetRoleStyle(ChatRole.Assistant, new ChatRoleStyle { Markdown = true });
+		chat.RestyleMessages();
+
+		// The override is per-message state, not style state, so a restyle must not revert it.
+		Assert.False(chat.MarkdownOverrideForTest(id));
+		Assert.False(chat.EffectiveMarkdownForTest(id));
+	}
+
+	[Fact]
+	public void RestyleMessages_LeavesAThinkingMessageThinking()
+	{
+		var chat = Build();
+		var id = chat.AddMessage(ChatRole.Assistant, "", thinking: true);
+
+		chat.SetRoleStyle(ChatRole.Assistant, new ChatRoleStyle { Background = new Color(1, 2, 3) });
+		chat.RestyleMessages();
+
+		// A thinking message has a spinner and no body, so there is nothing to re-render — but the
+		// panel still restyles, and the spinner must survive to be cleared by the first token.
+		Assert.Equal(new Color(1, 2, 3), chat.BackgroundForTest(id));
+		Assert.True(chat.IsThinking(id));
+
+		chat.Append(id, "first token");
+		Assert.False(chat.IsThinking(id));
+		Assert.Equal("first token", chat.BodyTextForTest(id));
+	}
+
+	/* MARKDOWN COLOURS ARE NOT ASSERTABLE FROM HERE, and that is a property of the design rather
+	   than a gap in the test. SetMarkdown stores the content as a "[markdown]…[/]" TAG; the tag is
+	   resolved against MarkdownStyle.Default by MarkupParser at PAINT time, so the control never
+	   holds the colours and RenderedBodyTextForTest returns the same string whatever the style is.
+	   Changing the style and re-rendering therefore cannot change anything observable at this level
+	   — which is also why a restyle picks up a new MarkdownStyle for free: nothing is baked in.
+	   The colour mapping itself is covered at the parser level (MarkdownStyleTests,
+	   MarkdownToMarkupTests). What IS checkable here is that the body is genuinely re-rendered from
+	   the buffer rather than left alone, which is the part RestyleMessages is responsible for. */
+
+	[Fact]
+	public void RestyleMessages_RerendersTheBodyFromTheBuffer()
+	{
+		var chat = Build();
+		chat.SetRoleStyle(ChatRole.Assistant, new ChatRoleStyle { Markdown = true });
+		var id = chat.AddMessage(ChatRole.Assistant, "> quoted");
+
+		// Prove the re-render happens by taking the body out of sync with the buffer first: with the
+		// message forced to plain markup, the stored body carries no markdown tag.
+		chat.SetMarkdownMode(id, false);
+		string? asMarkup = chat.RenderedBodyTextForTest(id);
+		Assert.NotNull(asMarkup);
+		Assert.DoesNotContain("[markdown]", asMarkup!, System.StringComparison.Ordinal);
+
+		// Hand the decision back to the role WITHOUT re-rendering: SetMarkdownMode(id, null) would
+		// render on its own, which would let a RestyleMessages that never calls RenderBody still pass.
+		// Changing the ROLE's Markdown flag touches no message, so only the restyle can act on it.
+		chat.SetMarkdownMode(id, false);
+		chat.SetRoleStyle(ChatRole.Assistant, new ChatRoleStyle { Markdown = true });
+		chat.SetMarkdownModeWithoutRenderForTest(id, null);
+		Assert.DoesNotContain("[markdown]", chat.RenderedBodyTextForTest(id)!, System.StringComparison.Ordinal);
+
+		chat.RestyleMessages();
+
+		string? restyled = chat.RenderedBodyTextForTest(id);
+		Assert.NotNull(restyled);
+		Assert.Contains("[markdown]", restyled!, System.StringComparison.Ordinal);
+		Assert.Contains("quoted", restyled!, System.StringComparison.Ordinal);
+
+		// And the buffer — the source of truth — was not disturbed by any of it.
+		Assert.Equal("> quoted", chat.BodyTextForTest(id));
+	}
+
+	#endregion
 }

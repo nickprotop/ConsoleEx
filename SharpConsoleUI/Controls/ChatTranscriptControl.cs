@@ -260,8 +260,8 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		/// <remarks>
 		/// This affects messages added <em>after</em> the call only; already-added message panels keep
-		/// the style they were built with and are not retroactively restyled. To restyle an existing
-		/// conversation, set the role styles first and re-add the messages.
+		/// the style they were built with. To bring an existing conversation onto the new styles — after
+		/// a theme switch, say — set the role styles and then call <see cref="RestyleMessages"/>.
 		/// </remarks>
 		/// <param name="role">The role whose style is being set.</param>
 		/// <param name="style">The style to apply. Must not be <c>null</c>.</param>
@@ -279,6 +279,82 @@ namespace SharpConsoleUI.Controls
 		public ChatRoleStyle GetRoleStyle(ChatRole role)
 		{
 			return _roleStyles.TryGetValue(role, out var style) ? style : new ChatRoleStyle();
+		}
+
+		/// <summary>
+		/// Re-applies the current role styles to every message already in the transcript, and re-renders
+		/// each body under the current <see cref="Configuration.MarkdownStyle.Default"/>.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// A role style is copied into a message's panel when the message is BUILT, and its body is
+		/// rendered once from the Markdown style in force at that moment. So a theme switch reaches only
+		/// the messages added after it: everything already on screen keeps the old theme's colours. This
+		/// is the way to fix that up, and it is why <see cref="SetRoleStyle"/> alone does not — a host
+		/// cannot re-add the old messages, because the control exposes no way to read their content back.
+		/// </para>
+		/// <para>
+		/// PER-MESSAGE STATE SURVIVES. Only what came from the role style is re-applied. A message's own
+		/// Markdown mode, rail, compact footer, status, actions and author header are its own, not the
+		/// role's, and are left alone — as is whether the user has it expanded or collapsed, so a restyle
+		/// never folds a conversation up under someone mid-read. That last one is why
+		/// <see cref="ChatRoleStyle.StartCollapsed"/> is deliberately not re-applied here: it describes how
+		/// a message STARTS, and these have already started.
+		/// </para>
+		/// <para>
+		/// A style that no longer sets a background or a border colour CLEARS the one the panel carries,
+		/// rather than leaving the old value standing: a role that dropped its background has to lose it.
+		/// </para>
+		/// <para>
+		/// This mutates the control's children and MUST be called on the UI thread, like the other
+		/// mutators here; background callers marshal via
+		/// <c>windowSystem.EnqueueOnUIThread(() =&gt; chat.RestyleMessages())</c> — see CLAUDE.md Rule 13.
+		/// </para>
+		/// </remarks>
+		public void RestyleMessages()
+		{
+			foreach (var entry in _order)
+			{
+				var style = GetRoleStyle(entry.Role);
+				var panel = entry.Panel;
+
+				// The header is composed from the style's factory and gradient, so it follows the theme
+				// too — but the AUTHOR the message was added with is still its own and is passed back in.
+				panel.Title = ComposeHeader(style, entry.Role, entry.Author);
+				panel.ShowHeader = style.ShowHeader;
+				panel.HeaderStyle = style.HeaderStyle;
+				panel.HeaderAlignment = style.HeaderAlignment;
+				panel.Collapsible = style.Collapsible;
+				panel.ColorRole = style.ColorRole;
+				panel.Margin = style.Margin;
+
+				// Null means "no explicit colour", which has to RESET the panel rather than skip it.
+				// BorderColor is already nullable; BackgroundColor is not, so the internal nullable hook
+				// is what expresses the difference between "transparent" and "unset".
+				panel.BorderColor = style.BorderColor;
+				panel.SetBackgroundColorNullable(style.Background);
+
+				panel.AnimationMode = (AnimateMessages && style.Collapsible)
+					? CollapsibleAnimationMode.Height
+					: CollapsibleAnimationMode.None;
+
+				// IsExpanded is deliberately untouched — see the remarks.
+
+				if (entry.Body != null)
+				{
+					entry.Body.EnableSelection = style.Selectable ?? MessagesSelectable;
+
+					// Re-render from the buffer so Markdown colours follow the current style. RenderBody
+					// reads the message's own MarkdownOverride itself, so the override survives this.
+					RenderBody(entry, style);
+					RefreshPeek(entry);
+				}
+
+				// A thinking message has a spinner and no body: its panel restyles above, and there is
+				// nothing to re-render until its first token arrives.
+			}
+
+			Invalidate(Invalidation.Relayout);
 		}
 
 		#endregion
@@ -730,6 +806,15 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>Returns the message's explicit Markdown override, or <c>null</c> when it inherits the role (test-only seam).</summary>
 		internal bool? MarkdownOverrideForTest(ChatMessageId id) => Require(id).MarkdownOverride;
+
+		/// <summary>
+		/// Sets a message's Markdown override WITHOUT re-rendering, unlike
+		/// <see cref="SetMarkdownMode"/>. Lets a test put the rendered body deliberately out of sync
+		/// with what the style now says, so an assertion can prove that a later call actually
+		/// re-rendered rather than finding the work already done for it.
+		/// </summary>
+		internal void SetMarkdownModeWithoutRenderForTest(ChatMessageId id, bool? markdown)
+			=> Require(id).MarkdownOverride = markdown;
 
 		/// <summary>
 		/// Returns the rendering mode actually used for the message's body — the override when set,
