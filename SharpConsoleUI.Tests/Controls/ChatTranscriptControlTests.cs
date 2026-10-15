@@ -313,4 +313,21 @@ public class ChatTranscriptControlTests
 	}
 
 	#endregion
+
+	/// <summary>
+	/// A colour opened on one line of a markup body still colours the next. Each line of the body
+	/// was parsed on its own, so "[red]a\nb[/]" rendered "b" in the default colour.
+	/// </summary>
+	[Fact]
+	public void AMarkupBody_CarriesAColourAcrossALineBreak()
+	{
+		var chat = Build();
+		chat.SetRoleStyle(ChatRole.Tool, new ChatRoleStyle { Markdown = false });
+		var id = chat.AddMessage(ChatRole.Tool, "[red]a\nb[/]");
+
+		var rows = chat.BodyForTest(id)!.EnsureParsedForTest(80).Rows;
+		var b = rows.SelectMany(r => r).First(c => c.Character.Value == 'b');
+
+		Assert.Equal(Color.Red, b.Foreground);
+	}
 }

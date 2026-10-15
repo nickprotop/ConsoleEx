@@ -307,6 +307,9 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Returns the left margin currently applied to the message's body (0 when it has none) (test-only seam).</summary>
 		internal int BodyLeftMarginForTest(ChatMessageId id) => Require(id).Body?.Margin.Left ?? 0;
 
+		/// <summary>Test-only: a message's body control.</summary>
+		internal MarkupControl? BodyForTest(ChatMessageId id) => Require(id).Body;
+
 		/// <summary>Returns the left margin of the message's <see cref="CollapsiblePanel"/> — must stay 0 so the header is flush (test-only seam).</summary>
 		internal int PanelLeftMarginForTest(ChatMessageId id) => Require(id).Panel.Margin.Left;
 

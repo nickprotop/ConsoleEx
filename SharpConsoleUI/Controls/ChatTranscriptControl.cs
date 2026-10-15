@@ -967,15 +967,14 @@ namespace SharpConsoleUI.Controls
 			// The message's own override wins; null defers to the role. RenderBody re-runs from the
 			// buffer on every append/update, so reading the override HERE is what makes it survive
 			// streaming — a message that starts as markup must not revert to markdown on its next token.
+			// ONE ENTRY, NOT A LINE EACH, in both dialects. The markup parser carries an open style across
+			// the newlines of a single entry; split into lines first, each line parsed alone and a colour
+			// opened on one line — "[red]a\nb[/]" — was lost on the next. The markdown path already
+			// hands over its body whole for the same reason.
 			if (entry.MarkdownOverride ?? style.Markdown)
 				entry.Body.SetMarkdown(content);
 			else
-				entry.Body.SetContent(SplitLines(content));
-		}
-
-		private static List<string> SplitLines(string content)
-		{
-			return new List<string>(content.Replace("\r\n", "\n").Split('\n'));
+				entry.Body.SetContent(new List<string> { content.Replace("\r\n", "\n") });
 		}
 
 		/// <summary>
