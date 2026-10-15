@@ -121,6 +121,10 @@ namespace SharpConsoleUI.Controls
 			/// restyle — the entry cannot read role styles itself.</summary>
 			public bool? RoleRail { get; set; }
 
+			/// <summary>A header the host set with <see cref="SetHeader"/>, which a restyle keeps; null
+			/// while the header is the role's own.</summary>
+			public string? HeaderOverride { get; set; }
+
 			/// <summary>This message's own rail colour, or null to use the role's or the transcript's.</summary>
 			public Color? RailColorOverride { get; set; }
 
@@ -343,7 +347,9 @@ namespace SharpConsoleUI.Controls
 
 				// The header is composed from the style's factory and gradient, so it follows the theme
 				// too — but the AUTHOR the message was added with is still its own and is passed back in.
-				panel.Title = ComposeHeader(style, entry.Role, entry.Author);
+				// A HEADER THE HOST SET IS THE HOST'S — a live status, a summary — and the role's factory
+				// knows nothing of it; only a header the role composed is re-composed.
+				panel.Title = entry.HeaderOverride ?? ComposeHeader(style, entry.Role, entry.Author);
 				panel.ShowHeader = style.ShowHeader;
 				panel.HeaderStyle = style.HeaderStyle;
 				panel.HeaderAlignment = style.HeaderAlignment;
@@ -519,8 +525,12 @@ namespace SharpConsoleUI.Controls
 		/// <param name="id">The message id.</param>
 		/// <param name="header">The new header text. Markup is honoured.</param>
 		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
-		public void SetHeader(ChatMessageId id, string header) =>
-			Require(id).Panel.Title = header;
+		public void SetHeader(ChatMessageId id, string header)
+		{
+			var entry = Require(id);
+			entry.HeaderOverride = header;
+			entry.Panel.Title = header;
+		}
 
 		/// <summary>
 		/// Renders ONE message's footer compactly: no separator rule above the status/actions rows.

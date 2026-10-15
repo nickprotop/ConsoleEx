@@ -449,4 +449,20 @@ public class ChatTranscriptControlTests
 		var id = chat.AddMessage(ChatRole.Thinking, "weighing it");
 		Assert.Equal(ChatRole.Thinking, chat.GetRole(id));
 	}
+
+	/// <summary>A header the host set is the host's: a restyle re-themes the role's headers, not that.</summary>
+	[Fact]
+	public void RestyleMessages_KeepsAHeaderSetWithSetHeader()
+	{
+		var chat = Build();
+		var set = chat.AddMessage(ChatRole.Tool, "a");
+		var plain = chat.AddMessage(ChatRole.Tool, "b");
+		chat.SetHeader(set, "glob · **/prices.py");
+
+		chat.SetRoleStyle(ChatRole.Tool, new ChatRoleStyle { Header = static (_, _) => "Tools" });
+		chat.RestyleMessages();
+
+		Assert.Equal("glob · **/prices.py", chat.PanelForTest(set).Title);
+		Assert.Equal("Tools", chat.PanelForTest(plain).Title);
+	}
 }
