@@ -451,6 +451,11 @@ namespace SharpConsoleUI.Controls
 		public void SetMessageBackground(ChatMessageId id, Color? background)
 		{
 			var entry = Require(id);
+			// Guard as SetMessageRailColor does: SetBackgroundColorNullable repaints unconditionally,
+			// so without this a host refreshing its surfaces re-paints every message every time.
+			if (entry.BackgroundOverride == background)
+				return;
+
 			entry.BackgroundOverride = background;
 			entry.Panel.SetBackgroundColorNullable(background ?? GetRoleStyle(entry.Role).Background);
 			Invalidate(Invalidation.Repaint);

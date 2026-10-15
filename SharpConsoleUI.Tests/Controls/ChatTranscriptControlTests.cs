@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Tests.Infrastructure;
 using SharpConsoleUI.Themes;
 using Xunit;
 
@@ -391,6 +392,50 @@ public class ChatTranscriptControlTests
 
 		Assert.Equal(new Color(1, 2, 3), chat.PanelForTest(a).BackgroundColor);
 		Assert.Null(chat.GetMessageBackground(a));
+	}
+
+	/// <summary>
+	/// Setting the background a message already has must not repaint. The sibling
+	/// SetMessageRailColor guards on equality and this one did not, so a host refreshing its
+	/// surfaces on every frame paid for a repaint per message per frame (CLAUDE.md rule 5).
+	/// </summary>
+	[Fact]
+	public void SetMessageBackground_ToTheSameColour_DoesNotRepaint()
+	{
+		var chat = Build();
+		var id = chat.AddMessage(ChatRole.Tool, "a");
+		var rc = new RecordingContainer();
+		chat.Container = rc;
+
+		chat.SetMessageBackground(id, new Color(9, 9, 9));
+		int afterFirst = rc.InvalidateCount;
+		Assert.True(afterFirst > 0, "the first, real change must repaint");
+
+		chat.SetMessageBackground(id, new Color(9, 9, 9));
+
+		Assert.Equal(afterFirst, rc.InvalidateCount);
+		Assert.Equal(new Color(9, 9, 9), chat.GetMessageBackground(id));
+	}
+
+	/// <summary>The guard must not swallow a real change, in either direction.</summary>
+	[Fact]
+	public void SetMessageBackground_StillRepaints_OnARealChange()
+	{
+		var chat = Build();
+		var id = chat.AddMessage(ChatRole.Tool, "a");
+		var rc = new RecordingContainer();
+		chat.Container = rc;
+
+		chat.SetMessageBackground(id, new Color(9, 9, 9));
+		int afterSet = rc.InvalidateCount;
+
+		chat.SetMessageBackground(id, new Color(4, 4, 4));
+		Assert.True(rc.InvalidateCount > afterSet, "a different colour must repaint");
+
+		int afterChange = rc.InvalidateCount;
+		chat.SetMessageBackground(id, null);
+		Assert.True(rc.InvalidateCount > afterChange, "returning to the role's must repaint");
+		Assert.Null(chat.GetMessageBackground(id));
 	}
 
 	// --- role-level rail ---------------------------------------------------------------------
