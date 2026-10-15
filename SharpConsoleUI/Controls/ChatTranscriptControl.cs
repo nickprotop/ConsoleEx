@@ -391,6 +391,38 @@ namespace SharpConsoleUI.Controls
 		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
 		public bool IsExpanded(ChatMessageId id) => Require(id).Panel.IsExpanded;
 
+		/// <summary>
+		/// Gets the message's own Markdown override, exactly as <see cref="SetMarkdownMode"/> left it.
+		/// </summary>
+		/// <remarks>
+		/// Tri-state, mirroring the setter: <c>true</c> forces Markdown, <c>false</c> forces native
+		/// markup, and <c>null</c> means the message defers to its role. This reports the SETTING, not
+		/// what the body renders as — an untouched message returns <c>null</c> whatever its role does.
+		/// Use <see cref="IsMarkdown"/> for the mode actually in effect.
+		/// </remarks>
+		/// <param name="id">The message id.</param>
+		/// <returns>The override, or <c>null</c> when the message inherits its role's setting.</returns>
+		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
+		public bool? GetMarkdownMode(ChatMessageId id) => Require(id).MarkdownOverride;
+
+		/// <summary>
+		/// Gets the rendering mode actually in effect for the message's body: its override when one is
+		/// set, otherwise its role's <see cref="ChatRoleStyle.Markdown"/>.
+		/// </summary>
+		/// <remarks>
+		/// This is the expression the render path itself evaluates, so it cannot drift from what is on
+		/// screen. With no override it follows the role style live — restyling the role changes the
+		/// answer for every message that inherits it.
+		/// </remarks>
+		/// <param name="id">The message id.</param>
+		/// <returns><c>true</c> when the body renders as Markdown; <c>false</c> when it renders as native markup.</returns>
+		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
+		public bool IsMarkdown(ChatMessageId id)
+		{
+			var entry = Require(id);
+			return entry.MarkdownOverride ?? GetRoleStyle(entry.Role).Markdown;
+		}
+
 		#endregion
 
 		#region Message mutation API — collapse state
@@ -804,8 +836,8 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		internal string? RenderedBodyTextForTest(ChatMessageId id) => Require(id).Body?.Text;
 
-		/// <summary>Returns the message's explicit Markdown override, or <c>null</c> when it inherits the role (test-only seam).</summary>
-		internal bool? MarkdownOverrideForTest(ChatMessageId id) => Require(id).MarkdownOverride;
+		/// <summary>Returns the message's explicit Markdown override (legacy test-only alias for <see cref="GetMarkdownMode"/>).</summary>
+		internal bool? MarkdownOverrideForTest(ChatMessageId id) => GetMarkdownMode(id);
 
 		/// <summary>
 		/// Sets a message's Markdown override WITHOUT re-rendering, unlike
@@ -817,15 +849,10 @@ namespace SharpConsoleUI.Controls
 			=> Require(id).MarkdownOverride = markdown;
 
 		/// <summary>
-		/// Returns the rendering mode actually used for the message's body — the override when set,
-		/// otherwise the role's <see cref="ChatRoleStyle.Markdown"/>. This is the exact expression
-		/// <see cref="RenderBody"/> evaluates, so a test asserting it cannot drift from the paint path.
+		/// Returns the rendering mode actually used for the message's body (legacy test-only alias for
+		/// <see cref="IsMarkdown"/>).
 		/// </summary>
-		internal bool EffectiveMarkdownForTest(ChatMessageId id)
-		{
-			var entry = Require(id);
-			return entry.MarkdownOverride ?? GetRoleStyle(entry.Role).Markdown;
-		}
+		internal bool EffectiveMarkdownForTest(ChatMessageId id) => IsMarkdown(id);
 
 		/// <summary>Returns the child <see cref="CollapsiblePanel"/> for the message with the given id (test-only observation seam).</summary>
 		internal CollapsiblePanel PanelForTest(ChatMessageId id) => Require(id).Panel;

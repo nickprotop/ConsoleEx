@@ -146,6 +146,103 @@ namespace SharpConsoleUI.Tests.Controls
 			Assert.Contains("[markdown]", chat.RenderedBodyTextForTest(plain));
 		}
 
+		#region The public getters
+
+		/// <summary>
+		/// The consumer-visible counterpart of the set: a host that calls SetMarkdownMode must be able
+		/// to read the mode back without reaching into an internal test seam.
+		/// </summary>
+		[Fact]
+		public void GetMarkdownMode_ReturnsWhatWasSet()
+		{
+			var chat = new ChatTranscriptControl();
+			var id = chat.AddMessage(ChatRole.Assistant, Markup);
+
+			Assert.Null(chat.GetMarkdownMode(id));
+
+			chat.SetMarkdownMode(id, markdown: false);
+			Assert.False(chat.GetMarkdownMode(id));
+
+			chat.SetMarkdownMode(id, markdown: true);
+			Assert.True(chat.GetMarkdownMode(id));
+
+			// And the tri-state survives a round trip back to "inherit".
+			chat.SetMarkdownMode(id, markdown: null);
+			Assert.Null(chat.GetMarkdownMode(id));
+		}
+
+		/// <summary>
+		/// The override is the setting; the effective mode is what actually renders. They differ for
+		/// every message that has not been overridden, which is the normal case.
+		/// </summary>
+		[Fact]
+		public void IsMarkdown_ResolvesTheRoleWhenThereIsNoOverride()
+		{
+			var chat = new ChatTranscriptControl();
+			var id = chat.AddMessage(ChatRole.Assistant, Markup);
+
+			// Nothing set, yet the body does render as markdown because the role says so.
+			Assert.Null(chat.GetMarkdownMode(id));
+			Assert.True(chat.IsMarkdown(id));
+
+			chat.SetMarkdownMode(id, markdown: false);
+			Assert.False(chat.IsMarkdown(id));
+		}
+
+		/// <summary>
+		/// With no override, the effective mode must track a LATER change to the role style rather than
+		/// a value captured when the message was added.
+		/// </summary>
+		[Fact]
+		public void IsMarkdown_FollowsTheRoleStyleWhenItChanges()
+		{
+			var chat = new ChatTranscriptControl();
+			var id = chat.AddMessage(ChatRole.Assistant, Markup);
+			Assert.True(chat.IsMarkdown(id));
+
+			chat.SetRoleStyle(ChatRole.Assistant, new ChatRoleStyle { Markdown = false });
+			Assert.False(chat.IsMarkdown(id));
+
+			// An overridden message ignores the role either way.
+			var pinned = chat.AddMessage(ChatRole.Assistant, Markup);
+			chat.SetMarkdownMode(pinned, markdown: true);
+			Assert.True(chat.IsMarkdown(pinned));
+		}
+
+		/// <summary>The getters agree with the paint path, not just with each other.</summary>
+		[Fact]
+		public void TheGetters_MatchWhatTheBodyActuallyRendered()
+		{
+			var chat = new ChatTranscriptControl();
+			var id = chat.AddMessage(ChatRole.Assistant, Markup);
+
+			Assert.True(chat.IsMarkdown(id));
+			Assert.Contains("[markdown]", chat.RenderedBodyTextForTest(id));
+
+			chat.SetMarkdownMode(id, markdown: false);
+
+			Assert.False(chat.IsMarkdown(id));
+			Assert.DoesNotContain("[markdown]", chat.RenderedBodyTextForTest(id));
+		}
+
+		[Fact]
+		public void GetMarkdownMode_OnUnknownId_Throws()
+		{
+			var chat = new ChatTranscriptControl();
+			Assert.Throws<System.Collections.Generic.KeyNotFoundException>(
+				() => chat.GetMarkdownMode(new ChatMessageId()));
+		}
+
+		[Fact]
+		public void IsMarkdown_OnUnknownId_Throws()
+		{
+			var chat = new ChatTranscriptControl();
+			Assert.Throws<System.Collections.Generic.KeyNotFoundException>(
+				() => chat.IsMarkdown(new ChatMessageId()));
+		}
+
+		#endregion
+
 		[Fact]
 		public void SetMarkdownMode_OnUnknownId_Throws()
 		{
