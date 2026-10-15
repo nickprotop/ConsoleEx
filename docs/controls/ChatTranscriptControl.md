@@ -88,7 +88,7 @@ ChatMessageId AddMessage(ChatRole role, string content, string? author = null, b
 
 Adds a message to the transcript and returns its id.
 
-- `role` — the role of the message author (`User`, `Assistant`, `System`, `Tool`, or `Error`).
+- `role` — the role of the message author (`User`, `Assistant`, `System`, `Tool`, `Error`, or `Thinking`).
 - `content` — the initial body text (rendered as Markdown when the role style's `Markdown` is `true`).
 - `author` — optional name that overrides the role's default header label (e.g. the agent's display name).
 - `thinking` — when `true`, the message initially shows a spinner instead of a text body. The spinner clears automatically on the first `Append` or `UpdateMessage` call for that message.
@@ -121,6 +121,20 @@ IReadOnlyList<ChatMessageId> MessageIds { get; }  // All message ids in display 
 ChatRole GetRole(ChatMessageId id)                // Role of a message
 bool IsThinking(ChatMessageId id)                 // Whether a message is still showing its thinking spinner
 ```
+
+### Per-Message Appearance
+
+```csharp
+void SetMessageRail(ChatMessageId id, bool? rail)           // Rail this message (true), never (false), or inherit (null)
+void SetMessageRailColor(ChatMessageId id, Color? color)    // This message's own rail colour; null inherits
+Color? GetMessageRailColor(ChatMessageId id)
+void SetMessageBackground(ChatMessageId id, Color? color)   // This message's own background; null returns to the role's
+Color? GetMessageBackground(ChatMessageId id)
+```
+
+A message's own setting wins over its role's, and survives `RestyleMessages()`. A rail colour resolves
+most specific first: the message's, then its role's `RailColor`, then `MessageRailColor`, then a dimmed
+role colour.
 
 ## Role Style API
 
@@ -246,7 +260,8 @@ public enum ChatRole
     Assistant,  // Message from the AI assistant
     System,     // System-level prompt or instruction
     Tool,       // Output from a tool or function call
-    Error       // Error message
+    Error,      // Error message
+    Thinking    // A model's reasoning, shown apart from its answer
 }
 ```
 
@@ -285,6 +300,8 @@ Defines the visual presentation of messages for a given role. All properties are
 | `Selectable` | `bool?` | `null` | Per-role override for text selection. `null` inherits the control's `MessagesSelectable` baseline; `true` forces selection **on** for this role even when the master is off; `false` forces it **off** even when the master is on. A body resolves to `role.Selectable ?? MessagesSelectable`, so the two compose symmetrically (e.g. master off but `Assistant`/`Tool` output still selectable). |
 | `HeaderGradient` | `(Color From, Color To)?` | `null` | Optional gradient sweep applied to the header text. When non-`null`, the header is rendered with a color transition from `From` to `To`. |
 | `Background` | `Color?` | `null` | Optional background color for the message body area. Accepts colors with an alpha channel (via `Color.WithAlpha`) so the compositor blends the bubble over the window background. |
+| `Rail` | `bool?` | `null` | Whether this role's messages show the left rail. `null` keeps the footer-gated rule; `true` rails every message of the role. A message's own `SetMessageRail` wins. |
+| `RailColor` | `Color?` | `null` | Colour of this role's rail. `null` uses `MessageRailColor`, else a dimmed role colour. A message's own `SetMessageRailColor` wins. |
 | `DefaultActions` | `IReadOnlyList<ChatMessageAction>?` | `null` | Footer actions seeded on every message of this role at creation. `null` (the default) adds no actions. An explicit `AddMessage(..., actions:, ...)` overload overrides these per message. See [Message Actions & Status](#message-actions--status). |
 
 ## Themed Defaults
@@ -298,6 +315,7 @@ The control ships with per-role defaults that look correct with zero configurati
 | `System` | `Info` | `Borderless` | Yes | Yes | "System" |
 | `Tool` | `Secondary` | `Borderless` | Yes | Yes | "🔧 tool" |
 | `Error` | `Danger` | `Rounded` | No | — | "Error" |
+| `Thinking` | `Warning` | `Borderless` | Yes | No | "Thinking" (railed, plain markup body) |
 
 `System` and `Tool` messages start collapsed (header-only) because they are often verbose. The user can click the header to expand them; when `AnimateMessages` is `true` (the default), the expand/collapse uses a height tween instead of snapping.
 

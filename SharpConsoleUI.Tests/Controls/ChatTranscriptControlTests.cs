@@ -330,4 +330,121 @@ public class ChatTranscriptControlTests
 
 		Assert.Equal(Color.Red, b.Foreground);
 	}
+
+	// --- per-message rail colour and background -------------------------------------------
+
+	[Fact]
+	public void SetMessageRailColor_ColoursThatMessagesRail_Only()
+	{
+		var chat = Build();
+		var a = chat.AddMessage(ChatRole.Tool, "a");
+		var b = chat.AddMessage(ChatRole.Tool, "b");
+		var before = chat.RailColorForTest(b);
+
+		chat.SetMessageRailColor(a, Color.Orange1);
+
+		Assert.Equal(Color.Orange1, chat.RailColorForTest(a));
+		Assert.Equal(Color.Orange1, chat.GetMessageRailColor(a));
+		Assert.Equal(before, chat.RailColorForTest(b));
+	}
+
+	[Fact]
+	public void SetMessageRailColor_WinsOverTheTranscriptWideColour_AndNullInherits()
+	{
+		var chat = Build();
+		chat.MessageRailColor = Color.Blue;
+		var a = chat.AddMessage(ChatRole.Tool, "a");
+
+		chat.SetMessageRailColor(a, Color.Orange1);
+		Assert.Equal(Color.Orange1, chat.RailColorForTest(a));
+
+		chat.SetMessageRailColor(a, null);
+		Assert.Equal(Color.Blue, chat.RailColorForTest(a));
+		Assert.Null(chat.GetMessageRailColor(a));
+	}
+
+	[Fact]
+	public void SetMessageBackground_SetsThatMessagesSurface_AndSurvivesARestyle()
+	{
+		var chat = Build();
+		chat.SetRoleStyle(ChatRole.Tool, new ChatRoleStyle { Background = new Color(1, 2, 3) });
+		var a = chat.AddMessage(ChatRole.Tool, "a");
+		var b = chat.AddMessage(ChatRole.Tool, "b");
+
+		chat.SetMessageBackground(a, new Color(9, 9, 9));
+		chat.RestyleMessages();
+
+		Assert.Equal(new Color(9, 9, 9), chat.PanelForTest(a).BackgroundColor);
+		Assert.Equal(new Color(9, 9, 9), chat.GetMessageBackground(a));
+		Assert.Equal(new Color(1, 2, 3), chat.PanelForTest(b).BackgroundColor);
+	}
+
+	[Fact]
+	public void SetMessageBackground_Null_ReturnsToTheRolesBackground()
+	{
+		var chat = Build();
+		chat.SetRoleStyle(ChatRole.Tool, new ChatRoleStyle { Background = new Color(1, 2, 3) });
+		var a = chat.AddMessage(ChatRole.Tool, "a");
+
+		chat.SetMessageBackground(a, new Color(9, 9, 9));
+		chat.SetMessageBackground(a, null);
+
+		Assert.Equal(new Color(1, 2, 3), chat.PanelForTest(a).BackgroundColor);
+		Assert.Null(chat.GetMessageBackground(a));
+	}
+
+	// --- role-level rail ---------------------------------------------------------------------
+
+	[Fact]
+	public void ARolesRailColor_ColoursItsMessagesRails_UnderAMessagesOwn()
+	{
+		var chat = Build();
+		chat.MessageRailColor = Color.Blue;
+		chat.SetRoleStyle(ChatRole.Thinking, new ChatRoleStyle { RailColor = Color.Orange1 });
+		var a = chat.AddMessage(ChatRole.Thinking, "a");
+		var b = chat.AddMessage(ChatRole.Thinking, "b");
+
+		chat.SetMessageRailColor(b, Color.Red);
+
+		Assert.Equal(Color.Orange1, chat.RailColorForTest(a));
+		Assert.Equal(Color.Red, chat.RailColorForTest(b));
+	}
+
+	[Fact]
+	public void ARolesRail_RailsItsMessages_WithoutAFooter_UnlessTheMessageSaysNo()
+	{
+		var chat = Build();
+		chat.SetRoleStyle(ChatRole.Thinking, new ChatRoleStyle { Rail = true });
+		var a = chat.AddMessage(ChatRole.Thinking, "a");
+		var b = chat.AddMessage(ChatRole.Thinking, "b");
+		var plain = chat.AddMessage(ChatRole.Assistant, "c");
+
+		chat.SetMessageRail(b, false);
+
+		Assert.True(chat.HasMessageRail(a));
+		Assert.False(chat.HasMessageRail(b));
+		Assert.False(chat.HasMessageRail(plain));
+	}
+
+	[Fact]
+	public void ARolesRail_FollowsARestyle()
+	{
+		var chat = Build();
+		var a = chat.AddMessage(ChatRole.Thinking, "a");
+		chat.SetRoleStyle(ChatRole.Thinking, new ChatRoleStyle { Rail = true });
+		chat.RestyleMessages();
+		Assert.True(chat.HasMessageRail(a));
+	}
+
+	// --- the Thinking role -------------------------------------------------------------------
+
+	[Fact]
+	public void TheThinkingRole_HasADefaultStyle_ThatFolds()
+	{
+		var chat = Build();
+		var style = chat.GetRoleStyle(ChatRole.Thinking);
+		Assert.True(style.Collapsible);
+		var id = chat.AddMessage(ChatRole.Thinking, "weighing it");
+		Assert.Equal(ChatRole.Thinking, chat.GetRole(id));
+	}
 }

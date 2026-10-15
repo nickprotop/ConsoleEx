@@ -106,6 +106,31 @@ namespace SharpConsoleUI.Controls
 		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
 		public bool HasMessageRail(ChatMessageId id) => _messageRailEnabled && Require(id).WantsRail;
 
+		/// <summary>
+		/// Gives ONE message's rail its own colour, over its role's <see cref="ChatRoleStyle.RailColor"/>,
+		/// <see cref="MessageRailColor"/> and the derived default — so a message of a different kind can
+		/// be told apart at a glance. Does not turn the rail on; see <see cref="SetMessageRail"/>.
+		/// </summary>
+		/// <param name="id">The message id.</param>
+		/// <param name="color">The colour, or <c>null</c> to inherit.</param>
+		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
+		public void SetMessageRailColor(ChatMessageId id, Color? color)
+		{
+			var entry = Require(id);
+			if (entry.RailColorOverride == color)
+				return;
+			entry.RailColorOverride = color;
+			Invalidate(Invalidation.Repaint);
+		}
+
+		/// <summary>The colour <see cref="SetMessageRailColor"/> gave a message's rail, or <c>null</c>
+		/// when it inherits.</summary>
+		/// <param name="id">The message id.</param>
+		public Color? GetMessageRailColor(ChatMessageId id) => Require(id).RailColorOverride;
+
+		/// <summary>Test-only: the colour a message's rail is painted in.</summary>
+		internal Color RailColorForTest(ChatMessageId id) => ResolveRailColor(Require(id));
+
 		#endregion
 
 		#region Gutter margin
@@ -279,6 +304,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private Color ResolveRailColor(MessageEntry entry, Color defaultBg)
 		{
+			// The most specific colour wins: the message's own, then its role's, then the transcript's.
+			if (entry.RailColorOverride is { } own)
+				return own;
+			if (GetRoleStyle(entry.Role).RailColor is { } roleRail)
+				return roleRail;
 			if (_messageRailColor.HasValue)
 				return _messageRailColor.Value;
 

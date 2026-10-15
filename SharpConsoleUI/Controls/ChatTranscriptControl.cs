@@ -112,10 +112,20 @@ namespace SharpConsoleUI.Controls
 
 			/// <summary>
 			/// Whether this message shows the left rail: the explicit <see cref="RailOverride"/> when one is
-			/// set, otherwise footer presence. This is the single rule both rail gates read — the gutter
+			/// set, then its role's <see cref="ChatRoleStyle.Rail"/>, otherwise footer presence. This is the single rule both rail gates read — the gutter
 			/// inset and the painted glyph — so the reserved column and the drawn rail cannot disagree.
 			/// </summary>
-			public bool WantsRail => RailOverride ?? HasFooter;
+			public bool WantsRail => RailOverride ?? RoleRail ?? HasFooter;
+
+			/// <summary>The role style's <see cref="ChatRoleStyle.Rail"/>, captured at add and on every
+			/// restyle — the entry cannot read role styles itself.</summary>
+			public bool? RoleRail { get; set; }
+
+			/// <summary>This message's own rail colour, or null to use the role's or the transcript's.</summary>
+			public Color? RailColorOverride { get; set; }
+
+			/// <summary>This message's own background, or null to use its role's.</summary>
+			public Color? BackgroundOverride { get; set; }
 
 			/// <summary>
 			/// Explicit per-message Markdown request, or <c>null</c> (the default) to inherit
@@ -251,6 +261,18 @@ namespace SharpConsoleUI.Controls
 				HeaderStyle = CollapsibleHeaderStyle.Rounded,
 				Header = static (_, author) => author ?? "Error"
 			};
+
+			// FOLDABLE AND RAILED by default: reasoning is read on demand, and the rail sets it apart
+			// from the answer beside it at a glance.
+			_roleStyles[ChatRole.Thinking] = new ChatRoleStyle
+			{
+				ColorRole = ColorRole.Warning,
+				HeaderStyle = CollapsibleHeaderStyle.Borderless,
+				Collapsible = true,
+				Rail = true,
+				Markdown = false,
+				Header = static (_, author) => author ?? "Thinking"
+			};
 		}
 
 		#region Role style API
@@ -332,7 +354,14 @@ namespace SharpConsoleUI.Controls
 				// BorderColor is already nullable; BackgroundColor is not, so the internal nullable hook
 				// is what expresses the difference between "transparent" and "unset".
 				panel.BorderColor = style.BorderColor;
-				panel.SetBackgroundColorNullable(style.Background);
+				// A message's own background outlives a restyle, as its markdown mode does: it was set on
+				// the message, not derived from the style being replaced.
+				panel.SetBackgroundColorNullable(entry.BackgroundOverride ?? style.Background);
+				if (entry.RoleRail != style.Rail)
+				{
+					entry.RoleRail = style.Rail;
+					ApplyGutter(entry);
+				}
 
 				panel.AnimationMode = (AnimateMessages && style.Collapsible)
 					? CollapsibleAnimationMode.Height
@@ -404,6 +433,26 @@ namespace SharpConsoleUI.Controls
 		/// <returns>The override, or <c>null</c> when the message inherits its role's setting.</returns>
 		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
 		public bool? GetMarkdownMode(ChatMessageId id) => Require(id).MarkdownOverride;
+
+		/// <summary>
+		/// Gives ONE message its own background, over its role's — for a message that is a different
+		/// kind of thing from its neighbours of the same role. Survives <see cref="RestyleMessages"/>.
+		/// </summary>
+		/// <param name="id">The message id.</param>
+		/// <param name="background">The background, or <c>null</c> to return to the role's.</param>
+		/// <exception cref="KeyNotFoundException">No message with the id exists.</exception>
+		public void SetMessageBackground(ChatMessageId id, Color? background)
+		{
+			var entry = Require(id);
+			entry.BackgroundOverride = background;
+			entry.Panel.SetBackgroundColorNullable(background ?? GetRoleStyle(entry.Role).Background);
+			Invalidate(Invalidation.Repaint);
+		}
+
+		/// <summary>The background <see cref="SetMessageBackground"/> gave a message, or <c>null</c> when
+		/// it uses its role's.</summary>
+		/// <param name="id">The message id.</param>
+		public Color? GetMessageBackground(ChatMessageId id) => Require(id).BackgroundOverride;
 
 		/// <summary>
 		/// Gets the rendering mode actually in effect for the message's body: its override when one is
@@ -610,6 +659,12 @@ namespace SharpConsoleUI.Controls
 
 			_order.Add(entry);
 			_byId[id] = entry;
+
+			// A ROLE THAT RAILS its messages reserves the gutter from the first frame; a role that does
+			// not leaves the message exactly as it was, so nothing changes for the roles that never asked.
+			entry.RoleRail = style.Rail;
+			if (style.Rail is true)
+				ApplyGutter(entry);
 
 			AddControl(panel);
 
@@ -1005,6 +1060,7 @@ namespace SharpConsoleUI.Controls
 			ChatRole.System => "System",
 			ChatRole.Tool => "🔧 tool",
 			ChatRole.Error => "Error",
+			ChatRole.Thinking => "Thinking",
 			_ => role.ToString()
 		};
 

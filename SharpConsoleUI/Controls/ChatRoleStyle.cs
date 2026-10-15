@@ -29,7 +29,13 @@ namespace SharpConsoleUI.Controls
 		Tool,
 
 		/// <summary>An error message.</summary>
-		Error
+		Error,
+
+		/// <summary>
+		/// A model's reasoning, shown apart from its answer. Its own role so a host styles every
+		/// thinking block in one place — a rail, a surface, a colour — rather than per message.
+		/// </summary>
+		Thinking
 	}
 
 	/// <summary>
@@ -146,6 +152,20 @@ namespace SharpConsoleUI.Controls
 		/// When <c>null</c> the panel's default background is used.
 		/// </summary>
 		public Color? Background { get; init; }
+
+		/// <summary>
+		/// Whether this role's messages show the left rail by default. <c>null</c> (default) keeps the
+		/// footer-gated rule — railed only with an actions or status row; <c>true</c> rails every message
+		/// of the role. A message's own <see cref="ChatTranscriptControl.SetMessageRail"/> still wins.
+		/// </summary>
+		public bool? Rail { get; init; }
+
+		/// <summary>
+		/// Colour of this role's rail. <c>null</c> (default) uses the transcript's
+		/// <see cref="ChatTranscriptControl.MessageRailColor"/>, else a dimmed role colour. A message's
+		/// own <see cref="ChatTranscriptControl.SetMessageRailColor"/> still wins.
+		/// </summary>
+		public Color? RailColor { get; init; }
 
 		/// <summary>
 		/// Per-role override for whether this role's message body allows text selection.
