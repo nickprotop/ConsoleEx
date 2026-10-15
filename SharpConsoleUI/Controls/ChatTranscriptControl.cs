@@ -262,13 +262,14 @@ namespace SharpConsoleUI.Controls
 				Header = static (_, author) => author ?? "Error"
 			};
 
-			// FOLDABLE AND RAILED by default: reasoning is read on demand, and the rail sets it apart
-			// from the answer beside it at a glance.
+			// FOLDED LIKE A TOOL ROW, AND RAILED: reasoning is read on demand, as tool output is, and the
+			// rail sets it apart from the answer beside it at a glance.
 			_roleStyles[ChatRole.Thinking] = new ChatRoleStyle
 			{
 				ColorRole = ColorRole.Warning,
 				HeaderStyle = CollapsibleHeaderStyle.Borderless,
 				Collapsible = true,
+				StartCollapsed = true,
 				Rail = true,
 				Markdown = false,
 				Header = static (_, author) => author ?? "Thinking"

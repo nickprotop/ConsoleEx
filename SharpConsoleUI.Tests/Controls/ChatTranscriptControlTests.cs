@@ -439,11 +439,13 @@ public class ChatTranscriptControlTests
 	// --- the Thinking role -------------------------------------------------------------------
 
 	[Fact]
-	public void TheThinkingRole_HasADefaultStyle_ThatFolds()
+	public void TheThinkingRole_HasADefaultStyle_ThatFoldsLikeATool()
 	{
 		var chat = Build();
 		var style = chat.GetRoleStyle(ChatRole.Thinking);
-		Assert.True(style.Collapsible);
+		var tool = chat.GetRoleStyle(ChatRole.Tool);
+		Assert.Equal(tool.Collapsible, style.Collapsible);
+		Assert.Equal(tool.StartCollapsed, style.StartCollapsed);
 		var id = chat.AddMessage(ChatRole.Thinking, "weighing it");
 		Assert.Equal(ChatRole.Thinking, chat.GetRole(id));
 	}

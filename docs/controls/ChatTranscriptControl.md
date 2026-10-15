@@ -315,7 +315,7 @@ The control ships with per-role defaults that look correct with zero configurati
 | `System` | `Info` | `Borderless` | Yes | Yes | "System" |
 | `Tool` | `Secondary` | `Borderless` | Yes | Yes | "🔧 tool" |
 | `Error` | `Danger` | `Rounded` | No | — | "Error" |
-| `Thinking` | `Warning` | `Borderless` | Yes | No | "Thinking" (railed, plain markup body) |
+| `Thinking` | `Warning` | `Borderless` | Yes | Yes | "Thinking" (railed, plain markup body) |
 
 `System` and `Tool` messages start collapsed (header-only) because they are often verbose. The user can click the header to expand them; when `AnimateMessages` is `true` (the default), the expand/collapse uses a height tween instead of snapping.
 
