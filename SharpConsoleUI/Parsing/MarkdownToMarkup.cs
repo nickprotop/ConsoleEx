@@ -331,6 +331,18 @@ namespace SharpConsoleUI.Parsing
 						sb.Append('\n');
 					break;
 
+				// A DELIMITER THAT FORMED NOTHING IS TEXT. A `|` in prose that is not a table row stays in the tree as
+				// the table extension's delimiter inline, and a container's children are all the fallback below
+				// writes — so the pipe vanished: `grep x | head` rendered as `grep x  head`. Its own literal goes
+				// first, then whatever it holds.
+				// Keep this arm below EmphasisInline and LinkInline: both derive from DelimiterInline, so moving
+				// it above them would swallow their cases and emit raw `*` and `[` instead of markup.
+				case DelimiterInline delimiter:
+					sb.Append(MarkupParser.Escape(delimiter.ToLiteral()));
+					foreach (var child in delimiter)
+						WriteInline(child, sb, style);
+					break;
+
 				default:
 					if (inline is ContainerInline ci)
 						foreach (var child in ci)

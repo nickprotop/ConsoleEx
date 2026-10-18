@@ -19,6 +19,27 @@ namespace SharpConsoleUI.Tests.Parsing
 		private static List<Cell> Render(string md)
 			=> MarkupParser.Parse(MarkdownToMarkup.Convert(md), Fg, Bg);
 
+		[Theory]
+		[InlineData("grep -n def prices.py | head -3")]
+		[InlineData("a | b")]
+		[InlineData("either this | or that, and a | in a sentence")]
+		public void APipeOutsideATable_IsKept(string text)
+		{
+			// A `|` in prose that does not form a table stays in the text as Markdig's table-delimiter
+			// inline, with nothing inside it to write — so it vanished, and a typed shell pipeline lost
+			// its pipe on screen.
+			Assert.Equal(text, MarkdownToMarkup.Convert(text));
+		}
+
+		[Fact]
+		public void ARealTable_StillRendersAsATable()
+		{
+			var markup = MarkdownToMarkup.Convert("| a | b |\n|---|---|\n| 1 | 2 |");
+
+			Assert.DoesNotContain("| a | b |", markup);
+			Assert.Contains("1", markup);
+		}
+
 		[Fact]
 		public void Paragraphs_AreSeparatedByABlankLine()
 		{
