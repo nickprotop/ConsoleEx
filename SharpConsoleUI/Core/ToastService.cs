@@ -312,7 +312,11 @@ namespace SharpConsoleUI.Core
 				DismissOnClickOutside: false,
 				ConsumeClickOnDismiss: false,
 				BufferSize: new System.Drawing.Size(dims.Width, dims.Height),
-				BufferOrigin: new System.Drawing.Point(0, 0)));
+				BufferOrigin: new System.Drawing.Point(0, 0),
+				// A toast is an announcement, not a prompt: it must never take the keyboard, or everything
+				// typed while it is up is lost. Stated explicitly rather than left to the content check, so
+				// that giving a toast actions later does not silently turn it into a keyboard trap.
+				CapturesInput: false));
 		}
 
 		/// <summary>Removes a previously-created portal/window handle.</summary>

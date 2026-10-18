@@ -57,6 +57,30 @@ namespace SharpConsoleUI.Core
 		public DesktopPortal? TopPortal { get { lock (_portalLock) { return _portals.Count > 0 ? _portals[_portals.Count - 1] : null; } } }
 
 		/// <summary>
+		/// Gets the topmost portal that takes keyboard input, or null if none of the open portals do.
+		/// </summary>
+		/// <remarks>
+		/// Passive overlays (a toast) are open but do not want keys, so the keyboard belongs to the
+		/// highest portal that does. Looking past them is what lets a toast appear over a window
+		/// without the user's typing disappearing into it.
+		/// </remarks>
+		public DesktopPortal? TopCapturingPortal
+		{
+			get
+			{
+				lock (_portalLock)
+				{
+					for (int i = _portals.Count - 1; i >= 0; i--)
+					{
+						if (_portals[i].CapturesInput)
+							return _portals[i];
+					}
+					return null;
+				}
+			}
+		}
+
+		/// <summary>
 		/// Gets a snapshot of all open portals, ordered by ZOrder.
 		/// </summary>
 		public IReadOnlyList<DesktopPortal> Portals { get { lock (_portalLock) { return _portals.ToList(); } } }

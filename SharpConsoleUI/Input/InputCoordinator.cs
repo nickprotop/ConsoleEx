@@ -86,39 +86,42 @@ namespace SharpConsoleUI.Input
 			{
 				var keyInfo = key.Value;
 
-				// Desktop portals capture keyboard input when open. The portal's content gets the key
-				// first (nav / type-ahead / Enter); a key it does NOT consume falls through to global
-				// shortcuts, so app-level shortcuts still work with a portal open (e.g. to toggle/switch
-				// portals). Escape closes the top portal. The portal always consumes the frame (continue).
-				if (_context.DesktopPortalService.HasPortals)
+				// A CAPTURING desktop portal takes the keyboard while open: its content gets the key first
+				// (nav / type-ahead / Enter), a key it does NOT consume falls through to global shortcuts
+				// so app-level shortcuts still work, and Escape closes it. The portal then consumes the
+				// frame (continue).
+				//
+				// Only capturing portals do this. A passive overlay — a toast — sits on top of the window
+				// but must not eat what the user types: swallowing it loses keystrokes with no sign
+				// anything happened, which reads as the app ignoring the keyboard. So look past
+				// non-capturing portals for the top one that actually wants keys; when there is none,
+				// fall through to the normal path exactly as if no portal were open.
+				var topPortal = _context.DesktopPortalService.TopCapturingPortal;
+				if (topPortal != null)
 				{
-					var topPortal = _context.DesktopPortalService.TopPortal;
-					if (topPortal != null)
+					bool handled = false;
+					if (topPortal.Content is Controls.IInteractiveControl interactive)
 					{
-						bool handled = false;
-						if (topPortal.Content is Controls.IInteractiveControl interactive)
-						{
-							handled = interactive.ProcessKey(keyInfo);
-						}
-						if (!handled)
-						{
-							handled = _context.TryHandleGlobalShortcut(keyInfo);
-						}
-						// The configured exit key (default Ctrl+Q) is a quit-from-anywhere shortcut — it
-						// must work with a portal open too, not be swallowed by the portal capture.
-						if (!handled && _context.Options.ExitKey.HasValue
-							&& (keyInfo.Modifiers & ConsoleModifiers.Control) != 0
-							&& keyInfo.Key == _context.Options.ExitKey.Value)
-						{
-							_context.RequestExit(0);
-							handled = true;
-						}
-						if (!handled && keyInfo.Key == ConsoleKey.Escape)
-						{
-							_context.DesktopPortalService.RemovePortal(topPortal);
-						}
+						handled = interactive.ProcessKey(keyInfo);
 					}
-					continue; // Portal captures all keys
+					if (!handled)
+					{
+						handled = _context.TryHandleGlobalShortcut(keyInfo);
+					}
+					// The configured exit key (default Ctrl+Q) is a quit-from-anywhere shortcut — it
+					// must work with a portal open too, not be swallowed by the portal capture.
+					if (!handled && _context.Options.ExitKey.HasValue
+						&& (keyInfo.Modifiers & ConsoleModifiers.Control) != 0
+						&& keyInfo.Key == _context.Options.ExitKey.Value)
+					{
+						_context.RequestExit(0);
+						handled = true;
+					}
+					if (!handled && keyInfo.Key == ConsoleKey.Escape)
+					{
+						_context.DesktopPortalService.RemovePortal(topPortal);
+					}
+					continue; // A capturing portal consumes the frame
 				}
 
 				// Check for Start menu shortcut first

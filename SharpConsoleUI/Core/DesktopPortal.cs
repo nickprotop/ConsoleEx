@@ -24,6 +24,12 @@ namespace SharpConsoleUI.Core
 	/// <param name="Owner">The control that owns this portal (for identification/cleanup).</param>
 	/// <param name="BufferSize">Buffer size for rendering. Defaults to Bounds size.</param>
 	/// <param name="BufferOrigin">Screen coordinate that buffer (0,0) maps to. Defaults to Bounds.Location.</param>
+	/// <param name="CapturesInput">
+	/// Whether this portal takes the keyboard while it is open. <c>null</c> (the default) derives it from the
+	/// content: an <see cref="IInteractiveControl"/> captures, anything else does not. A dropdown or menu needs
+	/// the keys; a passive overlay such as a toast must not swallow them, or the user types into nothing.
+	/// Set explicitly to override.
+	/// </param>
 	public record DesktopPortalOptions(
 		IWindowControl Content,
 		Rectangle Bounds,
@@ -33,7 +39,8 @@ namespace SharpConsoleUI.Core
 		Action? OnDismiss = null,
 		IWindowControl? Owner = null,
 		Size? BufferSize = null,
-		Point? BufferOrigin = null
+		Point? BufferOrigin = null,
+		bool? CapturesInput = null
 	);
 
 	/// <summary>
@@ -82,6 +89,13 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public Point BufferOrigin { get; }
 
+		/// <summary>
+		/// Whether this portal takes the keyboard while open. Resolved at construction: an explicit
+		/// <c>CapturesInput</c> wins, otherwise the content decides — interactive content captures,
+		/// passive content (a toast) lets keys through to the window underneath.
+		/// </summary>
+		public bool CapturesInput { get; }
+
 		/// <summary>Stacking order among portals (higher = on top).</summary>
 		public int ZOrder { get; }
 
@@ -119,6 +133,7 @@ namespace SharpConsoleUI.Core
 			Bounds = options.Bounds;
 			DismissOnClickOutside = options.DismissOnClickOutside;
 			ConsumeClickOnDismiss = options.ConsumeClickOnDismiss;
+			CapturesInput = options.CapturesInput ?? options.Content is IInteractiveControl;
 			DimBackground = options.DimBackground;
 			OnDismiss = options.OnDismiss;
 			Owner = options.Owner;
