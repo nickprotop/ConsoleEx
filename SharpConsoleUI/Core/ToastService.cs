@@ -33,10 +33,24 @@ namespace SharpConsoleUI.Core
 	/// <param name="Timeout">Auto-dismiss timeout in milliseconds, or <c>null</c> to use the service default.</param>
 	/// <param name="Sticky">When <c>true</c>, the toast does not auto-dismiss and must be dismissed explicitly.</param>
 	/// <param name="Position">The screen position, or <c>null</c> to use the service default.</param>
+	/// <param name="MaxLines">
+	/// Maximum wrapped content lines before the text ellipsizes, or <c>null</c> to use the service default.
+	/// </param>
+	/// <param name="MinWidth">
+	/// Floor for the toast width in display columns, or <c>null</c> for none — the toast shrinks to fit
+	/// its content.
+	/// </param>
+	/// <param name="MaxWidth">
+	/// Cap for the toast width in display columns, or <c>null</c> to use the service default. The toast
+	/// never exceeds the desktop regardless.
+	/// </param>
 	public sealed record ToastOptions(
 		int? Timeout = null,
 		bool Sticky = false,
-		ToastPosition? Position = null);
+		ToastPosition? Position = null,
+		int? MaxLines = null,
+		int? MinWidth = null,
+		int? MaxWidth = null);
 
 	/// <summary>
 	/// Immutable description of a single active toast.
@@ -46,12 +60,18 @@ namespace SharpConsoleUI.Core
 	/// <param name="Severity">The severity level determining the visual style.</param>
 	/// <param name="Position">The screen position where the toast is anchored.</param>
 	/// <param name="Sticky">Whether the toast is sticky (does not auto-dismiss).</param>
+	/// <param name="MaxLines">Resolved maximum wrapped content lines, or <c>null</c> for the service default.</param>
+	/// <param name="MinWidth">Resolved width floor, or <c>null</c> for none.</param>
+	/// <param name="MaxWidth">Resolved width cap, or <c>null</c> for the service default.</param>
 	public record ToastInfo(
 		string Id,
 		string Message,
 		NotificationSeverity Severity,
 		ToastPosition Position,
-		bool Sticky);
+		bool Sticky,
+		int? MaxLines = null,
+		int? MinWidth = null,
+		int? MaxWidth = null);
 
 	/// <summary>
 	/// Immutable snapshot of the toast subsystem state.
@@ -157,6 +177,9 @@ namespace SharpConsoleUI.Core
 		private ToastState _currentState = ToastState.Empty;
 		private int _idSeq;
 		private ToastPosition _defaultPosition = ToastPosition.BottomRight;
+		private int _defaultMaxLines = Configuration.ControlDefaults.ToastMaxLines;
+		private int? _defaultMinWidth;
+		private int? _defaultMaxWidth;
 
 		/// <inheritdoc/>
 		public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
@@ -207,6 +230,41 @@ namespace SharpConsoleUI.Core
 		}
 
 		/// <summary>
+		/// Gets or sets the default cap on wrapped content lines for toasts that do not specify one.
+		/// Text beyond this is ellipsized. Values below 1 are raised to 1 — a toast always shows a line.
+		/// </summary>
+		public int DefaultMaxLines
+		{
+			get => _defaultMaxLines;
+			set
+			{
+				int v = Math.Max(1, value);
+				if (_defaultMaxLines != v) { _defaultMaxLines = v; Raise(nameof(DefaultMaxLines)); }
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the default width floor for toasts that do not specify one, or <c>null</c> for
+		/// none — a toast then shrinks to fit its content, which is the historical behaviour.
+		/// </summary>
+		public int? DefaultMinWidth
+		{
+			get => _defaultMinWidth;
+			set { if (_defaultMinWidth != value) { _defaultMinWidth = value; Raise(nameof(DefaultMinWidth)); } }
+		}
+
+		/// <summary>
+		/// Gets or sets the default width cap for toasts that do not specify one, or <c>null</c> for the
+		/// automatic cap: half the desktop, never narrower than
+		/// <see cref="Configuration.ControlDefaults.ToastMaxWidth"/> and never wider than the desktop.
+		/// </summary>
+		public int? DefaultMaxWidth
+		{
+			get => _defaultMaxWidth;
+			set { if (_defaultMaxWidth != value) { _defaultMaxWidth = value; Raise(nameof(DefaultMaxWidth)); } }
+		}
+
+		/// <summary>
 		/// Shows a toast with the given message and severity using default options.
 		/// </summary>
 		/// <param name="message">The message text to display.</param>
@@ -225,7 +283,8 @@ namespace SharpConsoleUI.Core
 		public string Show(string message, NotificationSeverity severity, ToastOptions options)
 		{
 			var position = options.Position ?? _defaultPosition;
-			var info = new ToastInfo($"toast-{System.Threading.Interlocked.Increment(ref _idSeq)}", message, severity, position, options.Sticky);
+			var info = new ToastInfo($"toast-{System.Threading.Interlocked.Increment(ref _idSeq)}", message, severity, position, options.Sticky,
+				options.MaxLines, options.MinWidth, options.MaxWidth);
 			var content = new Controls.ToastContent(message, severity, MapSeverityToRole(severity.Severity)) { Sticky = options.Sticky };
 			content.DismissRequested += (_, _) => Dismiss(info.Id);
 
@@ -303,7 +362,9 @@ namespace SharpConsoleUI.Core
 		protected virtual object CreatePortalFor(Controls.ToastContent content, ToastInfo info)
 		{
 			content.Container = _windowSystem.ActiveWindow;
-			var bounds = BoundsFor(info, _entries.Count); // appended last (called under lock before the add)
+			// Appended last (called under the lock before the add), so it sits after everything already
+			// stacked AT ITS OWN position — other corners do not push it along.
+			var bounds = BoundsFor(info, ConsumedExtentAt(info.Position));
 			content.SetBounds(bounds);
 			var dims = _windowSystem.DesktopDimensions;
 			return _windowSystem.DesktopPortalService.CreatePortal(new DesktopPortalOptions(
@@ -329,10 +390,18 @@ namespace SharpConsoleUI.Core
 		/// <summary>Recomputes stacking slots after the active set changes. Called under the lock.</summary>
 		protected virtual void ReflowSlots()
 		{
-			int i = 0;
+			// Accumulate consumed rows PER POSITION. Toasts vary in height, so a fixed slot pitch no
+			// longer places them; and a toast in one corner must not push one in another corner away
+			// from its edge, which a single shared counter used to do.
+			var consumed = new Dictionary<ToastPosition, int>();
+			int gap = Configuration.ControlDefaults.ToastGap;
+
 			foreach (var e in _entries.Values)
 			{
-				var b = BoundsFor(e.Info, i++);
+				consumed.TryGetValue(e.Info.Position, out int before);
+				var b = BoundsFor(e.Info, before);
+				consumed[e.Info.Position] = before + b.Height + gap;
+
 				e.Content.SetBounds(b);
 				if (e.Handle is DesktopPortal dp) dp.Bounds = b;
 			}
@@ -342,17 +411,20 @@ namespace SharpConsoleUI.Core
 		/// Computes the screen-absolute bounds for a toast occupying the given stacking slot.
 		/// </summary>
 		/// <param name="pos">The anchor position on the screen.</param>
-		/// <param name="slotIndex">The zero-based stacking slot, growing away from the anchored edge.</param>
+		/// <param name="precedingExtent">
+		/// Rows already consumed by the toasts stacked before this one at the SAME position, including
+		/// their gaps. Toasts vary in height now, so the offset is accumulated by the caller rather than
+		/// derived from a slot index.
+		/// </param>
 		/// <param name="w">The toast width in columns.</param>
+		/// <param name="h">The toast height in rows, borders included.</param>
 		/// <param name="dw">The desktop width in columns.</param>
 		/// <param name="dh">The desktop height in rows.</param>
 		/// <returns>The screen-absolute bounds rectangle for the toast.</returns>
-		internal static Rectangle ComputeToastBounds(ToastPosition pos, int slotIndex, int w, int dw, int dh)
+		internal static Rectangle ComputeToastBounds(ToastPosition pos, int precedingExtent, int w, int h, int dw, int dh)
 		{
 			int margin = Configuration.ControlDefaults.ToastEdgeMargin;
-			int gap = Configuration.ControlDefaults.ToastGap;
-			int h = 3; // border + 1 content line (single-line v1)
-			int slotOffset = slotIndex * (h + gap);
+			int slotOffset = precedingExtent;
 
 			int x = pos switch
 			{
@@ -366,17 +438,84 @@ namespace SharpConsoleUI.Core
 			return new Rectangle(x, y, w, h);
 		}
 
-		private int ContentWidth(ToastInfo info)
+		/// <summary>The text a toast paints: the severity icon, when it has one, then the message.</summary>
+		internal static string ToastLine(ToastInfo info)
+			=> string.IsNullOrEmpty(info.Severity.Icon) ? info.Message : info.Severity.Icon + "  " + info.Message;
+
+		/// <summary>
+		/// Measures a toast: how wide its box is and how many rows it needs.
+		/// </summary>
+		/// <remarks>
+		/// The width cap is the per-toast value, else the service default, else automatic — half the
+		/// desktop, floored at <see cref="Configuration.ControlDefaults.ToastMaxWidth"/> so narrow and
+		/// standard terminals keep the width they have always had. The floor is whatever min width
+		/// resolves to, but never above the cap: a min wider than the terminal degrades to the terminal
+		/// rather than throwing out of Math.Clamp. Height follows from wrapping the text to the content
+		/// width, capped at max lines.
+		/// </remarks>
+		internal static (int Width, int Height) MeasureToast(string line, int? maxLines, int? minWidth, int? maxWidth,
+			int desktopWidth, int defaultMaxLines)
 		{
-			string s = (string.IsNullOrEmpty(info.Severity.Icon) ? "" : info.Severity.Icon + "  ") + info.Message;
-			// +5 chrome: left border + accent bar + leading space + right border + trailing pad
-			return Math.Min(Configuration.ControlDefaults.ToastMaxWidth, Parsing.MarkupParser.StripLength(s) + 5);
+			int chromeW = Configuration.ControlDefaults.ToastChromeWidth;
+			int margin = Configuration.ControlDefaults.ToastEdgeMargin;
+
+			// Widest box the desktop can hold. Floored at 1 so a degenerate desktop cannot go negative.
+			int desktopCap = Math.Max(1, desktopWidth - 2 * margin);
+
+			int autoCap = Math.Max(Configuration.ControlDefaults.ToastMaxWidth,
+				desktopWidth / Configuration.ControlDefaults.ToastAutoWidthDivisor);
+			int cap = Math.Min(maxWidth ?? autoCap, desktopCap);
+			cap = Math.Max(1, cap);
+
+			// The floor can never beat the cap — that ordering is what keeps Math.Clamp legal below.
+			int floor = Math.Min(Math.Max(1, minWidth ?? 1), cap);
+
+			int lines = Math.Max(1, maxLines ?? defaultMaxLines);
+
+			// Natural width if the text were never wrapped.
+			int natural = Parsing.MarkupParser.StripLength(line) + chromeW;
+			int width = Math.Clamp(natural, floor, cap);
+
+			// Wrap to the content area to find the real row count, then let the box shrink to the widest
+			// row so a short wrapped line does not leave a ragged gap.
+			int contentWidth = Math.Max(1, width - chromeW);
+			var rows = Helpers.ToastTextLayout.Wrap(line, contentWidth, lines);
+
+			int used = rows.Count;
+			int widest = 0;
+			for (int i = 0; i < used; i++)
+				widest = Math.Max(widest, rows[i].Count);
+
+			width = Math.Clamp(widest + chromeW, floor, cap);
+			int height = used + Configuration.ControlDefaults.ToastChromeHeight;
+			return (width, height);
 		}
 
-		private Rectangle BoundsFor(ToastInfo info, int slotIndex)
+		/// <summary>Rows already taken by the live toasts at <paramref name="pos"/>, gaps included.</summary>
+		private int ConsumedExtentAt(ToastPosition pos)
+		{
+			int gap = Configuration.ControlDefaults.ToastGap;
+			int total = 0;
+			foreach (var e in _entries.Values)
+			{
+				if (e.Info.Position != pos) continue;
+				total += MeasureToast(e.Info).Height + gap;
+			}
+			return total;
+		}
+
+		private (int Width, int Height) MeasureToast(ToastInfo info)
 		{
 			var dims = _windowSystem.DesktopDimensions;
-			return ComputeToastBounds(info.Position, slotIndex, ContentWidth(info), dims.Width, dims.Height);
+			return MeasureToast(ToastLine(info), info.MaxLines, info.MinWidth ?? _defaultMinWidth,
+				info.MaxWidth ?? _defaultMaxWidth, dims.Width, _defaultMaxLines);
+		}
+
+		private Rectangle BoundsFor(ToastInfo info, int precedingExtent)
+		{
+			var dims = _windowSystem.DesktopDimensions;
+			var (w, h) = MeasureToast(info);
+			return ComputeToastBounds(info.Position, precedingExtent, w, h, dims.Width, dims.Height);
 		}
 
 		private IReadOnlyList<ToastInfo> BuildActiveList()

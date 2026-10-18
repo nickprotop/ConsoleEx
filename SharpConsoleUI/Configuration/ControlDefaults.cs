@@ -1156,8 +1156,25 @@ namespace SharpConsoleUI.Configuration
 		/// <summary>Default auto-dismiss timeout for error (danger) toasts, in milliseconds.</summary>
 		public const int ToastErrorTimeoutMs = 6000;
 
-		/// <summary>Maximum width of a toast overlay, in display columns.</summary>
+		/// <summary>
+		/// Baseline maximum width of a toast overlay, in display columns. The automatic cap is half the
+		/// desktop but never narrower than this, so narrow and standard terminals keep the width they
+		/// have always had while wide ones get more room. Also the value to pass explicitly for the
+		/// classic fixed width.
+		/// </summary>
 		public const int ToastMaxWidth = 48;
+
+		/// <summary>The fraction of the desktop width the automatic toast cap uses (2 = one half).</summary>
+		public const int ToastAutoWidthDivisor = 2;
+
+		/// <summary>Default maximum number of wrapped content lines in a toast before it ellipsizes.</summary>
+		public const int ToastMaxLines = 2;
+
+		/// <summary>Chrome consumed by a toast's borders, accent bar and padding, in display columns.</summary>
+		public const int ToastChromeWidth = 5;
+
+		/// <summary>Chrome consumed by a toast's top and bottom borders, in rows.</summary>
+		public const int ToastChromeHeight = 2;
 
 		/// <summary>Margin between the stacked toasts and the screen edge, in cells.</summary>
 		public const int ToastEdgeMargin = 1;

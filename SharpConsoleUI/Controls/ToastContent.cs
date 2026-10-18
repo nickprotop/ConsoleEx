@@ -97,8 +97,24 @@ namespace SharpConsoleUI.Controls
 
 			string line = string.IsNullOrEmpty(_severity.Icon) ? _message : $"{_severity.Icon}  {_message}";
 			int contentX = x0 + 3;
-			buffer.WriteStringClipped(contentX, y0 + 1, line, text, back,
-				new LayoutRect(contentX, y0 + 1, Math.Max(0, x1 - contentX), 1));
+			int contentW = Math.Max(1, x1 - contentX);
+			int rowCount = Math.Max(1, y1 - y0 - 1);
+
+			// Wrap to the box the service measured, then paint at most the rows it allowed for. The last
+			// visible row is ellipsized when text remains, so a clipped message says so instead of just
+			// stopping mid-word.
+			var rows = ToastTextLayout.Wrap(line, contentW, rowCount);
+			for (int i = 0; i < rows.Count; i++)
+			{
+				int y = y0 + 1 + i;
+				var cells = rows[i];
+				for (int c = 0; c < cells.Count && contentX + c <= x1 - 1; c++)
+					buffer.SetCell(contentX + c, y, new Cell(cells[c].Character, text, back, cells[c].Decorations)
+					{
+						IsWideContinuation = cells[c].IsWideContinuation,
+						Combiners = cells[c].Combiners
+					});
+			}
 		}
 
 		private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? name = null)
