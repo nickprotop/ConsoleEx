@@ -1,5 +1,5 @@
 #!/usr/bin/env dotnet
-#:package SharpConsoleUI@2.7.4
+#:package SharpConsoleUI@2.7.5
 
 // picker.cs — Single-select list picker for shell pipelines.
 //
