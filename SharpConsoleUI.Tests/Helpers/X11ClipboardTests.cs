@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using SharpConsoleUI.Helpers;
 using Xunit;
 
@@ -143,6 +144,69 @@ public class X11ClipboardTests
 			return;
 		using (reader)
 			Assert.Equal(string.Empty, reader.GetText(2000));
+	}
+
+	/// <summary>
+	/// A PASTE THAT GAVE UP MUST NOT COST THE NEXT ONE. An X11 read is a round trip to whichever application
+	/// owns the clipboard, and a cold browser or editor can take longer to answer than a paste waits. The first
+	/// Ctrl+V then returned nothing — and so did the second, because it queued behind a conversion that was
+	/// still outstanding, waiting out a whole further round trip. A caller arriving while a read is in flight
+	/// now joins it: the clipboard is one value, so the answer already being fetched is its answer too.
+	/// </summary>
+	[X11Fact]
+	public void APasteDuringASlowOne_LandsWithIt_NotAfterASecondRoundTrip()
+	{
+		if (!TryOpenPair(out var owner, out var reader))
+			return;
+		using (owner)
+		using (reader)
+		{
+			owner.SetText("from a slow owner");
+			owner.DelayAnswersForTest(700);
+
+			// The first paste gives up: the owner is slower than it waits.
+			Assert.Null(reader.GetText(150));
+
+			// The second, with the owner STILL slow, must land when that one answer arrives — the remainder of
+			// the 700ms, not another 700 on top. Queueing instead of joining blew well past this bound.
+			var clock = Stopwatch.StartNew();
+			var text = reader.GetText(900);
+			clock.Stop();
+			owner.DelayAnswersForTest(0);
+
+			Assert.Equal("from a slow owner", text);
+			Assert.True(clock.ElapsedMilliseconds < 700,
+				$"took {clock.ElapsedMilliseconds}ms, so it waited for a second conversion instead of joining the first");
+		}
+	}
+
+	/// <summary>Several pastes during one slow answer collapse onto it, rather than serialising behind it.</summary>
+	[X11Fact]
+	public void SeveralPastesDuringOneSlowAnswer_AllGetIt()
+	{
+		if (!TryOpenPair(out var owner, out var reader))
+			return;
+		using (owner)
+		using (reader)
+		{
+			owner.SetText("shared answer");
+			owner.DelayAnswersForTest(600);
+
+			var readers = new Task<string?>[4];
+			for (int i = 0; i < readers.Length; i++)
+				readers[i] = Task.Run(() => reader.GetText(2000));
+
+			var clock = Stopwatch.StartNew();
+			Task.WaitAll(readers);
+			clock.Stop();
+			owner.DelayAnswersForTest(0);
+
+			Assert.All(readers, r => Assert.Equal("shared answer", r.Result));
+
+			// Four separate conversions at 600ms each would be about 2.4s; one shared is about 600ms.
+			Assert.True(clock.ElapsedMilliseconds < 1400,
+				$"four pastes took {clock.ElapsedMilliseconds}ms, so they did not share one round trip");
+		}
 	}
 
 	[Fact]

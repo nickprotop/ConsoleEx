@@ -60,6 +60,13 @@ namespace SharpConsoleUI.Helpers
 	{
 		private const int ProcessTimeoutMs = 1000;
 
+		/// <summary>
+		/// The least a paste waits on the X11 owner to answer. A cross-client read wakes another application and
+		/// waits for its reply, which is slower than reading a pipe from a tool we started — and a paste that
+		/// gives up too early does nothing at all, which reads as a broken key.
+		/// </summary>
+		private const int X11PasteTimeoutMs = 600;
+
 		private static ClipboardBackend _backend = ClipboardBackend.Unknown;
 
 		// THE NATIVE X11 CONNECTION, when that is the backend. It is the clipboard's owner for the whole run — an X11
@@ -313,8 +320,14 @@ namespace SharpConsoleUI.Helpers
 				return GetText();
 
 			// The X11 read already runs on its own thread; waiting on it is the bound.
+			//
+			// AND IT WAITS ON ANOTHER APPLICATION. An X11 selection is served by whoever owns it, so a paste is a
+			// round trip to a browser or editor that must wake up and answer. 200ms is a sensible ceiling for a
+			// child process we spawn ourselves, but it is under what a cold owner takes, and the paste then
+			// silently did nothing. Nothing is being held here — the X thread does the waiting — so this path
+			// takes the longer bound while the default stays as it is for every other backend.
 			if (_backend == ClipboardBackend.X11)
-				return _x11?.GetText(timeoutMs) ?? GetInternalBuffer();
+				return _x11?.GetText(Math.Max(timeoutMs, X11PasteTimeoutMs)) ?? GetInternalBuffer();
 
 			// Unix process-backed read: do it off-thread, bounded by the timeout.
 			string? result = null;

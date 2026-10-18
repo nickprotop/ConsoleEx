@@ -101,6 +101,9 @@ namespace SharpConsoleUI.Helpers
 			public required nint Target { get; set; }
 			public long Deadline { get; set; }
 			public MemoryStream? Incremental { get; set; }
+
+			/// <summary>Callers that arrived while this read was in flight; they get the same answer.</summary>
+			public List<TaskCompletionSource<string?>>? Joined { get; set; }
 		}
 
 		private X11Clipboard(string selection)
@@ -145,6 +148,11 @@ namespace SharpConsoleUI.Helpers
 		/// <summary>How many sends went in INCR pieces. For tests: a reader that accepts one large property cannot tell.</summary>
 		internal int IncrementalSends => Volatile.Read(ref _incrementalSends);
 
+		private volatile int _answerDelayMs;
+
+		/// <summary>Test-only: makes this owner take <paramref name="ms"/> to answer a conversion request.</summary>
+		internal void DelayAnswersForTest(int ms) => _answerDelayMs = ms;
+
 		private int _incrementalSends;
 
 		/// <summary>Whether the connection has failed; a broken clipboard does nothing and reads nothing.</summary>
@@ -170,7 +178,15 @@ namespace SharpConsoleUI.Helpers
 				return null;
 			try
 			{
-				return done.Task.Wait(timeoutMs) ? done.Task.Result : null;
+				if (done.Task.Wait(timeoutMs))
+					return done.Task.Result;
+
+				// GIVING UP HERE LEAVES THE CONVERSION RUNNING, deliberately. The request is with the owner and
+				// the server will deliver its answer whatever this caller does; tearing it down would throw away
+				// the very text the next paste wants, and starting a second conversion into the same property
+				// while the first is outstanding makes the two answers race. The read stays in the slot and
+				// keeps collecting — see BeginRead, where the next caller joins it instead of queueing.
+				return null;
 			}
 			catch
 			{
@@ -345,6 +361,11 @@ namespace SharpConsoleUI.Helpers
 			switch (ev->Type)
 			{
 				case SelectionRequest:
+					// A SLOW OWNER, ON PURPOSE (tests only): a real browser or editor can take longer to answer a
+					// conversion than a paste is willing to wait, and that is the case the abandoned-read handling
+					// exists for. Zero in every normal run, so nothing is delayed in production.
+					if (_answerDelayMs > 0)
+						Thread.Sleep(_answerDelayMs);
 					Answer((XSelectionRequestEvent*)ev);
 					break;
 				case SelectionClear:
@@ -532,10 +553,18 @@ namespace SharpConsoleUI.Helpers
 				return;
 			}
 
-			// ONE CONVERSION AT A TIME: they share the property they land in.
-			if (_read != null)
+			// ONE CONVERSION AT A TIME: they share the property they land in, so a second request issued while
+			// one is outstanding would have the two answers race for it.
+			//
+			// A READ ALREADY RUNNING IS THIS READ'S ANSWER TOO. The clipboard is one value, so a caller arriving
+			// now wants exactly what the conversion in flight is fetching: it joins that read and is completed
+			// with it. Queueing instead meant a paste whose predecessor had timed out waited for a WHOLE SECOND
+			// conversion after the first finished — so the key did nothing, twice, until the owner answered and
+			// the backlog drained. Joining also keeps a burst of pastes to a single round trip.
+			if (_read is { } running)
 			{
-				_queuedReads.Enqueue(done);
+				running.Joined ??= new List<TaskCompletionSource<string?>>();
+				running.Joined.Add(done);
 				return;
 			}
 			_read = new PendingRead { Done = done, Target = _utf8 };
@@ -660,6 +689,15 @@ namespace SharpConsoleUI.Helpers
 			var read = _read;
 			_read = null;
 			read?.Done.TrySetResult(text);
+
+			// EVERY CALLER THAT JOINED gets this same answer — including ones whose own wait has already run out,
+			// where the TrySetResult is simply a no-op.
+			if (read?.Joined is { } joined)
+			{
+				foreach (var waiter in joined)
+					waiter.TrySetResult(text);
+			}
+
 			if (_queuedReads.TryDequeue(out var next))
 				BeginRead(next);
 		}
@@ -719,6 +757,11 @@ namespace SharpConsoleUI.Helpers
 		private void FailOutstanding()
 		{
 			_read?.Done.TrySetResult(null);
+			if (_read?.Joined is { } joined)
+			{
+				foreach (var waiter in joined)
+					waiter.TrySetResult(null);
+			}
 			_read = null;
 			while (_queuedReads.TryDequeue(out var queued))
 				queued.TrySetResult(null);
