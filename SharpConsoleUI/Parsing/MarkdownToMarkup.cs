@@ -8,6 +8,7 @@
 
 using System.Text;
 using Markdig;
+using Markdig.Extensions.EmphasisExtras;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 using SharpConsoleUI.Configuration;
@@ -24,8 +25,22 @@ namespace SharpConsoleUI.Parsing
 	/// </summary>
 	public static class MarkdownToMarkup
 	{
-		private static readonly MarkdownPipeline Pipeline =
-			new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+		private static readonly MarkdownPipeline Pipeline = BuildPipeline();
+
+		/// <summary>
+		/// The advanced extensions, less superscript and subscript. A terminal cannot raise or
+		/// lower text, so those markers could only be dropped — and a dropped caret changes what
+		/// the text says: "between 2^31 and 2^32" pairs its carets and reads "between 231 and 232".
+		/// Strikethrough, inserted and marked text keep their meaning, so they stay.
+		/// </summary>
+		private static MarkdownPipeline BuildPipeline()
+		{
+			var builder = new MarkdownPipelineBuilder().UseAdvancedExtensions();
+			builder.Extensions.RemoveAll(e => e is EmphasisExtraExtension);
+			return builder.UseEmphasisExtras(
+				EmphasisExtraOptions.Strikethrough | EmphasisExtraOptions.Inserted | EmphasisExtraOptions.Marked)
+				.Build();
+		}
 
 		/// <summary>
 		/// Converts <paramref name="markdown"/> to native markup.

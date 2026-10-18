@@ -413,5 +413,24 @@ namespace SharpConsoleUI.Tests.Parsing
 			Assert.Contains("Title", result.Split('\n')[0]);
 		}
 
+
+		[Theory]
+		[InlineData("2^31 - 1", "2^31 - 1")]
+		[InlineData("between 2^31 and 2^32", "between 2^31 and 2^32")]
+		[InlineData("x^2^ + y^2^", "x^2^ + y^2^")]
+		[InlineData("H~2~O", "H~2~O")]
+		public void SuperscriptAndSubscriptMarkers_StayAsWritten(string md, string expected)
+		{
+			// A terminal has no raised or lowered text, so a caret or single tilde is kept as the
+			// writer typed it: dropping the markers turns 2^31 into 231, a different number.
+			Assert.Equal(expected, CellString(Render(md)).Trim());
+		}
+
+		[Fact]
+		public void DoubleTilde_IsStillStrikethrough()
+		{
+			Assert.Contains("[strikethrough]gone[/]", MarkdownToMarkup.Convert("~~gone~~"));
+		}
+
 	}
 }
