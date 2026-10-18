@@ -71,6 +71,55 @@ public class ClipboardOsc52Tests : IDisposable
 		Assert.Equal(new string('x', 1000), ClipboardHelper.GetText());
 	}
 
+	/// <summary>
+	/// UNDER TMUX, BOTH FORMS: plain, which tmux forwards to the outer terminal with `set-clipboard on`, then
+	/// passthrough-wrapped, which it forwards with `allow-passthrough on`. Neither is tmux's default, so either
+	/// setting is now enough where only the second used to be.
+	/// </summary>
+	[Fact]
+	public void UnderTmux_EmitsPlainThenWrapped()
+	{
+		var saved = Environment.GetEnvironmentVariable("TMUX");
+		try
+		{
+			Environment.SetEnvironmentVariable("TMUX", "/tmp/tmux-1000/default,1,0");
+			TerminalCapabilities.DetectClipboardEnvironmentForTests();
+			TerminalCapabilities.SetOsc52Override(true);
+
+			ClipboardHelper.SetText("hi");
+
+			Assert.Equal(2, _emitted.Count);
+			Assert.Equal(Osc52.BuildSequence("hi", tmuxWrap: false, Osc52.DefaultMaxBytes), _emitted[0]);
+			Assert.Equal(Osc52.BuildSequence("hi", tmuxWrap: true, Osc52.DefaultMaxBytes), _emitted[1]);
+		}
+		finally
+		{
+			Environment.SetEnvironmentVariable("TMUX", saved);
+			TerminalCapabilities.DetectClipboardEnvironmentForTests();
+		}
+	}
+
+	[Fact]
+	public void OutsideTmux_EmitsThePlainSequenceOnce()
+	{
+		var saved = Environment.GetEnvironmentVariable("TMUX");
+		try
+		{
+			Environment.SetEnvironmentVariable("TMUX", null);
+			TerminalCapabilities.DetectClipboardEnvironmentForTests();
+			TerminalCapabilities.SetOsc52Override(true);
+
+			ClipboardHelper.SetText("hi");
+
+			Assert.Equal(Osc52.BuildSequence("hi", tmuxWrap: false, Osc52.DefaultMaxBytes), Assert.Single(_emitted));
+		}
+		finally
+		{
+			Environment.SetEnvironmentVariable("TMUX", saved);
+			TerminalCapabilities.DetectClipboardEnvironmentForTests();
+		}
+	}
+
 	[Fact]
 	public void EmitterThrows_SetTextStillSucceeds()
 	{

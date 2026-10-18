@@ -30,7 +30,12 @@ namespace SharpConsoleUI.Helpers
 		/// <summary>clip.exe / powershell Get-Clipboard (Windows).</summary>
 		WindowsClip,
 		/// <summary>In-process buffer — no system clipboard tool found.</summary>
-		InternalFallback
+		InternalFallback,
+		/// <summary>
+		/// The X11 clipboard through libX11 directly — no external tool. Used on an X11 display (including
+		/// Xwayland under GNOME and KDE Wayland sessions) when none of the clipboard tools is installed.
+		/// </summary>
+		X11
 	}
 
 	/// <summary>Controls whether OSC 52 clipboard escapes are emitted on copy.</summary>
@@ -46,8 +51,9 @@ namespace SharpConsoleUI.Helpers
 
 	/// <summary>
 	/// Cross-platform clipboard helper for console applications.
-	/// On Linux tries wl-clipboard, xclip, xsel.
-	/// Falls back to an in-process buffer when no external tool is available.
+	/// On Linux tries wl-clipboard (on a Wayland session), then xclip and xsel, then the X11 clipboard directly
+	/// through libX11 (on an X11 display), so a desktop needs no tool installed.
+	/// Falls back to an in-process buffer when no system clipboard is reachable.
 	/// Operations are best-effort and will not throw on failure.
 	/// </summary>
 	public static class ClipboardHelper
@@ -55,6 +61,11 @@ namespace SharpConsoleUI.Helpers
 		private const int ProcessTimeoutMs = 1000;
 
 		private static ClipboardBackend _backend = ClipboardBackend.Unknown;
+
+		// THE NATIVE X11 CONNECTION, when that is the backend. It is the clipboard's owner for the whole run — an X11
+		// copy is served from this process, not stored by the server — and hands the text to the desktop's clipboard
+		// manager when the process exits.
+		private static X11Clipboard? _x11;
 		private static readonly object _lock = new();
 		private static string _internalBuffer = string.Empty;
 
@@ -112,9 +123,17 @@ namespace SharpConsoleUI.Helpers
 
 			try
 			{
-				var seq = Osc52.BuildSequence(text, tmuxWrap: TerminalCapabilities.IsTmux, MaxOsc52Bytes);
-				if (seq != null)
-					emitter(seq);
+				var seq = Osc52.BuildSequence(text, tmuxWrap: false, MaxOsc52Bytes);
+				if (seq == null)
+					return;
+				emitter(seq);
+
+				// UNDER TMUX, BOTH FORMS, because each needs a different tmux setting and neither is the default: tmux
+				// forwards the plain sequence to the outer terminal with `set-clipboard on`, and the passthrough-wrapped
+				// one with `allow-passthrough on`. Sending both makes either setting enough. A form tmux does not
+				// forward is dropped there, and where both are forwarded the second sets the same text again.
+				if (TerminalCapabilities.IsTmux && Osc52.BuildSequence(text, tmuxWrap: true, MaxOsc52Bytes) is { } wrapped)
+					emitter(wrapped);
 			}
 			catch
 			{
@@ -190,6 +209,10 @@ namespace SharpConsoleUI.Helpers
 					var backend = _backend;
 					ThreadPool.QueueUserWorkItem(_ => WriteToExternalTool(backend, text));
 					break;
+				case ClipboardBackend.X11:
+					// Posted to the X11 thread, which takes ownership there: nothing here blocks.
+					_x11?.SetText(text);
+					break;
 				case ClipboardBackend.InternalFallback:
 				default:
 					// Already written to the in-process buffer above.
@@ -259,6 +282,9 @@ namespace SharpConsoleUI.Helpers
 						RunProcessRead("xclip", "-selection", "clipboard", "-o"),
 					ClipboardBackend.Xsel =>
 						RunProcessRead("xsel", "--clipboard", "--output"),
+					// A READ THAT GOT NO ANSWER is not an empty clipboard: the buffer holds this process's last copy.
+					ClipboardBackend.X11 =>
+						_x11?.GetText(ProcessTimeoutMs) ?? GetInternalBuffer(),
 					_ =>
 						GetInternalBuffer()
 				};
@@ -285,6 +311,10 @@ namespace SharpConsoleUI.Helpers
 			// Windows native read and the in-process fallback are already instant — no thread hop needed.
 			if (_backend is ClipboardBackend.WindowsClip or ClipboardBackend.InternalFallback)
 				return GetText();
+
+			// The X11 read already runs on its own thread; waiting on it is the bound.
+			if (_backend == ClipboardBackend.X11)
+				return _x11?.GetText(timeoutMs) ?? GetInternalBuffer();
 
 			// Unix process-backed read: do it off-thread, bounded by the timeout.
 			string? result = null;
@@ -359,59 +389,157 @@ namespace SharpConsoleUI.Helpers
 				}
 				else
 				{
-					// Linux / FreeBSD — try Wayland first, then X11 tools
-					if (CanRun("wl-copy", "--version"))
-						_backend = ClipboardBackend.WlClipboard;
-					else if (CanRun("xclip", "-version"))
-						_backend = ClipboardBackend.Xclip;
-					else if (CanRun("xsel", "--version"))
-						_backend = ClipboardBackend.Xsel;
-					else
-						_backend = ClipboardBackend.InternalFallback;
+					// Linux / FreeBSD — by what the session can reach; see ChooseUnixBackend.
+					_backend = ChooseUnixBackend(UnixClipboardSession.Current, IsOnPath, OpenX11);
 				}
 			}
 		}
 
-		private static bool CanRun(string cmd, params string[] args)
+		/// <summary>What a Unix session can reach: a Wayland compositor, an X11 display, or neither.</summary>
+		/// <param name="HasWayland">A Wayland compositor's socket is reachable.</param>
+		/// <param name="HasX11Display">An X11 display is named — a real X server, or Xwayland.</param>
+		internal readonly record struct UnixClipboardSession(bool HasWayland, bool HasX11Display)
 		{
-			try
+			/// <summary>The session this process runs in, read from its environment.</summary>
+			public static UnixClipboardSession Current
 			{
-				var psi = new ProcessStartInfo(cmd)
+				get
 				{
-					RedirectStandardOutput = true,
-					RedirectStandardError = true,
-					UseShellExecute = false,
-					CreateNoWindow = true
-				};
-				foreach (var arg in args)
-					psi.ArgumentList.Add(arg);
-				using var p = Process.Start(psi);
-				if (p == null) return false;
-				p.WaitForExit(ProcessTimeoutMs);
-				return true;
+					// WAYLAND_DISPLAY, OR THE DEFAULT SOCKET: libwayland connects to $XDG_RUNTIME_DIR/wayland-0 when
+					// the variable is unset, so wl-copy still works in a shell that lost it (sudo -E, an old tmux server).
+					string? runtime = Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR");
+					bool wayland = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY"))
+						|| (!string.IsNullOrEmpty(runtime) && File.Exists(Path.Combine(runtime, "wayland-0")));
+					bool x11 = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY"));
+					return new UnixClipboardSession(wayland, x11);
+				}
 			}
-			catch
+		}
+
+		/// <summary>
+		/// Picks the Linux/BSD backend: the first one that can reach this session's clipboard.
+		/// </summary>
+		/// <remarks>
+		/// <para>BY SESSION, NOT ONLY BY WHAT IS INSTALLED. wl-copy needs a Wayland compositor and xclip/xsel an X11
+		/// display; a tool chosen without one fails on every copy, silently, while another route would have worked —
+		/// wl-clipboard installed on an X11 session, or xclip over SSH with no display.</para>
+		///
+		/// <para>THE TOOLS KEEP THEIR ORDER AND COME FIRST, so a setup that copied before copies exactly as it did. The
+		/// native X11 clipboard takes only the case that used to fall to the in-process buffer: an X11 display —
+		/// including Xwayland, which GNOME and KDE bridge to the Wayland clipboard — with no tool installed.</para>
+		/// </remarks>
+		/// <param name="session">What the session can reach.</param>
+		/// <param name="isOnPath">Whether a tool is installed.</param>
+		/// <param name="openX11">Connects the native X11 clipboard; false when it cannot.</param>
+		internal static ClipboardBackend ChooseUnixBackend(UnixClipboardSession session, Func<string, bool> isOnPath,
+			Func<bool> openX11)
+		{
+			if (session.HasWayland && isOnPath("wl-copy"))
+				return ClipboardBackend.WlClipboard;
+			if (session.HasX11Display)
 			{
-				return false;
+				if (isOnPath("xclip"))
+					return ClipboardBackend.Xclip;
+				if (isOnPath("xsel"))
+					return ClipboardBackend.Xsel;
+				if (openX11())
+					return ClipboardBackend.X11;
 			}
+			return ClipboardBackend.InternalFallback;
+		}
+
+		/// <summary>
+		/// Whether <paramref name="command"/> is an executable file on PATH.
+		/// </summary>
+		/// <remarks>
+		/// A LOOKUP, NOT A RUN. Detection happens on the first copy, on the UI thread; starting each candidate tool to
+		/// see whether it exists cost a process per tool there, and up to a second each if one hung.
+		/// </remarks>
+		internal static bool IsOnPath(string command)
+		{
+			string? path = Environment.GetEnvironmentVariable("PATH");
+			if (string.IsNullOrEmpty(path))
+				return false;
+			foreach (var dir in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+			{
+				try
+				{
+					string candidate = Path.Combine(dir, command);
+					if (!File.Exists(candidate))
+						continue;
+					if (OperatingSystem.IsWindows())
+						return true;
+					const UnixFileMode anyExecute = UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+					if ((File.GetUnixFileMode(candidate) & anyExecute) != 0)
+						return true;
+				}
+				catch
+				{
+					// An unreadable PATH entry is skipped, as a shell would.
+				}
+			}
+			return false;
+		}
+
+		private static bool OpenX11()
+		{
+			_x11 = X11Clipboard.TryOpen();
+			if (_x11 == null)
+				return false;
+
+			// THE TEXT OUTLIVES THE APP: an X11 copy is served by its owner, so without the handoff a paste after the
+			// app quits finds nothing. A process killed outright skips this, as it does with xclip's own owner.
+			AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+			{
+				try { _x11?.HandOffBeforeExit(); }
+				catch { }
+			};
+			return true;
 		}
 
 		private static void RunProcessWithInput(string cmd, string input, params string[] args)
 		{
+			var psi = ToolStartInfo(cmd, args);
+			psi.RedirectStandardInput = true;
+			psi.StandardInputEncoding = System.Text.Encoding.UTF8;
+			using var p = Process.Start(psi);
+			if (p == null) return;
+			DiscardOutput(p);
+			p.StandardInput.Write(input);
+			p.StandardInput.Close();
+			p.WaitForExit(ProcessTimeoutMs);
+		}
+
+		/// <summary>
+		/// The start info every clipboard tool runs with: no shell, no window, and its stdout and stderr captured.
+		/// </summary>
+		/// <remarks>
+		/// CAPTURED, BECAUSE AN INHERITED STREAM IS THE APP'S TERMINAL. A tool's message — "Nothing is copied" from
+		/// wl-paste on an empty clipboard, "Can't open display" from xclip over SSH — would otherwise be written over
+		/// the rendered UI, and stay there until the next full repaint.
+		/// </remarks>
+		internal static ProcessStartInfo ToolStartInfo(string cmd, params string[] args)
+		{
 			var psi = new ProcessStartInfo(cmd)
 			{
-				RedirectStandardInput = true,
-				StandardInputEncoding = System.Text.Encoding.UTF8,
+				RedirectStandardOutput = true,
+				RedirectStandardError = true,
 				UseShellExecute = false,
 				CreateNoWindow = true
 			};
 			foreach (var arg in args)
 				psi.ArgumentList.Add(arg);
-			using var p = Process.Start(psi);
-			if (p == null) return;
-			p.StandardInput.Write(input);
-			p.StandardInput.Close();
-			p.WaitForExit(ProcessTimeoutMs);
+			return psi;
+		}
+
+		// DRAINED, NOT LEFT IN THE PIPE: xclip and wl-copy fork a child that serves the clipboard and inherits these
+		// pipes, and a tool that filled an unread pipe would block on its next write.
+		private static void DiscardOutput(Process p)
+		{
+			p.OutputDataReceived += static (_, _) => { };
+			p.ErrorDataReceived += static (_, _) => { };
+			p.BeginOutputReadLine();
+			p.BeginErrorReadLine();
 		}
 
 		/// <summary>
@@ -421,14 +549,11 @@ namespace SharpConsoleUI.Helpers
 		/// </summary>
 		private static void RunProcessWithUtf16BomInput(string cmd, string input)
 		{
-			var psi = new ProcessStartInfo(cmd)
-			{
-				RedirectStandardInput = true,
-				UseShellExecute = false,
-				CreateNoWindow = true
-			};
+			var psi = ToolStartInfo(cmd);
+			psi.RedirectStandardInput = true;
 			using var p = Process.Start(psi);
 			if (p == null) return;
+			DiscardOutput(p);
 			// Write the raw bytes ourselves: BOM + UTF-16LE. Going through the BaseStream avoids
 			// the StreamWriter re-encoding to the console code page.
 			byte[] payload = BuildUtf16BomBytes(input);
@@ -472,24 +597,28 @@ namespace SharpConsoleUI.Helpers
 		/// <summary>Resets <see cref="ProcessReadCount"/>. For tests.</summary>
 		internal static void ResetProcessReadCountForTests() => Volatile.Write(ref _processReadCount, 0);
 
-		private static string RunProcessRead(string cmd, params string[] args)
+		internal static string RunProcessRead(string cmd, params string[] args)
 		{
 			Interlocked.Increment(ref _processReadCount);
 
-			var psi = new ProcessStartInfo(cmd)
-			{
-				RedirectStandardOutput = true,
-				StandardOutputEncoding = System.Text.Encoding.UTF8,
-				UseShellExecute = false,
-				CreateNoWindow = true
-			};
-			foreach (var arg in args)
-				psi.ArgumentList.Add(arg);
+			var psi = ToolStartInfo(cmd, args);
+			psi.StandardOutputEncoding = System.Text.Encoding.UTF8;
 			using var p = Process.Start(psi);
 			if (p == null) return string.Empty;
-			string result = p.StandardOutput.ReadToEnd();
+			p.ErrorDataReceived += static (_, _) => { };
+			p.BeginErrorReadLine();
+
+			// THE TIMEOUT BOUNDS THE READ, not only the exit. Reading to the end first waited for the tool however long
+			// it took — and a paste from an owner that never answers takes forever, holding this thread with it.
+			var output = p.StandardOutput.ReadToEndAsync();
+			if (!output.Wait(ProcessTimeoutMs))
+			{
+				try { p.Kill(entireProcessTree: true); }
+				catch { }
+				return string.Empty;
+			}
 			p.WaitForExit(ProcessTimeoutMs);
-			return result;
+			return output.Result;
 		}
 
 		#region Windows native clipboard (Win32 API)
