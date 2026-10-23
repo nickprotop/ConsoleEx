@@ -36,42 +36,5 @@ namespace SharpConsoleUI.Controls
 		/// <param name="regionHeight">Height of the region in rows. A value less than 1 is treated as 1.</param>
 		void ScrollChildRegionIntoView(IWindowControl child, int childRelativeTop, int regionHeight)
 			=> ScrollChildIntoView(child);
-
-		/// <summary>
-		/// Scrolls so that <paramref name="nestedTarget"/> is visible, where the target sits somewhere
-		/// inside <paramref name="child"/> rather than being the direct child itself.
-		/// </summary>
-		/// <remarks>
-		/// <para>
-		/// Revealing the direct child is not enough when that child is tall: a container that already
-		/// spans the viewport is deliberately left alone by the tall-child guard, so a target further
-		/// down it never comes into view. This resolves the target's own row within the child and
-		/// reveals that row instead.
-		/// </para>
-		/// <para>
-		/// Use this to re-reveal a control that is already focused - <c>SetFocus</c> returns early when
-		/// the focus does not change, so focusing it again scrolls nothing.
-		/// </para>
-		/// </remarks>
-		/// <param name="child">The direct child of this container that contains the target.</param>
-		/// <param name="nestedTarget">The control to reveal. Passing the direct child itself is allowed and degrades to <see cref="ScrollChildIntoView(IWindowControl)"/>.</param>
-		void ScrollChildIntoView(IWindowControl child, IWindowControl nestedTarget)
-		{
-			if (ReferenceEquals(child, nestedTarget))
-			{
-				ScrollChildIntoView(child);
-				return;
-			}
-
-			if (Helpers.FocusScrollHelper.TryGetFocusedRowInDirectChild(
-					child, nestedTarget, out int rowInChild, out int regionHeight, this))
-			{
-				ScrollChildRegionIntoView(child, rowInChild, regionHeight);
-			}
-			else
-			{
-				ScrollChildIntoView(child);
-			}
-		}
 	}
 }

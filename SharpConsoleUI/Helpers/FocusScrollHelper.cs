@@ -122,6 +122,36 @@ namespace SharpConsoleUI.Helpers
 		}
 
 		/// <summary>
+		/// Reveals <paramref name="nestedTarget"/> within <paramref name="directChild"/> on
+		/// <paramref name="scroller"/>: resolves the target's own row and scrolls to it, falling back
+		/// to revealing the whole child when the target IS that child or the topology cannot be read.
+		/// The fallback keeps the tall-child guard active, so a container already spanning the
+		/// viewport is not yanked to its top (#67).
+		/// </summary>
+		/// <remarks>
+		/// Internal on purpose: callers outside the framework hold the control they want revealed, not
+		/// the scroller's direct child, so they want
+		/// <c>ScrollablePanelControl.ScrollTargetIntoView</c> instead - which resolves the direct
+		/// child and then lands here.
+		/// </remarks>
+		internal static void RevealNestedTarget(
+			IScrollableContainer scroller,
+			IWindowControl directChild,
+			IWindowControl nestedTarget)
+		{
+			if (ReferenceEquals(directChild, nestedTarget))
+			{
+				scroller.ScrollChildIntoView(directChild);
+				return;
+			}
+
+			if (TryGetFocusedRowInDirectChild(directChild, nestedTarget, out int rowInChild, out int regionHeight, scroller))
+				scroller.ScrollChildRegionIntoView(directChild, rowInChild, regionHeight);
+			else
+				scroller.ScrollChildIntoView(directChild);
+		}
+
+		/// <summary>
 		/// The width an unpainted direct child would be laid out at. <see cref="IScrollableContainer"/>
 		/// carries no width member, so this reads the viewport off the panel when the scroller is one and
 		/// falls back to its control width; 0 means no width could be recovered.

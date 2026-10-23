@@ -87,34 +87,12 @@ public class FocusManager
 			{
 				if (path[i - 1] is IScrollableContainer scrollable)
 				{
-					var directChild = path[i];
-					if (ReferenceEquals(directChild, focusedWc))
-					{
-						// Focused control IS the direct child — reveal the whole child (unchanged behavior).
-						scrollable.ScrollChildIntoView(directChild);
-					}
-					else
-					{
-						// Focused control is nested deeper: reveal ITS actual row within the scroller, not the
-						// whole (possibly tall) intermediate container. Resolve the focused control's offset
-						// within the direct child from the layout subtree (works even when the focused control
-						// is off-viewport and was never painted); fall back to a paint-relative translation.
-						int rowInChild;
-						int focusedHeight;
-						if (Helpers.FocusScrollHelper.TryGetFocusedRowInDirectChild(directChild, focusedWc, out rowInChild, out focusedHeight, scrollable))
-						{
-							scrollable.ScrollChildRegionIntoView(directChild, rowInChild, focusedHeight);
-						}
-						else
-						{
-							// Subtree resolution failed (self-scrolling child, or a topology we can't probe). The focused
-							// control's live ActualY is unreliable when it is off-viewport, so fall back to revealing the
-							// whole direct child - the historical ScrollChildIntoView behavior. Passing the child's full
-							// height to ScrollRangeIntoView keeps the tall-child guard active, so an already-visible tall
-							// container is not jumped to its top (#67), and a self-scrolling child reveals its own leaf.
-							scrollable.ScrollChildIntoView(directChild);
-						}
-					}
+					// Reveal the focused control's own row rather than the whole (possibly tall)
+					// intermediate container. The overload handles both shapes: the focused control
+					// BEING the direct child degrades to revealing that child, and a topology the row
+					// probe cannot read falls back to the same thing - which keeps the tall-child guard
+					// active so an already-visible container is not jumped to its top (#67).
+					Helpers.FocusScrollHelper.RevealNestedTarget(scrollable, path[i], focusedWc);
 				}
 			}
 		}

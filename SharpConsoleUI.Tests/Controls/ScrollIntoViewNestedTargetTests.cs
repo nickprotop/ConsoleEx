@@ -152,7 +152,7 @@ public class ScrollIntoViewNestedTargetTests
 		window.RenderAndGetVisibleContent();
 		int childOnly = panel.VerticalScrollOffset;
 
-		panel.ScrollChildIntoView(list, rows[30]);
+		panel.ScrollChildIntoView(rows[30]);
 		window.RenderAndGetVisibleContent();
 		int nested = panel.VerticalScrollOffset;
 
@@ -168,7 +168,7 @@ public class ScrollIntoViewNestedTargetTests
 		window.RenderAndGetVisibleContent();
 
 		var target = rows[30];
-		panel.ScrollChildIntoView(list, target);
+		panel.ScrollChildIntoView(target);
 		window.RenderAndGetVisibleContent();
 
 		int relY = target.ActualY - panel.ActualY;
@@ -177,7 +177,7 @@ public class ScrollIntoViewNestedTargetTests
 	}
 
 	[Fact]
-	public void PassingTheDirectChildAsItsOwnTarget_BehavesLikeTheOneArgCall()
+	public void PassingADirectChild_BehavesLikeTheOneArgCall()
 	{
 		var (panel, list, _, _, window) = NewDeepPanel(viewportHeight: 6, count: 40);
 		window.RenderAndGetVisibleContent();
@@ -193,7 +193,7 @@ public class ScrollIntoViewNestedTargetTests
 		panel.ScrollVerticalBy(12);
 		window.RenderAndGetVisibleContent();
 
-		panel.ScrollChildIntoView(list, list);
+		panel.ScrollChildIntoView(list);
 		window.RenderAndGetVisibleContent();
 
 		Assert.Equal(oneArg, panel.VerticalScrollOffset);
@@ -223,11 +223,101 @@ public class ScrollIntoViewNestedTargetTests
 		window.RenderAndGetVisibleContent();
 		Assert.Equal(0, panel.VerticalScrollOffset);
 
-		panel.ScrollChildIntoView(list, target);
+		panel.ScrollChildIntoView(target);
 		window.RenderAndGetVisibleContent();
 
 		_out.WriteLine($"afterFocus={afterFocus} reRevealed={panel.VerticalScrollOffset}");
 		Assert.Equal(afterFocus, panel.VerticalScrollOffset);
+	}
+
+	#endregion
+
+	#region One method, both depths
+
+	[Fact]
+	public void ScrollChildIntoView_RevealsADeepControl_NotJustADirectChild()
+	{
+		var (panel, _, rows, _, window) = NewDeepPanel(viewportHeight: 6, count: 40);
+		window.RenderAndGetVisibleContent();
+		panel.ScrollToTop();
+		window.RenderAndGetVisibleContent();
+
+		var target = rows[30];
+		panel.ScrollChildIntoView(target);
+		window.RenderAndGetVisibleContent();
+
+		int relY = target.ActualY - panel.ActualY;
+		_out.WriteLine($"relY={relY} viewport={panel.ViewportHeight} offset={panel.VerticalScrollOffset}");
+		Assert.InRange(relY, 0, panel.ViewportHeight - 1);
+	}
+
+	[Fact]
+	public void ScrollChildIntoView_MatchesTheRegionPrimitiveItResolvesTo()
+	{
+		// Resolving the target must land exactly where driving the region primitive by hand lands -
+		// otherwise the convenience entry point is a second, subtly different behaviour.
+		var (panel, list, rows, _, window) = NewDeepPanel(viewportHeight: 6, count: 40);
+		window.RenderAndGetVisibleContent();
+
+		Assert.True(FocusScrollHelper.TryGetFocusedRowInDirectChild(
+			list, rows[30], out int row, out int height, panel));
+
+		panel.ScrollToTop();
+		window.RenderAndGetVisibleContent();
+		panel.ScrollChildRegionIntoView(list, row, height);
+		window.RenderAndGetVisibleContent();
+		int byHand = panel.VerticalScrollOffset;
+
+		panel.ScrollToTop();
+		window.RenderAndGetVisibleContent();
+		panel.ScrollChildIntoView(rows[30]);
+		window.RenderAndGetVisibleContent();
+
+		Assert.Equal(byHand, panel.VerticalScrollOffset);
+	}
+
+	[Fact]
+	public void ScrollChildIntoView_StillAcceptsADirectChild()
+	{
+		// The caller should not have to branch on how deep the target happens to sit.
+		var (panel, list, _, _, window) = NewDeepPanel(viewportHeight: 6, count: 40);
+		window.RenderAndGetVisibleContent();
+		panel.ScrollVerticalBy(12);
+		window.RenderAndGetVisibleContent();
+
+		panel.ScrollChildIntoView(list);
+	}
+
+	[Fact]
+	public void AControlOutsideThePanel_ScrollsNothing()
+	{
+		// Resolution must not wander outside this panel: a control that is not ours leaves the
+		// offset alone rather than scrolling to something arbitrary.
+		var (panel, _, _, _, window) = NewDeepPanel(viewportHeight: 6, count: 40);
+		window.RenderAndGetVisibleContent();
+		panel.ScrollVerticalBy(10);
+		window.RenderAndGetVisibleContent();
+		int before = panel.VerticalScrollOffset;
+
+		var stranger = ContainerTestHelpers.CreateLabel("not in this panel");
+		panel.ScrollChildIntoView(stranger);
+		window.RenderAndGetVisibleContent();
+
+		Assert.Equal(before, panel.VerticalScrollOffset);
+	}
+
+	[Fact]
+	public void ThePanelItself_ScrollsNothing_AndDoesNotRecurse()
+	{
+		// Resolution walks upward, so a self-reference must terminate rather than loop.
+		var (panel, _, _, _, window) = NewDeepPanel(viewportHeight: 6, count: 40);
+		window.RenderAndGetVisibleContent();
+		int before = panel.VerticalScrollOffset;
+
+		panel.ScrollChildIntoView(panel);
+		window.RenderAndGetVisibleContent();
+
+		Assert.Equal(before, panel.VerticalScrollOffset);
 	}
 
 	#endregion

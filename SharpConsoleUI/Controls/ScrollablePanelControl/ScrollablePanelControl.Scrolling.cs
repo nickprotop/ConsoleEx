@@ -31,7 +31,17 @@ namespace SharpConsoleUI.Controls
 			}
 
 			if (!TryGetChildSlotBounds(child, out int top, out int height))
-				return; // Not our child (or not visible)
+			{
+				// Not a direct child. It may still live INSIDE one, which is what a caller normally has
+				// - they hold the control they want seen, not the panel's immediate child. Walk up to
+				// find which of our children contains it and reveal its row there. Revealing the whole
+				// containing child would not be enough: one that already spans the viewport is left in
+				// place by the tall-child guard, so a target further down it never appears (#91).
+				var owner = ResolveDirectChild(child);
+				if (owner != null && !ReferenceEquals(owner, child))
+					Helpers.FocusScrollHelper.RevealNestedTarget(this, owner, child);
+				return;
+			}
 
 			ScrollRangeIntoView(top, height);
 		}
@@ -63,35 +73,26 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Scrolls so that <paramref name="nestedTarget"/> is visible, where the target sits somewhere
-		/// inside <paramref name="child"/> rather than being the direct child itself.
+		/// Walks up from <paramref name="target"/> to the child of THIS panel that contains it.
+		/// Returns the target itself when it is already a direct child, or null when it does not live
+		/// under this panel.
 		/// </summary>
-		/// <remarks>
-		/// Revealing the direct child is not enough when that child is tall: a container already
-		/// spanning the viewport is deliberately left in place by the tall-child guard, so a target
-		/// further down it never comes into view. This resolves the target's own row within the child
-		/// and reveals that row. It also re-reveals a control that is ALREADY focused, which focusing
-		/// again cannot do - <c>SetFocus</c> returns early when the focus does not change.
-		/// </remarks>
-		/// <param name="child">The direct child of this panel that contains the target.</param>
-		/// <param name="nestedTarget">The control to reveal; passing the direct child degrades to <see cref="ScrollChildIntoView(IWindowControl)"/>.</param>
-		public void ScrollChildIntoView(IWindowControl child, IWindowControl nestedTarget)
+		private IWindowControl? ResolveDirectChild(IWindowControl target)
 		{
-			if (ReferenceEquals(child, nestedTarget))
+			var own = Children;
+
+			IWindowControl? current = target;
+			while (current != null)
 			{
-				ScrollChildIntoView(child);
-				return;
+				for (int i = 0; i < own.Count; i++)
+				{
+					if (ReferenceEquals(own[i], current))
+						return current;
+				}
+				current = Core.FocusManager.ResolveParentWindowControl(current);
 			}
 
-			if (Helpers.FocusScrollHelper.TryGetFocusedRowInDirectChild(
-					child, nestedTarget, out int rowInChild, out int regionHeight, this))
-			{
-				ScrollChildRegionIntoView(child, rowInChild, regionHeight);
-			}
-			else
-			{
-				ScrollChildIntoView(child);
-			}
+			return null;
 		}
 
 		/// <summary>
