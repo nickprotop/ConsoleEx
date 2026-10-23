@@ -1044,7 +1044,7 @@ namespace SharpConsoleUI.Windows
 							// and was never painted); fall back to a paint-relative translation.
 							int rowInChild;
 							int focusedHeight;
-							if (Helpers.FocusScrollHelper.TryGetFocusedRowInDirectChild(current, focusedContent, out rowInChild, out focusedHeight))
+							if (Helpers.FocusScrollHelper.TryGetFocusedRowInDirectChild(current, focusedContent, out rowInChild, out focusedHeight, scrollable))
 							{
 								scrollable.ScrollChildRegionIntoView(current, rowInChild, focusedHeight);
 							}
