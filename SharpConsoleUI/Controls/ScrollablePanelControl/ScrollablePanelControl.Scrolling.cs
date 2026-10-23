@@ -39,7 +39,7 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Scrolls so that a sub-region of <paramref name="child"/> is visible. The region is given in the
 		/// child's own content coordinates: <paramref name="childRelativeTop"/> rows from the child's top,
-		/// spanning <paramref name="regionHeight"/> rows. Mirrors <see cref="ScrollChildIntoView"/>'s clamp,
+		/// spanning <paramref name="regionHeight"/> rows. Mirrors <see cref="ScrollChildIntoView(IWindowControl)"/>'s clamp,
 		/// applied to the region instead of the whole child — used to bring a focused element's row into view
 		/// when the child itself does not scroll.
 		/// </summary>
@@ -60,6 +60,38 @@ namespace SharpConsoleUI.Controls
 
 
 			ScrollRangeIntoView(top + Math.Max(0, childRelativeTop), Math.Max(1, regionHeight));
+		}
+
+		/// <summary>
+		/// Scrolls so that <paramref name="nestedTarget"/> is visible, where the target sits somewhere
+		/// inside <paramref name="child"/> rather than being the direct child itself.
+		/// </summary>
+		/// <remarks>
+		/// Revealing the direct child is not enough when that child is tall: a container already
+		/// spanning the viewport is deliberately left in place by the tall-child guard, so a target
+		/// further down it never comes into view. This resolves the target's own row within the child
+		/// and reveals that row. It also re-reveals a control that is ALREADY focused, which focusing
+		/// again cannot do - <c>SetFocus</c> returns early when the focus does not change.
+		/// </remarks>
+		/// <param name="child">The direct child of this panel that contains the target.</param>
+		/// <param name="nestedTarget">The control to reveal; passing the direct child degrades to <see cref="ScrollChildIntoView(IWindowControl)"/>.</param>
+		public void ScrollChildIntoView(IWindowControl child, IWindowControl nestedTarget)
+		{
+			if (ReferenceEquals(child, nestedTarget))
+			{
+				ScrollChildIntoView(child);
+				return;
+			}
+
+			if (Helpers.FocusScrollHelper.TryGetFocusedRowInDirectChild(
+					child, nestedTarget, out int rowInChild, out int regionHeight, this))
+			{
+				ScrollChildRegionIntoView(child, rowInChild, regionHeight);
+			}
+			else
+			{
+				ScrollChildIntoView(child);
+			}
 		}
 
 		/// <summary>
