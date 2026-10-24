@@ -946,6 +946,61 @@ GTK3's `Gtk.Window` is a single-child `Bin`, which is the shape we had before
 this experiment, not after it.
 
 
+### One root, not two: sticky IS docking on the vertical axis
+
+The spec argued that a grid cannot gain docking, and that stands - a grid places
+into declared tracks by coordinate, a dock consumes edges of a shrinking
+rectangle in order. What the spec never asked is whether **sticky** is a dock.
+It is.
+
+`GridRootLayout.Reband` partitions children into top / body / bottom in child
+order, each sticky child taking an `Auto` row off the end of a shrinking middle.
+That is the dock allocation rule, restricted to two of its four edges.
+
+Tested rather than argued: `DockRootLayout` was written to derive docks from
+`StickyPosition` (`Top` to `Dock.Top`, `Bottom` to `Dock.Bottom`) and compared
+against the banded root with the same golden-buffer harness. **15 of 15 cases
+byte-identical** - sandwiches at four sizes, three scroll positions, a Fill
+`ScrollablePanel`, the empty-panel collapse, aligned children, a hidden sticky
+child, an empty window. 14 of those passed on the first attempt.
+
+**So the plan changes: `DockRootLayout` replaces `GridRootLayout` rather than
+joining it.** Shipping both would be shipping one algorithm twice, once with two
+of its edges removed. And the fourth edge comes free - the same root drives a
+full IDE shell:
+
+```
+HEADER
+SIDEbody 0                            INSP
+    body 1
+    body 2
+STATUS
+```
+
+Two real decisions came out of the comparison, neither of them cosmetic.
+
+**Far edges reverse within their run.** Under strict WPF `DockPanel` semantics
+each `Bottom` child consumes the bottom edge in turn, so a rule declared before
+a help line ends up *below* it. WPF users know to declare footers in reverse;
+the 90 `StickyBottom` call sites in this repository do not, and
+`ImageViewerWindow` is exactly that shape - a rule, then a help line under it.
+So a run of same-edge far-side children is reversed among themselves, which
+makes author order read the way the screen reads and makes `Dock.Bottom` a
+drop-in for `StickyPosition.Bottom`.
+
+**The reversal is within a run, not across the whole child list.** The first
+attempt moved every far-edge child to the end, which silently destroyed
+cross-axis ordering: a status bar declared before a sidebar was still processed
+after it, so it stopped spanning the full width. Declaration order across edges
+IS the contract - it is how "a title bar above a sidebar" differs from "a
+sidebar beside a title bar" - and only same-edge runs may be reordered.
+
+What remains before this can be the default root: a real `Dock` property (the
+test drives `DockRootLayout.DockOf`, a static hook, which is a probe and not a
+surface), and whether `StickyPosition` stays as the sugar for the two vertical
+edges or is deprecated in favour of `Dock`.
+
+
 ## Open questions
 
 1. ~~**Does any adopter read `Window.ScrollOffset` / `CanScroll` directly?**~~
