@@ -121,9 +121,14 @@ public sealed class DockRootLayout : IWindowRootLayout, IScrollOrigin
 		int remainingW = constraints.MaxWidth;
 		int remainingH = constraints.MaxHeight;
 
-		foreach (var child in node.Children)
+		// Measure in the SAME order arrange allocates in. The two differed until the rule was
+		// unified: measure walked raw declaration order while arrange walked the reversed one.
+		// Harmless only while every child on a far edge wants the same extent - the moment two
+		// bottom bands differ in height, the space measure reserves is not the space arrange
+		// hands out.
+		foreach (var child in DockAllocation.Order(node.Children, skip: _bodyNode))
 		{
-			if (ReferenceEquals(child, _bodyNode) || !child.IsVisible || child.Control == null)
+			if (!child.IsVisible || child.Control == null)
 				continue;
 
 			var dock = DockOf(child.Control);
@@ -159,65 +164,14 @@ public sealed class DockRootLayout : IWindowRootLayout, IScrollOrigin
 		int x = 0, y = 0;
 		int w = finalRect.Width, h = finalRect.Height;
 
-		// Bottom and right docks are arranged in REVERSE declaration order, so that the first
-		// child declared ends up nearest the content rather than nearest the edge.
-		//
-		// This departs from WPF's DockPanel, deliberately. Under the strict rule each bottom child
-		// consumes the bottom edge in turn, so declaring a rule and then a help line puts the help
-		// line ABOVE the rule - correct by the algorithm, backwards to anyone writing a footer top
-		// to bottom. WPF users know to declare footers in reverse; the 90 existing StickyBottom
-		// call sites in this repository do not, and ImageViewerWindow is exactly this shape.
-		//
-		// Reversing the consumption order for the far edges makes author order read the way the
-		// screen reads on both axes, and makes Dock.Bottom a drop-in for StickyPosition.Bottom.
-		// Reversal applies WITHIN each far edge only - a run of Bottom children is reversed among
-		// themselves and stays where it was declared relative to the Left and Top docks. Moving
-		// every far-edge child to the end instead would make declaration order meaningless across
-		// axes: a status bar declared before a sidebar would still be processed after it, and so
-		// would stop spanning the full width.
-		var ordered = new List<LayoutNode>(node.Children.Count);
-		var run = new List<LayoutNode>();
-		Dock runEdge = Dock.None;
-
-		void FlushRun()
-		{
-			for (int i = run.Count - 1; i >= 0; i--)
-				ordered.Add(run[i]);
-			run.Clear();
-			runEdge = Dock.None;
-		}
-
-		foreach (var child in node.Children)
-		{
-			if (ReferenceEquals(child, _bodyNode))
-				continue;
-
-			var d = child.Control == null ? Dock.None : DockOf(child.Control);
-			bool isFar = d == Dock.Bottom || d == Dock.Right;
-
-			if (isFar && d == runEdge)
-			{
-				run.Add(child);
-				continue;
-			}
-
-			FlushRun();
-
-			if (isFar)
-			{
-				runEdge = d;
-				run.Add(child);
-			}
-			else
-			{
-				ordered.Add(child);
-			}
-		}
-		FlushRun();
+		// Bottom and right docks are allocated in REVERSE declaration order within a run, so the
+		// first child declared ends up nearest the content rather than nearest the edge. The rule
+		// lives in DockLayout; see AllocationOrder for why it departs from WPF and why there is
+		// exactly one copy of it.
+		var ordered = DockAllocation.Order(node.Children, skip: _bodyNode);
 
 		foreach (var child in ordered)
 		{
-
 			if (!child.IsVisible || child.Control == null)
 			{
 				child.Arrange(LayoutRect.Empty);

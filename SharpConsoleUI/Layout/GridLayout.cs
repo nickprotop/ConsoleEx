@@ -65,6 +65,116 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 	}
 
 	/// <summary>
+	/// The docked children's layout nodes, which the factory appends AFTER the cell nodes.
+	/// </summary>
+	private IReadOnlyList<LayoutNode> DockedNodes(LayoutNode node)
+	{
+		int dockedCount = _source.DockedChildren.Count;
+		if (dockedCount == 0)
+			return System.Array.Empty<LayoutNode>();
+
+		var children = node.Children;
+		int start = children.Count - dockedCount;
+		if (start < 0)
+			return System.Array.Empty<LayoutNode>();
+
+		var result = new List<LayoutNode>(dockedCount);
+		for (int i = start; i < children.Count; i++)
+			result.Add(children[i]);
+		return result;
+	}
+
+	/// <summary>
+	/// Measures the docked children and returns the area the tracks are left with.
+	/// </summary>
+	/// <remarks>
+	/// Docks are allocated OUTSIDE the tracks: each claims a strip off the grid's rectangle, in
+	/// the order <see cref="DockAllocation.Order"/> gives, and the track algorithm then
+	/// runs on what remains. This is what keeps cell coordinates stable - a docked child takes no
+	/// row and no column, so <c>grid[1, 0]</c> is the same cell however many children are docked.
+	/// </remarks>
+	private (int W, int H) MeasureDocks(LayoutNode node, int availW, int availH)
+	{
+		var docked = DockedNodes(node);
+		if (docked.Count == 0)
+			return (availW, availH);
+
+		int remainingW = availW, remainingH = availH;
+
+		foreach (var child in DockAllocation.Order(docked))
+		{
+			if (!child.IsVisible || child.Control == null)
+			{
+				child.Measure(LayoutConstraints.Fixed(0, 0));
+				continue;
+			}
+
+			var size = child.Measure(new LayoutConstraints(0, remainingW, 0, remainingH));
+
+			switch (child.Control.Dock)
+			{
+				case Dock.Left:
+				case Dock.Right:
+					remainingW = Math.Max(0, remainingW - size.Width);
+					break;
+				case Dock.Top:
+				case Dock.Bottom:
+					remainingH = Math.Max(0, remainingH - size.Height);
+					break;
+			}
+		}
+
+		return (remainingW, remainingH);
+	}
+
+	/// <summary>
+	/// Arranges the docked children against a shrinking rectangle and returns the rectangle the
+	/// tracks are left with, in the same node-local coordinates.
+	/// </summary>
+	private LayoutRect ArrangeDocks(LayoutNode node, LayoutRect area)
+	{
+		var docked = DockedNodes(node);
+		if (docked.Count == 0)
+			return area;
+
+		int x = area.X, y = area.Y, w = area.Width, h = area.Height;
+
+		foreach (var child in DockAllocation.Order(docked))
+		{
+			if (!child.IsVisible || child.Control == null)
+			{
+				child.Arrange(LayoutRect.Empty);
+				continue;
+			}
+
+			int cw = Math.Min(child.DesiredSize.Width, w);
+			int ch = Math.Min(child.DesiredSize.Height, h);
+
+			switch (child.Control.Dock)
+			{
+				case Dock.Left:
+					child.Arrange(new LayoutRect(x, y, cw, h));
+					x += cw; w -= cw;
+					break;
+				case Dock.Right:
+					child.Arrange(new LayoutRect(x + w - cw, y, cw, h));
+					w -= cw;
+					break;
+				case Dock.Top:
+					child.Arrange(new LayoutRect(x, y, w, ch));
+					y += ch; h -= ch;
+					break;
+				case Dock.Bottom:
+					child.Arrange(new LayoutRect(x, y + h - ch, w, ch));
+					h -= ch;
+					break;
+			}
+		}
+
+		return new LayoutRect(x, y, w, h);
+	}
+
+	/// <summary>
 	/// Measures the grid's cells, sizes the row and column tracks, and returns the grid's desired
 	/// size (track totals plus gaps, margin, and padding, clamped to the incoming constraints).
 	/// </summary>
@@ -76,10 +186,15 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 		int colCount = colDefs.Count;
 		int rowCount = rowDefs.Count;
 
-		// Empty grid: no tracks or no cells means nothing to size.
+		// Empty grid: no tracks or no cells means no TRACK area to size. Docked children are
+		// outside the tracks, so a grid that is nothing but docks still measures them.
 		if (colCount == 0 || rowCount == 0 || _source.OrderedCells.Count == 0)
 		{
-			return LayoutSize.Zero;
+			if (_source.DockedChildren.Count == 0)
+				return LayoutSize.Zero;
+
+			MeasureDocks(node, constraints.MaxWidth, constraints.MaxHeight);
+			return new LayoutSize(constraints.MaxWidth, constraints.MaxHeight);
 		}
 
 		Margin margin = _source.Margin;
@@ -90,6 +205,9 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 
 		int availW = Math.Max(0, constraints.MaxWidth - horizontalInset);
 		int availH = Math.Max(0, constraints.MaxHeight - verticalInset);
+
+		// Docks first: they claim their strips, and the tracks size against what is left.
+		(availW, availH) = MeasureDocks(node, availW, availH);
 
 		// Measure each cell's content and accumulate the content-driven size of the Auto tracks it
 		// spans. This also primes each child's DesiredSize, which the arrange pass reads back.
@@ -629,6 +747,8 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 		// styled cells whose chrome rectangles must be recorded, so an empty child list does NOT short-circuit.
 		if (colCount == 0 || rowCount == 0)
 		{
+			// Docks live outside the tracks, so they are arranged even with no tracks at all.
+			ArrangeDocks(node, new LayoutRect(0, 0, finalRect.Width, finalRect.Height));
 			return;
 		}
 
@@ -640,6 +760,15 @@ public sealed class GridLayout : ILayoutContainer, IRegionClippingLayout
 
 		int trackAreaW = Math.Max(0, finalRect.Width - margin.Left - margin.Right - padding.Left - padding.Right);
 		int trackAreaH = Math.Max(0, finalRect.Height - margin.Top - margin.Bottom - padding.Top - padding.Bottom);
+
+		// Docks claim their strips off the inner box; the tracks get the rest. The origin moves
+		// with it, so a left or top dock pushes the whole track area across rather than being
+		// painted over by it.
+		var trackArea = ArrangeDocks(node, new LayoutRect(originX, originY, trackAreaW, trackAreaH));
+		originX = trackArea.X;
+		originY = trackArea.Y;
+		trackAreaW = trackArea.Width;
+		trackAreaH = trackArea.Height;
 
 		var cells = _source.OrderedCells;
 		int pairCount = Math.Min(children.Count, cells.Count);

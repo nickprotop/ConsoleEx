@@ -52,12 +52,6 @@ namespace SharpConsoleUI.Layout
 				// The panel paints only its own chrome (border + scrollbars) in PaintDOM.
 				return (new ScrollLayout(), spc.Children);
 			}
-			else if (control is DockPanelControl dockPanel)
-			{
-				// Docking everywhere, not only at the window root: a grid cell holds one control,
-				// so a cell docks by holding one of these.
-				return (new DockLayout { LastChildFill = dockPanel.LastChildFill }, dockPanel.Children);
-			}
 			else if (control is GridControl gridControl)
 			{
 				// Tree-participating container: the engine builds the grid's content-bearing cells into the
@@ -65,7 +59,12 @@ namespace SharpConsoleUI.Layout
 				// node.Children[i] to OrderedCells[i] by index, so the children enumerable must be in
 				// OrderedCells order. The grid and the tree share the grid's GridLayout instance so the
 				// grid's PaintDOM can read the per-cell rectangles the arrange pass recorded.
-				return (gridControl.LayoutAlgorithm, gridControl.OrderedCells.Select(c => c.Control).ToList());
+				// Docked children are APPENDED after the cells, never interleaved: the layout
+				// correlates node.Children[i] to OrderedCells[i] by index, so a docked child
+				// among them would shift every placement after it.
+				var gridChildren = gridControl.OrderedCells.Select(c => c.Control).ToList();
+				gridChildren.AddRange(gridControl.DockedChildren);
+				return (gridControl.LayoutAlgorithm, gridChildren);
 			}
 			else if (control is LogViewerControl logViewer)
 			{
