@@ -24,6 +24,30 @@ known is a guess.
 **Applying back is a later decision requiring its own approval.** The experiment
 produces evidence and a recommendation, not a merge-ready branch.
 
+### Opportunity scope
+
+Rewriting the window root is a rare opening. Changes that could never justify
+their own release — because they touch core layout, or add public surface for its
+own sake — become nearly free while that code is already open. This experiment
+deliberately takes a few of them:
+
+- **`DockPanelControl`** as well as a dock root. A new layout control is hard to
+  justify alone; alongside the layout it needs anyway, it is a wrapper.
+- **Horizontal border scrollbars.** The frame has only ever drawn a vertical
+  thumb. Adding the horizontal case in isolation means touching `BorderRenderer`
+  for one feature; doing it while scroll ownership is moving anyway is the same
+  edit.
+- **Retiring the four documented `StickyPosition` workarounds** in `Flows`. They
+  are only removable once a panel can honour sticky.
+
+The discipline that keeps this from becoming a rewrite: each item must be
+**enabled by** the root change, not merely adjacent to it. Dead-code removal, for
+instance, is explicitly **excluded** — `Core/ScrollState.cs` (198 lines, zero
+consumers) and the four unused methods in `Helpers/ScrollingHelper.cs` are real
+findings, but they are public API whose removal needs an adopter-wide search, and
+bundling that into an experiment about layout would muddy both. They are tracked
+as separate follow-up work in the main repo.
+
 ## Why
 
 An external evaluator ([CodewinBzn/WinASM65's
@@ -242,13 +266,42 @@ Placement for a dock root is expressed at add time, not as a control property �
 positioning property; `StickyPosition` stays the only one, and it stays meaningful
 only under the default root.
 
+### DockPanelControl — docking below the root
+
+`DockLayout` is also exposed as an ordinary control, `DockPanelControl`
+(`Controls.DockPanel(...)`), not only as a root layout.
+
+This matters because **a grid does not and cannot "gain docking".** They are
+different allocation algorithms, not one feature the other can absorb:
+
+- A **grid** places children into a track structure declared up front. The cell
+  exists before the child does; `Place(ctrl, row: 0, col: 1)` is a coordinate.
+  Overlap is legal — two children may share a cell.
+- A **dock** has no tracks. Each child *consumes* an edge of a shrinking
+  rectangle, in declaration order. A 30-wide left dock means every later child
+  sees a rectangle 30 columns narrower. Order is semantic; there are no
+  coordinates.
+
+Fusing them would require a docked grid child to answer "which track did you just
+consume?", and the answer is none. They stay siblings under `ILayoutContainer`,
+exactly as `ScrollLayout`, `TabLayout` and `GridLayout` already coexist.
+
+Exposing the layout as a control gives the practical capability without the
+fusion: any grid cell may *contain* a dock panel, and any dock region may contain
+a grid. The cost is one control wrapper over a layout that must exist anyway.
+
+Worth doing now rather than later. Adding a new layout *control* to a shipped
+library is a public-surface addition that has to earn its place on its own; doing
+it while the layout is being written anyway is nearly free, and retrofitting it
+afterwards means revisiting the same code twice.
+
 ### Nesting
 
 The root layout governs the window's **direct** children only. Any child may be a
-container control, including `GridControl`, at any depth. The IDE shape —
-menu/tree/status docked around a splittable two-pane grid — is a dock root with a
-`Controls.Grid(...)` fill child, and everything inside that grid is existing,
-shipping machinery.
+container control — `GridControl`, `DockPanelControl`, a scroller — at any depth,
+in either direction. The IDE shape (menu/tree/status docked around a splittable
+two-pane grid) is a dock root with a `Controls.Grid(...)` fill child; the inverse
+(a grid root with a docked panel in one cell) composes just as well.
 
 One root layout per window; ordinary controls below.
 
@@ -343,9 +396,10 @@ buffers compared. This answers the central question before anything is cut.
 Window scrolling moves to the body `ScrollLayout`; the public scroll surface is
 cut or reshaped as the model demands.
 
-**4. `DockLayout` and border-delegated scrollbars.** Additive capability, built
-last because it proves nothing about the risky part and would otherwise delay the
-answer.
+**4. `DockLayout`, `DockPanelControl`, and border-delegated scrollbars.**
+Additive capability, built after the answer is in because none of it proves
+anything about the risky part and would otherwise delay that answer. The control
+wrapper lands with the layout, not after it.
 
 **5. `ScrollablePanelControl` honours `StickyPosition`.** Retire the four `Flows`
 workarounds and check whether the comments describing them can be deleted.
