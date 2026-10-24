@@ -52,6 +52,12 @@ namespace SharpConsoleUI.Layout
 				// The panel paints only its own chrome (border + scrollbars) in PaintDOM.
 				return (new ScrollLayout(), spc.Children);
 			}
+			else if (control is DockPanelControl dockPanel)
+			{
+				// Docking everywhere, not only at the window root: a grid cell holds one control,
+				// so a cell docks by holding one of these.
+				return (new DockLayout { LastChildFill = dockPanel.LastChildFill }, dockPanel.Children);
+			}
 			else if (control is GridControl gridControl)
 			{
 				// Tree-participating container: the engine builds the grid's content-bearing cells into the

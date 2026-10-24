@@ -98,7 +98,7 @@ namespace SharpConsoleUI
 		/// Creates this window's root layout - the layout that arranges the window's own controls.
 		/// Null, the default, uses the application default
 		/// (<see cref="Windows.WindowRenderer.RootLayoutFactory"/>, a
-		/// <see cref="Layout.GridRootLayout"/> unless changed).
+		/// <see cref="Layout.DockRootLayout"/> unless changed).
 		/// </summary>
 		/// <remarks>
 		/// <para>

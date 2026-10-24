@@ -110,7 +110,7 @@ namespace SharpConsoleUI.Windows
 		public LayoutNode? RootLayoutNode => _rootNode;
 
 		/// <summary>
-		/// Creates the layout used as a window's root. Defaults to <see cref="GridRootLayout"/>.
+		/// Creates the layout used as a window's root. Defaults to <see cref="DockRootLayout"/>.
 		/// </summary>
 		/// <remarks>
 		/// A window's root was the last node in the engine chosen by type rather than by
@@ -119,7 +119,7 @@ namespace SharpConsoleUI.Windows
 		/// property of the layout model in use, not of an individual window, and because the
 		/// renderer rebuilds its root on every DOM rebuild.
 		/// </remarks>
-		public static Func<IWindowRootLayout> RootLayoutFactory { get; set; } = () => new GridRootLayout();
+		public static Func<IWindowRootLayout> RootLayoutFactory { get; set; } = () => new DockRootLayout();
 
 		/// <summary>
 		/// Creates this window's root layout, overriding <see cref="RootLayoutFactory"/>. Null

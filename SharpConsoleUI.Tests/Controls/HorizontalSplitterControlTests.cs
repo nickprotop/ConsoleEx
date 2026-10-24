@@ -602,7 +602,7 @@ public class HorizontalSplitterControlTests
 	[Fact]
 	public void WindowRoot_FillChildWithExplicitHeight_TreatedAsFixed()
 	{
-		var layout = new GridRootLayout();
+		var layout = new DockRootLayout();
 		var root = new LayoutNode(null, layout);
 
 		// Child 1: Fill with explicit height
@@ -639,7 +639,7 @@ public class HorizontalSplitterControlTests
 	[Fact]
 	public void WindowRoot_FillChildWithoutExplicitHeight_SharesSpace()
 	{
-		var layout = new GridRootLayout();
+		var layout = new DockRootLayout();
 		var root = new LayoutNode(null, layout);
 
 		var panel1 = new PanelControl("top") { VerticalAlignment = VerticalAlignment.Fill };
@@ -666,7 +666,7 @@ public class HorizontalSplitterControlTests
 	{
 		// Simulate: [Grid(Fill,Height=15), Splitter(Top,1row), Panel(Fill)]
 		// This is the outer splitter scenario from the demo
-		var layout = new GridRootLayout();
+		var layout = new DockRootLayout();
 		var root = new LayoutNode(null, layout);
 
 		var grid = new HorizontalGridControl() { VerticalAlignment = VerticalAlignment.Fill };

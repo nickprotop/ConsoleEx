@@ -1064,6 +1064,39 @@ before a left dock spans the full width.
 clock, scrolling tree, zero stderr.
 
 
+### One root, docking everywhere: the three pieces
+
+**`DockRootLayout` is the default and `GridRootLayout` is gone.** Proving them
+15/15 byte-identical and then shipping both would have been shipping one
+algorithm twice. Comparing their members showed the whole difference was
+`IGridSource` plumbing - `RowDefinitions`, `ColumnGap`, `Padding`,
+`StarTracksSelfSizeToContentInMeasure` - which is not capability, it is the cost
+of translating docking into grid rows. The dock root allocates rectangles
+directly and skips the translation: 403 lines against 423, doing strictly more.
+
+The three `HorizontalSplitterControl` layout tests were retargeted to the dock
+root with their assertions untouched, and pass - the flex contract survives a
+second root change as well as it survived the first.
+
+**"Could a docking `GridControl` have been the root instead?"** No, and the
+reason is worth recording because it is not obvious. A docking grid would derive
+tracks from the docks and place children into them - which is *exactly* what
+`GridRootLayout` did. Making the grid do it internally does not remove the
+translation layer, it relocates it into the 916-line `GridLayout`, where it also
+has to coexist with explicit row/column placement, spans and splitters.
+
+**Docking reaches everywhere through `DockPanelControl`, not through a grid
+change.** A `GridControl` cell holds exactly one control - `AddControl(row, col)`
+replaces rather than stacks - so a cell cannot itself dock several children. It
+can hold a dock panel, and then the cell docks. Same for a scrollable panel, a
+tab page, or another dock panel. `DockLayout` is the plain-container form of the
+allocation, without the scrolling body a window root needs; `DockPanelControl`
+wraps it and exposes the same four surfaces as `Window`.
+
+That is the answer to "why not let the grid gain docking": the grid does not
+need to. One control in one cell is enough, when that control can dock.
+
+
 ## Open questions
 
 1. ~~**Does any adopter read `Window.ScrollOffset` / `CanScroll` directly?**~~

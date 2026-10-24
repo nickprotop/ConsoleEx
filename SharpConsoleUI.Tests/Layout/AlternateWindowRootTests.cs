@@ -19,7 +19,7 @@ namespace SharpConsoleUI.Tests.Layout;
 
 /// <summary>
 /// Answers the question the <see cref="IWindowRootLayout"/> seam raises: can a window's root be
-/// something other than <see cref="GridRootLayout"/>, or is the interface only wide enough for the
+/// something other than <see cref="DockRootLayout"/>, or is the interface only wide enough for the
 /// one implementation it was extracted from?
 /// </summary>
 /// <remarks>
@@ -121,7 +121,7 @@ public class AlternateWindowRootTests
 	[Fact]
 	public void AStackRoot_IgnoresSticky_BecauseItHasNoBands()
 	{
-		// The point of the seam: a root defines its OWN model. GridRootLayout gives
+		// The point of the seam: a root defines its OWN model. DockRootLayout gives
 		// StickyPosition a meaning; this one does not, and is entitled not to. A sticky-bottom
 		// child stays where author order put it rather than jumping to the last row.
 		var text = WithRoot(() => new StackRootLayout(), system =>
@@ -155,22 +155,22 @@ public class AlternateWindowRootTests
 			return GoldenBuffer.Capture(Render(window), "either").ToText();
 		};
 
-		var grid = WithRoot(() => new GridRootLayout(), build);
+		var docked = WithRoot(() => new DockRootLayout(), build);
 		var stack = WithRoot(() => new StackRootLayout(), build);
 
-		_out.WriteLine("--- grid root ---");
-		_out.WriteLine(grid);
+		_out.WriteLine("--- dock root ---");
+		_out.WriteLine(docked);
 		_out.WriteLine("--- stack root ---");
 		_out.WriteLine(stack);
 
-		Assert.NotEqual(grid, stack);
+		Assert.NotEqual(docked, stack);
 
-		// And specifically: the grid root honours sticky, the stack root does not. The captured
+		// And specifically: the dock root honours sticky, the stack root does not. The captured
 		// buffer is the window's CONTENT area, so a 10-row window with a border paints 8 rows and
 		// the last one is index 7.
-		var gridLines = grid.Split('\n');
+		var dockedLines = docked.Split('\n');
 		var stackLines = stack.Split('\n');
-		Assert.Contains("FOOTER", gridLines[^2]);     // last content row
+		Assert.Contains("FOOTER", dockedLines[^2]);     // last content row
 		Assert.Contains("FOOTER", stackLines[0]);     // author order, first row
 	}
 
@@ -205,10 +205,10 @@ public class AlternateWindowRootTests
 		// originally framed. Both windows are alive in one system, rendered in the same pass.
 		var system = TestWindowSystemBuilder.CreateTestSystem(100, 40);
 
-		var gridWindow = new Window(system) { Title = "Grid", Width = 40, Height = 10, Left = 0, Top = 0 };
-		gridWindow.AddControl(Builder.Markup("FOOTER").StickyBottom().Build());
-		gridWindow.AddControl(Builder.Markup("body").Build());
-		system.AddWindow(gridWindow);
+		var defaultWindow = new Window(system) { Title = "Default", Width = 40, Height = 10, Left = 0, Top = 0 };
+		defaultWindow.AddControl(Builder.Markup("FOOTER").StickyBottom().Build());
+		defaultWindow.AddControl(Builder.Markup("body").Build());
+		system.AddWindow(defaultWindow);
 
 		var stackWindow = new Window(system) { Title = "Stack", Width = 40, Height = 10, Left = 50, Top = 0 };
 		stackWindow.Root = () => new StackRootLayout();
@@ -216,10 +216,10 @@ public class AlternateWindowRootTests
 		stackWindow.AddControl(Builder.Markup("body").Build());
 		system.AddWindow(stackWindow);
 
-		var grid = GoldenBuffer.Capture(Render(gridWindow), "grid window").ToText();
+		var grid = GoldenBuffer.Capture(Render(defaultWindow), "default-rooted window").ToText();
 		var stack = GoldenBuffer.Capture(Render(stackWindow), "stack window").ToText();
 
-		_out.WriteLine("--- grid-rooted window ---");
+		_out.WriteLine("--- default-rooted window ---");
 		_out.WriteLine(grid);
 		_out.WriteLine("--- stack-rooted window ---");
 		_out.WriteLine(stack);
