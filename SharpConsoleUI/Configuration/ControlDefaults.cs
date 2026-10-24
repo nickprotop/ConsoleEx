@@ -673,24 +673,23 @@ namespace SharpConsoleUI.Configuration
 		public const string DropdownOpenArrow = "\u25B4";
 
 		/// <summary>
-		/// Scroll-up indicator for dropdown portal.
-		/// Uses small triangle (U+25B4) which is reliably 1-column wide across terminals.
-		/// </summary>
-		/// <summary>
 		/// Up-arrow cap for the window border's vertical scrollbar. U+25B4 (small triangle),
 		/// not U+25B2: the larger glyph is East Asian Ambiguous Width and renders 2 cells wide
 		/// in many terminals, which would overflow a 1-column border.
 		/// </summary>
 		public const char BorderScrollUpArrow = '\u25B4';
 
-		/// <summary>Down-arrow cap for the window border's vertical scrollbar. See
-		/// <see cref="BorderScrollUpArrow"/> for why this is the small triangle.</summary>
+		/// <summary>
+		/// Down-arrow cap for the window border's vertical scrollbar. See
+		/// <see cref="BorderScrollUpArrow"/> for why this is the small triangle.
+		/// </summary>
 		public const char BorderScrollDownArrow = '\u25BE';
 
-		public const string         /// <inheritdoc/>
-/// <inheritdoc/>
-/// <inheritdoc/>
-DropdownScrollUpArrow = "\u25B4";
+		/// <summary>
+		/// Scroll-up indicator for dropdown portal.
+		/// Uses small triangle (U+25B4) which is reliably 1-column wide across terminals.
+		/// </summary>
+		public const string DropdownScrollUpArrow = "\u25B4";
 
 		/// <summary>
 		/// Scroll-down indicator for dropdown portal.

@@ -25,8 +25,8 @@ namespace SharpConsoleUI.Tests.Layout;
 /// mapping is most likely to break it - a band one row off, a clip-rect leak, a colour change -
 /// and assert the comparison catches each one.
 ///
-/// Step 1 of docs/experiment/design.md. Written against UNMODIFIED code so the baseline is known
-/// good before any layout work begins.
+/// Written against the pre-rewrite code, so the baseline was known good before the root layout
+/// changed underneath it.
 /// </remarks>
 public class GoldenBufferOracleTests
 {
