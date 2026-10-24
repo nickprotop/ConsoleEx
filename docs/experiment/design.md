@@ -775,7 +775,7 @@ is what it was given, never what it holds.**
 Two parity tests now cover it: an empty Fill container, and a short body between
 sticky bands.
 
-### Step 3 verdict: three of four exit criteria met
+### Step 3 verdict: all four exit criteria met
 
 - **Full suite green in the clone.** 6948 / 6948, zero failures. Note that this
   includes `X11ClipboardTests.ALargeCopy_CrossesInPieces_Whole`, which was flaky
@@ -791,42 +791,75 @@ sticky bands.
   facade kept its shape exactly, six scroll verbs moved onto `GridRootLayout`,
   and `EnsureVisible` turned out to have no callers at all. Nothing was cut.
 
-The fourth - **golden buffers identical for every captured window at every
-captured size** - is NOT met, and should not be claimed. The oracle exists and is
-proven against sabotage, but comparing old root against new now requires running
-both in the same process, and the default is swapped. Geometry parity across 15
-cases plus a clean smoke-drive is strong evidence, not the byte-identical proof
-the criterion asks for. Closing that gap is the remaining work in this step.
+- **Golden buffers identical for every captured window, at every captured size.**
+  14 cases, byte-identical including colour and decoration. This was the one
+  criterion an earlier draft of this section recorded as NOT met, on the grounds
+  that comparing the two roots needed both live in one process while the default
+  was already swapped. That turned out to be a missing seam rather than a real
+  obstacle: extracting `IWindowRootLayout` made both constructible, and the
+  comparison ran. Recorded here because "we cannot test that" deserves one
+  attempt at "why not" before it is written down as a limit.
 
-### `WindowContentLayout` stays in the clone, and that is not a deferral
+### `WindowContentLayout` is gone, and the proof outlived it
 
-Step 3 as written says "swap the default, delete `WindowContentLayout`". The swap
-is done; the deletion should not be, and the reason is worth stating rather than
-quietly skipping.
+An earlier draft of this section argued the old layout should stay in the clone
+as the parity oracle, with deletion left to the apply-back. That reasoning was
+wrong on its premise: **there is no apply-back — this is the clone.** Keeping a
+dead class to protect a test is the tail wagging the dog.
 
-After the swap the library has **zero live references** to it — the only mentions
-left are four comments. The one remaining consumer is `GridRootLayoutParityTests`,
-which drives both layouts over the same controls and compares where the leaves
-land. That comparison *is* the evidence the replacement is correct. Deleting the
-old layout inside the experiment would delete the oracle and leave the new root
-asserting only against itself.
+The real constraint was narrower: deleting the old layout deletes the only thing
+the new one can be compared against. So the order mattered.
 
-So: the clone keeps it as a reference implementation with no production callers.
-The deletion is an **apply-back action**, taken in the main repo once the mapping
-is accepted, under the usual public-API audit — the same treatment `ede5465f`
-gave `ScrollableLayoutNode`. At that point the parity tests either come across as
-a frozen golden-geometry corpus or retire with the layout they compare against;
-that is a decision for the apply-back, not for here.
+1. Extract `IWindowRootLayout` from the facade `WindowRenderer` already had, and
+   route root construction through a static factory. Both layouts satisfied the
+   interface **without changing a line** — which is itself the evidence that the
+   facade was already the real contract, and that the window root was the last
+   node in the engine chosen by type rather than by dispatch.
+2. With both roots constructible, run the comparison that settles the central
+   claim: the same window rendered through each, buffers compared cell by cell,
+   colour and decoration included. **14 cases, all identical** — sticky
+   sandwiches at four sizes, three scroll positions including past the end,
+   multi-control bands, a Fill `ScrollablePanel`, the empty-panel collapse,
+   aligned children, and a hidden sticky child.
+3. Verify the comparison can fail: shifting the body band by one row fails 12 of
+   the 14. An oracle that cannot fail proves nothing.
+4. Commit that, so the proof lives in history.
+5. Then delete.
 
-What the swap did settle: the class is dead weight in the library the moment the
-default changes. Nothing internal needs it.
+The three `HorizontalSplitterControl` layout tests were **retargeted, not
+deleted**: they now drive the new root with their assertions unchanged and pass.
+That is a stronger result than parity testing — the flex contract (an explicit
+height wins, equal share otherwise) is reproduced exactly rather than
+approximately, as judged by tests written against the old implementation with no
+knowledge of the new one.
+
+Also deleted, now that no public-API audit stands in the way: `Core/ScrollState.cs`
+(198 lines, zero consumers anywhere) and four of the five methods in
+`Helpers/ScrollingHelper.cs` (`CenterIndexInViewport`, `ScrollByDelta`,
+`GetMaxScrollOffset`, `IsIndexVisible` — zero call sites each; only
+`EnsureIndexVisible` is used, once).
+
+What this costs: the parity and golden-buffer suites are gone with the layout
+they compared against. The window root's behaviour is now held by the rest of
+the suite — thousands of tests written against the old root that pass unchanged
+against the new one — plus the `HorizontalSplitterControl` tests above. That is
+the right trade once the comparison has been made and recorded, and the wrong
+one before.
+
+Net effect on the library: **-688 lines**, and the window root is no longer a
+special case in an engine that is polymorphic everywhere else.
+
+Re-smoke-driven after the deletions at 120x35: launcher, tree scrolling with
+correct thumb and overflow markers, detail pane, borders. Zero stderr.
 
 ## Open questions
 
-1. **Does any adopter read `Window.ScrollOffset` / `CanScroll` directly?** The
-   internal coupling is one call site, but external usage is unaudited. Worth a
-   `gh search code` sweep using the corrected query syntax — needed before
-   applying back, not before cutting it here.
+1. ~~**Does any adopter read `Window.ScrollOffset` / `CanScroll` directly?**~~
+   **Moot.** Nothing was cut. The scroll facade kept its exact shape; the six
+   verbs moved onto `GridRootLayout` with the same signatures, and
+   `EnsureVisible` — the one member that could have gone — had no callers at all.
+   The question was premised on the rewrite forcing a reduction in surface area,
+   and it did not.
 2. **Does `ScrollablePanelControl` honouring `StickyPosition` change existing
    rendering?** Today a sticky child inside an SPC is silently treated as
    `None`. Making it work is a fix, but it is also a behaviour change for any app

@@ -221,7 +221,7 @@ namespace SharpConsoleUI.Layout
 			// the scroll ancestor reveals the right slice.
 			//
 			// NOTE: this checks ScrollLayout specifically, NOT IRegionClippingLayout — the root
-			// WindowContentLayout is also region-clipping, and it is exactly the viewport the clamp below is
+			// The window root is also region-clipping, and it is exactly the viewport the clamp below is
 			// SUPPOSED to use (so a panel that owns its own scroll, with no ScrollablePanel ancestor, still
 			// gets clamped to the window viewport and scrolls its own body).
 			var cur = node.Parent;

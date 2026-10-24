@@ -18,10 +18,12 @@ namespace SharpConsoleUI.Layout;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Experimental replacement for <see cref="WindowContentLayout"/>, the last self-scrolling
-/// container in the codebase. It exists to answer one question: can sticky be reproduced
-/// byte-identically as grid placement? Until that is answered it runs <em>beside</em> the old
-/// layout, never instead of it.
+/// This replaced the hand-written window layout that preceded it - the last self-scrolling
+/// container in the codebase, and the last node chosen by type rather than through
+/// <see cref="LayoutNodeFactory"/>. It was adopted only after rendering the same windows through
+/// both and comparing the painted buffers cell by cell; that comparison lives in the history at
+/// the commit which introduced <see cref="IWindowRootLayout"/>, and cannot be re-run here because
+/// the layout it compared against is gone.
 /// </para>
 /// <para>
 /// <b>This is the only <see cref="ILayoutContainer"/> that owns tree shape.</b> Every other layout
@@ -86,8 +88,7 @@ public sealed class GridRootLayout : IWindowRootLayout, IGridSource, IScrollOrig
 	public IReadOnlyList<GridLength> ColumnDefinitions { get; } = new[] { GridLength.Star(1) };
 
 	/// <summary>
-	/// No gaps. <see cref="WindowContentLayout"/> stacks children edge to edge; any gap would
-	/// shift every row below it and fail the parity comparison immediately.
+	/// No gaps. A window stacks its children edge to edge; any gap would shift every row below it.
 	/// </summary>
 	public int RowGap => 0;
 
@@ -199,10 +200,9 @@ public sealed class GridRootLayout : IWindowRootLayout, IGridSource, IScrollOrig
 
 	/// <summary>
 	/// Clips each band to its own region so body content cannot paint over a sticky header or
-	/// footer. Deliberately mirrors <see cref="WindowContentLayout.GetPaintClipRect"/> rather than
-	/// deriving rectangles from the grid's track bounds: the comparison this layout must pass is
-	/// against that method's output, so a difference in rounding or clamping would surface as a
-	/// colour bleed in the golden buffers.
+	/// footer. Derived from the recorded band geometry rather than from the grid's track bounds:
+	/// the bands are what the clip must agree with, and a difference in rounding or clamping
+	/// between the two surfaces as a colour bleed across a band edge.
 	/// </summary>
 	public LayoutRect GetPaintClipRect(LayoutNode child, LayoutRect parentClipRect)
 	{

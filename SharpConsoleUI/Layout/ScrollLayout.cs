@@ -414,8 +414,7 @@ namespace SharpConsoleUI.Layout
 
 		/// <summary>
 		/// The body's full content height as of the last origin-driven measure. The window's scroll
-		/// range is derived from this; it is the number the old <c>WindowContentLayout</c> tracked
-		/// as <c>ScrollableContentHeight</c>.
+		/// range is derived from this.
 		/// </summary>
 		internal int ContentHeight { get; private set; }
 
@@ -481,8 +480,7 @@ namespace SharpConsoleUI.Layout
 
 				// Honour HorizontalAlignment, which the panel path does not: a panel stretches its
 				// children unconditionally, but a window root positions Left/Center/Right children
-				// at their own desired width. Mirrors WindowContentLayout.CalculateHorizontalPosition
-				// so the two agree.
+				// at their own desired width.
 				var (childX2, childWidth) = HorizontalPosition(child, childLayoutWidth);
 
 				child.Arrange(new LayoutRect(childX + childX2, currentY, childWidth, childHeight));
@@ -492,9 +490,8 @@ namespace SharpConsoleUI.Layout
 
 		/// <summary>
 		/// X offset and width for a child of an origin-driven body, from its
-		/// <see cref="HorizontalAlignment"/>. Deliberately identical to
-		/// <c>WindowContentLayout.CalculateHorizontalPosition</c>: the body must place a Left,
-		/// Center or Right child exactly where the old root layout did.
+		/// <see cref="HorizontalAlignment"/>. A window root places a Left, Center or Right child at
+		/// its own desired width; only a Stretch child without an explicit width fills the body.
 		/// </summary>
 		private static (int X, int Width) HorizontalPosition(LayoutNode child, int availableWidth)
 		{
