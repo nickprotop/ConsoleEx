@@ -36,12 +36,35 @@ namespace SharpConsoleUI.Layout
 			=> node.Control as SharpConsoleUI.Controls.ScrollablePanelControl;
 
 		/// <summary>
+		/// Scroll state for a node that has no panel — the window root's body row. Null on the
+		/// panel path, which is left exactly as it was.
+		/// </summary>
+		private readonly IScrollOrigin? _origin;
+
+		/// <summary>The layout as it has always been: driven by the panel on the node.</summary>
+		public ScrollLayout()
+		{
+		}
+
+		/// <summary>
+		/// A scroll layout for a node that is not a <c>ScrollablePanelControl</c> — the window
+		/// root's body. The origin supplies the offsets the panel would otherwise provide.
+		/// </summary>
+		internal ScrollLayout(IScrollOrigin origin)
+		{
+			_origin = origin;
+		}
+
+		/// <summary>
 		/// Measures the visible children at the content width and returns the VIEWPORT size as the
 		/// node's desired size (NOT the full content extent). The panel computes the full content
 		/// extent internally for scrollbar math; the layout slot only ever occupies the viewport.
 		/// </summary>
 		public LayoutSize MeasureChildren(LayoutNode node, LayoutConstraints constraints)
 		{
+			if (_origin != null)
+				return MeasureFromOrigin(node, constraints);
+
 			var panel = Panel(node);
 			if (panel == null)
 				return LayoutSize.Zero;
@@ -164,6 +187,12 @@ namespace SharpConsoleUI.Layout
 		/// </summary>
 		public void ArrangeChildren(LayoutNode node, LayoutRect finalRect)
 		{
+			if (_origin != null)
+			{
+				ArrangeFromOrigin(node, finalRect);
+				return;
+			}
+
 			var panel = Panel(node);
 			if (panel == null)
 				return;
@@ -225,6 +254,14 @@ namespace SharpConsoleUI.Layout
 		/// </summary>
 		public LayoutRect GetPaintClipRect(LayoutNode child, LayoutRect parentClipRect)
 		{
+			if (_origin != null)
+			{
+				// The body's viewport IS the node's box — there is no scrollbar chrome to inset,
+				// so scrolled-out rows are clipped by the parent rect alone.
+				var body = child.Parent;
+				return body == null ? parentClipRect : parentClipRect.Intersect(body.AbsoluteBounds);
+			}
+
 			var panel = child.Parent != null ? Panel(child.Parent) : null;
 			if (panel == null)
 				return parentClipRect;
@@ -253,6 +290,85 @@ namespace SharpConsoleUI.Layout
 			return panel.HorizontalScrollEnabledInternal
 				? Math.Max(contentWidth, panel.TotalContentWidthInternal)
 				: contentWidth;
+		}
+
+		/// <summary>
+		/// Measures children for an origin-driven body (a window root's star row). Each child is
+		/// measured at the content width with unbounded height, because the body's whole job is to
+		/// be taller than its viewport — that overflow is what there is to scroll through.
+		/// </summary>
+		/// <remarks>
+		/// Returns the VIEWPORT height, not the content height, matching the panel path's contract:
+		/// the slot the body occupies is the space it was given, however tall its content is. The
+		/// full extent is recoverable from the arranged children.
+		/// </remarks>
+		private LayoutSize MeasureFromOrigin(LayoutNode node, LayoutConstraints constraints)
+		{
+			int width = constraints.MaxWidth;
+			int contentHeight = 0;
+			int widest = 0;
+
+			foreach (var child in node.Children)
+			{
+				if (!child.IsVisible || child.Control == null)
+					continue;
+
+				var size = child.Measure(constraints.WithMaxHeight(int.MaxValue));
+				contentHeight += size.Height;
+				widest = Math.Max(widest, size.Width);
+			}
+
+			ContentHeight = contentHeight;
+			ContentWidth = widest;
+
+			return new LayoutSize(
+				Math.Min(widest, width),
+				Math.Min(contentHeight, constraints.MaxHeight));
+		}
+
+		/// <summary>
+		/// The body's full content height as of the last origin-driven measure. The window's scroll
+		/// range is derived from this; it is the number the old <c>WindowContentLayout</c> tracked
+		/// as <c>ScrollableContentHeight</c>.
+		/// </summary>
+		internal int ContentHeight { get; private set; }
+
+		/// <summary>The widest child as of the last origin-driven measure.</summary>
+		internal int ContentWidth { get; private set; }
+
+		/// <summary>
+		/// Stacks children from <c>-VerticalScrollOffset</c>, each at its full measured height.
+		/// Mirrors <see cref="ArrangeChildrenCore"/> without the panel's content-metric inset and
+		/// Fill helpers, which a window root has no equivalent of.
+		/// </summary>
+		private void ArrangeFromOrigin(LayoutNode node, LayoutRect finalRect)
+		{
+			var origin = _origin!;
+
+			int childLayoutWidth = origin.HorizontalScrollEnabled
+				? Math.Max(finalRect.Width, origin.TotalContentWidth)
+				: finalRect.Width;
+
+			int childX = -origin.HorizontalScrollOffset;
+			int currentY = -origin.VerticalScrollOffset;
+
+			foreach (var child in node.Children)
+			{
+				if (!child.IsVisible || child.Control == null)
+				{
+					child.Arrange(LayoutRect.Empty);
+					continue;
+				}
+
+				int childHeight = child.DesiredSize.Height;
+
+				int childWidth = (child.Control.Width.HasValue && child.Control.Width.Value < childLayoutWidth)
+					? child.Control.Width.Value
+					: childLayoutWidth;
+
+				child.Arrange(new LayoutRect(childX, currentY, childWidth, childHeight));
+				currentY += childHeight;
+			}
 		}
 
 		/// <summary>

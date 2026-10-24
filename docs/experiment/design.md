@@ -479,6 +479,53 @@ Two distinct causes, same root:
 Both are the same missing piece, and it is the piece the design already named:
 **the star row must host a scrolling layout, not raw children.**
 
+### The index-correlation wall — the body cannot be a grid cell
+
+**Status: blocked, pending a decision.** This is the experiment's first genuine
+structural obstacle, as opposed to work not yet done.
+
+`GridLayout` pairs child nodes to cells **by index**: `node.Children[i]` is
+`OrderedCells[i]`. `IGridSource` documents this as an invariant and six sites in
+`GridLayout` rely on it (`Math.Min(children.Count, cells.Count)` then index both).
+
+The body needs the opposite. A grid cell clamps its content to the track and does
+not stack several controls; a scrolling body must stack them and let them
+overflow. The fix is a synthetic body `LayoutNode` holding a `ScrollLayout` in the
+star row — `LayoutNode(ILayoutContainer)` exists for exactly this, and nothing
+walks the root's children positionally (`FindByControl` recurses), so the extra
+depth is safe.
+
+But that body node would have to BE one of the root's children, making the list
+`[sticky…, bodyNode, sticky…]` — a restructured list, not the author-order control
+list `WindowRenderer` builds. `GridRootLayout` cannot both honour index
+correlation and restructure its children.
+
+Three ways through:
+
+- **Build the restructured tree in the root layout.** `GridRootLayout` owns the
+  root node's children: it would take the flat control list and produce the
+  banded tree. This is the honest answer but it moves tree construction from
+  `WindowRenderer` into a layout, which no other `ILayoutContainer` does.
+- **Relax index correlation to a placement lookup.** Give `IGridSource` a
+  control→placement map instead of a positional list, so a grid can hold children
+  the source did not enumerate. Cleaner conceptually, but it changes a contract
+  six call sites depend on, inside the grid engine, which is shipped and heavily
+  tested.
+- **`WindowRenderer` builds the banded tree.** The renderer, which already builds
+  the root node, groups sticky and body children before handing them to the
+  layout. Keeps the grid contract and keeps layouts side-effect-free; costs the
+  renderer knowledge of sticky, which is the coupling this experiment set out to
+  remove.
+
+The third is the smallest change and the worst fit; the first is the best fit and
+the largest. Not deciding this unilaterally — it is the kind of
+architecture-shaping call that belongs with the maintainer.
+
+**What is already proven and kept:** `IScrollOrigin` and the additive
+origin-driven path in `ScrollLayout`. The panel path is untouched by
+construction, and **659 scroll tests pass**, so the seam itself is sound and
+independently useful regardless of how the body question resolves.
+
 ### `ScrollLayout` cannot currently serve a window root
 
 `ScrollLayout` does exactly what the body row needs — its own doc says it stacks
