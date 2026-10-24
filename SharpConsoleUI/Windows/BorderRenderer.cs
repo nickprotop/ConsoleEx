@@ -127,20 +127,46 @@ namespace SharpConsoleUI.Windows
 			var desktopUpperLeft = _getDesktopUpperLeft();
 
 			var scrollbarChar = '░';
-			var contentHeight = _window.TotalLines;
-			var visibleHeight = _window.ContentHeight;
 
-			if (_window.IsScrollable && contentHeight > visibleHeight)
+			// A region may have taken this border over; otherwise the window's own body drives it,
+			// which is the arrangement the frame has always had.
+			var delegated = _window.BorderScrollSource(Layout.ScrollAxis.Vertical);
+			var contentHeight = delegated?.Extent ?? _window.TotalLines;
+			var visibleHeight = delegated?.Viewport ?? _window.ContentHeight;
+			var offset = delegated?.Offset ?? _window.ScrollOffset;
+			bool scrollable = delegated != null || _window.IsScrollable;
+
+			// The TRACK is the border between the corners; the CONTENT is whatever the region
+			// scrolls. These are different lengths and must not be conflated: the thumb position
+			// has to be scaled into the track, not into the content's own viewport. They used to
+			// be equal (the window body filled the frame), so the old code could use the viewport
+			// for both - until docked bands made the body shorter than the border it draws in.
+			// Scaling by the viewport left the thumb short of the end, and off the track entirely
+			// once the bands took enough rows.
+			int trackLength = _window.Height - 2;
+
+			if (scrollable && contentHeight > visibleHeight && trackLength > 0)
 			{
-				if (_window.Height > 2)
-				{
-					var scrollPosition = (float)_window.ScrollOffset / Math.Max(1, contentHeight - visibleHeight);
-					var scrollbarPosition = (int)(scrollPosition * (visibleHeight - 1));
-					if (y - 1 == scrollbarPosition)
-					{
-						scrollbarChar = '█';
-					}
-				}
+				int maxOffset = Math.Max(1, contentHeight - visibleHeight);
+				int clamped = Math.Clamp(offset, 0, maxOffset);
+
+				// Arrow caps at both ends, matching the scrollbar control, so the frame reads the
+				// same way as an interior bar. They need a track with room for them plus a thumb.
+				bool caps = trackLength >= Configuration.ControlDefaults.MinArrowTrackLength;
+				int thumbTrack = caps ? trackLength - 2 : trackLength;
+				int thumbStart = caps ? 1 : 0;
+
+				int thumbRow = thumbStart + (int)Math.Round(
+					(double)clamped / maxOffset * (thumbTrack - 1));
+				thumbRow = Math.Clamp(thumbRow, thumbStart, thumbStart + thumbTrack - 1);
+
+				int row = y - 1;
+				if (caps && row == 0)
+					scrollbarChar = Configuration.ControlDefaults.BorderScrollUpArrow;
+				else if (caps && row == trackLength - 1)
+					scrollbarChar = Configuration.ControlDefaults.BorderScrollDownArrow;
+				else if (row == thumbRow)
+					scrollbarChar = '█';
 			}
 			else scrollbarChar = verticalBorder;
 
@@ -277,6 +303,85 @@ namespace SharpConsoleUI.Windows
 		}
 
 		/// <summary>
+		/// Whether the right border should render a scroll track rather than plain frame.
+		/// </summary>
+		/// <remarks>
+		/// A delegated region governs on its own terms: it took the border precisely because it
+		/// has content to scroll, so the window's <c>IsScrollable</c> (which describes the
+		/// window body) does not gate it.
+		/// </remarks>
+		private bool VerticalScrollbarVisible(int windowContentHeight, int windowVisibleHeight)
+		{
+			var delegated = _window.BorderScrollSource(Layout.ScrollAxis.Vertical);
+			if (delegated != null)
+				return delegated.Viewport > 0 && delegated.Extent > delegated.Viewport;
+
+			return _window.IsScrollable && windowContentHeight > windowVisibleHeight;
+		}
+
+		/// <summary>
+		/// Draws a horizontal scroll thumb into the bottom border for a region that delegated
+		/// that axis. No-op when nothing has, which is every window unless asked.
+		/// </summary>
+		/// <remarks>
+		/// Painted after the bottom border is blitted rather than built into it: the cached
+		/// border buffer is keyed on width and active state, so a scroll that changed only the
+		/// offset would redraw a stale thumb. This mirrors how the vertical thumb is written
+		/// cell-by-cell over the right border for the same reason.
+		/// </remarks>
+		private void DrawHorizontalBorderScrollbar(List<Rectangle>? visibleRegions, Color borderFg, Color bg)
+		{
+			var source = _window.BorderScrollSource(Layout.ScrollAxis.Horizontal);
+			if (source == null)
+				return;
+
+			int extent = source.Extent;
+			int viewport = source.Viewport;
+			if (viewport <= 0 || extent <= viewport)
+				return;
+
+			// The track spans the frame between the corners.
+			int trackWidth = _window.Width - 2;
+			if (trackWidth <= 0)
+				return;
+
+			var driver = _getDriver();
+			var desktopUpperLeft = _getDesktopUpperLeft();
+			int rowY = _window.Top + _window.Height - 1;
+
+			int thumbCol = -1;
+			if (trackWidth > 1)
+			{
+				float position = (float)source.Offset / Math.Max(1, extent - viewport);
+				thumbCol = (int)(position * (trackWidth - 1));
+			}
+
+			for (int i = 0; i < trackWidth; i++)
+			{
+				int x = _window.Left + 1 + i;
+
+				if (visibleRegions != null && visibleRegions.Count > 0)
+				{
+					bool visible = false;
+					foreach (var region in visibleRegions)
+					{
+						if (x >= region.Left && x < region.Left + region.Width &&
+							rowY >= region.Top && rowY < region.Top + region.Height)
+						{
+							visible = true;
+							break;
+						}
+					}
+
+					if (!visible) continue;
+				}
+
+				driver.SetNarrowCell(x, rowY + desktopUpperLeft.Y,
+					i == thumbCol ? '█' : '░', borderFg, bg);
+			}
+		}
+
+		/// <summary>
 		/// Draws visible borders using cached CharacterBuffers and direct cell writes.
 		/// </summary>
 		private void DrawVisibleBorders(List<Rectangle> visibleRegions)
@@ -318,7 +423,7 @@ namespace SharpConsoleUI.Windows
 
 			var contentHeight = _window.TotalLines;
 			var visibleHeight = _window.ContentHeight;
-			var scrollbarVisible = _window.IsScrollable && contentHeight > visibleHeight;
+			var scrollbarVisible = VerticalScrollbarVisible(contentHeight, visibleHeight);
 			var cachedTop = _cachedTopBorder;
 			var cachedBottom = _cachedBottomBorder;
 
@@ -353,6 +458,9 @@ namespace SharpConsoleUI.Windows
 					}
 				}
 			}
+
+			// The horizontal thumb goes over the bottom border just blitted above.
+			DrawHorizontalBorderScrollbar(visibleRegions, borderFg, bg);
 
 			// Vertical borders
 			for (var y = 1; y < _window.Height - 1; y++)
@@ -453,7 +561,7 @@ namespace SharpConsoleUI.Windows
 							// Check if scrollbar should be visible
 							var contentHeight = _window.TotalLines;
 							var visibleHeight = _window.ContentHeight;
-							var scrollbarVisible = _window.IsScrollable && contentHeight > visibleHeight;
+							var scrollbarVisible = VerticalScrollbarVisible(contentHeight, visibleHeight);
 
 							if (scrollbarVisible)
 							{
