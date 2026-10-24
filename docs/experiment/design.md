@@ -441,6 +441,34 @@ If the answer to 3 is "hidden cheaply", the work transfers by cherry-picking
 **from** the main repo — never by pushing out of this clone, which is blocked by
 a `pre-push` hook and a disabled push URL.
 
+## Findings
+
+Recorded as the experiment runs. These are observations about the EXISTING code,
+found while building the oracle - not consequences of the rewrite.
+
+### `Window.ScrollOffset`'s setter does not invalidate
+
+`Window.cs:845`. The setter stores the value through to the renderer and stops.
+`ScrollBy` (line 865), twenty lines below, does the same store and then calls
+`Invalidate(Invalidation.Relayout)`.
+
+So setting `ScrollOffset` directly and re-rendering a clean tree paints the old
+layout: the value reads back correctly, `IsScrollable` is true, `TotalLines` is
+40, and the buffer is unchanged. `ScrollBy(3)` on the same window scrolls the
+body from `body line 0` to `body line 3` with the sticky bands pinned.
+
+Found by `GoldenBufferOracleTests.TheOracle_CatchesAScrolledBody`, which failed
+on its first run and looked like a blind oracle. It was not - the scroll had
+genuinely not happened.
+
+Whether this is a bug depends on whether the property is meant to be a live
+setter or a seed value read during the next natural layout. It is public API, so
+it is worth settling **in the main repo**, separately from this experiment: a
+caller doing `window.ScrollOffset = n` today gets silence until something else
+triggers a relayout. It is also directly relevant here, because the rewrite moves
+the backing store from `WindowContentLayout` to the body `ScrollLayout`, and
+whatever the invalidation contract turns out to be has to survive that move.
+
 ## Open questions
 
 1. **Does any adopter read `Window.ScrollOffset` / `CanScroll` directly?** The
