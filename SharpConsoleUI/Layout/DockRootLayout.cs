@@ -46,19 +46,12 @@ public sealed class DockRootLayout : IWindowRootLayout, IScrollOrigin
 		_bodyNode = new LayoutNode(_bodyMarker, _bodyLayout);
 	}
 
-	/// <summary>
-	/// Reads the edge a child claims. Defaults to deriving it from
-	/// <see cref="IWindowControl.StickyPosition"/>, so existing applications keep working
-	/// unchanged under this root.
-	/// </summary>
-	public static Func<IWindowControl, Dock> DockOf { get; set; } = FromSticky;
-
-	private static Dock FromSticky(IWindowControl control) => control.StickyPosition switch
-	{
-		StickyPosition.Top => Dock.Top,
-		StickyPosition.Bottom => Dock.Bottom,
-		_ => Dock.None,
-	};
+	/// <summary>The edge a child claims.</summary>
+	/// <remarks>
+	/// Reads <see cref="IWindowControl.Dock"/> directly. <c>StickyPosition</c> is a projection
+	/// over the same field, so an application that only ever set sticky needs no change.
+	/// </remarks>
+	private static Dock DockOf(IWindowControl control) => control.Dock;
 
 	#region IScrollOrigin
 

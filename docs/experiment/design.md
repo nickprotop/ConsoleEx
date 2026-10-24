@@ -1001,6 +1001,69 @@ surface), and whether `StickyPosition` stays as the sugar for the two vertical
 edges or is deprecated in favour of `Dock`.
 
 
+### `Dock` is the value; `StickyPosition` is the view
+
+The two open items from the dock finding are settled.
+
+**Sticky stays, as sugar.** Removing it would break the API for no gain -
+90 call sites in the examples alone, 24 builders with `StickyTop()` /
+`StickyBottom()`. So `Dock` is the single stored field and `StickyPosition` is a
+projection over it, in both directions:
+
+```csharp
+c.StickyPosition = StickyPosition.Top;   // c.Dock is now Dock.Top
+c.Dock = Dock.Bottom;                     // c.StickyPosition is now Bottom
+c.Dock = Dock.Left;                       // c.StickyPosition is None - honest, not lossy
+```
+
+One value seen two ways, so they cannot drift. A left- or right-docked control
+reads back as `StickyPosition.None`, which is accurate: sticky only ever named
+the vertical edges, and claiming otherwise would be a lie a binding could act on.
+
+**Adding `Dock` to `IWindowControl` broke two test doubles** - which means it
+would break every external implementer too. All targets are net8.0 or later, so
+it is a **default interface member** that projects onto `StickyPosition`.
+Verified by deleting the property from both doubles: they compile and still
+honour sticky. A control written before docking existed keeps working and simply
+cannot claim the horizontal edges until it overrides.
+
+### Docks are surfaces, not just a tag on a child
+
+Setting `Dock` and calling `AddControl` works, but reads backwards for anything
+structural: to find what is in the footer you would filter the child list by
+edge, and to replace it you would remove those children by identity.
+
+```csharp
+window.DockTop.Add(header);
+window.DockBottom.Insert(0, rule);
+window.DockLeft.Remove(sidebar);
+window.DockTop.Clear();
+foreach (var c in window.DockBody) { }
+```
+
+Five surfaces - `DockLeft`, `DockTop`, `DockRight`, `DockBottom`, `DockBody` -
+plus `Surface(edge)`, each with `Add`, `Insert`, `Remove`, `Clear`, `Contains`,
+`Count`, an indexer and enumeration.
+
+**They are views over the child list, not collections.** A surface holding its
+own list would be a second source of truth, and the two would drift the moment
+someone set `Dock` on a child directly or removed it through the host. Here
+there is nothing to drift - the surface is a question asked of
+`Window.Controls`. Tested directly: changing `c.Dock = Dock.Bottom` moves the
+control between surfaces with nobody notified of anything.
+
+Two details worth recording. The properties carry a `Dock` prefix because
+`Window.Left` and `Window.Top` are already the window's screen position;
+`IDockSurfaceProvider` names the edges plainly and `Window` satisfies it
+explicitly, so a caller holding the interface still writes `provider.Top`.
+And `Insert` rebuilds the host list preserving the relative order of other
+edges, because order *across* edges is the dock contract - a top dock declared
+before a left dock spans the full width.
+
+6971/6971, and smoke-driven: sticky top bar, sticky status bar with a live
+clock, scrolling tree, zero stderr.
+
+
 ## Open questions
 
 1. ~~**Does any adopter read `Window.ScrollOffset` / `CanScroll` directly?**~~

@@ -213,7 +213,24 @@ namespace SharpConsoleUI.Controls
 		public Margin Margin { get; set; } = new Margin(0, 0, 0, 0);
 
 		/// <inheritdoc/>
-		public StickyPosition StickyPosition { get; set; } = StickyPosition.None;
+		public StickyPosition StickyPosition
+		{
+			get => Dock switch
+			{
+				Layout.Dock.Top => StickyPosition.Top,
+				Layout.Dock.Bottom => StickyPosition.Bottom,
+				_ => StickyPosition.None,
+			};
+			set => Dock = value switch
+			{
+				StickyPosition.Top => Layout.Dock.Top,
+				StickyPosition.Bottom => Layout.Dock.Bottom,
+				_ => Layout.Dock.None,
+			};
+		}
+
+		/// <inheritdoc/>
+		public Layout.Dock Dock { get; set; } = Layout.Dock.None;
 
 		/// <inheritdoc/>
 		public string? Name { get; set; }

@@ -52,6 +52,40 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Gets or sets whether this control should stick to the top or bottom during scrolling.</summary>
 		StickyPosition StickyPosition { get; set; }
 
+		/// <summary>
+		/// Gets or sets the edge this control claims from its container, or
+		/// <see cref="Layout.Dock.None"/> to share the remaining space.
+		/// </summary>
+		/// <remarks>
+		/// <see cref="StickyPosition"/> is sugar over this: setting it to
+		/// <see cref="StickyPosition.Top"/> or <see cref="StickyPosition.Bottom"/> sets
+		/// <see cref="Dock"/> to the matching edge, and reading it reports <c>Top</c> or
+		/// <c>Bottom</c> when that is where the control is docked. They are one value, so the two
+		/// cannot disagree. <see cref="Layout.Dock.Left"/> and <see cref="Layout.Dock.Right"/> have
+		/// no sticky equivalent and read back as <see cref="StickyPosition.None"/>.
+		/// <para>
+		/// Defaulted so that adding it does not break an existing implementer of this interface.
+		/// The default projects onto <see cref="StickyPosition"/>, which every implementer already
+		/// has, so a control written before docking existed keeps working and still honours
+		/// sticky; it simply cannot claim the horizontal edges until it overrides this.
+		/// </para>
+		/// </remarks>
+		Layout.Dock Dock
+		{
+			get => StickyPosition switch
+			{
+				StickyPosition.Top => Layout.Dock.Top,
+				StickyPosition.Bottom => Layout.Dock.Bottom,
+				_ => Layout.Dock.None,
+			};
+			set => StickyPosition = value switch
+			{
+				Layout.Dock.Top => StickyPosition.Top,
+				Layout.Dock.Bottom => StickyPosition.Bottom,
+				_ => StickyPosition.None,
+			};
+		}
+
 		/// <summary>Gets or sets the unique name identifier for this control, used for lookup.</summary>
 		string? Name { get; set; }
 

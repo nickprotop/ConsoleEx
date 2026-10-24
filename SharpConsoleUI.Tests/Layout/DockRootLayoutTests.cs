@@ -198,31 +198,17 @@ public class DockRootLayoutTests
 	{
 		// The payoff. Identical byte-for-byte on two edges is only worth having if the third and
 		// fourth edges come free, so this drives all four plus a scrolling body.
-		var previous = DockRootLayout.DockOf;
-		try
 		{
-			// Side docks keyed off the control name, since StickyPosition cannot express them -
-			// which is the whole point. The real surface is a Dock property; this proves the
-			// layout, not the authoring sugar.
-			DockRootLayout.DockOf = c => c.Name switch
-			{
-				"sidebar" => Dock.Left,
-				"inspector" => Dock.Right,
-				"header" => Dock.Top,
-				"status" => Dock.Bottom,
-				_ => Dock.None,
-			};
-
 			var text = Capture(() => new DockRootLayout(), "four edges", w =>
 			{
 				var header = Builder.Markup("HEADER").Build();
-				header.Name = "header";
+				header.Dock = Dock.Top;
 				var sidebar = Builder.Markup("SIDE").Build();
-				sidebar.Name = "sidebar";
+				sidebar.Dock = Dock.Left;
 				var inspector = Builder.Markup("INSP").Build();
-				inspector.Name = "inspector";
+				inspector.Dock = Dock.Right;
 				var status = Builder.Markup("STATUS").Build();
-				status.Name = "status";
+				status.Dock = Dock.Bottom;
 
 				// Declaration order IS the semantics: header and status are declared before the
 				// side docks, so they span the full width and the sides occupy what is left
@@ -259,10 +245,6 @@ public class DockRootLayoutTests
 
 			// And the strip stays reserved further down: body text is pushed past the sidebar.
 			Assert.StartsWith("    body", lines[2]);
-		}
-		finally
-		{
-			DockRootLayout.DockOf = previous;
 		}
 	}
 
