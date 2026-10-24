@@ -79,7 +79,7 @@ public static class GridDockWindow
 
 		// ---- Docked: outside the tracks -----------------------------------------------------
 		// Declared first, so the toolbar spans the full grid width and the sidebar starts below.
-		grid.Dock(Controls.Panel()
+		grid.DockChild(Controls.Panel()
 			.WithHeader("Dock.Top")
 			.WithBorderStyle(BorderStyle.Rounded)
 			.WithBackgroundColor(topBg)
@@ -90,7 +90,7 @@ public static class GridDockWindow
 
 		// A left dock claims the child's WIDTH. A panel stretches by default, so without an
 		// explicit width it would take the whole rectangle and starve the cells.
-		grid.Dock(Controls.Panel()
+		grid.DockChild(Controls.Panel()
 			.WithHeader("Dock.Left")
 			.WithBorderStyle(BorderStyle.Rounded)
 			.WithBackgroundColor(leftBg)
@@ -110,8 +110,8 @@ public static class GridDockWindow
 			.Build(), Dock.Left);
 
 		// Two bottom bands: the rule is declared first and still paints above the status line.
-		grid.Dock(Controls.Rule(), Dock.Bottom);
-		grid.Dock(Controls.Panel()
+		grid.DockChild(Controls.Rule(), Dock.Bottom);
+		grid.DockChild(Controls.Panel()
 			.WithHeader("Dock.Bottom")
 			.WithBorderStyle(BorderStyle.Rounded)
 			.WithBackgroundColor(bottomBg)

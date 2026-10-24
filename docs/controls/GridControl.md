@@ -113,6 +113,65 @@ var grid = Controls.Grid()
     .Build();
 ```
 
+## Docking
+
+A grid takes two kinds of child. A **placed** child sits in a cell. A **docked** child claims
+a strip off the grid's rectangle, outside the tracks, and the track algorithm then runs on
+whatever is left.
+
+```csharp
+var grid = new GridControl { HorizontalAlignment = HorizontalAlignment.Stretch };
+grid.ColumnDefinitions.Add(GridLength.Star(1));
+grid.ColumnDefinitions.Add(GridLength.Star(1));
+grid.RowDefinitions.Add(GridLength.Star(1));
+
+grid.DockChild(toolbar, Dock.Top);      // outside the tracks
+grid.DockChild(sidebar, Dock.Left);     // outside the tracks
+grid.Place(left,  row: 0, col: 0);      // inside them
+grid.Place(right, row: 0, col: 1);
+
+grid.Undock(sidebar);                   // returns the strip to the tracks
+```
+
+### Coordinates never shift
+
+A docked child claims no row and no column, so `grid[1, 0]` means the same cell however many
+children are docked:
+
+```csharp
+grid.Place(cell, 1, 0);
+grid.DockChild(sidebar, Dock.Left);
+grid.DockChild(statusBar, Dock.Bottom);
+// grid[1, 0] is still the same cell
+```
+
+This is why docks are allocated outside the tracks rather than being turned into them.
+Synthesising tracks from docks would make every coordinate depend on how much was docked, and
+`grid[1, 0]` would mean different cells at different times.
+
+### Why `DockChild` and not `Dock`
+
+Every control already has a `Dock` **property** — the edge it claims in *its own* parent. A
+method of the same name would shadow that property, and a nested grid could then not be
+docked at all. The two are different things and both are available:
+
+```csharp
+innerGrid.Dock = Dock.Left;                 // the inner grid's own edge, in its parent
+innerGrid.DockChild(child, Dock.Top);       // an edge inside the inner grid
+```
+
+### Allocation order
+
+Edges are claimed in declaration order, each shrinking what is left for the rest, so a
+toolbar declared before a sidebar spans the full width while the sidebar starts beneath it.
+Far edges (`Bottom`, `Right`) keep author order within a run. The full rule, shared with the
+window root, is in [DOCKING.md](../DOCKING.md).
+
+> `HorizontalAlignment` defaults to `Left`, which sizes the grid to its content. Star tracks
+> only divide the real width under `Stretch`.
+
+---
+
 ## Gaps
 
 `RowGap` and `ColumnGap` insert blank tracks between adjacent cells, like CSS grid gaps. They default to 0. A spanned cell absorbs the gaps it crosses, so spanning tiles stay visually continuous.

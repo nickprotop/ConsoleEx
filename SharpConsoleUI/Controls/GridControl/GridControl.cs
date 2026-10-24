@@ -250,12 +250,18 @@ namespace SharpConsoleUI.Controls
 		/// Thrown when <paramref name="edge"/> is <see cref="Layout.Dock.None"/>.
 		/// </exception>
 		/// <remarks>
+		/// Named <c>DockChild</c> rather than <c>Dock</c> because every control already HAS a
+		/// <see cref="IWindowControl.Dock"/> property - the edge this grid claims in ITS own
+		/// parent. A method of the same name shadows that property, and a nested grid could then
+		/// no longer be docked at all.
+		/// </remarks>
+		/// <remarks>
 		/// Edges are claimed in declaration order, each shrinking the rectangle left for the rest,
 		/// which is what lets a top bar span the full width while a sidebar declared after it runs
 		/// only to the bar's underside. Far edges (Bottom, Right) reverse within a run so author
 		/// order reads the way the screen reads - the same rule the window root uses.
 		/// </remarks>
-		public new GridControl Dock(IWindowControl control, Layout.Dock edge)
+		public GridControl DockChild(IWindowControl control, Layout.Dock edge)
 		{
 			ArgumentNullException.ThrowIfNull(control);
 			if (edge == Layout.Dock.None)

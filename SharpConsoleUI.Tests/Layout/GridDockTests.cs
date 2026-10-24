@@ -67,9 +67,9 @@ public class GridDockTests
 		var (system, window) = Shell();
 
 		var grid = FillGrid();
-		grid.Dock(Builder.Markup("TOOLBAR").Build(), Dock.Top);
-		grid.Dock(Builder.Markup("TREE").Build(), Dock.Left);
-		grid.Dock(Builder.Markup("STATUS").Build(), Dock.Bottom);
+		grid.DockChild(Builder.Markup("TOOLBAR").Build(), Dock.Top);
+		grid.DockChild(Builder.Markup("TREE").Build(), Dock.Left);
+		grid.DockChild(Builder.Markup("STATUS").Build(), Dock.Bottom);
 		grid.Place(Builder.Markup("editor").Build(), 0, 0);
 
 		window.AddControl(grid);
@@ -115,9 +115,9 @@ public class GridDockTests
 		_out.WriteLine(string.Join("\n", before));
 
 		// Dock something on every edge; the four cells must still be in reading order.
-		grid.Dock(Builder.Markup("T").Build(), Dock.Top);
-		grid.Dock(Builder.Markup("L").Build(), Dock.Left);
-		grid.Dock(Builder.Markup("B").Build(), Dock.Bottom);
+		grid.DockChild(Builder.Markup("T").Build(), Dock.Top);
+		grid.DockChild(Builder.Markup("L").Build(), Dock.Left);
+		grid.DockChild(Builder.Markup("B").Build(), Dock.Bottom);
 
 		var after = Render(window);
 		_out.WriteLine("--- after docking ---");
@@ -144,8 +144,8 @@ public class GridDockTests
 
 		var grid = FillGrid();
 		grid.Place(Builder.Markup("body").Build(), 0, 0);
-		grid.Dock(Builder.Markup("RULE").Build(), Dock.Bottom);
-		grid.Dock(Builder.Markup("HELP").Build(), Dock.Bottom);
+		grid.DockChild(Builder.Markup("RULE").Build(), Dock.Bottom);
+		grid.DockChild(Builder.Markup("HELP").Build(), Dock.Bottom);
 
 		window.AddControl(grid);
 		system.AddWindow(window);
@@ -167,8 +167,8 @@ public class GridDockTests
 		var (system, window) = Shell(w: 30, h: 6);
 
 		var grid = new GridControl { VerticalAlignment = VerticalAlignment.Fill };
-		grid.Dock(Builder.Markup("TOP").Build(), Dock.Top);
-		grid.Dock(Builder.Markup("BOTTOM").Build(), Dock.Bottom);
+		grid.DockChild(Builder.Markup("TOP").Build(), Dock.Top);
+		grid.DockChild(Builder.Markup("BOTTOM").Build(), Dock.Bottom);
 
 		window.AddControl(grid);
 		system.AddWindow(window);
@@ -189,7 +189,7 @@ public class GridDockTests
 		var grid = FillGrid();
 		grid.Place(Builder.Markup("body").Build(), 0, 0);
 		var side = Builder.Markup("SIDE").Build();
-		grid.Dock(side, Dock.Left);
+		grid.DockChild(side, Dock.Left);
 
 		window.AddControl(grid);
 		system.AddWindow(window);
@@ -211,9 +211,43 @@ public class GridDockTests
 	{
 		var grid = FillGrid();
 
-		Assert.Throws<ArgumentNullException>(() => grid.Dock(null!, Dock.Top));
+		Assert.Throws<ArgumentNullException>(() => grid.DockChild(null!, Dock.Top));
 		Assert.Throws<ArgumentOutOfRangeException>(
-			() => grid.Dock(Builder.Markup("x").Build(), Dock.None));
+			() => grid.DockChild(Builder.Markup("x").Build(), Dock.None));
+	}
+
+	[Fact]
+	public void ANestedGridCanStillBeDockedItself()
+	{
+		// The method is DockChild, not Dock, because every control already HAS a Dock property -
+		// the edge it claims in ITS parent. A method of the same name shadows that property and
+		// makes `grid.Dock = Dock.Left` a compile error, so a nested grid could not be docked at
+		// all. This test is the guard: it exercises both members on the same instance.
+		var (system, window) = Shell(w: 40, h: 10);
+
+		var outer = FillGrid();
+
+		var inner = new GridControl { VerticalAlignment = VerticalAlignment.Fill };
+		inner.ColumnDefinitions.Add(GridLength.Star(1));
+		inner.RowDefinitions.Add(GridLength.Star(1));
+		inner.Place(Builder.Markup("inner cell").Build(), 0, 0);
+
+		// The property: the inner grid claims the outer grid's left edge.
+		inner.Dock = Dock.Left;
+		inner.Width = 14;
+		outer.DockChild(inner, Dock.Left);
+
+		outer.Place(Builder.Markup("outer body").Build(), 0, 0);
+
+		window.AddControl(outer);
+		system.AddWindow(window);
+
+		var lines = Render(window);
+		_out.WriteLine(string.Join("\n", lines));
+
+		Assert.Equal(Dock.Left, inner.Dock);
+		Assert.Contains("inner cell", lines[0]);
+		Assert.Contains("outer body", lines[0]);
 	}
 
 	[Fact]

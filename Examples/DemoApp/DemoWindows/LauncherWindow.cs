@@ -336,7 +336,7 @@ public static class LauncherWindow
 				"tracks inside whatever is left.",
 				"",
 				"[dim]Shows:[/]",
-				"  - grid.Dock(control, Dock.Top/Left/Bottom)",
+				"  - grid.DockChild(control, Dock.Top/Left/Bottom)",
 				"  - grid.Place(control, row, col) alongside it",
 				"  - Cell coordinates unchanged by docking",
 				"",

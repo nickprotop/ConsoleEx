@@ -110,13 +110,16 @@ Controls for custom graphics and free-form drawing.
 
 Controls for organizing other controls.
 
+For laying out a window itself - edges, a scrolling body, and replacing the root layout -
+see [WINDOW_LAYOUT.md](WINDOW_LAYOUT.md) and [DOCKING.md](DOCKING.md).
+
 | Control | Description | Details |
 |---------|-------------|---------|
 | **ColumnContainer** | Vertical stack container | Stack controls vertically, padding, alignment |
 | **[ScrollablePanelControl](controls/ScrollablePanelControl.md)** | Scrollable content area | Vertical scrolling, contains multiple controls |
 | **[ScrollbarControl](controls/ScrollbarControl.md)** | Standalone scrollbar | Decoupled from any single view; `ValueChanged`/`UserValueChanged` let one bar drive several views (e.g. a side-by-side diff) with no echo |
 | **[HorizontalGridControl](controls/HorizontalGridControl.md)** | Multi-column layout | Variable-width columns, alignment, splitters |
-| **[GridControl](controls/GridControl.md)** | WinUI-style 2D grid | Fixed/Auto/Star rows & columns, row/col spans, gaps, per-cell styling, any control per cell |
+| **[GridControl](controls/GridControl.md)** | WinUI-style 2D grid | Fixed/Auto/Star rows & columns, row/col spans, gaps, per-cell styling, any control per cell, [docked edges](controls/GridControl.md#docking) outside the tracks |
 | **[FlowControl](controls/FlowControl.md)** | Renders a flow inline in a region | Embeds `Flow.Run`/`Flow.Wizard` in a pane (vs. a modal); idle/done placeholder; normal focus scope |
 | **[WizardControl](controls/WizardControl.md)** | Runs a multi-step wizard inline | A `FlowControl` named/presetted for wizards (the discoverable door); `wizard.Run(Flow.Wizard<T>()...)`; inline, not modal |
 | **[HorizontalSplitterControl](controls/HorizontalSplitterControl.md)** | Draggable horizontal divider | Resizes the control above against the one below; mouse drag + Up/Down (Shift for 5-row jumps), min-height floors, `SplitterMoved` |

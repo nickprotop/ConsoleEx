@@ -162,29 +162,30 @@ public class LayoutNode
 
 ### Tree Building
 
-The layout tree is built by `Window.RebuildLayoutTree()`:
+The layout tree is built by the window's renderer. The root node's layout is **not**
+hardcoded: it comes from `window.Root` when set, otherwise from
+`WindowRenderer.RootLayoutFactory`, whose default is `DockRootLayout`.
 
 ```csharp
-private void RebuildLayoutTree()
+_rootLayout = (WindowRootLayoutFactory ?? RootLayoutFactory)();
+_layoutRoot = new LayoutNode(null, _rootLayout);
+
+foreach (var control in _controls)
 {
-    _layoutRoot = new LayoutNode(null, new VerticalStackLayout());
+    if (!control.Visible) continue;
 
-    foreach (var control in _controls)
-    {
-        if (control.Visible)
-        {
-            var childNode = new LayoutNode(control);
-            _layoutRoot.AddChild(childNode);
+    var childNode = new LayoutNode(control);
+    _layoutRoot.AddChild(childNode);
 
-            // Handle nested containers (ColumnContainer, HorizontalGridControl)
-            if (control is ILayoutContainer container)
-            {
-                BuildChildNodes(childNode, container);
-            }
-        }
-    }
+    // Nested containers get their own layout from LayoutNodeFactory, by control type.
+    if (control is ILayoutContainer container)
+        BuildChildNodes(childNode, container);
 }
 ```
+
+Every node below the root already chose its layout polymorphically through
+`LayoutNodeFactory`. The root was the last one that did not. See
+[WINDOW_LAYOUT.md](WINDOW_LAYOUT.md).
 
 ---
 
@@ -240,7 +241,8 @@ public class CharacterBuffer
 
 ### VerticalStackLayout
 
-Stacks children vertically (used by Window and ColumnContainer):
+Stacks children vertically (used by `ColumnContainer`, `NavigationView` and `LogViewerControl`;
+the window root uses `DockRootLayout`):
 
 **Measure Pass:**
 1. Measure each child with remaining height constraint
@@ -299,10 +301,18 @@ public enum StickyPosition
 }
 ```
 
-The layout system handles sticky controls by:
+The layout handles sticky controls by:
 1. Measuring sticky-top controls first
 2. Measuring sticky-bottom controls
-3. Remaining space goes to scrollable content
+3. Giving the remaining space to the scrollable content
+
+`StickyPosition` is a **projection over `IWindowControl.Dock`** — one stored value, two
+names. `Top` is `Dock.Top`, `Bottom` is `Dock.Bottom`, and setting either sets the other.
+`Dock` adds the horizontal axis that sticky never had. Both are fully supported; see
+[DOCKING.md](DOCKING.md).
+
+Sticky is honoured by the window root **and** by `ScrollablePanelControl`, so a pinned header
+or footer works inside a scrolling panel as well as at the window.
 
 ---
 
