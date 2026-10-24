@@ -69,9 +69,9 @@ namespace SharpConsoleUI.Flows
 			var buttonControls = new List<(ButtonControl Control, FlowButton Spec)>();
 			FlowStepPresenter.BuildButtonControls(chrome, tcs, content, buttonControls);
 
-			// Assemble the modal window using the canonical three-band shape. The bands are added
-			// as WINDOW children so the window's content layout honours their StickyPosition (a
-			// ScrollablePanel does not). Order: StickyTop band, scrollable Fill body, StickyBottom band.
+			// Assemble the modal window using the canonical three-band shape: StickyTop band,
+			// scrollable Fill body, StickyBottom band. The bands are window children because the
+			// window IS the three-band shape here; a panel would honour sticky equally well now.
 			int width = chrome.WidthHint ?? 50;
 			int height = FlowContentHelpers.ResolveWindowHeight(
 				chrome, body, width, bandRows: 6, terminalHeight: _ws.DesktopDimensions.Height, fixedDefault: 13);

@@ -282,8 +282,8 @@ namespace SharpConsoleUI.Flows
 
 	/// <summary>
 	/// Optional contract for step content that supplies its OWN bottom band (StickyBottom ruler +
-	/// right-aligned button toolbar). A host that recognises this adds the band as WINDOW children —
-	/// only the window's content layout honours <c>StickyPosition</c>; a ScrollablePanel does not.
+	/// right-aligned button toolbar). A host that recognises this adds the band as WINDOW children,
+	/// which keeps the band outside the body's scroll region.
 	/// The TOP band (title banner + accent rule) is ALWAYS built by the host from
 	/// <see cref="FlowChrome"/> (uniform across primitives, plain content, and wizard steps); content
 	/// never builds its own top band. The framework primitives (Confirm/Prompt/Progress) implement this

@@ -616,9 +616,11 @@ public class ScrollablePanelControlTests
 	[Fact]
 	public void StickyChild_RemainsFixedDuringScroll()
 	{
-		// StickyPosition is set on the control but handled by Window.Rendering,
-		// not by ScrollablePanelControl directly. Here we verify the property
-		// can be set without breaking panel scroll behavior.
+		// The panel now honours StickyPosition itself, so the name of this test is finally
+		// literal: the sticky child is a pinned band and the body scrolls underneath it. It used
+		// to assert only that setting the property did not BREAK scrolling, because sticky was
+		// handled by Window.Rendering and ignored here. See PanelHonoursStickyTests for the
+		// band behaviour; this one guards that the scroll offset still advances normally.
 		var panel = new ScrollablePanelControl();
 		panel.Height = 10;
 

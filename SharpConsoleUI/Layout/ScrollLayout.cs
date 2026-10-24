@@ -158,10 +158,35 @@ namespace SharpConsoleUI.Layout
 			// Measure each visible child so its DesiredSize is current (the panel's content-height
 			// math already ran inside ResolveContentMetrics; this primes the child nodes that the
 			// arrange pass reads). Fill children measure against their per-Fill slot.
-			var (_, _, perFillHeight) = panel.ComputeFillMetrics(panel.Children, contentWidth, content.Height);
 			int childLayoutWidth = ChildLayoutWidth(panel, contentWidth);
 
-			foreach (var child in node.Children)
+			// Measure the pinned bands first: they take their natural height off the top and
+			// bottom, and what remains is the viewport the body's Fill children divide. Measuring
+			// Fill against the whole content height would hand the body space the bands own.
+			var (topBand, bodyChildren, bottomBand) = Bands(node);
+			int bandHeight = 0;
+
+			foreach (var band in new[] { topBand, bottomBand })
+			{
+				foreach (var child in band)
+				{
+					if (!child.IsVisible)
+					{
+						child.Measure(LayoutConstraints.Fixed(0, 0));
+						continue;
+					}
+
+					child.Measure(new LayoutConstraints(1, childLayoutWidth, 1, int.MaxValue));
+					bandHeight += BandHeight(child);
+				}
+			}
+
+			int bodyViewport = Math.Max(0, content.Height - bandHeight);
+
+			var (_, _, perFillHeight) = panel.ComputeFillMetrics(
+				BodyControls(bodyChildren, panel), contentWidth, bodyViewport);
+
+			foreach (var child in bodyChildren)
 			{
 				if (!child.IsVisible)
 				{
@@ -176,7 +201,7 @@ namespace SharpConsoleUI.Layout
 				// perFillHeight), so a tall viewport still fills and a short one scrolls instead of
 				// squashing. Self-scrolling Fill children (nested panels/tables) are NOT marked and keep
 				// measuring at the slot, so they stay self-scrolling.
-				bool isFill = content.Height > 0 && child.Control?.VerticalAlignment == VerticalAlignment.Fill;
+				bool isFill = bodyViewport > 0 && child.Control?.VerticalAlignment == VerticalAlignment.Fill;
 				bool reportsMinWhenFilled = child.Control is IFillReportsMinimumHeight;
 				int maxChildHeight = (isFill && !reportsMinWhenFilled) ? perFillHeight : int.MaxValue;
 				child.Measure(new LayoutConstraints(1, childLayoutWidth, 1, maxChildHeight));
@@ -224,13 +249,19 @@ namespace SharpConsoleUI.Layout
 			int contentOriginX = content.X;
 			int contentOriginY = content.Y;
 
-			var (_, _, perFillHeight) = panel.ComputeFillMetrics(panel.Children, contentWidth, content.Height);
 			int childLayoutWidth = ChildLayoutWidth(panel, contentWidth);
 
-			int childX = contentOriginX - panel.HorizontalScrollOffsetInternal;
-			int currentY = contentOriginY - panel.VerticalScrollOffsetInternal;
+			var (topBand, bodyChildren, bottomBand) = Bands(node);
 
-			foreach (var child in node.Children)
+			int ChildWidth(LayoutNode c) =>
+				(c.Control!.Width.HasValue && c.Control.Width.Value < childLayoutWidth)
+					? c.Control.Width.Value
+					: childLayoutWidth;
+
+			// Bands are pinned to the content edges and do NOT take the scroll offset: not
+			// scrolling is the whole of what a band is.
+			int topY = contentOriginY;
+			foreach (var child in topBand)
 			{
 				if (!child.IsVisible || child.Control == null)
 				{
@@ -238,19 +269,56 @@ namespace SharpConsoleUI.Layout
 					continue;
 				}
 
-				bool isFill = contentViewportHeight > 0 && child.Control.VerticalAlignment == VerticalAlignment.Fill;
+				int h = BandHeight(child);
+				child.Arrange(new LayoutRect(contentOriginX, topY, ChildWidth(child), h));
+				topY += h;
+			}
+
+			int bottomTotal = 0;
+			foreach (var child in bottomBand)
+				if (child.IsVisible && child.Control != null)
+					bottomTotal += BandHeight(child);
+
+			int bottomY = contentOriginY + contentViewportHeight - bottomTotal;
+			foreach (var child in bottomBand)
+			{
+				if (!child.IsVisible || child.Control == null)
+				{
+					child.Arrange(LayoutRect.Empty);
+					continue;
+				}
+
+				int h = BandHeight(child);
+				child.Arrange(new LayoutRect(contentOriginX, bottomY, ChildWidth(child), h));
+				bottomY += h;
+			}
+
+			int bodyViewport = Math.Max(0, contentViewportHeight - (topY - contentOriginY) - bottomTotal);
+
+			var (_, _, perFillHeight) = panel.ComputeFillMetrics(
+				BodyControls(bodyChildren, panel), contentWidth, bodyViewport);
+
+			int childX = contentOriginX - panel.HorizontalScrollOffsetInternal;
+			// The body starts below the top band, and only the body carries the scroll offset.
+			int currentY = topY - panel.VerticalScrollOffsetInternal;
+
+			foreach (var child in bodyChildren)
+			{
+				if (!child.IsVisible || child.Control == null)
+				{
+					child.Arrange(LayoutRect.Empty);
+					continue;
+				}
+
+				bool isFill = bodyViewport > 0 && child.Control.VerticalAlignment == VerticalAlignment.Fill;
 				int childHeight = isFill
 					? Math.Max(child.DesiredSize.Height, perFillHeight)
 					: child.DesiredSize.Height;
 
-				// Respect explicit Width on child controls (mirrors PaintDOM).
-				int childWidth = (child.Control.Width.HasValue && child.Control.Width.Value < childLayoutWidth)
-					? child.Control.Width.Value
-					: childLayoutWidth;
-
 				// Arrange relative to the node (finalRect is node-local; LayoutNode.Arrange adds the
 				// node's AbsoluteBounds), so the negative scroll offset flows into AbsoluteBounds.
-				child.Arrange(new LayoutRect(childX, currentY, childWidth, childHeight));
+				// Explicit Width on the child is respected, mirroring PaintDOM.
+				child.Arrange(new LayoutRect(childX, currentY, ChildWidth(child), childHeight));
 
 				currentY += childHeight;
 			}
@@ -285,8 +353,118 @@ namespace SharpConsoleUI.Layout
 				content.Width,
 				content.Height);
 
+			// A pinned band owns its strip outright: scrolling body content must be clipped OUT
+			// of those rows, or it paints over the band as soon as the body is long enough to
+			// reach them. A band itself clips to the viewport like anything else.
+			var (topBand, _, bottomBand) = Bands(node);
+			if (topBand.Count > 0 || bottomBand.Count > 0)
+			{
+				var dock = child.Control?.Dock ?? Dock.None;
+				if (dock is not (Dock.Top or Dock.Bottom))
+				{
+					int topRows = 0;
+					foreach (var b in topBand)
+						if (b.IsVisible) topRows += BandHeight(b);
+
+					int bottomRows = 0;
+					foreach (var b in bottomBand)
+						if (b.IsVisible) bottomRows += BandHeight(b);
+
+					viewportRect = new LayoutRect(
+						viewportRect.X,
+						viewportRect.Y + topRows,
+						viewportRect.Width,
+						Math.Max(0, viewportRect.Height - topRows - bottomRows));
+				}
+			}
+
 			return parentClipRect.Intersect(viewportRect);
 		}
+
+		/// <summary>
+		/// Splits a panel's children into pinned top bands, pinned bottom bands, and the scrolling
+		/// body between them, by their <see cref="Dock"/> (which <c>StickyPosition</c> projects onto).
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// This is the same partition the window root performs, applied one level down. A panel is
+		/// the same shape as the root - a rectangle with optional pinned edges and a scrolling
+		/// middle - and before this it was the one container that read <see cref="Dock"/> nowhere,
+		/// which is why five comments across <c>Flows/</c> and <c>Dialogs/</c> documented "a ScrollablePanel does not
+		/// honour StickyPosition" as a standing workaround.
+		/// </para>
+		/// <para>
+		/// Only the vertical edges pin. <see cref="Dock.Left"/> and <see cref="Dock.Right"/> fall
+		/// through to the body and scroll as ordinary children: a panel stacks vertically, so a
+		/// horizontal edge has no band to claim. A caller wanting left/right docking inside a
+		/// scrolling region nests a <c>GridControl</c>, which docks on both axes.
+		/// </para>
+		/// <para>
+		/// Both band lists come back in AUTHOR order, and the arrange pass stacks each downward
+		/// from its own edge. <see cref="DockAllocation.Order"/> is deliberately NOT used:
+		/// it reverses a far-edge run because the dock root consumes strips off a shrinking
+		/// rectangle, where reversing is what preserves author order. Stacking downward from a
+		/// computed start is the opposite traversal, so applying it here would reverse a second
+		/// time and put a help line above the rule declared before it.
+		/// </para>
+		/// </remarks>
+		private static (List<LayoutNode> Top, List<LayoutNode> Body, List<LayoutNode> Bottom)
+			Bands(LayoutNode node)
+		{
+			List<LayoutNode>? top = null, bottom = null;
+			var body = new List<LayoutNode>(node.Children.Count);
+
+			foreach (var child in node.Children)
+			{
+				switch (child.Control?.Dock ?? Dock.None)
+				{
+					case Dock.Top:
+						(top ??= new List<LayoutNode>()).Add(child);
+						break;
+
+					case Dock.Bottom:
+						(bottom ??= new List<LayoutNode>()).Add(child);
+						break;
+
+					default:
+						body.Add(child);
+						break;
+				}
+			}
+
+			return (top ?? EmptyNodes, body, bottom ?? EmptyNodes);
+		}
+
+		private static readonly List<LayoutNode> EmptyNodes = new();
+
+		/// <summary>
+		/// The body children as controls, for the panel's Fill math.
+		/// </summary>
+		/// <remarks>
+		/// The bands must NOT appear here. Their height is already taken off the viewport handed
+		/// to <c>ComputeFillMetrics</c>, so leaving them in its snapshot would subtract them a
+		/// second time as fixed height and starve every Fill child in the body.
+		/// </remarks>
+		private static IReadOnlyList<SharpConsoleUI.Controls.IWindowControl> BodyControls(
+			List<LayoutNode> bodyChildren, SharpConsoleUI.Controls.ScrollablePanelControl panel)
+		{
+			// Fast path: nothing is docked, so the body IS the child list and the existing
+			// snapshot can be reused untouched.
+			if (bodyChildren.Count == panel.Children.Count)
+				return panel.Children;
+
+			var controls = new List<SharpConsoleUI.Controls.IWindowControl>(bodyChildren.Count);
+			foreach (var child in bodyChildren)
+				if (child.Control != null)
+					controls.Add(child.Control);
+			return controls;
+		}
+
+		/// <summary>
+		/// The height a band child occupies: its measured height, never a Fill expansion. A band
+		/// that filled would eat the body it is supposed to frame.
+		/// </summary>
+		private static int BandHeight(LayoutNode child) => Math.Max(0, child.DesiredSize.Height);
 
 		/// <summary>
 		/// The width children are laid out at. With horizontal scrolling enabled, children use their
