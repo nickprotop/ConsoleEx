@@ -27,6 +27,7 @@ namespace SharpConsoleUI.Tests.Layout;
 /// the new horizontal case in the bottom border, and the single-track rule that stops two
 /// regions fighting over one thumb.
 /// </remarks>
+[Collection("RootLayout")]
 public class BorderDelegatedScrollbarTests
 {
 	private readonly ITestOutputHelper _out;

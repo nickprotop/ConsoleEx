@@ -28,6 +28,7 @@ namespace SharpConsoleUI.Tests.Layout;
 /// Written against the pre-rewrite code, so the baseline was known good before the root layout
 /// changed underneath it.
 /// </remarks>
+[Collection("RootLayout")]
 public class GoldenBufferOracleTests
 {
 	private static Window Render(ConsoleWindowSystem system, Window window)

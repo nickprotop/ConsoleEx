@@ -27,7 +27,7 @@ namespace SharpConsoleUI.Tests.Layout;
 /// <see cref="VerticalStackLayout"/> - an existing container that knows nothing about sticky
 /// bands, scrolling, or grids, written long before this experiment and not modified for it.
 /// </remarks>
-[Collection("RootLayoutSwap")]
+[Collection("RootLayout")]
 public class AlternateWindowRootTests
 {
 	private readonly ITestOutputHelper _out;

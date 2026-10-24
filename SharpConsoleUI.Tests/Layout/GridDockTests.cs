@@ -32,6 +32,7 @@ namespace SharpConsoleUI.Tests.Layout;
 /// a second container earned nothing.
 /// </para>
 /// </remarks>
+[Collection("RootLayout")]
 public class GridDockTests
 {
 	private readonly ITestOutputHelper _out;

@@ -22,7 +22,7 @@ namespace SharpConsoleUI.Tests.Layout;
 /// that they and <c>Window.Controls</c> can never disagree, because a surface is a view over the
 /// child list rather than a second collection.
 /// </summary>
-[Collection("RootLayoutSwap")]
+[Collection("RootLayout")]
 public class DockSurfaceTests
 {
 	private readonly ITestOutputHelper _out;

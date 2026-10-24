@@ -32,6 +32,7 @@ namespace SharpConsoleUI.Tests.Layout;
 /// body scrolls underneath, and the body cannot scroll past its end by the band heights.
 /// </para>
 /// </remarks>
+[Collection("RootLayout")]
 public class PanelHonoursStickyTests
 {
 	private readonly ITestOutputHelper _out;
