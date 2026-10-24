@@ -362,12 +362,44 @@ namespace SharpConsoleUI.Layout
 
 				int childHeight = child.DesiredSize.Height;
 
-				int childWidth = (child.Control.Width.HasValue && child.Control.Width.Value < childLayoutWidth)
-					? child.Control.Width.Value
-					: childLayoutWidth;
+				// Honour HorizontalAlignment, which the panel path does not: a panel stretches its
+				// children unconditionally, but a window root positions Left/Center/Right children
+				// at their own desired width. Mirrors WindowContentLayout.CalculateHorizontalPosition
+				// so the two agree.
+				var (childX2, childWidth) = HorizontalPosition(child, childLayoutWidth);
 
-				child.Arrange(new LayoutRect(childX, currentY, childWidth, childHeight));
+				child.Arrange(new LayoutRect(childX + childX2, currentY, childWidth, childHeight));
 				currentY += childHeight;
+			}
+		}
+
+		/// <summary>
+		/// X offset and width for a child of an origin-driven body, from its
+		/// <see cref="HorizontalAlignment"/>. Deliberately identical to
+		/// <c>WindowContentLayout.CalculateHorizontalPosition</c>: the body must place a Left,
+		/// Center or Right child exactly where the old root layout did.
+		/// </summary>
+		private static (int X, int Width) HorizontalPosition(LayoutNode child, int availableWidth)
+		{
+			var alignment = child.Control?.HorizontalAlignment ?? HorizontalAlignment.Stretch;
+
+			switch (alignment)
+			{
+				case HorizontalAlignment.Left:
+					return (0, child.DesiredSize.Width);
+
+				case HorizontalAlignment.Center:
+					return (Math.Max(0, (availableWidth - child.DesiredSize.Width) / 2), child.DesiredSize.Width);
+
+				case HorizontalAlignment.Right:
+					return (Math.Max(0, availableWidth - child.DesiredSize.Width), child.DesiredSize.Width);
+
+				case HorizontalAlignment.Stretch:
+				default:
+					// An explicit Width wins over full stretch.
+					if (child.Control?.Width.HasValue == true)
+						return (0, child.DesiredSize.Width);
+					return (0, availableWidth);
 			}
 		}
 

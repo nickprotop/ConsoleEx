@@ -53,7 +53,25 @@ public class GridRootLayoutParityTests
 		var root = BuildTree(layout, makeControls());
 		root.Measure(new LayoutConstraints(0, w, 0, h));
 		root.Arrange(new LayoutRect(0, 0, w, h));
-		return root.Children.Select(c => c.AbsoluteBounds).ToList();
+
+		// Compare the LEAF controls, not the root's direct children. GridRootLayout inserts a
+		// structural body node between the root and its non-sticky children, so the trees have
+		// different shapes by design; what must match is where the controls that actually paint
+		// end up. Flattening to real controls compares exactly that and is shape-agnostic.
+		var bounds = new List<LayoutRect>();
+		Flatten(root, bounds);
+		return bounds;
+	}
+
+	private static void Flatten(LayoutNode node, List<LayoutRect> into)
+	{
+		foreach (var child in node.Children)
+		{
+			// The body marker is structure, never painted; its children are the real content.
+			if (child.Control != null && child.Control.GetType().Name != "BodyMarker")
+				into.Add(child.AbsoluteBounds);
+			Flatten(child, into);
+		}
 	}
 
 	private void AssertParity(Func<List<IWindowControl>> makeControls, int w, int h, string label)

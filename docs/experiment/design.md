@@ -479,9 +479,11 @@ Two distinct causes, same root:
 Both are the same missing piece, and it is the piece the design already named:
 **the star row must host a scrolling layout, not raw children.**
 
-### The index-correlation wall — the body cannot be a grid cell
+### The index-correlation wall — RESOLVED by owning the tree
 
-**Status: blocked, pending a decision.** This is the experiment's first genuine
+**Status: resolved.** Recorded as found; the resolution follows at the end.
+
+**Original finding:** This is the experiment's first genuine
 structural obstacle, as opposed to work not yet done.
 
 `GridLayout` pairs child nodes to cells **by index**: `node.Children[i]` is
@@ -525,6 +527,56 @@ architecture-shaping call that belongs with the maintainer.
 origin-driven path in `ScrollLayout`. The panel path is untouched by
 construction, and **659 scroll tests pass**, so the seam itself is sound and
 independently useful regardless of how the body question resolves.
+
+#### Resolution: the root layout owns the tree, and the grid is untouched
+
+Relaxing index correlation — my first recommendation — was wrong, and the reason
+is worth keeping: the body node is **synthetic and has no control**, so pairing
+by control identity could not resolve it either. The relaxation would have
+changed a contract at five sites inside the shipped grid engine and still left
+the special case, merely somewhere else.
+
+`GridRootLayout` instead owns its tree shape. It rebands the root's children into
+`[sticky-top…, bodyNode, sticky-bottom…]` on every pass, where `bodyNode` is a
+persistent synthetic node holding a `ScrollLayout` over the non-sticky children.
+The grid sees one child per cell, exactly as before, and `IGridSource` is
+unchanged.
+
+This makes it the only `ILayoutContainer` that constructs nodes, which is called
+out in the class remarks. The precedent is weaker than it first appears:
+`ScrollLayout` already swaps the panel's child-node resolver during measure, and
+`LayoutNode(ILayoutContainer)` exists precisely for control-less structural nodes.
+
+The body node is invisible to callers: `Window.Controls` still returns the flat
+author-order list, and `FindByControl` recurses, so a control inside the body is
+found as before. A `BodyMarker` control stands in for the body in `OrderedCells`
+because the grid needs something to correlate against; it never paints and is
+never added to a window.
+
+**Parity: 9 of 9.** The sandwich at four sizes including 12x4, body-only,
+sticky-only, multi-control bands, invisible children, and the empty window. Leaf
+controls land at identical coordinates:
+
+```
+          old                 new
+HEADER    (0,0 6x1)           (0,0 6x1)
+body      (0,1 7x40)          (0,1 7x40)      inside an 18-row viewport
+FOOTER    (0,19 6x1)          (0,19 6x1)
+```
+
+The body keeps its full 40-row height inside an 18-row viewport, which is what
+makes the window scrollable.
+
+**Full suite: 6939 of 6940.** The single failure is
+`X11ClipboardTests.ALargeCopy_CrossesInPieces_Whole`, the known pre-existing
+flake: it fails only under full-suite load and passes 3/3 in isolation at ~25ms.
+The changes touch three layout files and nothing near the clipboard.
+
+**A real bug found on the way.** `ScrollLayout` ignored `HorizontalAlignment`
+entirely — correct for a panel, which stretches its children unconditionally, but
+wrong for a window root, where the old layout gives a Left/Center/Right child its
+own desired width. Caught by the body-only parity case (`beta` arranged 5 wide
+instead of 4). Fixed in the layout, not the test.
 
 ### `ScrollLayout` cannot currently serve a window root
 
