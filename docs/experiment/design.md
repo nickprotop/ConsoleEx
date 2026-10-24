@@ -1105,11 +1105,117 @@ need to. One control in one cell is enough, when that control can dock.
    `EnsureVisible` — the one member that could have gone — had no callers at all.
    The question was premised on the rewrite forcing a reduction in surface area,
    and it did not.
-2. **Does `ScrollablePanelControl` honouring `StickyPosition` change existing
-   rendering?** Today a sticky child inside an SPC is silently treated as
-   `None`. Making it work is a fix, but it is also a behaviour change for any app
-   that set sticky inside a panel and adapted to it being ignored. Needs a
-   survey of the four `Flows` workarounds before assuming it is purely additive.
+2. ~~**Does `ScrollablePanelControl` honouring `StickyPosition` change existing
+   rendering?**~~ **Answered: yes, and it was built anyway.** The survey this
+   question asked for was run before writing any code. SPC read neither
+   `StickyPosition` nor `Dock` anywhere — zero occurrences across all six
+   partial files — so every sticky-in-panel site was being silently ignored.
+   The blast radius was **9 call sites in 2 DemoApp files, resolving to 5
+   distinct panels**, three of which gain two or three pinned bands at once.
+   Five test sites exercise the path. Decision: proceed, because the demo
+   windows are ours and a pinned header over a scrolling table is what their
+   authors meant. All five test sites passed unchanged — they were asserting
+   things still true under the new model — and both affected windows were
+   smoke-driven. A fifth stale comment turned up in `Dialogs/MessageDialogs.cs`
+   that the original count of four had missed.
 3. **Should `Root.Grid()` windows expose a scroll API at all?** Leaving
    `Window.ScrollOffset` present but inert is a trap; throwing is hostile.
    Leaning toward documenting it as meaningless for non-default roots.
+
+
+## Steps 4b and 5: what the root change unlocked
+
+Three pieces, each one only buildable because the root work came first.
+
+### `Controls.DockPanel()`
+
+`DockPanelControl` shipped with the layout but had no fluent entry point. The
+builder adds edge-named methods — `.Left()`, `.Top()`, `.Right()`, `.Bottom()`,
+`.Fill()` — alongside `AddDocked(edge, control)` and a pass-through
+`AddControl` that leaves an edge the control already carries alone.
+
+The one non-obvious requirement: **the edge is set before the child is added**,
+not after. `DockPanelControl.AddControl` lays out on add, so an edge assigned
+afterwards arrives a pass late. This mirrors `DockSurface.Add`, which has the
+same ordering for the same reason.
+
+No `ColorRole`. Investigating whether to add one found a real defect instead:
+`BackgroundColor` was settable, had a backing field, and `PaintDOM` was empty,
+so setting it did nothing — the same API-lie shape as `GridControl`'s
+`ColorRole`. Now an explicit background fills and an unset one shows through.
+A role is still deliberately absent, following the reason `GridControl`
+documents: a multi-region surface auto-filling from a role destroys the
+show-through default across every region at once. The dock panel draws no
+chrome of its own at all — no border, no cell lines, no scrollbar — so unlike
+the grid there is nothing left for a role to tint. Giving the panel a border
+would be the honest prerequisite for adding one later.
+
+### Step 5: the panel honours sticky
+
+`ScrollLayout`'s panel path now partitions its children the way the window root
+does: `Dock.Top` children take their natural height off the top, `Dock.Bottom`
+off the bottom, and what is left is the viewport the body scrolls within.
+
+Four things had to agree, and each was a separate defect when it did not:
+
+- **Measure** — bands measured first, body Fill children sized against the
+  band-reduced viewport.
+- **`ComputeFillMetrics`** — must see only the body children. A band's height is
+  already off the viewport, so leaving it in the snapshot subtracts it a second
+  time as fixed height and starves every Fill child.
+- **`MeasureChildrenHeight`** — the authoritative scroll extent. A band holds a
+  viewport row but is not scrollable content; counting it lets the body scroll
+  past its end by the band heights.
+- **`GetPaintClipRect`** — body content must be clipped OUT of the band rows.
+  Without this the bands compute correctly and then get painted over the moment
+  the body is long enough to reach them. This was the single missing piece
+  between "first frame correct, scrolled frame broken" and working.
+
+**`AllocationOrder` is deliberately not used here.** It reverses a far-edge run
+because the dock root consumes strips off a shrinking rectangle, where
+reversing is what preserves author order. Stacking downward from a computed
+start is the opposite traversal, so applying it reverses a second time — a help
+line ended up above the rule declared before it. The band lists stay in author
+order.
+
+Only the vertical edges pin. `Dock.Left` / `Dock.Right` fall through to the
+body and scroll as ordinary children: a panel stacks vertically, so a
+horizontal edge has no band to claim. A caller wanting left/right docking
+inside a scrolling region puts a `DockPanelControl` in the body — which is what
+`DockPanelControl` is for, and is the shape of the whole experiment's answer.
+
+Five workaround comments retired (four in `Flows/`, one in `Dialogs/` the
+original count missed), plus a test comment in `ScrollablePanelControlTests`
+that had codified the old behaviour as fact. The test it sat on was named
+`StickyChild_RemainsFixedDuringScroll` all along; the name is finally literal.
+
+### Border-delegated scrollbars
+
+`IBorderScrollSource` names a relationship the frame always had: the window's
+scrolling body driving a thumb in the right border. Delegation makes it
+available to any region, on either axis, via
+`window.DelegateScrollbarToBorder(source, axis)`.
+
+- **The vertical case is a generalisation**, not new drawing. `DrawScrollbar`
+  reads the delegated source when one is registered and the window body
+  otherwise, so an undelegated window renders exactly as before.
+- **The horizontal case is genuinely new surface.** The bottom border has never
+  drawn a thumb of any kind. It is painted cell-by-cell *after* the bottom
+  border blits, not built into it: the border buffer is cached on width and
+  active state, so a scroll that changed only the offset would redraw a stale
+  thumb. The vertical thumb is written over the right border for exactly the
+  same reason.
+- **One region per axis, enforced.** A second registration throws rather than
+  silently winning. The border is a single track; two regions sharing one would
+  fight over the thumb.
+
+`PanelBorderScrollSource` is the first implementor — a stateless view over a
+`ScrollablePanelControl`, so the thumb cannot drift from the content the way a
+cached copy would. It expresses `ScrollTo` as a relative scroll because that is
+the panel's public verb and it already clamps, which keeps the clamp in one
+place.
+
+### Result
+
+6985 tests green, `dotnet format` clean, both behaviour-changed DemoApp windows
+smoke-driven at 120x35 with zero stderr.

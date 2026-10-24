@@ -27,6 +27,8 @@ public static class LauncherWindow
 					.AddItem("Collapsible Panel", subtitle: "Click-to-expand sections — FAQ & AI-agent logs", content: MakeInfoPanel("Collapsible Panel"))
 				.AddItem("WinUI Layout", subtitle: "WinUI-inspired settings layout", content: MakeInfoPanel("WinUI Layout"))
 					.AddItem("Grid Layout", subtitle: "WinUI-style grid: spans, gaps, per-cell styling", content: MakeInfoPanel("Grid Layout"))
+					.AddItem("Window Docking", subtitle: "Four edge surfaces around a scrolling body", content: MakeInfoPanel("Window Docking"))
+					.AddItem("Grid Docking", subtitle: "Docked edges and placed cells in one grid", content: MakeInfoPanel("Grid Docking"))
 				.AddItem("Horizontal Splitter", subtitle: "Drag-to-resize horizontal bars", content: MakeInfoPanel("Horizontal Splitter"))
 				.AddItem("Shared Scrollbar", subtitle: "One ScrollbarControl driving two panes in lockstep", content: MakeInfoPanel("Shared Scrollbar"))
 				.AddItem("Status Bar", subtitle: "Clickable status bar with zones", content: MakeInfoPanel("Status Bar"))
@@ -248,6 +250,8 @@ public static class LauncherWindow
 			"Collapsible Panel" => CollapsibleDemoWindow.Create(ws),
 			"WinUI Layout" => WinUIDemoWindow.Create(ws),
 			"Grid Layout" => GridDemoWindow.Create(ws),
+			"Window Docking" => DockSurfacesWindow.Create(ws),
+			"Grid Docking" => GridDockWindow.Create(ws),
 			"Horizontal Splitter" => HorizontalSplitterDemoWindow.Create(ws),
 			"Status Bar" => StatusBarDemoWindow.Create(ws),
 			"Prompt Control" => PromptDemoWindow.Create(ws),
@@ -305,6 +309,41 @@ public static class LauncherWindow
 	{
 		return demoName switch
 		{
+			"Window Docking" => new List<string>
+			{
+				"[bold]Window Docking[/]",
+				"",
+				"The window root gives four edges around a scrolling",
+				"middle. Each docked child claims a strip, in the",
+				"order it was declared, and the body gets the rest.",
+				"",
+				"[dim]Shows:[/]",
+				"  - DockTop / DockLeft / DockRight / DockBottom",
+				"  - DockBody, the only part that scrolls",
+				"  - Two bottom bands in author order",
+				"",
+				"[dim]Why it matters:[/]",
+				"  - StickyTop/StickyBottom are the same Dock value,",
+				"    so existing code needed no change",
+				"  - window.Root swaps the layout per window",
+			},
+			"Grid Docking" => new List<string>
+			{
+				"[bold]Grid Docking[/]",
+				"",
+				"A GridControl with both placements at once: docked",
+				"children claim the edges, placed children fill the",
+				"tracks inside whatever is left.",
+				"",
+				"[dim]Shows:[/]",
+				"  - grid.Dock(control, Dock.Top/Left/Bottom)",
+				"  - grid.Place(control, row, col) alongside it",
+				"  - Cell coordinates unchanged by docking",
+				"",
+				"[dim]Why it matters:[/]",
+				"  - One container does both, so no separate",
+				"    dock-panel control is needed",
+			},
 			"Border Styles" => new List<string>
 			{
 				"[bold]Border Styles[/]",
