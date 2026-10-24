@@ -343,8 +343,8 @@ namespace SharpConsoleUI.Dialogs
 		/// Shared modal-window plumbing used by all primitive dialogs.
 		/// Builds and shows a modal window hosting the canonical three-band layout — the StickyTop
 		/// <paramref name="topBand"/>, the scrollable <paramref name="body"/>, and the StickyBottom
-		/// <paramref name="bottomBand"/> — added as WINDOW children so the window's content layout
-		/// honours their <c>StickyPosition</c> (a ScrollablePanel does not). Wires
+		/// <paramref name="bottomBand"/> — added as WINDOW children, which keeps the bands outside
+		/// the body's scroll region. Wires
 		/// <c>OnClosed</c> → <paramref name="onDismiss"/> (so Esc/close resolves the content), and
 		/// closes the window automatically when <paramref name="completion"/> finishes.
 		/// </summary>

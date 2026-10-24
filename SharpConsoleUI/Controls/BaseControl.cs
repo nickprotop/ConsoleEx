@@ -37,7 +37,7 @@ namespace SharpConsoleUI.Controls
 		private HorizontalAlignment _horizontalAlignment = HorizontalAlignment.Left;
 		private VerticalAlignment _verticalAlignment = VerticalAlignment.Top;
 		private Margin _margin = new Margin(0, 0, 0, 0);
-		private StickyPosition _stickyPosition = StickyPosition.None;
+		private Layout.Dock _dock = Layout.Dock.None;
 		private bool _visible = true;
 		private int? _width;
 		private int? _height;
@@ -203,10 +203,44 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
+		/// <remarks>
+		/// Projected onto <see cref="Dock"/> rather than stored separately, so the two can never
+		/// disagree. A control docked Left or Right reports <see cref="StickyPosition.None"/>,
+		/// which is accurate - sticky only ever named the vertical edges.
+		/// </remarks>
 		public virtual StickyPosition StickyPosition
 		{
-			get => _stickyPosition;
-			set => SetProperty(ref _stickyPosition, value);
+			get => _dock switch
+			{
+				Layout.Dock.Top => StickyPosition.Top,
+				Layout.Dock.Bottom => StickyPosition.Bottom,
+				_ => StickyPosition.None,
+			};
+			set => Dock = value switch
+			{
+				StickyPosition.Top => Layout.Dock.Top,
+				StickyPosition.Bottom => Layout.Dock.Bottom,
+				_ => Layout.Dock.None,
+			};
+		}
+
+		/// <inheritdoc/>
+		public virtual Layout.Dock Dock
+		{
+			get => _dock;
+			set
+			{
+				if (_dock == value)
+					return;
+
+				_dock = value;
+				OnPropertyChanged();
+
+				// Both names change together, because they are one value seen two ways. A binding
+				// on either must see the other move.
+				OnPropertyChanged(nameof(StickyPosition));
+				Invalidate(Invalidation.Relayout);
+			}
 		}
 
 		/// <inheritdoc/>

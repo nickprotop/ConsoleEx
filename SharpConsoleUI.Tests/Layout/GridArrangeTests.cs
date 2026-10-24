@@ -147,7 +147,7 @@ public class GridArrangeTests
 		var child = node.Children[0];
 		// The grid arranges the child into the FULL cell content box and does NOT pre-inset by the child's
 		// own margin — the control applies its margin itself during paint (its leftInset/topInset). This
-		// matches VerticalStackLayout/WindowContentLayout (the framework convention) and avoids the
+		// matches VerticalStackLayout and the window root (the framework convention) and avoids the
 		// double-subtraction that truncated tight Auto-cell labels. So the child's bounds span the whole
 		// cell; the margin shows up as the control's own internal inset, not a smaller arranged rect.
 		Assert.Equal(0, child.Bounds.X);

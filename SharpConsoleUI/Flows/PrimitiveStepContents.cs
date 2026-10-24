@@ -73,7 +73,8 @@ namespace SharpConsoleUI.Flows
 		//   StickyTop    : severity banner (glyph + title) + accent rule  [BuildTopBand — HOST-built]
 		//   Scrollable   : the message/input/status body (Fill)           [BuildScrollableBody / caller]
 		//   StickyBottom : ruler + right-aligned button toolbar           [BuildBottomBand]
-		// A ScrollablePanel does NOT honour StickyPosition, so the bands must be window children.
+		// The bands are window children: the window is the three-band shape, and the body below
+		// is free to be a plain scrolling panel.
 
 		/// <summary>The stable name of the host-built top-band title markup (used by tests to locate the banner).</summary>
 		internal const string TopBandTitleName = "flow-top-band-title";
@@ -270,8 +271,8 @@ namespace SharpConsoleUI.Flows
 		/// <remarks>
 		/// Returns the scrollable MESSAGE body only. The top band (title + rule) is built by the HOST from
 		/// <see cref="FlowChrome"/>; this content owns only the bottom band (buttons), returned separately
-		/// so the host/modal can add it as a StickyBottom WINDOW child — only the window's content layout
-		/// honours StickyPosition; a ScrollablePanel does not. The canonical shape is sticky-top
+		/// so the host/modal can add it as a StickyBottom WINDOW child, outside the body's scroll
+		/// region. The canonical shape is sticky-top
 		/// (host banner + accent rule) / scrollable-middle (message) / sticky-bottom (ruler + button
 		/// toolbar), which keeps the chrome flush and the spacing consistent across dialogs.
 		/// </remarks>
@@ -351,8 +352,8 @@ namespace SharpConsoleUI.Flows
 		/// <remarks>
 		/// Returns the scrollable MESSAGE + INPUT body only. The top band (title + rule) is built by the
 		/// HOST from <see cref="FlowChrome"/>; this content owns only the bottom band, returned separately
-		/// (<see cref="BuildBottomBand"/>) so the host/modal can add it as a StickyBottom WINDOW child —
-		/// only the window's content layout honours StickyPosition; a ScrollablePanel does not.
+		/// (<see cref="BuildBottomBand"/>) so the host/modal can add it as a StickyBottom WINDOW child,
+		/// outside the body's scroll region.
 		/// </remarks>
 		public IWindowControl BuildContent(FlowChrome chrome)
 		{
@@ -477,7 +478,7 @@ namespace SharpConsoleUI.Flows
 		/// rule) is built by the HOST from <see cref="FlowChrome"/> (the progress path sets
 		/// <see cref="FlowChrome.UseProgressGlyph"/>); this content owns only the bottom band, returned
 		/// separately (<see cref="BuildBottomBand"/>) so the host/modal can add it as a StickyBottom WINDOW
-		/// child — only the window's content layout honours StickyPosition; a ScrollablePanel does not.
+		/// child, outside the body's scroll region.
 		/// </remarks>
 		public IWindowControl BuildContent(FlowChrome chrome)
 		{

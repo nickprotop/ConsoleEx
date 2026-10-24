@@ -559,21 +559,50 @@ namespace SharpConsoleUI.Controls
 			List<IWindowControl> calcSnapshot;
 			lock (_childrenLock) { calcSnapshot = new List<IWindowControl>(_children); }
 
+			// A docked child is a PINNED BAND, not scrollable content: it holds a strip of the
+			// viewport and never moves. Its height is therefore subtracted from the height the
+			// body scrolls within, and must not be added to the content extent - counting it
+			// would let the body scroll past its end by the band heights.
+			int bandHeight = 0;
+			List<IWindowControl>? bodySnapshot = null;
+
+			foreach (var child in calcSnapshot)
+			{
+				if (child.Dock is not (Layout.Dock.Top or Layout.Dock.Bottom)) continue;
+
+				bodySnapshot ??= new List<IWindowControl>(calcSnapshot.Count);
+				if (child.Visible)
+					bandHeight += MeasureChildHeight(child, new LayoutConstraints(1, availableWidth, 1, int.MaxValue));
+			}
+
+			if (bodySnapshot != null)
+			{
+				foreach (var child in calcSnapshot)
+					if (child.Dock is not (Layout.Dock.Top or Layout.Dock.Bottom))
+						bodySnapshot.Add(child);
+
+				calcSnapshot = bodySnapshot;
+			}
+
+			int bodyHeight = maxHeight > 0 ? Math.Max(0, maxHeight - bandHeight) : maxHeight;
+
 			// Use the shared Fill metrics + per-child height so the panel's own content-height
 			// measurement agrees with how PaintDOM and hit-testing size each child. A Fill child
 			// contributes the height it is actually painted into (its allocated slot), not just
 			// its content size. maxHeight is the height to distribute Fill children across
 			// (the viewport, possibly re-evaluated at a reduced width for the scrollbar).
-			var (_, _, perFillHeight) = ComputeFillMetrics(calcSnapshot, availableWidth, maxHeight);
+			var (_, _, perFillHeight) = ComputeFillMetrics(calcSnapshot, availableWidth, bodyHeight);
 
 			int totalHeight = 0;
 			foreach (var child in calcSnapshot)
 			{
 				if (!child.Visible) continue;
-				totalHeight += ComputeChildHeight(child, availableWidth, perFillHeight, maxHeight);
+				totalHeight += ComputeChildHeight(child, availableWidth, perFillHeight, bodyHeight);
 			}
 
-			return totalHeight;
+			// The bands occupy viewport rows, so they count toward the extent the viewport is
+			// compared against - they are simply not part of what SCROLLS.
+			return totalHeight + bandHeight;
 		}
 
 		private int CalculateContentWidth()

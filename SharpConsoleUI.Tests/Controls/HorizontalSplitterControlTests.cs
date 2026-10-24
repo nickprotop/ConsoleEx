@@ -597,12 +597,12 @@ public class HorizontalSplitterControlTests
 
 	#endregion
 
-	#region Layout Integration - ExplicitHeight in WindowContentLayout
+	#region Layout Integration - ExplicitHeight in the window root layout
 
 	[Fact]
-	public void WindowContentLayout_FillChildWithExplicitHeight_TreatedAsFixed()
+	public void WindowRoot_FillChildWithExplicitHeight_TreatedAsFixed()
 	{
-		var layout = new WindowContentLayout();
+		var layout = new DockRootLayout();
 		var root = new LayoutNode(null, layout);
 
 		// Child 1: Fill with explicit height
@@ -637,9 +637,9 @@ public class HorizontalSplitterControlTests
 	}
 
 	[Fact]
-	public void WindowContentLayout_FillChildWithoutExplicitHeight_SharesSpace()
+	public void WindowRoot_FillChildWithoutExplicitHeight_SharesSpace()
 	{
-		var layout = new WindowContentLayout();
+		var layout = new DockRootLayout();
 		var root = new LayoutNode(null, layout);
 
 		var panel1 = new PanelControl("top") { VerticalAlignment = VerticalAlignment.Fill };
@@ -662,11 +662,11 @@ public class HorizontalSplitterControlTests
 	}
 
 	[Fact]
-	public void WindowContentLayout_SplitterResizesGrid_CorrectHeights()
+	public void WindowRoot_SplitterResizesGrid_CorrectHeights()
 	{
 		// Simulate: [Grid(Fill,Height=15), Splitter(Top,1row), Panel(Fill)]
 		// This is the outer splitter scenario from the demo
-		var layout = new WindowContentLayout();
+		var layout = new DockRootLayout();
 		var root = new LayoutNode(null, layout);
 
 		var grid = new HorizontalGridControl() { VerticalAlignment = VerticalAlignment.Fill };

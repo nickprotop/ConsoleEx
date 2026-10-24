@@ -32,7 +32,7 @@ namespace SharpConsoleUI.Windows
 
 		// DOM state (owned by Window but managed here)
 		private LayoutNode? _rootNode;
-		private WindowContentLayout? _windowContentLayout;
+		private IWindowRootLayout? _rootLayout;
 		private CharacterBuffer? _buffer;
 		private readonly Dictionary<IWindowControl, LayoutNode> _controlToNodeMap = new();
 
@@ -110,16 +110,39 @@ namespace SharpConsoleUI.Windows
 		public LayoutNode? RootLayoutNode => _rootNode;
 
 		/// <summary>
+		/// Creates the layout used as a window's root. Defaults to <see cref="DockRootLayout"/>.
+		/// </summary>
+		/// <remarks>
+		/// A window's root was the last node in the engine chosen by type rather than by
+		/// dispatch; every node below it is built through <see cref="LayoutNodeFactory"/>. This
+		/// makes the root pluggable on the same terms. It is static because the choice is a
+		/// property of the layout model in use, not of an individual window, and because the
+		/// renderer rebuilds its root on every DOM rebuild.
+		/// </remarks>
+		public static Func<IWindowRootLayout> RootLayoutFactory { get; set; } = () => new DockRootLayout();
+
+		/// <summary>
+		/// Creates this window's root layout, overriding <see cref="RootLayoutFactory"/>. Null
+		/// (the default) uses the global factory.
+		/// </summary>
+		/// <remarks>
+		/// Internal because <see cref="Window.Root"/> is the way to set this. That property also
+		/// rebuilds the DOM, which this one does not - assigning here alone would leave the window
+		/// rendering with its previous root until something else happened to trigger a rebuild.
+		/// </remarks>
+		internal Func<IWindowRootLayout>? WindowRootLayoutFactory { get; set; }
+
+		/// <summary>
 		/// Gets or sets the scroll offset for the window content.
 		/// </summary>
 		public int ScrollOffset
 		{
-			get => _windowContentLayout?.ScrollOffset ?? 0;
+			get => _rootLayout?.ScrollOffset ?? 0;
 			set
 			{
-				if (_windowContentLayout != null)
+				if (_rootLayout != null)
 				{
-					_windowContentLayout.ScrollOffset = value;
+					_rootLayout.ScrollOffset = value;
 				}
 			}
 		}
@@ -127,19 +150,19 @@ namespace SharpConsoleUI.Windows
 		/// <summary>
 		/// Gets the total height of scrollable content.
 		/// </summary>
-		public int ScrollableContentHeight => _windowContentLayout?.ScrollableContentHeight ?? 0;
+		public int ScrollableContentHeight => _rootLayout?.ScrollableContentHeight ?? 0;
 
 		/// <summary>
 		/// Gets the maximum scroll offset.
 		/// </summary>
-		public int MaxScrollOffset => _windowContentLayout?.MaxScrollOffset ?? 0;
+		public int MaxScrollOffset => _rootLayout?.MaxScrollOffset ?? 0;
 
 		/// <summary>
 		/// Scrolls by the specified delta.
 		/// </summary>
 		public void ScrollBy(int delta)
 		{
-			_windowContentLayout?.ScrollBy(delta);
+			_rootLayout?.ScrollBy(delta);
 		}
 
 		/// <summary>
@@ -147,7 +170,7 @@ namespace SharpConsoleUI.Windows
 		/// </summary>
 		public void ScrollToTop()
 		{
-			_windowContentLayout?.ScrollToTop();
+			_rootLayout?.ScrollToTop();
 		}
 
 		/// <summary>
@@ -155,7 +178,7 @@ namespace SharpConsoleUI.Windows
 		/// </summary>
 		public void ScrollToBottom()
 		{
-			_windowContentLayout?.ScrollToBottom();
+			_rootLayout?.ScrollToBottom();
 		}
 
 		/// <summary>
@@ -163,7 +186,7 @@ namespace SharpConsoleUI.Windows
 		/// </summary>
 		public void PageUp()
 		{
-			_windowContentLayout?.PageUp();
+			_rootLayout?.PageUp();
 		}
 
 		/// <summary>
@@ -171,7 +194,7 @@ namespace SharpConsoleUI.Windows
 		/// </summary>
 		public void PageDown()
 		{
-			_windowContentLayout?.PageDown();
+			_rootLayout?.PageDown();
 		}
 
 		/// <summary>
@@ -203,10 +226,11 @@ namespace SharpConsoleUI.Windows
 				_buffer = new CharacterBuffer(contentWidth, contentHeight);
 			}
 
-			// Create root node with WindowContentLayout, preserving scroll offset
-			int previousScrollOffset = _windowContentLayout?.ScrollOffset ?? 0;
-			_windowContentLayout = new WindowContentLayout { ScrollOffset = previousScrollOffset };
-			_rootNode = new LayoutNode(null, _windowContentLayout);
+			// Create the root node from the configured root layout, preserving scroll offset.
+			int previousScrollOffset = _rootLayout?.ScrollOffset ?? 0;
+			_rootLayout = (WindowRootLayoutFactory ?? RootLayoutFactory)();
+			_rootLayout.ScrollOffset = previousScrollOffset;
+			_rootNode = new LayoutNode(null, _rootLayout);
 			_controlToNodeMap.Clear();
 
 			// Add ALL controls as children (not just visible ones)

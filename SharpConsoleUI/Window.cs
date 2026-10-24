@@ -164,7 +164,7 @@ namespace SharpConsoleUI
 	/// Represents a window in the console UI system that can contain controls and handle user input.
 	/// Implements <see cref="IContainer"/> for control management.
 	/// </summary>
-	public partial class Window : IContainer, Controls.IControlHost, Controls.IPortalHost
+	public partial class Window : IContainer, Controls.IControlHost, Controls.IPortalHost, Layout.IDockSurfaceProvider
 	{
 		internal readonly List<IWindowControl> _controls = new();
 		internal readonly List<IInteractiveControl> _interactiveContents = new();

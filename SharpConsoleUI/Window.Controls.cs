@@ -16,6 +16,59 @@ namespace SharpConsoleUI
 	public partial class Window
 	{
 		/// <inheritdoc/>
+		private Layout.IDockSurface? _dockLeft, _dockTop, _dockRight, _dockBottom, _dockBody;
+
+		/// <summary>Controls docked to the left edge, in declaration order.</summary>
+		public Layout.IDockSurface DockLeft => _dockLeft ??= new Layout.DockSurface(this, Layout.Dock.Left);
+
+		/// <summary>Controls docked to the top edge, in declaration order.</summary>
+		public Layout.IDockSurface DockTop => _dockTop ??= new Layout.DockSurface(this, Layout.Dock.Top);
+
+		/// <summary>Controls docked to the right edge, in declaration order.</summary>
+		public Layout.IDockSurface DockRight => _dockRight ??= new Layout.DockSurface(this, Layout.Dock.Right);
+
+		/// <summary>Controls docked to the bottom edge, in declaration order.</summary>
+		public Layout.IDockSurface DockBottom => _dockBottom ??= new Layout.DockSurface(this, Layout.Dock.Bottom);
+
+		/// <summary>
+		/// Undocked controls, which share whatever space the docked edges leave and scroll together.
+		/// </summary>
+		public Layout.IDockSurface DockBody => _dockBody ??= new Layout.DockSurface(this, Layout.Dock.None);
+
+		/// <summary>
+		/// The surface for a given edge, with <see cref="Layout.Dock.None"/> giving <see cref="DockBody"/>.
+		/// </summary>
+		/// <remarks>
+		/// These are views over <see cref="Controls"/>, not separate collections: a control added
+		/// through a surface is an ordinary child with its <see cref="IWindowControl.Dock"/> set,
+		/// and one added with <see cref="AddControl"/> after setting <c>Dock</c> appears in the
+		/// matching surface. Nothing can drift out of step because there is only one list.
+		/// </remarks>
+		public Layout.IDockSurface Surface(Layout.Dock edge) => edge switch
+		{
+			Layout.Dock.Left => DockLeft,
+			Layout.Dock.Top => DockTop,
+			Layout.Dock.Right => DockRight,
+			Layout.Dock.Bottom => DockBottom,
+			_ => DockBody,
+		};
+
+		// IDockSurfaceProvider names the edges plainly; on a Window those names are already taken
+		// by its screen position, so the public properties above carry the Dock prefix and the
+		// interface is satisfied explicitly. A caller holding an IDockSurfaceProvider still writes
+		// provider.Top; a caller holding a Window writes window.DockTop and never has to wonder
+		// whether Top means "the top edge" or "the row this window starts at".
+		Layout.IDockSurface Layout.IDockSurfaceProvider.Left => DockLeft;
+
+		Layout.IDockSurface Layout.IDockSurfaceProvider.Top => DockTop;
+
+		Layout.IDockSurface Layout.IDockSurfaceProvider.Right => DockRight;
+
+		Layout.IDockSurface Layout.IDockSurfaceProvider.Bottom => DockBottom;
+
+		Layout.IDockSurface Layout.IDockSurfaceProvider.Body => DockBody;
+
+		/// <inheritdoc/>
 		public void AddControl(IWindowControl content)
 		{
 			lock (_lock)

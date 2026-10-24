@@ -34,7 +34,7 @@ namespace SharpConsoleUI.Controls
 		private IColumnGridOwner? _owner;
 		private bool _isEnabled = true;
 		private Margin _margin = new Margin(0, 0, 0, 0);
-		private StickyPosition _stickyPosition = StickyPosition.None;
+		private Layout.Dock _dock = Layout.Dock.None;
 		private bool _visible = true;
 		private int? _width;
 		private int? _height;
@@ -382,12 +382,33 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
+		/// <remarks>Projected onto <see cref="Dock"/>; see <see cref="IWindowControl.Dock"/>.</remarks>
 		public StickyPosition StickyPosition
 		{
-			get => _stickyPosition;
+			get => _dock switch
+			{
+				Layout.Dock.Top => StickyPosition.Top,
+				Layout.Dock.Bottom => StickyPosition.Bottom,
+				_ => StickyPosition.None,
+			};
+			set => Dock = value switch
+			{
+				StickyPosition.Top => Layout.Dock.Top,
+				StickyPosition.Bottom => Layout.Dock.Bottom,
+				_ => Layout.Dock.None,
+			};
+		}
+
+		/// <inheritdoc/>
+		public Layout.Dock Dock
+		{
+			get => _dock;
 			set
 			{
-				_stickyPosition = value;
+				if (_dock == value)
+					return;
+
+				_dock = value;
 				Invalidate(Invalidation.Relayout);
 			}
 		}

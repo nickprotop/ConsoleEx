@@ -95,6 +95,160 @@ namespace SharpConsoleUI
 		internal Windows.WindowEventDispatcher? EventDispatcher => _eventDispatcher;
 
 		/// <summary>
+		/// Creates this window's root layout - the layout that arranges the window's own controls.
+		/// Null, the default, uses the application default
+		/// (<see cref="Windows.WindowRenderer.RootLayoutFactory"/>, a
+		/// <see cref="Layout.DockRootLayout"/> unless changed).
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// Setting this gives one window a different layout model from the rest of the
+		/// application: a docked shell around a grid body, a plain stack, or anything else
+		/// implementing <see cref="Layout.IWindowRootLayout"/>. Other windows are unaffected.
+		/// </para>
+		/// <para>
+		/// This is a factory rather than an instance because the renderer rebuilds its root
+		/// whenever the DOM is rebuilt; a shared instance would carry one window's banding and
+		/// scroll position into the next rebuild. Assigning applies immediately.
+		/// </para>
+		/// <example>
+		/// <code>
+		/// window.Root = () => new DockRootLayout();   // this window only
+		/// window.Root = null;                          // back to the application default
+		/// </code>
+		/// </example>
+		/// </remarks>
+		public Func<Layout.IWindowRootLayout>? Root
+		{
+			get => _renderer?.WindowRootLayoutFactory;
+			set
+			{
+				if (_renderer == null || _renderer.WindowRootLayoutFactory == value)
+					return;
+
+				_renderer.WindowRootLayoutFactory = value;
+
+				// The root is built during the DOM rebuild, so a new one only takes effect once
+				// the tree is rebuilt. Doing that here means assignment is enough - a caller
+				// should not have to know that the root is a rebuild-time decision.
+				ForceRebuildLayout();
+			}
+		}
+
+		#region Border-delegated scrollbars
+
+		private Layout.IBorderScrollSource? _borderVerticalSource;
+		private Layout.IBorderScrollSource? _borderHorizontalSource;
+
+		// What the source's own scrollbar was before delegation took it over, so releasing the
+		// axis puts it back rather than leaving the region permanently bar-less.
+		private bool _borderVerticalRestore;
+		private bool _borderHorizontalRestore;
+
+		/// <summary>
+		/// Hands a region's scrollbar to the window border, so it draws in the frame instead of
+		/// inside the region - reclaiming a column (vertical) or row (horizontal) of content.
+		/// </summary>
+		/// <param name="source">
+		/// The region driving the border. Pass <see langword="null"/> to release the axis back to
+		/// the window's own scrolling body.
+		/// </param>
+		/// <param name="axis">The axis or axes to delegate.</param>
+		/// <exception cref="InvalidOperationException">
+		/// An axis is already delegated to a different source. The border is a single track per
+		/// axis: two regions sharing one would fight over the thumb, so the second registration
+		/// is refused rather than silently winning.
+		/// </exception>
+		/// <remarks>
+		/// This generalises what the frame has always done. The window's scrolling body drawing a
+		/// thumb in the right border IS this relationship, previously hard-wired; delegating is
+		/// the same arrangement made available to any region that can report a position.
+		/// </remarks>
+		public void DelegateScrollbarToBorder(Layout.IBorderScrollSource? source, Layout.ScrollAxis axis)
+		{
+			if (axis == Layout.ScrollAxis.None)
+				return;
+
+			if (axis.HasFlag(Layout.ScrollAxis.Vertical))
+			{
+				var previous = _borderVerticalSource;
+				Claim(ref _borderVerticalSource, source, Layout.ScrollAxis.Vertical);
+				Handover(previous, source, ref _borderVerticalRestore);
+			}
+
+			if (axis.HasFlag(Layout.ScrollAxis.Horizontal))
+			{
+				var previous = _borderHorizontalSource;
+				Claim(ref _borderHorizontalSource, source, Layout.ScrollAxis.Horizontal);
+				Handover(previous, source, ref _borderHorizontalRestore);
+			}
+
+			Invalidate(Invalidation.Repaint);
+
+			// Taking the border over hides the region's own bar; handing it back restores it.
+			// Delegating without this draws two scrollbars and reclaims none of the space the
+			// caller delegated in order to reclaim.
+			static void Handover(Layout.IBorderScrollSource? previous, Layout.IBorderScrollSource? source,
+				ref bool restore)
+			{
+				if (ReferenceEquals(previous, source))
+					return;
+
+				if (source == null)
+				{
+					if (previous is Layout.PanelBorderScrollSource releasing)
+						releasing.RestoreOwnScrollbar(restore);
+					restore = false;
+					return;
+				}
+
+				if (source is Layout.PanelBorderScrollSource claiming)
+					restore = claiming.SuppressOwnScrollbar();
+			}
+
+			static void Claim(ref Layout.IBorderScrollSource? slot, Layout.IBorderScrollSource? source,
+				Layout.ScrollAxis axis)
+			{
+				if (source != null && slot != null && !ReferenceEquals(slot, source))
+				{
+					throw new InvalidOperationException(
+						$"The {axis} border scrollbar is already delegated to another region. " +
+						"Release it first by passing null for that axis.");
+				}
+
+				slot = source;
+			}
+		}
+
+		/// <summary>
+		/// The region driving the border scrollbar on <paramref name="axis"/>, or
+		/// <see langword="null"/> when the window's own body drives it.
+		/// </summary>
+		/// <param name="axis">A single axis; <see cref="Layout.ScrollAxis.Both"/> is not a query.</param>
+		/// <returns>The delegated source, or null.</returns>
+		public Layout.IBorderScrollSource? BorderScrollSource(Layout.ScrollAxis axis) => axis switch
+		{
+			Layout.ScrollAxis.Vertical => _borderVerticalSource,
+			Layout.ScrollAxis.Horizontal => _borderHorizontalSource,
+			_ => null
+		};
+
+		/// <summary>
+		/// Whether the bottom border is currently showing a horizontal scrollbar, which happens
+		/// only when a region has delegated that axis AND has something to scroll.
+		/// </summary>
+		internal bool HorizontalBorderScrollbarVisible
+		{
+			get
+			{
+				var source = _borderHorizontalSource;
+				return source != null && source.Extent > source.Viewport && source.Viewport > 0;
+			}
+		}
+
+		#endregion
+
+		/// <summary>
 		/// Forces a complete rebuild of the DOM tree. Use this when the control hierarchy changes
 		/// structurally (e.g., adding/removing columns in a grid) rather than just property changes.
 		/// This is more expensive than Invalidate() but necessary for structural changes.

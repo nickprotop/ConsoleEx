@@ -53,6 +53,31 @@ public interface IGridSource
 	IReadOnlyList<(IWindowControl Control, GridPlacement Placement)> OrderedCells { get; }
 
 	/// <summary>
+	/// Gets the children docked to the grid's edges, in declaration order. These are allocated
+	/// OUTSIDE the track area: each claims a strip off the grid's rectangle, and the tracks are
+	/// sized against whatever is left.
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// Deliberately a separate list from <see cref="OrderedCells"/>. The layout correlates
+	/// <c>node.Children[i]</c> to <c>OrderedCells[i]</c> by index, so a docked child mixed into
+	/// that list would shift every placement after it. Docked children are appended to the tree
+	/// AFTER the cells, leaving cell indices untouched.
+	/// </para>
+	/// <para>
+	/// This is also why docking does not disturb coordinates: a docked child claims no row and no
+	/// column, so <c>grid[1, 0]</c> means the same cell however many children are docked. An
+	/// earlier design that synthesised tracks from docks would have broken exactly that.
+	/// </para>
+	/// </remarks>
+	/// <remarks>
+	/// A DEFAULT interface member returning an empty list, so an existing implementer keeps
+	/// compiling unchanged - the same reason <c>IWindowControl.Dock</c> is one. A grid source
+	/// that does not dock anything need not know the concept exists.
+	/// </remarks>
+	IReadOnlyList<IWindowControl> DockedChildren => System.Array.Empty<IWindowControl>();
+
+	/// <summary>
 	/// When <c>true</c>, a <see cref="GridUnitType.Star"/> track measured on an effectively unbounded axis
 	/// self-sizes to its cells'content (reporting a content-based desired size) instead of collapsing to 0;
 	/// ARRANGE still distributes Star across the real allocation. Default <c>false</c> (WinUI contract).

@@ -261,7 +261,7 @@ namespace SharpConsoleUI.Controls
 				// whatever extent the grid is arranged at (exactly master's HorizontalLayout, whose flex arrange
 				// does not consult alignment). The only alignment-dependent quantity is the extent the PARENT
 				// hands the grid: a Left/Center/Right grid at the window root is arranged at its content-packed
-				// DesiredSize (WindowContentLayout), so the Star floors sum to the content total and the columns
+				// DesiredSize (the window root), so the Star floors sum to the content total and the columns
 				// PACK; a Stretch grid, or a grid inside a ScrollablePanel viewport, is arranged wider and the
 				// Star surplus fans out by FlexFactor. That the grid's measured DesiredSize is content-packed
 				// (never the bounded parent extent) is guaranteed by StarTracksSelfSizeToContentInMeasure, which
