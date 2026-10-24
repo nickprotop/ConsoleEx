@@ -122,6 +122,17 @@ namespace SharpConsoleUI.Windows
 		public static Func<IWindowRootLayout> RootLayoutFactory { get; set; } = () => new GridRootLayout();
 
 		/// <summary>
+		/// Creates this window's root layout, overriding <see cref="RootLayoutFactory"/>. Null
+		/// (the default) uses the global factory.
+		/// </summary>
+		/// <remarks>
+		/// Internal because <see cref="Window.Root"/> is the way to set this. That property also
+		/// rebuilds the DOM, which this one does not - assigning here alone would leave the window
+		/// rendering with its previous root until something else happened to trigger a rebuild.
+		/// </remarks>
+		internal Func<IWindowRootLayout>? WindowRootLayoutFactory { get; set; }
+
+		/// <summary>
 		/// Gets or sets the scroll offset for the window content.
 		/// </summary>
 		public int ScrollOffset
@@ -217,7 +228,7 @@ namespace SharpConsoleUI.Windows
 
 			// Create the root node from the configured root layout, preserving scroll offset.
 			int previousScrollOffset = _rootLayout?.ScrollOffset ?? 0;
-			_rootLayout = RootLayoutFactory();
+			_rootLayout = (WindowRootLayoutFactory ?? RootLayoutFactory)();
 			_rootLayout.ScrollOffset = previousScrollOffset;
 			_rootNode = new LayoutNode(null, _rootLayout);
 			_controlToNodeMap.Clear();

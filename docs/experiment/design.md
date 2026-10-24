@@ -852,6 +852,100 @@ special case in an engine that is polymorphic everywhere else.
 Re-smoke-driven after the deletions at 120x35: launcher, tree scrolling with
 correct thumb and overflow markers, detail pane, borders. Zero stderr.
 
+### Can the root be swapped for anything else? Yes, including per window
+
+A seam that only its original occupant fits is not a seam, so this was tested
+rather than asserted. The test root is built on `VerticalStackLayout` — a stock
+container written long before this experiment, which knows nothing about sticky
+bands, scrolling or grids, and was not modified to serve as a root.
+
+**It took 18 lines of real code.** The layout work delegates to the stack; the
+clip rule is "the window's content area"; the five scroll verbs do nothing and
+the range reports zero, which is the honest answer for a layout with no
+scrolling region.
+
+The result is observable, which is the thing that makes the seam real rather
+than decorative. Identical controls under each root:
+
+```
+--- grid-rooted window ---        --- stack-rooted window ---
+body                              FOOTER
+                                  body
+         (six blank rows)                  (six blank rows)
+FOOTER
+```
+
+The grid root gives `StickyPosition` a meaning and pins the footer to the last
+row. The stack root does not, and is **entitled** not to — a root defines its
+own model, and sticky is a property of the banded model, not of windows. The
+window's scroll API degrades to a no-op rather than throwing or misreporting.
+
+**The factory was process-wide, and that was too coarse.** The original framing
+of this idea was "like WinUI, can have a different parent in any window" — which
+is per *window*, not per process. A static factory cannot give one window a
+docked shell and another a grid body. So `WindowRenderer` gained
+`WindowRootLayoutFactory`, a per-instance override that falls back to the global
+default when null. The output above is two windows **alive in the same system,
+rendered in the same pass**, with different layout models.
+
+What a root must supply, in full:
+
+| Requirement | Cost |
+|---|---|
+| `MeasureChildren` / `ArrangeChildren` | Delegate to any existing `ILayoutContainer` |
+| `GetPaintClipRect` | One line if the root has no bands |
+| Five scroll verbs + two range properties | Empty bodies and zero if nothing scrolls |
+
+Nothing in the contract presumes bands, grids or scrolling. A root that wants
+none of them pays almost nothing for the parts it does not use — which is the
+test of whether an interface was extracted at the right place.
+
+
+### The user-facing surface: `window.Root`
+
+```csharp
+window.Root = () => new DockRootLayout();   // this window only
+window.Root = null;                          // back to the application default
+```
+
+A **layout**, not a control. That distinction is not pedantry: the root node is
+built as `new LayoutNode(null, rootLayout)` - no control - so swapping it adds
+nothing to the paint tree or the hit-test walk. A control-shaped root would
+insert a node that has to be painted, hit-tested and focus-skipped on every
+frame, for a thing with no visual of its own.
+
+A **factory**, not an instance, because the renderer rebuilds its root on every
+DOM rebuild; a shared instance would carry one window's banding and scroll
+position into the next rebuild. The setter calls `ForceRebuildLayout()` itself,
+so assignment is enough - a caller should not have to know that the root is a
+rebuild-time decision.
+
+`Window.Root` is the only public way to set this. `WindowRenderer` carries the
+backing property, but it is internal: the renderer does not rebuild the DOM when
+it changes, so setting it directly would leave the window rendering with its
+previous root until something else happened to trigger a rebuild. One door, and
+the door does the whole job.
+
+Three scopes, narrowest wins:
+
+| Scope | Surface |
+|---|---|
+| One window | `window.Root = () => new MyRoot()` |
+| Whole application | `WindowRenderer.RootLayoutFactory = () => new MyRoot()` |
+| Default | `GridRootLayout` |
+
+Verified round-trip: default to stack to `null` returns a byte-identical buffer
+to how the window started, without recreating the window.
+
+**Prior art.** This is WinUI's `Window.Content` with one deliberate difference -
+WinUI's root is a `Panel`, a control that happens to lay out, where ours is pure
+layout. The closer match is **GTK4**: `gtk_window_set_child()` plus
+`GtkLayoutManager`, which split "what is in the window" from "how it is
+arranged" and made the latter a swappable object rather than a widget subclass.
+GTK3's `Gtk.Window` is a single-child `Bin`, which is the shape we had before
+this experiment, not after it.
+
+
 ## Open questions
 
 1. ~~**Does any adopter read `Window.ScrollOffset` / `CanScroll` directly?**~~

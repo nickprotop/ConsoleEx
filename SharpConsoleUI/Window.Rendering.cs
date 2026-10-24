@@ -95,6 +95,47 @@ namespace SharpConsoleUI
 		internal Windows.WindowEventDispatcher? EventDispatcher => _eventDispatcher;
 
 		/// <summary>
+		/// Creates this window's root layout - the layout that arranges the window's own controls.
+		/// Null, the default, uses the application default
+		/// (<see cref="Windows.WindowRenderer.RootLayoutFactory"/>, a
+		/// <see cref="Layout.GridRootLayout"/> unless changed).
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// Setting this gives one window a different layout model from the rest of the
+		/// application: a docked shell around a grid body, a plain stack, or anything else
+		/// implementing <see cref="Layout.IWindowRootLayout"/>. Other windows are unaffected.
+		/// </para>
+		/// <para>
+		/// This is a factory rather than an instance because the renderer rebuilds its root
+		/// whenever the DOM is rebuilt; a shared instance would carry one window's banding and
+		/// scroll position into the next rebuild. Assigning applies immediately.
+		/// </para>
+		/// <example>
+		/// <code>
+		/// window.Root = () => new DockRootLayout();   // this window only
+		/// window.Root = null;                          // back to the application default
+		/// </code>
+		/// </example>
+		/// </remarks>
+		public Func<Layout.IWindowRootLayout>? Root
+		{
+			get => _renderer?.WindowRootLayoutFactory;
+			set
+			{
+				if (_renderer == null || _renderer.WindowRootLayoutFactory == value)
+					return;
+
+				_renderer.WindowRootLayoutFactory = value;
+
+				// The root is built during the DOM rebuild, so a new one only takes effect once
+				// the tree is rebuilt. Doing that here means assignment is enough - a caller
+				// should not have to know that the root is a rebuild-time decision.
+				ForceRebuildLayout();
+			}
+		}
+
+		/// <summary>
 		/// Forces a complete rebuild of the DOM tree. Use this when the control hierarchy changes
 		/// structurally (e.g., adding/removing columns in a grid) rather than just property changes.
 		/// This is more expensive than Invalidate() but necessary for structural changes.
