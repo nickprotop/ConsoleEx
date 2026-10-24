@@ -43,7 +43,7 @@ namespace SharpConsoleUI.Layout;
 /// the body is found exactly as before.
 /// </para>
 /// </remarks>
-public sealed class GridRootLayout : ILayoutContainer, IRegionClippingLayout, IGridSource, IScrollOrigin
+public sealed class GridRootLayout : IWindowRootLayout, IGridSource, IScrollOrigin
 {
 	private readonly GridLayout _grid;
 
@@ -69,6 +69,7 @@ public sealed class GridRootLayout : ILayoutContainer, IRegionClippingLayout, IG
 	private readonly List<GridLength> _rows = new();
 	private readonly List<(IWindowControl Control, GridPlacement Placement)> _cells = new();
 
+	/// <summary>Creates a root layout with an empty body and no sticky bands.</summary>
 	public GridRootLayout()
 	{
 		_grid = new GridLayout(this);
@@ -78,6 +79,7 @@ public sealed class GridRootLayout : ILayoutContainer, IRegionClippingLayout, IG
 
 	#region IGridSource
 
+	/// <summary>One Auto row per sticky child, with a single Star row for the body between them.</summary>
 	public IReadOnlyList<GridLength> RowDefinitions => _rows;
 
 	/// <summary>A window root is one column: children stretch across the full width.</summary>
@@ -89,12 +91,16 @@ public sealed class GridRootLayout : ILayoutContainer, IRegionClippingLayout, IG
 	/// </summary>
 	public int RowGap => 0;
 
+	/// <summary>Zero: a single column has nothing to gap against.</summary>
 	public int ColumnGap => 0;
 
+	/// <summary>None. The window frame already insets the content area.</summary>
 	public Margin Margin => new(0, 0, 0, 0);
 
+	/// <summary>None, matching the old layout, which stacked children against the content edge.</summary>
 	public Padding Padding => new(0, 0, 0, 0);
 
+	/// <summary>The banded cells, in grid-row order: sticky top, then the body, then sticky bottom.</summary>
 	public IReadOnlyList<(IWindowControl Control, GridPlacement Placement)> OrderedCells => _cells;
 
 	/// <summary>
@@ -107,14 +113,21 @@ public sealed class GridRootLayout : ILayoutContainer, IRegionClippingLayout, IG
 
 	#region IScrollOrigin
 
-	/// <summary>Rows the body is scrolled down by — the window's scroll offset.</summary>
-	public int VerticalScrollOffset { get; set; }
+	/// <summary>
+	/// Rows the body is scrolled down by. <see cref="IScrollOrigin.VerticalScrollOffset"/> reads
+	/// this; the name <c>ScrollOffset</c> is what the window and its renderer have always called it.
+	/// </summary>
+	public int ScrollOffset { get; set; }
+
+	int IScrollOrigin.VerticalScrollOffset => ScrollOffset;
 
 	/// <summary>The window root does not scroll horizontally, matching the old layout.</summary>
 	public int HorizontalScrollOffset => 0;
 
+	/// <summary>False: the window root clips horizontally rather than scrolling.</summary>
 	public bool HorizontalScrollEnabled => false;
 
+	/// <summary>Unused while <see cref="HorizontalScrollEnabled"/> is false.</summary>
 	public int TotalContentWidth => 0;
 
 	#endregion
@@ -127,25 +140,43 @@ public sealed class GridRootLayout : ILayoutContainer, IRegionClippingLayout, IG
 	/// <summary>The visible height of the body region.</summary>
 	public int ViewportHeight => Math.Max(0, ScrollableBottom - ScrollableTop);
 
-	/// <summary>The largest valid <see cref="VerticalScrollOffset"/>.</summary>
+	/// <summary>The largest valid <see cref="ScrollOffset"/>.</summary>
 	public int MaxScrollOffset => Math.Max(0, ScrollableContentHeight - ViewportHeight);
 
+	/// <summary>Whether the body overflows its viewport.</summary>
 	public bool CanScroll => ScrollableContentHeight > ViewportHeight;
+
+	/// <summary>Scrolls by <paramref name="delta"/> rows, clamped to the valid range.</summary>
+	public void ScrollBy(int delta) => ScrollOffset = Math.Clamp(ScrollOffset + delta, 0, MaxScrollOffset);
+
+	/// <summary>Scrolls to the first row of the body.</summary>
+	public void ScrollToTop() => ScrollOffset = 0;
+
+	/// <summary>Scrolls to the last row of the body.</summary>
+	public void ScrollToBottom() => ScrollOffset = MaxScrollOffset;
+
+	/// <summary>Scrolls up by one viewport height.</summary>
+	public void PageUp() => ScrollBy(-ViewportHeight);
+
+	/// <summary>Scrolls down by one viewport height.</summary>
+	public void PageDown() => ScrollBy(ViewportHeight);
 
 	#endregion
 
 	#region ILayoutContainer
 
+	/// <summary>Rebands the children, then measures them as grid cells.</summary>
 	public LayoutSize MeasureChildren(LayoutNode node, LayoutConstraints constraints)
 	{
 		Reband(node);
 		return _grid.MeasureChildren(node, constraints);
 	}
 
+	/// <summary>Rebands the children, clamps the scroll offset, then arranges the grid.</summary>
 	public void ArrangeChildren(LayoutNode node, LayoutRect finalRect)
 	{
 		Reband(node);
-		VerticalScrollOffset = Math.Clamp(VerticalScrollOffset, 0, MaxScrollOffset);
+		ScrollOffset = Math.Clamp(ScrollOffset, 0, MaxScrollOffset);
 		_grid.ArrangeChildren(node, finalRect);
 		RecordBands(node, finalRect);
 	}
@@ -252,6 +283,8 @@ public sealed class GridRootLayout : ILayoutContainer, IRegionClippingLayout, IG
 			}
 		}
 
+		// The track and cell lists are rebuilt every pass - they are plain data the grid reads, and
+		// rebuilding them invalidates nothing.
 		_rows.Clear();
 		_cells.Clear();
 
@@ -269,6 +302,24 @@ public sealed class GridRootLayout : ILayoutContainer, IRegionClippingLayout, IG
 		{
 			_cells.Add((c.Control!, new GridPlacement(_rows.Count, 0)));
 			_rows.Add(GridLength.Auto());
+		}
+
+		// The TREE, by contrast, is only rebuilt when the banding actually changed. ClearChildren
+		// and AddChild each call InvalidateMeasure, so reshaping unconditionally on every measure
+		// AND every arrange re-dirties the whole tree every frame and defeats paint-only
+		// invalidation entirely - a real per-frame cost, not just a failing assertion. Caught by
+		// PaintOnlyInvalidationTests, which assert a repaint performs exactly zero measures.
+		if (BandingUnchanged(node, top, body, bottom))
+		{
+			// Shape is right, but a node's Parent may have been severed by a ClearChildren on an
+			// earlier pass (ClearChildren nulls each child's Parent, and re-adding under the same
+			// parent is what restores it). Arrange derives AbsoluteBounds from Parent, so a severed
+			// link silently places the body's content at the window origin instead of below the
+			// sticky band. Reattach without touching the child lists, so nothing is invalidated.
+			_bodyNode.Parent = node;
+			foreach (var b in body)
+				b.Parent = _bodyNode;
+			return;
 		}
 
 		_bodyNode.ClearChildren();
@@ -308,6 +359,44 @@ public sealed class GridRootLayout : ILayoutContainer, IRegionClippingLayout, IG
 		StickyBottomHeight = bottomHeight;
 		ScrollableTop = topHeight;
 		ScrollableBottom = finalRect.Height - bottomHeight;
+	}
+
+	/// <summary>
+	/// Whether the root already holds exactly <c>[top…, bodyNode, bottom…]</c> with the body holding
+	/// exactly <paramref name="body"/>, in order. Compared by node identity, so a child that merely
+	/// changed size is unchanged here and keeps its measured state.
+	/// </summary>
+	private bool BandingUnchanged(
+		LayoutNode node, List<LayoutNode> top, List<LayoutNode> body, List<LayoutNode> bottom)
+	{
+		if (node.Children.Count != top.Count + 1 + bottom.Count)
+			return false;
+
+		for (int i = 0; i < top.Count; i++)
+		{
+			if (!ReferenceEquals(node.Children[i], top[i]))
+				return false;
+		}
+
+		if (!ReferenceEquals(node.Children[top.Count], _bodyNode))
+			return false;
+
+		for (int i = 0; i < bottom.Count; i++)
+		{
+			if (!ReferenceEquals(node.Children[top.Count + 1 + i], bottom[i]))
+				return false;
+		}
+
+		if (_bodyNode.Children.Count != body.Count)
+			return false;
+
+		for (int i = 0; i < body.Count; i++)
+		{
+			if (!ReferenceEquals(_bodyNode.Children[i], body[i]))
+				return false;
+		}
+
+		return true;
 	}
 
 	/// <summary>

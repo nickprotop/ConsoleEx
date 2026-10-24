@@ -47,4 +47,15 @@ internal interface IScrollOrigin
 	/// Zero is a valid answer and means "no horizontal overflow".
 	/// </summary>
 	int TotalContentWidth { get; }
+
+	/// <summary>
+	/// The height of the visible body region, or zero when the owner does not know it yet.
+	/// </summary>
+	/// <remarks>
+	/// The body cannot always read its viewport from the constraint it is handed. A grid re-measures
+	/// its cells at unbounded height to discover wrapped sizes, and the owner may reband between
+	/// passes, so a height remembered from an earlier constraint can describe a region that no
+	/// longer exists. The owner knows the real region, so it is asked.
+	/// </remarks>
+	int ViewportHeight { get; }
 }

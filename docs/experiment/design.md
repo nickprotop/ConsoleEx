@@ -626,6 +626,201 @@ triggers a relayout. It is also directly relevant here, because the rewrite move
 the backing store from `WindowContentLayout` to the body `ScrollLayout`, and
 whatever the invalidation contract turns out to be has to survive that move.
 
+### Step 3 result: the swap costs ten lines, and the flex contract was the hidden half
+
+Swapping the default is a type rename. `WindowRenderer` touched
+`WindowContentLayout` in exactly one place that matters — it constructs one and
+exposes a scroll facade over it — so `GridRootLayout` gaining `ScrollOffset`,
+`ScrollBy`, `ScrollToTop`, `ScrollToBottom`, `PageUp` and `PageDown` made it a
+drop-in. The field was renamed `_rootLayout`, because a field called
+`_windowContentLayout` holding a `GridRootLayout` is the kind of name that
+outlives the refactor and misleads the next reader.
+
+`EnsureVisible(int y)` has **zero callers** anywhere in the library. It is public
+API, so it is not droppable in the main repo without the usual audit, but nothing
+internal depends on it and `GridRootLayout` does not reimplement it.
+
+**The real finding is what parity testing could not see.** Nine passing parity
+tests and a proven oracle both missed it, because the parity suite drives
+`Markup` controls, which size to their content. The old root layout measures its
+body in **two passes** with an asymmetry that is the whole contract:
+
+- children that size to their own content are measured at `int.MaxValue`, and
+  their overflow is what there is to scroll through;
+- **flex** children — `VerticalAlignment.Fill`, or any `IScrollableContainer` —
+  are measured against a **bounded share of the remaining viewport**.
+
+`MeasureFromOrigin` collapsed both into the unbounded case. A `Fill` child asked
+to size itself against `int.MaxValue` answers `int.MaxValue`, and the paint walk
+then runs two billion rows. This did not fail a test; it **hung the suite**,
+which is why it only surfaced when the default was swapped and the whole corpus
+of existing windows started running through the new root.
+
+`ArrangeFromOrigin` had the matching gap, and it is not fixable by reading
+`DesiredSize` back: a flex child's desired height is whatever it was last
+measured against, so arrange has to recompute the share itself — including the
+integer-division remainder, spread one row at a time across the leading flex
+children, exactly as the old layout did. Both passes now mirror
+`WindowContentLayout`'s rule via a shared `IsFlexHeight`.
+
+Two lessons worth carrying to the apply-back:
+
+1. **Geometry parity over content-sized controls is not parity.** The test corpus
+   has to include a `Fill` child and a nested `ScrollablePanelControl` before the
+   mapping can be called proven. The existing suite caught this only by hanging.
+2. **A hang is a failure.** Had the run been given a shorter timeout and read as
+   "slow", the swap would have looked green. The suite was diagnosed by sampling
+   `dotnet-stack` against the live `testhost`, three times, to confirm the stack
+   was not advancing.
+
+### Three more flex bugs, all from the body being a viewport the grid treats as a cell
+
+Fixing the measure/arrange flex contract got the suite running, but 49 tests still
+failed, and every one traced to the same mismatch: `GridLayout` treats the body
+as an ordinary cell, and an ordinary cell is a control that knows its own size.
+A viewport is not.
+
+**1. The grid re-measures cells at unbounded height, and the body records it.**
+`GridLayout`'s pass-2 wrap reflow measures each child at
+`LayoutConstraints.Loose(measureW, int.MaxValue)` to discover wrapped heights,
+on the explicit assumption that "Fixed/Star rows ignore the reported height".
+True for a control. But the body node is a `ScrollLayout`, which *stores* what it
+was measured against as `ContentHeight` — so the unbounded pass was the one that
+stuck. A bare `ScrollablePanelControl` in a 28-row window came out 12 rows tall:
+its own unbounded default cap, recorded as if it were the viewport.
+
+**2. The body reported its widest child as its width.** `MeasureFromOrigin`
+returned `Math.Min(widest, width)`. For a window root that is wrong in the same
+way: the body stretches to its allocation, so it must report the allocation. A
+one-column scrollbar was making the grid size the body cell to one column, and a
+`Stretch` child inside it then never saw the window width — 1 column instead of
+40, with the height already correct.
+
+**3. Measure and arrange disagreed about the remainder row.** Arrange spread the
+integer-division remainder across the leading flex children; measure gave every
+flex child the floor. Two Fill children in a 15-row body were measured at 7 and 7
+but arranged at 8 and 7. Harmless for a scrollbar, not harmless for a table or a
+wrapping panel, which reports one size and paints at another.
+
+**The fix for (1) is a fourth member on `IScrollOrigin`: `ViewportHeight`.** The
+first attempt had the body remember its last finite constraint, which worked
+until the owner rebanded between passes — a remembered 28 describing a region
+that sticky footers had since cut to 26, leaving the window claiming a 2-row
+scroll range that did not exist. The owner is the only thing that knows the
+current region, so the body asks it, and falls back to the remembered height only
+when the owner has not arranged yet.
+
+That is the real shape of this step: **the body is the one grid cell whose size
+is an input, not an output.** Everything above follows from the grid being
+entitled to assume the opposite about every other cell.
+
+### Rebanding every frame defeated paint-only invalidation, and hiding that was hiding a bug
+
+`Reband` tore down and rebuilt the root's child list on every measure *and* every
+arrange. `LayoutNode.ClearChildren` and `AddChild` each call `InvalidateMeasure`,
+so the layout re-dirtied the whole tree on every frame. That is a real per-frame
+cost, not just a failing assertion — `PaintOnlyInvalidationTests` exist precisely
+to hold the line that a repaint performs **zero** measures, and six of them
+failed with "expected 0, actual 5".
+
+The fix splits `Reband` in two. The row and cell lists are plain data the grid
+reads, so they are rebuilt every pass and invalidate nothing. The **tree** is
+reshaped only when the banding actually changed, compared by node identity so a
+child that merely resized counts as unchanged.
+
+**Making the rebuild conditional then broke all nine parity tests** — and the
+reason is the useful part. With the skip in place, the body's content painted at
+the window origin instead of below the sticky header. Dumping the tree showed the
+body node correctly at `(0,1 60x18)` while its child sat at `(0,0)` with a **null
+`Parent`**.
+
+`ClearChildren` nulls each removed child's `Parent`, and re-adding them is what
+restored it. `LayoutNode.Arrange` derives `AbsoluteBounds` from
+`Parent.AbsoluteBounds`, so a severed link silently resolves to the window origin
+— no exception, no empty rect, just content in the wrong place. The unconditional
+rebuild had been reattaching those links by accident on every frame, which is why
+the bug was invisible until the rebuild stopped happening.
+
+The skip path now reattaches `_bodyNode.Parent` and each body child's `Parent`
+explicitly, without touching the child lists, so nothing is invalidated.
+
+Worth carrying forward: **a per-frame rebuild can mask a correctness bug as well
+as cost performance.** The six paint-only failures and the nine parity failures
+were the same defect seen from two sides, and fixing only the cheap-looking one
+would have traded a visible failure for a silent misplacement.
+
+### The body's measured size is its slot, not its content
+
+The last two failures were an empty Fill `ScrollablePanel` in a frameless
+maximized window rendering as **60x2** instead of 60x20 — two rows being exactly
+its border, with no content between them.
+
+`MeasureFromOrigin` had been returning `Math.Min(contentHeight, MaxHeight)`.
+`GridLayout` reads that as the Star row's content floor, so a body whose content
+is *shorter* than the viewport shrinks the viewport to fit it. Every other case
+in the corpus hid this, because they all have content **taller** than the
+viewport — and there, content-floor and allocation happen to agree.
+
+The body now reports its full allocation on both axes. The scrollable extent is
+published separately through `ContentHeight`, which is what the window's scroll
+range actually reads; the measured size is the slot, and the slot is the whole
+allocation.
+
+This is the third time in this step the same mistake appeared in a different
+costume — width, then height-when-unbounded, now height-when-short. Each time the
+body answered a question about its content when it was being asked about its
+space. Worth stating as the rule for the apply-back: **a viewport's measured size
+is what it was given, never what it holds.**
+
+Two parity tests now cover it: an empty Fill container, and a short body between
+sticky bands.
+
+### Step 3 verdict: three of four exit criteria met
+
+- **Full suite green in the clone.** 6948 / 6948, zero failures. Note that this
+  includes `X11ClipboardTests.ALargeCopy_CrossesInPieces_Whole`, which was flaky
+  under full-suite load on master; it has passed every run since the swap.
+- **Live tmux smoke-drive of DemoApp: no visible regression.** Driven at 120x35
+  through the launcher, the Horizontal Splitter demo (Fill panels, explicit
+  heights, nested splitters - the exact flex path rewritten here) and the Spinner
+  demo, which is the decisive one: a sticky footer, a scrolling body with a live
+  partial-thumb scrollbar, and animated content. Arrow-key scrolling moved the
+  body, held the sticky footer pinned, and tracked the scrollbar thumb and the
+  up/down overflow markers correctly. Zero stderr output across the session.
+- **A written account of what the public scroll API had to become.** Above: the
+  facade kept its shape exactly, six scroll verbs moved onto `GridRootLayout`,
+  and `EnsureVisible` turned out to have no callers at all. Nothing was cut.
+
+The fourth - **golden buffers identical for every captured window at every
+captured size** - is NOT met, and should not be claimed. The oracle exists and is
+proven against sabotage, but comparing old root against new now requires running
+both in the same process, and the default is swapped. Geometry parity across 15
+cases plus a clean smoke-drive is strong evidence, not the byte-identical proof
+the criterion asks for. Closing that gap is the remaining work in this step.
+
+### `WindowContentLayout` stays in the clone, and that is not a deferral
+
+Step 3 as written says "swap the default, delete `WindowContentLayout`". The swap
+is done; the deletion should not be, and the reason is worth stating rather than
+quietly skipping.
+
+After the swap the library has **zero live references** to it — the only mentions
+left are four comments. The one remaining consumer is `GridRootLayoutParityTests`,
+which drives both layouts over the same controls and compares where the leaves
+land. That comparison *is* the evidence the replacement is correct. Deleting the
+old layout inside the experiment would delete the oracle and leave the new root
+asserting only against itself.
+
+So: the clone keeps it as a reference implementation with no production callers.
+The deletion is an **apply-back action**, taken in the main repo once the mapping
+is accepted, under the usual public-API audit — the same treatment `ede5465f`
+gave `ScrollableLayoutNode`. At that point the parity tests either come across as
+a frozen golden-geometry corpus or retire with the layout they compare against;
+that is a decision for the apply-back, not for here.
+
+What the swap did settle: the class is dead weight in the library the moment the
+default changes. Nothing internal needs it.
+
 ## Open questions
 
 1. **Does any adopter read `Window.ScrollOffset` / `CanScroll` directly?** The

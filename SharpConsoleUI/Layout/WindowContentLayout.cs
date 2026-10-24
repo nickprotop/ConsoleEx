@@ -14,7 +14,7 @@ namespace SharpConsoleUI.Layout
 	/// Root layout for window content.
 	/// Handles sticky top, scrollable middle, and sticky bottom sections.
 	/// </summary>
-	public class WindowContentLayout : ILayoutContainer, IRegionClippingLayout
+	public class WindowContentLayout : IWindowRootLayout
 	{
 		/// <summary>
 		/// Gets or sets the current scroll offset for the scrollable section.

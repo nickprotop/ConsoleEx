@@ -164,6 +164,99 @@ public class GridRootLayoutParityTests
 		Assert.Equal(oldBounds.Count, newBounds.Count);
 	}
 
+	[Theory]
+	[InlineData(40, 12)]
+	[InlineData(12, 12)]
+	[InlineData(80, 30)]
+	public void AFillChild_SharesTheViewportIdentically(int w, int h)
+	{
+		// The case nine passing parity tests missed, because every one of them used content-sized
+		// Markup controls. A Fill child is measured against a SHARE of the viewport, not against
+		// int.MaxValue; getting that wrong does not shift a row, it returns int.MaxValue and hangs
+		// the paint walk. See the step 3 finding in docs/experiment/design.md.
+		AssertParity(() => new List<IWindowControl>
+		{
+			Builder.Markup("[bold]HEADER[/]").StickyTop().Build(),
+			new ScrollbarControl
+			{
+				Maximum = 100,
+				ViewportLength = 10,
+				Value = 0,
+				VerticalAlignment = VerticalAlignment.Fill,
+			},
+			Builder.Markup("[dim]FOOTER[/]").StickyBottom().Build(),
+		}, w, h, "fill child");
+	}
+
+	[Fact]
+	public void TwoFillChildren_SplitTheViewportIdentically()
+		// Two flex children expose the integer-division remainder: a viewport of odd height cannot
+		// be halved evenly, and the old layout spreads the leftover row onto the first child. An
+		// arrange that divides without redistributing leaves a one-row gap at the bottom.
+		=> AssertParity(() => new List<IWindowControl>
+		{
+			new ScrollbarControl { Maximum = 100, ViewportLength = 10, VerticalAlignment = VerticalAlignment.Fill },
+			new ScrollbarControl { Maximum = 100, ViewportLength = 10, VerticalAlignment = VerticalAlignment.Fill },
+		}, 30, 15, "two fill children");
+
+	[Fact]
+	public void AScrollablePanel_IsTreatedAsSelfBoundingByBoth()
+	{
+		// A ScrollablePanelControl is an IScrollableContainer, so it flexes even without an explicit
+		// Fill: it scrolls its own content inside the space it is given. Letting it grow instead
+		// would hand the same content to two scrollers.
+		AssertParity(() =>
+		{
+			var panel = new ScrollablePanelControl();
+			for (int i = 0; i < 30; i++)
+				panel.AddControl(Builder.Markup($"panel line {i}").Build());
+
+			return new List<IWindowControl>
+			{
+				Builder.Markup("[bold]HEADER[/]").StickyTop().Build(),
+				panel,
+			};
+		}, 40, 14, "nested scrollable panel");
+	}
+
+	[Fact]
+	public void AFillChildBesideContentSizedChildren_GetsOnlyWhatIsLeft()
+		// Mixed body: the fixed children consume their content height first, and the flex child
+		// receives the remainder. Measuring the flex child before the fixed ones would give it the
+		// whole viewport and push the rest out.
+		=> AssertParity(() => new List<IWindowControl>
+		{
+			Builder.Markup("three\nline\nblock").Build(),
+			new ScrollbarControl { Maximum = 100, ViewportLength = 10, VerticalAlignment = VerticalAlignment.Fill },
+			Builder.Markup("tail").Build(),
+		}, 36, 16, "fill beside fixed");
+
+	[Fact]
+	public void AnEmptyFillContainer_StillFillsTheViewport()
+		// The body's own measured height must not become the viewport's size. An empty panel's
+		// content is two rows (its borders); treating that as the Star row's content floor shrinks
+		// a 20-row window to 2. Missed by every other case here, because they all have content
+		// TALLER than the viewport, where content-floor and allocation happen to agree.
+		=> AssertParity(() => new List<IWindowControl>
+		{
+			new ScrollablePanelControl
+			{
+				BorderStyle = BorderStyle.Rounded,
+				VerticalAlignment = VerticalAlignment.Fill,
+			},
+		}, 60, 20, "empty fill container");
+
+	[Fact]
+	public void AShortBody_DoesNotShrinkTheViewport()
+		// Same shape without the container: one short child between sticky bands. The body region
+		// is the space between the bands regardless of how little content sits in it.
+		=> AssertParity(() => new List<IWindowControl>
+		{
+			Builder.Markup("[bold]HEADER[/]").StickyTop().Build(),
+			Builder.Markup("one short line").Build(),
+			Builder.Markup("[dim]FOOTER[/]").StickyBottom().Build(),
+		}, 50, 20, "short body");
+
 	[Fact]
 	public void NoChildren_IsHandledByBoth()
 		=> AssertParity(() => new List<IWindowControl>(), 40, 10, "empty");

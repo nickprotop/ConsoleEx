@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Controls;
 
 namespace SharpConsoleUI.Layout
 {
@@ -40,6 +41,13 @@ namespace SharpConsoleUI.Layout
 		/// panel path, which is left exactly as it was.
 		/// </summary>
 		private readonly IScrollOrigin? _origin;
+
+		/// <summary>
+		/// The last finite height this body was measured against — its real viewport. Kept because the
+		/// grid re-measures cells at unbounded height to discover wrapped sizes, and a viewport asked
+		/// to size itself against infinity would otherwise record infinity as its content extent.
+		/// </summary>
+		private int _lastBoundedHeight;
 
 		/// <summary>The layout as it has always been: driven by the panel on the node.</summary>
 		public ScrollLayout()
@@ -308,12 +316,66 @@ namespace SharpConsoleUI.Layout
 			int contentHeight = 0;
 			int widest = 0;
 
+			// A viewport has no meaningful answer to "how tall are you against infinity". The grid
+			// asks exactly that in its pass-2 wrap reflow, on the stated assumption that Fixed/Star
+			// rows ignore the reported height - true for an ordinary control, but this node RECORDS
+			// what it is measured against, and the unbounded pass would be the one that sticks.
+			// So the last BOUNDED height wins: an unbounded ask reuses it, and flex children keep
+			// being sized against the real viewport instead of collapsing to their own default cap.
+			if (constraints.MaxHeight == int.MaxValue)
+			{
+				int viewport = _origin!.ViewportHeight;
+				if (viewport <= 0)
+					viewport = _lastBoundedHeight;
+				if (viewport > 0)
+					constraints = constraints.WithMaxHeight(viewport);
+			}
+			else
+			{
+				_lastBoundedHeight = constraints.MaxHeight;
+			}
+
+			// Pass one: everything that sizes to its own content. Measured unbounded, because the
+			// overflow they produce is exactly what there is to scroll through.
+			int flexCount = 0;
 			foreach (var child in node.Children)
 			{
 				if (!child.IsVisible || child.Control == null)
 					continue;
 
+				if (IsFlexHeight(child))
+				{
+					flexCount++;
+					continue;
+				}
+
 				var size = child.Measure(constraints.WithMaxHeight(int.MaxValue));
+				contentHeight += size.Height;
+				widest = Math.Max(widest, size.Width);
+			}
+
+			// Pass two: flex children share what is left of the VIEWPORT, not of infinity. Measuring
+			// these unbounded is not merely wrong by a few rows - a Fill child asked to size itself
+			// against int.MaxValue answers int.MaxValue, and the paint walk then runs two billion
+			// rows. Found by ScrollbarControlFollowUpTests hanging the suite; see design.md.
+			int remaining = Math.Max(0, constraints.MaxHeight - contentHeight);
+			int flexHeight = flexCount > 0 ? remaining / flexCount : 0;
+
+			// Same remainder spread as arrange, so a child is measured at the height it will be
+			// arranged at. Measuring every flex child at the floor and then arranging one of them a
+			// row taller makes a content-sensitive control (a table, a wrapping panel) report one
+			// size and paint at another.
+			int measureExtra = flexCount > 0 ? remaining % flexCount : 0;
+
+			foreach (var child in node.Children)
+			{
+				if (!child.IsVisible || child.Control == null || !IsFlexHeight(child))
+					continue;
+
+				int ask = flexHeight + (measureExtra > 0 ? 1 : 0);
+				measureExtra--;
+
+				var size = child.Measure(constraints.WithMaxHeight(ask));
 				contentHeight += size.Height;
 				widest = Math.Max(widest, size.Width);
 			}
@@ -321,10 +383,34 @@ namespace SharpConsoleUI.Layout
 			ContentHeight = contentHeight;
 			ContentWidth = widest;
 
-			return new LayoutSize(
-				Math.Min(widest, width),
-				Math.Min(contentHeight, constraints.MaxHeight));
+			// Report the FULL allocation on BOTH axes, not the content size. The body is a
+			// window-root viewport: it stretches to what it was given, the same way the panel path
+			// reports its outer box (see the note above ArrangeChildrenCore's return).
+			//
+			// Width: reporting the widest child makes the grid size the body cell to that child - a
+			// 1-column scrollbar gets a 1-column body, and a Stretch child never sees the window.
+			//
+			// Height: reporting the content height makes the grid treat it as the Star row's content
+			// floor, so a body whose content is SHORTER than the viewport shrinks the viewport to
+			// fit it. An empty Fill ScrollablePanel (content height 2, just its border rows) then
+			// got a 2-row window instead of filling 20. The scrollable extent is published through
+			// ContentHeight, which is what the window's scroll range reads; the measured size is the
+			// slot, and the slot is the whole allocation.
+			return new LayoutSize(width, constraints.MaxHeight);
 		}
+
+		/// <summary>
+		/// Whether a body child shares the remaining viewport rather than sizing to its full content.
+		/// </summary>
+		/// <remarks>
+		/// Kept identical to the rule the old window root used: an explicit <c>Height</c> opts out, and
+		/// otherwise a <see cref="VerticalAlignment.Fill"/> child or any <see cref="IScrollableContainer"/>
+		/// flexes. A scrollable container is self-bounding - it scrolls its own content inside the space
+		/// it is given, so letting it grow would hand the same content to two scrollers.
+		/// </remarks>
+		private static bool IsFlexHeight(LayoutNode child)
+			=> child.ExplicitHeight == null
+				&& (child.VerticalAlignment == VerticalAlignment.Fill || child.Control is IScrollableContainer);
 
 		/// <summary>
 		/// The body's full content height as of the last origin-driven measure. The window's scroll
@@ -349,6 +435,26 @@ namespace SharpConsoleUI.Layout
 				? Math.Max(finalRect.Width, origin.TotalContentWidth)
 				: finalRect.Width;
 
+			// Flex children get a share of the viewport, recomputed here rather than read back from
+			// DesiredSize: a Fill child's desired height is whatever it was last measured against,
+			// and the arrange rectangle is the authority on how tall it actually gets to be.
+			int fixedHeight = 0;
+			int flexCount = 0;
+			foreach (var child in node.Children)
+			{
+				if (!child.IsVisible || child.Control == null)
+					continue;
+
+				if (IsFlexHeight(child))
+					flexCount++;
+				else
+					fixedHeight += child.DesiredSize.Height;
+			}
+
+			int remaining = Math.Max(0, finalRect.Height - fixedHeight);
+			int flexHeight = flexCount > 0 ? remaining / flexCount : 0;
+			int extraRows = flexCount > 0 ? remaining % flexCount : 0;
+
 			int childX = -origin.HorizontalScrollOffset;
 			int currentY = -origin.VerticalScrollOffset;
 
@@ -360,7 +466,18 @@ namespace SharpConsoleUI.Layout
 					continue;
 				}
 
-				int childHeight = child.DesiredSize.Height;
+				int childHeight;
+				if (IsFlexHeight(child))
+				{
+					// Spread the remainder one row at a time over the leading flex children, so the
+					// band fills exactly rather than leaving a gap to integer division.
+					childHeight = flexHeight + (extraRows > 0 ? 1 : 0);
+					extraRows--;
+				}
+				else
+				{
+					childHeight = child.DesiredSize.Height;
+				}
 
 				// Honour HorizontalAlignment, which the panel path does not: a panel stretches its
 				// children unconditionally, but a window root positions Left/Center/Right children
