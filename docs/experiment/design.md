@@ -446,6 +446,64 @@ a `pre-push` hook and a disabled push URL.
 Recorded as the experiment runs. These are observations about the EXISTING code,
 found while building the oracle - not consequences of the rewrite.
 
+### Step 2 result: the mapping holds for bands, and isolates the body as the real work
+
+`GridRootLayout` implements `IGridSource` and delegates to the shipped
+`GridLayout`, so the Auto/Star/Auto mapping is tested against the real track
+sizer rather than a reimplementation. Parity is measured below the window — both
+layouts driven over the same controls, arranged child rectangles compared.
+
+**5 of 9 parity cases pass outright**, including sticky-only, invisible-child
+exclusion, the empty window, and multi-control bands at their own heights (one
+Auto row per sticky child, not one shared row — a shared row would size every
+control in a band to the tallest).
+
+**The 4 failures are all one thing: the body row.**
+
+| Case | Old | New |
+|---|---|---|
+| sandwich 60x20 | body `7x40` | body `7x18` |
+| sandwich 20x6 | body `7x40` | body `7x4` |
+| sandwich 12x4 | body `7x40` | body `7x2` |
+| body-only | children at y=1, y=2 | both at y=0 |
+
+Two distinct causes, same root:
+
+1. **The body must be allowed to overflow.** The old layout gives the body its
+   full content height (40 rows in a 20-row window) — that overflow *is* what
+   makes a window scrollable. A grid clamps a cell to its track, so the body
+   comes back at viewport height and nothing can scroll.
+2. **The grid does not stack within a cell.** Several body children placed in the
+   same cell all land at `y=0`. They need a vertical stack inside the star row.
+
+Both are the same missing piece, and it is the piece the design already named:
+**the star row must host a scrolling layout, not raw children.**
+
+### `ScrollLayout` cannot currently serve a window root
+
+`ScrollLayout` does exactly what the body row needs — its own doc says it stacks
+children "from `y = -verticalScrollOffset` … each at its full measured height".
+But it resolves its scroll state through `node.Control as ScrollablePanelControl`
+(line 35) and returns early when that cast fails. A window root node has
+`Control == null`, so it cannot be reused as-is.
+
+This is the first real structural finding of the experiment. Three ways out,
+to be decided before step 3:
+
+- **Extract the scroll-state seam.** `ScrollLayout` stops reaching for a concrete
+  control and takes an interface supplying offsets and content extent. Cleanest,
+  and it finishes the `b310f0d5` arc properly, but it touches a shipped layout
+  that currently has one caller and a lot of tests.
+- **Give the window root a hidden `ScrollablePanelControl`** as its body host.
+  Cheapest; smells of the facade pattern that caused the Panel regressions, and
+  would make the window's control tree contain a control the user never added.
+- **A sibling `RootScrollLayout`** duplicating the stacking logic without the
+  panel dependency. Lowest risk, but it is a second scrolling implementation,
+  which is precisely what `d2f186ed` was fought to eliminate.
+
+Leaning toward extracting the seam: it is the option consistent with the
+direction the codebase has already been moving for five months.
+
 ### `Window.ScrollOffset`'s setter does not invalidate
 
 `Window.cs:845`. The setter stores the value through to the renderer and stops.
