@@ -135,9 +135,62 @@ internal sealed class DiagnosticsServer : IDisposable
 		}
 		catch (JsonException ex)
 		{
+			// No id to echo: the request did not parse, so there is nothing to read one
+			// from. A client's correlation is broken precisely when it most wants an
+			// answer, which is a real gap and is documented rather than worked around -
+			// recovering an id by pre-scanning unparseable text would be guesswork.
 			return Error($"malformed JSON: {ex.Message}");
 		}
 
+		return Echo(req, DispatchVerb(req));
+	}
+
+	/// <summary>
+	/// Copies a request's <c>id</c> onto its reply, so a client can match the two.
+	/// </summary>
+	/// <param name="req">The request.</param>
+	/// <param name="reply">The reply to stamp.</param>
+	/// <returns>The reply.</returns>
+	/// <remarks>
+	/// <para>
+	/// Optional, and absent unless asked for: a request without an <c>id</c> produces a
+	/// byte-identical reply to before, so a shell one-liner is unaffected.
+	/// </para>
+	/// <para>
+	/// A string or a number only, and capped - the value is reflected straight back, so an
+	/// unbounded one would let a client inflate a reply at the server's expense, and an
+	/// object would let it choose the reply's shape. Anything else is ignored rather than
+	/// rejected: an id is a client-side convenience, and failing a working request over its
+	/// label would be a poor trade.
+	/// </para>
+	/// </remarks>
+	private static JsonObject Echo(JsonObject req, JsonObject reply)
+	{
+		if (!req.TryGetPropertyValue("id", out var id) || id is not JsonValue value)
+			return reply;
+
+		object? raw = value.GetValue<object>();
+		if (raw is JsonElement e)
+		{
+			switch (e.ValueKind)
+			{
+				case JsonValueKind.String when e.GetString() is { Length: <= MaxIdLength } str:
+					reply["id"] = (JsonNode)JsonValue.Create(str)!;
+					break;
+				case JsonValueKind.Number when e.TryGetInt64(out long n):
+					reply["id"] = (JsonNode)JsonValue.Create(n)!;
+					break;
+			}
+		}
+
+		return reply;
+	}
+
+	/// <summary>Longest echoed id. Long enough for a GUID, short enough not to be a lever.</summary>
+	private const int MaxIdLength = 64;
+
+	private JsonObject DispatchVerb(JsonObject req)
+	{
 		string cmd = req["cmd"]?.GetValue<string>() ?? "";
 
 		return cmd switch

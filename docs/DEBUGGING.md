@@ -101,6 +101,21 @@ the reply is an error naming the switch to change, not a reply with the numbers 
 Verbs that change something accept `"settle": true`, which waits for the UI to stop moving
 before replying -- so `key` followed by `snapshot` is coherent rather than racing.
 
+Any request may carry an `"id"`, which the reply echoes:
+
+```json
+{"id":"a7","cmd":"tree"}   →   {"id":"a7","ok":true,"window":"Settings",...}
+```
+
+Today it is a convenience -- the protocol is strictly one reply per request, so position
+already identifies the answer. It matters once that stops being true. Send a string or a
+number, at most 64 characters; anything longer or more complex is ignored rather than
+rejected, because failing a working request over its label would be a poor trade. **Omit it
+and the reply is exactly what it was before the field existed.**
+
+One gap worth knowing: a request whose JSON does not parse has no id to read, so the error
+comes back without one.
+
 ### Seeing
 
 | Verb | What it answers |
