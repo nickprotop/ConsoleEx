@@ -92,9 +92,22 @@ short-circuit happens before a font is loaded or a buffer touched.
 
 ```json
 {"kind":"key","spec":"Down"}
-{"kind":"mouse","x":43,"y":25,"action":"click","button":"left"}
+{"kind":"mouse","x":43,"y":25,"action":"press","button":"left"}
+{"kind":"mouse","x":48,"y":28,"action":"move","button":"left"}
+{"kind":"mouse","x":48,"y":28,"action":"release","button":"left"}
 {"kind":"resize","x":120,"y":36}
 ```
+
+A drag is sent as **press, move, release** rather than a single click, because a window
+move, a resize, a text selection and a scrollbar thumb all need the whole gesture. `move`
+and `release` are bound to the window, not the canvas, so a drag that leaves the canvas
+keeps reporting and a release outside it still ends the drag — otherwise the application
+would be left believing the button is still down. One event per cell crossed, since at 8x16
+pixels a slow drag would otherwise send dozens of identical positions and starve the frame
+polling.
+
+The browser also **resizes the application** to fit its window, debounced, which only a
+headless driver allows: a real terminal owns its own size.
 
 Each becomes the matching socket verb and returns as soon as the event is queued. Nothing
 waits for the UI: the page is already polling, so it sees the consequence on the next frame.

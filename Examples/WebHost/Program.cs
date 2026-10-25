@@ -16,6 +16,7 @@ using WebHost;
 
 const int Columns = 120;
 const int Rows = 36;
+const string Url = "http://127.0.0.1:5088";
 
 // Start the TUI first: the web layer is useless without something to show, and
 // a failure here should stop the process rather than serve a broken page.
@@ -29,8 +30,12 @@ using var app = new HeadlessApp(
 using var client = new DiagnosticsClient(app.SocketPath);
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Logging.ClearProviders();              // nothing may write to the console here
-builder.WebHost.UseUrls("http://127.0.0.1:5088");
+
+// Quiet, not silent. The TUI is headless and this process owns its stdout, so
+// writing here is safe - but ASP.NET's startup banner would bury the one line
+// that matters.
+builder.Logging.ClearProviders();
+builder.WebHost.UseUrls(Url);
 
 var web = builder.Build();
 // Order matters: UseDefaultFiles rewrites "/" to "/index.html", and the
@@ -122,6 +127,16 @@ web.MapPost("/input", async (InputMessage message, CancellationToken ct) =>
 		? Results.Ok(new { ok = true })
 		: Results.Json(new { error = reply["error"]?.GetValue<string>() }, statusCode: 502);
 });
+
+Console.WriteLine();
+Console.WriteLine("  SharpConsoleUI WebHost");
+Console.WriteLine();
+Console.WriteLine($"  DemoApp is running headless, with no terminal, at {Columns}x{Rows} cells.");
+Console.WriteLine($"  Open  {Url}  to see it and click around.");
+Console.WriteLine();
+Console.WriteLine("  Local only: anyone who can reach that port has full control of the app.");
+Console.WriteLine("  Ctrl+C to stop.");
+Console.WriteLine();
 
 web.Run();
 

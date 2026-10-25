@@ -148,12 +148,49 @@ function cellAt(event) {
   };
 }
 
+// Press / move / release rather than a single click, so a drag reaches the
+// application as a drag. A window move, a resize, a text selection and a
+// scrollbar thumb all need the whole gesture, not its first event.
+let dragging = null;     // the button held down, or null
+let lastCell = null;     // last cell reported, so a move inside one cell is not resent
+
+function buttonName(e) {
+  return e.button === 2 ? 'right' : e.button === 1 ? 'middle' : 'left';
+}
+
 canvas.addEventListener('mousedown', e => {
   e.preventDefault();
   canvas.focus();
   const { x, y } = cellAt(e);
-  const button = e.button === 2 ? 'right' : e.button === 1 ? 'middle' : 'left';
-  send({ kind: 'mouse', x, y, action: 'click', button });
+  dragging = buttonName(e);
+  lastCell = `${x},${y}`;
+  send({ kind: 'mouse', x, y, action: 'press', button: dragging });
+});
+
+// On window, not canvas: a drag that leaves the canvas must keep reporting,
+// and a release outside it must still end the drag rather than leaving the
+// application convinced the button is still down.
+window.addEventListener('mousemove', e => {
+  const { x, y } = cellAt(e);
+  const cell = `${x},${y}`;
+
+  // One event per cell crossed. At 8x16 pixels a slow drag would otherwise
+  // send dozens of identical positions and starve the frame polling.
+  if (cell === lastCell) return;
+  lastCell = cell;
+
+  if (dragging) {
+    send({ kind: 'mouse', x, y, action: 'move', button: dragging });
+  }
+});
+
+window.addEventListener('mouseup', e => {
+  if (!dragging) return;
+  const { x, y } = cellAt(e);
+  const button = dragging;
+  dragging = null;
+  lastCell = null;
+  send({ kind: 'mouse', x, y, action: 'release', button });
 });
 
 canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -191,10 +228,42 @@ canvas.addEventListener('keydown', e => {
   send({ kind: 'key', spec });
 });
 
+// --- Resize ---------------------------------------------------------------
+// Tell the application how many cells now fit, so it re-lays out instead of
+// being letterboxed. Only a headless driver can be resized like this - a real
+// terminal owns its own size.
+
+let resizeTimer = null;
+let lastSize = null;
+
+function fitToWindow() {
+  const style = getComputedStyle(canvas);
+  const availW = canvas.parentElement.clientWidth
+    - parseFloat(style.borderLeftWidth) - parseFloat(style.borderRightWidth);
+  const availH = window.innerHeight - canvas.getBoundingClientRect().top - 24;
+
+  // Guard the arithmetic: a hidden or zero-width layout would ask for a
+  // zero-cell screen, which the socket rejects.
+  const cols = Math.max(20, Math.floor(availW / cellW));
+  const rows = Math.max(10, Math.floor(availH / cellH));
+  const size = `${cols}x${rows}`;
+
+  if (size === lastSize) return;
+  lastSize = size;
+  send({ kind: 'resize', x: cols, y: rows });
+}
+
+window.addEventListener('resize', () => {
+  // Debounced: a drag of the window edge fires continuously, and each resize
+  // rebuilds the application's console buffer.
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(fitToWindow, 150);
+});
+
 // --- Loop -----------------------------------------------------------------
 
 canvas.focus();
-poll();
+poll().then(fitToWindow);       // cell size is known only after the first frame
 setInterval(poll, 100);         // 10fps ceiling; unchanged frames cost ~29 bytes
 </script>
 </body>
