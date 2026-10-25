@@ -162,6 +162,15 @@ public class X11ClipboardTests
 		using (reader)
 		{
 			owner.SetText("from a slow owner");
+
+			// SETTING IS POSTED. Until the server has processed it nobody owns the
+			// selection, and a read then answers "" instantly instead of waiting -
+			// which looks exactly like the give-up this test is about. Wait for
+			// ownership to land BEFORE slowing the owner down, or the first
+			// assertion races the setup. This failed roughly one full-suite run in
+			// three under parallel load.
+			Assert.Equal("from a slow owner", ReadUntil(reader, "from a slow owner"));
+
 			owner.DelayAnswersForTest(700);
 
 			// The first paste gives up: the owner is slower than it waits.

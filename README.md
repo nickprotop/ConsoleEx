@@ -92,7 +92,7 @@ self-contained native binary, verified on every push by a publish-and-run CI gat
 | Anything that accepts cells can be the display | `IConsoleDriver` — a terminal, a headless buffer, or a browser canvas | [Drivers](docs/DRIVERS.md) · [WebHost](Examples/WebHost/README.md) |
 | The same app with no terminal at all | Headless driver + a hosted or background loop | [Drivers](docs/DRIVERS.md) |
 | Inspect and drive a running app from outside | Diagnostics socket — text, PNG, layout tree, real input | [Debugging](docs/DEBUGGING.md) |
-| Export a window, a region or the desktop | `ICellSurface` → PNG, ANSI or markup | [Screen Export](docs/EXPORT.md) |
+| Export a window, a region or the desktop | `ICellSurface` → PNG, TGA, JPEG, ANSI or markup | [Screen Export](docs/EXPORT.md) |
 
 Alpha blending is **not** a unique feature: XenoAtom.Terminal.UI also does RGBA blending, in
 linear colour space. What differs is where it happens — we blend *between per-window buffers*
@@ -323,7 +323,7 @@ LogViewer, SpectreRenderableControl, LineGraph, SparklineControl, BarGraph
 HorizontalGrid, ScrollablePanel, ScrollbarControl (standalone, can drive multiple views),
 SplitterControl, StatusBarControl
 
-**Drawing:** CanvasControl (30+ primitives), ImageControl (Kitty graphics protocol + half-block fallback),
+**Drawing:** CanvasControl (30+ cell primitives, plus `PixelSurface` for half-block pixel art at double vertical resolution), ImageControl (Kitty graphics protocol + half-block fallback),
 VideoControl (FFmpeg — Kitty graphics + half-block/ASCII/braille fallbacks), TerminalControl (PTY, Linux)
 
 Images decode as PNG, JPEG, BMP, GIF and TGA, identified by content rather than by file
@@ -359,7 +359,7 @@ Full reference: [nickprotop.github.io/ConsoleEx/docfx/_site/CONTROLS.html](https
 | [Composable Flows](docs/FLOWS.md) | Multi-step wizards + FlowContext over the dialog primitives |
 | [Debugging](docs/DEBUGGING.md) | Inspect and drive a running app over a socket — snapshot, PNG, layout tree, real input |
 | [Drivers & Render Modes](docs/DRIVERS.md) | The driver, Buffer vs Direct, and running headless |
-| [Screen Export](docs/EXPORT.md) | A window, a region or the desktop, as PNG or text |
+| [Screen Export](docs/EXPORT.md) | A window, a region or the desktop, as an image or text |
 | [Threading & Async](docs/THREADING_AND_ASYNC.md) | The UI thread model, async events, and the unresponsive watchdog |
 | [NativeAOT](docs/AOT.md) | AOT compatibility, the CI smoke gate, and the HtmlControl caveat |
 | [Clipboard, Copy & Paste](docs/CLIPBOARD.md) | OSC 52 remote copy (works over SSH), bracketed paste, and configuration |
