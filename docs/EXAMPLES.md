@@ -491,6 +491,13 @@ A polished arcade remake built only from SharpConsoleUI parts: half-block pixel 
 
 ![Space Invaders](images/examples/spaceinvaders.png)
 
+| Title screen | Wave transition (CRT on) | Pause overlay |
+|--------------|--------------------------|---------------|
+| ![Title](images/examples/spaceinvaders-title.png) | ![Wave](images/examples/spaceinvaders-wave.png) | ![Pause](images/examples/spaceinvaders-pause.png) |
+
+Gradient FIGlet lettering rasterised into pixels, invaders flying in on an easing curve, and
+the `PostBufferPaint` CRT filter and pause desaturation applied to the composed frame.
+
 ```bash
 dotnet run --project Examples/SpaceInvaders
 ```

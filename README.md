@@ -304,30 +304,31 @@ Keyboard-driven .NET 10 console for taking HuggingFace models onto a Qualcomm Sn
 
 ---
 
-## What only SharpConsoleUI does
+## What makes it different
 
-| Capability | Other .NET TUI libraries |
-|---|---|
-| Per-window buffers merged by a true compositor | None (single shared buffer) |
-| PreBufferPaint / PostBufferPaint compositor hooks | None |
-| Occlusion culling (hidden regions skipped entirely) | None |
-| Overlapping windows with drag, resize, minimize, maximize | Terminal.Gui v2 only |
-| Per-window async threads | None |
-| PTY-backed terminal emulator control | None |
-| Animated desktop backgrounds | None |
-| Video playback (decoded frames, not still images) | None (still images only) |
-| Portal system for dropdowns and overlays | None |
-| Plugin architecture (themes, controls, windows, services) | None |
-| Inspect and drive a running app over a socket (text, PNG, layout tree) | None |
-| Run the same app headless — no terminal, no pty, full input and render | Test harnesses, not a hosting surface |
+| Capability | Built on | More |
+|---|---|---|
+| Overlapping windows with drag, resize, minimize, maximize | Per-window buffers merged by a compositor | [Windows](docs/WINDOWS.md) |
+| Transparent windows and translucent controls | Per-cell alpha blending between window buffers | [Alpha Blending](docs/ALPHA_BLENDING.md) |
+| Blur, fade and custom post-processing | `PreBufferPaint` / `PostBufferPaint` hooks | [Compositor Effects](docs/COMPOSITOR_EFFECTS.md) |
+| Hidden regions cost nothing to render | Occlusion culling in the compositor | [Rendering Pipeline](docs/RENDERING_PIPELINE.md) |
+| Dropdowns and overlays that escape their window | Portal system | [Portals](docs/PORTAL_SYSTEM.md) |
+| Per-window async threads | A UI thread model with marshalling | [Threading & Async](docs/THREADING_AND_ASYNC.md) |
+| A real shell running inside a control | PTY-backed terminal emulator | [Examples](docs/EXAMPLES.md) |
+| Video playback, not still frames | Kitty graphics with cell-based fallback | [Video Playback](docs/VIDEO_PLAYBACK.md) |
+| Animated desktop backgrounds | Gradient and pattern compositing | [Desktop Background](docs/DESKTOP_BACKGROUND.md) |
+| Themes, controls, windows and services as plugins | Plugin architecture | [Plugins](docs/PLUGINS.md) |
+| The composed desktop is a buffer, not a stream of escapes | `ConsoleBuffer` sits between the compositor and the device, so the app never writes to a terminal directly | [Rendering Pipeline](docs/RENDERING_PIPELINE.md) |
+| Anything that accepts cells can be the display | `IConsoleDriver` — a terminal, a headless buffer, or a browser canvas | [Drivers](docs/DRIVERS.md) · [WebHost](Examples/WebHost/README.md) |
+| The same app with no terminal at all | Headless driver + a hosted or background loop | [Drivers](docs/DRIVERS.md) |
+| Inspect and drive a running app from outside | Diagnostics socket — text, PNG, layout tree, real input | [Debugging](docs/DEBUGGING.md) |
+| Export a window, a region or the desktop | `ICellSurface` → PNG, ANSI or markup | [Screen Export](docs/EXPORT.md) |
 
-Alpha blending is **not** on that list: XenoAtom.Terminal.UI also does RGBA blending, in
-linear colour space. What differs is where it happens — we blend *between per-window
-buffers* during compositing, which is what makes overlapping translucent windows and
-compositor effects possible. See the [full comparison](https://nickprotop.github.io/ConsoleEx/docfx/_site/COMPARISON.html) for the honest side-by-side.
-
-Full comparison with Terminal.Gui, Spectre.Console, and XenoAtom.Terminal.UI:
-[nickprotop.github.io/ConsoleEx/docfx/_site/COMPARISON.html](https://nickprotop.github.io/ConsoleEx/docfx/_site/COMPARISON.html)
+Alpha blending is **not** a unique feature: XenoAtom.Terminal.UI also does RGBA blending, in
+linear colour space. What differs is where it happens — we blend *between per-window buffers*
+during compositing, which is what makes overlapping translucent windows and compositor effects
+possible. See the [full comparison](https://nickprotop.github.io/ConsoleEx/docfx/_site/COMPARISON.html)
+for an honest side-by-side with Terminal.Gui, Spectre.Console and XenoAtom.Terminal.UI.
 
 ---
 
