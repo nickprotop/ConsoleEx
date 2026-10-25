@@ -25,7 +25,6 @@ using var app = new HeadlessApp(
     Columns, Rows,
     DemoApp.Program.CreateOptions(),
     ws => DemoApp.Program.Configure(ws, args));
-await app.Ready;
 
 using var client = new DiagnosticsClient(app.SocketPath);
 
@@ -87,13 +86,9 @@ web.MapPost("/input", async (InputMessage message, CancellationToken ct) =>
 {
 	JsonObject request = message.Kind switch
 	{
-		// No "settle" on any of these, deliberately. Settling waits for the UI to stop
-		// changing, and a desktop with a ticking clock never does - so every input would
-		// block for the full settle timeout (measured: a flat 2s), and because the socket
-		// is one connection serving one request at a time, every frame poll queued behind
-		// it. The screen froze for seconds after each click while the app itself was
-		// rendering happily. The browser polls continuously anyway, so it picks the result
-		// up on the next frame regardless.
+		// Fire and forget: the browser polls continuously, so it picks the result up on
+		// the next frame. Nothing here waits for the UI, which is the right shape for a
+		// client that is already watching the screen.
 		"key" => new JsonObject
 		{
 			["cmd"] = "key",

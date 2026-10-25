@@ -121,7 +121,38 @@ buffer.
 
 ### Driving it
 
-Headless has no loop of its own, so the host owns the loop:
+Three ways to start a system, differing only in **who owns the loop** and **who owns the
+thread**:
+
+| | Owns the loop | Blocks the caller | For |
+|---|---|---|---|
+| `Run()` | the system | **yes** | A normal application. The process exists to be this UI. |
+| `RunInBackground()` | the system | no | A host: a web server, a test, an agent. Something else needs the main thread. |
+| `BeginHosted()` | **the caller** | n/a | A host with its own frame loop, or a test stepping frame by frame. |
+
+All three share the same startup, so none is a lower-level back door — they wire the key,
+paste and resize handlers identically.
+
+#### `RunInBackground()` — the usual choice when headless
+
+```csharp
+var ws = new ConsoleWindowSystem(new HeadlessConsoleDriver(120, 40), options);
+BuildUI(ws);
+
+using var session = ws.RunInBackground();
+// The app is up AND has painted: capture it, drive it over the socket, assert on it.
+```
+
+It returns after the **first frame**, not merely after the thread starts — a caller that
+connects to the diagnostics socket or grabs a screenshot immediately afterwards would
+otherwise race the application into existence.
+
+A failure during startup is **thrown from `RunInBackground()`**, where you cannot miss it. A
+failure afterwards lands in `session.Fault`, because nobody is awaiting that thread and the
+only other symptom would be a screen that quietly stopped changing. Disposing stops the loop
+and waits briefly; a loop wedged in application code will not hang your teardown.
+
+#### `BeginHosted()` — when you already have a loop
 
 ```csharp
 using var session = windowSystem.BeginHosted();
@@ -131,13 +162,14 @@ while (session.Tick())
 }
 ```
 
-`BeginHosted()` is `Run()` without the loop — the same startup, the same per-frame work. Use it
-rather than reaching for lower-level entry points: it wires the key, paste and resize handlers,
-and captures the calling thread as the UI thread. Disposing the session tears down whatever it
-established, even if the loop throws.
+`Tick()` must be called on the thread that called `BeginHosted()`, which is captured as the
+UI thread. Use this when something else already owns a frame loop — a browser's animation
+callback, a game loop, a GUI message pump — or when a test needs to step one frame at a time
+and assert in between, which a running loop makes impossible.
 
-Set `BlockWhenIdle = false` if your host must not block inside `Tick()` — a browser frame
-callback, a game loop — and pace the calls yourself.
+Set `BlockWhenIdle = false` if your host must not block inside `Tick()`, and pace the calls
+yourself. On a single-threaded host (WebAssembly) this is the **only** option: there is no
+second thread for the other two to use, and both refuse rather than deadlocking.
 
 > `MockConsoleDriver` in the test project subclasses `HeadlessConsoleDriver`. It is test
 > infrastructure, not part of the shipped package.

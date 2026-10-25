@@ -52,7 +52,7 @@ Not a convenience. Three things depend on it:
 
 ```
 browser  ──HTTP──▶  WebHost  ──unix socket──▶  DemoApp on HeadlessConsoleDriver
-                                                (BeginHosted + Tick, own thread)
+                                                (RunInBackground, own thread)
 ```
 
 | File | Does |
@@ -62,9 +62,9 @@ browser  ──HTTP──▶  WebHost  ──unix socket──▶  DemoApp on He
 | `Program.cs` | HTTP endpoints, and the browser-event → socket-verb translation |
 | `wwwroot/index.html` | Canvas, polling loop, input handlers, pixel→cell arithmetic |
 
-`Tick()` must run on the thread that called `BeginHosted()`, and ASP.NET handles requests on
-pool threads — hence the dedicated UI thread, with the web layer reaching it only over the
-socket.
+`RunInBackground()` gives the loop its own thread and returns once a frame has rendered, so
+ASP.NET keeps the thread it needs and the socket is live before the first request arrives.
+The web layer still reaches the application only over the socket.
 
 ---
 
@@ -91,10 +91,10 @@ short-circuit happens before a font is loaded or a buffer touched.
 {"kind":"resize","x":120,"y":36}
 ```
 
-Each becomes the matching socket verb with `"settle": true`, so the next frame is coherent
-with the input that caused it rather than racing it. Everything goes through the same
-dispatch a real keypress or click takes, so hit-testing, focus and z-order behave exactly as
-they would in a terminal.
+Each becomes the matching socket verb and returns as soon as the event is queued. Nothing
+waits for the UI: the page is already polling, so it sees the consequence on the next frame.
+Everything goes through the same dispatch a real keypress or click takes, so hit-testing,
+focus and z-order behave exactly as they would in a terminal.
 
 ---
 

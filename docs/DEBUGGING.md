@@ -107,7 +107,6 @@ differently when it sees one. Those carry a `"code"`:
 
 | `code` | Means | What a client should do |
 |--------|-------|-------------------------|
-| `stalled` | The render loop is not running | Fail the test. Nothing read after this reflects a live screen. |
 | `wrong_driver` | This driver cannot do it -- resizing a real terminal, or reading the composed desktop in `RenderMode.Direct` | Stop asking. No retry helps. |
 | `diagnostics_disabled` | The app was built without the recording this verb reads | Disable the feature. Not switchable from here. |
 
@@ -120,8 +119,9 @@ The second has no code on purpose. Branching on a code is reliable; substring-ma
 English sentence is not, and leaving ordinary errors uncoded keeps their wording free to
 improve without breaking anybody.
 
-Verbs that change something accept `"settle": true`, which waits for the UI to stop moving
-before replying -- so `key` followed by `snapshot` is coherent rather than racing.
+Input is asynchronous: a verb returns as soon as the event is queued, not when the screen
+has caught up. To read a coherent screen afterwards, watch the frame counter -- see
+[Waiting for the screen to catch up](#waiting-for-the-screen-to-catch-up).
 
 Any request may carry an `"id"`, which the reply echoes:
 
@@ -161,7 +161,6 @@ comes back without one.
 | `window` | Activates or closes a window |
 | `theme` | Switches theme |
 | `size` | Reports the screen size, and sets it on a headless app |
-| `settle` | Waits for the UI to go quiet |
 
 ### Housekeeping
 
@@ -327,7 +326,7 @@ tmux/emacs notation, because it is what anyone reaching for this already knows.
 {"cmd":"key","spec":"C-c"}
 {"cmd":"key","spec":"S-Tab"}
 {"cmd":"key","spec":"F5"}
-{"cmd":"key","spec":"\"hello\"",  "settle":true}
+{"cmd":"key","spec":"\"hello\""}
 ```
 
 `C-` is ctrl, `M-` is alt, `S-` is shift, in any order. A quoted string is typed literally,
@@ -342,7 +341,7 @@ app would be a confusing way to discover the typo.
 
 ```json
 {"cmd":"mouse","x":40,"y":25}
-{"cmd":"mouse","x":40,"y":25,"button":"right","action":"click","settle":true}
+{"cmd":"mouse","x":40,"y":25,"button":"right","action":"click"}
 {"cmd":"mouse","x":40,"y":25,"action":"wheelup"}
 ```
 
@@ -456,7 +455,7 @@ Reports the screen size. On a **headless** app it also sets it.
 
 ```json
 {"cmd":"size"}                              → {"ok":true,"w":120,"h":40}
-{"cmd":"size","w":40,"h":12,"settle":true}  → resize, then wait for the relayout
+{"cmd":"size","w":40,"h":12}                → resize
 ```
 
 Narrow and short sizes are exactly where layout bugs hide, and reaching them otherwise means
@@ -473,40 +472,43 @@ produced, and pass.
 
 ---
 
-## settle
+## Waiting for the screen to catch up
 
-Waits for the UI to stop changing, then reports what it saw.
+Input is asynchronous. A verb replies as soon as the event is queued, so a `snapshot` taken
+immediately afterwards can show the screen *before* the key took effect - intermittently,
+which is the worst kind of test failure.
 
-```json
-{"cmd":"settle"}
-{"cmd":"settle","timeoutMs":2000}
+The fix is to watch the frame counter, which `frame` reports and every `png` reply carries:
+
+```bash
+before=$(ask '{"cmd":"frame"}' | jq .frame)
+ask '{"cmd":"key","spec":"Down"}'
+
+# Wait for a frame newer than the one before the input.
+for i in $(seq 1 50); do
+    now=$(ask '{"cmd":"frame"}' | jq .frame)
+    [ "$now" -gt "$before" ] && break
+    sleep 0.02
+done
+
+ask '{"cmd":"snapshot"}'
 ```
 
-Most driving verbs accept `"settle": true` instead, which is usually what you want — it makes
-`key` followed by `snapshot` coherent rather than racing.
+**The client owns this policy deliberately, because only the client knows what it is waiting
+for.** An earlier `settle` verb tried to wait for the UI to "go quiet", and that guarantee
+cannot be made for any application with a moving part - a clock, a spinner, a progress bar,
+a background simulation. On those it waits the full timeout every time and then reports
+failure, which is worse than not offering it: in the WebHost example it turned every click
+into a flat two-second stall while the application itself was rendering happily.
 
-**A settled UI and a stopped UI look identical from outside**, and they mean opposite things.
-A frame counter that is not moving means either "the app finished its work" or "nobody is
-rendering" — success and total failure, indistinguishable unless you track whether a frame ever
-advanced at all. So `settle` does:
+Waiting for *one more frame* is a promise the framework can actually keep. Wait for several
+if a single frame is not enough, poll until the content you expect appears, or do not wait
+at all if you are already polling - all of which are three lines of client code, and none of
+which the server can choose correctly on your behalf.
 
-```json
-{"ok":false,"settled":false,"framesWaited":0,"stalled":true,
- "error":"no frame advanced while waiting: the render loop is not running..."}
-```
-
-If you are hosting the system yourself and see `stalled`, the host is not calling `Tick()`.
-
-Three outcomes, so none is ambiguous:
-
-| Reply | Means |
-|-------|-------|
-| `settled: true` | The UI went quiet, and frames DID advance. Safe to assert. |
-| `timedOut: true` | Still busy when the timeout expired. Working, just slow. |
-| `stalled: true` | Nothing ever rendered. Your harness is broken, not the app. |
-
-A `basis: "frameCounter"` on a settled reply means diagnostics were off, so it fell back to
-"the frame counter stopped moving" rather than the stronger `IsStaticFrame` signal.
+A counter that never advances means the render loop is not running - a host that owns its
+own loop has stopped calling `Tick()`. Nothing read after that reflects a live screen, so a
+test should fail rather than assert against a frozen frame.
 
 ---
 
@@ -545,8 +547,7 @@ var ws = new ConsoleWindowSystem(driver, options);
 
 BuildYourUI(ws);
 
-using var session = ws.BeginHosted();
-while (session.Tick()) { }
+using var session = ws.RunInBackground();
 ```
 
 That is the whole setup. The app is now reachable on the socket, with no terminal, no pty and
@@ -556,16 +557,17 @@ no screen-scraping — and the full verb set works, including the ones that driv
 S=/tmp/headless.sock
 ask() { echo "$1" | socat - UNIX-CONNECT:$S | tail -1; }
 
-ask '{"cmd":"invoke","name":"btn1","settle":true}'
-# {"ok":true,"invoked":"btn1","settled":true,"framesWaited":1}
+ask '{"cmd":"invoke","name":"btn1"}'
+# {"ok":true,"invoked":"btn1"}
 ```
 
 The button's real `Click` handler ran. Not a simulated one — `invoke` goes through the same
 dispatch a user's click does.
 
-**Use `BeginHosted()`.** It is the supported hosting API: it wires the key, paste and resize
-handlers and captures the calling thread as the UI thread. See
-[`DRIVERS.md`](DRIVERS.md) for the driver side of this.
+`RunInBackground()` runs the loop on its own thread and returns once a frame exists, so the
+socket is already accepting connections and there is something to look at. If your host has
+a frame loop of its own, use `BeginHosted()` and call `Tick()` yourself instead — see
+[`DRIVERS.md`](DRIVERS.md) for the difference.
 
 Why this is worth the setup: most TUI test tooling drives a pty and scrapes text, so you end up
 testing what the *terminal* did, not what the framework decided. Here the app runs with no
@@ -609,7 +611,8 @@ the clock out with `x`/`y`/`w`/`h`.
 ```bash
 for size in "40 12" "80 24" "200 60"; do
     set -- $size
-    ask "{\"cmd\":\"size\",\"w\":$1,\"h\":$2,\"settle\":true}"
+    ask "{\"cmd\":\"size\",\"w\":$1,\"h\":$2}"
+    sleep 0.2                     # let the relayout land
     ask "{\"cmd\":\"png\",\"composed\":true,\"path\":\"/tmp/layout-$1x$2.png\"}"
 done
 ```
@@ -617,17 +620,19 @@ done
 Three screenshots at hostile sizes, no terminal involved. Widths where text must truncate and
 heights where a panel must scroll are where the bugs are.
 
-### Is it finished, or is it stuck?
+### Is it rendering, or is it stuck?
 
 ```bash
-ask '{"cmd":"key","spec":"Enter"}'
-r=$(ask '{"cmd":"settle","timeoutMs":3000}')
-case "$r" in
-    *'"stalled":true'*) echo "render loop is not running" ;;
-    *'"settled":true'*) echo "finished" ;;
-    *)                  echo "still busy after 3s" ;;
-esac
+a=$(ask '{"cmd":"frame"}' | jq .frame)
+sleep 1
+b=$(ask '{"cmd":"frame"}' | jq .frame)
+
+[ "$b" -gt "$a" ] && echo "rendering ($((b-a)) frames/s)" \
+                  || echo "render loop is not running"
 ```
+
+A counter that does not move means nobody is calling `Tick()`. Anything read after that is
+a frozen screen, so a test should fail rather than assert against it.
 
 ### Debugging an app you did not start
 
@@ -657,7 +662,7 @@ ask '{"cmd":"windows"}'                                  # which window is activ
 ask '{"cmd":"focus"}'                                     # where will Enter go?
 ask '{"cmd":"tree","depth":3,"props":true}'               # is the button even laid out?
 ask '{"cmd":"set","logLevel":"Trace"}'
-ask '{"cmd":"mouse","x":40,"y":25,"settle":true}'         # click it for real
+ask '{"cmd":"mouse","x":40,"y":25}'                       # click it for real
 ask '{"cmd":"logs","count":30}'                           # what did that do?
 ask '{"cmd":"png","path":"/tmp/after.png"}'               # and what does it look like now?
 ```

@@ -1420,6 +1420,134 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
+		/// Starts the system on a background thread and returns once it has rendered a frame.
+		/// </summary>
+		/// <param name="startTimeout">
+		/// How long to wait for that first frame before giving up. The default is ample for a
+		/// real application; raise it only if startup does heavy work.
+		/// </param>
+		/// <param name="stopTimeout">How long <see cref="BackgroundSession.Dispose"/> waits for the loop to end.</param>
+		/// <returns>A session that keeps the application running until disposed.</returns>
+		/// <exception cref="InvalidOperationException">The system is already running, or it did not start in time.</exception>
+		/// <remarks>
+		/// <para>
+		/// <see cref="Run"/> owns the loop and blocks; <see cref="BeginHosted"/> hands the loop
+		/// to the caller. This is the third case - the system owns the loop and the caller keeps
+		/// its thread - which is what a host needs when something else owns the main thread: a
+		/// web server, a test, an agent driving the application from outside.
+		/// </para>
+		/// <para>
+		/// Returns after the FIRST FRAME, not merely after the thread starts. A caller that
+		/// connects to the diagnostics socket or captures the screen immediately afterwards
+		/// would otherwise race the application into existence.
+		/// </para>
+		/// <para>
+		/// A failure during startup is thrown from here, where the caller cannot miss it. A
+		/// failure afterwards lands in <see cref="BackgroundSession.Fault"/>, because nobody is
+		/// awaiting the thread and the only other symptom would be a screen that stopped
+		/// changing.
+		/// </para>
+		/// <example>
+		/// <code>
+		/// var ws = new ConsoleWindowSystem(new HeadlessConsoleDriver(120, 40), options);
+		/// BuildUI(ws);
+		///
+		/// using var session = ws.RunInBackground();
+		/// // the app is up and has painted; drive it, capture it, assert on it
+		/// </code>
+		/// </example>
+		/// </remarks>
+		public BackgroundSession RunInBackground(
+			TimeSpan? startTimeout = null,
+			TimeSpan? stopTimeout = null)
+		{
+			if (_running)
+				throw new InvalidOperationException("The console window system is already running.");
+
+			// Same restriction as Run: a host whose platform has one thread cannot be given a
+			// second one to loop on. Such a host drives frames itself through BeginHosted.
+			if (!_consoleDriver.SupportsBlockingLoop)
+				throw new InvalidOperationException(
+					$"{_consoleDriver.GetType().Name} cannot be driven by a loop on another thread. " +
+					"Use BeginHosted() and drive frames from the host's own event loop.");
+
+			var started = new TaskCompletionSource<Exception?>(
+				TaskCreationOptions.RunContinuationsAsynchronously);
+
+			BackgroundSession? session = null;
+
+			var thread = new Thread(() =>
+			{
+				try
+				{
+					StartHostedCore();
+				}
+				catch (Exception ex)
+				{
+					// Startup failed, so there will never be a frame. Hand the exception to the
+					// caller rather than letting it die unobserved on this thread.
+					started.TrySetResult(ex);
+					return;
+				}
+
+				try
+				{
+					while (_running && session?.Stopping != true)
+					{
+						if (!TickCore()) break;
+
+						// Signal on a real FRAME, not on a tick. A tick does input and
+						// animation work whether or not it paints - rendering is gated by the
+						// frame-rate check - so signalling per tick would let the caller
+						// return to a screen that does not exist yet.
+						if (_consoleDriver.FrameNumber > 0) started.TrySetResult(null);
+					}
+				}
+				catch (Exception ex)
+				{
+					_logService.LogCritical($"Unhandled exception in background loop: {ex.Message}", ex, "System");
+
+					if (session != null) session.Fault = ex;
+					started.TrySetResult(ex);
+				}
+				finally
+				{
+					StopHostedCore();
+
+					// A loop that exited before painting must not leave the caller waiting out
+					// the full timeout for a frame that is never coming.
+					started.TrySetResult(null);
+				}
+			})
+			{
+				IsBackground = true,
+				Name = $"SharpConsoleUI loop ({_consoleDriver.GetType().Name})",
+			};
+
+			session = new BackgroundSession(this, thread, stopTimeout ?? TimeSpan.FromSeconds(5));
+			thread.Start();
+
+			var timeout = startTimeout ?? TimeSpan.FromSeconds(30);
+			if (!started.Task.Wait(timeout))
+			{
+				session.Dispose();
+				throw new InvalidOperationException(
+					$"The console window system did not render a frame within {timeout.TotalSeconds:0.#}s. "
+					+ "Startup is either blocked or slower than the timeout allows; pass a larger "
+					+ "startTimeout if it is genuinely slow.");
+			}
+
+			if (started.Task.Result is { } startupFailure)
+			{
+				session.Dispose();
+				throw new InvalidOperationException(
+					$"The console window system failed to start: {startupFailure.Message}", startupFailure);
+			}
+
+			return session;
+		}
+
+		/// <summary>
 		/// Gracefully shuts down the console window system with the specified exit code
 		/// </summary>
 		/// <param name="exitCode">The exit code to return</param>

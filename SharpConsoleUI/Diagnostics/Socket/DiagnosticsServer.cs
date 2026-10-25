@@ -207,9 +207,6 @@ internal sealed class DiagnosticsServer : IDisposable
 			// --- Tier 5: the log ------------------------------------------------------
 			"logs" => Ok(Logs(req)),
 
-			// --- Tier 3: watching over time ------------------------------------------
-			"settle" => Ok(Settle(req)),
-
 			// --- Tier 4: interactivity -----------------------------------------------
 			"key" => Ok(Key(req)),
 			"mouse" => Ok(Mouse(req)),
@@ -251,7 +248,7 @@ internal sealed class DiagnosticsServer : IDisposable
 	private static readonly string[] KnownCommands =
 	{
 		"snapshot", "png", "tree", "focus", "windows", "metrics", "set",
-		"settle", "logs", "key", "mouse", "size", "focusctl", "invoke",
+		"logs", "key", "mouse", "size", "focusctl", "invoke",
 		"theme", "window", "frame", "ping", "commands",
 	};
 
@@ -598,61 +595,6 @@ internal sealed class DiagnosticsServer : IDisposable
 
 	#region Tier 3: settle
 
-	/// <summary>
-	/// Waits until a render changes nothing, or the timeout expires.
-	/// </summary>
-	/// <remarks>
-	/// Exists because of a real bug class: a deferred scroll applies on the frame AFTER the
-	/// one that triggered it, so a single snapshot catches a transient state and looks right
-	/// or wrong depending on timing. Asking "when did it stop changing?" beats guessing a
-	/// sleep.
-	/// </remarks>
-	private JsonObject Settle(JsonObject req)
-	{
-		int timeoutMs = req["timeoutMs"]?.GetValue<int>() ?? 2000;
-		var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-		int frames = 0;
-		bool everAdvanced = false;
-
-		while (DateTime.UtcNow < deadline)
-		{
-			var before = _system.RenderingDiagnostics?.CurrentFrameNumber ?? 0;
-			Thread.Sleep(32);
-			var after = _system.RenderingDiagnostics?.CurrentFrameNumber ?? 0;
-			frames += Math.Max(0, after - before);
-			if (after > before) everAdvanced = true;
-
-			var m = _system.RenderingDiagnostics?.LastMetrics;
-			if (m != null && m.IsStaticFrame && everAdvanced)
-				return new JsonObject { ["settled"] = true, ["framesWaited"] = frames };
-
-			// No diagnostics layers enabled: fall back to "the frame counter stopped moving".
-			if (m == null && after == before && everAdvanced)
-				return new JsonObject { ["settled"] = true, ["framesWaited"] = frames, ["basis"] = "frameCounter" };
-		}
-
-		// A loop that never advanced is STALLED, not settled. The two are indistinguishable
-		// from the frame counter alone - both look like "nothing is changing" - but they mean
-		// opposite things: settled is "the UI finished", stalled is "nobody is rendering, so
-		// whatever you assert next is about a frozen screen". A host driving ProcessOnce
-		// itself can simply stop calling it, so this is a real state, not a theoretical one.
-		if (!everAdvanced)
-		{
-			return new JsonObject
-			{
-				["settled"] = false,
-				["framesWaited"] = 0,
-				["stalled"] = true,
-				["code"] = ErrorCode.Stalled,
-				["error"] = "no frame advanced while waiting: the render loop is not running. "
-					+ "A host that drives ProcessOnce itself must keep pumping for the UI to "
-					+ "respond; nothing observed after this point reflects a live screen.",
-			};
-		}
-
-		return new JsonObject { ["settled"] = false, ["framesWaited"] = frames, ["timedOut"] = true };
-	}
-
 	#endregion
 
 	#region Tier 4: interactivity
@@ -677,7 +619,7 @@ internal sealed class DiagnosticsServer : IDisposable
 		foreach (var k in keys)
 			_system.InputStateService.EnqueueKey(k);
 
-		return WithSettle(req, new JsonObject { ["sent"] = keys.Count });
+		return new JsonObject { ["sent"] = keys.Count };
 	}
 
 	/// <summary>
@@ -707,10 +649,10 @@ internal sealed class DiagnosticsServer : IDisposable
 		if (flags == null) return ErrorBody(flagError!);
 
 		Marshal(() => _system.Input.InjectMouseEvent(flags, new System.Drawing.Point(x.Value, y.Value)));
-		return WithSettle(req, new JsonObject
+		return new JsonObject
 		{
 			["mouse"] = $"{action} {button} @ {x},{y}",
-		});
+		};
 	}
 
 	private static List<MouseFlags>? MouseFlagsFor(string button, string action, out string? error)
@@ -799,7 +741,7 @@ internal sealed class DiagnosticsServer : IDisposable
 		}
 
 		var size = _system.ConsoleDriver.ScreenSize;
-		return WithSettle(req, new JsonObject { ["w"] = size.Width, ["h"] = size.Height });
+		return new JsonObject { ["w"] = size.Width, ["h"] = size.Height };
 	}
 
 	/// <summary>
@@ -819,7 +761,7 @@ internal sealed class DiagnosticsServer : IDisposable
 			return ErrorBody($"'{name}' is a {target.GetType().Name} and is not focusable");
 
 		Marshal(() => window.FocusManager.SetFocus(focusable, FocusReason.Programmatic));
-		return WithSettle(req, new JsonObject { ["focused"] = name });
+		return new JsonObject { ["focused"] = name };
 	}
 
 	/// <summary>
@@ -847,7 +789,7 @@ internal sealed class DiagnosticsServer : IDisposable
 		Marshal(() => window.FocusManager.SetFocus(focusable, FocusReason.Programmatic));
 		_system.InputStateService.EnqueueKey(new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false));
 
-		return WithSettle(req, new JsonObject { ["invoked"] = name });
+		return new JsonObject { ["invoked"] = name };
 	}
 
 	private JsonObject Theme(JsonObject req)
@@ -858,7 +800,7 @@ internal sealed class DiagnosticsServer : IDisposable
 		bool ok = false;
 		Marshal(() => ok = _system.ThemeStateService.SwitchTheme(name));
 		return ok
-			? WithSettle(req, new JsonObject { ["theme"] = name })
+			? new JsonObject { ["theme"] = name }
 			: ErrorBody($"no theme named '{name}'");
 	}
 
@@ -870,13 +812,13 @@ internal sealed class DiagnosticsServer : IDisposable
 		if (req["activate"]?.GetValue<bool>() == true)
 		{
 			Marshal(() => _system.WindowStateService.SetActiveWindow(window));
-			return WithSettle(req, new JsonObject { ["activated"] = window.Title });
+			return new JsonObject { ["activated"] = window.Title };
 		}
 
 		if (req["close"]?.GetValue<bool>() == true)
 		{
 			Marshal(() => window.Close());
-			return WithSettle(req, new JsonObject { ["closed"] = window.Title });
+			return new JsonObject { ["closed"] = window.Title };
 		}
 
 		return ErrorBody("window requires 'activate' or 'close'");
@@ -906,20 +848,6 @@ internal sealed class DiagnosticsServer : IDisposable
 			throw new TimeoutException("UI thread did not run the action within 5s");
 
 		if (failure != null) throw failure;
-	}
-
-	/// <summary>
-	/// Folds "do it, then wait until the screen stops changing" into one call - the most
-	/// common UI-test pattern, and the one most often got wrong with sleeps.
-	/// </summary>
-	private JsonObject WithSettle(JsonObject req, JsonObject body)
-	{
-		if (req["settle"]?.GetValue<bool>() != true) return body;
-
-		var settled = Settle(req);
-		body["settled"] = settled["settled"]?.GetValue<bool>() ?? false;
-		body["framesWaited"] = settled["framesWaited"]?.GetValue<int>() ?? 0;
-		return body;
 	}
 
 	private Window? ResolveWindow(JsonObject req, out string? error)
@@ -1011,12 +939,6 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// </remarks>
 	internal static class ErrorCode
 	{
-		/// <summary>
-		/// The render loop is not running, so nothing read after this reflects a live screen.
-		/// A test must fail rather than assert against a frozen frame.
-		/// </summary>
-		internal const string Stalled = "stalled";
-
 		/// <summary>
 		/// This driver cannot do it, and no retry will help - resizing a real terminal, or
 		/// reading the composed desktop in RenderMode.Direct. A client should stop asking.
