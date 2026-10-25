@@ -44,6 +44,7 @@ public class ScreenshotWindow : Window
 			"[white]Export this window:[/]",
 			"[cyan]T[/] - plain text      [cyan]A[/] - ANSI (colour)",
 			"[cyan]M[/] - markup          [cyan]P[/] - PNG image",
+			"[cyan]G[/] - TGA (fast, big)  [cyan]J[/] - JPEG (lossy)",
 			"[cyan]R[/] - PNG of a region (the bordered box only)",
 			"[cyan]Shift+D[/] - PNG of the whole desktop (every window, composed)",
 			"[cyan]Esc[/] - Close window",
@@ -72,6 +73,8 @@ public class ScreenshotWindow : Window
 				'A' => ExportKind.AnsiText,
 				'M' => ExportKind.Markup,
 				'P' => ExportKind.Png,
+				'G' => ExportKind.Tga,
+				'J' => ExportKind.Jpeg,
 				'R' => ExportKind.RegionPng,
 				_ => (ExportKind?)null,
 			};
@@ -90,6 +93,8 @@ public class ScreenshotWindow : Window
 		AnsiText,
 		Markup,
 		Png,
+		Tga,
+		Jpeg,
 		RegionPng,
 		DesktopPng,
 	}
@@ -100,8 +105,8 @@ public class ScreenshotWindow : Window
 		if (system == null) return;
 
 		// Capture BEFORE the save dialog opens: the dialog takes focus and repaints, so a
-		// surface read afterwards would describe the screen with the dialog on it. PNG and
-		// text are produced here and only the bytes travel through the await.
+		// surface read afterwards would describe the screen with the dialog on it. The image
+		// and text are produced here and only the bytes travel through the await.
 		byte[] payload;
 		string extension;
 
@@ -156,22 +161,34 @@ public class ScreenshotWindow : Window
 				return (Text(this.CaptureSurface().ToText(TextFormat.Markup)), ".markup");
 
 			case ExportKind.Png:
-				return (this.CaptureSurface().ToPng(), ".png");
+				return (this.CaptureSurface().ToImage(), ".png");
+
+			case ExportKind.Tga:
+				// Lossless like PNG and far faster to encode, at roughly ten times the
+				// size - the trade a frame being streamed and discarded wants.
+				return (this.CaptureSurface().ToImage(
+					new ExportOptions { Format = ImageFormat.Tga }), ".tga");
+
+			case ExportKind.Jpeg:
+				// Lossy, so glyph edges soften. Larger than PNG on flat terminal colour;
+				// smaller once a surface carries an image or a gradient.
+				return (this.CaptureSurface().ToImage(
+					new ExportOptions { Format = ImageFormat.Jpeg, JpegQuality = 85 }), ".jpg");
 
 			case ExportKind.RegionPng:
 			{
 				// Crop composes with every exporter, so a region needs no special support
-				// in ToPng. Clamped to the window, so a short window still exports.
+				// in ToImage. Clamped to the window, so a short window still exports.
 				var surface = this.CaptureSurface();
 				var box = new LayoutRect(2, 11, Math.Min(27, surface.Width - 2),
 					Math.Min(3, surface.Height - 11));
-				return (surface.Crop(box).ToPng(new ExportOptions { CellHeight = 24 }), ".png");
+				return (surface.Crop(box).ToImage(new ExportOptions { CellHeight = 24 }), ".png");
 			}
 
 			case ExportKind.DesktopPng:
 				// Reads the driver's own composed buffer - no diagnostics required. Throws
 				// only in RenderMode.Direct, which keeps no buffer at all.
-				return (system.ComposedSurface().ToPng(), ".png");
+				return (system.ComposedSurface().ToImage(), ".png");
 
 			default:
 				throw new ArgumentOutOfRangeException(nameof(kind), kind, null);

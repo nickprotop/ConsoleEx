@@ -167,7 +167,7 @@ Two protocol additions would improve it, neither built:
   poll-interval latency floor (a keystroke currently echoes after up to 100 ms even though
   the frame was ready in 2 ms). Needs a backpressure rule: drop intermediate frames, never
   queue them, because a stale frame has no value once a newer one exists.
-- **Row-band deltas** — `png` returning only changed rows. Worth it only once a *busy*
+- **Row-band deltas** — `image` returning only changed rows. Worth it only once a *busy*
   screen proves to be the bottleneck; `sinceFrame` already covers the idle case.
 
 ---

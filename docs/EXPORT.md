@@ -5,7 +5,7 @@ A window, a region of one, or the whole desktop, as an image or as text.
 ```csharp
 using SharpConsoleUI.Surfaces;
 
-File.WriteAllBytes("window.png", window.CaptureSurface().ToPng());
+File.WriteAllBytes("window.png", window.CaptureSurface().ToImage());
 File.WriteAllText("window.txt", window.CaptureSurface().ToText());
 ```
 
@@ -64,7 +64,7 @@ being re-specified for each one.
 ```csharp
 var box = new LayoutRect(X: 2, Y: 11, Width: 27, Height: 3);
 
-window.CaptureSurface().Crop(box).ToPng();
+window.CaptureSurface().Crop(box).ToImage();
 window.CaptureSurface().Crop(box).ToText(TextFormat.Ansi);
 ```
 
@@ -107,20 +107,40 @@ and all three carry combining marks.
 ## Images
 
 ```csharp
-surface.ToPng();
-surface.ToPng(new ExportOptions { CellHeight = 24, Glyphs = false });
+surface.ToImage();
+surface.ToImage(new ExportOptions { CellHeight = 24, Glyphs = false });
+surface.ToImage(new ExportOptions { Format = ImageFormat.Tga });
 ```
 
 | Option | Default | Meaning |
 |---|---|---|
+| `Format` | `Png` | `Png`, `Tga` or `Jpeg`. |
+| `JpegQuality` | `90` | 1--100. Ignored unless `Format` is `Jpeg`. |
 | `CellHeight` | `16` | Pixels per cell vertically. |
 | `CellWidth` | *(font advance)* | Pixels per cell horizontally. |
 | `Glyphs` | `true` | Draw text. `false` gives a colour map and needs no font. |
 | `FontPath` | *(none)* | A specific `.ttf`. Implies `FontSource.File`. |
 | `FontSource` | `Automatic` | Where to find the font. See below. |
 
-**Bytes, not a path.** `File.WriteAllBytes(path, surface.ToPng())` is the one-line file case,
+**Bytes, not a path.** `File.WriteAllBytes(path, surface.ToImage())` is the one-line file case,
 and bytes also serve an HTTP response, a test assertion or a clipboard, where a path does not.
+
+### Choosing a format
+
+Measured on a 174x50 desktop at 8x16 (1392x800 pixels), encoding the same pixels:
+
+| Format | Encode | Size | Use it for |
+|---|---|---|---|
+| `Png` | 70 ms | 50 KB | Everything, unless you have a reason. Lossless, smallest here, and the only deterministic one. |
+| `Tga` | 4 ms | 569 KB | Streaming. Lossless, encodes in a fraction of the time, and the bytes never reach a disk. |
+| `Jpeg` | 9 ms (q75) | 113 KB | Attachments, and surfaces carrying an image or a gradient. |
+
+PNG is smallest because terminal output is large areas of flat colour -- the case deflate
+handles best and JPEG handles worst. That advantage disappears as a surface gains
+photographic content, which is when JPEG starts to win.
+
+PNG is also the only format whose output is byte-identical run to run, so it is the only one
+usable for golden-image comparison. Pair it with `FontSource.Embedded`.
 
 ### Fonts
 
@@ -163,7 +183,7 @@ bytes. That makes a hash a regression test.
 
 ```csharp
 var options = new ExportOptions { FontSource = FontSource.Embedded, CellHeight = 16 };
-byte[] actual = window.CaptureSurface().ToPng(options);
+byte[] actual = window.CaptureSurface().ToImage(options);
 
 Assert.Equal(File.ReadAllBytes("testdata/golden/settings.png"), actual);
 ```
@@ -193,7 +213,7 @@ BuildYourUI(ws);
 using var session = ws.BeginHosted();
 for (int i = 0; i < 10; i++) session.Tick();   // let it settle
 
-byte[] png = theWindow.CaptureSurface().ToPng(
+byte[] png = theWindow.CaptureSurface().ToImage(
     new ExportOptions { FontSource = FontSource.Embedded });
 ```
 
@@ -212,7 +232,7 @@ var snapshot = window.Buffer!.CreateSnapshot();   // cheap, immutable, now
 
 var path = await FileDialogs.ShowSaveFileAsync(/* ... */);   // repaints the screen
 
-File.WriteAllBytes(path, snapshot.AsSurface().ToPng());      // still the old screen
+File.WriteAllBytes(path, snapshot.AsSurface().ToImage());    // still the old screen
 ```
 
 ---

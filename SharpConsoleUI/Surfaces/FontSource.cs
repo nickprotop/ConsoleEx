@@ -9,7 +9,7 @@
 namespace SharpConsoleUI.Surfaces;
 
 /// <summary>
-/// Where <see cref="SurfaceExport.ToPng"/> looks for the font it draws with.
+/// Where <see cref="SurfaceExport.ToImage"/> looks for the font it draws with.
 /// </summary>
 /// <remarks>
 /// <para>

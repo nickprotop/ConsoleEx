@@ -94,8 +94,8 @@ public class ComposedSurfaceTests
 
 			// Captured under the render lock, so a capture never mixes two frames.
 			Assert.Equal(
-				system.ComposedSurface().ToPng(options),
-				system.ComposedSurface().ToPng(options));
+				system.ComposedSurface().ToImage(options),
+				system.ComposedSurface().ToImage(options));
 		}
 	}
 

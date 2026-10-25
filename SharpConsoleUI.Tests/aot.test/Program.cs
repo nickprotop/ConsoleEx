@@ -885,41 +885,67 @@ try
 		if (reader.ReadLine() is not { } windows || !windows.Contains("windows", StringComparison.Ordinal))
 			return Fail("diagnostics 'windows' reply malformed");
 
-		// Give the system a painted window so 'png' has a real buffer to encode.
+		// Give the system a painted window so 'image' has a real buffer to encode.
 		var pngWindow = new Window(diagSystem) { Width = 40, Height = 10, Top = 1, Left = 1, Title = "PngProbe" };
 		pngWindow.AddControl(new MarkupControl(new List<string> { "[red]pixels[/]" }));
 		diagSystem.AddWindow(pngWindow);
 		for (int i = 0; i < 3; i++) diagSystem.ProcessOnce();
 
-		// 'png' runs StbImageWriteSharp over that buffer and base64s the result.
+		// 'image' runs StbImageWriteSharp over that buffer and base64s the result.
 		// Encoding is native code behind a managed wrapper, so only running it proves it.
-		writer.WriteLine("{\"cmd\":\"png\",\"window\":\"PngProbe\",\"cellWidth\":2,\"cellHeight\":4}");
+		writer.WriteLine("{\"cmd\":\"image\",\"window\":\"PngProbe\",\"cellWidth\":2,\"cellHeight\":4}");
 		if (reader.ReadLine() is not { } png)
-			return Fail("diagnostics 'png' produced no reply");
+			return Fail("diagnostics 'image' produced no reply");
 		if (png.Contains("\"ok\":false", StringComparison.Ordinal))
 		{
 			// No composed buffer in this headless fixture is an environment skip, not an
 			// AOT failure - but anything else is real.
 			if (!png.Contains("console snapshot", StringComparison.OrdinalIgnoreCase))
-				return Fail($"diagnostics 'png' failed: {png}");
-			skips.Add("diagnostics png: no composed buffer in headless fixture");
+				return Fail($"diagnostics 'image' failed: {png}");
+			skips.Add("diagnostics image: no composed buffer in headless fixture");
 		}
 		else
 		{
 			if (!png.Contains("\"format\":\"png\"", StringComparison.Ordinal))
-				return Fail($"diagnostics 'png' reply malformed: {png[..Math.Min(200, png.Length)]}");
+				return Fail($"diagnostics 'image' reply malformed: {png[..Math.Min(200, png.Length)]}");
 
 			// Decode and check the PNG magic, so this cannot pass on a reply that merely
 			// SAYS png while the encoder produced nothing usable.
 			int di = png.IndexOf("\"data\":\"", StringComparison.Ordinal);
-			if (di < 0) return Fail("diagnostics 'png' returned no inline data");
+			if (di < 0) return Fail("diagnostics 'image' returned no inline data");
 			di += 8;
 			int de = png.IndexOf('"', di);
 			byte[] raw = Convert.FromBase64String(png[di..de].Replace('-', '+').Replace('_', '/'));
 			if (raw.Length < 8 || raw[0] != 0x89 || raw[1] != (byte)'P' || raw[2] != (byte)'N' || raw[3] != (byte)'G')
-				return Fail($"diagnostics 'png' data is not a PNG ({raw.Length} bytes)");
+				return Fail($"diagnostics 'image' data is not a PNG ({raw.Length} bytes)");
 
-			Console.Error.WriteLine($"AOT SMOKE NOTE: diagnostics png encoded {raw.Length} bytes (PNG magic verified)");
+			Console.Error.WriteLine($"AOT SMOKE NOTE: diagnostics image encoded {raw.Length} bytes (PNG magic verified)");
+
+			// TGA and JPEG are separate native encoders in the same library, so passing
+			// on PNG says nothing about either. Each is checked by its own magic bytes.
+			foreach ((string fmt, Func<byte[], bool> ok, string shape) in new (string, Func<byte[], bool>, string)[]
+			{
+				("tga",  b => b.Length > 18, "header"),
+				("jpeg", b => b.Length > 3 && b[0] == 0xFF && b[1] == 0xD8, "SOI marker"),
+			})
+			{
+				writer.WriteLine($"{{\"cmd\":\"image\",\"format\":\"{fmt}\",\"window\":\"PngProbe\",\"cellWidth\":2,\"cellHeight\":4}}");
+				if (reader.ReadLine() is not { } reply)
+					return Fail($"diagnostics 'image' ({fmt}) produced no reply");
+				if (reply.Contains("\"ok\":false", StringComparison.Ordinal))
+					return Fail($"diagnostics 'image' ({fmt}) failed: {reply}");
+
+				int fi = reply.IndexOf("\"data\":\"", StringComparison.Ordinal);
+				if (fi < 0) return Fail($"diagnostics 'image' ({fmt}) returned no inline data");
+				fi += 8;
+				int fe = reply.IndexOf('"', fi);
+				byte[] bytes = Convert.FromBase64String(reply[fi..fe].Replace('-', '+').Replace('_', '/'));
+
+				if (!ok(bytes))
+					return Fail($"diagnostics 'image' ({fmt}) data has no valid {shape} ({bytes.Length} bytes)");
+
+				Console.Error.WriteLine($"AOT SMOKE NOTE: diagnostics image/{fmt} encoded {bytes.Length} bytes ({shape} verified)");
+			}
 		}
 	}
 

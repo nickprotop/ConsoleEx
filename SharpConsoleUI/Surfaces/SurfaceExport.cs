@@ -46,6 +46,12 @@ public sealed record ExportOptions
 	/// be reproducible - golden-image testing, or any comparison across machines.
 	/// </remarks>
 	public FontSource FontSource { get; init; } = FontSource.Automatic;
+
+	/// <summary>Which encoding <see cref="SurfaceExport.ToImage"/> produces.</summary>
+	public ImageFormat Format { get; init; } = ImageFormat.Png;
+
+	/// <summary>JPEG quality, 1-100. Ignored unless <see cref="Format"/> is JPEG.</summary>
+	public int JpegQuality { get; init; } = 90;
 }
 
 /// <summary>
@@ -117,18 +123,28 @@ public static class SurfaceExport
 	}
 
 	/// <summary>
-	/// Renders a surface to a PNG image.
+	/// Renders a surface to an image.
 	/// </summary>
 	/// <param name="surface">The surface.</param>
-	/// <param name="options">Cell size, glyphs and font, or null for the defaults.</param>
-	/// <returns>The PNG bytes.</returns>
+	/// <param name="options">
+	/// Format, cell size, glyphs and font, or null for the defaults - which are PNG at 16
+	/// pixels per cell with glyphs drawn.
+	/// </param>
+	/// <returns>The encoded bytes.</returns>
 	/// <exception cref="InvalidOperationException">The image could not be produced.</exception>
 	/// <remarks>
+	/// <para>
 	/// Returns bytes rather than writing a file: the caller decides where it goes, and bytes
 	/// serve an HTTP response, a test assertion or a clipboard where a path does not.
-	/// <c>File.WriteAllBytes(path, surface.ToPng())</c> is the one-line file case.
+	/// <c>File.WriteAllBytes(path, surface.ToImage())</c> is the one-line file case.
+	/// </para>
+	/// <para>
+	/// <see cref="ImageFormat"/> documents what each encoding costs. The short version: keep
+	/// PNG unless a frame is being streamed and discarded, in which case
+	/// <see cref="ImageFormat.Tga"/> encodes in a fraction of the time.
+	/// </para>
 	/// </remarks>
-	public static byte[] ToPng(this ICellSurface surface, ExportOptions? options = null)
+	public static byte[] ToImage(this ICellSurface surface, ExportOptions? options = null)
 	{
 		ArgumentNullException.ThrowIfNull(surface);
 		options ??= new ExportOptions();
@@ -155,8 +171,9 @@ public static class SurfaceExport
 
 		try
 		{
-			var bytes = Diagnostics.Socket.DiagnosticsPng.Render(
-				surface, cellWidth, cellHeight, font, out string? renderError);
+			var bytes = Diagnostics.Socket.DiagnosticsImage.Render(
+				surface, cellWidth, cellHeight, font, out string? renderError,
+				options.Format, options.JpegQuality);
 
 			return bytes ?? throw new InvalidOperationException(renderError);
 		}

@@ -13,16 +13,16 @@ using StbImageWriteSharp;
 namespace SharpConsoleUI.Diagnostics.Socket;
 
 /// <summary>
-/// Renders a rectangle of cells to a PNG, one solid block of colour per cell.
+/// Renders a rectangle of cells to an image: a block of colour per cell, and glyphs on top.
 /// </summary>
 /// <remarks>
 /// <para>
-/// GLYPHS ARE NOT DRAWN, deliberately. Drawing text would mean shipping a bitmap font, and a
-/// built-in ASCII atlas would misrender exactly the things this library works hardest to get
-/// right: CJK and other wide characters, combining marks, and Nerd Font glyphs. A screenshot
-/// that quietly draws those wrongly is worse than one that never claimed to draw text. What
-/// this produces is an honest colour map - layout, borders, focus, theme and window stacking
-/// are all faithful, and that is what a layout bug looks like.
+/// Glyphs are drawn through a real TrueType face rather than a built-in ASCII atlas, which is
+/// what makes the output honest about the things this library works hardest to get right: CJK
+/// and other wide characters, combining marks, and Nerd Font glyphs. A face that cannot draw a
+/// codepoint is reported rather than left to pass as a row of boxes. Passing no font gives a
+/// pure colour map, which still carries layout, borders, focus, theme and window stacking -
+/// and that is what a layout bug looks like.
 /// </para>
 /// <para>
 /// The per-window source has real typed colours. The composed source does not: it stores the
@@ -31,7 +31,7 @@ namespace SharpConsoleUI.Diagnostics.Socket;
 /// filled from the theme and the substitution is reported, rather than silently invented.
 /// </para>
 /// </remarks>
-internal static class DiagnosticsPng
+internal static class DiagnosticsImage
 {
 	/// <summary>Smallest cell that still shows structure; below this a border vanishes.</summary>
 	private const int MinCellSize = 1;
@@ -42,21 +42,39 @@ internal static class DiagnosticsPng
 	/// </summary>
 	private const int MaxPixels = 40_000_000;
 
+	/// <summary>Default JPEG quality: high enough that glyph edges stay legible.</summary>
+	private const int DefaultJpegQuality = 90;
+
+	/// <summary>Lowest JPEG quality the encoder accepts.</summary>
+	private const int MinJpegQuality = 1;
+
+	/// <summary>Highest JPEG quality the encoder accepts.</summary>
+	private const int MaxJpegQuality = 100;
+
 
 	/// <summary>
-	/// Renders cells to PNG bytes.
+	/// Renders cells to encoded image bytes.
 	/// </summary>
 	/// <param name="surface"></param>
 	/// <param name="cellWidth">Pixels per cell horizontally.</param>
 	/// <param name="cellHeight">Pixels per cell vertically.</param>
 	/// <param name="font"></param>
 	/// <param name="error">Why nothing was produced.</param>
-	/// <returns>The PNG bytes, or null.</returns>
+	/// <param name="format">Which encoding to produce.</param>
+	/// <param name="jpegQuality">Quality 1-100, used only by <see cref="Surfaces.ImageFormat.Jpeg"/>.</param>
+	/// <returns>The encoded bytes, or null.</returns>
 	internal static byte[]? Render(
 		Surfaces.ICellSurface surface, int cellWidth, int cellHeight,
-		DiagnosticsFont? font, out string? error)
+		DiagnosticsFont? font, out string? error,
+		Surfaces.ImageFormat format = Surfaces.ImageFormat.Png, int jpegQuality = DefaultJpegQuality)
 	{
 		error = null;
+
+		if (jpegQuality is < MinJpegQuality or > MaxJpegQuality)
+		{
+			error = $"jpeg quality must be {MinJpegQuality}-{MaxJpegQuality}; got {jpegQuality}";
+			return null;
+		}
 		int width = surface.Width, height = surface.Height;
 
 		if (cellWidth < MinCellSize || cellHeight < MinCellSize)
@@ -137,9 +155,34 @@ internal static class DiagnosticsPng
 		}
 
 		using var ms = new MemoryStream();
-		new ImageWriter().WritePng(rgb, imgW, imgH, ColorComponents.RedGreenBlue, ms);
+		var writer = new ImageWriter();
+
+		// Only the encoding differs; everything above is format-agnostic.
+		switch (format)
+		{
+			case Surfaces.ImageFormat.Tga:
+				writer.WriteTga(rgb, imgW, imgH, ColorComponents.RedGreenBlue, ms);
+				break;
+
+			case Surfaces.ImageFormat.Jpeg:
+				writer.WriteJpg(rgb, imgW, imgH, ColorComponents.RedGreenBlue, ms, jpegQuality);
+				break;
+
+			default:
+				writer.WritePng(rgb, imgW, imgH, ColorComponents.RedGreenBlue, ms);
+				break;
+		}
+
 		return ms.ToArray();
 	}
+
+	/// <summary>The wire and file name for a format.</summary>
+	internal static string NameOf(Surfaces.ImageFormat format) => format switch
+	{
+		Surfaces.ImageFormat.Tga => "tga",
+		Surfaces.ImageFormat.Jpeg => "jpeg",
+		_ => "png",
+	};
 
 	/// <summary>Builds the reply, attaching the bytes or writing them out.</summary>
 	/// <remarks>
@@ -148,13 +191,14 @@ internal static class DiagnosticsPng
 	/// not. A path is the explicit opt-in, since writing a file is the one thing the consent
 	/// prompt does not already cover.
 	/// </remarks>
-	internal static JsonObject Reply(byte[] png, int imgW, int imgH, string? path)
+	internal static JsonObject Reply(byte[] png, int imgW, int imgH, string? path,
+		Surfaces.ImageFormat format = Surfaces.ImageFormat.Png)
 	{
 		var o = new JsonObject
 		{
 			["w"] = imgW,
 			["h"] = imgH,
-			["format"] = "png",
+			["format"] = NameOf(format),
 			["bytes"] = png.Length,
 		};
 

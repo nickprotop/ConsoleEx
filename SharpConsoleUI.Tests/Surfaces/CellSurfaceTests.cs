@@ -254,13 +254,13 @@ public class CellSurfaceTests
 
 	#endregion
 
-	#region PNG
+	#region Images
 
 	[Fact]
-	public void ToPng_ProducesAPngWithTheExpectedGeometry()
+	public void ToImage_ProducesAPngWithTheExpectedGeometry()
 	{
 		var surface = new TestSurface(MakeBuffer("hi", Fg, Bg, width: 4, height: 2));
-		byte[] png = surface.ToPng(new ExportOptions { CellHeight = 8, CellWidth = 4, Glyphs = false });
+		byte[] png = surface.ToImage(new ExportOptions { CellHeight = 8, CellWidth = 4, Glyphs = false });
 
 		Assert.True(png.Length > 0);
 		Assert.Equal(0x89, png[0]);                       // PNG magic
@@ -270,20 +270,117 @@ public class CellSurfaceTests
 	}
 
 	[Fact]
-	public void ToPng_IsDeterministic()
+	public void ToImage_DefaultsToPng()
+	{
+		var surface = new TestSurface(MakeBuffer("x", Fg, Bg, width: 2, height: 1));
+		byte[] bytes = surface.ToImage(new ExportOptions { Glyphs = false });
+
+		Assert.Equal(0x89, bytes[0]);
+		Assert.Equal((byte)'P', bytes[1]);
+	}
+
+	[Fact]
+	public void ToImage_IsDeterministic()
 	{
 		var surface = new TestSurface(MakeBuffer("golden", Fg, Bg, width: 8, height: 2));
 		var options = new ExportOptions { CellHeight = 8, CellWidth = 4, Glyphs = false };
 
-		Assert.Equal(surface.ToPng(options), surface.ToPng(options));
+		Assert.Equal(surface.ToImage(options), surface.ToImage(options));
 	}
 
 	[Fact]
-	public void ToPng_ThrowsForAFontThatCannotLoad()
+	public void ToImage_ThrowsForAFontThatCannotLoad()
 	{
 		var surface = new TestSurface(MakeBuffer("x", Fg, Bg, width: 2, height: 1));
 		Assert.Throws<InvalidOperationException>(() =>
-			surface.ToPng(new ExportOptions { FontPath = "/nonexistent/font.ttf" }));
+			surface.ToImage(new ExportOptions { FontPath = "/nonexistent/font.ttf" }));
+	}
+
+	[Fact]
+	public void ToImage_Tga_HasTheExpectedGeometry()
+	{
+		var surface = new TestSurface(MakeBuffer("hi", Fg, Bg, width: 4, height: 2));
+		byte[] tga = surface.ToImage(new ExportOptions
+		{
+			Format = ImageFormat.Tga, CellHeight = 8, CellWidth = 4, Glyphs = false,
+		});
+
+		// TGA header: width and height are little-endian 16-bit at offsets 12 and 14.
+		Assert.True(tga.Length > 18);
+		Assert.Equal(4 * 4, tga[12] | (tga[13] << 8));
+		Assert.Equal(2 * 8, tga[14] | (tga[15] << 8));
+	}
+
+	[Fact]
+	public void ToImage_Jpeg_IsAJpeg()
+	{
+		var surface = new TestSurface(MakeBuffer("hi", Fg, Bg, width: 4, height: 2));
+		byte[] jpg = surface.ToImage(new ExportOptions
+		{
+			Format = ImageFormat.Jpeg, CellHeight = 8, CellWidth = 4, Glyphs = false,
+		});
+
+		Assert.True(jpg.Length > 0);
+		Assert.Equal(0xFF, jpg[0]);   // SOI
+		Assert.Equal(0xD8, jpg[1]);
+	}
+
+	[Fact]
+	public void ToImage_EachFormatProducesItsOwnEncoding()
+	{
+		var surface = new TestSurface(MakeBuffer("compare", Fg, Bg, width: 10, height: 3));
+		var baseOptions = new ExportOptions { CellHeight = 8, CellWidth = 4, Glyphs = false };
+
+		byte[] png = surface.ToImage(baseOptions with { Format = ImageFormat.Png });
+		byte[] tga = surface.ToImage(baseOptions with { Format = ImageFormat.Tga });
+		byte[] jpg = surface.ToImage(baseOptions with { Format = ImageFormat.Jpeg });
+
+		Assert.NotEqual(png, tga);
+		Assert.NotEqual(png, jpg);
+		Assert.NotEqual(tga, jpg);
+	}
+
+	[Theory]
+	[InlineData(0)]
+	[InlineData(101)]
+	[InlineData(-1)]
+	public void ToImage_RejectsAQualityOutsideTheAllowedRange(int quality)
+	{
+		var surface = new TestSurface(MakeBuffer("x", Fg, Bg, width: 2, height: 1));
+
+		// Rejected rather than clamped: a caller who asks for 0 has made a mistake, and a
+		// silently-corrected image hides it.
+		var ex = Assert.Throws<InvalidOperationException>(() => surface.ToImage(
+			new ExportOptions { Format = ImageFormat.Jpeg, JpegQuality = quality, Glyphs = false }));
+
+		Assert.Contains("quality", ex.Message, StringComparison.OrdinalIgnoreCase);
+	}
+
+	[Fact]
+	public void ToImage_QualityIsIgnoredByTheLosslessFormats()
+	{
+		var surface = new TestSurface(MakeBuffer("x", Fg, Bg, width: 2, height: 1));
+		var options = new ExportOptions { CellHeight = 8, CellWidth = 4, Glyphs = false };
+
+		// An out-of-range quality is still rejected, so use a valid one and check it has
+		// no effect on a format that does not read it.
+		Assert.Equal(
+			surface.ToImage(options with { Format = ImageFormat.Png, JpegQuality = 10 }),
+			surface.ToImage(options with { Format = ImageFormat.Png, JpegQuality = 95 }));
+	}
+
+	[Fact]
+	public void ToImage_LowerJpegQualityProducesFewerBytes()
+	{
+		var surface = new TestSurface(MakeBuffer("quality matters here", Fg, Bg, width: 24, height: 6));
+		var options = new ExportOptions
+		{
+			Format = ImageFormat.Jpeg, CellHeight = 16, CellWidth = 8, Glyphs = false,
+		};
+
+		Assert.True(
+			surface.ToImage(options with { JpegQuality = 40 }).Length
+			< surface.ToImage(options with { JpegQuality = 95 }).Length);
 	}
 
 	#endregion

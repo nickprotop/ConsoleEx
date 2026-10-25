@@ -189,6 +189,9 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// <summary>Longest echoed id. Long enough for a GUID, short enough not to be a lever.</summary>
 	private const int MaxIdLength = 64;
 
+	/// <summary>JPEG quality when the request does not say.</summary>
+	private const int DefaultJpegQuality = 90;
+
 	private JsonObject DispatchVerb(JsonObject req)
 	{
 		string cmd = req["cmd"]?.GetValue<string>() ?? "";
@@ -216,7 +219,7 @@ internal sealed class DiagnosticsServer : IDisposable
 			"theme" => Ok(Theme(req)),
 			"window" => Ok(WindowCmd(req)),
 
-			"png" => Ok(Png(req)),
+			"image" => Ok(Image(req)),
 			"set" => Ok(Set(req)),
 			"frame" => Ok(new JsonObject { ["frame"] = _system.ConsoleDriver.FrameNumber }),
 			"ping" => Ok(new JsonObject { ["pong"] = true }),
@@ -247,7 +250,7 @@ internal sealed class DiagnosticsServer : IDisposable
 
 	private static readonly string[] KnownCommands =
 	{
-		"snapshot", "png", "tree", "focus", "windows", "metrics", "set",
+		"snapshot", "image", "tree", "focus", "windows", "metrics", "set",
 		"logs", "key", "mouse", "size", "focusctl", "invoke",
 		"theme", "window", "frame", "ping", "commands",
 	};
@@ -277,14 +280,6 @@ internal sealed class DiagnosticsServer : IDisposable
 		return DiagnosticsSerializer.Snapshot(window, ansi, region);
 	}
 
-	/// <summary>
-	/// The screen as an image: one solid block of colour per cell, no glyphs.
-	/// </summary>
-	/// <remarks>
-	/// Answers the question text cannot - whether the layout LOOKS right. Colour, borders,
-	/// focus and window stacking survive; characters do not (see <see cref="DiagnosticsPng"/>
-	/// for why drawing them would be a lie). Returns the bytes inline unless a path is given.
-	/// </remarks>
 	/// <summary>
 	/// Readies the composed desktop for capture, turning recording on if it is merely paused.
 	/// </summary>
@@ -352,8 +347,31 @@ internal sealed class DiagnosticsServer : IDisposable
 		return shot.AsSurface(_system.Theme);
 	}
 
-	private JsonObject Png(JsonObject req)
+	/// <summary>
+	/// The screen as an image, in the format the caller asks for.
+	/// </summary>
+	/// <remarks>
+	/// One verb rather than one per format. The reply always names what it produced in its
+	/// <c>format</c> field, so a client never has to infer it from the verb it called.
+	/// </remarks>
+	/// <param name="req">The request.</param>
+	private JsonObject Image(JsonObject req)
 	{
+		// "format": "png" (default) | "tga" | "jpeg"
+		Surfaces.ImageFormat format;
+		string name = req["format"]?.GetValue<string>()?.ToLowerInvariant() ?? "png";
+		switch (name)
+		{
+			case "png": format = Surfaces.ImageFormat.Png; break;
+			case "tga": format = Surfaces.ImageFormat.Tga; break;
+			case "jpeg":
+			case "jpg": format = Surfaces.ImageFormat.Jpeg; break;
+			default:
+				return ErrorBody($"unknown format '{name}'; expected png, tga or jpeg");
+		}
+
+		int quality = req["quality"]?.GetValue<int>() ?? DefaultJpegQuality;
+
 		// Cheapest possible answer first. A client streaming the screen asks many times a
 		// second and the screen is usually unchanged, so returning "still frame N" before
 		// loading a font or touching a buffer is the difference between a few bytes and
@@ -435,10 +453,15 @@ internal sealed class DiagnosticsServer : IDisposable
 			for (int x = 0; x < cropped.Width; x++)
 				if (cropped[x, y].BackgroundWasDefaulted) defaulted++;
 
-		var bytes = DiagnosticsPng.Render(cropped, cw, ch, font, out string? renderError);
-		if (bytes == null) return ErrorBody(renderError!);
+		var bytes = DiagnosticsImage.Render(
+			cropped, cw, ch, font, out string? renderError, format, quality);
+		if (bytes == null)
+		{
+			font?.Dispose();
+			return ErrorBody(renderError!);
+		}
 
-		var body = DiagnosticsPng.Reply(bytes, rw * cw, rh * ch, path);
+		var body = DiagnosticsImage.Reply(bytes, rw * cw, rh * ch, path, format);
 		body["x"] = clipped.X ?? 0;
 		body["y"] = clipped.Y ?? 0;
 		body["cols"] = rw;

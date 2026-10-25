@@ -51,7 +51,7 @@ web.MapGet("/frame", async (long? since, int? cellHeight, CancellationToken ct) 
 {
 	var request = new JsonObject
 	{
-		["cmd"] = "png",
+		["cmd"] = "image",
 		["composed"] = true,
 		["cellHeight"] = cellHeight ?? 16,
 	};

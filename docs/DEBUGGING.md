@@ -27,7 +27,7 @@ SHARPCONSOLEUI_DIAGNOSTICS_SOCKET=/tmp/myapp.sock dotnet run
 # 3. Talk to it. One JSON object per line, one reply per line.
 echo '{"cmd":"snapshot"}' | socat - UNIX-CONNECT:/tmp/myapp.sock
 echo '{"cmd":"key","spec":"Down"}' | socat - UNIX-CONNECT:/tmp/myapp.sock
-echo '{"cmd":"png","path":"/tmp/shot.png"}' | socat - UNIX-CONNECT:/tmp/myapp.sock
+echo '{"cmd":"image","path":"/tmp/shot.png"}' | socat - UNIX-CONNECT:/tmp/myapp.sock
 ```
 
 `SHARPCONSOLEUI_DIAGNOSTICS_SOCKET=1` picks a path for you, under `$XDG_RUNTIME_DIR` with
@@ -143,7 +143,7 @@ comes back without one.
 | Verb | What it answers |
 |------|-----------------|
 | `snapshot` | What is on the screen, as text |
-| `png` | What is on the screen, as an image |
+| `image` | What is on the screen, as a PNG, TGA or JPEG |
 | `windows` | What windows exist, in z-order |
 | `tree` | What the layout engine believes |
 | `focus` | Where keyboard input will go |
@@ -199,19 +199,26 @@ returning nothing would read as "that area is blank", which is a different answe
 
 ---
 
-## png
+## image
 
 A screenshot, with real text.
 
 ```json
-{"cmd":"png"}                                    → inline base64url
-{"cmd":"png","path":"/tmp/shot.png"}             → written to disk
-{"cmd":"png","composed":true,"cellHeight":24}    → the whole desktop, larger
-{"cmd":"png","glyphs":false}                     → colour blocks only, no font needed
+{"cmd":"image"}                                    → PNG, inline base64url
+{"cmd":"image","path":"/tmp/shot.png"}             → written to disk
+{"cmd":"image","composed":true,"cellHeight":24}    → the whole desktop, larger
+{"cmd":"image","glyphs":false}                     → colour blocks only, no font needed
+{"cmd":"image","format":"tga"}                     → fast to encode, large
+{"cmd":"image","format":"jpeg","quality":75}       → lossy, small
 ```
+
+The reply always names what it produced in its own `format` field, so a client picking a
+file extension or a decoder reads that rather than inferring it from the request.
 
 | Field | Default | Meaning |
 |-------|---------|---------|
+| `format` | `"png"` | `png`, `tga` or `jpeg`. |
+| `quality` | `90` | 1--100, JPEG only. Out of range is an error, not a clamp. |
 | `path` | *(none)* | Write to a file instead of returning bytes. |
 | `cellHeight` | `16` | Pixels per cell vertically. |
 | `cellWidth` | *(font advance)* | Pixels per cell horizontally. |
@@ -231,6 +238,20 @@ prompt does not already cover, which is why you have to ask for it.
 The inline field is **base64url** (`-` and `_`). Plain base64 would be escaped by
 `System.Text.Json` -- `+` becomes `+` -- which inflates the reply and breaks a client
 that slices the field out by hand.
+
+### Which format
+
+Measured on a 174x50 desktop at 8x16, encoding the same pixels:
+
+| Format | Encode | Size | Use it for |
+|---|---|---|---|
+| `png` | 70 ms | 50 KB | Everything, unless you have a reason. The only deterministic one. |
+| `tga` | 4 ms | 569 KB | Streaming frames over a local socket, where encode time bounds the frame rate. |
+| `jpeg` | 9 ms (q75) | 113 KB | Attachments, and surfaces carrying an image or a gradient. |
+
+PNG is smallest because terminal output is flat colour, which deflate handles best. The
+reply always names what it produced in its `format` field, so a client never has to infer
+it. Only PNG is byte-identical run to run, so golden-image comparison stays on PNG.
 
 ### Fonts
 
@@ -300,7 +321,7 @@ it many times a second.
 Pair it with `sinceFrame` and an unchanged screen costs almost nothing:
 
 ```json
-{"cmd":"png","composed":true,"sinceFrame":1204}
+{"cmd":"image","composed":true,"sinceFrame":1204}
   →  {"ok":true,"unchanged":true,"frame":1204}      // 29 bytes
   →  {"ok":true,"frame":1211,"bytes":6322,...}      // a real frame
 ```
@@ -308,7 +329,7 @@ Pair it with `sinceFrame` and an unchanged screen costs almost nothing:
 The short-circuit happens before a font is loaded or a buffer is touched, so the idle case
 is genuinely cheap rather than merely smaller. A full 120x40 desktop is around 130 KB; at
 10fps that is 1.3 MB/s of mostly identical pixels, and a TUI is idle between keystrokes.
-Every `png` reply carries `frame`, so a client tracks it without a second call.
+Every `image` reply carries `frame`, so a client tracks it without a second call.
 
 **The count only ever increases**, including across a resize - which rebuilds the console
 buffer underneath. It is a 64-bit value, because a 32-bit one at 60fps wraps in about
@@ -435,7 +456,7 @@ console buffer, so it is off by default -- a probe should not silently change th
 performance profile of the app it is measuring.
 
 **`composed: true` does not need it.** The driver keeps the composed desktop permanently
-anyway, because the diff engine needs it, so `snapshot` and `png` read that directly and
+anyway, because the diff engine needs it, so `snapshot` and `image` read that directly and
 cost one copy per capture. The exception is `RenderMode.Direct`, which keeps no buffer at
 all; capture a window instead.
 
@@ -451,7 +472,7 @@ var options = ConsoleWindowSystemOptions.Create() with
 If an app was built **without** it, the recorder is never created and no verb can conjure
 it, so `metrics` returns an error naming the switch rather than reporting zeroes.
 
-Every other verb works regardless. Per-window `snapshot` and `png` read the window's own
+Every other verb works regardless. Per-window `snapshot` and `image` read the window's own
 render buffer, and `composed` reads the driver's -- both exist because the renderer needs
 them.
 
@@ -490,7 +511,7 @@ Input is asynchronous. A verb replies as soon as the event is queued, so a `snap
 immediately afterwards can show the screen *before* the key took effect - intermittently,
 which is the worst kind of test failure.
 
-The fix is to watch the frame counter, which `frame` reports and every `png` reply carries:
+The fix is to watch the frame counter, which `frame` reports and every `image` reply carries:
 
 ```bash
 before=$(ask '{"cmd":"frame"}' | jq .frame)
@@ -584,7 +605,7 @@ a frame loop of its own, use `BeginHosted()` and call `Tick()` yourself instead 
 Why this is worth the setup: most TUI test tooling drives a pty and scrapes text, so you end up
 testing what the *terminal* did, not what the framework decided. Here the app runs with no
 terminal, you drive it through the real input path, and you can ask three independent questions
-— `snapshot` (what it shows), `tree` (what layout believes) and `png` (what it looks like).
+— `snapshot` (what it shows), `tree` (what layout believes) and `image` (what it looks like).
 **When those three disagree, the disagreement is the bug.**
 
 ---
@@ -593,11 +614,11 @@ terminal, you drive it through the real input path, and you can ask three indepe
 
 ### Golden-image regression
 
-`png` output is deterministic: the same UI at the same size and cell size produces
+PNG output is deterministic: the same UI at the same size and cell size produces
 byte-identical PNG bytes. So a hash is a regression test.
 
 ```bash
-ask '{"cmd":"png","composed":true,"fontSource":"embedded","path":"/tmp/now.png"}' > /dev/null
+ask '{"cmd":"image","composed":true,"fontSource":"embedded","path":"/tmp/now.png"}' > /dev/null
 sha256sum /tmp/now.png | cut -d' ' -f1 > /tmp/now.sha
 diff /tmp/now.sha testdata/golden/main-screen.sha || {
     echo "UI changed — review /tmp/now.png"
@@ -625,7 +646,7 @@ for size in "40 12" "80 24" "200 60"; do
     set -- $size
     ask "{\"cmd\":\"size\",\"w\":$1,\"h\":$2}"
     sleep 0.2                     # let the relayout land
-    ask "{\"cmd\":\"png\",\"composed\":true,\"path\":\"/tmp/layout-$1x$2.png\"}"
+    ask "{\"cmd\":\"image\",\"composed\":true,\"path\":\"/tmp/layout-$1x$2.png\"}"
 done
 ```
 
@@ -676,7 +697,7 @@ ask '{"cmd":"tree","depth":3,"props":true}'               # is the button even l
 ask '{"cmd":"set","logLevel":"Trace"}'
 ask '{"cmd":"mouse","x":40,"y":25}'                       # click it for real
 ask '{"cmd":"logs","count":30}'                           # what did that do?
-ask '{"cmd":"png","path":"/tmp/after.png"}'               # and what does it look like now?
+ask '{"cmd":"image","path":"/tmp/after.png"}'             # and what does it look like now?
 ```
 
 `tree` is often the one that answers it: a control with a zero-width arranged rectangle is
