@@ -74,7 +74,7 @@ Exposes the window's internal renderer for accessing rendering internals.
 public WindowRenderer? Renderer { get; }
 ```
 
-### 2. WindowRenderer.Buffer Property
+### 2. Window.Buffer Property
 
 Provides direct access to the character buffer.
 
@@ -84,7 +84,7 @@ public CharacterBuffer? Buffer { get; }
 
 **CAUTION**: Direct buffer manipulation should only be done via the `PostBufferPaint` event to avoid race conditions. Reading is safe at any time.
 
-### 3. WindowRenderer.PreBufferPaint Event
+### 3. Window.PreBufferPaint Event
 
 Event that fires after the buffer is cleared but before controls are painted. Ideal for custom backgrounds.
 
@@ -107,7 +107,7 @@ public event BufferPaintDelegate? PreBufferPaint;
 - Custom window backgrounds
 - Full-buffer graphics that controls render ON TOP of
 
-### 4. WindowRenderer.PostBufferPaint Event
+### 4. Window.PostBufferPaint Event
 
 Event that fires after painting controls but before converting to ANSI strings.
 
@@ -164,7 +164,7 @@ public class MyWindow : Window
         Title = "Effect Demo";
 
         // Subscribe to post-paint event
-        Renderer.PostBufferPaint += ApplyMyEffect;
+        PostBufferPaint += ApplyMyEffect;
     }
 
     private void ApplyMyEffect(CharacterBuffer buffer, LayoutRect dirtyRegion, LayoutRect clipRect)
@@ -302,7 +302,7 @@ private void DrawFocusGlow(CharacterBuffer buffer, LayoutRect dirtyRegion, Layou
     var focusedControl = GetFocusedControl();
     if (focusedControl == null) return;
 
-    var layoutNode = Renderer.GetLayoutNode(focusedControl);
+    var layoutNode = GetLayoutNode(focusedControl);
     if (layoutNode == null) return;
 
     var bounds = layoutNode.AbsoluteBounds;
@@ -380,7 +380,7 @@ public void StartRecording()
 {
     _frames.Clear();
 
-    Renderer.PostBufferPaint += (buffer, dirtyRegion, clipRect) =>
+    PostBufferPaint += (buffer, dirtyRegion, clipRect) =>
     {
         _frames.Add(buffer.CreateSnapshot());
     };
@@ -388,7 +388,7 @@ public void StartRecording()
 
 public void StopRecording()
 {
-    Renderer.PostBufferPaint -= RecordFrame;
+    PostBufferPaint -= RecordFrame;
     // Process _frames (save as animated GIF, video, etc.)
 }
 ```
@@ -532,7 +532,7 @@ public class MyWindow : Window
 {
     public MyWindow(ConsoleWindowSystem windowSystem) : base(windowSystem)
     {
-        Renderer.PostBufferPaint += ApplyEffect;
+        PostBufferPaint += ApplyEffect;
         OnClosing += (s, e) => Cleanup();
     }
 
@@ -540,7 +540,7 @@ public class MyWindow : Window
     {
         if (Renderer != null)
         {
-            Renderer.PostBufferPaint -= ApplyEffect;
+            PostBufferPaint -= ApplyEffect;
         }
     }
 }
@@ -865,7 +865,7 @@ canvas.Paint += (sender, e) =>
 };
 
 // Window-level fade effect on top
-window.Renderer.PostBufferPaint += (buffer, dirty, clip) =>
+window.PostBufferPaint += (buffer, dirty, clip) =>
 {
     // Fade the entire window including the canvas
     for (int y = dirty.Top; y < dirty.Bottom; y++)

@@ -566,14 +566,14 @@ public bool RebuildContentBuffer(...)
 **API:**
 ```csharp
 // Pre-paint: custom backgrounds (controls render on top)
-window.Renderer.PreBufferPaint += (buffer, dirtyRegion, clipRect) =>
+window.PreBufferPaint += (buffer, dirtyRegion, clipRect) =>
 {
     // Draw animated fractal or pattern
     RenderFractal(buffer);
 };
 
 // Post-paint: effects applied to final content
-window.Renderer.PostBufferPaint += (buffer, dirtyRegion, clipRect) =>
+window.PostBufferPaint += (buffer, dirtyRegion, clipRect) =>
 {
     // Apply fade or blur effect
     ApplyFadeEffect(buffer, _fadeProgress);

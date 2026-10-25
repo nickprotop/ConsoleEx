@@ -5,8 +5,8 @@ A window, a region of one, or the whole desktop, as an image or as text.
 ```csharp
 using SharpConsoleUI.Surfaces;
 
-File.WriteAllBytes("window.png", window.Surface().ToPng());
-File.WriteAllText("window.txt", window.Surface().ToText());
+File.WriteAllBytes("window.png", window.CaptureSurface().ToPng());
+File.WriteAllText("window.txt", window.CaptureSurface().ToText());
 ```
 
 That is the whole API for the common case. Everything else is the same two calls with a
@@ -22,7 +22,7 @@ is the one read lens over all of them, so an exporter is written once instead of
 source.
 
 ```csharp
-window.Surface()                 // a window's painted buffer
+window.CaptureSurface()                 // a window's painted buffer
 snapshot.AsSurface()             // a BufferSnapshot, captured earlier
 system.ComposedSurface()         // the whole desktop, every window stacked
 ```
@@ -64,8 +64,8 @@ being re-specified for each one.
 ```csharp
 var box = new LayoutRect(X: 2, Y: 11, Width: 27, Height: 3);
 
-window.Surface().Crop(box).ToPng();
-window.Surface().Crop(box).ToText(TextFormat.Ansi);
+window.CaptureSurface().Crop(box).ToPng();
+window.CaptureSurface().Crop(box).ToText(TextFormat.Ansi);
 ```
 
 A region that only partly overlaps is **clamped**, and the result reports its own clamped
@@ -94,7 +94,7 @@ surface.ToText(TextFormat.Markup)
 screen, a test baseline.
 
 ```csharp
-string captured = window.Surface().ToText(TextFormat.Markup);
+string captured = window.CaptureSurface().ToText(TextFormat.Markup);
 // ... later, or in another program
 var control = new MarkupControl(captured.Split('\n').ToList());
 ```
@@ -163,7 +163,7 @@ bytes. That makes a hash a regression test.
 
 ```csharp
 var options = new ExportOptions { FontSource = FontSource.Embedded, CellHeight = 16 };
-byte[] actual = window.Surface().ToPng(options);
+byte[] actual = window.CaptureSurface().ToPng(options);
 
 Assert.Equal(File.ReadAllBytes("testdata/golden/settings.png"), actual);
 ```
@@ -193,7 +193,7 @@ BuildYourUI(ws);
 using var session = ws.BeginHosted();
 for (int i = 0; i < 10; i++) session.Tick();   // let it settle
 
-byte[] png = theWindow.Surface().ToPng(
+byte[] png = theWindow.CaptureSurface().ToPng(
     new ExportOptions { FontSource = FontSource.Embedded });
 ```
 

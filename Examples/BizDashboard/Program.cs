@@ -21,7 +21,7 @@ using SharpConsoleUI.Rendering;
 
 namespace BizDashboard;
 
-internal class Program
+public class Program
 {
 	static int Main(string[] args)
 	{
@@ -47,7 +47,16 @@ internal class Program
 		}
 	}
 
-	private static void CreateMainWindow(ConsoleWindowSystem ws)
+	/// <summary>
+	/// Builds the dashboard into a window system.
+	/// </summary>
+	/// <param name="ws">The system to build into.</param>
+	/// <remarks>
+	/// Public so another host can present this same application - the WebHost example runs
+	/// it headless and serves it to a browser. The UI is built once and lives here; a host
+	/// supplies the driver and the loop.
+	/// </remarks>
+	public static void CreateMainWindow(ConsoleWindowSystem ws)
 	{
 		var gradient = ColorGradient.FromColors(
 			new Color(10, 14, 26),

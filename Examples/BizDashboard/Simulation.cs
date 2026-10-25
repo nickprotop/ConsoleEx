@@ -2,9 +2,12 @@
 // BizDashboard — deterministic analytics simulation.
 //
 // Drives ONLY the Sales-page KPIs + revenue chart from a single reproducible
-// walk (sines + a counter, NO System.Random). Runs on the WINDOW's async
-// thread, so control mutations happen on the UI thread and re-render via the
-// reactive invalidation path — no manual invalidation, no marshalling.
+// walk (sines + a counter, NO System.Random). Runs on the window's async
+// thread, which is a BACKGROUND thread (WithAsyncWindowThread; the on-UI
+// variant is WithWindowThreadOnUI). The SetContent calls below are safe from
+// there because a control property setter self-invalidates and invalidation is
+// thread-safe — so no manual Invalidate and no marshalling. Touching window or
+// container STRUCTURE from here would need EnqueueOnUIThread.
 //
 // The Point of Sale page is interaction-driven and is NOT simulated.
 // -----------------------------------------------------------------------

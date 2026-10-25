@@ -779,12 +779,12 @@ canvas.CanvasMouseClick += (sender, e) => {
 ### Buffer Paint Hooks
 ```csharp
 // PreBufferPaint - Custom backgrounds
-window.Renderer.PreBufferPaint += (buffer, dirty, clip) => {
+window.PreBufferPaint += (buffer, dirty, clip) => {
     // Render background before controls
 };
 
 // PostBufferPaint - Post-processing effects
-window.Renderer.PostBufferPaint += (buffer, dirty, clip) => {
+window.PostBufferPaint += (buffer, dirty, clip) => {
     // Apply effects after controls render
 };
 ```
