@@ -420,6 +420,129 @@ public class PixelSurfaceTests
 
 	#endregion
 
+	#region The canvas's own surface
+
+	[Fact]
+	public void ACanvasAllocatesNoSurfaceUntilAsked()
+	{
+		// Opt-in: a canvas that only draws text must not pay for a pixel grid.
+		var canvas = new SharpConsoleUI.Controls.CanvasControl
+		{
+			AutoSize = false, CanvasWidth = 20, CanvasHeight = 10,
+		};
+
+		Assert.False(canvas.HasPixelSurface);
+	}
+
+	[Fact]
+	public void AskingForPixelsCreatesAndSizesThem()
+	{
+		var canvas = new SharpConsoleUI.Controls.CanvasControl
+		{
+			AutoSize = false, CanvasWidth = 20, CanvasHeight = 10,
+		};
+
+		var px = canvas.Pixels;
+
+		Assert.True(canvas.HasPixelSurface);
+		Assert.Equal(20, px.Width);
+		Assert.Equal(20, px.Height);   // 10 rows x 2
+	}
+
+	[Fact]
+	public void TheSurfaceIsResizedWithTheCanvas()
+	{
+		// The step easiest to forget by hand, and the reason this property exists.
+		var canvas = new SharpConsoleUI.Controls.CanvasControl
+		{
+			AutoSize = false, CanvasWidth = 20, CanvasHeight = 10,
+		};
+		_ = canvas.Pixels;
+
+		canvas.CanvasWidth = 40;
+		canvas.CanvasHeight = 6;
+
+		Assert.Equal(40, canvas.Pixels.Width);
+		Assert.Equal(12, canvas.Pixels.Height);
+	}
+
+	[Fact]
+	public void TheSameSurfaceComesBackEachTime()
+	{
+		var canvas = new SharpConsoleUI.Controls.CanvasControl
+		{
+			AutoSize = false, CanvasWidth = 8, CanvasHeight = 4,
+		};
+
+		Assert.Same(canvas.Pixels, canvas.Pixels);
+	}
+
+	[Fact]
+	public void PresentPixelsWritesIntoTheCanvas()
+	{
+		var canvas = new SharpConsoleUI.Controls.CanvasControl
+		{
+			AutoSize = false, CanvasWidth = 6, CanvasHeight = 3,
+		};
+
+		canvas.Pixels.Fill(Color.Red);
+		canvas.PresentPixels(Color.Black);
+
+		var g = canvas.BeginPaint();
+		try
+		{
+			Assert.Equal(Color.Red, g.GetCell(0, 0).Background);
+		}
+		finally
+		{
+			canvas.EndPaint();
+		}
+	}
+
+	[Fact]
+	public void PresentPixelsDoesNothingWhenThereIsNoSurface()
+	{
+		// Must not allocate one just to present an empty grid over the canvas.
+		var canvas = new SharpConsoleUI.Controls.CanvasControl
+		{
+			AutoSize = false, CanvasWidth = 6, CanvasHeight = 3,
+		};
+
+		canvas.PresentPixels(Color.Black);
+
+		Assert.False(canvas.HasPixelSurface);
+	}
+
+	[Fact]
+	public void AStandaloneSurfaceStillPresentsIntoAnyCanvas()
+	{
+		// The convenience must not become the only way: both games allocate their
+		// own, and one presents with a shake offset.
+		var canvas = new SharpConsoleUI.Controls.CanvasControl
+		{
+			AutoSize = false, CanvasWidth = 6, CanvasHeight = 3,
+		};
+
+		var mine = new PixelSurface();
+		mine.EnsureSize(6, 3);
+		mine.Fill(Color.Blue);
+
+		var g = canvas.BeginPaint();
+		try
+		{
+			mine.Present(g, Color.Black);
+			Assert.Equal(Color.Blue, g.GetCell(0, 0).Background);
+		}
+		finally
+		{
+			canvas.EndPaint();
+		}
+
+		Assert.False(canvas.HasPixelSurface);   // the canvas never made its own
+	}
+
+	#endregion
+
 	#region Colour helpers
 
 	[Theory]

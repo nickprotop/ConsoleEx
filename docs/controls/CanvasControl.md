@@ -248,23 +248,45 @@ paints it with `▀` — foreground the top pixel, background the bottom. The pi
 come out nearly square, the vertical resolution doubles, and you draw in colours
 rather than characters.
 
+The canvas can own one for you — lazily, so a canvas that only draws text pays nothing:
+
 ```csharp
 using SharpConsoleUI.Drawing;
 
+canvas.Paint += (_, e) =>
+{
+    var px = canvas.Pixels;        // created on first use, always the right size
+    px.Fill(background);
+
+    px.FillCircle(20, 14, 6, Color.Red);
+    px.Glow(20, 14, 12, Color.Red, 0.4);
+    px.TextCentered(2, "[bold]Signal[/]", Color.White);
+
+    canvas.PresentPixels(background);
+};
+```
+
+`canvas.Pixels` resizes itself to the canvas on every read, which is the step easiest to
+forget and the one whose units are easiest to get wrong — `EnsureSize` takes **cells**, and
+the surface is twice as tall in pixels.
+
+That is a convenience, not the only way. `PixelSurface` is an ordinary type: allocate your
+own, size it to a region rather than the whole canvas, keep several, and present any of them
+into any canvas:
+
+```csharp
 private readonly PixelSurface _surface = new();
 
 void Render(CanvasGraphics g)
 {
     _surface.EnsureSize(g.Width, g.Height);   // in CELLS; the surface is 2x as tall
     _surface.Fill(background);
-
     _surface.FillCircle(20, 14, 6, Color.Red);
-    _surface.Glow(20, 14, 12, Color.Red, 0.4);
-    _surface.TextCentered(2, "[bold]Signal[/]", Color.White);
-
-    _surface.Present(g, background);          // composite into the canvas
+    _surface.Present(g, background);
 }
 ```
+
+Both example games do exactly that, because one of them presents with a screen-shake offset.
 
 Use it for charts and sparklines at double detail, heat maps, waveforms, images,
 gauges, and games. Use `CanvasGraphics` for anything whose content is text —
@@ -287,6 +309,9 @@ labels, boxes, tables, diagrams made of box-drawing characters.
 | `Dim(amount)` / `Desaturate(amount)` | Darken, or pull towards grey. |
 | `Present(g, voidColor)` | Composite into a canvas. |
 | `Present(g, offsetX, offsetY, voidColor)` | The same, displaced — see below. |
+
+On the control: `Pixels` (lazy, auto-sized), `HasPixelSurface` (asks without allocating),
+`PresentPixels(voidColor)` and `PresentPixels(offsetX, offsetY, voidColor)`.
 | `Lerp(a, b, t)` / `Scale(c, k)` *(static)* | Colour helpers. |
 
 ### Text over pixels
