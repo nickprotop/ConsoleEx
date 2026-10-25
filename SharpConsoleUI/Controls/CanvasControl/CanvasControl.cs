@@ -238,7 +238,43 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Fires when the canvas is left-clicked, with canvas-local coordinates.
 		/// </summary>
+		/// <remarks>
+		/// A click is reported on RELEASE. When the press itself is the event that
+		/// matters - a fire button, a drag handle, starting a selection - use
+		/// <see cref="CanvasMouseDown"/>, which fires the moment the button goes
+		/// down.
+		/// </remarks>
 		public event EventHandler<CanvasMouseEventArgs>? CanvasMouseClick;
+
+		/// <summary>
+		/// Fires the moment the left button goes down, with canvas-local coordinates.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// <see cref="CanvasMouseClick"/> is reported on release, which is the right
+		/// default for a button but feels late for anything that should respond to
+		/// the press: a game's fire control, the start of a drag, or painting a
+		/// stroke. This fires on the press instead.
+		/// </para>
+		/// <para>
+		/// Press, release and click arrive as separate events, so a full press and
+		/// release raises <see cref="CanvasMouseDown"/>, then
+		/// <see cref="CanvasMouseUp"/>, then <see cref="CanvasMouseClick"/>. Handle
+		/// one or the other, not both, unless you want the action twice.
+		/// </para>
+		/// </remarks>
+		public event EventHandler<CanvasMouseEventArgs>? CanvasMouseDown;
+
+		/// <summary>
+		/// Fires when the left button is released over the canvas, with canvas-local
+		/// coordinates.
+		/// </summary>
+		/// <remarks>
+		/// The other half of <see cref="CanvasMouseDown"/>: together they bracket a
+		/// drag. A release that completes a click is also followed by
+		/// <see cref="CanvasMouseClick"/>.
+		/// </remarks>
+		public event EventHandler<CanvasMouseEventArgs>? CanvasMouseUp;
 
 		/// <summary>
 		/// Fires when the mouse moves over the canvas, with canvas-local coordinates.
@@ -312,6 +348,8 @@ namespace SharpConsoleUI.Controls
 		{
 			Paint = null;
 			CanvasMouseClick = null;
+			CanvasMouseDown = null;
+			CanvasMouseUp = null;
 			CanvasMouseMove = null;
 			CanvasMouseRightClick = null;
 			CanvasKeyPressed = null;

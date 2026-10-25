@@ -46,6 +46,37 @@ namespace SharpConsoleUI.Controls
 			bool inBounds = canvasX >= 0 && canvasX < _canvasWidth
 				&& canvasY >= 0 && canvasY < _canvasHeight;
 
+			// Press and release come before the click check. They are separate flags
+			// arriving on separate frames, not components of a click, so none of the
+			// three swallows another.
+			//
+			// Each is consumed ONLY when something is listening. An unsubscribed
+			// press must fall through untouched or it would silently break dragging
+			// a window by a canvas that never asked for press events - the common
+			// case, since these two events are new and most canvases use clicks.
+			if (args.HasFlag(MouseFlags.Button1Pressed))
+			{
+				if (!inBounds || CanvasMouseDown == null) return false;
+
+				CanvasMouseDown.Invoke(this, new CanvasMouseEventArgs(canvasX, canvasY, args));
+
+				// Focus on the press as well as the click: a control that acts on the
+				// press should take the keyboard with it rather than waiting for a
+				// release that may land somewhere else.
+				this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+				args.Handled = true;
+				return true;
+			}
+
+			if (args.HasFlag(MouseFlags.Button1Released))
+			{
+				if (!inBounds || CanvasMouseUp == null) return false;
+
+				CanvasMouseUp.Invoke(this, new CanvasMouseEventArgs(canvasX, canvasY, args));
+				args.Handled = true;
+				return true;
+			}
+
 			if (args.HasFlag(MouseFlags.Button1Clicked))
 			{
 				MouseClick?.Invoke(this, args);

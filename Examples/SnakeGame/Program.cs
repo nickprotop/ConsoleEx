@@ -22,6 +22,7 @@ using SharpConsoleUI;
 using SharpConsoleUI.Animation;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
@@ -106,7 +107,7 @@ internal static class Program
 		private readonly Renderer _renderer = new();
 		private readonly Hud _hud = new();
 		private readonly MouseInput _mouse = new();
-		private readonly GameCanvas _canvas;
+		private readonly CanvasControl _canvas;
 		private readonly int _startingHighScore;
 		private bool _crt;
 		private double _fps;
@@ -118,7 +119,7 @@ internal static class Program
 			_game = new Game(_startingHighScore);
 			_game.Notify += OnGameEvent;
 
-			_canvas = new GameCanvas
+			_canvas = new CanvasControl
 			{
 				HorizontalAlignment = HorizontalAlignment.Stretch,
 				VerticalAlignment = VerticalAlignment.Fill,
@@ -127,7 +128,7 @@ internal static class Program
 			};
 			// Mouse events arrive on the input thread: only record them here.
 			_canvas.CanvasMouseMove += (_, e) => _mouse.Moved(e.CanvasX, e.CanvasY);
-			_canvas.PrimaryPressed += (x, y) => _mouse.Pressed(x, y);
+			_canvas.CanvasMouseDown += (_, e) => _mouse.Pressed(e.CanvasX, e.CanvasY);
 		}
 
 		public void Show()
