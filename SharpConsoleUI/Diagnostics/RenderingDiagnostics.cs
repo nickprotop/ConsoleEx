@@ -19,6 +19,26 @@ namespace SharpConsoleUI.Diagnostics;
 /// </summary>
 public class RenderingDiagnostics
 {
+	/// <summary>
+	/// Guards every dictionary below, and <see cref="_frameNumber"/>.
+	/// </summary>
+	/// <remarks>
+	/// The render thread writes these each frame while other threads read them: the
+	/// diagnostics socket serves <c>snapshot</c> and <c>image</c> from
+	/// <see cref="LastConsoleSnapshot"/> on a socket thread, and tests read metrics from
+	/// their own. A plain <see cref="Dictionary{TKey, TValue}"/> enumerated while another
+	/// thread adds to it throws, which is exactly how this surfaced - a full test run
+	/// failing inside <see cref="CleanupOldFramesLocked"/> roughly one run in two.
+	/// <para>
+	/// One lock rather than six concurrent dictionaries, because the operations that matter
+	/// span several of them: a cleanup pass must not be half-applied when a reader looks,
+	/// and <see cref="LatestBufferSnapshotLocked"/> scanning for the highest key has no
+	/// meaningful answer while keys are being removed. Contention is not a concern - a frame
+	/// holds it for the length of a dictionary insert.
+	/// </para>
+	/// </remarks>
+	private readonly object _gate = new();
+
 	private int _frameNumber = 0;
 	private readonly int _retainFrames;
 	private readonly DiagnosticsLayers _enabledLayers;
@@ -49,7 +69,7 @@ public class RenderingDiagnostics
 	/// <summary>
 	/// Gets the current frame number.
 	/// </summary>
-	public int CurrentFrameNumber => _frameNumber;
+	public int CurrentFrameNumber { get { lock (_gate) return _frameNumber; } }
 
 	/// <summary>
 	/// Gets the most recent CharacterBuffer snapshot. Falls back to the latest earlier frame that
@@ -57,33 +77,56 @@ public class RenderingDiagnostics
 	/// <c>UpdateDisplay()</c> that advanced the frame counter without repainting), so callers always
 	/// see the last painted screen rather than a transient null.
 	/// </summary>
-	public CharacterBufferSnapshot? LastBufferSnapshot =>
-		GetSnapshot<CharacterBufferSnapshot>(_frameNumber) ?? GetLatestBufferSnapshot();
+	public CharacterBufferSnapshot? LastBufferSnapshot
+	{
+		get
+		{
+			lock (_gate)
+			{
+				return _bufferSnapshots.GetValueOrDefault(_frameNumber) ?? LatestBufferSnapshotLocked();
+			}
+		}
+	}
 
 	/// <summary>
 	/// Gets the most recent ANSI lines snapshot.
 	/// </summary>
-	public AnsiLinesSnapshot? LastAnsiSnapshot => GetSnapshot<AnsiLinesSnapshot>(_frameNumber);
+	public AnsiLinesSnapshot? LastAnsiSnapshot
+	{
+		get { lock (_gate) return _ansiSnapshots.GetValueOrDefault(_frameNumber); }
+	}
 
 	/// <summary>
 	/// Gets the most recent ConsoleBuffer snapshot.
 	/// </summary>
-	public ConsoleBufferSnapshot? LastConsoleSnapshot => GetSnapshot<ConsoleBufferSnapshot>(_frameNumber);
+	public ConsoleBufferSnapshot? LastConsoleSnapshot
+	{
+		get { lock (_gate) return _consoleSnapshots.GetValueOrDefault(_frameNumber); }
+	}
 
 	/// <summary>
 	/// Gets the most recent output snapshot.
 	/// </summary>
-	public RenderOutputSnapshot? LastOutputSnapshot => GetSnapshot<RenderOutputSnapshot>(_frameNumber);
+	public RenderOutputSnapshot? LastOutputSnapshot
+	{
+		get { lock (_gate) return _outputSnapshots.GetValueOrDefault(_frameNumber); }
+	}
 
 	/// <summary>
 	/// Gets the most recent metrics.
 	/// </summary>
-	public RenderingMetrics? LastMetrics => GetMetrics(_frameNumber);
+	public RenderingMetrics? LastMetrics
+	{
+		get { lock (_gate) return _metricsHistory.GetValueOrDefault(_frameNumber); }
+	}
 
 	/// <summary>
 	/// Gets the most recent quality report.
 	/// </summary>
-	public QualityReport? LastQualityReport => GetQualityReport(_frameNumber);
+	public QualityReport? LastQualityReport
+	{
+		get { lock (_gate) return _qualityReports.GetValueOrDefault(_frameNumber); }
+	}
 
 	/// <summary>
 	/// Creates a new RenderingDiagnostics instance.
@@ -103,8 +146,11 @@ public class RenderingDiagnostics
 	{
 		if (!IsEnabled) return;
 
-		_frameNumber++;
-		CleanupOldFrames();
+		lock (_gate)
+		{
+			_frameNumber++;
+			CleanupOldFramesLocked();
+		}
 	}
 
 	/// <summary>
@@ -133,18 +179,21 @@ public class RenderingDiagnostics
 			dirtyRegion = new LayoutRect(minX, minY, maxX - minX, maxY - minY);
 		}
 
-		var snapshot = new CharacterBufferSnapshot
+		// The frame number is read and the entry written under one lock, so a snapshot's
+		// FrameNumber always matches the key it is filed under.
+		lock (_gate)
 		{
-			Width = buffer.Width,
-			Height = buffer.Height,
-			Cells = cells,
-			DirtyCells = dirtyCellsList,
-			DirtyRegion = dirtyRegion,
-			Timestamp = DateTime.UtcNow,
-			FrameNumber = _frameNumber
-		};
-
-		_bufferSnapshots[_frameNumber] = snapshot;
+			_bufferSnapshots[_frameNumber] = new CharacterBufferSnapshot
+			{
+				Width = buffer.Width,
+				Height = buffer.Height,
+				Cells = cells,
+				DirtyCells = dirtyCellsList,
+				DirtyRegion = dirtyRegion,
+				Timestamp = DateTime.UtcNow,
+				FrameNumber = _frameNumber
+			};
+		}
 	}
 
 	/// <summary>
@@ -165,16 +214,17 @@ public class RenderingDiagnostics
 			totalChars += line.Length;
 		}
 
-		var snapshot = new AnsiLinesSnapshot
+		lock (_gate)
 		{
-			Lines = new List<string>(lines),
-			TotalAnsiEscapes = totalAnsi,
-			TotalCharacters = totalChars,
-			Timestamp = DateTime.UtcNow,
-			FrameNumber = _frameNumber
-		};
-
-		_ansiSnapshots[_frameNumber] = snapshot;
+			_ansiSnapshots[_frameNumber] = new AnsiLinesSnapshot
+			{
+				Lines = new List<string>(lines),
+				TotalAnsiEscapes = totalAnsi,
+				TotalCharacters = totalChars,
+				Timestamp = DateTime.UtcNow,
+				FrameNumber = _frameNumber
+			};
+		}
 	}
 
 	/// <summary>
@@ -211,18 +261,19 @@ public class RenderingDiagnostics
 			}
 		}
 
-		var snapshot = new ConsoleBufferSnapshot
+		lock (_gate)
 		{
-			FrontBuffer = frontCopy,
-			BackBuffer = backCopy,
-			DirtyCells = dirtyCells,
-			Width = width,
-			Height = height,
-			Timestamp = DateTime.UtcNow,
-			FrameNumber = _frameNumber
-		};
-
-		_consoleSnapshots[_frameNumber] = snapshot;
+			_consoleSnapshots[_frameNumber] = new ConsoleBufferSnapshot
+			{
+				FrontBuffer = frontCopy,
+				BackBuffer = backCopy,
+				DirtyCells = dirtyCells,
+				Width = width,
+				Height = height,
+				Timestamp = DateTime.UtcNow,
+				FrameNumber = _frameNumber
+			};
+		}
 	}
 
 	/// <summary>
@@ -236,16 +287,17 @@ public class RenderingDiagnostics
 		// Count cursor moves
 		int cursorMoves = System.Text.RegularExpressions.Regex.Matches(output, @"\x1b\[\d+;\d+H").Count;
 
-		var snapshot = new RenderOutputSnapshot
+		lock (_gate)
 		{
-			FullOutput = output,
-			BytesWritten = output.Length,
-			CursorMoves = cursorMoves,
-			Timestamp = DateTime.UtcNow,
-			FrameNumber = _frameNumber
-		};
-
-		_outputSnapshots[_frameNumber] = snapshot;
+			_outputSnapshots[_frameNumber] = new RenderOutputSnapshot
+			{
+				FullOutput = output,
+				BytesWritten = output.Length,
+				CursorMoves = cursorMoves,
+				Timestamp = DateTime.UtcNow,
+				FrameNumber = _frameNumber
+			};
+		}
 	}
 
 	/// <summary>
@@ -255,19 +307,31 @@ public class RenderingDiagnostics
 	{
 		if (!IsEnabled) return;
 
-		metrics.FrameNumber = _frameNumber;
-		metrics.Timestamp = DateTime.UtcNow;
+		AnsiLinesSnapshot? ansi = null;
+		ConsoleBufferSnapshot? console = null;
+		int frame;
 
-		_metricsHistory[_frameNumber] = metrics;
+		lock (_gate)
+		{
+			frame = _frameNumber;
+			metrics.FrameNumber = frame;
+			metrics.Timestamp = DateTime.UtcNow;
 
-		// Generate quality report if enabled
+			_metricsHistory[frame] = metrics;
+
+			if (_enableQualityAnalysis)
+			{
+				ansi = _ansiSnapshots.GetValueOrDefault(frame);
+				console = _consoleSnapshots.GetValueOrDefault(frame);
+			}
+		}
+
+		// Analysis runs OUTSIDE the lock: it is the one genuinely slow thing here, and it
+		// reads only the two snapshots pulled out above, which are immutable once filed.
 		if (_enableQualityAnalysis)
 		{
-			var ansi = _ansiSnapshots.GetValueOrDefault(_frameNumber);
-			var console = _consoleSnapshots.GetValueOrDefault(_frameNumber);
-
 			var report = _qualityAnalyzer.Analyze(ansi, console, metrics);
-			_qualityReports[_frameNumber] = report;
+			lock (_gate) _qualityReports[frame] = report;
 		}
 	}
 
@@ -276,19 +340,22 @@ public class RenderingDiagnostics
 	/// </summary>
 	public T? GetSnapshot<T>(int frameNumber) where T : class
 	{
-		if (typeof(T) == typeof(CharacterBufferSnapshot))
-			return _bufferSnapshots.GetValueOrDefault(frameNumber) as T;
+		lock (_gate)
+		{
+			if (typeof(T) == typeof(CharacterBufferSnapshot))
+				return _bufferSnapshots.GetValueOrDefault(frameNumber) as T;
 
-		if (typeof(T) == typeof(AnsiLinesSnapshot))
-			return _ansiSnapshots.GetValueOrDefault(frameNumber) as T;
+			if (typeof(T) == typeof(AnsiLinesSnapshot))
+				return _ansiSnapshots.GetValueOrDefault(frameNumber) as T;
 
-		if (typeof(T) == typeof(ConsoleBufferSnapshot))
-			return _consoleSnapshots.GetValueOrDefault(frameNumber) as T;
+			if (typeof(T) == typeof(ConsoleBufferSnapshot))
+				return _consoleSnapshots.GetValueOrDefault(frameNumber) as T;
 
-		if (typeof(T) == typeof(RenderOutputSnapshot))
-			return _outputSnapshots.GetValueOrDefault(frameNumber) as T;
+			if (typeof(T) == typeof(RenderOutputSnapshot))
+				return _outputSnapshots.GetValueOrDefault(frameNumber) as T;
 
-		return null;
+			return null;
+		}
 	}
 
 	/// <summary>
@@ -296,7 +363,8 @@ public class RenderingDiagnostics
 	/// <c>null</c> if no buffer has been captured. Used as a fallback so <see cref="LastBufferSnapshot"/>
 	/// survives trailing no-op frames that advanced the counter without repainting.
 	/// </summary>
-	private CharacterBufferSnapshot? GetLatestBufferSnapshot()
+	/// <remarks>Callers must hold <see cref="_gate"/>: this enumerates the keys.</remarks>
+	private CharacterBufferSnapshot? LatestBufferSnapshotLocked()
 	{
 		if (_bufferSnapshots.Count == 0)
 			return null;
@@ -314,7 +382,7 @@ public class RenderingDiagnostics
 	/// </summary>
 	public RenderingMetrics? GetMetrics(int frameNumber)
 	{
-		return _metricsHistory.GetValueOrDefault(frameNumber);
+		lock (_gate) return _metricsHistory.GetValueOrDefault(frameNumber);
 	}
 
 	/// <summary>
@@ -322,7 +390,7 @@ public class RenderingDiagnostics
 	/// </summary>
 	public QualityReport? GetQualityReport(int frameNumber)
 	{
-		return _qualityReports.GetValueOrDefault(frameNumber);
+		lock (_gate) return _qualityReports.GetValueOrDefault(frameNumber);
 	}
 
 	/// <summary>
@@ -330,7 +398,9 @@ public class RenderingDiagnostics
 	/// </summary>
 	public IReadOnlyList<RenderingMetrics> GetAllMetrics()
 	{
-		return _metricsHistory.Values.OrderBy(m => m.FrameNumber).ToList();
+		// Materialised under the lock. Returning a lazy sequence would enumerate the
+		// dictionary after the lock was released, which is the bug this guards against.
+		lock (_gate) return _metricsHistory.Values.OrderBy(m => m.FrameNumber).ToList();
 	}
 
 	/// <summary>
@@ -338,41 +408,54 @@ public class RenderingDiagnostics
 	/// </summary>
 	public void Clear()
 	{
-		_bufferSnapshots.Clear();
-		_ansiSnapshots.Clear();
-		_consoleSnapshots.Clear();
-		_outputSnapshots.Clear();
-		_metricsHistory.Clear();
-		_qualityReports.Clear();
-		_frameNumber = 0;
+		lock (_gate)
+		{
+			_bufferSnapshots.Clear();
+			_ansiSnapshots.Clear();
+			_consoleSnapshots.Clear();
+			_outputSnapshots.Clear();
+			_metricsHistory.Clear();
+			_qualityReports.Clear();
+			_frameNumber = 0;
+		}
 	}
 
 	/// <summary>
 	/// Removes old frames beyond the retention limit.
 	/// </summary>
-	private void CleanupOldFrames()
+	/// <remarks>Callers must hold <see cref="_gate"/>.</remarks>
+	private void CleanupOldFramesLocked()
 	{
 		if (_retainFrames <= 0) return;
 
 		int oldestFrameToKeep = _frameNumber - _retainFrames;
 
-		// Remove old snapshots
-		foreach (var frame in _bufferSnapshots.Keys.Where(f => f < oldestFrameToKeep).ToList())
-			_bufferSnapshots.Remove(frame);
+		DropFramesBefore(_bufferSnapshots, oldestFrameToKeep);
+		DropFramesBefore(_ansiSnapshots, oldestFrameToKeep);
+		DropFramesBefore(_consoleSnapshots, oldestFrameToKeep);
+		DropFramesBefore(_outputSnapshots, oldestFrameToKeep);
+		DropFramesBefore(_metricsHistory, oldestFrameToKeep);
+		DropFramesBefore(_qualityReports, oldestFrameToKeep);
+	}
 
-		foreach (var frame in _ansiSnapshots.Keys.Where(f => f < oldestFrameToKeep).ToList())
-			_ansiSnapshots.Remove(frame);
+	/// <summary>Drops every entry filed under a frame older than <paramref name="oldest"/>.</summary>
+	/// <remarks>
+	/// The keys are copied before anything is removed, because removing from a dictionary
+	/// invalidates an enumerator over it. Callers must hold <see cref="_gate"/>.
+	/// </remarks>
+	private static void DropFramesBefore<T>(Dictionary<int, T> history, int oldest)
+	{
+		if (history.Count == 0) return;
 
-		foreach (var frame in _consoleSnapshots.Keys.Where(f => f < oldestFrameToKeep).ToList())
-			_consoleSnapshots.Remove(frame);
+		List<int>? stale = null;
+		foreach (int frame in history.Keys)
+		{
+			if (frame >= oldest) continue;
+			(stale ??= new List<int>()).Add(frame);
+		}
 
-		foreach (var frame in _outputSnapshots.Keys.Where(f => f < oldestFrameToKeep).ToList())
-			_outputSnapshots.Remove(frame);
-
-		foreach (var frame in _metricsHistory.Keys.Where(f => f < oldestFrameToKeep).ToList())
-			_metricsHistory.Remove(frame);
-
-		foreach (var frame in _qualityReports.Keys.Where(f => f < oldestFrameToKeep).ToList())
-			_qualityReports.Remove(frame);
+		if (stale == null) return;
+		foreach (int frame in stale)
+			history.Remove(frame);
 	}
 }
