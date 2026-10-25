@@ -164,11 +164,28 @@ ws.AddWindow(window);
 | Method | Description |
 |--------|-------------|
 | `SetNarrowCell(x, y, ch, fg, bg)` | Set a single narrow (width-1) cell. |
+| `SetCell(x, y, cell)` | Write a whole cell, keeping its flags. |
 | `GetCell(x, y)` | Read a cell from the buffer. |
 | `Clear()` | Clear with the canvas background color. |
 | `Clear(bg)` | Clear with a specific color. |
 | `FillRect(x, y, w, h, ch, fg, bg)` | Fill a rectangle with a character and colors. |
 | `FillRect(x, y, w, h, bg)` | Fill a rectangle with a background color. |
+
+**`SetCell` or `SetNarrowCell`?** `SetNarrowCell` takes a `char` and clears every
+flag: use it for literal narrow characters — borders, padding, fill. `SetCell`
+takes a whole `Cell` and preserves the wide-character continuation flag, combining
+marks and decorations: use it for cells that came from `MarkupParser.Parse` or from
+another buffer.
+
+Writing a parsed cell through `SetNarrowCell` loses that information, and the
+damage is silent — a wide glyph renders in one column and shifts everything after
+it, an accent vanishes from its letter. Drawing text yourself:
+
+```csharp
+var cells = MarkupParser.Parse("[bold]漢字[/] ok", fg, bg);
+for (int i = 0; i < cells.Count; i++)
+    g.SetCell(x + i, y, cells[i]);     // cells.Count is already in display columns
+```
 
 ### Text
 

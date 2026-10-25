@@ -62,6 +62,26 @@ namespace SharpConsoleUI.Drawing
 		}
 
 		/// <summary>
+		/// Writes a whole cell, preserving everything it carries.
+		/// </summary>
+		/// <param name="x">The X coordinate in canvas-local space.</param>
+		/// <param name="y">The Y coordinate in canvas-local space.</param>
+		/// <param name="cell">The cell to write.</param>
+		/// <remarks>
+		/// Use this for cells that came from <c>MarkupParser.Parse</c> or from another
+		/// buffer: it keeps the wide-character continuation flag, combining marks and
+		/// decorations, which <see cref="SetNarrowCell"/> deliberately discards.
+		/// Writing a parsed cell through <c>SetNarrowCell</c> renders CJK, emoji and
+		/// accented text incorrectly - see rule 12 in CLAUDE.md.
+		/// </remarks>
+		public void SetCell(int x, int y, Cell cell)
+		{
+			int ax = x + _offsetX, ay = y + _offsetY;
+			if (_clipRect.Contains(ax, ay))
+				_buffer.SetCell(ax, ay, cell);
+		}
+
+		/// <summary>
 		/// Gets the cell at the specified canvas-local position.
 		/// </summary>
 		/// <param name="x">The X coordinate in canvas-local space.</param>
