@@ -263,9 +263,30 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 	/// <summary>
 	/// Simulates a screen resize event.
 	/// </summary>
+	/// <remarks>
+	/// Rebuilds the console buffer BEFORE raising the event, which is the contract
+	/// <see cref="ConsoleWindowSystem"/>'s resize handler relies on - it treats the event
+	/// size as "the size the buffer was just rebuilt with" and lays windows out against it.
+	/// Without the rebuild the driver reports the new size while every rendered frame still
+	/// goes to a buffer of the old one, so a resize appears to succeed and changes nothing.
+	/// </remarks>
 	public void SimulateScreenResize(int width, int height)
 	{
 		_screenSize = new Size(width, height);
+
+		if (_windowSystem != null)
+		{
+			var rebuilt = new ConsoleBuffer(width, height, _windowSystem.Options, _consoleLock)
+			{
+				SuppressConsoleOutput = true,
+			};
+
+			if (_windowSystem.RenderingDiagnostics != null)
+				rebuilt.Diagnostics = _windowSystem.RenderingDiagnostics;
+
+			_consoleBuffer = rebuilt;
+		}
+
 		ScreenResized?.Invoke(this, _screenSize);
 	}
 

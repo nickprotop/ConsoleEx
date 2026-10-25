@@ -1080,13 +1080,20 @@ namespace SharpConsoleUI.Drivers
 			{
 				for (int x = 0; x < _width; x++)
 				{
+					// Carry the grapheme state across, not just the rune: without it a
+					// composed capture truncates an accented letter to its base and cannot
+					// tell a wide glyph's second column from a real cell.
 					frontCopy[x, y] = new Diagnostics.Snapshots.ConsoleCell(
 						_frontBuffer[x, y].Character,
-						_frontBuffer[x, y].AnsiEscape ?? string.Empty);
+						_frontBuffer[x, y].AnsiEscape ?? string.Empty,
+						_frontBuffer[x, y].IsWideContinuation,
+						_frontBuffer[x, y].Combiners);
 
 					backCopy[x, y] = new Diagnostics.Snapshots.ConsoleCell(
 						_backBuffer[x, y].Character,
-						_backBuffer[x, y].AnsiEscape ?? string.Empty);
+						_backBuffer[x, y].AnsiEscape ?? string.Empty,
+						_backBuffer[x, y].IsWideContinuation,
+						_backBuffer[x, y].Combiners);
 				}
 			}
 

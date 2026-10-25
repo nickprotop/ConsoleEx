@@ -81,6 +81,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <!-- The export fallback face. Bitstream Vera licence (permissive, redistribution
+	       allowed); the licence text ships beside it as required. -->
+	  <EmbeddedResource Include="Resources\Fonts\DejaVuSansMono.ttf" />
+	  <EmbeddedResource Include="Resources\Fonts\DejaVuSansMono-LICENSE.txt" />
 	  <EmbeddedResource Include="Resources\Fonts\small.flf" />
 	  <EmbeddedResource Include="Resources\Fonts\standard.flf" />
 	  <EmbeddedResource Include="Resources\Fonts\banner.flf" />

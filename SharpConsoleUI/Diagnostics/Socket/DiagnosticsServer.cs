@@ -12,6 +12,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Surfaces;
 
 namespace SharpConsoleUI.Diagnostics.Socket;
 
@@ -233,6 +234,64 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// focus and window stacking survive; characters do not (see <see cref="DiagnosticsPng"/>
 	/// for why drawing them would be a lie). Returns the bytes inline unless a path is given.
 	/// </remarks>
+	/// <summary>
+	/// Readies the composed desktop for capture, turning recording on if it is merely paused.
+	/// </summary>
+	/// <param name="error">Why no composed surface could be produced.</param>
+	/// <returns>The surface, or null.</returns>
+	/// <remarks>
+	/// Recording is a per-frame deep copy, so it is off by default and a probe should not
+	/// impose it behind the app's back - but when the layer exists and is simply paused,
+	/// turning it on and waiting for a FRESH frame is right. Serving the snapshot already in
+	/// hand would be a picture of the past presented as the present.
+	/// </remarks>
+	private ICellSurface? PrepareComposedSurface(out string? error)
+	{
+		error = null;
+		var diag = _system.RenderingDiagnostics;
+
+		if (diag != null && !diag.IsEnabled &&
+			diag.EnabledLayers.HasFlag(Configuration.DiagnosticsLayers.ConsoleBuffer))
+		{
+			// Note the frame BEFORE enabling, and wait for one captured after this point -
+			// not merely for a snapshot to exist.
+			int before = diag.CurrentFrameNumber;
+			diag.IsEnabled = true;
+
+			bool captured = false;
+			for (int i = 0; i < 40; i++)
+			{
+				if (diag.LastConsoleSnapshot != null && diag.CurrentFrameNumber > before)
+				{
+					captured = true;
+					break;
+				}
+				Thread.Sleep(25);
+			}
+
+			if (!captured)
+			{
+				error = "diagnostics recording was enabled, but no new frame was captured "
+					  + "within 1s - the app may be idle or blocked. Retry, or capture a "
+					  + "window instead, which reads the live buffer directly.";
+				return null;
+			}
+		}
+
+		var shot = diag?.LastConsoleSnapshot;
+		if (shot == null)
+		{
+			error = "no composed buffer: this app runs with EnableDiagnostics off, or "
+				  + "without the ConsoleBuffer layer, so the renderer records nothing. "
+				  + "Capture a window instead - {\"cmd\":\"png\",\"window\":\"<title>\"} - "
+				  + "which needs no diagnostics. To enable composed capture, start the app "
+				  + "with ConsoleWindowSystemOptions.EnableDiagnostics: true.";
+			return null;
+		}
+
+		return shot.AsSurface(_system.Theme);
+	}
+
 	private JsonObject Png(JsonObject req)
 	{
 		int ch = req["cellHeight"]?.GetValue<int>() ?? 16;
@@ -247,7 +306,16 @@ internal sealed class DiagnosticsServer : IDisposable
 		string? fontError = null;
 		if (wantGlyphs)
 		{
-			font = DiagnosticsFont.Load(fontPath, ch, cw, out fontError);
+			// "fontSource": "automatic" (default) | "embedded" | "strict" | "file"
+			var fontSource = req["fontSource"]?.GetValue<string>()?.ToLowerInvariant() switch
+			{
+				"embedded" => Surfaces.FontSource.Embedded,
+				"strict" => Surfaces.FontSource.Strict,
+				"file" => Surfaces.FontSource.File,
+				_ => Surfaces.FontSource.Automatic,
+			};
+
+			font = DiagnosticsFont.Load(fontPath, ch, cw, out fontError, fontSource);
 			if (font == null && fontPath != null)
 				return ErrorBody(fontError!);   // an explicit font that cannot load is an error
 		}
@@ -263,115 +331,42 @@ internal sealed class DiagnosticsServer : IDisposable
 
 		bool composed = req["composed"]?.GetValue<bool>() == true;
 
-		Func<int, int, DiagnosticsPng.CellColor> at;
-		DiagnosticsSerializer.Region clipped;
-		string? regionError;
-		int defaulted = 0;
+		// One surface, whatever the source. Both branches below end at an ICellSurface,
+		// so cropping and rendering are written once instead of once per source.
+		Surfaces.ICellSurface source;
 
 		if (composed)
 		{
-			var diag = _system.RenderingDiagnostics;
-
-			// Composed mode needs the renderer's console-buffer snapshot. When the app was
-			// built with EnableDiagnostics: false the diagnostics object is never created
-			// at all, so there is nothing to switch on from here - capturing a window is
-			// the answer, and it needs no diagnostics. Recording is also a per-frame deep
-			// copy, which a probe should not impose on a running app behind its back.
-			if (diag != null && !diag.IsEnabled &&
-				diag.EnabledLayers.HasFlag(Configuration.DiagnosticsLayers.ConsoleBuffer))
-			{
-				// Note the frame we are on BEFORE enabling. Recording may have been paused
-				// with an old snapshot still in hand, and returning that would be a
-				// screenshot of the past presented as the present - the one failure a
-				// capture tool must not have. So wait for a frame captured after this
-				// point, not merely for a snapshot to exist.
-				int before = diag.CurrentFrameNumber;
-				diag.IsEnabled = true;
-
-				bool captured = false;
-				for (int i = 0; i < 40; i++)
-				{
-					if (diag.LastConsoleSnapshot != null && diag.CurrentFrameNumber > before)
-					{
-						captured = true;
-						break;
-					}
-					Thread.Sleep(25);
-				}
-
-				// Falling through to whatever snapshot happens to be in hand would hand
-				// back a picture of the past as if it were the present. An image that is
-				// silently out of date is worse than no image, so this fails instead.
-				if (!captured)
-				{
-					return ErrorBody(
-						"diagnostics recording was enabled, but no new frame was captured " +
-						"within 1s - the app may be idle or blocked. Retry, or capture a " +
-						"window instead, which reads the live buffer directly.");
-				}
-			}
-
-			var shot = diag?.LastConsoleSnapshot;
-			if (shot == null)
-			{
-				// Composed mode reads the renderer's console-buffer snapshot, which only
-				// exists when the app opted into that layer at construction. It is not
-				// switchable from here by design, so say what to change rather than
-				// leaving the caller to guess.
-				return ErrorBody(
-					"no composed buffer: this app runs with EnableDiagnostics off, or " +
-					"without the ConsoleBuffer layer, so the renderer records nothing. " +
-					"Capture a window instead - {\"cmd\":\"png\",\"window\":\"<title>\"} - " +
-					"which needs no diagnostics. To enable composed capture, start the app " +
-					"with ConsoleWindowSystemOptions.EnableDiagnostics: true.");
-			}
-
-			clipped = region.ClampTo(shot.Width, shot.Height, out regionError);
-			if (regionError != null) return ErrorBody(regionError);
-
-			// The composed buffer stores the EMITTED escape, which may say "terminal
-			// default" rather than a colour. Fall back to the theme and count it.
-			var fallback = _system.Theme.DesktopBackgroundColor ?? _system.Theme.WindowBackgroundColor;
-			int ox = clipped.X ?? 0, oy = clipped.Y ?? 0;
-			var themeFg = _system.Theme.WindowForegroundColor;
-			at = (cx, cy) =>
-			{
-				var raw = shot.GetBack(ox + cx, oy + cy);
-				var c = DiagnosticsPng.ParseBackground(raw.AnsiEscape, fallback);
-				if (c.DefaultedBackground) defaulted++;
-				return c with
-				{
-					Glyph = raw.Character,
-					Foreground = DiagnosticsPng.ParseForeground(raw.AnsiEscape, themeFg),
-				};
-			};
+			var prepared = PrepareComposedSurface(out string? composeError);
+			if (prepared == null) return ErrorBody(composeError!);
+			source = prepared;
 		}
 		else
 		{
 			var window = ResolveWindow(req, out string? err);
 			if (window == null) return ErrorBody(err!);
+			if (window.Buffer == null) return ErrorBody("window has not painted yet");
 
-			var buffer = window.Renderer?.Buffer;
-			if (buffer == null) return ErrorBody("window has not painted yet");
-
-			clipped = region.ClampTo(buffer.Width, buffer.Height, out regionError);
-			if (regionError != null) return ErrorBody(regionError);
-
-			int ox = clipped.X ?? 0, oy = clipped.Y ?? 0;
-			at = (cx, cy) =>
-			{
-				var c = buffer.GetCell(ox + cx, oy + cy);
-				// A wide glyph is drawn from its base cell and overhangs; the continuation
-				// cell must not draw it again.
-				return new DiagnosticsPng.CellColor(
-					c.Background, false,
-					c.IsWideContinuation ? null : c.Character,
-					c.Foreground);
-			};
+			source = window.CaptureSurface();
 		}
 
+		var clipped = region.ClampTo(source.Width, source.Height, out string? regionError);
+		if (regionError != null) return ErrorBody(regionError);
+
+		int rx = clipped.X ?? 0, ry = clipped.Y ?? 0;
 		int rw = clipped.W ?? 0, rh = clipped.H ?? 0;
-		var bytes = DiagnosticsPng.Render(rw, rh, cw, ch, at, font, out string? renderError);
+
+		var cropped = rw == source.Width && rh == source.Height && rx == 0 && ry == 0
+			? source
+			: source.Crop(new Layout.LayoutRect(rx, ry, rw, rh));
+
+		// Count substituted backgrounds so the reply can say the image contains them.
+		int defaulted = 0;
+		for (int y = 0; y < cropped.Height; y++)
+			for (int x = 0; x < cropped.Width; x++)
+				if (cropped[x, y].BackgroundWasDefaulted) defaulted++;
+
+		var bytes = DiagnosticsPng.Render(cropped, cw, ch, font, out string? renderError);
 		if (bytes == null) return ErrorBody(renderError!);
 
 		var body = DiagnosticsPng.Reply(bytes, rw * cw, rh * ch, path);
@@ -380,7 +375,27 @@ internal sealed class DiagnosticsServer : IDisposable
 		body["cols"] = rw;
 		body["rows"] = rh;
 		body["glyphs"] = font != null;
-		if (font != null) body["font"] = font.Path;
+		if (font != null)
+		{
+			body["font"] = font.Path;
+			if (font.FallbacksUsed.Count > 0)
+			{
+				var used = new JsonArray();
+				foreach (string f in font.FallbacksUsed)
+					used.Add((JsonNode?)JsonValue.Create(f));
+				body["fallbackFonts"] = used;
+			}
+
+			// Say which characters no available face could draw, rather than letting a
+			// row of boxes pass for a rendering.
+			if (font.MissingCodepoints.Count > 0)
+			{
+				var missing = new JsonArray();
+				foreach (int cp in font.MissingCodepoints)
+					missing.Add((JsonNode?)JsonValue.Create($"U+{cp:X4}"));
+				body["missingGlyphs"] = missing;
+			}
+		}
 		else if (fontError != null) body["fontNote"] = fontError;
 		body["cell"] = $"{cw}x{ch}";
 		body["composed"] = composed;
@@ -524,6 +539,7 @@ internal sealed class DiagnosticsServer : IDisposable
 		int timeoutMs = req["timeoutMs"]?.GetValue<int>() ?? 2000;
 		var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
 		int frames = 0;
+		bool everAdvanced = false;
 
 		while (DateTime.UtcNow < deadline)
 		{
@@ -531,14 +547,33 @@ internal sealed class DiagnosticsServer : IDisposable
 			Thread.Sleep(32);
 			var after = _system.RenderingDiagnostics?.CurrentFrameNumber ?? 0;
 			frames += Math.Max(0, after - before);
+			if (after > before) everAdvanced = true;
 
 			var m = _system.RenderingDiagnostics?.LastMetrics;
-			if (m != null && m.IsStaticFrame)
+			if (m != null && m.IsStaticFrame && everAdvanced)
 				return new JsonObject { ["settled"] = true, ["framesWaited"] = frames };
 
 			// No diagnostics layers enabled: fall back to "the frame counter stopped moving".
-			if (m == null && after == before)
+			if (m == null && after == before && everAdvanced)
 				return new JsonObject { ["settled"] = true, ["framesWaited"] = frames, ["basis"] = "frameCounter" };
+		}
+
+		// A loop that never advanced is STALLED, not settled. The two are indistinguishable
+		// from the frame counter alone - both look like "nothing is changing" - but they mean
+		// opposite things: settled is "the UI finished", stalled is "nobody is rendering, so
+		// whatever you assert next is about a frozen screen". A host driving ProcessOnce
+		// itself can simply stop calling it, so this is a real state, not a theoretical one.
+		if (!everAdvanced)
+		{
+			return new JsonObject
+			{
+				["settled"] = false,
+				["framesWaited"] = 0,
+				["stalled"] = true,
+				["error"] = "no frame advanced while waiting: the render loop is not running. "
+					+ "A host that drives ProcessOnce itself must keep pumping for the UI to "
+					+ "respond; nothing observed after this point reflects a live screen.",
+			};
 		}
 
 		return new JsonObject { ["settled"] = false, ["framesWaited"] = frames, ["timedOut"] = true };
@@ -652,10 +687,44 @@ internal sealed class DiagnosticsServer : IDisposable
 		}
 	}
 
+	/// <summary>
+	/// Reports the screen size, and resizes it when the driver allows.
+	/// </summary>
+	/// <remarks>
+	/// Only a headless driver can be resized: a real terminal's size belongs to the terminal,
+	/// and the library cannot and should not change it. That makes this the verb that turns a
+	/// headless app into a responsive-layout test rig - narrow and short sizes are exactly
+	/// where layout bugs hide, and reaching them otherwise means restarting the app.
+	/// Asking a real driver to resize is an ERROR, not a silent no-op, so a test cannot
+	/// quietly assert against a size it never got.
+	/// </remarks>
 	private JsonObject Size(JsonObject req)
 	{
+		int? w = req["w"]?.GetValue<int>();
+		int? h = req["h"]?.GetValue<int>();
+
+		if (w != null || h != null)
+		{
+			var current = _system.ConsoleDriver.ScreenSize;
+			int newW = w ?? current.Width;
+			int newH = h ?? current.Height;
+
+			if (newW < 1 || newH < 1)
+				return ErrorBody($"size must be at least 1x1; got {newW}x{newH}");
+
+			if (_system.ConsoleDriver is not Drivers.HeadlessConsoleDriver headless)
+			{
+				return ErrorBody(
+					$"this app runs on {_system.ConsoleDriver.GetType().Name}, whose size is "
+					+ "owned by the terminal and cannot be set from here. Resize the terminal, "
+					+ "or run the app on HeadlessConsoleDriver to drive size from tests.");
+			}
+
+			Marshal(() => headless.SimulateScreenResize(newW, newH));
+		}
+
 		var size = _system.ConsoleDriver.ScreenSize;
-		return new JsonObject { ["w"] = size.Width, ["h"] = size.Height };
+		return WithSettle(req, new JsonObject { ["w"] = size.Width, ["h"] = size.Height });
 	}
 
 	/// <summary>

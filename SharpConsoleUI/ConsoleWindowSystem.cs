@@ -1509,12 +1509,21 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Processes one iteration of the main loop (input, display, cursor).
-		/// This is useful for modal dialogs that need to block while still processing UI events.
+		/// Processes one iteration of the main loop (input, queued UI actions, display, cursor).
+		/// This is useful for modal dialogs that need to block while still processing UI events,
+		/// and for a host that owns its own loop and drives frames itself.
 		/// </summary>
+		/// <remarks>
+		/// Drains the <see cref="EnqueueOnUIThread(Action)"/> queue, in the same order
+		/// <see cref="Run"/> does. Without that, work marshalled from a background thread never
+		/// runs under a host that pumps this method instead of calling <c>Run</c> - it simply
+		/// accumulates, and every caller that waits on it times out. A modal dialog that
+		/// awaits a background task, and the diagnostics socket, both depend on this.
+		/// </remarks>
 		public void ProcessOnce()
 		{
 			Input.ProcessInput();
+			DrainUIActionQueue();
 			Render.UpdateDisplay();
 			UpdateCursor();
 		}

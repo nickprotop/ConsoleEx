@@ -430,43 +430,99 @@ namespace SharpConsoleUI.Parsing
 		internal static string CellsToMarkup(List<Cell> cells, Color defaultFg, Color defaultBg)
 		{
 			var sb = new System.Text.StringBuilder();
-			bool open = false;
-			Color curFg = defaultFg, curBg = defaultBg;
-			TextDecoration curDec = TextDecoration.None;
+			var writer = new MarkupRunWriter(sb, defaultFg, defaultBg, alwaysTag: false);
 
 			foreach (var cell in cells)
 			{
-				if (cell.IsWideContinuation) continue;
+				writer.Append(cell.Character, cell.Foreground, cell.Background,
+					cell.Decorations, cell.IsWideContinuation, cell.Combiners);
+			}
 
-				bool styled = cell.Foreground != defaultFg || cell.Background != defaultBg
-					|| cell.Decorations != TextDecoration.None;
+			writer.Close();
+			return sb.ToString();
+		}
 
-				// Close the current run if the style changed (or we're leaving a styled run for a plain one).
-				if (open && (cell.Foreground != curFg || cell.Background != curBg || cell.Decorations != curDec))
+		/// <summary>
+		/// Writes cells as markup, opening a tag only where the style changes.
+		/// </summary>
+		/// <remarks>
+		/// Shared by the soft-wrap path (<see cref="CellsToMarkup"/>, which re-emits a wrapped
+		/// line's inline style) and by surface export. They differ only in
+		/// <c>alwaysTag</c>: a wrapped line sits inside a control that already has a default
+		/// style, so a run matching it needs no tag, while an exported screenshot has no
+		/// ambient default and must state every colour.
+		/// </remarks>
+		internal struct MarkupRunWriter
+		{
+			private readonly System.Text.StringBuilder _sb;
+			private readonly Color _defaultFg;
+			private readonly Color _defaultBg;
+			private readonly bool _alwaysTag;
+
+			private bool _open;
+			private Color _curFg;
+			private Color _curBg;
+			private TextDecoration _curDec;
+
+			internal MarkupRunWriter(System.Text.StringBuilder sb, Color defaultFg, Color defaultBg,
+				bool alwaysTag)
+			{
+				_sb = sb;
+				_defaultFg = defaultFg;
+				_defaultBg = defaultBg;
+				_alwaysTag = alwaysTag;
+				_open = false;
+				_curFg = defaultFg;
+				_curBg = defaultBg;
+				_curDec = TextDecoration.None;
+			}
+
+			/// <summary>Appends one cell, opening or closing a run as the style requires.</summary>
+			internal void Append(Rune character, Color fg, Color bg, TextDecoration dec,
+				bool isWideContinuation, string? combiners)
+			{
+				// A wide glyph is carried by its lead cell and spans both columns; emitting
+				// the continuation too would double it.
+				if (isWideContinuation) return;
+
+				if (_open && (fg != _curFg || bg != _curBg || dec != _curDec))
 				{
-					sb.Append("[/]");
-					open = false;
+					_sb.Append("[/]");
+					_open = false;
 				}
 
-				if (styled && !open)
+				bool styled = _alwaysTag
+					|| fg != _defaultFg || bg != _defaultBg || dec != TextDecoration.None;
+
+				if (styled && !_open)
 				{
-					sb.Append('[').Append('#').Append(ColorHex(cell.Foreground));
-					if (cell.Background != defaultBg)
-						sb.Append(" on #").Append(ColorHex(cell.Background));
-					AppendDecorations(sb, cell.Decorations);
-					sb.Append(']');
-					open = true;
-					curFg = cell.Foreground; curBg = cell.Background; curDec = cell.Decorations;
+					_sb.Append('[').Append('#').Append(ColorHex(fg));
+					if (_alwaysTag || bg != _defaultBg)
+						_sb.Append(" on #").Append(ColorHex(bg));
+					AppendDecorations(_sb, dec);
+					_sb.Append(']');
+					_open = true;
+					_curFg = fg; _curBg = bg; _curDec = dec;
 				}
 
 				// Escape a literal '[' so it is not read as a tag on re-parse.
-				var s = cell.Character.ToString();
-				if (s == "[") sb.Append("[[");
-				else sb.Append(s);
+				var text = character.ToString();
+				if (text == "[") _sb.Append("[[");
+				else _sb.Append(text);
+
+				// Re-emit the combiner tail. Without this a grapheme is silently truncated to
+				// its base rune - "e" loses its accent, and a ZWJ family emoji loses all but
+				// its first member. The tail holds combining marks and ZWJ cluster
+				// continuations, never a '[', so it needs no escaping.
+				if (combiners != null) _sb.Append(combiners);
 			}
 
-			if (open) sb.Append("[/]");
-			return sb.ToString();
+			/// <summary>Closes any open run.</summary>
+			internal void Close()
+			{
+				if (_open) _sb.Append("[/]");
+				_open = false;
+			}
 		}
 
 		private static string ColorHex(Color c) => $"{c.R:X2}{c.G:X2}{c.B:X2}";
@@ -1076,11 +1132,20 @@ namespace SharpConsoleUI.Parsing
 				}
 			}
 
-			// Parse background color
+			// Parse the background part. Tokenised like the foreground, because decorations
+			// may trail the background colour - "[red on blue bold]" is a natural way to
+			// write it, and parsing the remainder as one colour name silently dropped the
+			// decoration (the whole string "blue bold" is not a colour, so nothing matched).
 			if (!string.IsNullOrEmpty(bgPart))
 			{
-				if (TryParseColor(bgPart.Trim(), out var bgColor))
-					bg = bgColor;
+				var bgTokens = bgPart.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+				foreach (var token in bgTokens)
+				{
+					if (TryParseDecoration(token, out var d))
+						dec |= d;
+					else if (bg == null && TryParseColor(token, out var c))
+						bg = c;
+				}
 			}
 
 			return new MarkupStyle(fg, bg, dec);

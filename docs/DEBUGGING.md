@@ -1,4 +1,4 @@
-# The Diagnostics Socket
+# Debugging a running app
 
 A TUI is the one kind of program you cannot print debug output from. The screen *is* the
 output, so a stray `Console.WriteLine` corrupts the thing you are trying to inspect, and a
@@ -123,7 +123,7 @@ before replying -- so `key` followed by `snapshot` is coherent rather than racin
 | `invoke` | Focuses a named control and activates it |
 | `window` | Activates or closes a window |
 | `theme` | Switches theme |
-| `size` | Reports the screen size |
+| `size` | Reports the screen size, and sets it on a headless app |
 | `settle` | Waits for the UI to go quiet |
 
 ### Housekeeping
@@ -179,7 +179,8 @@ A screenshot, with real text.
 | `cellHeight` | `16` | Pixels per cell vertically. |
 | `cellWidth` | *(font advance)* | Pixels per cell horizontally. |
 | `glyphs` | `true` | Draw text. `false` gives a colour map with no font. |
-| `font` | *(auto)* | Path to a monospace `.ttf`. |
+| `font` | *(auto)* | Path to a monospace `.ttf`. Implies `fontSource: "file"`. |
+| `fontSource` | `"automatic"` | `automatic`, `embedded`, `strict` or `file`. See below. |
 | `composed` | `false` | The whole desktop instead of one window. |
 | `x`,`y`,`w`,`h` | *(all)* | A region, as for `snapshot`. |
 
@@ -195,15 +196,42 @@ that slices the field out by hand.
 
 ### Fonts
 
-With `glyphs: true` (the default) the renderer looks for a monospace TrueType font in the
-usual places, preferring a Nerd Font because it covers the powerline and icon glyphs a TUI
-actually draws. Pass `font` to choose one. If none is found the reply says so in
-`fontNote` and falls back to colour blocks rather than failing.
+With `glyphs: true` (the default) the image is drawn with a real TrueType face. Which one
+depends on `fontSource`:
+
+| `fontSource` | Where the glyphs come from | Reproducible? |
+|---|---|---|
+| `automatic` *(default)* | A font installed on this machine, falling back to the embedded face; installed fonts are also chained for scripts the first lacks. | No |
+| `embedded` | Only the face shipped inside the library. | **Yes, everywhere** |
+| `strict` | Only installed fonts. Errors when none is found. | No |
+| `file` | The `.ttf` named by `font`. Errors if it cannot be loaded. | If the file travels |
+
+**The default is not your terminal's font.** A terminal's font lives in that emulator's own
+configuration, and there is no cross-platform way to ask which one is in use -- so
+`automatic` picks a common monospace face found on disk. Layout, colour and content are
+exact; the letterforms may differ from what is on your screen.
+
+**Nothing silently renders blank.** `automatic` always ends at the embedded face, because an
+image with no text would still hash consistently and so would pass a golden-image check it
+ought to have failed. `strict` and `file` fail loudly instead, which is the point of asking
+for them.
+
+The embedded face (DejaVu Sans Mono, Bitstream Vera licence, ~335 KB) covers Latin, Greek,
+Cyrillic, box-drawing and common symbols. **It has no CJK**, which is why `automatic` still
+reaches for installed fonts: a Han or Kana glyph can only come from the system. Anything no
+available face can draw is listed in `missingGlyphs` rather than left as a silent gap, and
+`fallbackFonts` names the faces that filled in.
+
+> A caveat on CJK away from Linux: stb_truetype rasterises TrueType (`glyf`) outlines only,
+> and most modern CJK faces on macOS and Windows -- Noto CJK, PingFang, and the Microsoft
+> `.ttc` collections -- are CFF/PostScript. Those are detected and skipped rather than loaded
+> to draw nothing, so CJK via system fonts is reliable on Linux and best-effort elsewhere.
 
 The glyph is composited over whatever is already in the image, not over its own cell's
 background. Box-drawing characters are designed to overhang their cell -- `─` is drawn 10px
 wide at an 8px pitch precisely so neighbours fuse -- and compositing per-cell would chop a
-continuous rule into dashes.
+continuous rule into dashes. Combining marks are drawn at the base glyph's own origin, which
+is where a terminal puts them.
 
 ---
 
@@ -332,6 +360,174 @@ be a screenshot of the past presented as the present.
 
 ---
 
+## size
+
+Reports the screen size. On a **headless** app it also sets it.
+
+```json
+{"cmd":"size"}                              → {"ok":true,"w":120,"h":40}
+{"cmd":"size","w":40,"h":12,"settle":true}  → resize, then wait for the relayout
+```
+
+Narrow and short sizes are exactly where layout bugs hide, and reaching them otherwise means
+restarting the app or dragging a terminal corner. Headless, it is one line.
+
+Asking a real driver to resize is an **error**, not a silent no-op:
+
+> this app runs on NetConsoleDriver, whose size is owned by the terminal and cannot be set
+> from here. Resize the terminal, or run the app on HeadlessConsoleDriver to drive size from
+> tests.
+
+A test that silently kept its original size would assert against a layout it never actually
+produced, and pass.
+
+---
+
+## settle
+
+Waits for the UI to stop changing, then reports what it saw.
+
+```json
+{"cmd":"settle"}
+{"cmd":"settle","timeoutMs":2000}
+```
+
+Most driving verbs accept `"settle": true` instead, which is usually what you want — it makes
+`key` followed by `snapshot` coherent rather than racing.
+
+**A settled UI and a stopped UI look identical from outside**, and they mean opposite things.
+A frame counter that is not moving means either "the app finished its work" or "nobody is
+rendering" — success and total failure, indistinguishable unless you track whether a frame ever
+advanced at all. So `settle` does:
+
+```json
+{"ok":false,"settled":false,"framesWaited":0,"stalled":true,
+ "error":"no frame advanced while waiting: the render loop is not running..."}
+```
+
+If you are hosting the system yourself and see `stalled`, the host is not calling `Tick()`.
+
+---
+
+## Headless: driving an app with no terminal
+
+Everything above works against an app running in a terminal. It also works against an app with
+**no terminal at all** — which is where this stops being a debugging aid and becomes a test
+harness.
+
+```csharp
+var driver = new HeadlessConsoleDriver(120, 40);
+var options = ConsoleWindowSystemOptions.Create() with
+{
+    DiagnosticsSocket = "/tmp/headless.sock",
+    EnableDiagnostics = true,
+};
+var ws = new ConsoleWindowSystem(driver, options);
+
+BuildYourUI(ws);
+
+using var session = ws.BeginHosted();
+while (session.Tick()) { }
+```
+
+That is the whole setup. The app is now reachable on the socket, with no terminal, no pty and
+no screen-scraping — and the full verb set works, including the ones that drive.
+
+```bash
+S=/tmp/headless.sock
+ask() { echo "$1" | socat - UNIX-CONNECT:$S | tail -1; }
+
+ask '{"cmd":"invoke","name":"btn1","settle":true}'
+# {"ok":true,"invoked":"btn1","settled":true,"framesWaited":1}
+```
+
+The button's real `Click` handler ran. Not a simulated one — `invoke` goes through the same
+dispatch a user's click does.
+
+**Use `BeginHosted()`.** It is the supported hosting API: it wires the key, paste and resize
+handlers and captures the calling thread as the UI thread. See
+[`DRIVERS.md`](DRIVERS.md) for the driver side of this.
+
+Why this is worth the setup: most TUI test tooling drives a pty and scrapes text, so you end up
+testing what the *terminal* did, not what the framework decided. Here the app runs with no
+terminal, you drive it through the real input path, and you can ask three independent questions
+— `snapshot` (what it shows), `tree` (what layout believes) and `png` (what it looks like).
+**When those three disagree, the disagreement is the bug.**
+
+---
+
+## Cookbook
+
+### Golden-image regression
+
+`png` output is deterministic: the same UI at the same size and cell size produces
+byte-identical PNG bytes. So a hash is a regression test.
+
+```bash
+ask '{"cmd":"png","composed":true,"fontSource":"embedded","path":"/tmp/now.png"}' > /dev/null
+sha256sum /tmp/now.png | cut -d' ' -f1 > /tmp/now.sha
+diff /tmp/now.sha testdata/golden/main-screen.sha || {
+    echo "UI changed — review /tmp/now.png"
+    exit 1
+}
+```
+
+**`"fontSource":"embedded"` is not optional here.** By default the renderer prefers a font
+installed on the machine, which differs between your laptop, CI and a colleague's Mac — three
+machines, three hashes, for the same UI. The embedded face ships inside the library, so it
+renders identically everywhere including a container with no fonts at all. A baseline recorded
+without it is only valid on the machine that recorded it.
+
+Keep the PNG as the CI artifact, not just the hash: when it fails you want to *look* at it. Pin
+`cellHeight` and the region, since both change the bytes.
+
+**Watch for anything that changes on its own.** The composed desktop includes the status-bar
+clock, so a baseline that captures it fails once a second. Capture a window instead, or crop
+the clock out with `x`/`y`/`w`/`h`.
+
+### Responsive layout testing
+
+```bash
+for size in "40 12" "80 24" "200 60"; do
+    set -- $size
+    ask "{\"cmd\":\"size\",\"w\":$1,\"h\":$2,\"settle\":true}"
+    ask "{\"cmd\":\"png\",\"composed\":true,\"path\":\"/tmp/layout-$1x$2.png\"}"
+done
+```
+
+Three screenshots at hostile sizes, no terminal involved. Widths where text must truncate and
+heights where a panel must scroll are where the bugs are.
+
+### Is it finished, or is it stuck?
+
+```bash
+ask '{"cmd":"key","spec":"Enter"}'
+r=$(ask '{"cmd":"settle","timeoutMs":3000}')
+case "$r" in
+    *'"stalled":true'*) echo "render loop is not running" ;;
+    *'"settled":true'*) echo "finished" ;;
+    *)                  echo "still busy after 3s" ;;
+esac
+```
+
+### Debugging an app you did not start
+
+```bash
+ask '{"cmd":"set","logLevel":"Trace"}'   # raise the floor, no restart
+# reproduce the bug in the app's own terminal
+ask '{"cmd":"logs","count":100,"category":"Focus"}'
+ask '{"cmd":"set","logLevel":"Warning"}' # put it back
+```
+
+### Find out what the app can do
+
+```bash
+ask '{"cmd":"commands"}'   # the verbs
+ask '{"cmd":"set"}'        # every runtime switch and its current value
+```
+
+---
+
 ## Worked example: find why a button does nothing
 
 ```bash
@@ -382,6 +578,8 @@ through `JsonValue.Create` in the serializer are not noise -- they pick the safe
 
 ## See also
 
+- [`DRIVERS.md`](DRIVERS.md) -- drivers, render modes, and running headless
+- [`EXPORT.md`](EXPORT.md) -- the same captures as a public API, for use inside your own app
 - [`AOT.md`](AOT.md) -- NativeAOT support and the CI gate
 - [`CONFIGURATION.md`](CONFIGURATION.md) -- `ConsoleWindowSystemOptions`
 - `SHARPCONSOLEUI_DEBUG_LOG` / `SHARPCONSOLEUI_DEBUG_LEVEL` -- file-based debug logging,

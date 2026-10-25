@@ -11,6 +11,7 @@ using System.Text.Json.Nodes;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
+using SharpConsoleUI.Surfaces;
 using Dock = SharpConsoleUI.Layout.Dock;
 
 namespace SharpConsoleUI.Diagnostics.Socket;
@@ -175,12 +176,7 @@ internal static class DiagnosticsSerializer
 		if (regionError != null)
 			return new JsonObject { ["window"] = window.Title, ["error"] = regionError };
 
-		var o = Grid(clipped, ansi, (x, y) =>
-		{
-			var cell = buffer.GetCell(x, y);
-			return (cell.Character.ToString(), AnsiFor(cell.Foreground, cell.Background));
-		});
-
+		var o = Grid(window.CaptureSurface(), clipped, ansi);
 		o["window"] = window.Title;
 		return o;
 	}
@@ -194,25 +190,19 @@ internal static class DiagnosticsSerializer
 	/// of it. Returning the whole grid to inspect a status bar wastes the round trip the
 	/// socket exists to save, and buries the answer.
 	/// </remarks>
-	private static JsonObject Grid(Region r, bool ansi, Func<int, int, (string Text, string Ansi)> at)
+	private static JsonObject Grid(Surfaces.ICellSurface surface, Region r, bool ansi)
 	{
-		var lines = new JsonArray();
-		var sb = new StringBuilder();
-
 		int rx = r.X ?? 0, ry = r.Y ?? 0, rw = r.W ?? 0, rh = r.H ?? 0;
 
-		for (int y = ry; y < ry + rh; y++)
-		{
-			sb.Clear();
-			for (int x = rx; x < rx + rw; x++)
-			{
-				var (text, esc) = at(x, y);
-				if (ansi) sb.Append(esc);
-				sb.Append(text);
-			}
-			if (ansi) sb.Append("\u001b[0m");
-			lines.Add((JsonNode)sb.ToString());
-		}
+		var cropped = rx == 0 && ry == 0 && rw == surface.Width && rh == surface.Height
+			? surface
+			: surface.Crop(new Layout.LayoutRect(rx, ry, rw, rh));
+
+		var text = cropped.ToText(ansi ? Surfaces.TextFormat.Ansi : Surfaces.TextFormat.Plain);
+
+		var lines = new JsonArray();
+		foreach (string line in text.Split('\n'))
+			lines.Add((JsonNode)line);
 
 		return new JsonObject
 		{
@@ -225,8 +215,6 @@ internal static class DiagnosticsSerializer
 		};
 	}
 
-	private static string AnsiFor(Color fg, Color bg) =>
-		$"\u001b[38;2;{fg.R};{fg.G};{fg.B}m\u001b[48;2;{bg.R};{bg.G};{bg.B}m";
 
 	/// <summary>A requested rectangle, before it is known whether it fits.</summary>
 	internal readonly record struct Region(int? X, int? Y, int? W, int? H)
@@ -290,14 +278,7 @@ internal static class DiagnosticsSerializer
 		var clipped = region.ClampTo(shot.Width, shot.Height, out string? regionError);
 		if (regionError != null) return new JsonObject { ["error"] = regionError };
 
-		var o = Grid(clipped, ansi, (x, y) =>
-		{
-			var cell = shot.GetBack(x, y);
-			// ConsoleCell carries the escape the renderer actually emitted, so this
-			// reproduces real output rather than re-deriving and possibly disagreeing.
-			return (cell.Character.ToString(), cell.AnsiEscape ?? "");
-		});
-
+		var o = Grid(shot.AsSurface(system.Theme), clipped, ansi);
 		o["composed"] = true;
 		return o;
 	}

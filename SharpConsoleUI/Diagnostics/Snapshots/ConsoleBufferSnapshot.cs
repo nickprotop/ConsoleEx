@@ -124,12 +124,33 @@ public struct ConsoleCell : IEquatable<ConsoleCell>
 	public string AnsiEscape { get; set; }
 
 	/// <summary>
+	/// Gets or sets whether this cell is the second column of a wide glyph.
+	/// </summary>
+	/// <remarks>
+	/// The glyph belongs to the preceding cell. Without this, a reader cannot tell a
+	/// continuation column from a real cell and will draw the glyph twice.
+	/// </remarks>
+	public bool IsWideContinuation { get; set; }
+
+	/// <summary>
+	/// Gets or sets the combining marks and ZWJ cluster continuations attached to
+	/// <see cref="Character"/>, or null.
+	/// </summary>
+	/// <remarks>
+	/// Dropping this truncates a grapheme to its base rune: an accented letter loses its
+	/// accent, and a ZWJ family emoji loses all but its first member.
+	/// </remarks>
+	public string? Combiners { get; set; }
+
+	/// <summary>
 	/// Creates a new console cell with a Rune.
 	/// </summary>
 	public ConsoleCell(Rune character, string ansiEscape)
 	{
 		Character = character;
 		AnsiEscape = ansiEscape ?? string.Empty;
+		IsWideContinuation = false;
+		Combiners = null;
 	}
 
 	/// <summary>
@@ -138,15 +159,39 @@ public struct ConsoleCell : IEquatable<ConsoleCell>
 	public ConsoleCell(char character, string ansiEscape)
 		: this(new Rune(character), ansiEscape) { }
 
+	/// <summary>
+	/// Creates a new console cell carrying full grapheme fidelity.
+	/// </summary>
+	/// <param name="character">The base rune.</param>
+	/// <param name="ansiEscape">The emitted escape.</param>
+	/// <param name="isWideContinuation">True for the second column of a wide glyph.</param>
+	/// <param name="combiners">Combining marks attached to the base rune, or null.</param>
+	public ConsoleCell(Rune character, string ansiEscape, bool isWideContinuation, string? combiners)
+	{
+		Character = character;
+		AnsiEscape = ansiEscape ?? string.Empty;
+		IsWideContinuation = isWideContinuation;
+		Combiners = combiners;
+	}
+
 	/// <summary>Determines equality.</summary>
+	/// <remarks>
+	/// Grapheme state participates: two cells that differ only in a combining mark or in
+	/// wide-continuation status are genuinely different cells, and
+	/// <see cref="ConsoleBufferSnapshot.GetDifferences"/> must see that.
+	/// </remarks>
 	public bool Equals(ConsoleCell other) =>
-		Character == other.Character && AnsiEscape == other.AnsiEscape;
+		Character == other.Character
+		&& AnsiEscape == other.AnsiEscape
+		&& IsWideContinuation == other.IsWideContinuation
+		&& Combiners == other.Combiners;
 
 	/// <summary>Determines equality with object.</summary>
 	public override bool Equals(object? obj) => obj is ConsoleCell other && Equals(other);
 
 	/// <summary>Gets hash code.</summary>
-	public override int GetHashCode() => HashCode.Combine(Character, AnsiEscape);
+	public override int GetHashCode() =>
+		HashCode.Combine(Character, AnsiEscape, IsWideContinuation, Combiners);
 
 	/// <summary>Equality operator.</summary>
 	public static bool operator ==(ConsoleCell left, ConsoleCell right) => left.Equals(right);

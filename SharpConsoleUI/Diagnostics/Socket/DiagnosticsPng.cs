@@ -42,34 +42,22 @@ internal static class DiagnosticsPng
 	/// </summary>
 	private const int MaxPixels = 40_000_000;
 
-	/// <summary>A cell's colours, and whether they were known or substituted.</summary>
-	/// <summary>A cell: what to draw, in what colours, and whether they were known.</summary>
-	/// <param name="Background">The cell background.</param>
-	/// <param name="DefaultedBackground">True when the background was substituted, not measured.</param>
-	/// <param name="Glyph">The character, or null for a blank cell.</param>
-	/// <param name="Foreground">The glyph colour.</param>
-	internal readonly record struct CellColor(
-		Color Background,
-		bool DefaultedBackground,
-		Rune? Glyph = null,
-		Color Foreground = default);
 
 	/// <summary>
 	/// Renders cells to PNG bytes.
 	/// </summary>
-	/// <param name="width">Columns in the region.</param>
-	/// <param name="height">Rows in the region.</param>
+	/// <param name="surface"></param>
 	/// <param name="cellWidth">Pixels per cell horizontally.</param>
 	/// <param name="cellHeight">Pixels per cell vertically.</param>
-	/// <param name="at">Supplies the colour of the cell at a region-relative position.</param>
 	/// <param name="font"></param>
 	/// <param name="error">Why nothing was produced.</param>
 	/// <returns>The PNG bytes, or null.</returns>
 	internal static byte[]? Render(
-		int width, int height, int cellWidth, int cellHeight,
-		Func<int, int, CellColor> at, DiagnosticsFont? font, out string? error)
+		Surfaces.ICellSurface surface, int cellWidth, int cellHeight,
+		DiagnosticsFont? font, out string? error)
 	{
 		error = null;
+		int width = surface.Width, height = surface.Height;
 
 		if (cellWidth < MinCellSize || cellHeight < MinCellSize)
 		{
@@ -90,13 +78,13 @@ internal static class DiagnosticsPng
 
 		// Backgrounds first, then glyphs. A wide glyph overhangs into the next cell, so
 		// painting both in one pass would let the neighbour's background erase it.
-		var cells = new CellColor[width * height];
+		var cells = new Surfaces.SurfaceCell[width * height];
 
 		for (int cy = 0; cy < height; cy++)
 		{
 			for (int cx = 0; cx < width; cx++)
 			{
-				var cell = at(cx, cy);
+				var cell = surface[cx, cy];
 				cells[cy * width + cx] = cell;
 				var bg = cell.Background;
 
@@ -123,11 +111,27 @@ internal static class DiagnosticsPng
 				for (int cx = 0; cx < width; cx++)
 				{
 					var cell = cells[cy * width + cx];
-					if (cell.Glyph is not { } rune) continue;
+
+					// A wide glyph is drawn from its base cell and overhangs into this one;
+					// drawing it again here would double it.
+					if (cell.IsWideContinuation) continue;
 
 					font.DrawRune(rgb, imgW, imgH,
 						cx * cellWidth, cy * cellHeight,
-						rune, cell.Foreground);
+						cell.Character, cell.Foreground);
+
+					// Combining marks share the base glyph's cell - that is what makes them
+					// combining. Drawing them at the same origin puts the accent over the
+					// letter, as a terminal would; omitting them would quietly render "é"
+					// as "e" in the one export that claims to show what the screen looks
+					// like.
+					if (cell.Combiners == null) continue;
+					foreach (var mark in cell.Combiners.EnumerateRunes())
+					{
+						font.DrawRune(rgb, imgW, imgH,
+							cx * cellWidth, cy * cellHeight,
+							mark, cell.Foreground);
+					}
 				}
 			}
 		}
@@ -135,83 +139,6 @@ internal static class DiagnosticsPng
 		using var ms = new MemoryStream();
 		new ImageWriter().WritePng(rgb, imgW, imgH, ColorComponents.RedGreenBlue, ms);
 		return ms.ToArray();
-	}
-
-	/// <summary>
-	/// Reads the background out of an emitted escape.
-	/// </summary>
-	/// <remarks>
-	/// Only <c>48;2;r;g;b</c> carries a real colour. <c>49</c> means terminal-default, which
-	/// is reported as defaulted so the caller learns the image contains a substitution rather
-	/// than a measurement.
-	/// </remarks>
-	internal static CellColor ParseBackground(string? ansi, Color fallback)
-	{
-		if (string.IsNullOrEmpty(ansi))
-			return new CellColor(fallback, true);
-
-		// Scan for the 48;2;r;g;b run. Hand-parsed rather than regex: this runs per cell,
-		// and the grammar emitted by FormatCellAnsi is fixed and tiny.
-		int i = ansi.IndexOf("48;2;", StringComparison.Ordinal);
-		if (i < 0)
-			return new CellColor(fallback, true);
-
-		i += 5;
-		if (TryByte(ansi, ref i, out byte r) &&
-			TryByte(ansi, ref i, out byte g) &&
-			TryByte(ansi, ref i, out byte b))
-		{
-			return new CellColor(new Color(r, g, b), false);
-		}
-
-		return new CellColor(fallback, true);
-	}
-
-	/// <summary>
-	/// Reads the foreground out of an emitted escape, falling back to the theme.
-	/// </summary>
-	/// <remarks>
-	/// <c>39</c> means terminal-default, a colour this process does not know. Unlike the
-	/// background - where a wrong guess repaints whole regions - a defaulted foreground only
-	/// affects glyph ink, so the theme's window foreground is a safe stand-in.
-	/// </remarks>
-	internal static Color ParseForeground(string? ansi, Color fallback)
-	{
-		if (string.IsNullOrEmpty(ansi)) return fallback;
-
-		int i = ansi.IndexOf("38;2;", StringComparison.Ordinal);
-		if (i < 0) return fallback;
-
-		i += 5;
-		if (TryByte(ansi, ref i, out byte r) &&
-			TryByte(ansi, ref i, out byte g) &&
-			TryByte(ansi, ref i, out byte b))
-		{
-			return new Color(r, g, b);
-		}
-
-		return fallback;
-	}
-
-	/// <summary>Reads one decimal byte, then steps over a single separator.</summary>
-	private static bool TryByte(string s, ref int i, out byte value)
-	{
-		value = 0;
-		int start = i;
-		int n = 0;
-
-		while (i < s.Length && s[i] >= '0' && s[i] <= '9')
-		{
-			n = n * 10 + (s[i] - '0');
-			if (n > 255) return false;
-			i++;
-		}
-
-		if (i == start) return false;
-		value = (byte)n;
-
-		if (i < s.Length && (s[i] == ';' || s[i] == 'm')) i++;
-		return true;
 	}
 
 	/// <summary>Builds the reply, attaching the bytes or writing them out.</summary>
