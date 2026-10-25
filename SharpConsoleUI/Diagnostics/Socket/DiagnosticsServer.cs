@@ -699,6 +699,13 @@ internal sealed class DiagnosticsServer : IDisposable
 			"doubleclick" => new List<MouseFlags> { doubleClicked },
 			"press" => new List<MouseFlags> { pressed },
 			"release" => new List<MouseFlags> { released },
+
+			// Release and click in ONE event, which is what a terminal reports: SGR carries
+			// the click within the press/release group. A client that sends them as two
+			// messages breaks any control that opens a portal on release - a dropdown opens
+			// on the release, then the separate click hits the portal that just appeared
+			// (InputCoordinator routes Clicked to portals before windows) and closes it.
+			"releaseclick" => new List<MouseFlags> { released, clicked },
 			"move" => new List<MouseFlags> { MouseFlags.ReportMousePosition },
 			_ => Unknown(action, out error),
 		};
@@ -706,7 +713,7 @@ internal sealed class DiagnosticsServer : IDisposable
 		static List<MouseFlags>? Unknown(string action, out string error)
 		{
 			error = $"unknown action '{action}'; known: click, doubleclick, press, release, "
-				  + "move, wheelup, wheeldown";
+				  + "releaseclick, move, wheelup, wheeldown";
 			return null;
 		}
 	}

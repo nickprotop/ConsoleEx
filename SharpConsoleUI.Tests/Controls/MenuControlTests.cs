@@ -43,6 +43,21 @@ public class MenuControlTests
 		return new MouseEventArgs(new List<MouseFlags> { MouseFlags.Button1Released }, pos, pos, pos);
 	}
 
+	private static MouseEventArgs MouseClick(int x, int y)
+	{
+		var pos = new Point(x, y);
+		return new MouseEventArgs(new List<MouseFlags> { MouseFlags.Button1Clicked }, pos, pos, pos);
+	}
+
+	/// <summary>Release and click in one group, as a terminal reports them.</summary>
+	private static MouseEventArgs MouseReleaseAndClick(int x, int y)
+	{
+		var pos = new Point(x, y);
+		return new MouseEventArgs(
+			new List<MouseFlags> { MouseFlags.Button1Released, MouseFlags.Button1Clicked },
+			pos, pos, pos);
+	}
+
 	private static MouseEventArgs MouseLeave(int x, int y)
 	{
 		var pos = new Point(x, y);
@@ -1084,6 +1099,46 @@ public class MenuControlTests
 		// Press then release on File item
 		menu.ProcessMouseEvent(MousePress(bounds.X + 1 - menu.Items[0].Bounds.X, bounds.Y - menu.Items[0].Bounds.Y));
 		menu.ProcessMouseEvent(MouseRelease(bounds.X + 1 - menu.Items[0].Bounds.X, bounds.Y - menu.Items[0].Bounds.Y));
+
+		Assert.True(fileItem.IsOpen);
+	}
+
+	/// <summary>
+	/// A bare Button1Clicked must open a top-level menu, as it does for every other control.
+	/// Requiring the press/release pair made the menu bar undrivable by any client that
+	/// sends only a click - the same defect the dropdown had.
+	/// </summary>
+	[Fact]
+	public void Mouse_ClickAloneOnItemWithChildren_OpensDropdown()
+	{
+		var (menu, window) = CreateFocusedStandardMenu();
+		TriggerPaint(menu, window);
+
+		var fileItem = menu.Items[0];
+		var bounds = fileItem.Bounds;
+
+		menu.ProcessMouseEvent(MouseClick(bounds.X + 1 - menu.Items[0].Bounds.X,
+			bounds.Y - menu.Items[0].Bounds.Y));
+
+		Assert.True(fileItem.IsOpen);
+	}
+
+	/// <summary>
+	/// A terminal reports Clicked together with the release. Both arriving in one group must
+	/// open the menu once, not toggle it open and shut.
+	/// </summary>
+	[Fact]
+	public void Mouse_ReleaseAndClickTogether_OpensDropdownOnce()
+	{
+		var (menu, window) = CreateFocusedStandardMenu();
+		TriggerPaint(menu, window);
+
+		var fileItem = menu.Items[0];
+		var bounds = fileItem.Bounds;
+		int x = bounds.X + 1 - menu.Items[0].Bounds.X, y = bounds.Y - menu.Items[0].Bounds.Y;
+
+		menu.ProcessMouseEvent(MousePress(x, y));
+		menu.ProcessMouseEvent(MouseReleaseAndClick(x, y));
 
 		Assert.True(fileItem.IsOpen);
 	}

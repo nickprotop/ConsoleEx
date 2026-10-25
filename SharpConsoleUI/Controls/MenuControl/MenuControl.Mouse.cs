@@ -270,6 +270,44 @@ public partial class MenuControl
 			return true;
 		}
 
+		// A bare Button1Clicked, with no press before it. A terminal sends Clicked together
+		// with the release, so the handler above has already consumed it and cleared
+		// _pressedItem; reaching here means the click arrived alone - which is all a
+		// synthesising client sends, and what every other control in the library acts on.
+		if (args.HasFlag(MouseFlags.Button1Clicked))
+		{
+			var clicked = HitTest(args.Position.X, args.Position.Y);
+			if (clicked == null || !clicked.IsEnabled || clicked.IsSeparator)
+				return true;
+
+			if (!HasFocus)
+				this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+
+			_focusedItem = clicked;
+			_hoveredItem = null;
+
+			if (IsTopLevelItem(clicked) && clicked.HasChildren)
+			{
+				bool alreadyOpen = _openDropdowns.Any(d => d.ParentItem == clicked);
+				CloseAllMenus();
+				if (!alreadyOpen)
+					OpenDropdownInternal(clicked);
+			}
+			else if (clicked.HasChildren)
+			{
+				OpenSubmenu(clicked);
+			}
+			else
+			{
+				ExecuteMenuItem(clicked);
+				CloseAllMenus();
+			}
+
+			MouseClick?.Invoke(this, args);
+			Invalidate(Invalidation.Relayout);
+			return true;
+		}
+
 		return false;
 	}
 

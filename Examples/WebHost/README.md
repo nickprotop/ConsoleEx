@@ -94,7 +94,7 @@ short-circuit happens before a font is loaded or a buffer touched.
 {"kind":"key","spec":"Down"}
 {"kind":"mouse","x":43,"y":25,"action":"press","button":"left"}
 {"kind":"mouse","x":48,"y":28,"action":"move","button":"left"}
-{"kind":"mouse","x":48,"y":28,"action":"release","button":"left"}
+{"kind":"mouse","x":48,"y":28,"action":"releaseclick","button":"left"}
 {"kind":"resize","x":120,"y":36}
 ```
 

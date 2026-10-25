@@ -348,10 +348,15 @@ app would be a confusing way to discover the typo.
 | Field | Values |
 |-------|--------|
 | `button` | `left`, `right`, `middle` |
-| `action` | `click`, `doubleclick`, `press`, `release`, `move`, `wheelup`, `wheeldown` |
+| `action` | `click`, `doubleclick`, `press`, `release`, `releaseclick`, `move`, `wheelup`, `wheeldown` |
 
 This routes into the same method the console driver's own mouse events land on, so
 hit-testing, z-order and capture all run exactly as for a real click.
+
+**Use `releaseclick` to end a click gesture, not a separate `click`.** The clicked flag has to
+travel in the same event as the release, because a control that opens a portal does so on the
+release - and a `Clicked` arriving afterwards is routed to that portal before any window, which
+closes what just opened. Dropdowns fail this way and nothing else does.
 
 **`click` is its own event, not a `press` plus a `release`.** Controls listen for the
 clicked flag, and a terminal reports it in addition to the pair - so a client synthesising

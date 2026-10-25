@@ -142,6 +142,24 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
+			// A bare Button1Clicked, with no press before it. Every other control in the
+			// library opens on this flag; this one needed the press/release pair, which made
+			// it the only control a synthesising client could not drive - and it failed
+			// silently, taking focus without opening. A terminal sends Clicked together with
+			// the release, so the handler above has already run and cleared _isHeaderPressed;
+			// reaching here means the click arrived alone.
+			if (args.HasFlag(MouseFlags.Button1Clicked) && isOnHeader)
+			{
+				IsDropdownOpen = !_isDropdownOpen;
+
+				if (!HasFocus)
+					this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+
+				MouseClick?.Invoke(this, args);
+				Invalidate(Invalidation.Relayout);
+				return true;
+			}
+
 			return false;
 		}
 

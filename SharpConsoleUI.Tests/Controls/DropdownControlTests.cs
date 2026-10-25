@@ -59,6 +59,23 @@ public class DropdownControlTests
 			pos, pos, pos);
 	}
 
+	private static MouseEventArgs CreateMouseClick(int x, int y)
+	{
+		var pos = new Point(x, y);
+		return new MouseEventArgs(
+			new List<MouseFlags> { MouseFlags.Button1Clicked },
+			pos, pos, pos);
+	}
+
+	/// <summary>Release and click in one group, as a terminal reports them.</summary>
+	private static MouseEventArgs CreateMouseReleaseAndClick(int x, int y)
+	{
+		var pos = new Point(x, y);
+		return new MouseEventArgs(
+			new List<MouseFlags> { MouseFlags.Button1Released, MouseFlags.Button1Clicked },
+			pos, pos, pos);
+	}
+
 	private static MouseEventArgs CreateMouseEnter(int x, int y)
 	{
 		var pos = new Point(x, y);
@@ -607,6 +624,65 @@ public class DropdownControlTests
 	#endregion
 
 	#region Mouse Interaction Tests
+
+	/// <summary>
+	/// A dropdown must open from a plain Button1Clicked, not only from a press/release pair.
+	/// Every other control acts on Clicked; this one was the sole exception, which is why it
+	/// was the only thing broken in both browser front-ends - and it failed silently, taking
+	/// focus but never opening.
+	/// </summary>
+	[Fact]
+	public void ProcessMouseEvent_ClickAlone_OpensDropdown()
+	{
+		var (dd, _) = CreateFocusedDropdown("S:", "A", "B");
+		Assert.False(dd.IsDropdownOpen);
+
+		dd.ProcessMouseEvent(CreateMouseClick(5, 0));
+
+		Assert.True(dd.IsDropdownOpen);
+	}
+
+	[Fact]
+	public void ProcessMouseEvent_ClickAlone_TogglesClosedAgain()
+	{
+		var (dd, _) = CreateFocusedDropdown("S:", "A", "B");
+
+		dd.ProcessMouseEvent(CreateMouseClick(5, 0));
+		Assert.True(dd.IsDropdownOpen);
+
+		dd.ProcessMouseEvent(CreateMouseClick(5, 0));
+		Assert.False(dd.IsDropdownOpen);
+	}
+
+	/// <summary>
+	/// A terminal reports Clicked WITH the release, in one event group. Both arriving
+	/// together must toggle once, not twice - a double toggle would leave it shut.
+	/// </summary>
+	[Fact]
+	public void ProcessMouseEvent_ReleaseAndClickTogether_TogglesOnce()
+	{
+		var (dd, _) = CreateFocusedDropdown("S:", "A", "B");
+
+		dd.ProcessMouseEvent(CreateMousePress(5, 0));
+		dd.ProcessMouseEvent(CreateMouseReleaseAndClick(5, 0));
+
+		Assert.True(dd.IsDropdownOpen);
+	}
+
+	/// <summary>
+	/// Press-and-drag-away-to-cancel is why the press/release split exists. It must survive
+	/// the change: pressing the header and releasing elsewhere opens nothing.
+	/// </summary>
+	[Fact]
+	public void ProcessMouseEvent_PressThenReleaseElsewhere_DoesNotOpen()
+	{
+		var (dd, _) = CreateFocusedDropdown("S:", "A", "B");
+
+		dd.ProcessMouseEvent(CreateMousePress(5, 0));
+		dd.ProcessMouseEvent(CreateMouseRelease(5, 2));   // released off the header row
+
+		Assert.False(dd.IsDropdownOpen);
+	}
 
 	[Fact]
 	public void ProcessMouseEvent_Disabled_ReturnsFalse()

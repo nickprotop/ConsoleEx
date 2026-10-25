@@ -198,12 +198,11 @@ window.addEventListener('mouseup', e => {
   lastCell = startCell = null;
   moved = false;
 
-  send({ kind: 'mouse', x, y, action: 'release', button });
-
-  // A press and release in the same cell is a click. A terminal reports the
-  // click in addition to the pair, and controls listen for that flag - a
-  // press and release alone never fire one.
-  if (!wasDrag) send({ kind: 'mouse', x, y, action: 'click', button });
+  // Release and click in ONE event when the pointer never left the cell, because
+  // that is what a terminal reports. Sent as two messages instead, the click lands
+  // after a dropdown has opened its portal and closes it again - portals intercept
+  // Clicked before windows, so the control opens and shuts within a frame.
+  send({ kind: 'mouse', x, y, action: wasDrag ? 'release' : 'releaseclick', button });
 });
 
 // The browser fires dblclick AFTER the second full press/release/click pair,
