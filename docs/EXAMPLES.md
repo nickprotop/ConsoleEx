@@ -524,22 +524,45 @@ dotnet run --project Examples/SpaceInvaders
 ---
 
 ### SnakeGame
-Classic Snake game demonstrating direct frame buffer manipulation.
+Snake rebuilt the way SpaceInvaders is: half-block pixel art, interpolated motion, particles and a data-bound HUD.
 
 ![Snake Game](images/examples/snakegame.png)
 
+| Title screen | CRT filter on | Pause overlay |
+|--------------|---------------|---------------|
+| ![Title](images/examples/snakegame-title.png) | ![CRT](images/examples/snakegame-crt.png) | ![Pause](images/examples/snakegame-pause.png) |
+
+The snake slides between grid cells instead of teleporting a cell at a time, fruit pops in on an
+easing curve, and the `PostBufferPaint` hook carries the eat flash and the optional CRT filter.
+
 ```bash
 dotnet run --project Examples/SnakeGame
+
+# Drive it from outside: open a diagnostics socket, or run with no terminal at all
+dotnet run --project Examples/SnakeGame -- --socket
+dotnet run --project Examples/SnakeGame -- --headless --socket --width 120 --height 36
 ```
 
 **Key Features:**
-- Direct `CharacterBuffer` manipulation via `PostBufferPaint`
-- Real-time game loop with `System.Timers.Timer`
-- Sidebar layout using `HorizontalGridControl`
-- Keyboard input handling (arrows/WASD)
-- Game state management (playing, paused, game over)
+- Half-block pixel rendering: each terminal cell shows two near-square pixels, so segments are round and the arena has a visible checkerboard
+- **Interpolated motion** — the snake lives on a grid but is drawn between ticks, which is the single biggest difference from classic terminal Snake
+- **A buffered turn queue** — two presses inside one tick both land, instead of the second silently overwriting the first. That lost press is the most common complaint about terminal Snake, and it is an input bug rather than a timing one
+- A combo multiplier that decays on a visible timer, timed bonus fruit, and a one-per-run shield that turns the snake to a survivable heading rather than merely postponing the same death
+- Portal or solid walls, switchable mid-run; portal walls shimmer so the rule is readable off the board
+- Particle bursts, floating score pop-ups, screen shake, hit-stop slow motion, and a death animation that dissolves the body and leaves a skull
+- High score saved between runs
 
-**Controls:** Arrow keys or WASD to move, P to pause, R to restart, Esc to quit
+**SharpConsoleUI features on show:**
+- `CanvasControl` subclass (`AutoSize`, `BeginPaint`/`EndPaint`) that re-implements `IMouseAwareControl` to catch `Button1Pressed`
+- Game loop on `WithWindowThreadOnUI`: game state, key handlers and bindings share the UI thread with no locks, and every await wakes the render loop
+- `PreviewKeyPressed` key capture, `TargetFPS: 120` frame cap, `Frameless()` maximised window with a gradient background
+- `EasingFunctions.Elastic` fruit pop-in; `ColorGradient` particle palettes
+- `PostBufferPaint` compositor hook for the eat flash (`ColorBlendHelper.ApplyColorOverlay`) and an optional CRT scanline filter
+- HUD made of `FigleControl`, `ProgressBarControl`, `BarGraphControl` (animated, smooth gradients) and `SparklineControl`, all updated through `.Bind()` from an `INotifyPropertyChanged` model
+- `ToastService` announcements, `WindowAnimations.FadeIn`, clickable `StatusBarControl` items
+- `--socket` / `--headless`: the diagnostics socket and `HeadlessConsoleDriver`, so the game can be played and screenshotted by another process with no terminal involved
+
+**Controls:** Arrows or WASD to turn, mouse to steer, P/Space to pause, T for walls, C for CRT, R to restart, Q/Esc to quit
 
 ---
 
@@ -744,7 +767,7 @@ These examples demonstrate specific features without full screenshots.
 | CompositorEffectsExample | ✅ | ✅ | | ✅ | | |
 | AgentStudio | ✅ | | ✅ | | | |
 | SpaceInvaders | ✅ | ✅ | ✅ | | | ✅ |
-| SnakeGame | | ✅ | | | | ✅ |
+| SnakeGame | ✅ | ✅ | ✅ | | | ✅ |
 | TextEditorExample | | | | | | |
 | MultiDashboard | ✅ | | | | | |
 | FigletShowcaseExample | | | | | | |

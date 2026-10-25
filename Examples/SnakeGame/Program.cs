@@ -1,520 +1,425 @@
 // -----------------------------------------------------------------------
-// SnakeGame - Classic Snake using ConsoleEx Frame Buffer
-// Demonstrates direct CharacterBuffer manipulation for game rendering
-// with proper layout using HorizontalGridControl
+// SnakeGame — a polished arcade Snake built entirely on SharpConsoleUI.
+//
+// A full-screen frameless window holds a HorizontalGrid: a GameCanvas
+// (CanvasControl) play field and a data-bound HUD sidebar, with a clickable
+// StatusBar along the bottom. The game runs on the window's own UI-thread
+// loop (WithWindowThreadOnUI): every await resumes on the UI thread and
+// wakes the render loop promptly, so game state, key handlers and HUD
+// bindings all share one thread with no locks.
+//
+// Features on show: half-block pixel rendering into a CanvasControl with
+// interpolated motion between grid ticks, library easing functions, a
+// PostBufferPaint compositor hook (damage flash via ColorBlendHelper and an
+// optional CRT scanline filter), WindowAnimations.FadeIn, ToastService,
+// INotifyPropertyChanged data binding, Figlet/ProgressBar/BarGraph/Sparkline
+// HUD controls, and the 120 fps frame-rate cap.
+//
+// Run:  dotnet run --project Examples/SnakeGame
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI;
+using SharpConsoleUI.Animation;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Configuration;
-using SharpConsoleUI.Controls;
+using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Panel;
+using SharpConsoleUI.Rendering;
 
 namespace SnakeGame;
 
-enum Direction { Up, Down, Left, Right }
-enum GameState { Playing, Paused, GameOver }
-
-class Program
+internal static class Program
 {
-    // Window system
-    private static ConsoleWindowSystem? _windowSystem;
-    private static Window? _gameWindow;
-
-    // Layout
-    private static HorizontalGridControl? _mainGrid;
-    private static ColumnContainer? _sidebarColumn;
-    private static ColumnContainer? _canvasColumn;
-    private const int SidebarWidth = 22;
-
-    // Sidebar controls (we'll update these)
-    private static MarkupControl? _scoreDisplay;
-    private static MarkupControl? _highScoreDisplay;
-    private static MarkupControl? _speedDisplay;
-    private static MarkupControl? _stateDisplay;
-
-    // Game state
-    private static List<(int X, int Y)> _snake = new();
-    private static (int X, int Y) _food;
-    private static Direction _direction = Direction.Right;
-    private static Direction _nextDirection = Direction.Right;
-    private static GameState _gameState = GameState.Playing;
-    private static int _score = 0;
-    private static int _highScore = 0;
-    private static Random _random = new();
-
-    // Game timing
-    private static System.Timers.Timer? _gameTimer;
-    private static int _gameSpeed = 100;
-
-    // Canvas geometry (calculated from layout)
-    private static int _canvasWidth;
-    private static int _canvasHeight;
-    private static int _canvasOffsetX; // Where canvas starts in content buffer
-
-    // Visual settings
-    private static readonly Color SnakeHeadColor = Color.Lime;
-    private static readonly Color SnakeBodyColor = Color.Green;
-    private static readonly Color FoodColor = Color.Red;
-    private static readonly Color CanvasColor = Color.Grey11;
-    private static readonly Color SidebarBg = Color.Grey19;
-    private static readonly char SnakeChar = '█';
-    private static readonly char FoodChar = '●';
-
-    static async Task<int> Main(string[] args)
-    {
-        try
-        {
-            _windowSystem = new ConsoleWindowSystem(
-                new NetConsoleDriver(RenderMode.Buffer),
-                options: new ConsoleWindowSystemOptions(
-                    TopPanelConfig: panel => panel.Left(Elements.StatusText(""))
-                ));
-
-            _windowSystem.PanelStateService.TopStatus = "SNAKE - Arrows/WASD: Move | P: Pause | R: Restart | Esc: Quit";
-
-            Console.CancelKeyPress += (s, e) =>
-            {
-                e.Cancel = true;
-                _windowSystem?.Shutdown(0);
-            };
-
-            CreateGameWindow();
-            await Task.Run(() => _windowSystem.Run());
-            return 0;
-        }
-        catch (Exception ex)
-        {
-            Console.Clear();
-            ExceptionFormatter.WriteException(ex);
-            return 1;
-        }
-        finally
-        {
-            _gameTimer?.Stop();
-            _gameTimer?.Dispose();
-        }
-    }
-
-    private static void CreateGameWindow()
-    {
-        if (_windowSystem == null) return;
-
-        _gameWindow = new WindowBuilder(_windowSystem)
-            .WithTitle("SNAKE")
-            .Resizable(false)
-            .Movable(false)
-            .Closable(false)
-            .Minimizable(false)
-            .Maximizable(false)
-            .WithBorderStyle(BorderStyle.Single)
-            .Build();
-
-        // Create the two-column layout
-        _mainGrid = new HorizontalGridControl
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch
-        };
-
-        // Left sidebar (fixed width)
-        _sidebarColumn = new ColumnContainer(_mainGrid) { Width = SidebarWidth };
-        _sidebarColumn.BackgroundColor = SidebarBg;
-        CreateSidebarContent(_sidebarColumn);
-        _mainGrid.AddColumn(_sidebarColumn);
-
-        // Right canvas column (fills remaining space)
-        _canvasColumn = new ColumnContainer(_mainGrid);
-        _canvasColumn.BackgroundColor = CanvasColor;
-        // Empty - we render the game directly to the buffer
-        _mainGrid.AddColumn(_canvasColumn);
-
-        _gameWindow.AddControl(_mainGrid);
-
-        // Hook into rendering pipeline
-        _gameWindow.PostBufferPaint += RenderGame;
-
-        // Handle keyboard
-        _gameWindow.KeyPressed += HandleKeyPress;
-
-        // Handle resize - restart game!
-        _gameWindow.OnResize += (s, e) =>
-        {
-            // Recalculate canvas geometry and restart
-            CalculateCanvasGeometry();
-            RestartGame();
-        };
-
-        _windowSystem.AddWindow(_gameWindow);
-        _gameWindow.State = WindowState.Maximized;
-
-        // Initialize on first activation
-        _gameWindow.Activated += (s, e) =>
-        {
-            if (_snake.Count == 0)
-            {
-                CalculateCanvasGeometry();
-                InitializeGame();
-                StartGameLoop();
-            }
-        };
-    }
-
-    private static void CreateSidebarContent(ColumnContainer sidebar)
-    {
-        // Title
-        sidebar.AddContent(new MarkupControl(new List<string>
-        {
-            "",
-            "[bold yellow]   SNAKE[/]",
-            "[dim]───────────────────[/]"
-        }));
-
-        // Score section
-        sidebar.AddContent(new MarkupControl(new List<string> { "", "[white] SCORE[/]" }));
-        _scoreDisplay = new MarkupControl(new List<string> { " [bold cyan]0[/]" });
-        sidebar.AddContent(_scoreDisplay);
-
-        // High score
-        sidebar.AddContent(new MarkupControl(new List<string> { "", "[white] HIGH SCORE[/]" }));
-        _highScoreDisplay = new MarkupControl(new List<string> { " [bold yellow]0[/]" });
-        sidebar.AddContent(_highScoreDisplay);
-
-        // Speed
-        sidebar.AddContent(new MarkupControl(new List<string> { "", "[white] SPEED[/]" }));
-        _speedDisplay = new MarkupControl(new List<string> { " [bold green]1[/]" });
-        sidebar.AddContent(_speedDisplay);
-
-        // Game state
-        sidebar.AddContent(new MarkupControl(new List<string> { "" }));
-        _stateDisplay = new MarkupControl(new List<string> { " [bold lime]PLAYING[/]" });
-        sidebar.AddContent(_stateDisplay);
-
-        // Controls
-        sidebar.AddContent(new MarkupControl(new List<string>
-        {
-            "",
-            "[dim]───────────────────[/]",
-            "[white] CONTROLS[/]",
-            "",
-            " [cyan]↑↓←→[/] Move",
-            " [cyan]WASD[/] Move",
-            " [cyan]P[/]    Pause",
-            " [cyan]R[/]    Restart",
-            " [cyan]Esc[/]  Quit"
-        }));
-    }
-
-    private static void CalculateCanvasGeometry()
-    {
-        if (_gameWindow == null) return;
-
-        // PostBufferPaint buffer IS the content area (borders excluded)
-        // Canvas starts right after the sidebar
-        _canvasOffsetX = SidebarWidth;
-
-        // Content area dimensions from window
-        // ContentWidth = Width - 2 (borders), ContentHeight = Height - 1 (border, title is inline)
-        int contentWidth = _gameWindow.Width - 2;
-        int contentHeight = _gameWindow.Height - 1;
-
-        _canvasWidth = contentWidth - SidebarWidth;
-        _canvasHeight = contentHeight;
-    }
-
-    private static void InitializeGame()
-    {
-        _snake.Clear();
-        _direction = Direction.Right;
-        _nextDirection = Direction.Right;
-        _gameState = GameState.Playing;
-        _score = 0;
-
-        // Start snake in center of canvas
-        int startX = _canvasWidth / 2;
-        int startY = _canvasHeight / 2;
-
-        _snake.Add((startX, startY));
-        _snake.Add((startX - 1, startY));
-        _snake.Add((startX - 2, startY));
-
-        SpawnFood();
-        UpdateSidebarDisplays();
-        _gameWindow?.Invalidate(Invalidation.Relayout);
-    }
-
-    private static void RestartGame()
-    {
-        _gameTimer?.Stop();
-        _gameSpeed = 100;
-        InitializeGame();
-        StartGameLoop();
-    }
-
-    private static void StartGameLoop()
-    {
-        _gameTimer?.Stop();
-        _gameTimer?.Dispose();
-
-        _gameTimer = new System.Timers.Timer(_gameSpeed);
-        _gameTimer.Elapsed += (s, e) =>
-        {
-            if (_gameState == GameState.Playing)
-            {
-                UpdateGame();
-                _gameWindow?.Invalidate(Invalidation.Relayout);
-            }
-        };
-        _gameTimer.Start();
-    }
-
-    private static void SpawnFood()
-    {
-        int attempts = 0;
-        do
-        {
-            _food = (_random.Next(0, _canvasWidth), _random.Next(0, _canvasHeight));
-            attempts++;
-        } while (_snake.Contains(_food) && attempts < 1000);
-    }
-
-    private static void UpdateGame()
-    {
-        if (_snake.Count == 0) return;
-
-        _direction = _nextDirection;
-
-        var head = _snake[0];
-        var newHead = _direction switch
-        {
-            Direction.Up => (head.X, head.Y - 1),
-            Direction.Down => (head.X, head.Y + 1),
-            Direction.Left => (head.X - 1, head.Y),
-            Direction.Right => (head.X + 1, head.Y),
-            _ => head
-        };
-
-        // Wall collision
-        if (newHead.Item1 < 0 || newHead.Item1 >= _canvasWidth ||
-            newHead.Item2 < 0 || newHead.Item2 >= _canvasHeight)
-        {
-            GameOver();
-            return;
-        }
-
-        // Self collision
-        if (_snake.Take(_snake.Count - 1).Contains(newHead))
-        {
-            GameOver();
-            return;
-        }
-
-        _snake.Insert(0, newHead);
-
-        // Food collision
-        if (newHead == _food)
-        {
-            _score += 10;
-            if (_score > _highScore) _highScore = _score;
-
-            // Speed up every 50 points
-            if (_score % 50 == 0 && _gameSpeed > 40)
-            {
-                _gameSpeed -= 10;
-                _gameTimer?.Stop();
-                _gameTimer = new System.Timers.Timer(_gameSpeed);
-                _gameTimer.Elapsed += (s, e) =>
-                {
-                    if (_gameState == GameState.Playing)
-                    {
-                        UpdateGame();
-                        _gameWindow?.Invalidate(Invalidation.Relayout);
-                    }
-                };
-                _gameTimer.Start();
-            }
-
-            SpawnFood();
-            UpdateSidebarDisplays();
-        }
-        else
-        {
-            _snake.RemoveAt(_snake.Count - 1);
-        }
-    }
-
-    private static void GameOver()
-    {
-        _gameState = GameState.GameOver;
-        _gameTimer?.Stop();
-        UpdateSidebarDisplays();
-    }
-
-    private static void UpdateSidebarDisplays()
-    {
-        _scoreDisplay?.SetContent(new List<string> { $" [bold cyan]{_score}[/]" });
-        _highScoreDisplay?.SetContent(new List<string> { $" [bold yellow]{_highScore}[/]" });
-
-        int speedLevel = (200 - _gameSpeed) / 10;
-        _speedDisplay?.SetContent(new List<string> { $" [bold green]{speedLevel}[/]" });
-
-        var stateText = _gameState switch
-        {
-            GameState.Playing => " [bold lime]PLAYING[/]",
-            GameState.Paused => " [bold yellow]PAUSED[/]",
-            GameState.GameOver => " [bold red]GAME OVER[/]",
-            _ => ""
-        };
-        _stateDisplay?.SetContent(new List<string> { stateText });
-    }
-
-    private static void HandleKeyPress(object? sender, KeyPressedEventArgs e)
-    {
-        switch (e.KeyInfo.Key)
-        {
-            case ConsoleKey.UpArrow:
-            case ConsoleKey.W:
-                if (_direction != Direction.Down)
-                    _nextDirection = Direction.Up;
-                e.Handled = true;
-                break;
-
-            case ConsoleKey.DownArrow:
-            case ConsoleKey.S:
-                if (_direction != Direction.Up)
-                    _nextDirection = Direction.Down;
-                e.Handled = true;
-                break;
-
-            case ConsoleKey.LeftArrow:
-            case ConsoleKey.A:
-                if (_direction != Direction.Right)
-                    _nextDirection = Direction.Left;
-                e.Handled = true;
-                break;
-
-            case ConsoleKey.RightArrow:
-            case ConsoleKey.D:
-                if (_direction != Direction.Left)
-                    _nextDirection = Direction.Right;
-                e.Handled = true;
-                break;
-
-            case ConsoleKey.P:
-            case ConsoleKey.Spacebar:
-                if (_gameState == GameState.Playing)
-                {
-                    _gameState = GameState.Paused;
-                    _gameTimer?.Stop();
-                }
-                else if (_gameState == GameState.Paused)
-                {
-                    _gameState = GameState.Playing;
-                    _gameTimer?.Start();
-                }
-                UpdateSidebarDisplays();
-                _gameWindow?.Invalidate(Invalidation.Relayout);
-                e.Handled = true;
-                break;
-
-            case ConsoleKey.R:
-                RestartGame();
-                e.Handled = true;
-                break;
-
-            case ConsoleKey.Escape:
-                _windowSystem?.Shutdown();
-                e.Handled = true;
-                break;
-        }
-    }
-
-    /// <summary>
-    /// Direct frame buffer rendering - the game canvas
-    /// Buffer is the CONTENT area (borders already excluded)
-    /// </summary>
-    private static void RenderGame(CharacterBuffer buffer, LayoutRect dirtyRegion, LayoutRect clipRect)
-    {
-        // Clear canvas area only (starts at _canvasOffsetX, goes to end of buffer)
-        for (int y = 0; y < buffer.Height; y++)
-        {
-            for (int x = _canvasOffsetX; x < buffer.Width; x++)
-            {
-                buffer.SetNarrowCell(x, y, ' ', Color.White, CanvasColor);
-            }
-        }
-
-        // Draw snake
-        for (int i = _snake.Count - 1; i >= 0; i--)
-        {
-            var segment = _snake[i];
-            int screenX = segment.X + _canvasOffsetX;
-            int screenY = segment.Y;
-
-            if (screenX >= _canvasOffsetX && screenX < buffer.Width &&
-                screenY >= 0 && screenY < buffer.Height)
-            {
-                var color = i == 0 ? SnakeHeadColor : SnakeBodyColor;
-                buffer.SetNarrowCell(screenX, screenY, SnakeChar, color, CanvasColor);
-            }
-        }
-
-        // Draw food
-        int foodScreenX = _food.X + _canvasOffsetX;
-        int foodScreenY = _food.Y;
-        if (foodScreenX >= _canvasOffsetX && foodScreenX < buffer.Width &&
-            foodScreenY >= 0 && foodScreenY < buffer.Height)
-        {
-            buffer.SetNarrowCell(foodScreenX, foodScreenY, FoodChar, FoodColor, CanvasColor);
-        }
-
-        // Draw overlays for pause/game over
-        if (_gameState == GameState.Paused)
-        {
-            int centerX = _canvasOffsetX + _canvasWidth / 2;
-            int centerY = buffer.Height / 2;
-            DrawCenteredBox(buffer, centerX, centerY, "PAUSED", "Press P to continue", Color.Yellow, Color.DarkBlue);
-        }
-        else if (_gameState == GameState.GameOver)
-        {
-            int centerX = _canvasOffsetX + _canvasWidth / 2;
-            int centerY = buffer.Height / 2;
-            DrawCenteredBox(buffer, centerX, centerY, "GAME OVER", $"Score: {_score} | Press R", Color.White, Color.DarkRed);
-        }
-    }
-
-    private static void DrawCenteredBox(CharacterBuffer buffer, int centerX, int centerY,
-        string line1, string line2, Color fg, Color bg)
-    {
-        int boxWidth = Math.Max(line1.Length, line2.Length) + 4;
-        int boxHeight = 4;
-        int boxLeft = centerX - boxWidth / 2;
-        int boxTop = centerY - boxHeight / 2;
-
-        // Draw box background
-        for (int y = boxTop; y < boxTop + boxHeight; y++)
-        {
-            for (int x = boxLeft; x < boxLeft + boxWidth; x++)
-            {
-                if (x >= 0 && x < buffer.Width && y >= 0 && y < buffer.Height)
-                    buffer.SetNarrowCell(x, y, ' ', fg, bg);
-            }
-        }
-
-        // Draw text
-        DrawText(buffer, centerX - line1.Length / 2, boxTop + 1, line1, fg, bg);
-        DrawText(buffer, centerX - line2.Length / 2, boxTop + 2, line2, fg, bg);
-    }
-
-    private static void DrawText(CharacterBuffer buffer, int x, int y, string text, Color fg, Color bg)
-    {
-        for (int i = 0; i < text.Length; i++)
-        {
-            int px = x + i;
-            if (px >= 0 && px < buffer.Width && y >= 0 && y < buffer.Height)
-                buffer.SetNarrowCell(px, y, text[i], fg, bg);
-        }
-    }
+	private const double FrameSeconds = 1.0 / 60;
+	private const double StepSeconds = 1.0 / 120;
+
+	private static int Main(string[] args)
+	{
+		// --socket opens the diagnostics socket, and --headless runs with no
+		// terminal at all. Together they let the game be driven and screenshotted
+		// from outside: see the README. Requested in code, so no consent prompt.
+		string? socket = Flag(args, "--socket") is { } path
+			? (path.Length > 0 ? path : Path.Combine(Path.GetTempPath(), "snake.sock"))
+			: null;
+		bool headless = args.Contains("--headless");
+
+		try
+		{
+			IConsoleDriver driver = headless
+				? new HeadlessConsoleDriver(Size(args, "--width", 120), Size(args, "--height", 36))
+				: new NetConsoleDriver(RenderMode.Buffer);
+
+			var ws = new ConsoleWindowSystem(
+				driver,
+				options: new ConsoleWindowSystemOptions(
+					// The game paces itself at 60 fps; a higher cap keeps the
+					// system's frame gate from ever dropping one of its frames.
+					TargetFPS: 120,
+					ShowTopPanel: false,
+					ShowBottomPanel: false,
+					AltDigitSelectsWindow: false,
+					DiagnosticsSocket: socket));
+
+			Console.CancelKeyPress += (_, e) =>
+			{
+				e.Cancel = true;
+				ws.Shutdown(0);
+			};
+
+			var session = new GameSession(ws);
+			session.Show();
+
+			ws.Run();
+			session.SaveHighScore();
+			return 0;
+		}
+		catch (Exception ex)
+		{
+			Console.Clear();
+			ExceptionFormatter.WriteException(ex);
+			return 1;
+		}
+	}
+
+	/// <summary>Reads <c>--name</c> or <c>--name=value</c>, returning null when absent.</summary>
+	private static string? Flag(string[] args, string name)
+	{
+		foreach (string arg in args)
+		{
+			if (arg == name) return "";
+			if (arg.StartsWith(name + "=", StringComparison.Ordinal))
+				return arg[(name.Length + 1)..];
+		}
+		return null;
+	}
+
+	private static int Size(string[] args, string name, int fallback) =>
+		int.TryParse(Flag(args, name), out int v) && v > 0 ? v : fallback;
+
+	/// <summary>Owns the window, the game and the loop that ties them together.</summary>
+	private sealed class GameSession
+	{
+		private readonly ConsoleWindowSystem _ws;
+		private readonly Game _game;
+		private readonly Renderer _renderer = new();
+		private readonly Hud _hud = new();
+		private readonly MouseInput _mouse = new();
+		private readonly GameCanvas _canvas;
+		private readonly int _startingHighScore;
+		private bool _crt;
+		private double _fps;
+
+		public GameSession(ConsoleWindowSystem ws)
+		{
+			_ws = ws;
+			_startingHighScore = HighScoreStore.Load();
+			_game = new Game(_startingHighScore);
+			_game.Notify += OnGameEvent;
+
+			_canvas = new GameCanvas
+			{
+				HorizontalAlignment = HorizontalAlignment.Stretch,
+				VerticalAlignment = VerticalAlignment.Fill,
+				AutoSize = true,
+				BackgroundColor = new Color(6, 10, 16),
+			};
+			// Mouse events arrive on the input thread: only record them here.
+			_canvas.CanvasMouseMove += (_, e) => _mouse.Moved(e.CanvasX, e.CanvasY);
+			_canvas.PrimaryPressed += (x, y) => _mouse.Pressed(x, y);
+		}
+
+		public void Show()
+		{
+			var layout = Controls.HorizontalGrid()
+				.WithAlignment(HorizontalAlignment.Stretch)
+				.WithVerticalAlignment(VerticalAlignment.Fill)
+				.Column(c => c.Flex(1).Add(_canvas))
+				.Column(c =>
+				{
+					c.Width(Hud.Width);
+					foreach (var control in _hud.Build()) c.Add(control);
+				})
+				.Build();
+
+			var statusBar = Controls.StatusBar()
+				.AddLeft("↑↓←→", "Turn")
+				.AddLeftSeparator()
+				.AddLeft("P", "Pause", () => _game.TogglePause())
+				.AddLeft("T", "Walls", ToggleWalls)
+				.AddLeft("C", "CRT", () => _crt = !_crt)
+				.AddLeft("R", "Restart", () => _game.StartGame())
+				.AddRight("Q", "Quit", Quit)
+				.WithBackgroundColor(new Color(10, 26, 22))
+				.WithShortcutForegroundColor(new Color(120, 240, 160))
+				.StickyBottom()
+				.Build();
+
+			var window = new WindowBuilder(_ws)
+				.WithTitle("Snake")
+				.Maximized()
+				.Frameless()
+				.HideTitle()
+				.HideTitleButtons()
+				.Movable(false)
+				.Resizable(false)
+				.Closable(false)
+				.WithColors(new Color(210, 240, 220), new Color(6, 14, 12))
+				.WithBackgroundGradient(
+					ColorGradient.FromColors(new Color(10, 24, 20), new Color(5, 12, 14)),
+					GradientDirection.Vertical)
+				.AddControl(layout)
+				.AddControl(statusBar)
+				.WithWindowThreadOnUI(RunLoopAsync)
+				.Build();
+
+			window.PreviewKeyPressed += OnPreviewKey;
+			window.PostBufferPaint += ApplyCompositorEffects;
+
+			_ws.ToastService.DefaultPosition = ToastPosition.BottomRight;
+			_ws.AddWindow(window);
+			WindowAnimations.FadeIn(window, TimeSpan.FromMilliseconds(600), new Color(0, 0, 0), EasingFunctions.EaseInOut);
+		}
+
+		/// <summary>
+		/// The game loop. Runs on the UI thread: each await resumes through the
+		/// window system's synchronization context, which also wakes its render loop.
+		/// </summary>
+		private async Task RunLoopAsync(Window window, CancellationToken ct)
+		{
+			double last = GameClock.Now;
+			double nextFrame = last;
+			double accumulator = 0;
+			int frames = 0;
+			double fpsWindowStart = last;
+
+			while (!ct.IsCancellationRequested)
+			{
+				double now = GameClock.Now;
+				accumulator += Math.Min(0.1, now - last);
+				last = now;
+
+				_game.Resize(_canvas.CanvasWidth, _canvas.CanvasHeight * 2);
+				var (mouseX, mouseY, mouseMoved, clicks) = _mouse.Consume();
+				_game.ApplyMouse(
+					mouseX / Game.CellSize,
+					mouseY * 2 / Game.CellSize,
+					mouseMoved, clicks, now);
+
+				// Fixed-step simulation: identical game speed at any frame rate.
+				while (accumulator >= StepSeconds)
+				{
+					_game.Update((float)StepSeconds, now);
+					accumulator -= StepSeconds;
+				}
+
+				var g = _canvas.BeginPaint();
+				try
+				{
+					_renderer.Render(g, _game, now);
+				}
+				finally
+				{
+					_canvas.EndPaint();
+				}
+
+				_hud.Sync(_game, now, _crt, _fps);
+
+				frames++;
+				if (now - fpsWindowStart >= 1)
+				{
+					_fps = frames / (now - fpsWindowStart);
+					frames = 0;
+					fpsWindowStart = now;
+				}
+
+				// Pace to absolute frame deadlines so Task.Delay jitter doesn't accumulate.
+				nextFrame = Math.Max(nextFrame + FrameSeconds, GameClock.Now - FrameSeconds);
+				int delayMs = (int)Math.Max(1, (nextFrame - GameClock.Now) * 1000);
+				try
+				{
+					await Task.Delay(delayMs, ct);
+				}
+				catch (OperationCanceledException)
+				{
+					break;
+				}
+			}
+		}
+
+		private void OnPreviewKey(object? sender, KeyPressedEventArgs e)
+		{
+			var key = e.KeyInfo;
+			// Leave Ctrl/Alt chords (Ctrl+Q quit, Ctrl+C copy, ...) to the system.
+			if ((key.Modifiers & (ConsoleModifiers.Control | ConsoleModifiers.Alt)) != 0) return;
+
+			switch (key.Key)
+			{
+				case ConsoleKey.UpArrow:
+				case ConsoleKey.W:
+					_game.Turn(Direction.Up);
+					break;
+				case ConsoleKey.DownArrow:
+				case ConsoleKey.S:
+					_game.Turn(Direction.Down);
+					break;
+				case ConsoleKey.LeftArrow:
+				case ConsoleKey.A:
+					_game.Turn(Direction.Left);
+					break;
+				case ConsoleKey.RightArrow:
+				case ConsoleKey.D:
+					_game.Turn(Direction.Right);
+					break;
+				case ConsoleKey.P:
+				case ConsoleKey.Spacebar:
+					_game.TogglePause();
+					break;
+				case ConsoleKey.T:
+					ToggleWalls();
+					break;
+				case ConsoleKey.C:
+					_crt = !_crt;
+					break;
+				case ConsoleKey.R:
+					_game.StartGame();
+					break;
+				case ConsoleKey.Q:
+				case ConsoleKey.Escape:
+					Quit();
+					break;
+				default:
+					return;
+			}
+
+			// Consumed: no focus traversal, scrolling or window move/resize fallbacks.
+			e.Handled = true;
+		}
+
+		private void ToggleWalls()
+		{
+			_game.ToggleWalls();
+			_ws.ToastService.Show(
+				_game.Walls == WallMode.Portal
+					? "Walls: PORTAL — the edges wrap around"
+					: "Walls: SOLID — the edges are fatal",
+				NotificationSeverity.Info,
+				new ToastOptions(Timeout: 2200));
+		}
+
+		private void Quit()
+		{
+			SaveHighScore();
+			_ws.Shutdown(0);
+		}
+
+		public void SaveHighScore()
+		{
+			if (_game.HiScore > _startingHighScore) HighScoreStore.Save(_game.HiScore);
+		}
+
+		private void OnGameEvent(GameEvent evt, string message)
+		{
+			// Eating is far too frequent to toast; it is already shown on the board
+			// as a score pop-up, and a toast per fruit would bury everything else.
+			if (evt == GameEvent.Ate) return;
+
+			var (severity, timeout) = evt switch
+			{
+				GameEvent.LevelUp => (NotificationSeverity.Success, 2200),
+				GameEvent.BonusTaken => (NotificationSeverity.Success, 2000),
+				GameEvent.BonusMissed => (NotificationSeverity.Info, 1800),
+				GameEvent.ShieldUsed => (NotificationSeverity.Warning, 2600),
+				GameEvent.NewHighScore => (NotificationSeverity.Warning, 2600),
+				_ => (_game.BeatHighScore ? NotificationSeverity.Warning : NotificationSeverity.Danger, 3500),
+			};
+			_ws.ToastService.Show(message, severity, new ToastOptions(Timeout: timeout));
+
+			if (evt == GameEvent.GameOver) SaveHighScore();
+		}
+
+		/// <summary>
+		/// Window-wide post-processing, after every control has painted: the
+		/// damage/eat flash and the optional CRT scanline filter.
+		/// </summary>
+		private void ApplyCompositorEffects(CharacterBuffer buffer, LayoutRect dirtyRegion, LayoutRect clipRect)
+		{
+			var fx = _game.Fx;
+			if (fx.FlashIntensity > 0)
+			{
+				// foregroundBlendRatio: 1 — equal weight for both.
+				//
+				// The default tints foreground less than background, which is
+				// right for text (keep the letters readable through a flash) and
+				// wrong here: in a half-block surface the foreground IS the top
+				// pixel and the background the bottom one, so an uneven ratio
+				// tints alternating pixel rows by different amounts and the flash
+				// comes out as horizontal banding. A screenshot of the shield save
+				// showed exactly that.
+				//
+				// 0.3 rather than 0.55, too: at full strength the flash washed out
+				// the whole board, which hides the very thing it is announcing.
+				ColorBlendHelper.ApplyColorOverlay(
+					buffer, fx.FlashColor, fx.FlashIntensity * 0.3f, foregroundBlendRatio: 1f);
+			}
+
+			if (!_crt) return;
+			for (int y = 0; y < buffer.Height; y++)
+			{
+				double rowGain = y % 2 == 0 ? 1.0 : 0.72;
+				for (int x = 0; x < buffer.Width; x++)
+				{
+					var cell = buffer.GetCell(x, y);
+					if (cell.IsWideContinuation) continue;
+					// Scanlines plus a faint phosphor bias towards green.
+					buffer.SetCellColors(x, y, Phosphor(cell.Foreground, rowGain), Phosphor(cell.Background, rowGain));
+				}
+			}
+		}
+
+		private static Color Phosphor(Color c, double gain) => new(
+			(byte)Math.Min(255, c.R * gain * 0.94),
+			(byte)Math.Min(255, c.G * gain * 1.04),
+			(byte)Math.Min(255, c.B * gain * 0.94));
+	}
+}
+
+/// <summary>Persists the best score between runs.</summary>
+internal static class HighScoreStore
+{
+	private static string FilePath => Path.Combine(
+		Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+		"SharpConsoleUI", "snake.hiscore");
+
+	public static int Load()
+	{
+		try
+		{
+			return File.Exists(FilePath) && int.TryParse(File.ReadAllText(FilePath).Trim(), out int v) ? v : 0;
+		}
+		catch (IOException)
+		{
+			return 0;
+		}
+		catch (UnauthorizedAccessException)
+		{
+			return 0;
+		}
+	}
+
+	public static void Save(int score)
+	{
+		try
+		{
+			Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
+			File.WriteAllText(FilePath, score.ToString());
+		}
+		catch (IOException)
+		{
+		}
+		catch (UnauthorizedAccessException)
+		{
+		}
+	}
 }
