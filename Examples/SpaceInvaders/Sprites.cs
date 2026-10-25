@@ -1,37 +1,15 @@
 // -----------------------------------------------------------------------
-// SpaceInvaders — pixel-art sprites.
+// SpaceInvaders — pixel-art shapes.
 //
-// Sprites are authored as text ('#' = lit pixel) and parsed once into masks.
+// Shapes are authored as text ('#' = lit pixel) and parsed once into PixelMask.
 // Each pixel is half a terminal cell tall (see PixelSurface), so a 7×4
 // invader occupies 7 columns × 2 rows on screen.
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI;
+using SharpConsoleUI.Drawing;
+
 namespace SpaceInvaders;
-
-/// <summary>An immutable 1-bit pixel mask.</summary>
-internal sealed class Sprite
-{
-	private readonly bool[,] _mask;
-
-	public int Width { get; }
-	public int Height { get; }
-
-	public Sprite(params string[] rows)
-	{
-		Height = rows.Length;
-		Width = rows.Max(r => r.Length);
-		_mask = new bool[Width, Height];
-		for (int y = 0; y < Height; y++)
-			for (int x = 0; x < rows[y].Length; x++)
-				_mask[x, y] = rows[y][x] == '#';
-	}
-
-	public bool this[int x, int y] =>
-		(uint)x < (uint)Width && (uint)y < (uint)Height && _mask[x, y];
-
-	/// <summary>Returns a fresh, mutable copy of the mask (for destructible shields).</summary>
-	public bool[,] CloneMask() => (bool[,])_mask.Clone();
-}
 
 internal static class Sprites
 {
@@ -40,7 +18,7 @@ internal static class Sprites
 
 	// Two animation frames per invader — they swap on every formation step.
 
-	public static readonly Sprite[] Squid =
+	public static readonly PixelMask[] Squid =
 	{
 		new("..###..",
 			".#####.",
@@ -52,7 +30,7 @@ internal static class Sprites
 			"#.....#"),
 	};
 
-	public static readonly Sprite[] Crab =
+	public static readonly PixelMask[] Crab =
 	{
 		new(".#...#.",
 			"#######",
@@ -64,7 +42,7 @@ internal static class Sprites
 			".#...#."),
 	};
 
-	public static readonly Sprite[] Octopus =
+	public static readonly PixelMask[] Octopus =
 	{
 		new(".#####.",
 			"##.#.##",
@@ -76,26 +54,26 @@ internal static class Sprites
 			"##...##"),
 	};
 
-	public static readonly Sprite Burst = new(
+	public static readonly PixelMask Burst = new(
 		"#..#..#",
 		".#.#.#.",
 		"##...##",
 		".#.#.#.");
 
-	public static readonly Sprite Player = new(
+	public static readonly PixelMask Player = new(
 		"....#....",
 		"...###...",
 		".#######.",
 		"#########");
 
-	public static readonly Sprite Ufo = new(
+	public static readonly PixelMask Ufo = new(
 		"...#####...",
 		".#########.",
 		"##.##.##.##",
 		"..##...##..");
 
 	/// <summary>Bunker outline; each wave gets fresh mutable copies.</summary>
-	public static readonly Sprite Shield = new(
+	public static readonly PixelMask Shield = new(
 		"..########..",
 		".##########.",
 		"############",
@@ -103,3 +81,4 @@ internal static class Sprites
 		"####....####",
 		"###......###");
 }
+

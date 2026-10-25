@@ -3,7 +3,7 @@
 //
 // Reuses the library's FIGlet engine (FigletFont / FigletRenderer and the
 // fonts embedded in SharpConsoleUI) but rasterises the result into a pixel
-// Sprite instead of printing the ASCII art. Every FIGlet character becomes a
+// PixelMask instead of printing the ASCII art. Every FIGlet character becomes a
 // column of two pixels: '_' and '.' light only the lower pixel, '\'' and '`'
 // only the upper one, everything else both. The outline fonts then read as
 // chunky solid lettering that can be gradient-lit and animated per pixel.
@@ -12,15 +12,17 @@
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Parsing;
 
+using SharpConsoleUI.Drawing;
+
 namespace SpaceInvaders;
 
 internal static class BigText
 {
 	private static readonly Dictionary<string, FigletFont> Fonts = new();
-	private static readonly Dictionary<(string, string), Sprite> Cache = new();
+	private static readonly Dictionary<(string, string), PixelMask> Cache = new();
 
 	/// <summary>Renders <paramref name="text"/> with an embedded FIGlet font as a pixel sprite.</summary>
-	public static Sprite Render(string text, string font = "standard")
+	public static PixelMask Render(string text, string font = "standard")
 	{
 		if (Cache.TryGetValue((text, font), out var cached)) return cached;
 
@@ -50,7 +52,7 @@ internal static class BigText
 			rows[i * 2 + 1] = new string(bottom);
 		}
 
-		var sprite = new Sprite(rows.Length == 0 ? new[] { "." } : rows);
+		var sprite = new PixelMask(rows.Length == 0 ? new[] { "." } : rows);
 		Cache[(text, font)] = sprite;
 		return sprite;
 	}

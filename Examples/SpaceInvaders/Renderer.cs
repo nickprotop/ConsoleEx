@@ -217,7 +217,7 @@ internal sealed class Renderer
 			if (!inv.Alive)
 			{
 				if (inv.BurstTimer > 0)
-					_px.DrawSprite(Sprites.Burst, x, y, PixelSurface.Lerp(new Color(255, 160, 60), Color.White, inv.BurstTimer / 0.16));
+					_px.Draw(Sprites.Burst, x, y, PixelSurface.Lerp(new Color(255, 160, 60), Color.White, inv.BurstTimer / 0.16));
 				continue;
 			}
 
@@ -226,8 +226,8 @@ internal sealed class Renderer
 			var baseColor = RowGradient.Interpolate(inv.Row / 4.0);
 			var color = PixelSurface.Scale(baseColor, 1 + beat);
 			var sprite = inv.Frames[game.AnimFrame];
-			_px.GlowSprite(sprite, x, y, baseColor, 0.12 + beat * 0.3);
-			_px.DrawSprite(sprite, x, y, color, rowShade: 0.25);
+			_px.GlowMask(sprite, x, y, baseColor, 0.12 + beat * 0.3);
+			_px.Draw(sprite, x, y, color, rowShade: 0.25);
 
 			// A faint vapour trail while flying in.
 			if (arrival < 1)
@@ -263,8 +263,8 @@ internal sealed class Renderer
 		if (game.Invulnerable > 0 && (int)(now * 10) % 2 == 0) return;
 
 		int x = (int)game.PlayerX, y = game.PlayerY;
-		_px.GlowSprite(Sprites.Player, x, y, ShipColor, 0.12);
-		_px.DrawSprite(Sprites.Player, x, y, ShipColor, rowShade: -0.0);
+		_px.GlowMask(Sprites.Player, x, y, ShipColor, 0.12);
+		_px.Draw(Sprites.Player, x, y, ShipColor, rowShade: -0.0);
 		_px.Set(x + 4, y, Color.White);
 
 		// Engine flicker under the hull; brighter while moving.
@@ -395,7 +395,7 @@ internal sealed class Renderer
 		y += BigText.Render("INVADERS", font).Height + 4;
 
 		// Score table with the real sprites, revealed one line at a time.
-		var entries = new (Sprite Sprite, Color Color, string Label)[]
+		var entries = new (PixelMask PixelMask, Color Color, string Label)[]
 		{
 			(Sprites.Ufo, Effects.Rainbow.Interpolate((now * 0.3) % 1), "= ? MYSTERY"),
 			(Sprites.Squid[(int)(now * 2) % 2], RowGradient.Interpolate(0), "= 30 POINTS"),
@@ -409,7 +409,7 @@ internal sealed class Renderer
 			if (reveal <= 0) break;
 			var (sprite, color, label) = entries[i];
 			int sx = left - sprite.Width / 2;
-			_px.DrawSprite(sprite, sx, y, PixelSurface.Scale(color, reveal));
+			_px.Draw(sprite, sx, y, PixelSurface.Scale(color, reveal));
 			int chars = (int)Math.Round(label.Length * reveal);
 			_px.Text(left + 7, y / 2 + 1, label[..chars], PixelSurface.Scale(new Color(220, 225, 255), reveal));
 			y += 6;
@@ -431,7 +431,7 @@ internal sealed class Renderer
 		var font = PickFont("GAME OVER");
 		const string text = "GAME OVER";
 		int total = 0;
-		var glyphs = new List<(Sprite Sprite, int Offset)>();
+		var glyphs = new List<(PixelMask PixelMask, int Offset)>();
 		foreach (char c in text)
 		{
 			if (c == ' ') { total += 4; continue; }
@@ -503,7 +503,7 @@ internal sealed class Renderer
 		}, alpha);
 	}
 
-	private void DrawSpriteGradient(Sprite sprite, int x, int y, Func<int, int, Color> color, double alpha)
+	private void DrawSpriteGradient(PixelMask sprite, int x, int y, Func<int, int, Color> color, double alpha)
 	{
 		for (int sy = 0; sy < sprite.Height; sy++)
 			for (int sx = 0; sx < sprite.Width; sx++)

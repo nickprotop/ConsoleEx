@@ -236,6 +236,106 @@ for (int i = 0; i < cells.Count; i++)
 | `CheckerFill(x, y, w, h, ch1, ch2, fg1, bg1, fg2, bg2)` | Fill with alternating checker cells. |
 | `StippleFill(x, y, w, h, density, ch, fg, bg)` | Fill with random stipple pattern at a given density. |
 
+## PixelSurface: drawing in pixels
+
+Everything above draws in **cells**, and every shape takes a character. That is the
+right model for anything made of text, and the wrong one for a picture: the
+smallest thing you can draw is one cell, and cells are about twice as tall as they
+are wide, so circles come out as ovals.
+
+`PixelSurface` is the other model. It treats each cell as **two stacked pixels** and
+paints it with `▀` — foreground the top pixel, background the bottom. The pixels
+come out nearly square, the vertical resolution doubles, and you draw in colours
+rather than characters.
+
+```csharp
+using SharpConsoleUI.Drawing;
+
+private readonly PixelSurface _surface = new();
+
+void Render(CanvasGraphics g)
+{
+    _surface.EnsureSize(g.Width, g.Height);   // in CELLS; the surface is 2x as tall
+    _surface.Fill(background);
+
+    _surface.FillCircle(20, 14, 6, Color.Red);
+    _surface.Glow(20, 14, 12, Color.Red, 0.4);
+    _surface.TextCentered(2, "[bold]Signal[/]", Color.White);
+
+    _surface.Present(g, background);          // composite into the canvas
+}
+```
+
+Use it for charts and sparklines at double detail, heat maps, waveforms, images,
+gauges, and games. Use `CanvasGraphics` for anything whose content is text —
+labels, boxes, tables, diagrams made of box-drawing characters.
+
+### Surface API
+
+| Method | Description |
+|--------|-------------|
+| `EnsureSize(columns, rows)` | Match the canvas size, in cells. Cheap when unchanged. |
+| `Width` / `Height` / `Rows` | Size in pixels, and height in canvas rows. |
+| `Set(x, y, c)` / `Get(x, y)` | Write and read one pixel. |
+| `Blend(x, y, c, alpha)` | Blend a colour over a pixel. |
+| `Add(x, y, c, amount)` | Add light to a pixel. Clamps at white. |
+| `Fill(c)` | Fill every pixel. |
+| `FillRect(x, y, w, h, c)` / `BlendRect(...)` | Rectangles, solid or blended. |
+| `FillCircle(cx, cy, r, c)` | Circle with a softened edge. |
+| `Glow(cx, cy, r, c, amount)` | Soft halo of light. |
+| `DrawLine(x0, y0, x1, y1, c)` | Line. |
+| `Dim(amount)` / `Desaturate(amount)` | Darken, or pull towards grey. |
+| `Present(g, voidColor)` | Composite into a canvas. |
+| `Present(g, offsetX, offsetY, voidColor)` | The same, displaced — see below. |
+| `Lerp(a, b, t)` / `Scale(c, k)` *(static)* | Colour helpers. |
+
+### Text over pixels
+
+`Text` and `TextCentered` float glyphs above the pixels. Without an explicit
+background a glyph takes the average of the two pixels beneath it, so lettering
+sits in the picture instead of punching a hole in it.
+
+```csharp
+_surface.Text(4, 3, "[yellow]42 ms[/]", Color.White);        // pixels show through
+_surface.Text(4, 5, "label", Color.White, Color.Black);      // solid background
+int width = _surface.TextCentered(0, "漢字 ok", Color.White); // returns display columns
+```
+
+Text goes through the markup parser, so tags work and so does Unicode: a wide
+glyph takes the two columns it needs, a combining mark stays with its letter, and
+`TextCentered` measures what will be *drawn* rather than the length of the markup
+string. `ClearText()` wipes the text layer and leaves the pixels alone.
+
+### Shapes: PixelMask
+
+A `PixelMask` is an immutable 1-bit shape written as text, where `#` is a lit
+pixel. Rows may be ragged.
+
+```csharp
+static readonly PixelMask Arrow = new(
+    "..#..",
+    ".###.",
+    "#####");
+
+_surface.Draw(Arrow, x, y, Color.Yellow);
+_surface.Draw(Arrow, x, y, Color.Yellow, rowShade: 0.5);  // darker towards the bottom
+_surface.GlowMask(Arrow, x, y, Color.Yellow, 0.3);        // halo around it
+```
+
+`CloneMask()` returns a mutable copy, for a shape that erodes as it is used.
+
+### Screen shake
+
+The second `Present` overload displaces where each cell *reads from*, so nothing is
+moved or resampled and pixels shifted off the surface come back as `voidColor`:
+
+```csharp
+_surface.Present(g, shakeX, shakeY, background);
+```
+
+Because this happens during compositing, only the canvas shakes — a HUD beside it
+stays still. Contrast a `PostBufferPaint` effect, which covers the whole window.
+
 ## Keyboard Support
 
 All key events are forwarded to the `CanvasKeyPressed` event when the canvas has focus.
@@ -249,11 +349,29 @@ All key events are forwarded to the `CanvasKeyPressed` event when the canvas has
 
 | Event | Behavior |
 |-------|----------|
-| Left click | Fires `CanvasMouseClick` with canvas-local coordinates, focuses the canvas |
-| Right click | Fires `CanvasMouseRightClick` with canvas-local coordinates |
-| Mouse move | Fires `CanvasMouseMove` with canvas-local coordinates |
+| Left button down | Fires `CanvasMouseDown`, focuses the canvas |
+| Left button up | Fires `CanvasMouseUp` |
+| Left click | Fires `CanvasMouseClick`, focuses the canvas |
+| Right click | Fires `CanvasMouseRightClick` |
+| Mouse move | Fires `CanvasMouseMove` |
 
-Coordinates are automatically translated from absolute screen position to canvas-local (0,0 = top-left of the drawing area, excluding margins).
+All carry canvas-local coordinates, translated from absolute screen position
+(0,0 = top-left of the drawing area, excluding margins).
+
+**Press, or click?** A click is reported on *release*, which is the right default
+for a button and late for anything that should respond the moment the button goes
+down — a game's fire control, the start of a drag, the first point of a brush
+stroke. Use `CanvasMouseDown` for those.
+
+A full press and release raises `CanvasMouseDown`, then `CanvasMouseUp`, then
+`CanvasMouseClick`. Handle one or the other, not both, unless you want the action
+twice. `CanvasMouseDown` also fires for the second and third press of a fast run:
+a multi-click carries its press as well as the derived gesture, so rapid clicking
+never drops one. Read `CanvasMouseEventArgs.OriginalArgs` if you need to tell them
+apart.
+
+Press and release are only consumed when something is listening, so a canvas that
+handles just clicks still lets a press through to drag its window.
 
 ## Thread Safety
 

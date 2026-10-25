@@ -300,7 +300,7 @@ internal sealed class Renderer
 			bonus ? Color.White : FruitShine);
 
 		if (!bonus)
-			_surface.DrawSprite(Sprites.FruitStalk,
+			_surface.Draw(Sprites.FruitStalk,
 				(int)(cx - 1), (int)(cy - radius - 1.5f), FruitLeaf);
 	}
 
@@ -345,7 +345,7 @@ internal sealed class Renderer
 		var color = PixelSurface.Lerp(ArenaDark, new Color(245, 225, 225), fadeIn);
 
 		_surface.Glow(cx, cy, Game.CellSize * 2.2, new Color(120, 40, 40), 0.5 * fadeIn);
-		_surface.DrawSprite(Sprites.Skull,
+		_surface.Draw(Sprites.Skull,
 			(int)cx - Sprites.Skull.Width / 2,
 			(int)cy - Sprites.Skull.Height / 2,
 			color);

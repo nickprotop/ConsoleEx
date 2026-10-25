@@ -13,6 +13,8 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Helpers;
 
+using SharpConsoleUI.Drawing;
+
 namespace SpaceInvaders;
 
 internal enum Phase { Title, WaveIntro, Playing, PlayerDown, WaveCleared, GameOver }
@@ -34,7 +36,7 @@ internal sealed class Invader
 
 	public int Points => Kind switch { InvaderKind.Squid => 30, InvaderKind.Crab => 20, _ => 10 };
 
-	public Sprite[] Frames => Kind switch
+	public PixelMask[] Frames => Kind switch
 	{
 		InvaderKind.Squid => Sprites.Squid,
 		InvaderKind.Crab => Sprites.Crab,

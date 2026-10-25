@@ -11,6 +11,8 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Helpers;
 
+using SharpConsoleUI.Drawing;
+
 namespace SpaceInvaders;
 
 internal struct Particle
@@ -106,7 +108,7 @@ internal sealed class Effects
 	}
 
 	/// <summary>Particles shed from a sprite's own pixels, so the shape visibly shatters.</summary>
-	public void Shatter(Sprite sprite, int x, int y, ColorGradient palette, float speed)
+	public void Shatter(PixelMask sprite, int x, int y, ColorGradient palette, float speed)
 	{
 		float cx = x + sprite.Width / 2f, cy = y + sprite.Height / 2f;
 		for (int sy = 0; sy < sprite.Height; sy++)

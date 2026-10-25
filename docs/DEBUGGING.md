@@ -369,23 +369,43 @@ app would be a confusing way to discover the typo.
 | Field | Values |
 |-------|--------|
 | `button` | `left`, `right`, `middle` |
-| `action` | `click`, `doubleclick`, `press`, `release`, `releaseclick`, `move`, `wheelup`, `wheeldown` |
+| `action` | `press`, `release`, `drag`, `move`, `click`, `doubleclick`, `releaseclick`, `wheelup`, `wheeldown` |
 
 This routes into the same method the console driver's own mouse events land on, so
 hit-testing, z-order and capture all run exactly as for a real click.
 
-**Use `releaseclick` to end a click gesture, not a separate `click`.** The clicked flag has to
-travel in the same event as the release, because a control that opens a portal does so on the
-release - and a `Clicked` arriving afterwards is routed to that portal before any window, which
-closes what just opened. Dropdowns fail this way and nothing else does.
+**Send facts; the gestures are derived for you.** A `press` followed by a `release` at the
+same cell produces a `Button1Clicked` automatically, and a second quick press produces a
+`Button1DoubleClicked` on top of its press - `MouseGestureRecognizer` does this for socket
+input exactly as it does for a real terminal. So the natural way to click is:
 
-**`click` is its own event, not a `press` plus a `release`.** Controls listen for the
-clicked flag, and a terminal reports it in addition to the pair - so a client synthesising
-a gesture must send `press`, any `move`s, `release`, and then `click` if the pointer never
-left the cell it started in. Sending only press and release produces a drag that never
-clicks. A double-click follows two complete click sequences, last, because a control that
-acts on `click` relies on having already seen it. A probe that reached
-past dispatch could report hits a user could never produce.
+```json
+{"cmd":"mouse","x":20,"y":8,"action":"press","button":"left"}
+{"cmd":"mouse","x":20,"y":8,"action":"release","button":"left"}
+```
+
+**Dragging needs `drag`, not `move`.** A `move` is motion with no button down; `drag` is
+motion *while the button is held*, which is what a terminal reports mid-gesture and what a
+drag needs in the middle — a splitter, a slider, a scrollbar thumb, a text selection, a
+window move:
+
+```json
+{"cmd":"mouse","x":30,"y":0,"action":"press","button":"left"}
+{"cmd":"mouse","x":36,"y":4,"action":"drag","button":"left"}
+{"cmd":"mouse","x":42,"y":8,"action":"drag","button":"left"}
+{"cmd":"mouse","x":42,"y":8,"action":"release","button":"left"}
+```
+
+A drag starts only if the press lands on the thing that owns it, and a press one row off
+does nothing at all — so take the coordinates from `tree` or `windows` rather than guessing.
+Note that a window's `bounds` are in the desktop's own space: with a top panel visible, a
+window reported at `y: 0` has its title bar on screen row 1, and pressing row 0 hits the
+panel instead. `windows` before and after is the check that it worked.
+
+The remaining actions send a flag directly, for a client that wants one specific event
+rather than a gesture: `click`, `doubleclick`, and `releaseclick` (release and click in one
+event, which is how a terminal reports the end of a click). They are idempotent with the
+recogniser - a flag already present is not added twice.
 
 ---
 
