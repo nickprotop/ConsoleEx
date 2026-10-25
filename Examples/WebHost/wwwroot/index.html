@@ -26,13 +26,16 @@
   footer { padding: 8px 16px; border-top: 1px solid #1d2435; color: var(--dim);
            font-size: 12px; display: flex; gap: 20px; flex-wrap: wrap; }
   .err { color: #ff8080; }
+  label.note { display: inline-flex; gap: 6px; align-items: center; }
+  select { background: #141926; color: var(--fg); border: 1px solid #1d2435;
+           font: inherit; font-size: 12px; padding: 1px 4px; }
 </style>
 </head>
 <body>
 <header>
   <h1>SharpConsoleUI &mdash; headless, in a browser</h1>
   <span class="note">
-    No terminal. Rendered to PNG, driven over the diagnostics socket. Click and type.
+    No terminal. Rendered to an image, driven over the diagnostics socket. Click and type.
   </span>
 </header>
 
@@ -45,6 +48,13 @@
   <span id="status">connecting&hellip;</span>
   <span id="frameInfo"></span>
   <span id="fpsInfo"></span>
+  <label class="note">
+    format
+    <select id="format">
+      <option value="png" selected>PNG &mdash; lossless</option>
+      <option value="jpeg">JPEG &mdash; 2x faster, softer text</option>
+    </select>
+  </label>
   <span class="note">Esc, Tab, arrows and text all go through the real input path.</span>
 </footer>
 
@@ -54,6 +64,7 @@ const ctx = canvas.getContext('2d');
 const statusEl = document.getElementById('status');
 const frameEl = document.getElementById('frameInfo');
 const fpsEl = document.getElementById('fpsInfo');
+const formatEl = document.getElementById('format');
 
 let lastFrame = 0;       // highest frame the server has sent us
 let cellW = 8, cellH = 16;
@@ -66,7 +77,7 @@ async function poll() {
   if (polling) return;          // never overlap: a slow frame must not queue
   polling = true;
   try {
-    const res = await fetch(`/frame?since=${lastFrame}`);
+    const res = await fetch(`/frame?since=${lastFrame}&format=${formatEl.value}`);
     if (!res.ok) { fail(`server returned ${res.status}`); return; }
 
     const body = await res.json();
@@ -98,14 +109,24 @@ function draw(body) {
       }
       ctx.drawImage(img, 0, 0);
       frameEl.textContent =
-        `frame ${body.frame} · ${body.cols}×${body.rows} cells · ${body.cell}px`;
+        `frame ${body.frame} · ${body.cols}×${body.rows} cells · ${body.cell}px · ${body.format}`;
       countFrame();
       resolve();
     };
     img.onerror = () => resolve();
-    img.src = 'data:image/png;base64,' + body.png;
+    // The server names the format it produced; trusting the request instead
+    // would break the moment one is served from a cache or falls back.
+    img.src = `data:image/${body.format};base64,${body.data}`;
   });
 }
+
+// Changing the format has to force a redraw: the screen has not changed, so
+// "since" would otherwise get an unchanged reply and the canvas would keep
+// showing the old encoding until something moved.
+formatEl.addEventListener('change', () => {
+  lastFrame = 0;
+  poll();
+});
 
 function countFrame() {
   drawn++;

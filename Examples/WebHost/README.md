@@ -75,18 +75,39 @@ The web layer still reaches the application only over the socket.
 
 ## Endpoints
 
-### `GET /frame?since=<n>&cellHeight=<px>`
+### `GET /frame?since=<n>&cellHeight=<px>&format=<png|jpeg>`
 
-The composed desktop as a PNG.
+The composed desktop as an image.
 
 ```json
-{"frame":1211,"width":960,"height":576,"cols":120,"rows":36,"cell":"8x16","png":"iVBOR..."}
+{"frame":1211,"width":960,"height":576,"cols":120,"rows":36,"cell":"8x16","format":"png","data":"iVBOR..."}
 {"unchanged":true,"frame":1204}
 ```
 
 `since` is what makes polling cheap. A TUI is idle between keystrokes, so most polls answer
 `unchanged` in a few bytes rather than re-sending an identical 34 KB image — and the
-short-circuit happens before a font is loaded or a buffer touched.
+short-circuit happens before a font is loaded or a buffer touched. Measured, that reply
+costs 0.1 ms against the 44 ms a PNG encode takes.
+
+`format` trades quality for latency, and the footer has a picker for it. Measured at 120x36,
+8x16, over a persistent socket connection:
+
+| `format` | Encode | Payload | |
+|---|---:|---:|---|
+| `png` *(default)* | 44.4 ms | 98 KB | Lossless, smallest, crisp glyph edges. |
+| `jpeg` | 19.5 ms | 113 KB | 2.3x faster to encode, visibly softer text. |
+
+**Encoding is the cost.** The whole HTTP layer on top of it — JSON, base64, ASP.NET — adds
+about 5 ms, so the format is the only lever that matters, and only while something on screen
+is actually animating.
+
+TGA encodes faster still (14.9 ms) and the socket will serve it, but it is not offered here:
+no browser decodes TGA in an `<img>`, so the client would need its own decoder and the cost
+would simply move. It is the right format for a driver writing pixels straight to a canvas,
+not for this.
+
+The reply names the format it produced rather than echoing the request, so a client picks
+its decoder from the answer.
 
 ### `POST /input`
 

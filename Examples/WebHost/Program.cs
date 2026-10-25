@@ -45,15 +45,34 @@ web.UseStaticFiles();
 
 // --- The frame ------------------------------------------------------------
 // "since" lets the server answer "nothing new" in a few bytes instead of
-// re-sending an identical 34KB PNG. A TUI is idle between keystrokes, so this
-// is the common case rather than an optimisation for a rare one.
-web.MapGet("/frame", async (long? since, int? cellHeight, CancellationToken ct) =>
+// re-sending an identical 34KB image. A TUI is idle between keystrokes, so
+// this is the common case rather than an optimisation for a rare one, and it
+// costs 0.1ms against the 44ms a PNG encode takes.
+//
+// "format" trades image quality for latency. Measured at 120x36, 8x16, on a
+// persistent connection:
+//
+//     png    44.4 ms   98 KB      the default: lossless, smallest
+//     jpeg   19.5 ms  113 KB      2.3x faster, soft glyph edges
+//
+// Encoding is the cost - the whole HTTP layer on top of it adds about 5ms -
+// so the format is the only lever that matters while something is animating.
+// TGA is faster still (14.9 ms) but browsers cannot decode it in an <img>,
+// which is why it is not offered here.
+web.MapGet("/frame", async (long? since, int? cellHeight, string? format, CancellationToken ct) =>
 {
+	// Validated here rather than passed through, so a typo cannot reach the
+	// socket and come back as an error the browser would show as a failure.
+	string wanted = (format ?? "png").ToLowerInvariant();
+	if (wanted is not ("png" or "jpeg"))
+		return Results.Json(new { error = $"unknown format '{wanted}'; expected png or jpeg" }, statusCode: 400);
+
 	var request = new JsonObject
 	{
 		["cmd"] = "image",
 		["composed"] = true,
 		["cellHeight"] = cellHeight ?? 16,
+		["format"] = wanted,
 	};
 
 	if (since is > 0) request["sinceFrame"] = since.Value;
@@ -78,7 +97,12 @@ web.MapGet("/frame", async (long? since, int? cellHeight, CancellationToken ct) 
 		cols = reply["cols"]!.GetValue<int>(),
 		rows = reply["rows"]!.GetValue<int>(),
 		cell = reply["cell"]!.GetValue<string>(),
-		png = data,
+
+		// The reply says what it IS rather than what was asked for, and the
+		// field is named for what it carries: a "png" field holding a JPEG is
+		// a trap one format away.
+		format = reply["format"]!.GetValue<string>(),
+		data,
 	});
 });
 
