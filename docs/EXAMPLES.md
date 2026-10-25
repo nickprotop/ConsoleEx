@@ -457,6 +457,36 @@ dotnet run --project Examples/AgentStudio
 
 ---
 
+### SpaceInvaders
+A polished arcade remake built only from SharpConsoleUI parts: half-block pixel art, particles, screen shake and a data-bound HUD.
+
+![Space Invaders](images/examples/spaceinvaders.png)
+
+```bash
+dotnet run --project Examples/SpaceInvaders
+```
+
+**Key Features:**
+- Half-block pixel rendering: each terminal cell shows two near-square pixels, giving real sprites and shields that erode pixel by pixel
+- Classic marching formation that speeds up as it thins out, a mystery UFO, three bomb types, and a combo multiplier
+- Particle shatter explosions, floating score pop-ups, screen shake, hit-stop slow motion, a warp starfield between waves, and a game-over desaturation
+- A keyboard model that works around the OS auto-repeat delay (terminals report no key releases). K cycles three modes: STEP (the default: one press moves one step, holding keeps moving), GLIDE (no pause while holding) and LATCH. The game learns the OS repeat delay as you play
+- Mouse steering with no lag, and fire on button press (not release)
+- High score saved between runs
+
+**SharpConsoleUI features on show:**
+- `CanvasControl` subclass (`AutoSize`, `BeginPaint`/`EndPaint`) that re-implements `IMouseAwareControl` to catch `Button1Pressed`
+- Game loop on `WithWindowThreadOnUI`: game state, key handlers and bindings share the UI thread with no locks, and every await wakes the render loop
+- `PreviewKeyPressed` key capture, `TargetFPS: 120` frame cap, `Frameless()` maximised window with a gradient background
+- FIGlet fonts (`FigletFont`/`FigletRenderer`) rasterised into gradient pixel lettering; `EasingFunctions.Bounce` fly-ins
+- `PostBufferPaint` compositor hook for the damage flash (`ColorBlendHelper.ApplyColorOverlay`) and an optional CRT scanline filter
+- HUD made of `FigleControl`, `ProgressBarControl`, `BarGraphControl` (animated, smooth gradients) and `SparklineControl`, all updated through `.Bind()` from an `INotifyPropertyChanged` model
+- `ToastService` announcements, `WindowAnimations.FadeIn`, clickable `StatusBarControl` items
+
+**Controls:** ←/→ or A/D to move, ↓/S to stop, Space/↑ to fire, mouse to steer and click to fire, P/Esc to pause, K for keyboard mode, C for CRT, R to restart, Q to quit
+
+---
+
 ### SnakeGame
 Classic Snake game demonstrating direct frame buffer manipulation.
 
@@ -677,6 +707,7 @@ These examples demonstrate specific features without full screenshots.
 | HighFreqDemo | ✅ | | ✅ | | | |
 | CompositorEffectsExample | ✅ | ✅ | | ✅ | | |
 | AgentStudio | ✅ | | ✅ | | | |
+| SpaceInvaders | ✅ | ✅ | ✅ | | | ✅ |
 | SnakeGame | | ✅ | | | | ✅ |
 | TextEditorExample | | | | | | |
 | MultiDashboard | ✅ | | | | | |
@@ -706,9 +737,9 @@ These examples demonstrate specific features without full screenshots.
 | `MenuControl` | MenuDemo, HighFreqDemo |
 | `TableControl` | DemoApp, TableDemo |
 | `PanelControl` | StartMenuDemo, PanelDemo, HighFreqDemo |
-| `SparklineControl` | HighFreqDemo, NavigationViewDemo |
+| `SparklineControl` | HighFreqDemo, NavigationViewDemo, SpaceInvaders |
 | `LineGraphControl` | DemoApp |
-| `BarGraphControl` | HighFreqDemo, NavigationViewDemo |
+| `BarGraphControl` | HighFreqDemo, NavigationViewDemo, SpaceInvaders |
 | `NavigationView` | DemoApp, NavigationViewDemo |
 | `ProgressBarControl` | DemoApp, NavigationViewDemo |
 | `PromptControl` | DemoApp (Command Window) |
@@ -716,7 +747,7 @@ These examples demonstrate specific features without full screenshots.
 | `LogViewerControl` | DemoApp |
 | `TabControl` | TabControlDemo |
 | `ImageControl` | DemoApp (Image Rendering, Image Viewer) |
-| `CanvasControl` | CanvasDemo, DemoApp |
+| `CanvasControl` | CanvasDemo, DemoApp, SpaceInvaders |
 | `HorizontalGridControl` | Most examples |
 | `SliderControl` | DemoApp, Alpha Blending Demo |
 | `RangeSliderControl` | DemoApp |
