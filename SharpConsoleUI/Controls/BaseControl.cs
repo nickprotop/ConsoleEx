@@ -249,6 +249,61 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public object? Tag { get; set; }
 
+		/// <summary>
+		/// Reports what this control currently IS, for diagnostics.
+		/// </summary>
+		/// <param name="w">Collects the values.</param>
+		/// <remarks>
+		/// <para>
+		/// State, not layout: whether a checkbox is checked, which item is selected,
+		/// what text an editor holds, whether a dropdown is open. Position, size and
+		/// alignment are already reported by the layout tree and should not be
+		/// repeated here.
+		/// </para>
+		/// <para>
+		/// Every control answers. The base writes what every control has; an override
+		/// calls <c>base.DescribeState(w)</c> first and then adds its own. Keep it to
+		/// the handful of values that define the control — a reader wants to know
+		/// what it is looking at, not to reconstruct it.
+		/// </para>
+		/// <para>
+		/// Written explicitly rather than reflected, because the library is
+		/// <c>IsAotCompatible</c> and walking properties would break that.
+		/// </para>
+		/// </remarks>
+		/// <example>
+		/// <code>
+		/// public override void DescribeState(IStateWriter w)
+		/// {
+		///     base.DescribeState(w);
+		///     w.Write("checked", IsChecked);
+		///     w.Write("text", Text);
+		/// }
+		/// </code>
+		/// </example>
+		public virtual void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+
+			// Only what is both universal and not already in the layout tree.
+			// Interactivity is the first thing to check when input appears to go
+			// nowhere, and it does not live on BaseControl: a passive control has
+			// no enabled or focus state at all, which is itself worth reporting.
+			if (this is IInteractiveControl interactive)
+			{
+				w.Write("enabled", interactive.IsEnabled);
+			}
+			else
+			{
+				w.Write("interactive", false);
+			}
+
+			if (this is IFocusableControl focusable)
+			{
+				w.Write("focusable", focusable.CanReceiveFocus);
+			}
+		}
+
 		/// <inheritdoc/>
 		public virtual bool Visible
 		{

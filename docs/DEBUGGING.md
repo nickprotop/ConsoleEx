@@ -567,17 +567,38 @@ test should fail rather than assert against a frozen frame.
 
 ## tree
 
-What the layout engine believes, as opposed to what the screen shows.
+What the layout engine believes, as opposed to what the screen shows. The whole stack —
+the desktop, its windows, and their controls — in one reply.
 
 ```json
-{"cmd":"tree","depth":3,"props":true}
+{"cmd":"tree"}                                  → everything
+{"cmd":"tree","depth":2}                        → shallower
+{"cmd":"tree","window":"Settings"}              → one window's controls
+{"cmd":"tree","props":true}                     → plus layout properties
 ```
 
-Each node reports `desired` (what the control asked for), `bounds` (what layout gave it,
-window-relative) and `absolute` (where that lands on screen). **A control whose arranged
-`bounds` has zero width is present in the tree, reachable by focus, and invisible to the
-mouse** - which is the single most useful thing here, and the one question a screen scrape
-can never answer.
+The **desktop** node reports the screen size and `originX`/`originY` — the offset at which
+the desktop starts, below any top panel.
+
+Each **window** reports `bounds` (desktop coordinates), `absolute` (where that lands on
+screen), and a `state` block: `windowState`, `active`, `modal`, `movable`, `resizable`,
+`closable`. Those last three decide whether a gesture can work at all — dragging a window
+that is not movable looks exactly like aiming wrong.
+
+Each **control** node reports `desired` (what it asked for), `bounds` (what layout gave it,
+window-relative), `absolute` (where that lands on screen), and `state` (what the control
+currently *is*: checked, open, selected, its text). **A control whose arranged `bounds` has
+zero width is present in the tree, reachable by focus, and invisible to the mouse** — which
+is the single most useful thing here, and the one question a screen scrape can never answer.
+
+**Always click `absolute`, never `bounds`.** A window at `y: 0` with a top panel visible has
+its title bar on screen row 1; `absolute` already accounts for that, so a client that reads
+it and acts on it is right the first time:
+
+```json
+{"cmd":"windows"}
+→ {"bounds":{"x":0,"y":0,...}, "absolute":{"x":0,"y":1,...}}
+```
 
 `childrenElided: <n>` on a node means the walk stopped at your `depth` and that many
 children were not shown. Raise `depth` to see them.

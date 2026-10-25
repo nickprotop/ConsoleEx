@@ -596,11 +596,20 @@ internal sealed class DiagnosticsServer : IDisposable
 
 	private JsonObject Tree(JsonObject req)
 	{
+		int depth = req["depth"]?.GetValue<int>() ?? -1;
+		bool props = req["props"]?.GetValue<bool>() ?? false;
+
+		// THE tree: desktop, its windows, their controls. A caller who wants one
+		// window names it; nothing is guessed on their behalf, because a tree that
+		// silently picks one of several windows looks authoritative and may be the
+		// wrong one.
+		string? id = req["window"]?.GetValue<string>();
+		if (string.IsNullOrEmpty(id))
+			return DiagnosticsSerializer.Desktop(_system, depth, props);
+
 		var window = ResolveWindow(req, out string? err);
 		if (window == null) return ErrorBody(err!);
 
-		int depth = req["depth"]?.GetValue<int>() ?? -1;
-		bool props = req["props"]?.GetValue<bool>() ?? false;
 		return DiagnosticsSerializer.Tree(window, depth, props);
 	}
 

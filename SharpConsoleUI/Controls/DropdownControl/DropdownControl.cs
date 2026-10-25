@@ -837,5 +837,17 @@ namespace SharpConsoleUI.Controls
 				SetDropdownScrollOffset(selectedIdx - effectiveMaxVisibleItems + 1);
 			}
 		}
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			base.DescribeState(w);
+			w.Write("open", IsDropdownOpen);
+			w.Write("selectedIndex", SelectedIndex);
+			w.Write("itemCount", Items.Count);
+			if (SelectedIndex >= 0 && SelectedIndex < Items.Count)
+				w.Write("selected", Items[SelectedIndex].Text);
+		}
+
 	}
 }

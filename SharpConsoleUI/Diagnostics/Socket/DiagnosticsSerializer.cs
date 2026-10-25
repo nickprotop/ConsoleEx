@@ -26,11 +26,64 @@ namespace SharpConsoleUI.Diagnostics.Socket;
 /// </remarks>
 internal static class DiagnosticsSerializer
 {
+	#region State
+
+	/// <summary>Collects a control's self-reported state into a JSON object.</summary>
+	/// <remarks>
+	/// Values are written through <see cref="JsonValue.Create(string?, JsonNodeOptions?)"/>
+	/// and its overloads rather than a collection initializer, which binds to the
+	/// reflective <c>JsonObject.Add&lt;T&gt;</c> and is neither trim- nor AOT-safe.
+	/// </remarks>
+	private sealed class JsonStateWriter : IStateWriter
+	{
+		public JsonObject Values { get; } = new();
+
+		public void Write(string name, string? value) => Values[name] = JsonValue.Create(value);
+
+		public void Write(string name, long value) => Values[name] = JsonValue.Create(value);
+
+		public void Write(string name, double value) => Values[name] = JsonValue.Create(value);
+
+		public void Write(string name, bool value) => Values[name] = JsonValue.Create(value);
+
+		public void WriteIf(bool condition, string name, string? value)
+		{
+			if (condition) Write(name, value);
+		}
+	}
+
+	/// <summary>What a control says it currently is, or null if it says nothing.</summary>
+	private static JsonObject? State(IWindowControl control)
+	{
+		if (control is not BaseControl bc) return null;
+
+		var writer = new JsonStateWriter();
+		try
+		{
+			bc.DescribeState(writer);
+		}
+		catch (Exception ex)
+		{
+			// A control that throws while describing itself must not take the whole
+			// probe down with it - the probe exists to diagnose broken controls.
+			return new JsonObject { ["describeError"] = ex.GetType().Name };
+		}
+
+		return writer.Values.Count == 0 ? null : writer.Values;
+	}
+
+	#endregion
+
 	#region Windows
 
 	/// <summary>The window list, in z-order.</summary>
 	internal static JsonArray Windows(ConsoleWindowSystem system)
 	{
+		// Window coordinates are DESKTOP coordinates, and the desktop starts below
+		// the top panel. Reporting only those invites a client to click a row too
+		// high - which is exactly what happened while this was being written.
+		var origin = system.DesktopUpperLeft;
+
 		var arr = new JsonArray();
 		foreach (var w in system.WindowStateService.GetWindowsByZOrder())
 		{
@@ -39,6 +92,7 @@ internal static class DiagnosticsSerializer
 				["id"] = w.Guid,
 				["title"] = w.Title,
 				["bounds"] = Rect(w.Left, w.Top, w.Width, w.Height),
+				["absolute"] = Rect(w.Left + origin.X, w.Top + origin.Y, w.Width, w.Height),
 				["modal"] = w.IsModal,
 				["state"] = w.State.ToString(),
 				["root"] = w.Renderer?.RootLayoutNode?.Layout?.GetType().Name,
@@ -101,6 +155,12 @@ internal static class DiagnosticsSerializer
 					["sticky"] = c.StickyPosition.ToString(),
 				};
 			}
+
+			// What the control IS, as opposed to where it sits. Always present:
+			// a reader looking for "why is this checkbox not responding" should not
+			// have to know to ask for it.
+			var state = State(c);
+			if (state != null) o["state"] = state;
 		}
 
 		if (maxDepth >= 0 && depth >= maxDepth)
@@ -115,6 +175,91 @@ internal static class DiagnosticsSerializer
 		o["children"] = kids;
 
 		return o;
+	}
+
+	/// <summary>
+	/// The whole desktop as one tree: the system, its windows, and their controls.
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// The three layers really are nested, and reporting them through three separate
+	/// verbs made that hard to see. In particular a window's bounds are in DESKTOP
+	/// coordinates: with a top panel visible, a window at <c>y: 0</c> has its title
+	/// bar on screen row 1. Reading that from a flat window list is a trap, and the
+	/// desktop node states the panel rows so it cannot be misread.
+	/// </para>
+	/// <para>
+	/// Not the default for <c>tree</c>, which stays one window: this walks every
+	/// control of every window and the output grows accordingly.
+	/// </para>
+	/// </remarks>
+	internal static JsonObject Desktop(ConsoleWindowSystem system, int maxDepth, bool includeProps)
+	{
+		var size = system.ConsoleDriver.ScreenSize;
+
+		int topRows = system.PanelStateService.ShowTopPanel ? 1 : 0;
+		int bottomRows = system.PanelStateService.ShowBottomPanel ? 1 : 0;
+
+		var windows = new JsonArray();
+		foreach (var w in system.WindowStateService.GetWindowsByZOrder())
+			windows.Add((JsonNode)WindowNode(system, w, maxDepth, includeProps));
+
+		return new JsonObject
+		{
+			["desktop"] = new JsonObject
+			{
+				["width"] = size.Width,
+				["height"] = size.Height,
+
+				// The offset that makes a window's y differ from its screen row. Taken
+				// from DesktopUpperLeft rather than counted from the panels, because
+				// that is the value the hit-testing itself uses.
+				["originX"] = system.DesktopUpperLeft.X,
+				["originY"] = system.DesktopUpperLeft.Y,
+				["topPanelRows"] = topRows,
+				["bottomPanelRows"] = bottomRows,
+				["desktopBottom"] = size.Height - bottomRows - 1,
+
+				["theme"] = system.Theme?.GetType().Name,
+				["windows"] = system.WindowStateService.GetWindowsByZOrder().Count,
+				["modals"] = system.ModalStateService.HasModals,
+				["portals"] = system.DesktopPortalService.HasPortals,
+			},
+			["windows"] = windows,
+		};
+	}
+
+	/// <summary>One window, its own state, and its layout tree.</summary>
+	private static JsonObject WindowNode(
+		ConsoleWindowSystem system, Window window, int maxDepth, bool includeProps)
+	{
+		var root = window.Renderer?.RootLayoutNode;
+
+		return new JsonObject
+		{
+			["id"] = window.Guid,
+			["title"] = window.Title,
+			["bounds"] = Rect(window.Left, window.Top, window.Width, window.Height),
+			["absolute"] = Rect(
+				window.Left + system.DesktopUpperLeft.X,
+				window.Top + system.DesktopUpperLeft.Y,
+				window.Width, window.Height),
+
+			// What the window PERMITS, which decides whether a gesture can work at
+			// all. Dragging a non-movable window looks identical to aiming wrong.
+			["state"] = new JsonObject
+			{
+				["windowState"] = window.State.ToString(),
+				["active"] = ReferenceEquals(system.WindowStateService.ActiveWindow, window),
+				["modal"] = window.IsModal,
+				["movable"] = window.IsMovable,
+				["resizable"] = window.IsResizable,
+				["closable"] = window.IsClosable,
+			},
+
+			["root"] = root?.Layout?.GetType().Name,
+			["node"] = root == null ? null : Node(root, 0, maxDepth, includeProps),
+		};
 	}
 
 	#endregion

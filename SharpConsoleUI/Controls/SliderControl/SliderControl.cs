@@ -397,5 +397,15 @@ namespace SharpConsoleUI.Controls
 		}
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			base.DescribeState(w);
+			w.Write("value", Value);
+			w.Write("min", MinValue);
+			w.Write("max", MaxValue);
+		}
+
 	}
 }
