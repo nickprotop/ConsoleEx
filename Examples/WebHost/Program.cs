@@ -87,11 +87,17 @@ web.MapPost("/input", async (InputMessage message, CancellationToken ct) =>
 {
 	JsonObject request = message.Kind switch
 	{
+		// No "settle" on any of these, deliberately. Settling waits for the UI to stop
+		// changing, and a desktop with a ticking clock never does - so every input would
+		// block for the full settle timeout (measured: a flat 2s), and because the socket
+		// is one connection serving one request at a time, every frame poll queued behind
+		// it. The screen froze for seconds after each click while the app itself was
+		// rendering happily. The browser polls continuously anyway, so it picks the result
+		// up on the next frame regardless.
 		"key" => new JsonObject
 		{
 			["cmd"] = "key",
 			["spec"] = message.Spec ?? "",
-			["settle"] = true,
 		},
 		"mouse" => new JsonObject
 		{
@@ -100,14 +106,12 @@ web.MapPost("/input", async (InputMessage message, CancellationToken ct) =>
 			["y"] = message.Y ?? 0,
 			["action"] = message.Action ?? "click",
 			["button"] = message.Button ?? "left",
-			["settle"] = true,
 		},
 		"resize" => new JsonObject
 		{
 			["cmd"] = "size",
 			["w"] = message.X ?? Columns,
 			["h"] = message.Y ?? Rows,
-			["settle"] = true,
 		},
 		_ => new JsonObject(),
 	};

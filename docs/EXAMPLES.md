@@ -272,6 +272,35 @@ Console-based .NET IDE with LSP-powered IntelliSense, built-in terminal, and git
 
 The best visual demonstrations of SharpConsoleUI capabilities, ordered by impact.
 
+### WebHost — a terminal UI in a browser, with no terminal
+
+![DemoApp running in a browser](images/examples/webhost-browser.png)
+
+```bash
+dotnet run --project Examples/WebHost     # then http://127.0.0.1:5088
+```
+
+That screenshot is a **web browser**. The application inside it is DemoApp —
+[the same one below](#demoapp), unmodified — running on `HeadlessConsoleDriver` with no
+terminal anywhere. Each frame is rendered to PNG and served over HTTP; clicks and keystrokes
+go back through the same input dispatch a real keypress takes.
+
+Both windows in the shot were opened by clicking in the browser. Window management, focus,
+hit-testing and the taskbar all behave exactly as they do on a tty, because they are the
+same code reaching the same decisions — only the final surface changed.
+
+**Key Features:**
+- DemoApp is not adapted: the host calls the same two methods `DemoApp.Main` calls
+- The web layer reaches the application **only** through its diagnostics socket, so it would
+  work unchanged against an app in another process that someone else started
+- Browser clicks translated to cell coordinates, keys to tmux notation (`Down`, `C-c`, `S-Tab`)
+- The browser window can resize the application, which a real terminal driver cannot allow
+- Unchanged frames cost ~29 bytes instead of 34 KB, so polling an idle UI is nearly free
+
+**Loopback only.** It grants full control of the application, not a read-only view. See the
+[example's README](../Examples/WebHost/README.md) and
+[`DRIVERS.md`](DRIVERS.md) for the driver story behind it.
+
 ### DemoApp
 The flagship demo — six independent windows running simultaneously.
 
