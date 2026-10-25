@@ -172,6 +172,11 @@ public class CanvasMouseDownTests
 		Assert.Same(canvas, window.FocusManager.FocusedControl);
 	}
 
+	// Rapid-click coverage lives in RapidClickReachesControlTests, which drives the
+	// real router: the press on a multi-click is supplied by MouseGestureRecognizer,
+	// not by the control, so testing it here would assert nothing about the path a
+	// real click takes.
+
 	[Fact]
 	public void ADisabledCanvas_IgnoresThePress()
 	{

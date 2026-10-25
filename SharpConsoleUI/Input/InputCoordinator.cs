@@ -194,11 +194,31 @@ namespace SharpConsoleUI.Input
 			=> HandleMouseEvent(this, flags, point);
 
 		/// <summary>
+		/// Derives clicks and drags from the presses and releases the driver reports.
+		/// </summary>
+		/// <remarks>
+		/// One recogniser for every platform and every injected event, so a gesture
+		/// means the same thing wherever it came from. The drivers used to each run
+		/// their own copy of this logic, which is how they came to disagree.
+		/// </remarks>
+		private readonly MouseGestureRecognizer _gestures = new();
+
+		/// <summary>
 		/// Main mouse event router - handles all mouse events in priority order.
 		/// Priority: release → drag/resize movement → press → click → propagation
 		/// </summary>
-		private void HandleMouseEvent(object sender, List<MouseFlags> flags, Point point)
+		private void HandleMouseEvent(object sender, List<MouseFlags> rawFlags, Point point)
 		{
+			// Gestures are derived here, once, and ADDED to what the driver said.
+			// A double-click therefore still carries its press, so a control that
+			// wants every press gets every press and one that wants word-select on
+			// a double-click still gets that too.
+			//
+			// Idempotent for a caller that already supplied a gesture (the
+			// diagnostics socket does, and so do tests): Recognize only adds flags
+			// that are not already present.
+			var flags = _gestures.Recognize(rawFlags, point);
+
 			// Check panel clicks first (both Pressed and Clicked)
 			if (flags.Contains(MouseFlags.Button1Pressed) || flags.Contains(MouseFlags.Button1Clicked))
 			{

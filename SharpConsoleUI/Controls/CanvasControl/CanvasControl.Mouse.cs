@@ -54,6 +54,7 @@ namespace SharpConsoleUI.Controls
 			// press must fall through untouched or it would silently break dragging
 			// a window by a canvas that never asked for press events - the common
 			// case, since these two events are new and most canvases use clicks.
+			//
 			if (args.HasFlag(MouseFlags.Button1Pressed))
 			{
 				if (!inBounds || CanvasMouseDown == null) return false;

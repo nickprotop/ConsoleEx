@@ -49,20 +49,16 @@ namespace SharpConsoleUI.Helpers
 		/// </summary>
 		public static readonly string CSI_EnableSgrExtModeMouse = CSI + "?1006h";
 
-		private static bool _isButtonClicked;
 
-		private static bool _isButtonDoubleClicked;
 
 		// QUESTION: What's the difference between isButtonClicked and isButtonPressed?
 		// Some clarity or comments would be handy, here.
 		// It also seems like some enforcement of valid states might be a good idea.
 		private static bool _isButtonPressed;
 
-		private static bool _isButtonTripleClicked;
 
 		private static MouseFlags? _lastMouseButtonPressed;
 		private static Point? _point;
-		private static DateTime _lastClickTime = DateTime.MinValue;
 
 		// Owns the in-flight continuous-press loop so it can be stopped deterministically.
 		//
@@ -351,40 +347,40 @@ namespace SharpConsoleUI.Helpers
 			const MouseFlags modifierMask = MouseFlags.ButtonShift | MouseFlags.ButtonAlt | MouseFlags.ButtonCtrl;
 			var actionState = buttonState & ~modifierMask;
 
-			if (_lastMouseButtonPressed != null
-				&& !_isButtonPressed
-				&& !buttonState.HasFlag(MouseFlags.ReportMousePosition)
-				&& !buttonState.HasFlag(MouseFlags.Button1Released)
-				&& !buttonState.HasFlag(MouseFlags.Button2Released)
-				&& !buttonState.HasFlag(MouseFlags.Button3Released)
-				&& !buttonState.HasFlag(MouseFlags.Button4Released))
-			{
-				_lastMouseButtonPressed = null;
-				_isButtonPressed = false;
-			}
+			// Report what the terminal said, and nothing else.
+			//
+			// Clicks, double-clicks and triple-clicks are NOT derived here. They are
+			// gestures - judgements about timing and position - made once, for every
+			// platform, by MouseGestureRecognizer in the input coordinator. This used
+			// to be a ~130-line state machine with five pieces of static state and two
+			// background expiry timers, duplicated almost line for line in
+			// UnixStdinReader. Two copies could disagree, and did; worse, a press
+			// inside the click window was REPLACED by the derived double-click rather
+			// than accompanied by it, so anything watching for presses lost half of a
+			// fast click run.
+			//
+			// The continuous-press loop stays: it is not a gesture, it is the
+			// terminal's missing auto-repeat, and only the code reading input knows a
+			// button is still physically down.
+			mouseFlags[0] = buttonState;
 
-			if ((!_isButtonClicked
-				 && !_isButtonDoubleClicked
-				 && (actionState == MouseFlags.Button1Pressed
-					 || actionState == MouseFlags.Button2Pressed
-					 || actionState == MouseFlags.Button3Pressed
-					 || actionState == MouseFlags.Button4Pressed)
-				 && _lastMouseButtonPressed is null)
-				|| (_isButtonPressed && _lastMouseButtonPressed is { } && buttonState.HasFlag(MouseFlags.ReportMousePosition)))
+			if (actionState == MouseFlags.Button1Pressed
+				|| actionState == MouseFlags.Button2Pressed
+				|| actionState == MouseFlags.Button3Pressed
+				|| actionState == MouseFlags.Button4Pressed)
 			{
-				mouseFlags[0] = buttonState;
+				bool alreadyDown = _isButtonPressed;
 				_lastMouseButtonPressed = buttonState;
 				_isButtonPressed = true;
-
 				_point = pos;
 
-				if ((mouseFlags[0] & MouseFlags.ReportMousePosition) == 0)
+				// A repeat of a button already held is the terminal restating a drag;
+				// one loop is enough.
+				if (!alreadyDown)
 				{
 					CancellationToken token;
 					lock (_continuousPressLock)
 					{
-						// Cancel any loop still running from a previous press before starting
-						// another, so a missed release cannot leave two of them firing.
 						_continuousPressCts?.Cancel();
 						_continuousPressCts?.Dispose();
 						_continuousPressCts = new CancellationTokenSource();
@@ -392,108 +388,27 @@ namespace SharpConsoleUI.Helpers
 					}
 
 					_ = Task.Run(
-							async () => await ProcessContinuousButtonPressedAsync(
-											buttonState,
-											continuousButtonPressedHandler,
-											token));
-				}
-				else if (mouseFlags[0].HasFlag(MouseFlags.ReportMousePosition))
-				{
-					_point = pos;
-
-					// The isButtonPressed must always be true, otherwise we can lose the feature
-					// If mouse flags has ReportMousePosition this feature won't run
-					// but is always prepared with the new location
-					//isButtonPressed = false;
+						async () => await ProcessContinuousButtonPressedAsync(
+							buttonState, continuousButtonPressedHandler, token));
 				}
 			}
-			else if (_isButtonDoubleClicked
-					 && (actionState == MouseFlags.Button1Pressed
-						 || actionState == MouseFlags.Button2Pressed
-						 || actionState == MouseFlags.Button3Pressed
-						 || actionState == MouseFlags.Button4Pressed))
+			else if (actionState == MouseFlags.Button1Released
+				|| actionState == MouseFlags.Button2Released
+				|| actionState == MouseFlags.Button3Released
+				|| actionState == MouseFlags.Button4Released)
 			{
-				mouseFlags[0] = GetButtonTripleClicked(actionState);
-				_isButtonDoubleClicked = false;
-				_isButtonTripleClicked = true;
-			}
-			else if (_isButtonClicked
-					 && (actionState == MouseFlags.Button1Pressed
-						 || actionState == MouseFlags.Button2Pressed
-						 || actionState == MouseFlags.Button3Pressed
-						 || actionState == MouseFlags.Button4Pressed))
-			{
-				mouseFlags[0] = GetButtonDoubleClicked(actionState);
-				_isButtonClicked = false;
-				_isButtonDoubleClicked = true;
-
-				Task.Run(async () => await ProcessButtonDoubleClickedAsync());
-			}
-
-			else if (!_isButtonClicked
-					 && !_isButtonDoubleClicked
-					 && (actionState == MouseFlags.Button1Released
-						 || actionState == MouseFlags.Button2Released
-						 || actionState == MouseFlags.Button3Released
-						 || actionState == MouseFlags.Button4Released))
-			{
-				mouseFlags[0] = buttonState;
 				_isButtonPressed = false;
+				_lastMouseButtonPressed = null;
+				_point = pos;
 
-				// Stop the continuous-press loop immediately rather than letting it notice the
-				// flag on its next 100ms tick.
 				lock (_continuousPressLock)
 				{
 					_continuousPressCts?.Cancel();
 				}
-
-				if (_isButtonTripleClicked)
-				{
-					_isButtonTripleClicked = false;
-				}
-				else if (pos.X == _point?.X && pos.Y == _point?.Y)
-				{
-					// SAFEGUARD: Ignore duplicate release events (< 50ms = driver bug)
-					var timeSinceLastClick = (DateTime.Now - _lastClickTime).TotalMilliseconds;
-					if (timeSinceLastClick >= 50)
-					{
-						mouseFlags.Add(GetButtonClicked(actionState));
-						_isButtonClicked = true;
-						Task.Run(async () => await ProcessButtonClickedAsync());
-						_lastClickTime = DateTime.Now;
-					}
-				}
-
+			}
+			else if (buttonState.HasFlag(MouseFlags.ReportMousePosition))
+			{
 				_point = pos;
-
-			}
-			else if (actionState == MouseFlags.WheeledUp)
-			{
-				mouseFlags[0] = MouseFlags.WheeledUp;
-			}
-			else if (actionState == MouseFlags.WheeledDown)
-			{
-				mouseFlags[0] = MouseFlags.WheeledDown;
-			}
-			else if (actionState == MouseFlags.WheeledLeft)
-			{
-				mouseFlags[0] = MouseFlags.WheeledLeft;
-			}
-			else if (actionState == MouseFlags.WheeledRight)
-			{
-				mouseFlags[0] = MouseFlags.WheeledRight;
-			}
-			else if (actionState == MouseFlags.ReportMousePosition)
-			{
-				mouseFlags[0] = MouseFlags.ReportMousePosition;
-			}
-			else
-			{
-				mouseFlags[0] = buttonState;
-
-				//foreach (var flag in buttonState.GetUniqueFlags()) {
-				//	mouseFlag [0] |= flag;
-				//}
 			}
 
 			mouseFlags[0] = SetControlKeyStates(buttonState, mouseFlags[0]);
@@ -504,92 +419,10 @@ namespace SharpConsoleUI.Helpers
 			//}
 		}
 
-		private static MouseFlags GetButtonClicked(MouseFlags mouseFlag)
-		{
-			MouseFlags mf = default;
 
-			switch (mouseFlag)
-			{
-				case MouseFlags.Button1Released:
-					mf = MouseFlags.Button1Clicked;
 
-					break;
 
-				case MouseFlags.Button2Released:
-					mf = MouseFlags.Button2Clicked;
 
-					break;
-
-				case MouseFlags.Button3Released:
-					mf = MouseFlags.Button3Clicked;
-
-					break;
-			}
-
-			return mf;
-		}
-
-		private static MouseFlags GetButtonDoubleClicked(MouseFlags mouseFlag)
-		{
-			MouseFlags mf = default;
-
-			switch (mouseFlag)
-			{
-				case MouseFlags.Button1Pressed:
-					mf = MouseFlags.Button1DoubleClicked;
-
-					break;
-
-				case MouseFlags.Button2Pressed:
-					mf = MouseFlags.Button2DoubleClicked;
-
-					break;
-
-				case MouseFlags.Button3Pressed:
-					mf = MouseFlags.Button3DoubleClicked;
-
-					break;
-			}
-
-			return mf;
-		}
-
-		private static MouseFlags GetButtonTripleClicked(MouseFlags mouseFlag)
-		{
-			MouseFlags mf = default;
-
-			switch (mouseFlag)
-			{
-				case MouseFlags.Button1Pressed:
-					mf = MouseFlags.Button1TripleClicked;
-
-					break;
-
-				case MouseFlags.Button2Pressed:
-					mf = MouseFlags.Button2TripleClicked;
-
-					break;
-
-				case MouseFlags.Button3Pressed:
-					mf = MouseFlags.Button3TripleClicked;
-
-					break;
-			}
-
-			return mf;
-		}
-
-		private static async Task ProcessButtonClickedAsync()
-		{
-			await Task.Delay(Configuration.ControlDefaults.DefaultDebounceMs);
-			_isButtonClicked = false;
-		}
-
-		private static async Task ProcessButtonDoubleClickedAsync()
-		{
-			await Task.Delay(Configuration.ControlDefaults.DefaultDebounceMs);
-			_isButtonDoubleClicked = false;
-		}
 
 		private static async Task ProcessContinuousButtonPressedAsync(MouseFlags mouseFlag,
 			Action<MouseFlags, Point> continuousButtonPressedHandler, CancellationToken token)
@@ -643,13 +476,9 @@ namespace SharpConsoleUI.Helpers
 				_continuousPressCts = null;
 			}
 
-			_isButtonClicked = false;
-			_isButtonDoubleClicked = false;
 			_isButtonPressed = false;
-			_isButtonTripleClicked = false;
 			_lastMouseButtonPressed = null;
 			_point = null;
-			_lastClickTime = DateTime.MinValue;
 		}
 
 		private static MouseFlags SetControlKeyStates(MouseFlags buttonState, MouseFlags mouseFlag)

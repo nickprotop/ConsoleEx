@@ -690,23 +690,26 @@ internal sealed class DiagnosticsServer : IDisposable
 			case "wheeldown": return new List<MouseFlags> { MouseFlags.WheeledDown };
 		}
 
-		MouseFlags pressed, released, clicked, doubleClicked;
+		MouseFlags pressed, released, clicked, doubleClicked, dragged;
 		switch (button.ToLowerInvariant())
 		{
 			case "left":
-				(pressed, released, clicked, doubleClicked) =
+				(pressed, released, clicked, doubleClicked, dragged) =
 					(MouseFlags.Button1Pressed, MouseFlags.Button1Released,
-					 MouseFlags.Button1Clicked, MouseFlags.Button1DoubleClicked);
+					 MouseFlags.Button1Clicked, MouseFlags.Button1DoubleClicked,
+					 MouseFlags.Button1Dragged);
 				break;
 			case "right":
-				(pressed, released, clicked, doubleClicked) =
+				(pressed, released, clicked, doubleClicked, dragged) =
 					(MouseFlags.Button3Pressed, MouseFlags.Button3Released,
-					 MouseFlags.Button3Clicked, MouseFlags.Button3DoubleClicked);
+					 MouseFlags.Button3Clicked, MouseFlags.Button3DoubleClicked,
+					 MouseFlags.Button3Dragged);
 				break;
 			case "middle":
-				(pressed, released, clicked, doubleClicked) =
+				(pressed, released, clicked, doubleClicked, dragged) =
 					(MouseFlags.Button2Pressed, MouseFlags.Button2Released,
-					 MouseFlags.Button2Clicked, MouseFlags.Button2DoubleClicked);
+					 MouseFlags.Button2Clicked, MouseFlags.Button2DoubleClicked,
+					 MouseFlags.Button2Dragged);
 				break;
 			default:
 				error = $"unknown button '{button}'; known: left, right, middle";
@@ -730,13 +733,23 @@ internal sealed class DiagnosticsServer : IDisposable
 			// (InputCoordinator routes Clicked to portals before windows) and closes it.
 			"releaseclick" => new List<MouseFlags> { released, clicked },
 			"move" => new List<MouseFlags> { MouseFlags.ReportMousePosition },
+
+			// Motion WITH the button held, which is what a terminal reports mid-drag
+			// and what "move" alone cannot express. Without this a client can press
+			// and release but never actually drag, so window moves, resizes,
+			// splitters, sliders and text selection are all untestable over the
+			// socket - every one of them needs this event in the middle.
+			"drag" => new List<MouseFlags>
+			{
+				MouseFlags.ReportMousePosition, pressed, dragged,
+			},
 			_ => Unknown(action, out error),
 		};
 
 		static List<MouseFlags>? Unknown(string action, out string error)
 		{
 			error = $"unknown action '{action}'; known: click, doubleclick, press, release, "
-				  + "releaseclick, move, wheelup, wheeldown";
+				  + "releaseclick, move, drag, wheelup, wheeldown";
 			return null;
 		}
 	}

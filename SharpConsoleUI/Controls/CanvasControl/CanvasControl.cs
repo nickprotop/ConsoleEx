@@ -262,6 +262,12 @@ namespace SharpConsoleUI.Controls
 		/// <see cref="CanvasMouseUp"/>, then <see cref="CanvasMouseClick"/>. Handle
 		/// one or the other, not both, unless you want the action twice.
 		/// </para>
+		/// <para>
+		/// Every press raises this, including the second and third of a fast run:
+		/// a multi-click carries its press as well as the derived gesture. A caller
+		/// that needs to tell them apart reads
+		/// <see cref="CanvasMouseEventArgs.OriginalArgs"/>.
+		/// </para>
 		/// </remarks>
 		public event EventHandler<CanvasMouseEventArgs>? CanvasMouseDown;
 
