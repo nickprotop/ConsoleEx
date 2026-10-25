@@ -98,7 +98,12 @@ short-circuit happens before a font is loaded or a buffer touched.
 {"kind":"resize","x":120,"y":36}
 ```
 
-A drag is sent as **press, move, release** rather than a single click, because a window
+A click is sent as **press, release, click** - the clicked flag is its own event in the
+library, not a press plus a release, and controls listen for it. A drag is **press, move,
+release** with no click, and a double-click adds `doubleclick` after two complete click
+sequences, matching the order a terminal reports them.
+
+The gesture is sent as press, move, release rather than a single click, because a window
 move, a resize, a text selection and a scrollbar thumb all need the whole gesture. `move`
 and `release` are bound to the window, not the canvas, so a drag that leaves the canvas
 keeps reporting and a release outside it still ends the drag — otherwise the application

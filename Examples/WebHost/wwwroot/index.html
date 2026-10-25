@@ -148,11 +148,14 @@ function cellAt(event) {
   };
 }
 
-// Press / move / release rather than a single click, so a drag reaches the
-// application as a drag. A window move, a resize, a text selection and a
-// scrollbar thumb all need the whole gesture, not its first event.
+// A gesture is press, then moves, then release - and, if the pointer never
+// left the cell it started in, a "click" as well. "Clicked" is its own flag in
+// the library, not a press plus a release, so a control listening for it never
+// fires unless that final event is sent.
 let dragging = null;     // the button held down, or null
 let lastCell = null;     // last cell reported, so a move inside one cell is not resent
+let startCell = null;    // where the press landed, to tell a click from a drag
+let moved = false;       // whether the pointer left the starting cell
 
 function buttonName(e) {
   return e.button === 2 ? 'right' : e.button === 1 ? 'middle' : 'left';
@@ -163,7 +166,8 @@ canvas.addEventListener('mousedown', e => {
   canvas.focus();
   const { x, y } = cellAt(e);
   dragging = buttonName(e);
-  lastCell = `${x},${y}`;
+  lastCell = startCell = `${x},${y}`;
+  moved = false;
   send({ kind: 'mouse', x, y, action: 'press', button: dragging });
 });
 
@@ -180,6 +184,7 @@ window.addEventListener('mousemove', e => {
   lastCell = cell;
 
   if (dragging) {
+    if (cell !== startCell) moved = true;
     send({ kind: 'mouse', x, y, action: 'move', button: dragging });
   }
 });
@@ -188,9 +193,28 @@ window.addEventListener('mouseup', e => {
   if (!dragging) return;
   const { x, y } = cellAt(e);
   const button = dragging;
+  const wasDrag = moved;
   dragging = null;
-  lastCell = null;
+  lastCell = startCell = null;
+  moved = false;
+
   send({ kind: 'mouse', x, y, action: 'release', button });
+
+  // A press and release in the same cell is a click. A terminal reports the
+  // click in addition to the pair, and controls listen for that flag - a
+  // press and release alone never fire one.
+  if (!wasDrag) send({ kind: 'mouse', x, y, action: 'click', button });
+});
+
+// The browser fires dblclick AFTER the second full press/release/click pair,
+// which is also the order a terminal reports it: Clicked first, then
+// DoubleClicked. Controls rely on that - CheckboxControl toggles on Clicked
+// and deliberately does not toggle again on DoubleClicked - so this must not
+// be reordered or de-duplicated.
+canvas.addEventListener('dblclick', e => {
+  e.preventDefault();
+  const { x, y } = cellAt(e);
+  send({ kind: 'mouse', x, y, action: 'doubleclick', button: buttonName(e) });
 });
 
 canvas.addEventListener('contextmenu', e => e.preventDefault());

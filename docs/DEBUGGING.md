@@ -348,10 +348,17 @@ app would be a confusing way to discover the typo.
 | Field | Values |
 |-------|--------|
 | `button` | `left`, `right`, `middle` |
-| `action` | `click`, `press`, `release`, `move`, `wheelup`, `wheeldown` |
+| `action` | `click`, `doubleclick`, `press`, `release`, `move`, `wheelup`, `wheeldown` |
 
 This routes into the same method the console driver's own mouse events land on, so
-hit-testing, z-order and capture all run exactly as for a real click. A probe that reached
+hit-testing, z-order and capture all run exactly as for a real click.
+
+**`click` is its own event, not a `press` plus a `release`.** Controls listen for the
+clicked flag, and a terminal reports it in addition to the pair - so a client synthesising
+a gesture must send `press`, any `move`s, `release`, and then `click` if the pointer never
+left the cell it started in. Sending only press and release produces a drag that never
+clicks. A double-click follows two complete click sequences, last, because a control that
+acts on `click` relies on having already seen it. A probe that reached
 past dispatch could report hits a user could never produce.
 
 ---

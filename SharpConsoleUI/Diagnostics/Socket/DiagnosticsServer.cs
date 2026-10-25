@@ -667,29 +667,36 @@ internal sealed class DiagnosticsServer : IDisposable
 			case "wheeldown": return new List<MouseFlags> { MouseFlags.WheeledDown };
 		}
 
-		MouseFlags pressed, released, clicked;
+		MouseFlags pressed, released, clicked, doubleClicked;
 		switch (button.ToLowerInvariant())
 		{
 			case "left":
-				(pressed, released, clicked) =
-					(MouseFlags.Button1Pressed, MouseFlags.Button1Released, MouseFlags.Button1Clicked);
+				(pressed, released, clicked, doubleClicked) =
+					(MouseFlags.Button1Pressed, MouseFlags.Button1Released,
+					 MouseFlags.Button1Clicked, MouseFlags.Button1DoubleClicked);
 				break;
 			case "right":
-				(pressed, released, clicked) =
-					(MouseFlags.Button3Pressed, MouseFlags.Button3Released, MouseFlags.Button3Clicked);
+				(pressed, released, clicked, doubleClicked) =
+					(MouseFlags.Button3Pressed, MouseFlags.Button3Released,
+					 MouseFlags.Button3Clicked, MouseFlags.Button3DoubleClicked);
 				break;
 			case "middle":
-				(pressed, released, clicked) =
-					(MouseFlags.Button2Pressed, MouseFlags.Button2Released, MouseFlags.Button2Clicked);
+				(pressed, released, clicked, doubleClicked) =
+					(MouseFlags.Button2Pressed, MouseFlags.Button2Released,
+					 MouseFlags.Button2Clicked, MouseFlags.Button2DoubleClicked);
 				break;
 			default:
 				error = $"unknown button '{button}'; known: left, right, middle";
 				return null;
 		}
 
+		// "clicked" is its own flag, not a press plus a release: controls listen for
+		// Button1Clicked, and a terminal reports it in addition to the press/release pair.
+		// A caller sending only press and release produces a drag that never clicks.
 		return action.ToLowerInvariant() switch
 		{
 			"click" => new List<MouseFlags> { clicked },
+			"doubleclick" => new List<MouseFlags> { doubleClicked },
 			"press" => new List<MouseFlags> { pressed },
 			"release" => new List<MouseFlags> { released },
 			"move" => new List<MouseFlags> { MouseFlags.ReportMousePosition },
@@ -698,7 +705,8 @@ internal sealed class DiagnosticsServer : IDisposable
 
 		static List<MouseFlags>? Unknown(string action, out string error)
 		{
-			error = $"unknown action '{action}'; known: click, press, release, move, wheelup, wheeldown";
+			error = $"unknown action '{action}'; known: click, doubleclick, press, release, "
+				  + "move, wheelup, wheeldown";
 			return null;
 		}
 	}
