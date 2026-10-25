@@ -3,6 +3,11 @@
 Runs **DemoApp**, unmodified, on `HeadlessConsoleDriver`, renders each frame to PNG, and
 serves it to a browser. Clicks and keystrokes come back as real input.
 
+![DemoApp running in a browser](../../docs/images/examples/webhost-browser.png)
+
+That is a browser window. Both windows inside it were opened by clicking, and there is no
+terminal anywhere in the process.
+
 ```bash
 dotnet run --project Examples/WebHost
 # then open http://127.0.0.1:5088
