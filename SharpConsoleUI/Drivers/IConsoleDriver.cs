@@ -204,6 +204,20 @@ namespace SharpConsoleUI.Drivers
 		Diagnostics.Snapshots.ConsoleBufferSnapshot? CaptureComposed() => null;
 
 		/// <summary>
+		/// How many frames this driver has presented, or 0 when it does not count.
+		/// </summary>
+		/// <remarks>
+		/// Monotonic. Lets a caller ask "has the screen changed since I last looked" without
+		/// enabling the diagnostics subsystem - the cheap question deserves a cheap answer,
+		/// and anything streaming the screen asks it many times a second.
+		/// <para><see cref="long"/> so it cannot wrap: an int at 60fps overflows in about
+		/// thirteen months, and a counter that went backwards would strand a client waiting
+		/// for a frame number it had already passed.</para>
+		/// <para>Defaulted so existing drivers are unaffected.</para>
+		/// </remarks>
+		long FrameNumber => 0;
+
+		/// <summary>
 		/// Copies a horizontal strip of cells from a <see cref="CharacterBuffer"/> directly
 		/// to the console output buffer, bypassing ANSI string serialization and parsing.
 		/// </summary>

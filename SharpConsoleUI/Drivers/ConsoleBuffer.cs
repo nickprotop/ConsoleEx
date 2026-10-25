@@ -59,6 +59,45 @@ namespace SharpConsoleUI.Drivers
 		}
 
 		/// <summary>
+		/// How many frames this buffer has presented.
+		/// </summary>
+		/// <remarks>
+		/// Monotonic, and deliberately free of the diagnostics subsystem: a client that only
+		/// wants to know "has the screen changed since I last looked" should not have to
+		/// enable per-frame recording to find out. That is the common case for anything
+		/// streaming the screen, and the expensive answer is the wrong one for it.
+		/// <para><see cref="long"/>, not <see cref="int"/>: at 60fps an int overflows in
+		/// about thirteen months, and this library runs dashboards and monitors that stay up
+		/// for longer than that. Wrapping to negative would tell a client tracking the count
+		/// that the screen had gone backwards, and it would wait forever. A long outlasts
+		/// the hardware.</para>
+		/// <para>Read without a lock. A reader that sees a slightly stale value asks for one
+		/// more frame than it needed, which is harmless. A 64-bit read can tear on a 32-bit
+		/// runtime, so it is read through <see cref="Interlocked"/>.</para>
+		/// <para>MUST only ever increase, including across a resize - which replaces this
+		/// buffer entirely. A counter that restarted at zero would tell a client holding a
+		/// higher number that nothing had changed, and it would wait forever on a screen
+		/// that was in fact moving. <see cref="ResumeFrameNumberFrom"/> carries it over.</para>
+		/// </remarks>
+		public long FrameNumber => Interlocked.Read(ref _frameNumber);
+
+		private long _frameNumber;
+
+		/// <summary>
+		/// Continues the frame count from a buffer this one replaces.
+		/// </summary>
+		/// <param name="previous">The count reached by the outgoing buffer.</param>
+		/// <remarks>
+		/// A resize builds a new buffer. Monotonicity is the whole contract of the counter,
+		/// so the new one picks up where the old left off rather than restarting.
+		/// </remarks>
+		public void ResumeFrameNumberFrom(long previous)
+		{
+			if (previous > Interlocked.Read(ref _frameNumber))
+				Interlocked.Exchange(ref _frameNumber, previous);
+		}
+
+		/// <summary>
 		/// Gets or sets the diagnostics system for capturing rendering metrics.
 		/// </summary>
 		public Diagnostics.RenderingDiagnostics? Diagnostics
@@ -534,6 +573,11 @@ namespace SharpConsoleUI.Drivers
 		{
 			if (Lock)
 				return;
+
+			// Counted here rather than on a successful write: a frame that composed to no
+			// change is still a frame the caller has seen the result of, and a counter that
+			// stalled on an idle UI would be indistinguishable from a stalled render loop.
+			Interlocked.Increment(ref _frameNumber);
 
 			// Lock Console I/O to prevent concurrent input operations from being corrupted
 			lock (_consoleLock)

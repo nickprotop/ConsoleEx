@@ -131,6 +131,7 @@ before replying -- so `key` followed by `snapshot` is coherent rather than racin
 | Verb | What it does |
 |------|--------------|
 | `set` | Reads, and optionally changes, runtime switches |
+| `frame` | How many frames have been presented |
 | `ping` | Liveness |
 | `commands` | Lists the verbs |
 
@@ -182,6 +183,7 @@ A screenshot, with real text.
 | `font` | *(auto)* | Path to a monospace `.ttf`. Implies `fontSource: "file"`. |
 | `fontSource` | `"automatic"` | `automatic`, `embedded`, `strict` or `file`. See below. |
 | `composed` | `false` | The whole desktop instead of one window. |
+| `sinceFrame` | *(none)* | Answer `unchanged` if no frame has been presented since this one. |
 | `x`,`y`,`w`,`h` | *(all)* | A region, as for `snapshot`. |
 
 **Bytes are the default, and a path is the opt-in.** A full 120x40 desktop is around 130 KB
@@ -232,6 +234,36 @@ background. Box-drawing characters are designed to overhang their cell -- `─` 
 wide at an 8px pitch precisely so neighbours fuse -- and compositing per-cell would chop a
 continuous rule into dashes. Combining marks are drawn at the base glyph's own origin, which
 is where a terminal puts them.
+
+---
+
+## frame, and streaming the screen
+
+```json
+{"cmd":"frame"}     →  {"ok":true,"frame":1204}
+```
+
+How many frames the renderer has presented. Monotonic, needs no diagnostics, and is the
+cheapest verb in the protocol - which matters, because anything streaming the screen asks
+it many times a second.
+
+Pair it with `sinceFrame` and an unchanged screen costs almost nothing:
+
+```json
+{"cmd":"png","composed":true,"sinceFrame":1204}
+  →  {"ok":true,"unchanged":true,"frame":1204}      // 29 bytes
+  →  {"ok":true,"frame":1211,"bytes":6322,...}      // a real frame
+```
+
+The short-circuit happens before a font is loaded or a buffer is touched, so the idle case
+is genuinely cheap rather than merely smaller. A full 120x40 desktop is around 130 KB; at
+10fps that is 1.3 MB/s of mostly identical pixels, and a TUI is idle between keystrokes.
+Every `png` reply carries `frame`, so a client tracks it without a second call.
+
+**The count only ever increases**, including across a resize - which rebuilds the console
+buffer underneath. It is a 64-bit value, because a 32-bit one at 60fps wraps in about
+thirteen months and a counter that went backwards would strand a client waiting for a
+number it had already passed.
 
 ---
 

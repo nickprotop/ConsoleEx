@@ -1018,6 +1018,10 @@ namespace SharpConsoleUI.Drivers
 		/// Returns null in <see cref="RenderMode.Direct"/>: that mode keeps no buffer, so
 		/// there is no composed result to read.
 		/// </remarks>
+		/// <inheritdoc/>
+		public long FrameNumber => _consoleBuffer?.FrameNumber ?? 0;
+
+		/// <inheritdoc/>
 		public Diagnostics.Snapshots.ConsoleBufferSnapshot? CaptureComposed() =>
 			_consoleBuffer?.CaptureComposed();
 
@@ -1856,7 +1860,13 @@ namespace SharpConsoleUI.Drivers
 					if (RenderMode.Buffer == RenderMode)
 					{
 						_consoleBuffer!.Lock = true;
+						long carried = _consoleBuffer.FrameNumber;
 						_consoleBuffer = new ConsoleBuffer(currentSize.Width, currentSize.Height, _consoleWindowSystem?.Options, _consoleLock);
+
+						// Keep the frame count monotonic across the rebuild, or a client
+						// tracking it would be told the screen went backwards and wait
+						// forever for a frame number it had already passed.
+						_consoleBuffer.ResumeFrameNumberFrom(carried);
 
 						// Connect diagnostics if enabled
 						if (_consoleWindowSystem?.RenderingDiagnostics != null)

@@ -9,12 +9,11 @@ namespace CompositorEffectsExample;
 
 /// <summary>
 /// Demonstrates exporting a window with the ICellSurface API.
-/// Every export runs through window.CaptureSurface(), which needs no diagnostics.
 /// </summary>
 /// <remarks>
-/// The composed desktop (Shift+D) is the one exception: nothing retains the stacked result
-/// unless the application opted into diagnostics recording, so that export reports why when
-/// it cannot run.
+/// No export here needs diagnostics. A window's buffer exists because the renderer needs
+/// it, and the composed desktop likewise - the diff engine keeps it to know what to send
+/// next - so every capture reads a buffer that already exists and copies it once.
 /// </remarks>
 public class ScreenshotWindow : Window
 {
@@ -46,7 +45,7 @@ public class ScreenshotWindow : Window
 			"[cyan]T[/] - plain text      [cyan]A[/] - ANSI (colour)",
 			"[cyan]M[/] - markup          [cyan]P[/] - PNG image",
 			"[cyan]R[/] - PNG of a region (the bordered box only)",
-			"[cyan]Shift+D[/] - PNG of the whole desktop (needs diagnostics)",
+			"[cyan]Shift+D[/] - PNG of the whole desktop (every window, composed)",
 			"[cyan]Esc[/] - Close window",
 		});
 		markup.Margin = new Margin(2, 1, 2, 1);
@@ -170,8 +169,8 @@ public class ScreenshotWindow : Window
 			}
 
 			case ExportKind.DesktopPng:
-				// The one export that needs EnableDiagnostics. Throws with an explanation
-				// when the application did not opt in.
+				// Reads the driver's own composed buffer - no diagnostics required. Throws
+				// only in RenderMode.Direct, which keeps no buffer at all.
 				return (system.ComposedSurface().ToPng(), ".png");
 
 			default:

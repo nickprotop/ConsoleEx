@@ -168,6 +168,7 @@ internal sealed class DiagnosticsServer : IDisposable
 
 			"png" => Ok(Png(req)),
 			"set" => Ok(Set(req)),
+			"frame" => Ok(new JsonObject { ["frame"] = _system.ConsoleDriver.FrameNumber }),
 			"ping" => Ok(new JsonObject { ["pong"] = true }),
 			"commands" => Ok(Commands()),
 
@@ -198,7 +199,7 @@ internal sealed class DiagnosticsServer : IDisposable
 	{
 		"snapshot", "png", "tree", "focus", "windows", "metrics", "set",
 		"settle", "logs", "key", "mouse", "size", "focusctl", "invoke",
-		"theme", "window", "ping", "commands",
+		"theme", "window", "frame", "ping", "commands",
 	};
 
 	#endregion
@@ -238,6 +239,7 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// Readies the composed desktop for capture, turning recording on if it is merely paused.
 	/// </summary>
 	/// <param name="error">Why no composed surface could be produced.</param>
+	/// <param name="code"></param>
 	/// <returns>The surface, or null.</returns>
 	/// <remarks>
 	/// Recording is a per-frame deep copy, so it is off by default and a probe should not
@@ -245,9 +247,10 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// turning it on and waiting for a FRESH frame is right. Serving the snapshot already in
 	/// hand would be a picture of the past presented as the present.
 	/// </remarks>
-	private ICellSurface? PrepareComposedSurface(out string? error)
+	private ICellSurface? PrepareComposedSurface(out string? error, out string? code)
 	{
 		error = null;
+		code = null;
 
 		// The driver's live front buffer first. It is the composed desktop, it is always
 		// current, and reading it needs no diagnostics - which makes composed capture work
@@ -288,6 +291,7 @@ internal sealed class DiagnosticsServer : IDisposable
 		var shot = diag?.LastConsoleSnapshot;
 		if (shot == null)
 		{
+			code = ErrorCode.WrongDriver;
 			error = "no composed buffer: this driver retains nothing to read, which means it "
 				  + "is rendering in RenderMode.Direct. Capture a window instead - "
 				  + "{\"cmd\":\"png\",\"window\":\"<title>\"} - which needs no composed "
@@ -300,6 +304,15 @@ internal sealed class DiagnosticsServer : IDisposable
 
 	private JsonObject Png(JsonObject req)
 	{
+		// Cheapest possible answer first. A client streaming the screen asks many times a
+		// second and the screen is usually unchanged, so returning "still frame N" before
+		// loading a font or touching a buffer is the difference between a few bytes and
+		// 130KB of identical PNG.
+		long currentFrame = _system.ConsoleDriver.FrameNumber;
+		long? since = req["sinceFrame"]?.GetValue<long>();
+		if (since != null && currentFrame != 0 && currentFrame <= since.Value)
+			return new JsonObject { ["unchanged"] = true, ["frame"] = currentFrame };
+
 		int ch = req["cellHeight"]?.GetValue<int>() ?? 16;
 		int cw = req["cellWidth"]?.GetValue<int>() ?? 0;   // 0 = take the font's advance
 		string? path = req["path"]?.GetValue<string>();
@@ -343,8 +356,8 @@ internal sealed class DiagnosticsServer : IDisposable
 
 		if (composed)
 		{
-			var prepared = PrepareComposedSurface(out string? composeError);
-			if (prepared == null) return ErrorBody(composeError!);
+			var prepared = PrepareComposedSurface(out string? composeError, out string? composeCode);
+			if (prepared == null) return ErrorBody(composeError!, composeCode);
 			source = prepared;
 		}
 		else
@@ -405,6 +418,7 @@ internal sealed class DiagnosticsServer : IDisposable
 		else if (fontError != null) body["fontNote"] = fontError;
 		body["cell"] = $"{cw}x{ch}";
 		body["composed"] = composed;
+		body["frame"] = currentFrame;
 
 		font?.Dispose();
 
@@ -576,6 +590,7 @@ internal sealed class DiagnosticsServer : IDisposable
 				["settled"] = false,
 				["framesWaited"] = 0,
 				["stalled"] = true,
+				["code"] = ErrorCode.Stalled,
 				["error"] = "no frame advanced while waiting: the render loop is not running. "
 					+ "A host that drives ProcessOnce itself must keep pumping for the UI to "
 					+ "respond; nothing observed after this point reflects a live screen.",
@@ -723,7 +738,8 @@ internal sealed class DiagnosticsServer : IDisposable
 				return ErrorBody(
 					$"this app runs on {_system.ConsoleDriver.GetType().Name}, whose size is "
 					+ "owned by the terminal and cannot be set from here. Resize the terminal, "
-					+ "or run the app on HeadlessConsoleDriver to drive size from tests.");
+					+ "or run the app on HeadlessConsoleDriver to drive size from tests.",
+					ErrorCode.WrongDriver);
 			}
 
 			Marshal(() => headless.SimulateScreenResize(newW, newH));
@@ -928,7 +944,45 @@ internal sealed class DiagnosticsServer : IDisposable
 		return o;
 	}
 
-	private static JsonObject ErrorBody(string message) => new() { ["ok"] = false, ["error"] = message };
+	/// <summary>
+	/// A machine-readable name for the few failures a program must act on differently.
+	/// </summary>
+	/// <remarks>
+	/// Deliberately short. Most errors here say "your request was wrong" - a missing field,
+	/// an unknown control name - and a developer reads the sentence and fixes it; a code
+	/// would add a second thing to keep accurate for no gain, and a vocabulary nothing
+	/// enforces drifts out of date as verbs are added.
+	/// <para>These three are different: each describes a CONDITION rather than a mistake,
+	/// and a client has to behave differently when it sees one. Everything else is left to
+	/// the message, which is then free to get clearer without breaking anybody.</para>
+	/// </remarks>
+	internal static class ErrorCode
+	{
+		/// <summary>
+		/// The render loop is not running, so nothing read after this reflects a live screen.
+		/// A test must fail rather than assert against a frozen frame.
+		/// </summary>
+		internal const string Stalled = "stalled";
+
+		/// <summary>
+		/// This driver cannot do it, and no retry will help - resizing a real terminal, or
+		/// reading the composed desktop in RenderMode.Direct. A client should stop asking.
+		/// </summary>
+		internal const string WrongDriver = "wrong_driver";
+
+		/// <summary>
+		/// The app was built without the recording this verb reads. Not switchable from
+		/// here, so a client should disable the feature rather than retry.
+		/// </summary>
+		internal const string DiagnosticsDisabled = "diagnostics_disabled";
+	}
+
+	private static JsonObject ErrorBody(string message, string? code = null)
+	{
+		var o = new JsonObject { ["ok"] = false, ["error"] = message };
+		if (code != null) o["code"] = code;
+		return o;
+	}
 
 	private static JsonObject Error(string message, JsonObject? extra = null)
 	{

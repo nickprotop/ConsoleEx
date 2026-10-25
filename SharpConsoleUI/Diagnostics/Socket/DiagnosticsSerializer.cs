@@ -271,6 +271,7 @@ internal static class DiagnosticsSerializer
 			{
 				// Name the switch the caller actually controls, and the way out that
 				// needs no configuration at all.
+				["code"] = DiagnosticsServer.ErrorCode.WrongDriver,
 				["error"] = "no composed buffer: this driver retains nothing to read, which "
 					+ "means it is rendering in RenderMode.Direct. Snapshot a window instead "
 					+ "- {\"cmd\":\"snapshot\",\"window\":\"<title>\"} - which reads the "
@@ -297,6 +298,7 @@ internal static class DiagnosticsSerializer
 		if (m == null)
 			return new JsonObject
 			{
+				["code"] = DiagnosticsServer.ErrorCode.DiagnosticsDisabled,
 				["error"] = "no metrics: this app runs with EnableDiagnostics off, so the "
 					+ "renderer records nothing. Start it with "
 					+ "ConsoleWindowSystemOptions.EnableDiagnostics: true, or use "

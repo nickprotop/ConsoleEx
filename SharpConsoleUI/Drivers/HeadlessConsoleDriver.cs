@@ -237,6 +237,10 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 	}
 
 	/// <inheritdoc/>
+	/// <inheritdoc/>
+	public long FrameNumber => _consoleBuffer?.FrameNumber ?? 0;
+
+	/// <inheritdoc/>
 	public Diagnostics.Snapshots.ConsoleBufferSnapshot? CaptureComposed() =>
 		_consoleBuffer?.CaptureComposed();
 
@@ -287,6 +291,11 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 
 			if (_windowSystem.RenderingDiagnostics != null)
 				rebuilt.Diagnostics = _windowSystem.RenderingDiagnostics;
+
+			// Keep the frame count monotonic across the rebuild, or a client tracking it
+			// would be told the screen went backwards and wait forever for a frame number
+			// it had already passed.
+			rebuilt.ResumeFrameNumberFrom(_consoleBuffer?.FrameNumber ?? 0);
 
 			_consoleBuffer = rebuilt;
 		}
