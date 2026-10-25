@@ -11,7 +11,7 @@ using Color = SharpConsoleUI.Color;
 
 namespace DemoApp;
 
-internal class Program
+public class Program
 {
 	static async Task<int> Main(string[] args)
 	{
@@ -19,7 +19,36 @@ internal class Program
 
 		try
 		{
-			var options = new ConsoleWindowSystemOptions(
+			var options = CreateOptions();
+			var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer), options: options);
+
+			Configure(windowSystem, args);
+
+			windowSystem.Run();
+			return 0;
+		}
+		catch (Exception ex)
+		{
+			// Console.Clear() itself throws when stdout is redirected, which would replace the real
+			// exception with an unrelated IOException and hide why the app actually failed.
+			try { Console.Clear(); } catch { /* not a console — the message below still matters */ }
+			ExceptionFormatter.WriteException(ex);
+			return 1;
+		}
+	}
+
+	/// <summary>
+	/// The panel layout this demo runs with: a status bar, a Start menu, a taskbar, a clock.
+	/// </summary>
+	/// <returns>Options ready to hand to a <see cref="ConsoleWindowSystem"/>.</returns>
+	/// <remarks>
+	/// Separate from <see cref="Configure"/> because panels are fixed at construction while
+	/// everything else is set afterwards. Public so another host can present this same
+	/// application - the WebHost example runs it headless and serves it to a browser.
+	/// </remarks>
+	public static ConsoleWindowSystemOptions CreateOptions()
+	{
+		return new ConsoleWindowSystemOptions(
 				TopPanelConfig: panel => panel
 					.Left(Elements.StatusText("[bold]SharpConsoleUI Demo[/]"))
 					.Left(Elements.Separator())
@@ -38,8 +67,15 @@ internal class Program
 					.Center(Elements.TaskBar())
 					.Right(Elements.Clock().WithFormat("HH:mm:ss"))
 			);
-			var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer), options: options);
+	}
 
+	/// <summary>
+	/// Builds the demo into a window system: background, settings, launcher, shortcuts.
+	/// </summary>
+	/// <param name="windowSystem">The system to configure.</param>
+	/// <param name="args">Command-line arguments, for the capture helpers below.</param>
+	public static void Configure(ConsoleWindowSystem windowSystem, string[] args)
+	{
 			// Ocean Dots — the same configuration the Desktop Background demo's "Ocean Dots" button
 			// applies, made the default so the app opens on it.
 			windowSystem.DesktopBackground = new DesktopBackgroundConfig
@@ -49,8 +85,6 @@ internal class Program
 					GradientDirection.Vertical),
 				Pattern = DesktopPatterns.Dots
 			};
-
-			using var disposables = new DisposableManager();
 
 			// Register a sample custom settings group
 			windowSystem.RegisterSettingsGroup("Demo", new Color(255, 200, 100), group =>
@@ -104,17 +138,5 @@ internal class Program
 			// Start menu action
 			var startMenu = windowSystem.BottomPanel!.FindElement<StartMenuElement>("startmenu")!;
 			startMenu.RegisterAction("Launcher", OpenLauncher, order: 0);
-
-			windowSystem.Run();
-			return 0;
-		}
-		catch (Exception ex)
-		{
-			// Console.Clear() itself throws when stdout is redirected, which would replace the real
-			// exception with an unrelated IOException and hide why the app actually failed.
-			try { Console.Clear(); } catch { /* not a console — the message below still matters */ }
-			ExceptionFormatter.WriteException(ex);
-			return 1;
-		}
 	}
 }

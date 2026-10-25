@@ -142,6 +142,26 @@ callback, a game loop — and pace the calls yourself.
 > `MockConsoleDriver` in the test project subclasses `HeadlessConsoleDriver`. It is test
 > infrastructure, not part of the shipped package.
 
+### Worked example: a terminal UI in a browser
+
+[`Examples/WebHost`](../Examples/WebHost/README.md) runs **DemoApp, unmodified**, on this
+driver and serves it to a browser: each frame rendered to PNG, clicks and keystrokes fed
+back as real input.
+
+```bash
+dotnet run --project Examples/WebHost   # then http://127.0.0.1:5088
+```
+
+It is the clearest demonstration of what the driver abstraction buys. The application is the
+same code that runs in a terminal - the host calls the same two methods `DemoApp.Main` does,
+and only the driver and the loop differ. Window management, focus, hit-testing and the
+taskbar all behave as they would in a terminal, because they are the same code reaching the
+same decisions; only the final surface changed.
+
+The web layer reaches the application solely through its diagnostics socket, so it would
+work unchanged against an app in another process. See [`DEBUGGING.md`](DEBUGGING.md) for the
+verbs it uses.
+
 ---
 
 ## IConsoleDriver
