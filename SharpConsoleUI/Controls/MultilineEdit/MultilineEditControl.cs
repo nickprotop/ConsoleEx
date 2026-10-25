@@ -1135,5 +1135,17 @@ namespace SharpConsoleUI.Controls
 		}
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			base.DescribeState(w);
+			w.Write("editing", IsEditing);
+
+			// The length, not the text: an editor can hold a megabyte, and a probe
+			// asking "what is on screen" should not be handed all of it.
+			w.Write("length", Content?.Length ?? 0);
+		}
+
 	}
 }

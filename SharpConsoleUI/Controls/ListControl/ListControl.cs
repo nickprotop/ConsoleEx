@@ -883,5 +883,13 @@ namespace SharpConsoleUI.Controls
 		public bool CanReceiveFocus => IsEnabled;
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			base.DescribeState(w);
+			w.Write("selectedIndex", SelectedIndex);
+		}
+
 	}
 }

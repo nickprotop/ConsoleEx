@@ -429,5 +429,13 @@ namespace SharpConsoleUI.Controls
 		protected override void OnDisposing()
 		{
 		}
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			base.DescribeState(w);
+			w.Write("input", Input);
+		}
+
 	}
 }

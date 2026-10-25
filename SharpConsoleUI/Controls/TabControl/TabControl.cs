@@ -624,6 +624,15 @@ namespace SharpConsoleUI.Controls
 			}
 			return false;
 		}
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			base.DescribeState(w);
+			w.Write("activeTab", ActiveTabIndex);
+			w.Write("hasTabs", HasTabs);
+		}
+
 	}
 
 	/// <summary>
@@ -700,5 +709,6 @@ namespace SharpConsoleUI.Controls
 		/// Future feature: tooltip display on hover. Not currently rendered; no invalidation.
 		/// </summary>
 		public string? Tooltip { get; set; }
+
 	}
 }

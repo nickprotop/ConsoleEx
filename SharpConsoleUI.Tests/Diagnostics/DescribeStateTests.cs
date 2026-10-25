@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
 using SharpConsoleUI.Controls;
 using Xunit;
 
@@ -133,6 +134,112 @@ public class DescribeStateTests
 
 		Assert.Contains("enabled", state.Keys);   // from the base
 		Assert.Contains("checked", state.Keys);   // from the override
+	}
+
+	[Fact]
+	public void EveryControlInTheLibraryAnswers()
+	{
+		// DescribeState is virtual on BaseControl, so every control inherits a
+		// default and this cannot fail by someone ADDING a control - which is the
+		// point. It fails if a control is somehow made undescribable, and it fails
+		// if the query itself stops finding anything.
+		var controls = Controls();
+
+		// Not a count. Asserting "at least N controls" would be a number to bump
+		// every time one is added, and it would still pass if the query broke in a
+		// way that happened to leave N behind. Naming a few controls that must be
+		// in any such list says the same thing and never needs maintenance.
+		foreach (var expected in new[]
+		{
+			typeof(ButtonControl), typeof(CheckboxControl), typeof(MarkupControl),
+			typeof(ListControl), typeof(TableControl),
+		})
+		{
+			Assert.Contains(expected, controls);
+		}
+
+		foreach (var t in controls)
+		{
+			var m = t.GetMethod(nameof(BaseControl.DescribeState),
+				new[] { typeof(IStateWriter) });
+			Assert.True(m != null, $"{t.Name} cannot describe itself");
+		}
+	}
+
+	[Fact]
+	public void EveryControlCanBeDescribedWithoutThrowing()
+	{
+		// The stronger check, and the one that catches a real mistake: an override
+		// that dereferences something not yet set. A control is only diagnosable if
+		// describing it is safe at any point in its life, including straight after
+		// construction.
+		var failures = new List<string>();
+
+		foreach (var t in Controls())
+		{
+			if (t.GetConstructor(System.Type.EmptyTypes) == null) continue;
+
+			BaseControl control;
+			try
+			{
+				control = (BaseControl)System.Activator.CreateInstance(t)!;
+			}
+			catch
+			{
+				continue;   // needs more than a parameterless ctor; not this test's business
+			}
+
+			try
+			{
+				control.DescribeState(new Recorder());
+			}
+			catch (System.Exception ex)
+			{
+				failures.Add($"{t.Name}: {ex.GetType().Name}");
+			}
+			finally
+			{
+				try { control.Dispose(); } catch { /* disposal is not under test */ }
+			}
+		}
+
+		Assert.True(failures.Count == 0, "these threw while describing themselves: "
+			+ string.Join(", ", failures));
+	}
+
+	/// <summary>Every concrete control in the library.</summary>
+	private static List<System.Type> Controls() =>
+		typeof(BaseControl).Assembly.GetTypes()
+			.Where(t => t.IsClass && !t.IsAbstract && typeof(BaseControl).IsAssignableFrom(t))
+			.ToList();
+
+	[Fact]
+	public void AListReportsItsSelection()
+	{
+		var list = new ListControl();
+
+		Assert.Contains("selectedIndex", Describe(list).Keys);
+	}
+
+	[Fact]
+	public void AProgressBarReportsItsValue()
+	{
+		var bar = new ProgressBarControl { Value = 42 };
+
+		Assert.Equal(42.0, Describe(bar)["value"]);
+	}
+
+	[Fact]
+	public void AnEditorReportsItsLength_NotItsText()
+	{
+		// An editor can hold a megabyte; a probe asking what is on screen should
+		// not be handed all of it.
+		var edit = new MultilineEditControl { Content = "hello" };
+
+		var state = Describe(edit);
+
+		Assert.Equal(5L, state["length"]);
+		Assert.DoesNotContain("content", state.Keys);
 	}
 
 	[Fact]
