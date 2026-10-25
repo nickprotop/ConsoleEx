@@ -66,9 +66,7 @@ effects.
 
 A running application can also be **inspected and driven from outside**, over a local
 socket: read the screen as text or as a PNG, read what the layout engine believes, then send
-real keys and clicks. The same application runs **headless**, with no terminal at all — which
-is what makes golden-image tests, CI, and
-[serving a terminal UI to a browser](Examples/WebHost/README.md) work on unmodified code.
+real keys and clicks. The same application runs **headless**, with no terminal at all.
 See [Debugging](docs/DEBUGGING.md).
 
 It's also [NativeAOT-compatible](docs/AOT.md) — the full control set runs as a
