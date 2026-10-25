@@ -1,5 +1,5 @@
 #!/usr/bin/env dotnet
-#:package SharpConsoleUI@2.9.1
+#:package SharpConsoleUI@2.10.0
 
 // table-select.cs — Pick a row from a JSON array using its property names as columns.
 //
