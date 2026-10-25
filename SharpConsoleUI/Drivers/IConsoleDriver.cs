@@ -182,6 +182,28 @@ namespace SharpConsoleUI.Drivers
 		bool SupportsBlockingLoop => true;
 
 		/// <summary>
+		/// Captures the composed desktop - every window, stacked, as last presented.
+		/// </summary>
+		/// <returns>
+		/// A snapshot of what is on screen, or <c>null</c> when this driver keeps no composed
+		/// buffer to read.
+		/// </returns>
+		/// <remarks>
+		/// <para>
+		/// A diff-rendering driver already holds the composed result permanently, because it
+		/// needs it to decide what to send to the terminal. Reading it therefore costs one
+		/// copy per call and needs no diagnostics subsystem.
+		/// </para>
+		/// <para>
+		/// Returns <c>null</c> in <see cref="RenderMode.Direct"/>, where there is no buffer -
+		/// every write goes straight out and nothing retains the composed result. Callers
+		/// should say so rather than substituting a blank image.
+		/// </para>
+		/// <para>Defaulted so existing drivers are unaffected.</para>
+		/// </remarks>
+		Diagnostics.Snapshots.ConsoleBufferSnapshot? CaptureComposed() => null;
+
+		/// <summary>
 		/// Copies a horizontal strip of cells from a <see cref="CharacterBuffer"/> directly
 		/// to the console output buffer, bypassing ANSI string serialization and parsing.
 		/// </summary>

@@ -1013,6 +1013,14 @@ namespace SharpConsoleUI.Drivers
 			}
 		}
 
+		/// <inheritdoc/>
+		/// <remarks>
+		/// Returns null in <see cref="RenderMode.Direct"/>: that mode keeps no buffer, so
+		/// there is no composed result to read.
+		/// </remarks>
+		public Diagnostics.Snapshots.ConsoleBufferSnapshot? CaptureComposed() =>
+			_consoleBuffer?.CaptureComposed();
+
 		/// <summary>
 		/// Gets the count of dirty characters in the rendering buffer.
 		/// </summary>

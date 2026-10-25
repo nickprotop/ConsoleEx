@@ -42,17 +42,17 @@ public interface ICellSurface
 decorations, whether it is the second column of a wide glyph, and whether the background was
 *substituted rather than measured* -- see [Defaulted colours](#defaulted-colours).
 
-### What needs diagnostics
+### What it costs
 
-| Export | Needs `EnableDiagnostics`? |
-|---|---|
-| A window, or a region of one | **No** |
-| The composed desktop | **Yes** |
+Nothing beyond one copy per capture. **No export needs `EnableDiagnostics`.**
 
-The asymmetry is structural rather than a policy: a window's buffer exists because the
-renderer needs it, while the composed result is only *retained* when diagnostics records it.
-`ComposedSurface()` throws with an explanation when the application did not opt in, naming
-the per-window alternative that needs nothing.
+A window's buffer exists because the renderer needs it. The composed desktop likewise: the
+diff engine keeps it permanently, to know what to send to the terminal next. Both are read
+directly, so a capture copies once rather than imposing a per-frame cost on the application.
+
+`ComposedSurface()` is unavailable in only one case - `RenderMode.Direct`, which keeps no
+buffer at all because every write goes straight out. It throws then, naming the per-window
+alternative, rather than returning a blank image.
 
 ---
 

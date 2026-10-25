@@ -331,10 +331,14 @@ change what is *observed*, never how the app is *driven*.
 
 ## Render diagnostics
 
-Two things need the renderer to be recording: `metrics`, and anything with
-`composed: true`. Recording is a per-frame deep copy of the console buffer, so it is off by
-default -- a probe should not silently change the performance profile of the app it is
-measuring.
+`metrics` needs the renderer to be recording. Recording is a per-frame deep copy of the
+console buffer, so it is off by default -- a probe should not silently change the
+performance profile of the app it is measuring.
+
+**`composed: true` does not need it.** The driver keeps the composed desktop permanently
+anyway, because the diff engine needs it, so `snapshot` and `png` read that directly and
+cost one copy per capture. The exception is `RenderMode.Direct`, which keeps no buffer at
+all; capture a window instead.
 
 It is enabled at construction:
 
@@ -345,14 +349,12 @@ var options = ConsoleWindowSystemOptions.Create() with
 };
 ```
 
-If an app was built **without** it, the diagnostics recorder is never created, and no verb
-can conjure it. The error says so, and points at the alternative:
+If an app was built **without** it, the recorder is never created and no verb can conjure
+it, so `metrics` returns an error naming the switch rather than reporting zeroes.
 
-> no composed buffer: this app runs with EnableDiagnostics off... Capture a window instead
-> -- `{"cmd":"png","window":"<title>"}` -- which needs no diagnostics.
-
-Per-window `snapshot` and `png` read the window's live render buffer and work regardless.
-That is the common case and the cheaper one.
+Every other verb works regardless. Per-window `snapshot` and `png` read the window's own
+render buffer, and `composed` reads the driver's -- both exist because the renderer needs
+them.
 
 If the recorder exists but is paused, `composed` turns it on and **waits for a frame
 captured after that point** -- never serving the stale snapshot still in hand, which would
@@ -420,7 +422,6 @@ var driver = new HeadlessConsoleDriver(120, 40);
 var options = ConsoleWindowSystemOptions.Create() with
 {
     DiagnosticsSocket = "/tmp/headless.sock",
-    EnableDiagnostics = true,
 };
 var ws = new ConsoleWindowSystem(driver, options);
 

@@ -236,6 +236,10 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 		_consoleBuffer?.SetCellsFromBuffer(destX, destY, source, srcX, srcY, width, fallbackBg);
 	}
 
+	/// <inheritdoc/>
+	public Diagnostics.Snapshots.ConsoleBufferSnapshot? CaptureComposed() =>
+		_consoleBuffer?.CaptureComposed();
+
 	/// <summary>
 	/// Returns the count of dirty characters from the ConsoleBuffer.
 	/// </summary>

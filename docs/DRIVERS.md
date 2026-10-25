@@ -66,6 +66,7 @@ What that costs you, concretely:
 | `InvalidateFrontBuffer()` | Forces a full repaint | **No-op** |
 | `Clear()` | Clears the buffer | `Console.Clear()` |
 | `GetDirtyCharacterCount()` | Real count | **Always `0`** |
+| `CaptureComposed()` | The composed desktop | **`null`** — nothing is retained |
 | Flicker on complex updates | No | Yes |
 
 Two of those are worth saying plainly, because they are silent rather than loud:
@@ -171,6 +172,10 @@ Things that are easy to get wrong:
   decorations all travel with the cell; dropping them corrupts wide characters and CJK text.
 - **`InvalidateFrontBuffer()` has a default no-op implementation**, so a driver with no front
   buffer need not implement it.
+- **`CaptureComposed()` defaults to returning `null`**, likewise. Implement it if your driver
+  keeps a composed buffer — it is what lets a caller read the whole desktop
+  ([`EXPORT.md`](EXPORT.md)) without turning on diagnostics. Copy under whatever lock guards
+  your render path, so a capture never mixes two frames.
 
 Optionally implement `IGraphicsProtocol` for inline images.
 

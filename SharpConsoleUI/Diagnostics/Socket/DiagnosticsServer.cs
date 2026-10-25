@@ -248,6 +248,13 @@ internal sealed class DiagnosticsServer : IDisposable
 	private ICellSurface? PrepareComposedSurface(out string? error)
 	{
 		error = null;
+
+		// The driver's live front buffer first. It is the composed desktop, it is always
+		// current, and reading it needs no diagnostics - which makes composed capture work
+		// in the common configuration rather than only when the app opted in.
+		var live = _system.ConsoleDriver.CaptureComposed();
+		if (live != null) return live.AsSurface(_system.Theme);
+
 		var diag = _system.RenderingDiagnostics;
 
 		if (diag != null && !diag.IsEnabled &&
@@ -281,11 +288,10 @@ internal sealed class DiagnosticsServer : IDisposable
 		var shot = diag?.LastConsoleSnapshot;
 		if (shot == null)
 		{
-			error = "no composed buffer: this app runs with EnableDiagnostics off, or "
-				  + "without the ConsoleBuffer layer, so the renderer records nothing. "
-				  + "Capture a window instead - {\"cmd\":\"png\",\"window\":\"<title>\"} - "
-				  + "which needs no diagnostics. To enable composed capture, start the app "
-				  + "with ConsoleWindowSystemOptions.EnableDiagnostics: true.";
+			error = "no composed buffer: this driver retains nothing to read, which means it "
+				  + "is rendering in RenderMode.Direct. Capture a window instead - "
+				  + "{\"cmd\":\"png\",\"window\":\"<title>\"} - which needs no composed "
+				  + "buffer, or run the app with RenderMode.Buffer.";
 			return null;
 		}
 

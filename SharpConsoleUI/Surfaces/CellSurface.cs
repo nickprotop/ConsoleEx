@@ -86,25 +86,29 @@ public static class CellSurface
 	/// <param name="system">The window system.</param>
 	/// <returns>A view of the most recent composed frame.</returns>
 	/// <exception cref="InvalidOperationException">
-	/// The application did not opt into diagnostics recording, so no composed frame exists.
+	/// This driver keeps no composed buffer - it is rendering in
+	/// <see cref="Drivers.RenderMode.Direct"/>, where nothing retains the composed result.
 	/// </exception>
 	/// <remarks>
-	/// Unlike <see cref="CaptureSurface(Window)"/>, this REQUIRES
-	/// <c>ConsoleWindowSystemOptions.EnableDiagnostics</c>. Per-window buffers exist because
-	/// the renderer needs them; the composed result is only retained when diagnostics records
-	/// it. Capturing a window needs nothing.
+	/// Needs no diagnostics. A diff-rendering driver already holds the composed desktop
+	/// permanently, because it must know what is on screen to decide what to send next, so
+	/// this costs one copy per call rather than one per frame. It is taken under the render
+	/// lock, so a capture never mixes two frames.
 	/// </remarks>
 	public static ICellSurface ComposedSurface(this ConsoleWindowSystem system)
 	{
 		ArgumentNullException.ThrowIfNull(system);
 
-		var shot = system.RenderingDiagnostics?.LastConsoleSnapshot
+		// The driver's own front buffer first: it holds the composed desktop permanently
+		// because the diff engine needs it, so reading it is a single copy and requires no
+		// diagnostics at all. The diagnostics snapshot is the fallback, not the source.
+		var shot = system.ConsoleDriver.CaptureComposed()
+			?? system.RenderingDiagnostics?.LastConsoleSnapshot
 			?? throw new InvalidOperationException(
-				"no composed frame: this application runs with EnableDiagnostics off, or "
-				+ "without the ConsoleBuffer layer, so the renderer retains nothing. Capture a "
-				+ "window instead - window.CaptureSurface() - which needs no diagnostics. To enable "
-				+ "composed capture, start the app with "
-				+ "ConsoleWindowSystemOptions.EnableDiagnostics: true.");
+				"no composed frame: this driver keeps no composed buffer to read. A driver "
+				+ "in RenderMode.Direct writes straight to the terminal and retains nothing. "
+				+ "Capture a window instead - window.CaptureSurface() - which needs neither a "
+				+ "composed buffer nor diagnostics, or run with RenderMode.Buffer.");
 
 		return shot.AsSurface(system.Theme);
 	}

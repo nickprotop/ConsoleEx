@@ -261,17 +261,20 @@ internal static class DiagnosticsSerializer
 	/// <summary>The whole desktop as the user sees it, composed, from the render diagnostics.</summary>
 	internal static JsonObject ConsoleSnapshot(ConsoleWindowSystem system, bool ansi, Region region)
 	{
-		var shot = system.RenderingDiagnostics?.LastConsoleSnapshot;
+		// Live front buffer first - the composed desktop, always current, no diagnostics
+		// needed. The recorded snapshot is only a fallback for a driver that has no buffer.
+		var shot = system.ConsoleDriver.CaptureComposed()
+			?? system.RenderingDiagnostics?.LastConsoleSnapshot;
 		if (shot == null)
 		{
 			return new JsonObject
 			{
 				// Name the switch the caller actually controls, and the way out that
 				// needs no configuration at all.
-				["error"] = "no composed buffer: this app runs with EnableDiagnostics off, "
-					+ "or without the ConsoleBuffer layer. Snapshot a window instead - "
-					+ "{\"cmd\":\"snapshot\",\"window\":\"<title>\"} - which reads the "
-					+ "live render buffer and needs no diagnostics.",
+				["error"] = "no composed buffer: this driver retains nothing to read, which "
+					+ "means it is rendering in RenderMode.Direct. Snapshot a window instead "
+					+ "- {\"cmd\":\"snapshot\",\"window\":\"<title>\"} - which reads the "
+					+ "live render buffer, or run the app with RenderMode.Buffer.",
 			};
 		}
 

@@ -1063,6 +1063,55 @@ namespace SharpConsoleUI.Drivers
 			}
 		}
 
+		/// <summary>
+		/// Copies the composed desktop - every window, stacked, as last presented.
+		/// </summary>
+		/// <returns>An immutable snapshot of the front buffer.</returns>
+		/// <remarks>
+		/// <para>
+		/// The front buffer already holds the composed result permanently, because the diff
+		/// engine needs it to decide what to send to the terminal. This is simply a way to
+		/// read it, and needs no diagnostics subsystem: capture costs one copy per call,
+		/// not one per frame.
+		/// </para>
+		/// <para>
+		/// Taken under the render lock. A reader walking the buffer while the renderer
+		/// writes it would mix two frames, and a capture whose whole value is faithfulness
+		/// must not do that. Copying under the lock also keeps the lock held for a memcpy
+		/// rather than for however long the caller takes to consume the result.
+		/// </para>
+		/// </remarks>
+		public Diagnostics.Snapshots.ConsoleBufferSnapshot CaptureComposed()
+		{
+			var cells = new Diagnostics.Snapshots.ConsoleCell[_width, _height];
+
+			lock (_consoleLock)
+			{
+				for (int y = 0; y < _height; y++)
+				{
+					for (int x = 0; x < _width; x++)
+					{
+						ref var c = ref _frontBuffer[x, y];
+						cells[x, y] = new Diagnostics.Snapshots.ConsoleCell(
+							c.Character, c.AnsiEscape ?? string.Empty,
+							c.IsWideContinuation, c.Combiners);
+					}
+				}
+			}
+
+			// Front and back are the same array here: the caller is asking what is on
+			// screen, and GetBack is what every existing reader of a composed snapshot
+			// calls. Handing back one array for both keeps those readers working.
+			return new Diagnostics.Snapshots.ConsoleBufferSnapshot
+			{
+				FrontBuffer = cells,
+				BackBuffer = cells,
+				Width = _width,
+				Height = _height,
+				Timestamp = DateTime.Now,
+			};
+		}
+
 		#region Diagnostics Helper Methods
 
 		/// <summary>
