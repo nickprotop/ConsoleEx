@@ -350,6 +350,15 @@ namespace SharpConsoleUI
 		/// <param name="registryConfiguration">Optional registry configuration for persistent key-value storage.</param>
 		public ConsoleWindowSystem(IConsoleDriver driver, ITheme theme, ConsoleWindowSystemOptions? options = null, RegistryConfiguration? registryConfiguration = null)
 		{
+			// Resolve diagnostics-socket consent FIRST, before anything touches the terminal.
+			// The prompt needs plain line-buffered stdin and an unpainted screen; once the
+			// driver puts the terminal into raw mode and the alternate screen, a prompt either
+			// scribbles over the UI or is swallowed, and there is no second chance to ask.
+			// Only the DECISION happens here - the socket itself opens at the end of the
+			// constructor, once there is a system for it to serve.
+			var diagnosticsDecision = Diagnostics.Socket.DiagnosticsConsent.Resolve(
+				(options ?? ConsoleWindowSystemOptions.Create()).DiagnosticsSocket);
+
 			// Begin capturing piped stdin. Started before the driver initializes so no input is missed,
 			// but NOT waited on here: stdin held open by a live writer (a streaming producer, or a parent
 			// process that keeps the pipe open) would otherwise block construction forever, before the
@@ -495,6 +504,36 @@ namespace SharpConsoleUI
 			if (_consoleDriver is Drivers.NetConsoleDriver netDriver)
 			{
 				_defaultCursorBlink = netDriver.Options.CursorBlink;
+			}
+
+			// The socket opens last: consent was resolved at the top of this constructor, but
+			// the server needs a fully-built system to serve.
+			StartDiagnosticsSocket(diagnosticsDecision);
+		}
+
+		private Diagnostics.Socket.DiagnosticsServer? _diagnosticsServer;
+
+		private void StartDiagnosticsSocket(Diagnostics.Socket.DiagnosticsConsent.Decision decision)
+		{
+			if (!decision.Allowed)
+			{
+				// A denial that the user chose, or that the non-interactive rule made for
+				// them, is worth a log line. "Nothing was asked for" is not.
+				if (decision.DenialReason != null)
+					_logService.LogWarning(decision.DenialReason, "Diagnostics");
+				return;
+			}
+
+			try
+			{
+				_diagnosticsServer = new Diagnostics.Socket.DiagnosticsServer(this, decision.SocketPath!);
+				_diagnosticsServer.Start();
+			}
+			catch (Exception ex)
+			{
+				// A diagnostics channel must never stop the application it is meant to help.
+				_logService.LogError("Diagnostics socket failed to start", ex, "Diagnostics");
+				_diagnosticsServer = null;
 			}
 		}
 
@@ -1414,6 +1453,11 @@ namespace SharpConsoleUI
 
 			// Dispose watchdog (stops timer thread)
 			_watchdog.Dispose();
+
+			// Close the diagnostics socket and remove its file, so a later run does not trip
+			// over a stale one.
+			_diagnosticsServer?.Dispose();
+			_diagnosticsServer = null;
 
 			// Dispose wake signal
 			_wakeSignal.Dispose();

@@ -180,6 +180,20 @@ namespace SharpConsoleUI.Input
 		#region Mouse Event Handling
 
 		/// <summary>
+		/// Feeds a synthetic mouse event through the ordinary dispatch path.
+		/// </summary>
+		/// <param name="flags">The mouse flags, as the driver would report them.</param>
+		/// <param name="point">Screen coordinates.</param>
+		/// <remarks>
+		/// For the diagnostics socket. Deliberately routes into <see cref="HandleMouseEvent"/>
+		/// - the exact method the driver's MouseEvent lands on - rather than reaching into
+		/// hit-testing directly. A probe that took a shortcut past dispatch would report
+		/// successes a real click could not reproduce.
+		/// </remarks>
+		internal void InjectMouseEvent(List<MouseFlags> flags, Point point)
+			=> HandleMouseEvent(this, flags, point);
+
+		/// <summary>
 		/// Main mouse event router - handles all mouse events in priority order.
 		/// Priority: release → drag/resize movement → press → click → propagation
 		/// </summary>

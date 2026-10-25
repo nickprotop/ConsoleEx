@@ -26,6 +26,7 @@
 //   Whatever we start, we Stop/Dispose so no subprocess or read thread is orphaned.
 
 using System.ComponentModel;
+using System.Net.Sockets;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
@@ -828,6 +829,117 @@ try
 		return Fail($"BindItems: {ex.GetType().Name}: {ex.Message}");
 	}
 
+
+// 18. Diagnostics socket — the JSON-lines debug channel. It is the library's only
+// System.Text.Json.Nodes user, and JsonArray.Add<T> creates values REFLECTIVELY, so a
+// regression there throws only when executed. Opening a real socket and round-tripping
+// the two array-building replies ('commands' and the unknown-command reply) is therefore
+// the only way to prove it: a build-time check cannot see it, and nothing else in this
+// smoke test reaches the socket.
+try
+{
+	string sockPath = Path.Combine(Path.GetTempPath(), $"sharpconsoleui-aotsmoke-{Environment.ProcessId}.sock");
+	File.Delete(sockPath);
+
+	using var diagDriver = new HeadlessConsoleDriver(80, 24);
+	var diagSystem = new ConsoleWindowSystem(
+		diagDriver,
+		SharpConsoleUI.Configuration.ConsoleWindowSystemOptions.Create() with { DiagnosticsSocket = sockPath });
+	try
+	{
+
+	// The option path opens the socket without prompting, by design: a property can only
+	// be set by code, never inherited from an environment the user did not choose.
+	for (int i = 0; i < 100 && !File.Exists(sockPath); i++)
+		Thread.Sleep(20);
+
+	if (!File.Exists(sockPath))
+		return Fail("diagnostics socket never appeared");
+
+	using (var client = new System.Net.Sockets.Socket(
+		System.Net.Sockets.AddressFamily.Unix,
+		System.Net.Sockets.SocketType.Stream,
+		System.Net.Sockets.ProtocolType.Unspecified))
+	{
+		client.Connect(new System.Net.Sockets.UnixDomainSocketEndPoint(sockPath));
+		using var stream = new NetworkStream(client, ownsSocket: false);
+		using var reader = new StreamReader(stream);
+		using var writer = new StreamWriter(stream) { AutoFlush = true };
+
+		reader.ReadLine();   // the hello banner
+
+		// 'commands' builds a JsonArray of 16 strings; 'nope' builds the same list on the
+		// error path. Both went through JsonArray.Add<T> before being made AOT-safe.
+		writer.WriteLine("{\"cmd\":\"commands\"}");
+		string? commands = reader.ReadLine();
+		if (commands == null || !commands.Contains("snapshot", StringComparison.Ordinal))
+			return Fail($"diagnostics 'commands' reply malformed: {commands ?? "<null>"}");
+
+		writer.WriteLine("{\"cmd\":\"nope\"}");
+		string? unknown = reader.ReadLine();
+		if (unknown == null || !unknown.Contains("known", StringComparison.Ordinal))
+			return Fail($"diagnostics unknown-command reply malformed: {unknown ?? "<null>"}");
+
+		// 'windows' and 'snapshot' cover the serializer's other array paths.
+		writer.WriteLine("{\"cmd\":\"windows\"}");
+		if (reader.ReadLine() is not { } windows || !windows.Contains("windows", StringComparison.Ordinal))
+			return Fail("diagnostics 'windows' reply malformed");
+
+		// Give the system a painted window so 'png' has a real buffer to encode.
+		var pngWindow = new Window(diagSystem) { Width = 40, Height = 10, Top = 1, Left = 1, Title = "PngProbe" };
+		pngWindow.AddControl(new MarkupControl(new List<string> { "[red]pixels[/]" }));
+		diagSystem.AddWindow(pngWindow);
+		for (int i = 0; i < 3; i++) diagSystem.ProcessOnce();
+
+		// 'png' runs StbImageWriteSharp over that buffer and base64s the result.
+		// Encoding is native code behind a managed wrapper, so only running it proves it.
+		writer.WriteLine("{\"cmd\":\"png\",\"window\":\"PngProbe\",\"cellWidth\":2,\"cellHeight\":4}");
+		if (reader.ReadLine() is not { } png)
+			return Fail("diagnostics 'png' produced no reply");
+		if (png.Contains("\"ok\":false", StringComparison.Ordinal))
+		{
+			// No composed buffer in this headless fixture is an environment skip, not an
+			// AOT failure - but anything else is real.
+			if (!png.Contains("console snapshot", StringComparison.OrdinalIgnoreCase))
+				return Fail($"diagnostics 'png' failed: {png}");
+			skips.Add("diagnostics png: no composed buffer in headless fixture");
+		}
+		else
+		{
+			if (!png.Contains("\"format\":\"png\"", StringComparison.Ordinal))
+				return Fail($"diagnostics 'png' reply malformed: {png[..Math.Min(200, png.Length)]}");
+
+			// Decode and check the PNG magic, so this cannot pass on a reply that merely
+			// SAYS png while the encoder produced nothing usable.
+			int di = png.IndexOf("\"data\":\"", StringComparison.Ordinal);
+			if (di < 0) return Fail("diagnostics 'png' returned no inline data");
+			di += 8;
+			int de = png.IndexOf('"', di);
+			byte[] raw = Convert.FromBase64String(png[di..de].Replace('-', '+').Replace('_', '/'));
+			if (raw.Length < 8 || raw[0] != 0x89 || raw[1] != (byte)'P' || raw[2] != (byte)'N' || raw[3] != (byte)'G')
+				return Fail($"diagnostics 'png' data is not a PNG ({raw.Length} bytes)");
+
+			Console.Error.WriteLine($"AOT SMOKE NOTE: diagnostics png encoded {raw.Length} bytes (PNG magic verified)");
+		}
+	}
+
+	}
+	finally
+	{
+		// Shutdown closes the socket and removes its file.
+		diagSystem.Shutdown();
+	}
+
+	File.Delete(sockPath);
+	Console.Error.WriteLine("AOT SMOKE NOTE: diagnostics socket (JsonArray/JsonObject round-trip) exercised");
+}
+catch (Exception ex)
+{
+	if (IsAotFailure(ex))
+		return Fail($"diagnostics socket AOT failure: {ex}");
+	return Fail($"diagnostics socket: {ex.GetType().Name}: {ex.Message}");
+}
+
 }
 catch (Exception ex)
 {
@@ -850,6 +962,7 @@ Console.Error.WriteLine(
 	$"FormControl (builder, AddRadio<T>, GetValues, Submit) exercised; " +
 	$"FormXml (XDocument parse + runtime Regex validator) exercised; " +
 	$"TreeTableControl (builder, sort, filter, events, external subclass) + BindItems exercised; " +
+	$"diagnostics socket (System.Text.Json.Nodes round-trip) exercised; " +
 	$"{driver.ScreenSize.Width}x{driver.ScreenSize.Height} rendered.");
 return 0;
 

@@ -155,7 +155,16 @@ public record ConsoleWindowSystemOptions(
 
 	// Piped-stdin capture configuration. Null uses defaults (new PipedInputOptions()).
 	// Appended last so existing positional arguments keep their meaning.
-	PipedInputOptions? PipedInput = null
+	PipedInputOptions? PipedInput = null,
+
+	// Diagnostics socket path. Null (the default) means no socket unless the environment
+	// variable SHARPCONSOLEUI_DIAGNOSTICS_SOCKET asks for one - and that route always prompts
+	// for consent first. Setting this property opens the socket WITHOUT prompting, which is
+	// safe for a different reason: a property cannot be inherited from a shell, a .desktop
+	// file or a systemd unit, so it can only be here because someone wrote it here.
+	// Intended for tests and for an application's own --debug-socket flag.
+	// Appended last so existing positional arguments keep their meaning.
+	string? DiagnosticsSocket = null
 )
 {
 	private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";
