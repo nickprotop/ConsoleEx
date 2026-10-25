@@ -72,28 +72,33 @@ See [Debugging](docs/DEBUGGING.md).
 It's also [NativeAOT-compatible](docs/AOT.md) — the full control set runs as a
 self-contained native binary, verified on every push by a publish-and-run CI gate.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Application Layer (Your Code)                              │
-│  └── Window Builders, Event Handlers, Controls              │
-├─────────────────────────────────────────────────────────────┤
-│  Framework Layer                                            │
-│  ├── Fluent Builders, State Services, Logging, Plugins      │
-├─────────────────────────────────────────────────────────────┤
-│  Layout Layer                                               │
-│  ├── DOM Tree (LayoutNode) — Measure → Arrange → Paint      │
-├─────────────────────────────────────────────────────────────┤
-│  Rendering Layer                                            │
-│  ├── Multi-pass compositor, occlusion culling, portals      │
-├─────────────────────────────────────────────────────────────┤
-│  Buffering Layer                                            │
-│  ├── CharacterBuffer → ConsoleBuffer → adaptive diff output │
-├─────────────────────────────────────────────────────────────┤
-│  Driver Layer                                               │
-│  ├── NetConsoleDriver (terminal) / Headless (no terminal)   │
-│  └── Raw libc I/O (Unix) / Console API (Windows)            │
-└─────────────────────────────────────────────────────────────┘
-```
+---
+
+## Features
+
+| Capability | Built on | More |
+|---|---|---|
+| Overlapping windows with drag, resize, minimize, maximize | Per-window buffers merged by a compositor | [Windows](docs/WINDOWS.md) |
+| Transparent windows and translucent controls | Per-cell alpha blending between window buffers | [Alpha Blending](docs/ALPHA_BLENDING.md) |
+| Blur, fade and custom post-processing | `PreBufferPaint` / `PostBufferPaint` hooks | [Compositor Effects](docs/COMPOSITOR_EFFECTS.md) |
+| Hidden regions cost nothing to render | Occlusion culling in the compositor | [Rendering Pipeline](docs/RENDERING_PIPELINE.md) |
+| Dropdowns and overlays that escape their window | Portal system | [Portals](docs/PORTAL_SYSTEM.md) |
+| Per-window async threads | A UI thread model with marshalling | [Threading & Async](docs/THREADING_AND_ASYNC.md) |
+| A real shell running inside a control | PTY-backed terminal emulator | [Examples](docs/EXAMPLES.md) |
+| Video playback, not still frames | Kitty graphics with cell-based fallback | [Video Playback](docs/VIDEO_PLAYBACK.md) |
+| Animated desktop backgrounds | Gradient and pattern compositing | [Desktop Background](docs/DESKTOP_BACKGROUND.md) |
+| Themes, controls, windows and services as plugins | Plugin architecture | [Plugins](docs/PLUGINS.md) |
+| The composed desktop is a buffer, not a stream of escapes | `ConsoleBuffer` sits between the compositor and the device, so the app never writes to a terminal directly | [Rendering Pipeline](docs/RENDERING_PIPELINE.md) |
+| Anything that accepts cells can be the display | `IConsoleDriver` — a terminal, a headless buffer, or a browser canvas | [Drivers](docs/DRIVERS.md) · [WebHost](Examples/WebHost/README.md) |
+| The same app with no terminal at all | Headless driver + a hosted or background loop | [Drivers](docs/DRIVERS.md) |
+| Inspect and drive a running app from outside | Diagnostics socket — text, PNG, layout tree, real input | [Debugging](docs/DEBUGGING.md) |
+| Export a window, a region or the desktop | `ICellSurface` → PNG, ANSI or markup | [Screen Export](docs/EXPORT.md) |
+
+Alpha blending is **not** a unique feature: XenoAtom.Terminal.UI also does RGBA blending, in
+linear colour space. What differs is where it happens — we blend *between per-window buffers*
+during compositing, which is what makes overlapping translucent windows and compositor effects
+possible. See the [full comparison](https://nickprotop.github.io/ConsoleEx/docfx/_site/COMPARISON.html)
+for an honest side-by-side with Terminal.Gui, Spectre.Console and XenoAtom.Terminal.UI.
 
 ---
 
@@ -301,34 +306,6 @@ Assembler for 6502 based systems with an interactive monitor: a file tree, a tab
 
 Keyboard-driven .NET 10 console for taking HuggingFace models onto a Qualcomm Snapdragon X2 Elite NPU via the `geniex` runtime — find, convert, pull, chat, serve, and benchmark. Self-contained win-arm64/x64 releases, built on compositor windows, dialogs, toasts, and markup. By [Forrest Technologies](https://github.com/Forrest-Technologies).
 [github.com/Forrest-Technologies/geniex-qairt-tools](https://github.com/Forrest-Technologies/geniex-qairt-tools)
-
----
-
-## What makes it different
-
-| Capability | Built on | More |
-|---|---|---|
-| Overlapping windows with drag, resize, minimize, maximize | Per-window buffers merged by a compositor | [Windows](docs/WINDOWS.md) |
-| Transparent windows and translucent controls | Per-cell alpha blending between window buffers | [Alpha Blending](docs/ALPHA_BLENDING.md) |
-| Blur, fade and custom post-processing | `PreBufferPaint` / `PostBufferPaint` hooks | [Compositor Effects](docs/COMPOSITOR_EFFECTS.md) |
-| Hidden regions cost nothing to render | Occlusion culling in the compositor | [Rendering Pipeline](docs/RENDERING_PIPELINE.md) |
-| Dropdowns and overlays that escape their window | Portal system | [Portals](docs/PORTAL_SYSTEM.md) |
-| Per-window async threads | A UI thread model with marshalling | [Threading & Async](docs/THREADING_AND_ASYNC.md) |
-| A real shell running inside a control | PTY-backed terminal emulator | [Examples](docs/EXAMPLES.md) |
-| Video playback, not still frames | Kitty graphics with cell-based fallback | [Video Playback](docs/VIDEO_PLAYBACK.md) |
-| Animated desktop backgrounds | Gradient and pattern compositing | [Desktop Background](docs/DESKTOP_BACKGROUND.md) |
-| Themes, controls, windows and services as plugins | Plugin architecture | [Plugins](docs/PLUGINS.md) |
-| The composed desktop is a buffer, not a stream of escapes | `ConsoleBuffer` sits between the compositor and the device, so the app never writes to a terminal directly | [Rendering Pipeline](docs/RENDERING_PIPELINE.md) |
-| Anything that accepts cells can be the display | `IConsoleDriver` — a terminal, a headless buffer, or a browser canvas | [Drivers](docs/DRIVERS.md) · [WebHost](Examples/WebHost/README.md) |
-| The same app with no terminal at all | Headless driver + a hosted or background loop | [Drivers](docs/DRIVERS.md) |
-| Inspect and drive a running app from outside | Diagnostics socket — text, PNG, layout tree, real input | [Debugging](docs/DEBUGGING.md) |
-| Export a window, a region or the desktop | `ICellSurface` → PNG, ANSI or markup | [Screen Export](docs/EXPORT.md) |
-
-Alpha blending is **not** a unique feature: XenoAtom.Terminal.UI also does RGBA blending, in
-linear colour space. What differs is where it happens — we blend *between per-window buffers*
-during compositing, which is what makes overlapping translucent windows and compositor effects
-possible. See the [full comparison](https://nickprotop.github.io/ConsoleEx/docfx/_site/COMPARISON.html)
-for an honest side-by-side with Terminal.Gui, Spectre.Console and XenoAtom.Terminal.UI.
 
 ---
 
