@@ -64,6 +64,13 @@ desktop backgrounds, a PTY-backed terminal emulator, video playback with Kitty
 graphics + cell-based fallbacks, and compositor hooks for blur, fade, and custom
 effects.
 
+A running application can also be **inspected and driven from outside**, over a local
+socket: read the screen as text or as a PNG, read what the layout engine believes, then send
+real keys and clicks. The same application runs **headless**, with no terminal at all — which
+is what makes golden-image tests, CI, and
+[serving a terminal UI to a browser](Examples/WebHost/README.md) work on unmodified code.
+See [Debugging](docs/DEBUGGING.md).
+
 It's also [NativeAOT-compatible](docs/AOT.md) — the full control set runs as a
 self-contained native binary, verified on every push by a publish-and-run CI gate.
 
@@ -85,7 +92,7 @@ self-contained native binary, verified on every push by a publish-and-run CI gat
 │  ├── CharacterBuffer → ConsoleBuffer → adaptive diff output │
 ├─────────────────────────────────────────────────────────────┤
 │  Driver Layer                                               │
-│  ├── NetConsoleDriver (production) / Headless (testing)     │
+│  ├── NetConsoleDriver (terminal) / Headless (no terminal)   │
 │  └── Raw libc I/O (Unix) / Console API (Windows)            │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -313,6 +320,8 @@ Keyboard-driven .NET 10 console for taking HuggingFace models onto a Qualcomm Sn
 | Video playback (decoded frames, not still images) | None (still images only) |
 | Portal system for dropdowns and overlays | None |
 | Plugin architecture (themes, controls, windows, services) | None |
+| Inspect and drive a running app over a socket (text, PNG, layout tree) | None |
+| Run the same app headless — no terminal, no pty, full input and render | Test harnesses, not a hosting surface |
 
 Alpha blending is **not** on that list: XenoAtom.Terminal.UI also does RGBA blending, in
 linear colour space. What differs is where it happens — we blend *between per-window
@@ -371,6 +380,9 @@ Full reference: [nickprotop.github.io/ConsoleEx/docfx/_site/CONTROLS.html](https
 | [Notifications](https://nickprotop.github.io/ConsoleEx/docfx/_site/NOTIFICATIONS.html) | Corner toasts (ToastService) + modal notifications |
 | [Dialogs](docs/DIALOGS.md) | Standalone Confirm / Prompt / Progress dialogs + file and system dialogs |
 | [Composable Flows](docs/FLOWS.md) | Multi-step wizards + FlowContext over the dialog primitives |
+| [Debugging](docs/DEBUGGING.md) | Inspect and drive a running app over a socket — snapshot, PNG, layout tree, real input |
+| [Drivers & Render Modes](docs/DRIVERS.md) | The driver, Buffer vs Direct, and running headless |
+| [Screen Export](docs/EXPORT.md) | A window, a region or the desktop, as PNG or text |
 | [Threading & Async](docs/THREADING_AND_ASYNC.md) | The UI thread model, async events, and the unresponsive watchdog |
 | [NativeAOT](docs/AOT.md) | AOT compatibility, the CI smoke gate, and the HtmlControl caveat |
 | [Clipboard, Copy & Paste](docs/CLIPBOARD.md) | OSC 52 remote copy (works over SSH), bracketed paste, and configuration |
