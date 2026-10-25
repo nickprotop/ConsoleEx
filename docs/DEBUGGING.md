@@ -98,6 +98,28 @@ configured such that a verb cannot work -- asking for `metrics` with diagnostics
 the reply is an error naming the switch to change, not a reply with the numbers missing.
 "No metrics" and "zero metrics" are different answers, and a probe must not blur them.
 
+### Error codes
+
+Most errors are prose, because most are "your request was wrong" -- a missing field, an
+unknown control name -- and a developer reads the sentence and fixes it. Three failures are
+different: each describes a **condition** rather than a mistake, and a client has to behave
+differently when it sees one. Those carry a `"code"`:
+
+| `code` | Means | What a client should do |
+|--------|-------|-------------------------|
+| `stalled` | The render loop is not running | Fail the test. Nothing read after this reflects a live screen. |
+| `wrong_driver` | This driver cannot do it -- resizing a real terminal, or reading the composed desktop in `RenderMode.Direct` | Stop asking. No retry helps. |
+| `diagnostics_disabled` | The app was built without the recording this verb reads | Disable the feature. Not switchable from here. |
+
+```json
+{"ok":false,"code":"diagnostics_disabled","error":"no metrics: this app runs with..."}
+{"ok":false,"error":"no control named 'btn9' in 'Settings'"}
+```
+
+The second has no code on purpose. Branching on a code is reliable; substring-matching an
+English sentence is not, and leaving ordinary errors uncoded keeps their wording free to
+improve without breaking anybody.
+
 Verbs that change something accept `"settle": true`, which waits for the UI to stop moving
 before replying -- so `key` followed by `snapshot` is coherent rather than racing.
 
@@ -244,6 +266,20 @@ available face can draw is listed in `missingGlyphs` rather than left as a silen
 > `.ttc` collections -- are CFF/PostScript. Those are detected and skipped rather than loaded
 > to draw nothing, so CJK via system fonts is reliable on Linux and best-effort elsewhere.
 
+### Substituted colours
+
+The composed desktop stores the escape the renderer emitted, and that escape may say `39` or
+`49` -- "whatever the terminal's default is" -- a colour this process genuinely does not
+know. Those cells are filled from the theme, and the reply **says so** rather than letting a
+guess pass for a measurement:
+
+```json
+{"ok":true,...,"defaultedCells":96,
+ "note":"cells using the terminal's default background were filled from the theme"}
+```
+
+A per-window capture never reports this: those cells carry real typed colour.
+
 The glyph is composited over whatever is already in the image, not over its own cell's
 background. Box-drawing characters are designed to overhang their cell -- `─` is drawn 10px
 wide at an 8px pitch precisely so neighbours fuse -- and compositing per-cell would chop a
@@ -359,6 +395,11 @@ fields it is a pure read, so `{"cmd":"set"}` answers "what is this app doing rig
 | `logLevel` | `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`. |
 | `clearLogs` | Empties the buffer. |
 
+The reply's `diagnosticsAvailable` says whether a recorder exists at all. `false` means the
+app was built with `EnableDiagnostics: false`, so `diagnostics: true` cannot turn one on -
+it was never created. `true` with `diagnostics: false` means it exists but is paused, which
+IS switchable from here.
+
 The reply always reports the resulting state, so a write reads back and verifies itself.
 
 Raising the log floor mid-run is the cheapest way to find a noisy category without
@@ -455,6 +496,36 @@ advanced at all. So `settle` does:
 ```
 
 If you are hosting the system yourself and see `stalled`, the host is not calling `Tick()`.
+
+Three outcomes, so none is ambiguous:
+
+| Reply | Means |
+|-------|-------|
+| `settled: true` | The UI went quiet, and frames DID advance. Safe to assert. |
+| `timedOut: true` | Still busy when the timeout expired. Working, just slow. |
+| `stalled: true` | Nothing ever rendered. Your harness is broken, not the app. |
+
+A `basis: "frameCounter"` on a settled reply means diagnostics were off, so it fell back to
+"the frame counter stopped moving" rather than the stronger `IsStaticFrame` signal.
+
+---
+
+## tree
+
+What the layout engine believes, as opposed to what the screen shows.
+
+```json
+{"cmd":"tree","depth":3,"props":true}
+```
+
+Each node reports `desired` (what the control asked for), `bounds` (what layout gave it,
+window-relative) and `absolute` (where that lands on screen). **A control whose arranged
+`bounds` has zero width is present in the tree, reachable by focus, and invisible to the
+mouse** - which is the single most useful thing here, and the one question a screen scrape
+can never answer.
+
+`childrenElided: <n>` on a node means the walk stopped at your `depth` and that many
+children were not shown. Raise `depth` to see them.
 
 ---
 
