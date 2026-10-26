@@ -161,8 +161,8 @@ namespace SharpConsoleUI.Controls
 				int y = plot.Y + row;
 				if (y < clipRect.Y || y >= clipRect.Bottom) continue;
 
-				var cells = MarkupParser.Parse(tick.Label, fg, bg);
-				int width = UnicodeWidth.GetStringWidth(tick.Label);
+				var cells = MarkupParser.Parse(tick.Label, tick.Color ?? fg, bg);
+				int width = MarkupParser.StripLength(tick.Label);
 
 				// Right-aligned against the plot edge, so the numbers line up.
 				int x = plot.X - width - ControlDefaults.ChartAxisLabelPadding;
@@ -203,11 +203,16 @@ namespace SharpConsoleUI.Controls
 			int y = plot.Y + plot.Height;
 			if (y < clipRect.Y || y >= clipRect.Bottom) return;
 
-			int lastRight = int.MinValue;
+			// The spans already taken, so a tick is judged against every label
+			// placed rather than only the most recent. Tracking a single rightmost
+			// edge assumed ticks arrive left to right, which a provider walking
+			// back from "now" does not do - every tick after the first was to its
+			// left and was silently dropped.
+			var taken = new List<(int Left, int Right)>();
 
 			foreach (var tick in ticks)
 			{
-				int width = UnicodeWidth.GetStringWidth(tick.Label);
+				int width = MarkupParser.StripLength(tick.Label);
 				if (width == 0) continue;
 
 				// Bars occupy a slot and are inset by half of one, so their labels have
@@ -222,11 +227,17 @@ namespace SharpConsoleUI.Controls
 				// Labels are placed independently, so two can overlap where ticks are
 				// close. Dropping the later one keeps the axis readable rather than
 				// painting one label's tail over another's head.
-				if (x <= lastRight) continue;
+				int right = x + width;
+				bool collides = false;
+				foreach (var (left, taken_right) in taken)
+				{
+					if (x < taken_right && left < right) { collides = true; break; }
+				}
+				if (collides) continue;
 
-				var cells = MarkupParser.Parse(tick.Label, fg, bg);
+				var cells = MarkupParser.Parse(tick.Label, tick.Color ?? fg, bg);
 				buffer.WriteCellsClipped(x, y, cells, clipRect);
-				lastRight = x + width;
+				taken.Add((x, right));
 			}
 		}
 

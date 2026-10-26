@@ -14,10 +14,23 @@ using SharpConsoleUI.Configuration;
 
 namespace SharpConsoleUI.Controls
 {
+	/// <summary>What an axis knows when it asks a caller to choose its ticks.</summary>
+	/// <param name="Min">The low end of the range being drawn.</param>
+	/// <param name="Max">The high end.</param>
+	/// <param name="Extent">Cells available along the axis.</param>
+	public readonly record struct ChartAxisContext(double Min, double Max, int Extent);
+
+	/// <summary>A tick a caller asks the chart to draw.</summary>
+	/// <param name="Value">Where it sits, in data coordinates.</param>
+	/// <param name="Label">The text, parsed as markup.</param>
+	/// <param name="Color">An override colour, or null for the axis default.</param>
+	public readonly record struct ChartAxisTick(double Value, string Label, Color? Color = null);
+
 	/// <summary>One mark on an axis: where it sits and what it says.</summary>
 	/// <param name="Value">The position in data coordinates.</param>
 	/// <param name="Label">The text drawn beside the mark.</param>
-	public readonly record struct ChartTick(double Value, string Label);
+	/// <param name="Color">An override colour, or null for the axis default.</param>
+	public readonly record struct ChartTick(double Value, string Label, Color? Color = null);
 
 	/// <summary>
 	/// One axis of a chart: its range, how its values are read, and where its ticks go.
@@ -48,6 +61,17 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>Replaces formatting entirely when set.</summary>
 		public Func<double, string>? LabelFormatter { get; set; }
+
+		/// <summary>
+		/// Chooses the ticks itself, replacing the nice-number engine.
+		/// </summary>
+		/// <remarks>
+		/// For ticks whose positions follow something other than the value scale -
+		/// a sample clock labelled "-1m" to "now", say, where no amount of
+		/// formatting the numbers produces the right positions. Returning nothing
+		/// leaves the axis bare.
+		/// </remarks>
+		public Func<ChartAxisContext, IEnumerable<ChartAxisTick>>? TickProvider { get; set; }
 
 		/// <summary>Whether tick marks are drawn.</summary>
 		public bool ShowTicks { get; set; } = true;
@@ -125,6 +149,25 @@ namespace SharpConsoleUI.Controls
 		{
 			var ticks = new List<ChartTick>();
 			if (availableExtent <= 0) return ticks;
+
+			if (TickProvider != null)
+			{
+				// App code running inside a paint: a bad provider costs its own
+				// ticks, not the whole chart.
+				try
+				{
+					foreach (var t in TickProvider(new ChartAxisContext(min, max, availableExtent)))
+					{
+						ticks.Add(new ChartTick(t.Value, t.Label, t.Color));
+					}
+				}
+				catch
+				{
+					ticks.Clear();
+				}
+
+				return ticks;
+			}
 			if (double.IsNaN(min) || double.IsNaN(max)) return ticks;
 
 			// A flat range has no span to divide. One tick at the value is the honest

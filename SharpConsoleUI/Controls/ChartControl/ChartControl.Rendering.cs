@@ -137,7 +137,8 @@ namespace SharpConsoleUI.Controls
 			int widest = 0;
 			foreach (var t in ticks)
 			{
-				widest = Math.Max(widest, UnicodeWidth.GetStringWidth(t.Label));
+				// Stripped: a markup tag in a provider label is not printed width.
+				widest = Math.Max(widest, MarkupParser.StripLength(t.Label));
 			}
 
 			int gutter = widest > 0 ? widest + ControlDefaults.ChartAxisLabelPadding : 0;
