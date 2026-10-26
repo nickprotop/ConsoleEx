@@ -169,6 +169,10 @@ The embedded face is DejaVu Sans Mono (Bitstream Vera licence, ~335 KB), coverin
 Greek, Cyrillic, box-drawing and common symbols. **It has no CJK**, which is why `Automatic`
 still reaches for installed fonts.
 
+Braille is drawn from geometry rather than taken from the face, because no monospace DejaVu
+carries the block and `Embedded` cannot compose system fonts without losing the determinism
+it exists for. Braille charts therefore render in every mode.
+
 > stb_truetype rasterises TrueType (`glyf`) outlines only, and most modern CJK faces on macOS
 > and Windows -- Noto CJK, PingFang, the Microsoft `.ttc` collections -- are CFF/PostScript.
 > Those are detected and skipped rather than loaded to draw nothing. CJK through system fonts

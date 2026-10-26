@@ -408,6 +408,21 @@ internal sealed class DiagnosticsFont : IDisposable
 	/// </remarks>
 	private Glyph RasteriseFallback(int codepoint)
 	{
+		// Braille comes from geometry, before any font is consulted. No monospace
+		// face in the DejaVu family carries the block, a terminal composes several
+		// faces to show it, and the embedded mode cannot - so the one block that is
+		// pure geometry is drawn rather than looked up. Deterministic everywhere,
+		// and identical whether or not the machine has a braille font installed.
+		if (BrailleGlyphs.Covers(codepoint))
+		{
+			var dots = BrailleGlyphs.Render(codepoint, CellWidth, CellHeight);
+			if (dots.Length == 0) return new Glyph(Array.Empty<byte>(), 0, 0, 0, 0);
+
+			// Drawn in cell space, so it sits at the cell origin rather than on the
+			// text baseline the font metrics describe.
+			return new Glyph(dots, CellWidth, CellHeight, 0, -_baseline);
+		}
+
 		if (!_fallbackTried)
 		{
 			_fallbackTried = true;

@@ -277,7 +277,13 @@ for them.
 
 The embedded face (DejaVu Sans Mono, Bitstream Vera licence, ~335 KB) covers Latin, Greek,
 Cyrillic, box-drawing and common symbols. **It has no CJK**, which is why `automatic` still
-reaches for installed fonts: a Han or Kana glyph can only come from the system. Anything no
+reaches for installed fonts: a Han or Kana glyph can only come from the system.
+
+Braille is the exception. No monospace face in the DejaVu family carries the block, and a
+terminal shows it by composing several faces - which `embedded` cannot do without becoming
+machine-dependent again. So the 256 patterns are drawn from geometry instead of looked up in
+a font: eight dots on a 2x4 grid, identical on every machine, costing nothing in the package.
+Braille charts photograph correctly in `embedded` mode as a result. Anything no
 available face can draw is listed in `missingGlyphs` rather than left as a silent gap, and
 `fallbackFonts` names the faces that filled in.
 
