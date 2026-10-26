@@ -161,18 +161,6 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Draws gridlines into the surface at each tick on an axis that asks for them.
-		/// </summary>
-		/// <remarks>
-		/// Into the pixel surface rather than as cell text, so the data drawn after
-		/// simply overwrites the pixels it covers and no cell has to carry both.
-		/// </remarks>
-		/// <summary>Whether a pixel at <paramref name="i"/> along a gridline is inked.</summary>
-		/// <remarks>
-		/// A gridline is context, not content, so it is dashed rather than solid -
-		/// the pixel path's answer to the dotted character the glyph path uses.
-		/// </remarks>
-		/// <summary>
 		/// Fills the plot with each heatmap series' grid, coloured by value.
 		/// </summary>
 		/// <remarks>
@@ -233,10 +221,22 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>Whether a pixel at <paramref name="i"/> along a gridline is inked.</summary>
+		/// <remarks>
+		/// A gridline is context, not content, so it is dashed rather than solid -
+		/// the pixel path's answer to the dotted character the glyph path uses.
+		/// </remarks>
 		private static bool IsDash(int i) =>
 			i % (ControlDefaults.ChartGridlineDashRun + ControlDefaults.ChartGridlineDashGap)
 				< ControlDefaults.ChartGridlineDashRun;
 
+		/// <summary>
+		/// Draws gridlines into the surface at each tick on an axis that asks for them.
+		/// </summary>
+		/// <remarks>
+		/// Into the pixel surface rather than as cell text, so the data drawn after
+		/// simply overwrites the pixels it covers and no cell has to carry both.
+		/// </remarks>
 		private void DrawGridlines(PixelSurface surface,
 			double xMin, double xMax, double yMin, double yMax,
 			IReadOnlyList<ChartTick> yTicks, IReadOnlyList<ChartTick> xTicks)
