@@ -60,6 +60,7 @@ public static class LauncherWindow
 				.AddItem("HTML Rendering", subtitle: "Lynx-inspired HTML renderer", content: MakeInfoPanel("HTML Rendering")))
 			.AddHeader("Data Visualization", Color.Yellow, header => header
 				.AddItem("Graphs & Charts", subtitle: "Live sparklines & bar graphs", content: MakeInfoPanel("Graphs & Charts"))
+				.AddItem("Chart Showcase", subtitle: "Every ChartControl feature", content: MakeInfoPanel("Chart Showcase"))
 				.AddItem("System Monitor", subtitle: "Real-time system dashboard", content: MakeInfoPanel("System Monitor")))
 			.AddHeader("Rendering", Color.Orange1, header => header
 				.AddItem("Container Backgrounds", subtitle: "Background color & gradient propagation", content: MakeInfoPanel("Container Backgrounds"))
@@ -278,6 +279,7 @@ public static class LauncherWindow
 			"Shared Scrollbar" => ScrollbarDemoWindow.Create(ws),
 			"Spinner" => SpinnerDemoWindow.Create(ws),
 			"Graphs & Charts" => GraphsWindow.Create(ws),
+			"Chart Showcase" => ChartShowcaseWindow.Create(ws),
 			"System Monitor" => SystemMonitorWindow.Create(ws),
 			"Container Backgrounds" => ContainerBgDemoWindow.Create(ws),
 			"Gradients" => GradientDemoWindow.Create(ws),
@@ -754,6 +756,21 @@ public static class LauncherWindow
 				"[dim]Controls used:[/]",
 				"  - SparklineControl (Block, Braille, Bidirectional)",
 				"  - BarGraphControl, ProgressBarControl",
+			},
+			"Chart Showcase" => new List<string>
+			{
+				"[bold]Chart Showcase[/]",
+				"",
+				"Every ChartControl feature, a page at a time, behind a",
+				"NavigationView. Plot types, the three render modes side",
+				"by side on identical data, gradients by position and by",
+				"value, custom tick providers, a second axis, stacking,",
+				"split view, annotations, interaction and a live feed.",
+				"",
+				"[dim]Controls used:[/]",
+				"  - ChartControl (all five plot types)",
+				"  - NavigationViewControl, ScrollablePanelControl",
+				"  - Written entirely through ChartBuilder",
 			},
 			"System Monitor" => new List<string>
 			{
