@@ -821,7 +821,7 @@ namespace SharpConsoleUI.Controls
 			if (_selectedPoint.HasValue)
 			{
 				w.Write("selectedSeries", _selectedSeries?.Name);
-				w.Write("selectedIndex", _selectedIndex);
+				w.Selection(_selectedIndex, _selectedSeries?.Points.Count ?? 0);
 				w.Write("selectedX", _selectedPoint.Value.X);
 				w.Write("selectedY", _selectedPoint.Value.Y);
 			}

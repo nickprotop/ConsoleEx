@@ -840,5 +840,19 @@ namespace SharpConsoleUI.Controls
 			_cells.Any(c =>
 				row >= c.Placement.Row && row < c.Placement.Row + c.Placement.RowSpan &&
 				col >= c.Placement.Col && col < c.Placement.Col + c.Placement.ColSpan);
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			// The grid's shape, which is what "why is my control not where I put it"
+			// usually comes down to.
+			w.Write("rows", RowDefinitions.Count);
+			w.Write("columns", ColumnDefinitions.Count);
+			w.Write("childCount", Children.Count);
+		}
+
 	}
 }

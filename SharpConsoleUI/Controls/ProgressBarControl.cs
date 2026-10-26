@@ -561,7 +561,9 @@ namespace SharpConsoleUI.Controls
 		public override void DescribeState(IStateWriter w)
 		{
 			base.DescribeState(w);
-			w.Write("value", Value);
+			// With its range: 70 is nearly full on a percentage and nearly empty
+			// on a thousand, and a bar that looks wrong is usually a range that is.
+			w.Value(Value, 0, MaxValue);
 		}
 
 	}

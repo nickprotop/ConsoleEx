@@ -814,7 +814,14 @@ namespace SharpConsoleUI.Controls
 		public override void DescribeState(IStateWriter w)
 		{
 			base.DescribeState(w);
-			w.Write("selectedIndex", SelectedIndex);
+
+			int visible;
+			lock (_treeLock) { visible = _flattenedNodes.Count; }
+
+			// The FLATTENED count, not the root count: the selected index addresses
+			// the visible run, so pairing it with anything else cannot be read.
+			w.Selection(SelectedIndex, visible);
+			w.Scroll(CurrentScrollOffset, ActualHeight, visible);
 		}
 
 	}

@@ -880,5 +880,16 @@ namespace SharpConsoleUI.Controls
 		#endregion
 
 		// Mouse activation (IMouseAwareControl) is implemented in CollapsiblePanel.Mouse.cs (Task 6).
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			w.Expansion(IsExpanded);
+			w.Text(StateVocabulary.Shorten(Title));
+		}
+
 	}
 }

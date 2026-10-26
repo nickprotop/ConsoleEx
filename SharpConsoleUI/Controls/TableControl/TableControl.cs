@@ -1198,4 +1198,20 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	public static Builders.TableControlBuilder Create() => new Builders.TableControlBuilder();
 
 	#endregion
+	/// <inheritdoc/>
+	public override void DescribeState(IStateWriter w)
+	{
+		ArgumentNullException.ThrowIfNull(w);
+		base.DescribeState(w);
+
+		w.Selection(SelectedRowIndex, RowCount);
+		w.Scroll(_scrollOffset, GetVisibleRowCount(), RowCount);
+
+		// The shape, because a table that looks empty is usually a table with no
+		// columns rather than no rows, and the two are not distinguishable on
+		// screen.
+		w.Write("columnCount", Columns.Count);
+		w.Write("editing", _isEditing);
+	}
+
 }

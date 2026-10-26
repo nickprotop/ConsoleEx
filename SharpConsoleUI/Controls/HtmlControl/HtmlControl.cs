@@ -406,5 +406,16 @@ namespace SharpConsoleUI.Controls
 		public event EventHandler<MouseEventArgs>? MouseMove;
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			w.Scroll(ScrollOffset, ActualHeight, ContentHeight);
+			w.Write("loading", IsLoading);
+		}
+
 	}
 }

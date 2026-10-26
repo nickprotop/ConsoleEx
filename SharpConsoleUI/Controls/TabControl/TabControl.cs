@@ -629,8 +629,7 @@ namespace SharpConsoleUI.Controls
 		public override void DescribeState(IStateWriter w)
 		{
 			base.DescribeState(w);
-			w.Write("activeTab", ActiveTabIndex);
-			w.Write("hasTabs", HasTabs);
+			w.Selection(ActiveTabIndex, TabCount);
 		}
 
 	}

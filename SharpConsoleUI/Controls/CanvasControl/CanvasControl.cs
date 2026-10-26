@@ -462,5 +462,18 @@ namespace SharpConsoleUI.Controls
 		}
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			// The drawing surface in its own units, which are not the cell bounds the
+			// layout tree reports - a pixel canvas has two rows per cell.
+			w.Write("canvasWidth", CanvasWidth);
+			w.Write("canvasHeight", CanvasHeight);
+		}
+
 	}
 }

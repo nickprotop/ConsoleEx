@@ -1081,5 +1081,17 @@ namespace SharpConsoleUI.Controls
 		};
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			// How much transcript there is: the count a reader actually asks for when
+			// a chat view looks wrong, and cheap next to the messages themselves.
+			w.Write("messageCount", MessageIds.Count);
+		}
+
 	}
 }

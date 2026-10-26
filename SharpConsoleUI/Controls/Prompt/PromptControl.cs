@@ -434,7 +434,7 @@ namespace SharpConsoleUI.Controls
 		public override void DescribeState(IStateWriter w)
 		{
 			base.DescribeState(w);
-			w.Write("input", Input);
+			w.Text(StateVocabulary.Shorten(Input));
 		}
 
 	}

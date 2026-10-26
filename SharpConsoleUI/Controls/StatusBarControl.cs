@@ -841,4 +841,22 @@ public class StatusBarControl : BaseControl, IMouseAwareControl, IColorRoleableC
 	}
 
 	#endregion
+
+	/// <inheritdoc/>
+	public override void DescribeState(IStateWriter w)
+	{
+		ArgumentNullException.ThrowIfNull(w);
+		base.DescribeState(w);
+
+		// Three zones, because "the status bar is empty" is usually one zone that
+		// lost its items rather than all of them.
+		lock (_itemsLock)
+		{
+			w.Write("itemCount", _leftItems.Count + _centerItems.Count + _rightItems.Count);
+			w.Write("leftItems", _leftItems.Count);
+			w.Write("centerItems", _centerItems.Count);
+			w.Write("rightItems", _rightItems.Count);
+		}
+	}
+
 }

@@ -886,7 +886,7 @@ namespace SharpConsoleUI.Controls
 		public override void DescribeState(IStateWriter w)
 		{
 			base.DescribeState(w);
-			w.Write("selectedIndex", SelectedIndex);
+			w.Selection(SelectedIndex, Items.Count);
 		}
 
 	}

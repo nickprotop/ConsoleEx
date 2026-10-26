@@ -585,7 +585,7 @@ namespace SharpConsoleUI.Controls
 		{
 			base.DescribeState(w);
 			w.Write("checked", Checked);
-			w.Write("label", Label);
+			w.Text(StateVocabulary.Shorten(Label));
 		}
 
 	}

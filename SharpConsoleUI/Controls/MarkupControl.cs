@@ -859,5 +859,17 @@ namespace SharpConsoleUI.Controls
 		}
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			// The markup as written, not as rendered: a probe asking what a label says
+			// usually wants to know whether the tags are what the author intended.
+			w.Text(StateVocabulary.Shorten(Text));
+		}
+
 	}
 }

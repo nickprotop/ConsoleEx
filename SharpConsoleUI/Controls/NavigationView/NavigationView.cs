@@ -724,5 +724,19 @@ namespace SharpConsoleUI.Controls
 		}
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			int count;
+			lock (_itemsLock) { count = _items.Count; }
+
+			w.Selection(SelectedIndex, count);
+			w.Text(StateVocabulary.Shorten(SelectedItem?.Text));
+		}
+
 	}
 }

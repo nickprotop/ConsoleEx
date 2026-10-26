@@ -100,7 +100,11 @@ public class DescribeStateTests
 		var state = Describe(box);
 
 		Assert.Equal(true, state["checked"]);
-		Assert.Equal("Agree", state["label"]);
+
+		// "text", not "label": a button's caption, a checkbox's label and a
+		// prompt's input are the same question to a reader - what does it say? -
+		// and a tool can only recognise the concept if they share a name.
+		Assert.Equal("Agree", state["text"]);
 	}
 
 	[Fact]

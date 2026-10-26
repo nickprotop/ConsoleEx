@@ -618,6 +618,16 @@ public partial class MenuControl : BaseControl, IInteractiveControl, IFocusableC
 	}
 
 	#endregion
+
+	/// <inheritdoc/>
+	public override void DescribeState(IStateWriter w)
+	{
+		ArgumentNullException.ThrowIfNull(w);
+		base.DescribeState(w);
+
+		w.Write("itemCount", Items.Count);
+	}
+
 }
 
 /// <summary>

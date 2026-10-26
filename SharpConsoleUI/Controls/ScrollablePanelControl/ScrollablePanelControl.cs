@@ -337,6 +337,18 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public int TotalContentHeight => _contentHeight;
 
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			// The three numbers that answer every "why can I not see it" question
+			// about a scrolling panel: where it sits, how much shows, how much
+			// there is. An offset alone cannot say whether anything is below.
+			w.Scroll(VerticalScrollOffset, VisibleContentHeight, TotalContentHeight);
+		}
+
 		/// <summary>
 		/// Gets the total width of the scrollable content area in characters.
 		/// Unlike <see cref="ContentWidth"/> (which returns the control's own width),

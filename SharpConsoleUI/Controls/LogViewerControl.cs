@@ -506,4 +506,15 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 	}
 
 	#endregion
+
+	/// <inheritdoc/>
+	public override void DescribeState(IStateWriter w)
+	{
+		ArgumentNullException.ThrowIfNull(w);
+		base.DescribeState(w);
+
+		// Paused is the first thing to check when a log "stops working".
+		w.Write("paused", IsPaused);
+	}
+
 }

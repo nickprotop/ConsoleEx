@@ -73,4 +73,14 @@ public partial class TreeTableControl : TableControl
 		RowExpansionChanged = null;
 		RowExpansionChangedAsync = null;
 	}
+
+	/// <inheritdoc/>
+	public override void DescribeState(IStateWriter w)
+	{
+		ArgumentNullException.ThrowIfNull(w);
+		base.DescribeState(w);
+
+		w.Write("rootRows", RootRows.Count);
+	}
+
 }

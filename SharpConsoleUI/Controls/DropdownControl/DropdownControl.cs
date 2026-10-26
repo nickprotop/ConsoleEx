@@ -842,11 +842,10 @@ namespace SharpConsoleUI.Controls
 		public override void DescribeState(IStateWriter w)
 		{
 			base.DescribeState(w);
-			w.Write("open", IsDropdownOpen);
-			w.Write("selectedIndex", SelectedIndex);
-			w.Write("itemCount", Items.Count);
+			w.Expansion(IsDropdownOpen);
+			w.Selection(SelectedIndex, Items.Count);
 			if (SelectedIndex >= 0 && SelectedIndex < Items.Count)
-				w.Write("selected", Items[SelectedIndex].Text);
+				w.Text(StateVocabulary.Shorten(Items[SelectedIndex].Text));
 		}
 
 	}
