@@ -44,6 +44,10 @@ internal static class ChartShowcaseWindow
 				.AddItem("Render Modes", subtitle: "Pixel, braille and ascii", content: RenderModesPage())
 				.AddItem("Gradients", subtitle: "By position, by value, blended", content: GradientPage())
 				.AddItem("Thresholds", subtitle: "Colour that changes at a limit", content: ThresholdPage()))
+			.AddHeader("Heatmaps", Color.Red, h => h
+				.AddItem("Heatmap", subtitle: "Colour as the value channel", content: HeatmapPage())
+				.AddItem("Sparse Grid", subtitle: "Holes are not zeroes", content: SparseHeatmapPage())
+				.AddItem("Colour Scale", subtitle: "A legend that is a scale", content: ColorScalePage()))
 			.AddHeader("Axes", Color.Yellow, h => h
 				.AddItem("Ticks & Labels", subtitle: "Nice numbers, time, categories", content: AxisPage())
 				.AddItem("Custom Ticks", subtitle: "A caller-supplied tick provider", content: TickProviderPage())
@@ -52,7 +56,9 @@ internal static class ChartShowcaseWindow
 				.AddItem("Stacked", subtitle: "Parts of a total", content: StackedPage())
 				.AddItem("Split View", subtitle: "Two opposed directions", content: SplitPage())
 				.AddItem("Annotations", subtitle: "Limits, markers, peaks", content: AnnotationPage())
-				.AddItem("Chrome", subtitle: "Titles, borders, empty state", content: ChromePage()))
+				.AddItem("Chrome", subtitle: "Titles, borders, empty state", content: ChromePage())
+				.AddItem("States", subtitle: "Waiting against broken", content: StatesPage())
+				.AddItem("Tick Density", subtitle: "Asking a short axis for more", content: TickDensityPage()))
 			.AddHeader("Behaviour", Color.Orange1, h => h
 				.AddItem("Interaction", subtitle: "Hover, select, zoom", content: InteractionPage())
 				.AddItem("Live Data", subtitle: "Streaming with a rolling window", content: live.Page()))
@@ -353,6 +359,127 @@ internal static class ChartShowcaseWindow
 			.AddSeries("errors", Color.Red, Wave(34, 18, 14, phase: 1.3))
 			.Build());
 
+	// ---- heatmaps ----------------------------------------------------------
+
+	private static IWindowControl HeatmapPage() => Page(
+		"Every other plot answers \"what is the value at X\". A heatmap answers "
+			+ "\"what is the value at X,Y\" - so colour stops being decoration and "
+			+ "becomes the value channel. The scale is the Y axis, which means a "
+			+ "colour reads as the same number on every chart that shares it. "
+			+ "Braille resolves a LINE finely but can only colour one foreground "
+			+ "per cell, and a heatmap has no line and nothing but colour to say - "
+			+ "so it takes the half-block path whatever the render mode asks for.",
+		Controls.Chart()
+			.WithTitle("Request latency by hour and day")
+			.WithSubtitle("darker is slower")
+			.WithPlotHeight(PlotHeight)
+			.WithYRange(0, 100)
+			.WithColorBarLegend()
+			.AddHeatmap("latency", Ramp(24, 7), ColorGradient.Predefined["spectrum"])
+			.Build(),
+		Controls.Chart()
+			.WithTitle("The same grid asked for braille")
+			.WithSubtitle("a heatmap draws in pixels whatever the mode says")
+			.WithRenderMode(ChartRenderMode.Braille)
+			.WithPlotHeight(8)
+			.WithYRange(0, 100)
+			.AddHeatmap("latency", Ramp(24, 7), ColorGradient.Predefined["spectrum"])
+			.Build());
+
+	private static IWindowControl SparseHeatmapPage() => Page(
+		"A grid built from scattered readings. Cells nobody measured stay as "
+			+ "background rather than reading as zero, because a missing "
+			+ "measurement and a measurement of zero are different facts - and a "
+			+ "heatmap that paints them the same invents data.",
+		Controls.Chart()
+			.WithTitle("Observed cells only")
+			.WithPlotHeight(PlotHeight)
+			.WithYRange(0, 100)
+			.WithColorBarLegend()
+			.AddHeatmap("samples", Sparse(), ColorGradient.Predefined["warm"])
+			.Build());
+
+	private static IWindowControl ColorScalePage() => Page(
+		"A swatch legend shows one colour per series. A series coloured by value "
+			+ "spans a whole gradient, so the swatch picks one of them and implies "
+			+ "the rest do not exist. Where colour carries the value, the legend "
+			+ "has to be the scale - labelled at both ends, or a reader can see "
+			+ "that the colour means something but not what.",
+		Controls.Chart()
+			.WithTitle("Swatch legend")
+			.WithSubtitle("one colour stands in for twenty")
+			.WithPlotType(ChartPlotType.Area)
+			.WithPlotHeight(8)
+			.WithYRange(0, 100)
+			.WithLegend()
+			.AddSeries("load", Color.White, Wave(34, 50, 42),
+				ColorGradient.Predefined["spectrum"], ChartGradientAxis.Y)
+			.Build(),
+		Controls.Chart()
+			.WithTitle("Colour scale")
+			.WithSubtitle("the same chart, with a legend that tells the truth")
+			.WithPlotType(ChartPlotType.Area)
+			.WithPlotHeight(8)
+			.WithYRange(0, 100)
+			.WithColorBarLegend()
+			.AddSeries("load", Color.White, Wave(34, 50, 42),
+				ColorGradient.Predefined["spectrum"], ChartGradientAxis.Y)
+			.Build());
+
+	// ---- states and density ------------------------------------------------
+
+	private static IWindowControl StatesPage() => Page(
+		"\"Nothing yet\" and \"this broke\" are different facts, and a blank frame "
+			+ "says neither. A monitor whose collector died shows an empty chart "
+			+ "forever and nobody learns why - so an error replaces the plot "
+			+ "outright, because a stale trace under a warning invites reading the "
+			+ "stale trace as current.",
+		Controls.Chart()
+			.WithTitle("Waiting")
+			.WithBorder()
+			.WithPlotHeight(5)
+			.WithEmptyText("no samples received yet")
+			.Build(),
+		Controls.Chart()
+			.WithTitle("Broken")
+			.WithBorder()
+			.WithPlotHeight(5)
+			.WithErrorText("collector offline since 14:02")
+			.Build(),
+		Controls.Chart()
+			.WithTitle("Broken, with data already in hand")
+			.WithSubtitle("the error outranks the trace")
+			.WithBorder()
+			.WithPlotHeight(5)
+			.WithYRange(0, 100)
+			.WithErrorText("feed stopped responding")
+			.AddSeries("v", Color.Green, Wave(20, 50, 35))
+			.Build());
+
+	private static IWindowControl TickDensityPage() => Page(
+		"Ticks sit one per eight rows, which on a short axis leaves room for "
+			+ "none - so it labels its two ends and the reader sees the range but "
+			+ "not the scale. MaxTicks could never help, since it only lowers the "
+			+ "count. MinTicks raises the floor, still landing on nice numbers, and "
+			+ "still refusing to put a tick on every row.",
+		Controls.Chart()
+			.WithTitle("Default density")
+			.WithSubtitle("a short axis shows its ends")
+			.WithPlotHeight(8)
+			.WithYRange(0, 100)
+			.WithGridlines()
+			.AddSeries("v", Color.Cyan1, Wave(30, 50, 40))
+			.Build(),
+		Controls.Chart()
+			.WithTitle("MinTicks = 5")
+			.WithSubtitle("the same height, asked for more")
+			.WithPlotHeight(8)
+			.WithYRange(0, 100)
+			.WithGridlines()
+			.ConfigureYAxis(a => a.MinTicks = 5)
+			.AddSeries("v", Color.Cyan1, Wave(30, 50, 40))
+			.Build());
+
 	// ---- helpers -----------------------------------------------------------
 
 	private static ChartControl Chart(string title, ChartPlotType type, double[] data) =>
@@ -388,6 +515,28 @@ internal static class ChartShowcaseWindow
 		}
 
 		return panel;
+	}
+
+	/// <summary>A grid that climbs from one corner, so the scale is readable.</summary>
+	private static double[,] Ramp(int cols, int rows)
+	{
+		var rng = new Random(5);
+		var g = new double[rows, cols];
+		for (int y = 0; y < rows; y++)
+			for (int x = 0; x < cols; x++)
+			{
+				double basis = (double)(x + y) / (cols + rows - 2) * 100;
+				g[y, x] = Math.Clamp(basis + (rng.NextDouble() - 0.5) * 18, 0, 100);
+			}
+		return g;
+	}
+
+	/// <summary>Scattered readings, most of the grid never measured.</summary>
+	private static IEnumerable<(int X, int Y, double Value)> Sparse()
+	{
+		var rng = new Random(9);
+		for (int i = 0; i < 40; i++)
+			yield return (rng.Next(0, 24), rng.Next(0, 7), rng.NextDouble() * 100);
 	}
 
 	private static double[] Wave(int n, double centre, double amplitude, double phase = 0) =>
