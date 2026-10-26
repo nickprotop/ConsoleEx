@@ -91,6 +91,7 @@ Controls for displaying formatted content.
 | **[PanelControl](controls/PanelControl.md)** | Bordered container panel | Hosts child controls (a non-collapsible CollapsiblePanel); headers, border styles, padding, mouse. For bordered *text*, use [MarkupControl](controls/MarkupControl.md) with `.WithBorder()`. |
 | **[RuleControl](controls/RuleControl.md)** | Horizontal rule/separator | Optional title with alignment, colors, border styles; doubles as an inline progress bar (`SetProgress`/`SetIndeterminate`). Backs both `Controls.Rule(title)` and `Controls.Separator()` |
 | **[SparklineControl](controls/SparklineControl.md)** | Time-series sparkline graph | Block, braille, or bidirectional modes; borders; titles |
+| **[ChartControl](controls/ChartControl.md)** | Full chart: line, area, bar, scatter | Real axes with nice-number ticks, gridlines, legend, split view, gradients by X or value, hover readout, selection, zoom |
 | **[LineGraphControl](controls/LineGraphControl.md)** | Multi-series line graph | Braille and ASCII rendering modes, gradients, Y-axis labels, live updates |
 | **[BarGraphControl](controls/BarGraphControl.md)** | Horizontal bar graph | Gradient color thresholds, labels, value display |
 | **[ProgressBarControl](controls/ProgressBarControl.md)** | Task progress indicator | Determinate fill with percentage, or indeterminate pulsing animation |

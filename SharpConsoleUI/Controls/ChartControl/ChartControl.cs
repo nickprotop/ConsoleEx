@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drawing;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Themes;
 
@@ -45,12 +46,32 @@ namespace SharpConsoleUI.Controls
 		private ChartLegendPosition _legendPosition = ChartLegendPosition.Bottom;
 		private bool _showLegend;
 		private string? _title;
+		private string? _subtitle;
+		private ChartTitleAlignment _titleAlignment = ChartTitleAlignment.Left;
+		private Color? _titleColor;
+		private Color? _subtitleColor;
+		private BorderStyle _borderStyle = BorderStyle.None;
+		private Color? _borderColor;
 		private Color? _plotBackground;
 		private Color? _backgroundColorValue;
 		private Color? _foregroundColorValue;
 		private int? _plotHeight;
 		private bool _enabled = true;
 
+		private bool _showAxisLines;
+		private bool _splitView;
+		private bool _showCentreAxis;
+		private bool _showCentreAxisValue;
+		private string? _centreAxisCaption;
+		private char _centreAxisChar = ControlDefaults.ChartCentreAxisChar;
+		private bool _stacked;
+		private bool _resampleToWidth;
+		private string? _emptyText;
+		private ChartSizing _sizing = ChartSizing.Stretch;
+		private ChartOrientation _orientation = ChartOrientation.Vertical;
+		private bool _showGaugeLabel = true;
+		private bool _showGaugeValue = true;
+		private int _stepWidth = ControlDefaults.ChartDefaultStepWidth;
 		private bool _enableHover;
 		private bool _enableSelection;
 		private bool _enableZoom;
@@ -67,6 +88,16 @@ namespace SharpConsoleUI.Controls
 		/// every paint.
 		/// </remarks>
 		private readonly List<(ChartSeries Series, int Index, int CellX, int CellY)> _pointPositions = new();
+
+		/// <summary>
+		/// The plot area as last painted, in buffer cells.
+		/// </summary>
+		/// <remarks>
+		/// Mouse handling needs to map a column back to a value, and the rect is
+		/// computed during paint from the axis gutters. Recording it keeps hit-
+		/// testing on exactly the geometry that was drawn.
+		/// </remarks>
+		private (int X, int Y, int Width, int Height) _lastPlotRect;
 
 		#endregion
 
@@ -92,6 +123,103 @@ namespace SharpConsoleUI.Controls
 		/// <summary>The vertical axis.</summary>
 		public ChartAxis YAxis { get; } = new();
 
+		/// <summary>
+		/// Draws a line along the centre of a split plot, where the two halves meet.
+		/// </summary>
+		/// <remarks>
+		/// That line is zero: both halves grow away from it. Opt-in, and ignored
+		/// unless <see cref="SplitView"/> is on, since without two halves there is
+		/// no centre to mark.
+		/// </remarks>
+		public bool ShowCentreAxis
+		{
+			get => _showCentreAxis;
+			set => SetProperty(ref _showCentreAxis, value);
+		}
+
+		/// <summary>
+		/// Text written into the centre axis, saying what the line measures.
+		/// </summary>
+		/// <remarks>
+		/// Written at the plot's left edge with the line resuming after it, the way
+		/// <see cref="SparklineControl.InlineTitleWithBaseline"/> does, so the
+		/// caption costs no row of its own.
+		/// </remarks>
+		public string? CentreAxisCaption
+		{
+			get => _centreAxisCaption;
+			set
+			{
+				if (_centreAxisCaption == value) return;
+				_centreAxisCaption = value;
+				OnPropertyChanged();
+				Invalidate(Invalidation.Repaint);
+			}
+		}
+
+		/// <summary>Whether the centre axis prints its value at the right end.</summary>
+		/// <remarks>
+		/// Usually zero, since both halves grow away from it. Off by default: the
+		/// right end of a live chart is where the newest data is, and a reader can
+		/// normally infer the centre from the Y labels.
+		/// </remarks>
+		public bool ShowCentreAxisValue
+		{
+			get => _showCentreAxisValue;
+			set => SetProperty(ref _showCentreAxisValue, value);
+		}
+
+		/// <summary>
+		/// The character the centre axis is drawn with.
+		/// </summary>
+		/// <remarks>
+		/// Its own, not the reference line's: a chart carrying both would otherwise
+		/// draw the frame and the values measured against it identically, leaving
+		/// colour as the only distinction.
+		/// </remarks>
+		public char CentreAxisChar
+		{
+			get => _centreAxisChar;
+			set => SetProperty(ref _centreAxisChar, value);
+		}
+
+		/// <summary>
+		/// The scale for the lower half of a split plot.
+		/// </summary>
+		/// <remarks>
+		/// Unset, both halves share <see cref="YAxis"/>. Set, the lower series gets
+		/// its own peak - which is what makes a throughput monitor readable, since
+		/// a two-megabit upload beside a forty-megabit download is otherwise a flat
+		/// line along the centre. Ignored unless <see cref="SplitView"/> is on.
+		/// </remarks>
+		public ChartAxis LowerAxis { get; } = new();
+
+		/// <summary>
+		/// Resamples a series to the plot's width before drawing it.
+		/// </summary>
+		/// <remarks>
+		/// For a history longer than the chart is wide - five hundred samples into
+		/// seventy columns - where most points would otherwise land on the same
+		/// column. Each column takes the EXTREME of the samples it covers rather
+		/// than every nth one, so a single-sample spike survives: in a monitor that
+		/// spike is usually the thing worth seeing.
+		/// </remarks>
+		public bool ResampleToWidth
+		{
+			get => _resampleToWidth;
+			set => SetProperty(ref _resampleToWidth, value);
+		}
+
+		/// <summary>
+		/// A second vertical axis, labelled on the right.
+		/// </summary>
+		/// <remarks>
+		/// Used only by series with <see cref="ChartSeries.UseSecondaryAxis"/> set,
+		/// and drawn only when at least one such series is visible - an empty
+		/// gutter is not worth the width it costs the plot.
+		/// </remarks>
+		public ChartAxis SecondaryYAxis { get; } = new();
+
 		/// <summary>The series, in draw order.</summary>
 		public IReadOnlyList<ChartSeries> Series
 		{
@@ -108,6 +236,72 @@ namespace SharpConsoleUI.Controls
 				_title = value;
 				OnPropertyChanged();
 				Invalidate(Invalidation.Relayout);   // a title occupies a row
+			}
+		}
+
+		/// <summary>A second line under the title, for context the title has no room for.</summary>
+		public string? Subtitle
+		{
+			get => _subtitle;
+			set
+			{
+				if (_subtitle == value) return;
+				_subtitle = value;
+				OnPropertyChanged();
+				Invalidate(Invalidation.Relayout);   // a subtitle occupies a row
+			}
+		}
+
+		/// <summary>Where the title and subtitle sit.</summary>
+		public ChartTitleAlignment TitleAlignment
+		{
+			get => _titleAlignment;
+			set => SetProperty(ref _titleAlignment, value);
+		}
+
+		/// <summary>The title colour; unset follows the chart foreground.</summary>
+		public Color? TitleColor
+		{
+			get => _titleColor;
+			set
+			{
+				if (_titleColor == value) return;
+				_titleColor = value;
+				OnPropertyChanged();
+				Invalidate(Invalidation.Repaint);
+			}
+		}
+
+		/// <summary>The subtitle colour; unset is a dimmed foreground.</summary>
+		public Color? SubtitleColor
+		{
+			get => _subtitleColor;
+			set
+			{
+				if (_subtitleColor == value) return;
+				_subtitleColor = value;
+				OnPropertyChanged();
+				Invalidate(Invalidation.Repaint);
+			}
+		}
+
+		/// <summary>A border around the whole chart. None by default.</summary>
+		public BorderStyle BorderStyle
+		{
+			get => _borderStyle;
+			set => SetProperty(ref _borderStyle, value);
+		}
+
+		/// <summary>The border colour; unset follows the chart foreground.</summary>
+		public Color? BorderColor
+		{
+			get => _borderColor;
+			set
+			{
+				if (_borderColor == value) return;
+				_borderColor = value;
+				OnPropertyChanged();
+				Invalidate(Invalidation.Repaint);
 			}
 		}
 
@@ -185,25 +379,164 @@ namespace SharpConsoleUI.Controls
 				v => v.HasValue ? Math.Max(ControlDefaults.ChartMinPlotHeight, v.Value) : null);
 		}
 
+		/// <summary>
+		/// Whether rules are drawn along the left and bottom edges of the plot.
+		/// </summary>
+		/// <remarks>
+		/// Off by default, so a chart that does not ask keeps the look it had. The
+		/// rules are drawn inside the plot's own area rather than stealing from it,
+		/// so turning them on never moves the data.
+		/// </remarks>
+		public bool ShowAxisLines
+		{
+			get => _showAxisLines;
+			set => SetProperty(ref _showAxisLines, value);
+		}
+
+		/// <summary>Whether a gauge prints the series name before its bar.</summary>
+		public bool ShowGaugeLabel
+		{
+			get => _showGaugeLabel;
+			set => SetProperty(ref _showGaugeLabel, value);
+		}
+
+		/// <summary>Whether a gauge prints the formatted value after its bar.</summary>
+		public bool ShowGaugeValue
+		{
+			get => _showGaugeValue;
+			set => SetProperty(ref _showGaugeValue, value);
+		}
+
+		/// <summary>
+		/// A message shown when there is nothing to plot.
+		/// </summary>
+		/// <remarks>
+		/// A blank frame is indistinguishable from a broken one. Saying so tells
+		/// the reader the chart is working and waiting. Shown when no series has
+		/// points, and also when every series is hidden, since that looks the same.
+		/// </remarks>
+		public string? EmptyText
+		{
+			get => _emptyText;
+			set
+			{
+				if (_emptyText == value) return;
+				_emptyText = value;
+				OnPropertyChanged();
+				Invalidate(Invalidation.Repaint);
+			}
+		}
+
+		/// <summary>
+		/// Stacks each series on the sum of the visible ones before it.
+		/// </summary>
+		/// <remarks>
+		/// How a total divides between its parts. The axis range accounts for the
+		/// stacked total rather than the tallest single series, and hiding one
+		/// restacks the rest instead of leaving a gap where it was.
+		/// </remarks>
+		public bool Stacked
+		{
+			get => _stacked;
+			set => SetProperty(ref _stacked, value);
+		}
+
+		/// <summary>
+		/// Which way bars run. Horizontal with <see cref="PlotHeight"/> of 1 is an
+		/// inline gauge.
+		/// </summary>
+		public ChartOrientation Orientation
+		{
+			get => _orientation;
+			set => SetProperty(ref _orientation, value);
+		}
+
+		/// <summary>
+		/// How the plot spends its width: stretched to the data, or a fixed step
+		/// per point so the chart grows as samples arrive.
+		/// </summary>
+		public ChartSizing Sizing
+		{
+			get => _sizing;
+			set => SetProperty(ref _sizing, value);
+		}
+
+		/// <summary>
+		/// Cells each point takes in <see cref="ChartSizing.FixedStep"/> mode.
+		/// </summary>
+		public int StepWidth
+		{
+			get => _stepWidth;
+			set => SetProperty(ref _stepWidth, value, v => Math.Max(1, v));
+		}
+
+		/// <summary>
+		/// Splits the plot about its centre: the first visible series grows upward,
+		/// the second downward.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// The shape for a pair of opposed quantities - download against upload,
+		/// reads against writes, inflow against outflow. Both halves measure the
+		/// same positive range growing away from the centre, because five megabits
+		/// down is not minus five megabits.
+		/// </para>
+		/// <para>
+		/// A layout mode rather than a plot type: it changes where a series maps its
+		/// values, not how it is drawn, so lines, areas and bars all split alike.
+		/// Series past the second are drawn normally across the whole plot.
+		/// </para>
+		/// </remarks>
+		public bool SplitView
+		{
+			get => _splitView;
+			set => SetProperty(ref _splitView, value);
+		}
+
 		/// <summary>Whether hovering reports the nearest point.</summary>
+		/// <remarks>
+		/// Turning it off also drops any hover already held, so a crosshair and
+		/// readout cannot stay painted over a chart that is no longer interactive.
+		/// </remarks>
 		public bool EnableHover
 		{
 			get => _enableHover;
-			set => SetProperty(ref _enableHover, value);
+			set
+			{
+				if (!SetProperty(ref _enableHover, value)) return;
+				if (!value) ClearHover();
+			}
 		}
 
 		/// <summary>Whether points and legend entries respond to clicks and keys.</summary>
+		/// <remarks>
+		/// Turning it off also drops any selection, so a highlight cannot stay
+		/// painted on a chart that can no longer be navigated.
+		/// </remarks>
 		public bool EnableSelection
 		{
 			get => _enableSelection;
-			set => SetProperty(ref _enableSelection, value);
+			set
+			{
+				if (!SetProperty(ref _enableSelection, value)) return;
+				if (!value) ClearSelection();
+			}
 		}
 
 		/// <summary>Whether the chart can be zoomed and panned.</summary>
+		/// <remarks>
+		/// Turning it off also returns the full range, so a chart that can no
+		/// longer be zoomed is not left stuck at whatever view it held with no way
+		/// back out.
+		/// </remarks>
 		public bool EnableZoom
 		{
 			get => _enableZoom;
-			set => SetProperty(ref _enableZoom, value);
+			set
+			{
+				if (!SetProperty(ref _enableZoom, value)) return;
+				if (!value) ResetZoom();
+			}
 		}
 
 		/// <inheritdoc/>
@@ -219,6 +552,32 @@ namespace SharpConsoleUI.Controls
 		#endregion
 
 		#region Series
+
+		/// <summary>
+		/// Adds a named series, colouring it from the theme.
+		/// </summary>
+		/// <param name="name">The series name, shown in the legend.</param>
+		/// <returns>The new series, ready to receive points.</returns>
+		/// <remarks>
+		/// The colour comes from <see cref="ColorRole"/> when one is set, and
+		/// otherwise from a palette walked per series, so several series are
+		/// distinguishable without the caller choosing colours. Pass a colour
+		/// explicitly to override.
+		/// </remarks>
+		public ChartSeries AddSeries(string name) => AddSeries(name, NextSeriesColor());
+
+		/// <summary>The colour a series takes when the caller names none.</summary>
+		private Color NextSeriesColor()
+		{
+			var role = ColorResolver.ColorRoleBackground(ColorRole, Container, Outline, mode: ColorRoleMode);
+			if (role.HasValue) return role.Value;
+
+			int index;
+			lock (_dataLock) { index = _series.Count; }
+
+			var palette = ControlDefaults.ChartSeriesPalette;
+			return palette[index % palette.Length];
+		}
 
 		/// <summary>Adds a named series.</summary>
 		/// <param name="name">The series name, shown in the legend.</param>
@@ -249,6 +608,72 @@ namespace SharpConsoleUI.Controls
 
 			if (removed) Invalidate(Invalidation.Relayout);
 			return removed;
+		}
+
+		/// <summary>Flips a series' visibility.</summary>
+		/// <param name="name">The series name.</param>
+		/// <returns>True when a series by that name was found.</returns>
+		/// <remarks>
+		/// So an app can drive legend behaviour without reaching into the series
+		/// collection, and so a keyboard shortcut can do what a legend click does.
+		/// </remarks>
+		public bool ToggleSeries(string name)
+		{
+			ArgumentNullException.ThrowIfNull(name);
+
+			ChartSeries? found;
+			lock (_dataLock) { found = _series.FirstOrDefault(s => s.Name == name); }
+			if (found == null) return false;
+
+			found.IsVisible = !found.IsVisible;
+			if (!found.IsVisible) ForgetSeries(found);
+
+			Invalidate(Invalidation.Repaint);
+			return true;
+		}
+
+		/// <summary>Hides every series but one.</summary>
+		/// <param name="name">The series to keep.</param>
+		/// <returns>True when a series by that name was found.</returns>
+		public bool ShowOnlySeries(string name)
+		{
+			ArgumentNullException.ThrowIfNull(name);
+
+			bool found = false;
+			List<ChartSeries> all;
+			lock (_dataLock) { all = _series.ToList(); }
+
+			foreach (var s in all)
+			{
+				bool keep = s.Name == name;
+				found |= keep;
+				s.IsVisible = keep;
+				if (!keep) ForgetSeries(s);
+			}
+
+			if (found) Invalidate(Invalidation.Repaint);
+			return found;
+		}
+
+		/// <summary>Makes every series visible again.</summary>
+		public void ShowAllSeries()
+		{
+			List<ChartSeries> all;
+			lock (_dataLock) { all = _series.ToList(); }
+
+			foreach (var s in all) s.IsVisible = true;
+			Invalidate(Invalidation.Repaint);
+		}
+
+		/// <summary>Drops any hover or selection pointing at a series.</summary>
+		/// <remarks>
+		/// A hidden series is not on the chart to point at, so leaving a crosshair
+		/// or marker on one would reference something invisible.
+		/// </remarks>
+		private void ForgetSeries(ChartSeries series)
+		{
+			if (_selectedSeries == series) ClearSelection();
+			if (_hoveredSeries == series) ClearHover();
 		}
 
 		/// <summary>Removes every series.</summary>
@@ -327,6 +752,28 @@ namespace SharpConsoleUI.Controls
 			w.Write("pointCount", snapshot.Sum(s => s.Points.Count));
 			w.Write("plotType", _plotType.ToString());
 			w.Write("renderMode", _renderMode.ToString());
+			w.Write("splitView", _splitView);
+
+			// The interaction toggles, because "why does hovering do nothing" is a
+			// question a probe should be able to answer without reading the source.
+			w.Write("hover", _enableHover);
+			w.Write("selection", _enableSelection);
+			w.Write("zoom", _enableZoom);
+
+			if (_selectedPoint.HasValue)
+			{
+				w.Write("selectedSeries", _selectedSeries?.Name);
+				w.Write("selectedIndex", _selectedIndex);
+				w.Write("selectedX", _selectedPoint.Value.X);
+				w.Write("selectedY", _selectedPoint.Value.Y);
+			}
+
+			if (_hoveredPoint.HasValue)
+			{
+				w.Write("hoveredSeries", _hoveredSeries?.Name);
+				w.Write("hoveredX", _hoveredPoint.Value.X);
+				w.Write("hoveredY", _hoveredPoint.Value.Y);
+			}
 		}
 
 		#endregion

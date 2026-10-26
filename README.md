@@ -317,7 +317,7 @@ Keyboard-driven .NET 10 console for taking HuggingFace models onto a Qualcomm Sn
 Slider, RangeSlider, DatePicker, TimePicker, Dropdown, Menu, Toolbar
 
 **Display:** MarkupControl (Spectre-compatible markup everywhere), FigletControl,
-LogViewer, SpectreRenderableControl, LineGraph, SparklineControl, BarGraph
+LogViewer, SpectreRenderableControl, Chart, LineGraph, SparklineControl, BarGraph
 
 **Layout:** NavigationView (WinUI-inspired, responsive), TabControl,
 HorizontalGrid, ScrollablePanel, ScrollbarControl (standalone, can drive multiple views),

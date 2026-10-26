@@ -90,6 +90,35 @@ namespace SharpConsoleUI.Tests.Controls
 		}
 
 		[Fact]
+		public void AShortAxisStillShowsItsExtent()
+		{
+			// Room for only one tick put it at the range MINIMUM, so a short plot
+			// was labelled "0" and nothing else - the reader learns where the floor
+			// is and nothing about the scale. The two ends are what an axis is for,
+			// so a cramped axis shows those before it shows anything between them.
+			var axis = new ChartAxis();
+
+			var ticks = axis.SelectTicks(0, 400, availableExtent: 12);
+
+			Assert.True(ticks.Count >= 2,
+				$"a 12-row axis produced {ticks.Count} tick(s); it should still show both ends");
+			Assert.Equal(0, ticks[0].Value);
+			Assert.Equal(400, ticks[^1].Value);
+		}
+
+		[Fact]
+		public void AVeryShortAxisShowsAtLeastTheTop()
+		{
+			// Two rows cannot hold two labels without them touching, but the top of
+			// the scale is the more informative one.
+			var axis = new ChartAxis();
+
+			var ticks = axis.SelectTicks(0, 400, availableExtent: 3);
+
+			Assert.NotEmpty(ticks);
+		}
+
+		[Fact]
 		public void AZeroWidthAxisProducesNoTicksAndDoesNotThrow()
 		{
 			var axis = new ChartAxis();

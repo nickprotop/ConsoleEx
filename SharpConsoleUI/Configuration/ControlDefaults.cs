@@ -1319,6 +1319,9 @@ namespace SharpConsoleUI.Configuration
 		/// <summary>Minimum cells between chart axis ticks, so labels do not collide.</summary>
 		public const int ChartMinCellsPerTick = 8;
 
+		/// <summary>Rows an axis needs before it labels both of its ends.</summary>
+		public const int ChartMinCellsPerEndTick = 3;
+
 		/// <summary>Tolerance when walking to the end of a tick run, as a fraction of the step.</summary>
 		public const double ChartTickEpsilon = 0.001;
 
@@ -1336,6 +1339,116 @@ namespace SharpConsoleUI.Configuration
 
 		/// <summary>Cells between an axis label and the plot edge.</summary>
 		public const int ChartAxisLabelPadding = 1;
+
+		/// <summary>Gridline colour: dim enough to sit behind the data.</summary>
+		public static readonly Color ChartGridlineColor = Color.Grey19;
+
+		/// <summary>Axis rule colour.</summary>
+		public static readonly Color ChartAxisLineColor = Color.Grey35;
+
+		/// <summary>How far a drag must travel, in cells, to be a zoom rather than a click.</summary>
+		public const int ChartMinDragCells = 2;
+
+		/// <summary>Cells each point takes when the chart uses a fixed step.</summary>
+		public const int ChartDefaultStepWidth = 2;
+
+		/// <summary>Smallest absolute X span a zoom may leave visible.</summary>
+		public const double ChartMinZoomSpan = 1e-9;
+
+		/// <summary>Smallest zoom span as a fraction of the data range.</summary>
+		public const double ChartMinZoomFraction = 0.001;
+
+		/// <summary>How much the wheel narrows the range per notch.</summary>
+		public const double ChartWheelZoomFactor = 0.8;
+
+		/// <summary>
+		/// Glyph marking the selected point.
+		/// </summary>
+		/// <remarks>
+		/// U+25AA, not the diamond U+25C6: the diamond is East Asian Ambiguous Width
+		/// and many terminals draw it two columns wide, which would shift every cell
+		/// after it (CLAUDE.md rule 12E).
+		/// </remarks>
+		public const char ChartSelectionMarker = '\u25aa';
+
+		/// <summary>Selected-point marker colour.</summary>
+		public static readonly Color ChartSelectionColor = Color.White;
+
+		/// <summary>Crosshair colour: visible but not competing with the data.</summary>
+		public static readonly Color ChartCrosshairColor = Color.Grey50;
+
+		/// <summary>Hover readout text colour.</summary>
+		public static readonly Color ChartReadoutColor = Color.White;
+
+		/// <summary>How near the pointer must be to a point, in cells, to hover it.</summary>
+		public const int ChartHoverRadiusCells = 3;
+
+		/// <summary>Pixels of clear space between one bar slot and the next.</summary>
+		public const int ChartBarGapPixels = 2;
+
+		/// <summary>How far an area fill is dimmed toward the plot background.</summary>
+		public const double ChartAreaFillDim = 0.55;
+
+		/// <summary>Cells between one legend entry and the next.</summary>
+		public const int ChartLegendGap = 2;
+
+		/// <summary>Colour of a legend entry whose series is hidden.</summary>
+		public static readonly Color ChartLegendHiddenColor = Color.Grey35;
+
+		/// <summary>
+		/// Colours walked for series the caller did not colour.
+		/// </summary>
+		/// <remarks>
+		/// Chosen to stay distinguishable from each other and to read on both light
+		/// and dark backgrounds. A chart with a ColorRole uses the role instead.
+		/// </remarks>
+		public static readonly Color[] ChartSeriesPalette =
+		{
+			new(96, 165, 250), new(251, 146, 60), new(74, 222, 128), new(244, 114, 182),
+			new(250, 204, 21), new(167, 139, 250), new(45, 212, 191), new(248, 113, 113),
+		};
+
+		/// <summary>Colour of the message shown when a chart has nothing to plot.</summary>
+		public static readonly Color ChartEmptyTextColor = Color.Grey54;
+
+		/// <summary>Character the centre axis is drawn with.</summary>
+		public const char ChartCentreAxisChar = '\u2504';
+
+		/// <summary>Colour of the line between a split plot's two halves.</summary>
+		public static readonly Color ChartCentreAxisColor = Color.Grey42;
+
+		/// <summary>Horizontal reference line character.</summary>
+		public const char ChartReferenceLineChar = '\u2504';
+
+		/// <summary>Vertical reference line character.</summary>
+		public const char ChartReferenceVerticalChar = '\u2506';
+
+		/// <summary>Arrow pointing at a value marker.</summary>
+		public const char ChartMarkerArrow = '\u25c4';
+
+		/// <summary>Subtitle colour: dimmer than the title it sits under.</summary>
+		public static readonly Color ChartSubtitleColor = Color.Grey62;
+
+		/// <summary>Axis title colour.</summary>
+		public static readonly Color ChartAxisTitleColor = Color.Grey70;
+
+		/// <summary>Cells between a gauge's label, bar and value.</summary>
+		public const int ChartGaugeLabelGap = 1;
+
+		/// <summary>Filled portion of a gauge bar.</summary>
+		public const char ChartGaugeFillChar = ' ';
+
+		/// <summary>Unfilled remainder of a gauge bar.</summary>
+		public const char ChartGaugeTrackChar = '\u00b7';
+
+		/// <summary>Colour of a gauge's unfilled remainder.</summary>
+		public static readonly Color ChartGaugeTrackColor = Color.Grey35;
+
+		/// <summary>Plot character in ascii render mode.</summary>
+		public const char ChartAsciiPlotChar = '\u2588';
+
+		/// <summary>Gridline character in the modes that cannot colour a pixel.</summary>
+		public const char ChartGridlineChar = '\u00b7';
 
 	}
 }

@@ -27,6 +27,16 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>Unconnected marks, one per point.</summary>
 		Scatter,
+
+		/// <summary>
+		/// An inline readout: one row per series, the bar's length being the value.
+		/// </summary>
+		/// <remarks>
+		/// There is no vertical dimension left in a single row, so length carries
+		/// the reading and a gradient along it says where that reading sits on the
+		/// scale. A label and the formatted value sit either side of the bar.
+		/// </remarks>
+		Gauge,
 	}
 
 	/// <summary>How the plot area is rasterised.</summary>
@@ -52,6 +62,107 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>Box-drawing characters, for terminals without the above.</summary>
 		Ascii,
+	}
+
+	/// <summary>Which axis a reference line is measured against.</summary>
+	public enum ChartReferenceAxis
+	{
+		/// <summary>A horizontal line at a value on the vertical axis.</summary>
+		Y,
+
+		/// <summary>A vertical line at a position on the horizontal axis.</summary>
+		X,
+	}
+
+	/// <summary>A line drawn across the plot at a fixed value.</summary>
+	/// <remarks>
+	/// A target, a limit, an SLA, the moment of a deploy. A chart of numbers alone
+	/// cannot answer "is this over the line" without the line.
+	/// </remarks>
+	public sealed class ChartReferenceLine
+	{
+		/// <summary>Where the line sits, in data coordinates.</summary>
+		public required double Value { get; init; }
+
+		/// <summary>The line colour.</summary>
+		public required Color Color { get; init; }
+
+		/// <summary>Text drawn at the line's end, if any.</summary>
+		public string? Label { get; init; }
+
+		/// <summary>Which axis <see cref="Value"/> is measured against.</summary>
+		public ChartReferenceAxis Axis { get; init; } = ChartReferenceAxis.Y;
+	}
+
+	/// <summary>An arrow and label pointing at a value on the vertical axis.</summary>
+	public sealed class ChartValueMarker
+	{
+		/// <summary>The value pointed at.</summary>
+		public required double Value { get; init; }
+
+		/// <summary>The text beside the arrow.</summary>
+		public required string Label { get; init; }
+
+		/// <summary>The marker colour.</summary>
+		public required Color Color { get; init; }
+	}
+
+	/// <summary>A value past which a series takes a different colour.</summary>
+	/// <param name="Above">The boundary; points at or above it take <paramref name="Color"/>.</param>
+	/// <param name="Color">The colour to use.</param>
+	/// <remarks>
+	/// Several may be set; the highest boundary a point clears wins, so
+	/// green-under-70, amber-over-70, red-over-90 reads in that order.
+	/// </remarks>
+	public readonly record struct ChartThreshold(double Above, Color Color);
+
+	/// <summary>Where a chart's title and subtitle sit.</summary>
+	public enum ChartTitleAlignment
+	{
+		/// <summary>Against the left edge. The default.</summary>
+		Left,
+
+		/// <summary>Centred over the control.</summary>
+		Center,
+
+		/// <summary>Against the right edge.</summary>
+		Right,
+	}
+
+	/// <summary>Which way bars run.</summary>
+	/// <remarks>
+	/// Horizontal with a one-row plot is the inline gauge shape: there is no
+	/// vertical dimension left, so the bar's LENGTH is the value and the colour
+	/// along it says where that value sits on the scale.
+	/// </remarks>
+	public enum ChartOrientation
+	{
+		/// <summary>Bars rise from a baseline at the bottom. The default.</summary>
+		Vertical,
+
+		/// <summary>Bars run from a baseline at the left.</summary>
+		Horizontal,
+	}
+
+	/// <summary>How the plot spends its width.</summary>
+	/// <remarks>
+	/// A live feed wants the second of these: a chart that rescales every time a
+	/// sample lands makes the whole trace shift under the reader, while a fixed
+	/// step lets it march rightward with earlier samples staying put. That is how
+	/// <see cref="SparklineControl"/> has always behaved.
+	/// </remarks>
+	public enum ChartSizing
+	{
+		/// <summary>
+		/// The data spans the whole plot, rescaling as points are added. The default.
+		/// </summary>
+		Stretch,
+
+		/// <summary>
+		/// Each point takes a fixed number of cells, so the plot grows with the data
+		/// and earlier points do not move.
+		/// </summary>
+		FixedStep,
 	}
 
 	/// <summary>Which direction a series gradient runs in.</summary>
@@ -183,8 +294,51 @@ namespace SharpConsoleUI.Controls
 		/// <summary>Whether the series is drawn. The legend toggles this.</summary>
 		public bool IsVisible { get; set; } = true;
 
+		/// <summary>
+		/// Measures this series against the chart's secondary vertical axis.
+		/// </summary>
+		/// <remarks>
+		/// For a series in different units from the rest - latency beside request
+		/// rate - which on a shared scale flattens onto the floor and says nothing.
+		/// </remarks>
+		public bool UseSecondaryAxis { get; set; }
+
 		/// <summary>The points, in the order given.</summary>
 		public IReadOnlyList<ChartPoint> Points => _points;
+
+		/// <summary>Colour boundaries, highest-first. Empty unless set.</summary>
+		internal IReadOnlyList<ChartThreshold> Thresholds => _thresholds;
+
+		private ChartThreshold[] _thresholds = Array.Empty<ChartThreshold>();
+
+		/// <summary>
+		/// Makes the series change colour past the given values.
+		/// </summary>
+		/// <param name="thresholds">The boundaries, in any order.</param>
+		/// <remarks>
+		/// Sorted highest-first so the first match wins, which is what makes
+		/// overlapping boundaries read in the order a person would expect.
+		/// Ignored when the series has a <see cref="Gradient"/>: both set is a
+		/// contradiction, and the gradient is the more specific request.
+		/// </remarks>
+		public void SetThresholds(params ChartThreshold[] thresholds)
+		{
+			ArgumentNullException.ThrowIfNull(thresholds);
+			_thresholds = thresholds.OrderByDescending(t => t.Above).ToArray();
+		}
+
+		/// <summary>Removes every colour boundary.</summary>
+		public void ClearThresholds() => _thresholds = Array.Empty<ChartThreshold>();
+
+		/// <summary>The colour a value takes, honouring any thresholds.</summary>
+		internal Color ColorForValue(double value)
+		{
+			foreach (var t in _thresholds)
+			{
+				if (value >= t.Above) return t.Color;
+			}
+			return Color;
+		}
 
 		/// <summary>Replaces the points.</summary>
 		/// <param name="points">The new points. Non-finite coordinates are dropped.</param>

@@ -53,16 +53,6 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool HasFocus => ComputeHasFocus();
 
-		/// <inheritdoc/>
-		public bool ProcessMouseEvent(MouseEventArgs args)
-		{
-			ArgumentNullException.ThrowIfNull(args);
-			return false;
-		}
-
-		/// <inheritdoc/>
-		public bool ProcessKey(ConsoleKeyInfo key) => false;
-
 		/// <summary>Raises the mouse events this control exposes.</summary>
 		/// <remarks>
 		/// Present so the event fields are not written-but-never-read while the

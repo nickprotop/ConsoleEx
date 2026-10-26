@@ -139,6 +139,17 @@ namespace SharpConsoleUI.Controls
 			int wanted = MaxTicks.HasValue ? Math.Min(MaxTicks.Value, room) : room;
 			if (wanted <= 0) return ticks;
 
+			// Room for only one nice-number tick puts it at the range minimum, so a
+			// short plot reads "0" and says nothing about the scale. The two ENDS
+			// are what an axis is for, so a cramped one shows those instead of one
+			// arbitrary interior value.
+			if (wanted < 2 && availableExtent >= ControlDefaults.ChartMinCellsPerEndTick)
+			{
+				ticks.Add(new ChartTick(min, FormatValue(min)));
+				ticks.Add(new ChartTick(max, FormatValue(max)));
+				return ticks;
+			}
+
 			// A category axis steps whole categories; fractional categories mean nothing.
 			double rawStep = (max - min) / wanted;
 			double step = Kind == ChartAxisKind.Category

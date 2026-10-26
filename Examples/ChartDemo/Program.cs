@@ -77,7 +77,9 @@ internal static class Program
 
 		var chart = new ChartControl
 		{
-			Title = "Throughput",
+			// Named so the diagnostics socket can focus it by name.
+			Name = "chart",
+			Title = "Requests and errors",
 			PlotType = ChartPlotType.Line,
 			RenderMode = ChartRenderMode.Pixel,
 			VerticalAlignment = VerticalAlignment.Fill,
@@ -88,24 +90,20 @@ internal static class Program
 
 		// Two series that track each other closely, which is where a single
 		// foreground colour per cell would lose one of them.
-		// One shape, three gradient directions, so the difference is the axis and
-		// nothing else: X sweeps along the run, Y colours by value, Both blends.
-		double[] shape = { 15d, 70, 35, 90, 45, 80, 25 };
+		// Interactive: hover reports the nearest point. Off unless asked for.
+		chart.EnableHover = true;
+		chart.EnableSelection = true;
+		chart.EnableZoom = true;
+		chart.ShowLegend = true;
+		chart.ShowAxisLines = true;
+		chart.YAxis.ShowGridlines = true;
+		chart.YAxis.Min = 0;
+		chart.YAxis.Max = 100;
 
-		var byX = chart.AddSeries("by X", Color.White);
-		byX.Gradient = ColorGradient.Predefined["spectrum"];
-		byX.GradientAxis = ChartGradientAxis.X;
-		byX.SetValues(shape);
-
-		var byY = chart.AddSeries("by Y", Color.White);
-		byY.Gradient = ColorGradient.Predefined["spectrum"];
-		byY.GradientAxis = ChartGradientAxis.Y;
-		byY.SetValues(shape.Select(v => v - 10).ToArray());
-
-		var both = chart.AddSeries("both", Color.White);
-		both.Gradient = ColorGradient.Predefined["spectrum"];
-		both.GradientAxis = ChartGradientAxis.Both;
-		both.SetValues(shape.Select(v => v - 20).ToArray());
+		chart.AddSeries("requests", Color.Green).SetValues(
+			new[] { 20d, 55, 40, 85, 60, 90, 45, 70, 35, 65, 80, 50 });
+		chart.AddSeries("errors", Color.Red).SetValues(
+			new[] { 5d, 12, 8, 30, 15, 22, 10, 18, 7, 14, 25, 11 });
 
 		window.AddControl(chart);
 		ws.AddWindow(window);
