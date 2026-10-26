@@ -693,8 +693,16 @@ namespace SharpConsoleUI
 		/// from any thread (no <c>Monitor.TryEnter</c>), so a cross-thread invalidation under render-lock
 		/// contention can never drop the intent.
 		/// </summary>
-		private void Request(Invalidation work)
+		private void Request(Invalidation work) => Request(work, null);
+
+		/// <summary>
+		/// As <see cref="Request(Invalidation)"/>, recording who asked when
+		/// diagnostics are on.
+		/// </summary>
+		private void Request(Invalidation work, IWindowControl? caller)
 		{
+			RecordInvalidation(work, caller);
+
 			int w = (int)work;
 			int cur;
 			do
@@ -705,6 +713,70 @@ namespace SharpConsoleUI
 			while (Interlocked.CompareExchange(ref _pendingWork, w, cur) != cur);
 
 			Interlocked.Increment(ref _requestsThisFrame);
+		}
+
+		/// <summary>One recorded invalidation: what was asked for, and by whom.</summary>
+		/// <param name="Work">The kind of frame work requested.</param>
+		/// <param name="Control">
+		/// The control's name, or null for an invalidation with no control behind
+		/// it - a window-level one, or a control that was never named.
+		/// </param>
+		public readonly record struct InvalidationEntry(Invalidation Work, string? Control);
+
+		/// <summary>The most recent invalidations, when diagnostics are on.</summary>
+		/// <remarks>
+		/// Bounded, because a control invalidating in a loop is exactly the bug
+		/// this exists to find and must not also become a leak. The oldest entries
+		/// are dropped, since the recent ones are what a reader is looking at.
+		/// </remarks>
+		private readonly System.Collections.Generic.Queue<InvalidationEntry> _invalidationTrace = new();
+
+		private readonly object _invalidationTraceLock = new();
+
+		/// <summary>How many invalidations the trace keeps before dropping the oldest.</summary>
+		private const int InvalidationTraceLimit = 512;
+
+		/// <summary>Records an invalidation, when the system was asked for diagnostics.</summary>
+		/// <remarks>
+		/// <see cref="Request(Invalidation, IWindowControl?)"/> is lock-free and on
+		/// the hot path, so an app that did not ask for diagnostics does no work
+		/// here beyond one null check.
+		/// </remarks>
+		private void RecordInvalidation(Invalidation work, IWindowControl? caller)
+		{
+			if (_windowSystem?.RenderingDiagnostics == null) return;
+
+			lock (_invalidationTraceLock)
+			{
+				if (_invalidationTrace.Count >= InvalidationTraceLimit)
+					_invalidationTrace.Dequeue();
+
+				_invalidationTrace.Enqueue(new InvalidationEntry(work, caller?.Name));
+			}
+		}
+
+		/// <summary>
+		/// Returns the invalidations recorded since the last call, and clears them.
+		/// </summary>
+		/// <returns>
+		/// What asked for frame work, oldest first. Always empty unless
+		/// <c>EnableDiagnostics</c> was set.
+		/// </returns>
+		/// <remarks>
+		/// A window counts how many invalidations folded into a frame, which says
+		/// a repaint was asked for a hundred times but not by whom - and "whom" is
+		/// the question. A chart repainting every frame because one setter fires
+		/// in a loop looks exactly like a chart repainting because its data
+		/// changed.
+		/// </remarks>
+		public System.Collections.Generic.IReadOnlyList<InvalidationEntry> ConsumeInvalidationTrace()
+		{
+			lock (_invalidationTraceLock)
+			{
+				var snapshot = _invalidationTrace.ToArray();
+				_invalidationTrace.Clear();
+				return snapshot;
+			}
 		}
 
 		/// <summary>

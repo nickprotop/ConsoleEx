@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -222,12 +223,78 @@ internal sealed class DiagnosticsServer : IDisposable
 			"image" => Ok(Image(req)),
 			"set" => Ok(Set(req)),
 			"frame" => Ok(new JsonObject { ["frame"] = _system.ConsoleDriver.FrameNumber }),
+			"invalidations" => Ok(Invalidations()),
 			"ping" => Ok(new JsonObject { ["pong"] = true }),
 			"commands" => Ok(Commands()),
 
 			"" => Error("missing 'cmd'", Commands()),
 			_ => Error($"unknown command '{cmd}'", Commands()),
 		};
+	}
+
+	/// <summary>
+	/// What asked for frame work since the last call, and cleared by it.
+	/// </summary>
+	/// <remarks>
+	/// <c>metrics</c> says a window coalesced a hundred invalidations into one
+	/// frame. This says which controls those hundred came from, which is the
+	/// question actually being asked: a view repainting every frame because one
+	/// setter fires in a loop looks exactly like one repainting because its data
+	/// changed.
+	/// <para>
+	/// Empty unless the app was started with <c>EnableDiagnostics</c>, since
+	/// recording sits on a lock-free hot path.
+	/// </para>
+	/// </remarks>
+	private JsonObject Invalidations()
+	{
+		var windows = new JsonArray();
+
+		foreach (var window in _system.WindowStateService.GetWindowsByZOrder())
+		{
+			var trace = window.ConsumeInvalidationTrace();
+			if (trace.Count == 0) continue;
+
+			// Who asked, and how often - the count is what makes a runaway setter
+			// obvious, and the raw sequence would mostly repeat.
+			var byControl = new Dictionary<string, (int Repaints, int Relayouts)>();
+			foreach (var entry in trace)
+			{
+				string key = entry.Control ?? "(window)";
+				byControl.TryGetValue(key, out var tally);
+				if (entry.Work == Invalidation.Relayout) tally.Relayouts++;
+				else tally.Repaints++;
+				byControl[key] = tally;
+			}
+
+			// Sorted by hand rather than with LINQ over a tuple: ordering value
+			// tuples wants dynamic code, and the library is AOT-clean.
+			var ranked = new List<KeyValuePair<string, (int Repaints, int Relayouts)>>(byControl);
+			ranked.Sort((x, y) =>
+				(y.Value.Repaints + y.Value.Relayouts).CompareTo(x.Value.Repaints + x.Value.Relayouts));
+
+			var callers = new JsonArray();
+			foreach (var (name, tally) in ranked)
+			{
+				// Cast to JsonNode? so this binds to the non-generic overload:
+				// JsonArray.Add<T> needs reflection, and the library is AOT-clean.
+				callers.Add((JsonNode?)new JsonObject
+				{
+					["control"] = name,
+					["repaints"] = tally.Repaints,
+					["relayouts"] = tally.Relayouts,
+				});
+			}
+
+			windows.Add((JsonNode?)new JsonObject
+			{
+				["window"] = window.Title,
+				["total"] = trace.Count,
+				["callers"] = callers,
+			});
+		}
+
+		return new JsonObject { ["windows"] = windows };
 	}
 
 	/// <summary>The command names, for an unknown-command reply.</summary>
@@ -252,7 +319,8 @@ internal sealed class DiagnosticsServer : IDisposable
 	{
 		"snapshot", "image", "tree", "focus", "windows", "metrics", "set",
 		"logs", "key", "mouse", "size", "focusctl", "invoke",
-		"theme", "window", "frame", "ping", "commands",
+		"theme", "window", "frame",
+			"invalidations", "ping", "commands",
 	};
 
 	#endregion

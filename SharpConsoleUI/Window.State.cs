@@ -399,7 +399,7 @@ namespace SharpConsoleUI
 		/// <param name="caller">The control that initiated the invalidation (unused at the window root).</param>
 		public void Invalidate(Invalidation work, IWindowControl? caller = null)
 		{
-			Request(work);
+			Request(work, caller);
 		}
 
 		/// <summary>
