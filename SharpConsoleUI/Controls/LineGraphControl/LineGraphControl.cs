@@ -839,5 +839,19 @@ namespace SharpConsoleUI.Controls
 		}
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			lock (_dataLock)
+			{
+				w.Write("seriesCount", _series.Count);
+				w.Write("pointCount", _series.Sum(s => s.DataPoints.Count));
+			}
+		}
+
 	}
 }

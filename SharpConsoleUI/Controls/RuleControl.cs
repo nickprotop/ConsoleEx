@@ -455,5 +455,17 @@ namespace SharpConsoleUI.Controls
 		}
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			w.Text(StateVocabulary.Shorten(Title));
+			w.WriteIf(IsProgressActive, "indeterminate",
+				IsIndeterminate.ToString(System.Globalization.CultureInfo.InvariantCulture));
+		}
+
 	}
 }

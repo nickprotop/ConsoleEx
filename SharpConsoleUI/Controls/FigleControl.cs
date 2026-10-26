@@ -462,5 +462,17 @@ namespace SharpConsoleUI.Controls
 		}
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			// The source text, not the rendered banner: a reader asking what it says
+			// wants the words, and the banner is twenty rows of them.
+			w.Text(StateVocabulary.Shorten(Text));
+		}
+
 	}
 }

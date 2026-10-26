@@ -552,5 +552,16 @@ namespace SharpConsoleUI.Controls
 		}
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			w.Value(Value, 0, MaxValue);
+			w.Text(StateVocabulary.Shorten(Label));
+		}
+
 	}
 }

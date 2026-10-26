@@ -391,5 +391,20 @@ namespace SharpConsoleUI.Controls
 
 			return _renderer;
 		}
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			// Whether there is an image at all, and how big: an image control that
+			// renders blank has usually been given nothing rather than drawn wrongly.
+			w.Write("hasSource", Source != null);
+			w.Write("sourceWidth", Source?.Width ?? 0);
+			w.Write("sourceHeight", Source?.Height ?? 0);
+			w.Write("scaleMode", ScaleMode.ToString());
+		}
+
 	}
 }

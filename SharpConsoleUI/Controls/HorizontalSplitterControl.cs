@@ -745,6 +745,18 @@ namespace SharpConsoleUI.Controls
 				_subscribedWindow = null;
 			}
 		}
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			// Whether a drag is in progress, which is the question when a splitter
+			// stops responding: it may still believe it is being dragged.
+			w.Write("dragging", IsDragging);
+		}
+
 	}
 
 	/// <summary>

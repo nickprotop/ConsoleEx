@@ -131,6 +131,32 @@ namespace SharpConsoleUI.Tests.StateDescription
 		}
 
 		[Fact]
+		public void EveryControlWithStateDescribesIt()
+		{
+			// The base writes enabled/interactive/focusable for everyone, so a
+			// control "says nothing of its own" when it writes only those. Two are
+			// allowed to: a layout sentinel that is not a real control, and a
+			// separator, which is one character and genuinely has no state.
+			var allowed = new HashSet<string> { "BodyMarker", "SeparatorControl" };
+
+			var silent = new List<string>();
+
+			foreach (var t in Controls())
+			{
+				var state = TryDescribe(t);
+				if (state == null) continue;
+
+				bool saysSomething = state.Keys
+					.Any(k => k is not ("enabled" or "interactive" or "focusable"));
+
+				if (!saysSomething && !allowed.Contains(t.Name)) silent.Add(t.Name);
+			}
+
+			Assert.True(silent.Count == 0,
+				"these describe nothing of their own: " + string.Join(", ", silent));
+		}
+
+		[Fact]
 		public void TheVocabularyWritesTheNamesItPromises()
 		{
 			var r = new Recorder();

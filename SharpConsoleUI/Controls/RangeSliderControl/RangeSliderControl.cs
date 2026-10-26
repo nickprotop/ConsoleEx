@@ -478,5 +478,19 @@ namespace SharpConsoleUI.Controls
 		}
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			// Two values, so neither "value" alone would be true: the low end is
+			// reported through the shared name and the high end beside it.
+			w.Value(LowValue, MinValue, MaxValue);
+			w.Write("highValue", HighValue);
+			w.Write("dragging", IsDragging);
+		}
+
 	}
 }

@@ -385,5 +385,16 @@ namespace SharpConsoleUI.Controls
 		}
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			w.Value(CurrentTime, 0, DurationSeconds);
+			w.Write("playbackState", PlaybackState.ToString());
+		}
+
 	}
 }

@@ -305,4 +305,16 @@ public class SpinnerControl : BaseControl, IColorRoleableControl
 			x++;
 		}
 	}
+
+	/// <inheritdoc/>
+	public override void DescribeState(IStateWriter w)
+	{
+		ArgumentNullException.ThrowIfNull(w);
+		base.DescribeState(w);
+
+		// A spinner that looks frozen is the question this answers: whether the
+		// frame is advancing at all.
+		w.Write("frameIndex", CurrentFrameIndex);
+	}
+
 }

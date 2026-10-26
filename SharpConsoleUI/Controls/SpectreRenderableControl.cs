@@ -739,5 +739,17 @@ namespace SharpConsoleUI.Controls
 		}
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			// Whether a renderable was handed over at all. The renderable itself is a
+			// Spectre object this cannot put on a wire.
+			w.Write("hasRenderable", Renderable != null);
+		}
+
 	}
 }

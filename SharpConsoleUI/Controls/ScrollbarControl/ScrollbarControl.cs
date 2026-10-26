@@ -376,5 +376,17 @@ namespace SharpConsoleUI.Controls
 		private void ClampValue() => SetValue(_value, fromUser: false);
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			// A scrollbar IS a scroll position, so it reports one: its own value, the
+			// span it shows and the span it covers.
+			w.Scroll(Value, LargeChange, Maximum);
+		}
+
 	}
 }

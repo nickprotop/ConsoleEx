@@ -630,5 +630,22 @@ namespace SharpConsoleUI.Controls
 		}
 
 		#endregion
+
+		/// <inheritdoc/>
+		public override void DescribeState(IStateWriter w)
+		{
+			ArgumentNullException.ThrowIfNull(w);
+			base.DescribeState(w);
+
+			// The count, because a sparkline that renders as a flat line is usually one
+			// that has no points rather than one whose points are equal.
+			lock (_dataLock)
+			{
+				w.Write("pointCount", _dataPoints.Count);
+				w.WriteIf(_secondaryDataPoints.Count > 0, "secondaryPointCount",
+					_secondaryDataPoints.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+			}
+		}
+
 	}
 }
