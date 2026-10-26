@@ -616,32 +616,62 @@ public class TableDisplayPipelineTests
 	private static void Click(TableControl table, int displayRow)
 		=> table.ProcessMouseEvent(Mouse(table.RowYForTest(displayRow), SharpConsoleUI.Drivers.MouseFlags.Button1Clicked));
 
+	/// <summary>The double click as the recognizer reports it, on a display row.</summary>
+	/// <remarks>
+	/// It derives the gesture and ADDS it to the press, so the flag arrives with
+	/// Button1Pressed rather than instead of it. The table reads the flag and
+	/// does not time clicks itself, so two bare clicks are two clicks.
+	/// </remarks>
+	private static void DoubleClick(TableControl table, int displayRow)
+	{
+		int y = table.RowYForTest(displayRow);
+		table.ProcessMouseEvent(Mouse(y, SharpConsoleUI.Drivers.MouseFlags.Button1DoubleClicked));
+	}
+
 	[Fact]
-	public void TwoClicksOnARow_ActivateIt()
+	public void ADoubleClickOnARow_ActivatesIt()
 	{
 		var table = ClickablePeopleTable();
 		var activated = new List<int>();
 		table.RowActivated += (_, row) => activated.Add(row);
 
-		Click(table, 1);
-		Click(table, 1);
+		DoubleClick(table, 1);
 
 		Assert.Equal([1], activated);
 	}
 
 	[Fact]
-	public void TwoClicksAtOnePosition_DoNotActivate_WhenASortMovedADifferentRowThere()
+	public void TwoPlainClicks_DoNotActivate()
 	{
+		// They did once, because the table ran its own click clock beside the
+		// recognizer's. Two detectors for one gesture agreed only by accident:
+		// one real double click activated twice (issue #92). A click selects now,
+		// and only Button1DoubleClicked activates.
 		var table = ClickablePeopleTable();
 		var activated = new List<int>();
 		table.RowActivated += (_, row) => activated.Add(row);
 
-		Click(table, 1);                               // Bob
-		table.SortByColumn(0);
-		table.SortByColumn(0);                         // position 1 now holds Dave
+		Click(table, 1);
 		Click(table, 1);
 
 		Assert.Empty(activated);
+	}
+
+	[Fact]
+	public void ADoubleClickAtOnePosition_ActivatesWhateverRowIsThereNow()
+	{
+		// A sort moves rows under a stationary pointer, and the gesture names a
+		// POSITION. The row now at that position is the one the reader is
+		// pointing at, so it is the one that activates.
+		var table = ClickablePeopleTable();
+		var activated = new List<int>();
+		table.RowActivated += (_, row) => activated.Add(row);
+
+		table.SortByColumn(0);
+		table.SortByColumn(0);
+		DoubleClick(table, 1);
+
+		Assert.Equal([1], activated);
 	}
 
 	[Fact]

@@ -56,11 +56,20 @@ public class CollapsiblePanelBodyMouseTests
 		Assert.False(clicked, "a focusable body child must not surface the panel's own MouseClick");
 	}
 
-	[Fact]
-	public void TwoRapidPassiveBodyClicks_RaiseMouseDoubleClick_NotTwoClicks()
+	/// <summary>The double click as the recognizer reports it.</summary>
+	private static MouseEventArgs DoubleClick(int x, int y)
 	{
-		// Manual double-click detection: two Button1Clicked within the threshold on a passive-child
-		// panel must raise a single MouseDoubleClick, not two MouseClicks.
+		var pos = new Point(x, y);
+		return new MouseEventArgs(new List<MouseFlags> { MouseFlags.Button1DoubleClicked }, pos, pos, pos);
+	}
+
+	[Fact]
+	public void TwoPlainBodyClicks_RaiseTwoClicks_NotADoubleClick()
+	{
+		// The panel used to time clicks itself and fold the second into a double
+		// click. The recognizer is the one place that decides what a double click
+		// is, and a second clock beside it agreed only by accident - so a bare
+		// click is a click, however fast it follows the last one.
 		var panel = new CollapsiblePanel { Collapsible = false, ShowHeader = false, Width = 20 };
 		panel.AddControl(new MarkupControl(new List<string> { "passive" }));
 
@@ -72,7 +81,21 @@ public class CollapsiblePanelBodyMouseTests
 		panel.ProcessMouseEvent(Click(2, 0));
 		panel.ProcessMouseEvent(Click(2, 0));
 
+		Assert.Equal(0, doubleClicks);
+		Assert.Equal(2, clicks);
+	}
+
+	[Fact]
+	public void ADoubleClickOnAPassiveBody_RaisesMouseDoubleClick()
+	{
+		var panel = new CollapsiblePanel { Collapsible = false, ShowHeader = false, Width = 20 };
+		panel.AddControl(new MarkupControl(new List<string> { "passive" }));
+
+		int doubleClicks = 0;
+		panel.MouseDoubleClick += (_, _) => doubleClicks++;
+
+		panel.ProcessMouseEvent(DoubleClick(2, 0));
+
 		Assert.Equal(1, doubleClicks);
-		Assert.Equal(1, clicks); // first click fires MouseClick; the second collapses into the double-click
 	}
 }

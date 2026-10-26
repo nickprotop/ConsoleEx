@@ -525,22 +525,10 @@ public partial class TableControl
 				}
 			}
 
-			// Double-click detection
-			lock (_clickLock)
-			{
-				var now = DateTime.Now;
-				if (IsPairedClick(rowIdx, now))
-				{
-					Core.AsyncEvent.Raise(RowActivated, RowActivatedAsync, this, rowIdx, Container?.GetConsoleWindowSystem?.LogService);
-					MouseDoubleClick?.Invoke(this, args);
-					ResetClickPairing();
-				}
-				else
-				{
-					_lastClickTime = now;
-					_lastClickRowIndex = rowIdx;
-				}
-			}
+			// A click selects, and only that. Activation belongs to the
+			// Button1DoubleClicked branch above, because the recognizer is the one
+			// place that decides what a double click is - a second opinion here
+			// would agree with it only by accident.
 		}
 
 		MouseClick?.Invoke(this, args);
@@ -569,36 +557,26 @@ public partial class TableControl
 		_ctrlDragBaseSelection = null;
 	}
 
-	/// <summary>Forgets the last click, so the next one starts a new pairing.</summary>
+	/// <summary>Kept for the drag state that <see cref="EndRowGestures"/> clears.</summary>
+	/// <remarks>
+	/// The click pairing it once reset is gone: the recognizer decides what a
+	/// double click is, so there is no per-control pairing left to forget.
+	/// </remarks>
 	private void ResetClickPairing()
 	{
-		lock (_clickLock)
-		{
-			_lastClickRowIndex = -1;
-			_lastClickTime = DateTime.MinValue;
-		}
 	}
 
 	/// <summary>
-	/// How many clicks a click on a display row counts as: 2 when the table's own pairing would take
-	/// it for the second half of a double-click, 1 otherwise. Reads the pairing without changing it.
+	/// How many clicks the press path reports to <see cref="TryHandleClick"/>: always one.
 	/// </summary>
-	private int CountClicks(int displayRowIndex)
-	{
-		if (displayRowIndex < 0) return 1;
-
-		lock (_clickLock)
-		{
-			return IsPairedClick(displayRowIndex, DateTime.Now) ? 2 : 1;
-		}
-	}
-
-	/// <summary>
-	/// Whether a click on a display row at <paramref name="now"/> is the second half of a
-	/// double-click. Callers hold the click lock.
-	/// </summary>
-	private bool IsPairedClick(int displayRowIndex, DateTime now)
-		=> _lastClickRowIndex == displayRowIndex && (now - _lastClickTime).TotalMilliseconds < _doubleClickThresholdMs;
+	/// <remarks>
+	/// This read the table's own click pairing and could answer 2, which meant a
+	/// derived table saw a double click from here AND from the
+	/// <see cref="MouseFlags.Button1DoubleClicked"/> branch, which passes 2
+	/// directly. The recognizer is the only thing that decides a double click
+	/// now, so a press is one click by definition.
+	/// </remarks>
+	private static int CountClicks(int displayRowIndex) => 1;
 
 	#endregion
 

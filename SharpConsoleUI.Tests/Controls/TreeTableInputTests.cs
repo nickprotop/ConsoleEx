@@ -293,12 +293,14 @@ public class TreeTableInputTests
 	[Fact]
 	public void DoubleClickingTheValue_StillActivatesTheRow()
 	{
+		// The gesture the recognizer reports, not two bare clicks: the tree table
+		// inherits the table's handling, which reads Button1DoubleClicked and no
+		// longer times clicks itself (issue #92).
 		var table = Painted(Library());
 		var activated = new List<int>();
 		table.RowActivated += (_, row) => activated.Add(row);
 
-		ClickAt(table, 8, 1);
-		ClickAt(table, 8, 1);
+		ClickAt(table, 8, 1, MouseFlags.Button1DoubleClicked);
 
 		Assert.Equal([0], activated);
 		Assert.True(Row(table, "Fiction").IsExpanded);

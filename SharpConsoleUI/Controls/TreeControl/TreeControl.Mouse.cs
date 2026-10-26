@@ -333,13 +333,6 @@ namespace SharpConsoleUI.Controls
 				{
 					if (nodeIndex >= 0 && nodeIndex < _flattenedNodes.Count)
 					{
-						// Reset tracking state since driver handled the gesture
-						lock (_clickLock)
-						{
-							_lastClickTime = DateTime.MinValue;
-							_lastClickIndex = -1;
-						}
-
 						// Select without scrolling — item is already visible
 						SelectNodeNoScroll(nodeIndex);
 
@@ -393,47 +386,17 @@ namespace SharpConsoleUI.Controls
 							// Reset double-click tracking so next click isn't misdetected
 							lock (_clickLock)
 							{
-								_lastClickTime = DateTime.MinValue;
-								_lastClickIndex = -1;
 							}
 						}
 						else
 						{
-							// Detect double-click on non-indicator area (thread-safe)
-							bool isDoubleClick;
-							lock (_clickLock)
-							{
-								var now = DateTime.UtcNow;
-								var timeSince = (now - _lastClickTime).TotalMilliseconds;
-								isDoubleClick = nodeIndex == _lastClickIndex &&
-												timeSince <= ControlDefaults.DefaultDoubleClickThresholdMs;
-
-								_lastClickTime = now;
-								_lastClickIndex = nodeIndex;
-							}
-
-							if (isDoubleClick)
-							{
-								var node = _flattenedNodes[nodeIndex];
-								if (node.Children.Count > 0)
-								{
-									// Double-click on directory: toggle expand/collapse
-									node.IsExpanded = !node.IsExpanded;
-									_deferredExpandCollapse = new TreeNodeEventArgs(node);
-									UpdateFlattenedNodes();
-								}
-								else
-								{
-									// Double-click on leaf: activate (open file)
-									_deferredNodeActivated = new TreeNodeEventArgs(node);
-								}
-
-								fireMouseDoubleClick = args;
-							}
-							else
-							{
-								fireMouseClick = args;
-							}
+							// A click selects, and only that. Expanding and activating
+							// belong to the Button1DoubleClicked branch above, because
+							// the recognizer is the one place that decides what a
+							// double click is - a second clock here agreed with it
+							// only by accident, and two double clicks in a row
+							// activated three times.
+							fireMouseClick = args;
 						}
 
 						Invalidate(Invalidation.Relayout);

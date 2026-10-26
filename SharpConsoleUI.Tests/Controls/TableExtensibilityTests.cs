@@ -882,8 +882,13 @@ public class TableExtensibilityTests
 	}
 
 	[Fact]
-	public void ASecondQuickClickOnTheSameRow_CountsAsTwo()
+	public void TwoPlainClicks_AreOfferedAsOneEach_AndDoNotActivate()
 	{
+		// The table used to time clicks itself and offer the second as two, so a
+		// derived table saw a double click from here AND from the recognizer's
+		// Button1DoubleClicked branch, which offers two directly. Two detectors
+		// for one gesture agreed only by accident (issue #92). A press is one
+		// click by definition now.
 		var table = PaintedClickTable();
 		var activated = new List<int>();
 		table.RowActivated += (_, row) => activated.Add(row);
@@ -891,20 +896,21 @@ public class TableExtensibilityTests
 		ClickAt(table, 2);
 		ClickAt(table, 2);
 
-		Assert.Equal([1, 2], table.Offered.Select(o => o.Count));
-		Assert.Equal([1], activated);
+		Assert.Equal([1, 1], table.Offered.Select(o => o.Count));
+		Assert.Empty(activated);
 	}
 
 	[Fact]
-	public void AHandledSecondClick_DoesNotActivateTheRow()
+	public void AHandledDoubleClick_DoesNotActivateTheRow()
 	{
+		// A derived table that takes the double click keeps the row from
+		// activating, which is the whole point of the extension point.
 		var table = PaintedClickTable();
 		table.Handler = (_, count) => count == 2;
 		var activated = new List<int>();
 		table.RowActivated += (_, row) => activated.Add(row);
 
-		ClickAt(table, 2);
-		ClickAt(table, 2);
+		ClickAt(table, 2, SharpConsoleUI.Drivers.MouseFlags.Button1DoubleClicked);
 
 		Assert.Empty(activated);
 	}

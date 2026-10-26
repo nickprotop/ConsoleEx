@@ -196,27 +196,13 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
-			// Left click with manual double-click detection (fallback).
+			// A click is a click. MouseDoubleClick belongs to the
+			// Button1DoubleClicked branch above: the recognizer is the one place
+			// that decides what a double click is, and this "fallback" was a second
+			// opinion that agreed only by accident.
 			if (args.HasFlag(MouseFlags.Button1Clicked))
 			{
-				var now = DateTime.UtcNow;
-				var timeSince = (now - _lastClickTime).TotalMilliseconds;
-				bool isDoubleClick = timeSince <= ControlDefaults.DefaultDoubleClickThresholdMs &&
-									_clickCount == 1;
-
-				if (isDoubleClick)
-				{
-					_clickCount = 0;
-					_lastClickTime = DateTime.MinValue;
-					MouseDoubleClick?.Invoke(this, args);
-				}
-				else
-				{
-					_clickCount = 1;
-					_lastClickTime = now;
-					MouseClick?.Invoke(this, args);
-				}
-
+				MouseClick?.Invoke(this, args);
 				args.Handled = true;
 				Invalidate(Invalidation.Repaint);
 				return true;

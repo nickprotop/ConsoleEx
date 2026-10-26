@@ -115,8 +115,6 @@ namespace SharpConsoleUI.Controls
 		private bool _selectOnRightClick = false;
 		private TreeNode? _lastRightClickedNode;
 		private readonly object _clickLock = new object();
-		private DateTime _lastClickTime = DateTime.MinValue;
-		private int _lastClickIndex = -1;
 
 		// Performance: Cache for expensive text measurement operations
 		private readonly TextMeasurementCache _textMeasurementCache = new(Parsing.MarkupParser.StripLength);

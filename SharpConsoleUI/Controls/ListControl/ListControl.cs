@@ -124,8 +124,6 @@ namespace SharpConsoleUI.Controls
 
 		// Mouse interaction state
 		private int _hoveredIndex = -1;                        // Mouse hover tracking
-		private DateTime _lastClickTime = DateTime.MinValue;   // Double-click detection
-		private int _lastClickIndex = -1;                      // Double-click detection
 
 		// Interaction configuration
 		private bool _selectOnRightClick = false;

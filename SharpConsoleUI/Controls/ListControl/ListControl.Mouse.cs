@@ -76,8 +76,15 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>
 		/// Gets or sets the double-click threshold in milliseconds.
-		/// Default: 500.
 		/// </summary>
+		/// <remarks>
+		/// No longer consulted. The double click is derived once, by
+		/// <c>MouseGestureRecognizer</c>, so that every control agrees on what one
+		/// is; this control used to run a second clock beside it and the two
+		/// agreed only by accident. Kept because it is public API, and because
+		/// setting it was never harmful - only ineffective from here on.
+		/// Configure the timing on the recognizer instead.
+		/// </remarks>
 		public int DoubleClickThresholdMs
 		{
 			get => _doubleClickThresholdMs;
@@ -236,10 +243,6 @@ namespace SharpConsoleUI.Controls
 				int clickedIndex = GetItemIndexAtRelativeY(relativeY);
 				if (clickedIndex >= 0)
 				{
-					// Reset tracking state since driver handled the gesture
-					_lastClickTime = DateTime.MinValue;
-					_lastClickIndex = -1;
-
 					// Commit highlight to selection
 					if (_selectedIndex != clickedIndex)
 					{
@@ -288,42 +291,13 @@ namespace SharpConsoleUI.Controls
 							}
 						}
 
-						// Detect double-click (ProcessMouseEvent is always called on UI thread)
-						var now = DateTime.UtcNow;
-						var timeSince = (now - _lastClickTime).TotalMilliseconds;
-						bool isDoubleClick = _doubleClickActivates &&
-										clickedIndex == _lastClickIndex &&
-										timeSince <= _doubleClickThresholdMs;
-
-						_lastClickTime = now;
-						_lastClickIndex = clickedIndex;
-
-						// Set selection directly
+						// A click selects, and only that. Activation belongs to the
+						// Button1DoubleClicked branch above: the recognizer is the one
+						// place that decides what a double click is, and a second
+						// clock here agreed with it only by accident - two double
+						// clicks in a row activated three times.
 						SelectedIndex = clickedIndex;
-
-						// Double click: Commit to selection and activate
-						if (isDoubleClick)
-						{
-							// Commit highlight to selection
-							if (_selectedIndex != clickedIndex)
-							{
-								SelectedIndex = clickedIndex;
-							}
-
-							MouseDoubleClick?.Invoke(this, args);
-
-							// Fire ItemActivated (like Enter key)
-							var item = _items[clickedIndex];
-							if (item.IsEnabled)
-							{
-								ItemActivated?.Invoke(this, item);
-							}
-						}
-						else
-						{
-							// Fire mouse click event
-							MouseClick?.Invoke(this, args);
-						}
+						MouseClick?.Invoke(this, args);
 
 						Invalidate(Invalidation.Relayout);
 					}

@@ -268,11 +268,6 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	// Mouse support
 	private bool _wantsMouseEvents = true;
 
-	// Double-click detection
-	private readonly object _clickLock = new();
-	private DateTime _lastClickTime = DateTime.MinValue;
-	private int _lastClickRowIndex = -1;
-	private int _doubleClickThresholdMs = ControlDefaults.DefaultDoubleClickThresholdMs;
 
 	// Auto-highlight on focus
 	private bool _autoHighlightOnFocus = true;

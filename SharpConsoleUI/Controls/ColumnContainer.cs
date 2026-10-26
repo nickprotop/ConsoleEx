@@ -208,9 +208,15 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>
 		/// Gets or sets the double-click threshold in milliseconds.
-		/// Two clicks within this time window are considered a double-click.
-		/// Default: 500ms, minimum: 100ms.
 		/// </summary>
+		/// <remarks>
+		/// No longer consulted. The double click is derived once, by
+		/// <c>MouseGestureRecognizer</c>, so that every control agrees on what one
+		/// is; this container used to run a second clock beside it and the two
+		/// agreed only by accident. Kept because it is public API, and because
+		/// setting it was never harmful - only ineffective from here on.
+		/// Configure the timing on the recognizer instead.
+		/// </remarks>
 		public int DoubleClickThresholdMs
 		{
 			get => _doubleClickThresholdMs;
@@ -1078,36 +1084,18 @@ namespace SharpConsoleUI.Controls
 					if (args.HasFlag(MouseFlags.Button1DoubleClicked) && _doubleClickEnabled)
 					{
 						// Reset tracking state since driver handled the gesture
-						_lastClickTime = DateTime.MinValue;
-						_lastClickPosition = Point.Empty;
 
 						MouseDoubleClick?.Invoke(this, contentArgs);
 						return true;
 					}
 
-					// Method 2: Manual timer-based detection (fallback)
+					// A click is a click. MouseDoubleClick belongs to the
+					// Button1DoubleClicked branch above: the recognizer is the one
+					// place that decides what a double click is, and this "fallback"
+					// was a second opinion that agreed only by accident.
 					if (args.HasFlag(MouseFlags.Button1Clicked))
 					{
-						// Detect double-click
-						var now = DateTime.UtcNow;
-						var timeSince = (now - _lastClickTime).TotalMilliseconds;
-						bool isDoubleClick = _doubleClickEnabled &&
-											 args.Position == _lastClickPosition &&
-											 timeSince <= _doubleClickThresholdMs;
-
-						_lastClickTime = now;
-						_lastClickPosition = args.Position;
-
-						// Mutually exclusive: Fire either MouseDoubleClick OR MouseClick
-						if (isDoubleClick)
-						{
-							MouseDoubleClick?.Invoke(this, contentArgs);
-						}
-						else
-						{
-							MouseClick?.Invoke(this, contentArgs);
-						}
-
+						MouseClick?.Invoke(this, contentArgs);
 						return true;
 					}
 				}
