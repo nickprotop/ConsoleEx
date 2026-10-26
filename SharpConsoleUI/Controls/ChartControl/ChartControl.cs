@@ -707,6 +707,12 @@ namespace SharpConsoleUI.Controls
 
 		#region Layout
 
+		/// <summary>
+		/// The height at or above which a constraint is treated as "unbounded"
+		/// rather than as a real row count a chart could fill.
+		/// </summary>
+		private const int UnboundedHeight = int.MaxValue / 2;
+
 		/// <inheritdoc/>
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
@@ -714,9 +720,17 @@ namespace SharpConsoleUI.Controls
 
 			// Null PlotHeight fills: the chart takes what it is given rather than
 			// asking for a fixed block, which is what a dashboard panel wants.
-			int plot = _plotHeight ?? Math.Max(
-				ControlDefaults.ChartMinPlotHeight,
-				constraints.MaxHeight - ChromeHeight());
+			// A scrolling container bounds nothing, though - it accommodates
+			// whatever a child asks for - so "all the height there is" there means
+			// int.MaxValue. Fall back to the default block rather than asking for
+			// every row in existence, which measures as infinity and paints as
+			// nothing.
+			int available = constraints.MaxHeight;
+			int plot = _plotHeight ?? (available >= UnboundedHeight
+				? ControlDefaults.ChartDefaultPlotHeight
+				: Math.Max(
+					ControlDefaults.ChartMinPlotHeight,
+					available - ChromeHeight()));
 
 			int height = plot + ChromeHeight() + Margin.Top + Margin.Bottom;
 

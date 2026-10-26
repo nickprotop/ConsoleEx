@@ -1450,5 +1450,18 @@ namespace SharpConsoleUI.Configuration
 		/// <summary>Gridline character in the modes that cannot colour a pixel.</summary>
 		public const char ChartGridlineChar = '\u00b7';
 
+		/// <summary>
+		/// Pixels drawn, then skipped, along a gridline in the pixel render path.
+		/// </summary>
+		/// <remarks>
+		/// The glyph path dots its gridlines by using a dotted character. The pixel
+		/// path has no characters to choose from, so it dashes the run instead -
+		/// otherwise the same chart draws a solid bar where the other draws a hint.
+		/// </remarks>
+		public const int ChartGridlineDashRun = 1;
+
+		/// <summary>The gap between dashes along a pixel gridline.</summary>
+		public const int ChartGridlineDashGap = 2;
+
 	}
 }

@@ -12,6 +12,7 @@ using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Builders
 {
@@ -37,7 +38,8 @@ namespace SharpConsoleUI.Builders
 		private readonly ChartControl _control = new();
 
 		private readonly List<(string Name, Color Color, IEnumerable<double>? Values,
-			ColorGradient? Gradient, ChartGradientAxis Axis, ChartPlotType? PlotType)> _pending = new();
+			ColorGradient? Gradient, ChartGradientAxis Axis, ChartPlotType? PlotType,
+			bool Secondary, ChartThreshold[]? Thresholds)> _pending = new();
 
 		/// <summary>Sets the plot type series use when they do not name their own.</summary>
 		/// <param name="type">The plot type.</param>
@@ -187,9 +189,119 @@ namespace SharpConsoleUI.Builders
 
 		/// <summary>Draws a border around the chart.</summary>
 		/// <param name="style">The border style.</param>
-		public ChartBuilder WithBorder(BorderStyle style = BorderStyle.Single)
+		/// <param name="color">The border colour; unset follows the theme.</param>
+		public ChartBuilder WithBorder(BorderStyle style = BorderStyle.Single, Color? color = null)
 		{
 			_control.BorderStyle = style;
+			if (color.HasValue) _control.BorderColor = color;
+			return this;
+		}
+
+		/// <summary>Sets the chart's foreground and background.</summary>
+		/// <param name="foreground">Chrome colour; null follows the theme.</param>
+		/// <param name="background">Control background; null follows the theme.</param>
+		public ChartBuilder WithColors(Color? foreground = null, Color? background = null)
+		{
+			if (foreground.HasValue) _control.ForegroundColor = foreground;
+			if (background.HasValue) _control.BackgroundColor = background;
+			return this;
+		}
+
+		/// <summary>Fills the plot area behind the data.</summary>
+		/// <param name="color">The fill; <see cref="Color.Transparent"/> shows what is behind.</param>
+		public ChartBuilder WithPlotBackground(Color color)
+		{
+			_control.PlotBackground = color;
+			return this;
+		}
+
+		/// <summary>Colours the title.</summary>
+		/// <param name="color">The title colour.</param>
+		public ChartBuilder WithTitleColor(Color color)
+		{
+			_control.TitleColor = color;
+			return this;
+		}
+
+		/// <summary>Colours the subtitle.</summary>
+		/// <param name="color">The subtitle colour.</param>
+		public ChartBuilder WithSubtitleColor(Color color)
+		{
+			_control.SubtitleColor = color;
+			return this;
+		}
+
+		/// <summary>Draws the line where a split plot's halves meet.</summary>
+		/// <param name="caption">Text written into the line, if any.</param>
+		/// <param name="showValue">Whether the line's value is printed at its far end.</param>
+		/// <param name="character">The glyph the line is drawn with.</param>
+		public ChartBuilder WithCentreAxis(string? caption = null, bool showValue = false,
+			char? character = null)
+		{
+			_control.ShowCentreAxis = true;
+			_control.CentreAxisCaption = caption;
+			_control.ShowCentreAxisValue = showValue;
+			if (character.HasValue) _control.CentreAxisChar = character.Value;
+			return this;
+		}
+
+		/// <summary>Resamples a history longer than the plot is wide.</summary>
+		public ChartBuilder WithResampling()
+		{
+			_control.ResampleToWidth = true;
+			return this;
+		}
+
+		/// <summary>Drives the chart's colours from a semantic role.</summary>
+		/// <param name="role">The role.</param>
+		/// <param name="mode">An optional theme-mode override.</param>
+		public ChartBuilder WithColorRole(ColorRole role, ThemeMode? mode = null)
+		{
+			_control.ColorRole = role;
+			_control.ColorRoleMode = mode;
+			return this;
+		}
+
+		/// <summary>Uses the role's outline treatment.</summary>
+		public ChartBuilder Outline()
+		{
+			_control.Outline = true;
+			return this;
+		}
+
+		/// <summary>Configures the horizontal axis.</summary>
+		/// <param name="configure">Receives the axis.</param>
+		public ChartBuilder ConfigureXAxis(Action<ChartAxis> configure)
+		{
+			ArgumentNullException.ThrowIfNull(configure);
+			configure(_control.XAxis);
+			return this;
+		}
+
+		/// <summary>Configures the vertical axis.</summary>
+		/// <param name="configure">Receives the axis.</param>
+		public ChartBuilder ConfigureYAxis(Action<ChartAxis> configure)
+		{
+			ArgumentNullException.ThrowIfNull(configure);
+			configure(_control.YAxis);
+			return this;
+		}
+
+		/// <summary>Configures the second vertical axis, labelled on the right.</summary>
+		/// <param name="configure">Receives the axis.</param>
+		public ChartBuilder ConfigureSecondaryYAxis(Action<ChartAxis> configure)
+		{
+			ArgumentNullException.ThrowIfNull(configure);
+			configure(_control.SecondaryYAxis);
+			return this;
+		}
+
+		/// <summary>Configures the scale for the lower half of a split plot.</summary>
+		/// <param name="configure">Receives the axis.</param>
+		public ChartBuilder ConfigureLowerAxis(Action<ChartAxis> configure)
+		{
+			ArgumentNullException.ThrowIfNull(configure);
+			configure(_control.LowerAxis);
 			return this;
 		}
 
@@ -248,13 +360,18 @@ namespace SharpConsoleUI.Builders
 		/// <param name="gradient">An optional gradient, replacing the flat colour.</param>
 		/// <param name="gradientAxis">Which way the gradient runs.</param>
 		/// <param name="plotType">A plot type for this series alone.</param>
+		/// <param name="useSecondaryAxis">Measures the series against the second scale.</param>
+		/// <param name="thresholds">Values past which the series changes colour.</param>
 		public ChartBuilder AddSeries(string name, Color color,
 			IEnumerable<double>? values = null,
 			ColorGradient? gradient = null,
 			ChartGradientAxis gradientAxis = ChartGradientAxis.X,
-			ChartPlotType? plotType = null)
+			ChartPlotType? plotType = null,
+			bool useSecondaryAxis = false,
+			ChartThreshold[]? thresholds = null)
 		{
-			_pending.Add((name, color, values, gradient, gradientAxis, plotType));
+			_pending.Add((name, color, values, gradient, gradientAxis, plotType,
+				useSecondaryAxis, thresholds));
 			return this;
 		}
 
@@ -262,12 +379,14 @@ namespace SharpConsoleUI.Builders
 		/// <returns>The configured control.</returns>
 		public ChartControl Build()
 		{
-			foreach (var (name, color, values, gradient, axis, plotType) in _pending)
+			foreach (var (name, color, values, gradient, axis, plotType, secondary, thresholds) in _pending)
 			{
 				var series = _control.AddSeries(name, color);
 				series.Gradient = gradient;
 				series.GradientAxis = axis;
 				series.PlotType = plotType;
+				series.UseSecondaryAxis = secondary;
+				if (thresholds != null) series.SetThresholds(thresholds);
 				if (values != null) series.SetValues(values);
 			}
 

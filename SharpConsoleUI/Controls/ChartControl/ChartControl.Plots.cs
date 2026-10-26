@@ -152,6 +152,15 @@ namespace SharpConsoleUI.Controls
 		/// Into the pixel surface rather than as cell text, so the data drawn after
 		/// simply overwrites the pixels it covers and no cell has to carry both.
 		/// </remarks>
+		/// <summary>Whether a pixel at <paramref name="i"/> along a gridline is inked.</summary>
+		/// <remarks>
+		/// A gridline is context, not content, so it is dashed rather than solid -
+		/// the pixel path's answer to the dotted character the glyph path uses.
+		/// </remarks>
+		private static bool IsDash(int i) =>
+			i % (ControlDefaults.ChartGridlineDashRun + ControlDefaults.ChartGridlineDashGap)
+				< ControlDefaults.ChartGridlineDashRun;
+
 		private void DrawGridlines(PixelSurface surface,
 			double xMin, double xMax, double yMin, double yMax,
 			IReadOnlyList<ChartTick> yTicks, IReadOnlyList<ChartTick> xTicks)
@@ -166,7 +175,8 @@ namespace SharpConsoleUI.Controls
 				foreach (var tick in yTicks)
 				{
 					int py = PixelY(tick.Value, yMin, yMax, ph);
-					for (int px = 0; px < pw; px++) surface.Set(px, py, grid);
+					for (int px = 0; px < pw; px++)
+						if (IsDash(px)) surface.Set(px, py, grid);
 				}
 			}
 
@@ -175,7 +185,8 @@ namespace SharpConsoleUI.Controls
 				foreach (var tick in xTicks)
 				{
 					int px = PixelX(tick.Value, xMin, xMax, pw);
-					for (int py = 0; py < ph; py++) surface.Set(px, py, grid);
+					for (int py = 0; py < ph; py++)
+						if (IsDash(py)) surface.Set(px, py, grid);
 				}
 			}
 		}
