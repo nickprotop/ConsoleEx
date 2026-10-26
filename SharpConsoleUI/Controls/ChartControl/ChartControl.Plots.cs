@@ -44,9 +44,20 @@ namespace SharpConsoleUI.Controls
 			IReadOnlyList<ChartTick> yTicks, IReadOnlyList<ChartTick> xTicks,
 			bool overlay = false)
 		{
+			// A heatmap is a field of colour with no line to trace, so braille's dot
+			// resolution buys it nothing while braille's single foreground per cell
+			// costs it half the picture. It always takes the pixel path, where two
+			// independently coloured half-blocks per cell is strictly what it wants.
+			bool anyGrid;
+			lock (_dataLock)
+			{
+				anyGrid = _series.Any(s => s.IsVisible && s.HasGrid
+					&& (s.PlotType ?? _plotType) == ChartPlotType.Heatmap);
+			}
+
 			// Braille and ascii build glyphs rather than pixels, so they take their
 			// own path entirely - a half-block surface cannot express either.
-			if (_renderMode != ChartRenderMode.Pixel)
+			if (_renderMode != ChartRenderMode.Pixel && !anyGrid)
 			{
 				PaintGlyphPlot(buffer, plot, clipRect, controlBackground, visible,
 					xMin, xMax, yMin, yMax, yTicks, xTicks);
@@ -70,6 +81,10 @@ namespace SharpConsoleUI.Controls
 				// exactly the points it crosses.
 				DrawGridlines(surface, xMin, xMax, yMin, yMax, yTicks, xTicks);
 			}
+
+			// Heatmaps come from the grid, not the points, so they are drawn before
+			// the point loop - which would skip them, a grid series having none.
+			DrawHeatmaps(surface, yMin, yMax);
 
 			// Bars share the horizontal space between them, so each needs to know how
 			// many bar series there are and which one it is.
@@ -157,6 +172,67 @@ namespace SharpConsoleUI.Controls
 		/// A gridline is context, not content, so it is dashed rather than solid -
 		/// the pixel path's answer to the dotted character the glyph path uses.
 		/// </remarks>
+		/// <summary>
+		/// Fills the plot with each heatmap series' grid, coloured by value.
+		/// </summary>
+		/// <remarks>
+		/// The grid is stretched across the whole plot rather than drawn at one
+		/// cell per value: a terminal rarely has exactly as many pixel rows as the
+		/// data has, and a heatmap that only filled part of its frame would read as
+		/// missing data. Each pixel asks which grid cell covers it, so the picture
+		/// is right at any size.
+		/// <para>
+		/// Holes - cells no value was given for - are left as the plot background,
+		/// because a missing measurement is not a measurement of zero.
+		/// </para>
+		/// </remarks>
+		private void DrawHeatmaps(PixelSurface surface, double yMin, double yMax)
+		{
+			int pw = surface.Width, ph = surface.Height;
+			if (pw <= 0 || ph <= 0) return;
+
+			List<ChartSeries> grids;
+			lock (_dataLock)
+			{
+				grids = _series
+					.Where(s => s.IsVisible && s.HasGrid
+						&& (s.PlotType ?? _plotType) == ChartPlotType.Heatmap)
+					.ToList();
+			}
+			if (grids.Count == 0) return;
+
+			double span = yMax - yMin;
+			if (span <= 0) span = 1;
+
+			foreach (var series in grids)
+			{
+				int cols = series.GridWidth, rows = series.GridHeight;
+				if (cols <= 0 || rows <= 0) continue;
+
+				for (int py = 0; py < ph; py++)
+				{
+					// Top row of the grid paints at the top of the plot, which is how
+					// a grid is written down and so how a reader expects to see it.
+					int gy = Math.Min(rows - 1, py * rows / ph);
+
+					for (int px = 0; px < pw; px++)
+					{
+						int gx = Math.Min(cols - 1, px * cols / pw);
+
+						double? value = series.GridValue(gx, gy);
+						if (value == null) continue;
+
+						double t = Math.Clamp((value.Value - yMin) / span, 0, 1);
+						Color at = series.Gradient != null
+							? series.Gradient.Interpolate(t)
+							: PixelSurface.Lerp(Color.Black, series.Color, t);
+
+						surface.Set(px, py, at);
+					}
+				}
+			}
+		}
+
 		private static bool IsDash(int i) =>
 			i % (ControlDefaults.ChartGridlineDashRun + ControlDefaults.ChartGridlineDashGap)
 				< ControlDefaults.ChartGridlineDashRun;

@@ -29,6 +29,17 @@ namespace SharpConsoleUI.Controls
 		Scatter,
 
 		/// <summary>
+		/// A grid of cells, each coloured by its value.
+		/// </summary>
+		/// <remarks>
+		/// The only plot type that answers "what is the value at X,Y" rather than
+		/// "what is the value at X". Colour stops being decoration and becomes the
+		/// value channel, so the series needs a <see cref="ChartSeries.Gradient"/>
+		/// and a grid set through <see cref="ChartSeries.SetGrid(double[,])"/>.
+		/// </remarks>
+		Heatmap,
+
+		/// <summary>
 		/// An inline readout: one row per series, the bar's length being the value.
 		/// </summary>
 		/// <remarks>
@@ -229,12 +240,26 @@ namespace SharpConsoleUI.Controls
 		None,
 	}
 
+	/// <summary>How a legend presents what a colour means.</summary>
+	public enum ChartLegendStyle
+	{
+		/// <summary>One swatch and name per series.</summary>
+		Swatches,
+
+		/// <summary>
+		/// A continuous bar of the series gradient, labelled with its ends.
+		/// </summary>
+		/// <remarks>
+		/// For a series whose COLOUR carries the value - a gradient trace, a
+		/// heatmap - where a single swatch would show one colour out of twenty
+		/// and imply the rest do not exist.
+		/// </remarks>
+		ColorBar,
+	}
+
 	/// <summary>One datum: a position and an optional label.</summary>
-	/// <param name="X">
-	/// The horizontal position. For a time axis this is <see cref="DateTime.Ticks"/>;
-	/// for a category axis it is the category's index.
-	/// </param>
-	/// <param name="Y">The value.</param>
+	/// <param name="X">Position along the X axis.</param>
+	/// <param name="Y">The value, measured against the Y axis.</param>
 	/// <param name="Label">A category name or point annotation, if any.</param>
 	public readonly record struct ChartPoint(double X, double Y, string? Label = null);
 
@@ -398,6 +423,80 @@ namespace SharpConsoleUI.Controls
 		{
 			if (IsFinite(point.X) && IsFinite(point.Y)) _points.Add(point);
 		}
+
+		/// <summary>The grid a heatmap draws, or null when this is not one.</summary>
+		/// <remarks>
+		/// Indexed [row, column]. Kept apart from <see cref="Points"/> rather than
+		/// folded into it: a heatmap cell is addressed by integer grid position,
+		/// not a continuous X, and overloading a double to mean a column index is
+		/// the kind of relabelling that bites later. Keeping it separate also means
+		/// the line, area and bar paths never see it.
+		/// </remarks>
+		private double?[,]? _grid;
+
+		/// <summary>Whether this series carries a heatmap grid.</summary>
+		public bool HasGrid => _grid != null;
+
+		/// <summary>Columns in the grid, or zero when there is none.</summary>
+		public int GridWidth => _grid?.GetLength(1) ?? 0;
+
+		/// <summary>Rows in the grid, or zero when there is none.</summary>
+		public int GridHeight => _grid?.GetLength(0) ?? 0;
+
+		/// <summary>
+		/// The value at a grid position, or null where the grid has no value.
+		/// </summary>
+		/// <param name="x">Column, from the left.</param>
+		/// <param name="y">Row, from the top.</param>
+		public double? GridValue(int x, int y)
+		{
+			if (_grid == null) return null;
+			if ((uint)y >= (uint)_grid.GetLength(0)) return null;
+			if ((uint)x >= (uint)_grid.GetLength(1)) return null;
+			return _grid[y, x];
+		}
+
+		/// <summary>Replaces the grid with a dense block of values.</summary>
+		/// <param name="values">Indexed [row, column]. Non-finite values become holes.</param>
+		public void SetGrid(double[,] values)
+		{
+			ArgumentNullException.ThrowIfNull(values);
+
+			int rows = values.GetLength(0), cols = values.GetLength(1);
+			var grid = new double?[rows, cols];
+			for (int y = 0; y < rows; y++)
+				for (int x = 0; x < cols; x++)
+					if (IsFinite(values[y, x])) grid[y, x] = values[y, x];
+
+			_grid = grid;
+		}
+
+		/// <summary>
+		/// Replaces the grid from scattered cells, sized to the largest given.
+		/// </summary>
+		/// <param name="cells">Column, row and value. Non-finite values are dropped.</param>
+		/// <remarks>
+		/// Cells nobody mentions stay holes rather than reading as zero, because a
+		/// missing measurement and a measurement of zero are different facts.
+		/// </remarks>
+		public void SetGrid(IEnumerable<(int X, int Y, double Value)> cells)
+		{
+			ArgumentNullException.ThrowIfNull(cells);
+
+			var kept = cells.Where(c => IsFinite(c.Value) && c.X >= 0 && c.Y >= 0).ToList();
+			if (kept.Count == 0) { _grid = null; return; }
+
+			int cols = kept.Max(c => c.X) + 1;
+			int rows = kept.Max(c => c.Y) + 1;
+
+			var grid = new double?[rows, cols];
+			foreach (var (x, y, value) in kept) grid[y, x] = value;
+
+			_grid = grid;
+		}
+
+		/// <summary>Removes the grid.</summary>
+		public void ClearGrid() => _grid = null;
 
 		/// <summary>Removes every point.</summary>
 		public void Clear() => _points.Clear();

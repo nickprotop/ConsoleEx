@@ -63,6 +63,12 @@ namespace SharpConsoleUI.Controls
 			lock (_dataLock) { series = new List<ChartSeries>(_series); }
 			if (series.Count == 0) return;
 
+			if (_legendStyle == ChartLegendStyle.ColorBar)
+			{
+				PaintColorBar(buffer, plot, clipRect, fg, bg, series);
+				return;
+			}
+
 			int row = _legendPosition == ChartLegendPosition.Top
 				? plot.Y - 1
 				: plot.Y + plot.Height + (XAxis.ShowLabels ? 1 : 0);
@@ -93,6 +99,66 @@ namespace SharpConsoleUI.Controls
 				_legendRegions.Add((s, new LayoutRect(x, row, entryWidth, 1)));
 				x += entryWidth;
 			}
+		}
+
+		/// <summary>
+		/// Draws the scale a gradient series is coloured by, labelled with its ends.
+		/// </summary>
+		/// <remarks>
+		/// The bar is sampled across its own width, so it shows the gradient as a
+		/// continuum rather than as the handful of stops it was built from. The end
+		/// labels are what make it readable: without them a reader sees that the
+		/// colour means something but cannot say what.
+		/// <para>
+		/// Falls back to swatches when no visible series carries a gradient, since
+		/// a scale for a single flat colour would say less than a swatch does.
+		/// </para>
+		/// </remarks>
+		private void PaintColorBar(CharacterBuffer buffer,
+			(int X, int Y, int Width, int Height) plot, LayoutRect clipRect,
+			Color fg, Color bg, List<ChartSeries> series)
+		{
+			var scale = series.FirstOrDefault(s => s.IsVisible && s.Gradient != null);
+			if (scale?.Gradient == null) return;
+
+			int row = _legendPosition == ChartLegendPosition.Top
+				? plot.Y - 1
+				: plot.Y + plot.Height + (XAxis.ShowLabels ? 1 : 0);
+
+			if (row < clipRect.Y || row >= clipRect.Bottom) return;
+
+			// The scale spans the axis the colour is measured against, which is the
+			// whole point: the same colour means the same value on every chart that
+			// shares it.
+			double min = YAxis.Min ?? 0;
+			double max = YAxis.Max ?? 1;
+
+			string lowLabel = YAxis.FormatValue(min);
+			string highLabel = YAxis.FormatValue(max);
+
+			int lowWidth = UnicodeWidth.GetStringWidth(lowLabel);
+			int highWidth = UnicodeWidth.GetStringWidth(highLabel);
+
+			int right = Math.Min(plot.X + plot.Width, clipRect.Right);
+			int barLeft = plot.X + lowWidth + 1;
+			int barWidth = right - barLeft - highWidth - 1;
+			if (barWidth < ControlDefaults.ChartColorBarMinWidth) return;
+
+			var lowCells = Parsing.MarkupParser.Parse(lowLabel, fg, bg);
+			buffer.WriteCellsClipped(plot.X, row, lowCells, clipRect);
+
+			for (int i = 0; i < barWidth; i++)
+			{
+				double t = barWidth == 1 ? 0 : (double)i / (barWidth - 1);
+				Color at = scale.Gradient.Interpolate(t);
+				buffer.SetNarrowCell(barLeft + i, row,
+					ControlDefaults.ChartColorBarChar, at, at);
+			}
+
+			var highCells = Parsing.MarkupParser.Parse(highLabel, fg, bg);
+			buffer.WriteCellsClipped(barLeft + barWidth + 1, row, highCells, clipRect);
+
+			_legendRegions.Add((scale, new LayoutRect(plot.X, row, right - plot.X, 1)));
 		}
 	}
 }

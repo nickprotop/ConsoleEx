@@ -63,18 +63,18 @@ namespace SharpConsoleUI.Controls
 			return rows;
 		}
 
-		/// <summary>Centres the empty-state message in the control.</summary>
-		private void PaintEmptyMessage(CharacterBuffer buffer, LayoutRect bounds,
-			LayoutRect clipRect, Color bg)
+		/// <summary>Centres a stand-in message in the control.</summary>
+		private void PaintMessage(CharacterBuffer buffer, LayoutRect bounds,
+			LayoutRect clipRect, Color bg, string message, Color colour)
 		{
-			if (string.IsNullOrEmpty(_emptyText)) return;
+			if (string.IsNullOrEmpty(message)) return;
 
-			int width = MarkupParser.StripLength(_emptyText);
+			int width = MarkupParser.StripLength(message);
 			int x = bounds.X + Math.Max(0, (bounds.Width - width) / 2);
 			int y = bounds.Y + bounds.Height / 2;
 			if (y < clipRect.Y || y >= clipRect.Bottom) return;
 
-			var cells = MarkupParser.Parse(_emptyText, ControlDefaults.ChartEmptyTextColor, bg);
+			var cells = MarkupParser.Parse(message, colour, bg);
 			buffer.WriteCellsClipped(x, y, cells, clipRect);
 		}
 
@@ -161,7 +161,22 @@ namespace SharpConsoleUI.Controls
 			Color fg = _foregroundColorValue ?? defaultForeground;
 
 			var snapshot = SnapshotSeries();
-			var visible = snapshot.Where(s => s.Series.IsVisible && s.Points.Count > 0).ToList();
+			// A heatmap series carries a grid instead of points, so "has data" cannot
+			// mean "has points" or every heatmap would read as an empty chart.
+			var visible = snapshot
+				.Where(s => s.Series.IsVisible && (s.Points.Count > 0 || s.Series.HasGrid))
+				.ToList();
+
+			// A failure outranks the data as well as the emptiness: a stale trace
+			// under an error banner invites reading the stale trace as current.
+			if (!string.IsNullOrEmpty(_errorText))
+			{
+				PaintBorder(buffer, bounds, clipRect, fg, bg);
+				PaintTitle(buffer, bounds, clipRect, fg, bg);
+				PaintMessage(buffer, bounds, clipRect, bg,
+					_errorText, ControlDefaults.ChartErrorTextColor);
+				return;
+			}
 
 			// Nothing to plot, by any route: no series, none with points, or every
 			// one toggled off. All three look the same, so all three read the same.
@@ -169,7 +184,8 @@ namespace SharpConsoleUI.Controls
 			{
 				PaintBorder(buffer, bounds, clipRect, fg, bg);
 				PaintTitle(buffer, bounds, clipRect, fg, bg);
-				PaintEmptyMessage(buffer, bounds, clipRect, bg);
+				PaintMessage(buffer, bounds, clipRect, bg,
+					_emptyText, ControlDefaults.ChartEmptyTextColor);
 				return;
 			}
 
@@ -377,7 +393,7 @@ namespace SharpConsoleUI.Controls
 			xMin = double.MaxValue; xMax = double.MinValue;
 			yMin = double.MaxValue; yMax = double.MinValue;
 
-			foreach (var (_, points) in visible)
+			foreach (var (series, points) in visible)
 			{
 				foreach (var p in points)
 				{
@@ -385,6 +401,15 @@ namespace SharpConsoleUI.Controls
 					if (p.X > xMax) xMax = p.X;
 					if (p.Y < yMin) yMin = p.Y;
 					if (p.Y > yMax) yMax = p.Y;
+				}
+
+				// A grid has no points, so its extent comes from its shape. Without
+				// this a heatmap's axis reads 0 to 1 - the empty-data fallback -
+				// and the labels say nothing about the columns underneath them.
+				if (series.HasGrid)
+				{
+					if (0 < xMin) xMin = 0;
+					if (series.GridWidth - 1 > xMax) xMax = series.GridWidth - 1;
 				}
 			}
 

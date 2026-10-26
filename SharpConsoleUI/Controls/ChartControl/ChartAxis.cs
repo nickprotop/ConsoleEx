@@ -85,6 +85,23 @@ namespace SharpConsoleUI.Controls
 		/// <summary>An upper bound on tick count; null fits as many as the space allows.</summary>
 		public int? MaxTicks { get; set; }
 
+		/// <summary>
+		/// The fewest ticks to place, even where the axis is too short for them.
+		/// </summary>
+		/// <remarks>
+		/// Density is one tick per <see cref="ControlDefaults.ChartMinCellsPerTick"/>
+		/// cells, which on a short Y axis leaves room for none, so the axis shows
+		/// only its two ends. <see cref="MaxTicks"/> cannot help - it is applied
+		/// with Math.Min and only ever lowers the count - so this is how a caller
+		/// asks for a denser axis than the height suggests.
+		/// <para>
+		/// Clamped by what the axis can actually show: a tick per row is
+		/// unreadable, so the request never exceeds the available extent. Null,
+		/// the default, leaves density exactly as it was.
+		/// </para>
+		/// </remarks>
+		public int? MinTicks { get; set; }
+
 		/// <summary>The categories, empty unless this is a category axis.</summary>
 		public IReadOnlyList<string> Categories => _categories;
 
@@ -179,6 +196,12 @@ namespace SharpConsoleUI.Controls
 			}
 
 			int room = Math.Max(1, availableExtent / ControlDefaults.ChartMinCellsPerTick);
+
+			// MinTicks raises the floor, but never past what the axis can show: a
+			// tick every row is noise, not detail.
+			if (MinTicks.HasValue)
+				room = Math.Max(room, Math.Min(MinTicks.Value, availableExtent));
+
 			int wanted = MaxTicks.HasValue ? Math.Min(MaxTicks.Value, room) : room;
 			if (wanted <= 0) return ticks;
 
@@ -186,7 +209,8 @@ namespace SharpConsoleUI.Controls
 			// short plot reads "0" and says nothing about the scale. The two ENDS
 			// are what an axis is for, so a cramped one shows those instead of one
 			// arbitrary interior value.
-			if (wanted < 2 && availableExtent >= ControlDefaults.ChartMinCellsPerEndTick)
+			if (wanted < 2 && !MinTicks.HasValue
+				&& availableExtent >= ControlDefaults.ChartMinCellsPerEndTick)
 			{
 				ticks.Add(new ChartTick(min, FormatValue(min)));
 				ticks.Add(new ChartTick(max, FormatValue(max)));

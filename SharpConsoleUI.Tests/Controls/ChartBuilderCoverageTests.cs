@@ -194,6 +194,7 @@ namespace SharpConsoleUI.Tests.Controls
 				.WithReferenceLine(80, Color.Red, "limit")
 				.WithHighLowLabels()
 				.WithEmptyText("no data")
+				.WithErrorText(null)
 				.WithColorRole(ColorRole.Success)
 				.Outline()
 				.Interactive()
@@ -217,6 +218,56 @@ namespace SharpConsoleUI.Tests.Controls
 			Assert.Equal(50, chart.LowerAxis.Max);
 			Assert.Equal(2, chart.Series.Count);
 			Assert.True(chart.Series[1].UseSecondaryAxis);
+		}
+
+		[Fact]
+		public void AHeatmapIsFullyBuildable()
+		{
+			// The grid, its scale and the legend that reads it back, all through
+			// the builder - a heatmap configured half in the builder and half by
+			// hand would mean the fluent API does not actually reach the feature.
+			var chart = new ChartBuilder()
+				.WithTitle("Latency")
+				.WithPlotHeight(8)
+				.WithYRange(0, 100)
+				.WithColorBarLegend()
+				.AddHeatmap("grid", new double[,] { { 1, 2 }, { 3, 4 } },
+					ColorGradient.Predefined["spectrum"])
+				.Build();
+
+			Assert.Equal(ChartPlotType.Heatmap, chart.PlotType);
+			Assert.Equal(ChartLegendStyle.ColorBar, chart.LegendStyle);
+			Assert.True(chart.ShowLegend);
+			Assert.Single(chart.Series);
+			Assert.True(chart.Series[0].HasGrid);
+			Assert.Equal(2, chart.Series[0].GridWidth);
+			Assert.Equal(2, chart.Series[0].GridHeight);
+		}
+
+		[Fact]
+		public void ASparseHeatmapIsFullyBuildable()
+		{
+			var chart = new ChartBuilder()
+				.AddHeatmap("sparse", new[] { (0, 0, 5d), (3, 2, 9d) },
+					ColorGradient.Predefined["warm"])
+				.Build();
+
+			Assert.True(chart.Series[0].HasGrid);
+			Assert.Equal(4, chart.Series[0].GridWidth);
+			Assert.Equal(3, chart.Series[0].GridHeight);
+			Assert.Null(chart.Series[0].GridValue(1, 1));
+		}
+
+		[Fact]
+		public void AnErrorStateIsReachableFromTheBuilder()
+		{
+			var chart = new ChartBuilder()
+				.WithEmptyText("waiting")
+				.WithErrorText("collector offline")
+				.Build();
+
+			Assert.Equal("collector offline", chart.ErrorText);
+			Assert.Equal("waiting", chart.EmptyText);
 		}
 
 		[Fact]

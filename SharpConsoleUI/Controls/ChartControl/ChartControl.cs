@@ -67,6 +67,8 @@ namespace SharpConsoleUI.Controls
 		private bool _stacked;
 		private bool _resampleToWidth;
 		private string? _emptyText;
+		private string? _errorText;
+		private ChartLegendStyle _legendStyle = ChartLegendStyle.Swatches;
 		private ChartSizing _sizing = ChartSizing.Stretch;
 		private ChartOrientation _orientation = ChartOrientation.Vertical;
 		private bool _showGaugeLabel = true;
@@ -425,6 +427,48 @@ namespace SharpConsoleUI.Controls
 				OnPropertyChanged();
 				Invalidate(Invalidation.Repaint);
 			}
+		}
+
+		/// <summary>
+		/// A message shown instead of the plot when the chart's source has failed.
+		/// </summary>
+		/// <remarks>
+		/// Distinct from <see cref="EmptyText"/>, which says the chart is working
+		/// and waiting. A feed that has died looks identical to one that has not
+		/// started, so a monitor shows "no samples yet" forever and nobody learns
+		/// the collector crashed.
+		/// <para>
+		/// This outranks both the empty state and the data: a stale trace under an
+		/// error banner invites reading the stale trace as current, so the error
+		/// replaces the plot rather than decorating it. Set it to null to clear.
+		/// </para>
+		/// </remarks>
+		public string? ErrorText
+		{
+			get => _errorText;
+			set
+			{
+				if (_errorText == value) return;
+				_errorText = value;
+				OnPropertyChanged();
+				Invalidate(Invalidation.Repaint);
+			}
+		}
+
+		/// <summary>
+		/// Whether the legend lists swatches or shows a colour scale.
+		/// </summary>
+		/// <remarks>
+		/// Swatches by default, which is right when each series is one colour.
+		/// A gradient series spans many, so a swatch picks one and implies the
+		/// rest do not exist - <see cref="ChartLegendStyle.ColorBar"/> shows the
+		/// scale itself, labelled with its ends so a colour can be read back as
+		/// a number.
+		/// </remarks>
+		public ChartLegendStyle LegendStyle
+		{
+			get => _legendStyle;
+			set => SetProperty(ref _legendStyle, value);
 		}
 
 		/// <summary>

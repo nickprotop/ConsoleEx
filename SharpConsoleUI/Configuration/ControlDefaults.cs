@@ -1411,6 +1411,19 @@ namespace SharpConsoleUI.Configuration
 		/// <summary>Colour of the message shown when a chart has nothing to plot.</summary>
 		public static readonly Color ChartEmptyTextColor = Color.Grey54;
 
+		/// <summary>Colour of the message shown when a chart reports a failure.</summary>
+		/// <remarks>
+		/// Deliberately not the empty-state grey: "waiting" and "broken" must be
+		/// distinguishable at a glance, or a dead feed reads as a quiet one.
+		/// </remarks>
+		public static readonly Color ChartErrorTextColor = Color.Red;
+
+		/// <summary>The cell a colour-scale legend fills its bar with.</summary>
+		public const char ChartColorBarChar = ' ';
+
+		/// <summary>Below this width a colour bar shows no usable gradient.</summary>
+		public const int ChartColorBarMinWidth = 4;
+
 		/// <summary>Character the centre axis is drawn with.</summary>
 		public const char ChartCentreAxisChar = '\u2504';
 

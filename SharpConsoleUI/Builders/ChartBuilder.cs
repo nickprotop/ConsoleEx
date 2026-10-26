@@ -340,6 +340,64 @@ namespace SharpConsoleUI.Builders
 			return this;
 		}
 
+		/// <summary>Shows a failure message instead of the plot.</summary>
+		/// <param name="text">What went wrong, or null to clear.</param>
+		public ChartBuilder WithErrorText(string? text)
+		{
+			_control.ErrorText = text;
+			return this;
+		}
+
+		/// <summary>Shows the legend as a colour scale rather than swatches.</summary>
+		/// <remarks>
+		/// For a series whose colour carries the value: a swatch would show one
+		/// colour out of a whole gradient. Turns the legend on as well, since a
+		/// scale nobody can see says nothing.
+		/// </remarks>
+		public ChartBuilder WithColorBarLegend(
+			ChartLegendPosition position = ChartLegendPosition.Bottom)
+		{
+			_control.ShowLegend = true;
+			_control.LegendPosition = position;
+			_control.LegendStyle = ChartLegendStyle.ColorBar;
+			return this;
+		}
+
+		/// <summary>Draws a grid of values, each cell coloured by its own.</summary>
+		/// <param name="name">Series name, for the legend and readouts.</param>
+		/// <param name="values">Indexed [row, column]; non-finite values become holes.</param>
+		/// <param name="gradient">The scale the values are coloured by.</param>
+		public ChartBuilder AddHeatmap(string name, double[,] values, ColorGradient gradient)
+		{
+			ArgumentNullException.ThrowIfNull(values);
+			ArgumentNullException.ThrowIfNull(gradient);
+
+			_control.PlotType = ChartPlotType.Heatmap;
+
+			var series = _control.AddSeries(name, Color.White);
+			series.Gradient = gradient;
+			series.SetGrid(values);
+			return this;
+		}
+
+		/// <summary>Draws a grid from scattered cells, sized to the largest given.</summary>
+		/// <param name="name">Series name, for the legend and readouts.</param>
+		/// <param name="cells">Column, row and value.</param>
+		/// <param name="gradient">The scale the values are coloured by.</param>
+		public ChartBuilder AddHeatmap(string name,
+			IEnumerable<(int X, int Y, double Value)> cells, ColorGradient gradient)
+		{
+			ArgumentNullException.ThrowIfNull(cells);
+			ArgumentNullException.ThrowIfNull(gradient);
+
+			_control.PlotType = ChartPlotType.Heatmap;
+
+			var series = _control.AddSeries(name, Color.White);
+			series.Gradient = gradient;
+			series.SetGrid(cells);
+			return this;
+		}
+
 		/// <summary>Turns on hover, selection and zoom together.</summary>
 		/// <remarks>
 		/// Each is also settable on its own; this is the common case of wanting a
