@@ -1315,5 +1315,27 @@ namespace SharpConsoleUI.Configuration
 		public const string DefaultTreeIndent = "  ";
 
 		#endregion
+
+		/// <summary>Minimum cells between chart axis ticks, so labels do not collide.</summary>
+		public const int ChartMinCellsPerTick = 8;
+
+		/// <summary>Tolerance when walking to the end of a tick run, as a fraction of the step.</summary>
+		public const double ChartTickEpsilon = 0.001;
+
+		/// <summary>Default numeric axis label format.</summary>
+		public const string ChartDefaultNumberFormat = "0.##";
+
+		/// <summary>Default time axis label format.</summary>
+		public const string ChartDefaultTimeFormat = "HH:mm";
+
+		/// <summary>Default plot height when the chart is not filling its container.</summary>
+		public const int ChartDefaultPlotHeight = 12;
+
+		/// <summary>Smallest plot height that can still show anything.</summary>
+		public const int ChartMinPlotHeight = 1;
+
+		/// <summary>Cells between an axis label and the plot edge.</summary>
+		public const int ChartAxisLabelPadding = 1;
+
 	}
 }
