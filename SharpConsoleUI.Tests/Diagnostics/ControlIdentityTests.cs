@@ -142,6 +142,112 @@ namespace SharpConsoleUI.Tests.ControlIdentity
 		}
 
 		[Fact]
+		public void FindingAControlAcceptsAnIdAsWellAsAName()
+		{
+			// What a debugger does: read an id from `tree`, hand it back to another
+			// verb. An unnamed control has no other handle, so without this the
+			// headline feature works only for controls the app happened to name.
+			var (_, window) = Build();
+
+			var unnamed = new ButtonControl { Text = "unnamed" };
+			window.AddControl(unnamed);
+			window.RenderAndGetVisibleContent();
+
+			string id = DiagnosticsSerializer.ControlId(unnamed);
+
+			Assert.Same(unnamed, DiagnosticsServer.FindControlForTest(window, id));
+		}
+
+		[Fact]
+		public void FindingAControlStillAcceptsAName()
+		{
+			var (_, window) = Build();
+
+			var named = new ButtonControl { Name = "ok", Text = "OK" };
+			window.AddControl(named);
+			window.RenderAndGetVisibleContent();
+
+			Assert.Same(named, DiagnosticsServer.FindControlForTest(window, "ok"));
+		}
+
+		[Fact]
+		public void AStaleIdMatchesNothingRatherThanThrowing()
+		{
+			// An instance id dies with its control. A debugger holding a selection
+			// across a removal must get "gone", not an exception and not whatever
+			// moved into the slot.
+			var (_, window) = Build();
+
+			var doomed = new ButtonControl { Text = "doomed" };
+			window.AddControl(doomed);
+			window.RenderAndGetVisibleContent();
+
+			string id = DiagnosticsSerializer.ControlId(doomed);
+			window.RemoveContent(doomed);
+			window.RenderAndGetVisibleContent();
+
+			Assert.Null(DiagnosticsServer.FindControlForTest(window, id));
+		}
+
+		[Fact]
+		public void CollidingNamesResolveToTheFirstMatchConsistently()
+		{
+			// Names are not enforced unique. Two controls sharing one must resolve
+			// predictably rather than depending on tree order from call to call.
+			var (_, window) = Build();
+
+			var a = new ButtonControl { Name = "dup", Text = "A" };
+			var b = new ButtonControl { Name = "dup", Text = "B" };
+			window.AddControl(a);
+			window.AddControl(b);
+			window.RenderAndGetVisibleContent();
+
+			var first = DiagnosticsServer.FindControlForTest(window, "dup");
+
+			Assert.NotNull(first);
+			Assert.Same(first, DiagnosticsServer.FindControlForTest(window, "dup"));
+		}
+
+		[Fact]
+		public void MeasureAcceptsAnIdForAnUnnamedControl()
+		{
+			// The call a debugger makes when you select a node: the id from `tree`,
+			// handed to `measure`. The measure trace stores "Name ?? TypeName", so
+			// an unnamed control is recorded as its bare type and no id matches it
+			// unless the server resolves one against the live tree first.
+			var (system, window) = Build();
+
+			var unnamed = new MarkupControl(new List<string> { "inside" });
+			window.AddControl(unnamed);
+			window.RenderAndGetVisibleContent();
+
+			string id = DiagnosticsSerializer.ControlId(unnamed);
+
+			Assert.Equal("MarkupControl",
+				DiagnosticsServer.ResolveMeasureKeyForTest(window, id));
+
+
+			// The wiring - that Measure actually CALLS this - cannot be covered
+			// here: Measure marshals onto the UI thread and a test system has no
+			// render loop to marshal onto, so it times out after 5s. Task 5 drives
+			// it against a running app over the real socket, which is where that
+			// assertion belongs.
+		}
+
+		[Fact]
+		public void MeasureStillAcceptsAPlainName()
+		{
+			var (_, window) = Build();
+
+			var named = new MarkupControl(new List<string> { "x" }) { Name = "label" };
+			window.AddControl(named);
+			window.RenderAndGetVisibleContent();
+
+			Assert.Equal("label",
+				DiagnosticsServer.ResolveMeasureKeyForTest(window, "label"));
+		}
+
+		[Fact]
 		public void EveryControlInTheTreeCarriesAnId()
 		{
 			var (_, window) = Build();

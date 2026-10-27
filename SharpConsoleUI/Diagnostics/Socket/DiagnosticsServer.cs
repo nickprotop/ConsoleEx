@@ -367,6 +367,10 @@ internal sealed class DiagnosticsServer : IDisposable
 		if (window == null)
 			return new JsonObject { ["window"] = null, ["controls"] = new JsonArray() };
 
+		// A caller hands back whatever `tree` gave it, which for an unnamed
+		// control is an id the trace has never heard of.
+		if (only != null) only = ResolveMeasureKey(window, only);
+
 		// One traced frame: tracing is scoped rather than left on, because measure
 		// runs for every node on every relayout.
 		//
@@ -1244,6 +1248,20 @@ internal sealed class DiagnosticsServer : IDisposable
 		return null;
 	}
 
+	/// <summary>
+	/// Finds a control by the identifier a caller holds: its name, or the id
+	/// <c>tree</c> reported for it.
+	/// </summary>
+	/// <remarks>
+	/// A debugger reads an id from <c>tree</c> and hands it back here. An unnamed
+	/// control has no other handle, so matching names alone would make selection
+	/// work only for controls the app happened to name.
+	/// <para>
+	/// First match wins. Names are not enforced unique, and two controls sharing
+	/// one resolve to whichever the walk reaches first - consistently, since the
+	/// walk is deterministic, but arbitrarily. An id never collides.
+	/// </para>
+	/// </remarks>
 	private static IWindowControl? FindByName(Window window, string name)
 	{
 		foreach (var c in window.GetControls())
@@ -1254,9 +1272,47 @@ internal sealed class DiagnosticsServer : IDisposable
 		return null;
 	}
 
+	/// <summary>
+	/// Turns the identifier a caller holds into the key the measure trace stores.
+	/// </summary>
+	/// <param name="window">The window to resolve against.</param>
+	/// <param name="nameOrId">A control's name, or the id <c>tree</c> reported.</param>
+	/// <returns>
+	/// What <c>MeasureEntry.Control</c> would hold for that control, or
+	/// <paramref name="nameOrId"/> unchanged when nothing matches - so an
+	/// unknown value filters to nothing rather than silently widening.
+	/// </returns>
+	/// <remarks>
+	/// The trace records <c>Name ?? TypeName</c>, set in <c>LayoutNode</c>, which
+	/// is not the id. Resolving here rather than changing what the trace stores
+	/// keeps the wire format out of the layout engine, and keeps the existing
+	/// measure tests - which match on the bare name - meaning what they meant.
+	/// </remarks>
+	private static string ResolveMeasureKey(Window window, string nameOrId)
+	{
+		var control = FindByName(window, nameOrId);
+		return control == null
+			? nameOrId
+			: control.Name ?? control.GetType().Name;
+	}
+
+	/// <summary>Exposes <see cref="ResolveMeasureKey"/> for tests.</summary>
+	internal static string ResolveMeasureKeyForTest(Window window, string nameOrId)
+		=> ResolveMeasureKey(window, nameOrId);
+
+
+	/// <summary>Exposes <see cref="FindByName"/> for tests.</summary>
+	internal static IWindowControl? FindControlForTest(Window window, string nameOrId)
+		=> FindByName(window, nameOrId);
+
 	private static IWindowControl? Search(IWindowControl control, string name)
 	{
 		if (string.Equals(control.Name, name, StringComparison.Ordinal)) return control;
+
+		// The id tree reported, so a caller can hand back what it was given
+		// rather than needing the control to have been named.
+		if (string.Equals(DiagnosticsSerializer.ControlId(control), name, StringComparison.Ordinal))
+			return control;
 
 		if (control is IControlHost host)
 		{
