@@ -209,6 +209,67 @@ namespace SharpConsoleUI.Input
 		/// </summary>
 		private void HandleMouseEvent(object sender, List<MouseFlags> rawFlags, Point point)
 		{
+			HandleMouseEventCore(sender, rawFlags, point);
+		}
+
+		/// <summary>One dispatched input event, as the controls saw it.</summary>
+		/// <param name="Flags">The flags after the recognizer added its gestures.</param>
+		/// <param name="X">Screen column.</param>
+		/// <param name="Y">Screen row.</param>
+		public readonly record struct TapeEntry(string Flags, int X, int Y);
+
+		/// <summary>How many events the tape keeps before dropping the oldest.</summary>
+		/// <remarks>
+		/// Motion arrives continuously, so an unbounded tape is a leak in any app
+		/// the pointer moves across. The recent events are what a reader wants.
+		/// </remarks>
+		private const int TapeLimit = 256;
+
+		private readonly Queue<TapeEntry> _tape = new();
+
+		private readonly object _tapeLock = new();
+
+		/// <summary>Whether events are being taped. Set when a system asks for diagnostics.</summary>
+		public bool RecordEvents { get; set; }
+
+		/// <summary>Records a dispatched event, when taping is on.</summary>
+		/// <remarks>
+		/// Recorded as the CONTROLS will see it - after the recognizer has added
+		/// its derived gestures - because that is the sequence a control's
+		/// handler reads, and a tape of what the terminal said would hide the
+		/// thing that actually reaches them.
+		/// </remarks>
+		private void RecordEvent(List<MouseFlags> flags, Point point)
+		{
+			if (!RecordEvents) return;
+
+			lock (_tapeLock)
+			{
+				if (_tape.Count >= TapeLimit) _tape.Dequeue();
+				_tape.Enqueue(new TapeEntry(string.Join("|", flags), point.X, point.Y));
+			}
+		}
+
+		/// <summary>
+		/// Returns the events dispatched since the last call, and clears them.
+		/// </summary>
+		/// <remarks>
+		/// A control that mishandles a gesture and one that never received it
+		/// look identical from outside - nothing happens, or the wrong thing
+		/// happens twice. This is the sequence that actually arrived.
+		/// </remarks>
+		public IReadOnlyList<TapeEntry> ConsumeEventTape()
+		{
+			lock (_tapeLock)
+			{
+				var snapshot = _tape.ToArray();
+				_tape.Clear();
+				return snapshot;
+			}
+		}
+
+		private void HandleMouseEventCore(object sender, List<MouseFlags> rawFlags, Point point)
+		{
 			// Gestures are derived here, once, and ADDED to what the driver said.
 			// A double-click therefore still carries its press, so a control that
 			// wants every press gets every press and one that wants word-select on
@@ -218,6 +279,11 @@ namespace SharpConsoleUI.Input
 			// diagnostics socket does, and so do tests): Recognize only adds flags
 			// that are not already present.
 			var flags = _gestures.Recognize(rawFlags, point);
+
+			// Taped here rather than on the way in: Recognize is stateful, so a
+			// second call to preview the gestures would advance the click run and
+			// change the very thing being reported.
+			RecordEvent(flags, point);
 
 			// Check panel clicks first (both Pressed and Clicked)
 			if (flags.Contains(MouseFlags.Button1Pressed) || flags.Contains(MouseFlags.Button1Clicked))

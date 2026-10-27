@@ -229,6 +229,7 @@ internal sealed class DiagnosticsServer : IDisposable
 			"reachable" => Ok(Reachable()),
 			"measure" => Ok(Measure(req)),
 			"color" => Ok(ColorCascade(req)),
+			"events" => Ok(Events()),
 			"ping" => Ok(new JsonObject { ["pong"] = true }),
 			"commands" => Ok(Commands()),
 
@@ -483,6 +484,56 @@ internal sealed class DiagnosticsServer : IDisposable
 		};
 	}
 
+	/// <summary>
+	/// The input events dispatched since the last call, and cleared by it.
+	/// </summary>
+	/// <remarks>
+	/// A control that mishandles a gesture and one that never received it look
+	/// identical from outside: nothing happens, or the wrong thing happens
+	/// twice. Issue #92 was a double activation from one double click, and
+	/// finding it took a reading of the source because nothing could show the
+	/// events as they arrived.
+	/// <para>
+	/// Recorded after the recognizer has added its derived gestures, so a double
+	/// click appears as the four events a control actually sees.
+	/// </para>
+	/// </remarks>
+	private JsonObject Events()
+	{
+		// An empty tape and a tape that was never running look the same, and the
+		// second is the likelier one: a probe asking an app that was started
+		// without EnableDiagnostics would otherwise read "no input happened".
+		if (!_system.Input.RecordEvents)
+		{
+			return new JsonObject
+			{
+				["recording"] = false,
+				["count"] = 0,
+				["events"] = new JsonArray(),
+				["hint"] = "start the app with EnableDiagnostics to record input",
+			};
+		}
+
+		var events = new JsonArray();
+
+		foreach (var entry in _system.Input.ConsumeEventTape())
+		{
+			events.Add((JsonNode?)new JsonObject
+			{
+				["flags"] = entry.Flags,
+				["x"] = entry.X,
+				["y"] = entry.Y,
+			});
+		}
+
+		return new JsonObject
+		{
+			["recording"] = true,
+			["count"] = events.Count,
+			["events"] = events,
+		};
+	}
+
 	/// <summary>The command names, for an unknown-command reply.</summary>
 	/// <remarks>
 	/// Built through the non-generic <c>ICollection&lt;JsonNode&gt;.Add</c> rather than a
@@ -509,7 +560,8 @@ internal sealed class DiagnosticsServer : IDisposable
 			"invalidations",
 			"reachable",
 			"measure",
-			"color", "ping", "commands",
+			"color",
+			"events", "ping", "commands",
 	};
 
 	#endregion

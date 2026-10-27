@@ -483,6 +483,8 @@ namespace SharpConsoleUI
 			{
 				_renderingDiagnostics = new Diagnostics.RenderingDiagnostics(_options);
 
+				// The input tape, for the same reason: off unless asked for.
+				Input.RecordEvents = true;
 			}
 
 			// NOW initialize driver with 'this' reference (after services and diagnostics exist)
