@@ -224,6 +224,7 @@ internal sealed class DiagnosticsServer : IDisposable
 			"set" => Ok(Set(req)),
 			"frame" => Ok(new JsonObject { ["frame"] = _system.ConsoleDriver.FrameNumber }),
 			"invalidations" => Ok(Invalidations()),
+			"reachable" => Ok(Reachable()),
 			"ping" => Ok(new JsonObject { ["pong"] = true }),
 			"commands" => Ok(Commands()),
 
@@ -297,6 +298,47 @@ internal sealed class DiagnosticsServer : IDisposable
 		return new JsonObject { ["windows"] = windows };
 	}
 
+	/// <summary>
+	/// Every control Tab can reach in the active window, in Tab order.
+	/// </summary>
+	/// <remarks>
+	/// <c>focus</c> says what HAS focus; this says what COULD. A control can sit
+	/// in the layout tree, enabled and focusable, and still never be offered by
+	/// the scope it lives in - which a snapshot cannot show and the tree cannot
+	/// either. Compare this against <c>tree</c> and the controls in one and not
+	/// the other are the unreachable ones.
+	/// </remarks>
+	private JsonObject Reachable()
+	{
+		var window = _system.WindowStateService.ActiveWindow;
+		if (window == null)
+			return new JsonObject { ["window"] = null, ["stops"] = new JsonArray() };
+
+		var stops = new JsonArray();
+
+		// On the UI thread: the walk moves real focus and puts it back, and doing
+		// that underneath a render would be a race with the thing being measured.
+		Marshal(() =>
+		{
+			foreach (var control in window.FocusManager.ReachableControls())
+			{
+				stops.Add((JsonNode?)new JsonObject
+				{
+					["control"] = (control as IWindowControl)?.Name
+						?? control.GetType().Name,
+					["type"] = control.GetType().Name,
+				});
+			}
+		});
+
+		return new JsonObject
+		{
+			["window"] = window.Title,
+			["count"] = stops.Count,
+			["stops"] = stops,
+		};
+	}
+
 	/// <summary>The command names, for an unknown-command reply.</summary>
 	/// <remarks>
 	/// Built through the non-generic <c>ICollection&lt;JsonNode&gt;.Add</c> rather than a
@@ -320,7 +362,8 @@ internal sealed class DiagnosticsServer : IDisposable
 		"snapshot", "image", "tree", "focus", "windows", "metrics", "set",
 		"logs", "key", "mouse", "size", "focusctl", "invoke",
 		"theme", "window", "frame",
-			"invalidations", "ping", "commands",
+			"invalidations",
+			"reachable", "ping", "commands",
 	};
 
 	#endregion

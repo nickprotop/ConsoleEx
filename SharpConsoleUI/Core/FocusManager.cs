@@ -152,6 +152,55 @@ public class FocusManager
 	}
 
 	/// <summary>
+	/// Every control Tab can reach in this window, in the order Tab reaches them.
+	/// </summary>
+	/// <returns>The focus stops, forward order, empty when the window has none.</returns>
+	/// <remarks>
+	/// <para>
+	/// A control can be present in the layout tree, enabled and marked focusable
+	/// and still be unreachable, because the scope it sits in never offers it.
+	/// A snapshot cannot show that and the layout tree cannot either, so it is
+	/// usually found by a user reporting that Tab skips a field.
+	/// </para>
+	/// <para>
+	/// Answered by WALKING focus rather than by reimplementing the rules - the
+	/// scope traversal has real subtlety in it, and a second copy would drift
+	/// from the behaviour it claims to describe. The walk drives the real
+	/// machinery and puts the focus back where it found it.
+	/// </para>
+	/// </remarks>
+	public IReadOnlyList<IFocusableControl> ReachableControls()
+	{
+		var restore = FocusedControl;
+		var seen = new List<IFocusableControl>();
+
+		try
+		{
+			SetFocus(null, FocusReason.Programmatic);
+			MoveFocus(backward: false);
+
+			var first = FocusedControl;
+			if (first == null) return Array.Empty<IFocusableControl>();
+
+			// Bounded by the stops already seen rather than by a guessed limit:
+			// focus wraps, so returning to the first stop is the end of the ring,
+			// and a scope that offered the same control twice would otherwise
+			// spin here forever.
+			while (FocusedControl != null && !seen.Contains(FocusedControl))
+			{
+				seen.Add(FocusedControl);
+				MoveFocus(backward: false);
+			}
+
+			return seen;
+		}
+		finally
+		{
+			SetFocus(restore, FocusReason.Programmatic);
+		}
+	}
+
+	/// <summary>
 	/// Routes a mouse click to the nearest focusable ancestor of <paramref name="hit"/>,
 	/// skipping controls that have <see cref="IMouseAwareControl.CanFocusWithMouse"/> set to <c>false</c>.
 	/// </summary>
