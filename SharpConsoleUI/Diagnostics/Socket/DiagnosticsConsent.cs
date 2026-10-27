@@ -1,4 +1,5 @@
 // -----------------------------------------------------------------------
+using System.IO;
 // ConsoleEx - A simple console window system for .NET Core
 //
 // Author: Nikolaos Protopapas
@@ -84,7 +85,20 @@ internal static class DiagnosticsConsent
 		if (string.IsNullOrWhiteSpace(fromEnv))
 			return Decision.No(null!);   // nothing was asked for; not a denial worth logging
 
-		string path = ResolvePath(fromEnv);
+		string path;
+		try
+		{
+			path = ResolvePath(fromEnv);
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+			or ArgumentException or NotSupportedException)
+		{
+			// Resolve runs inside the constructor. A directory we cannot create is
+			// a reason not to open a socket, never a reason to stop the app.
+			return Decision.No(
+				$"diagnostics socket requested via {SocketEnvVar}, but its directory "
+				+ $"could not be prepared: {ex.Message}");
+		}
 
 		// A headless app has no user to ask and no screen to expose. It is headless
 		// because someone wrote HeadlessConsoleDriver in code, which is the same
@@ -173,12 +187,66 @@ internal static class DiagnosticsConsent
 
 		if (value is "1" or "true" or "TRUE" or "True")
 		{
-			string runtime = Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR")
-				?? Path.GetTempPath();
+			string? runtime = Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR");
+
+			// XDG_RUNTIME_DIR is already owner-only on a proper desktop. Temp is
+			// not: the socket file itself stays owner-only there, but every other
+			// user can list the directory and learn this app is running and what
+			// its process id is. So we make our own owner-only directory inside it
+			// rather than dropping the socket in the open.
+			//
+			// Either way the directory is settled HERE, so a path that cannot work
+			// fails now, with a reason, rather than at bind time with a socket
+			// error the user has to work backwards from.
+			runtime = string.IsNullOrEmpty(runtime)
+				? EnsureOwnerOnlyDirectory(Path.Combine(Path.GetTempPath(), "sharpconsoleui"))
+				: RequireUsableDirectory(runtime);
+
 			return Path.Combine(runtime,
 				$"sharpconsoleui-{Environment.ProcessId}.sock");
 		}
 
 		return value;
+	}
+
+	/// <summary>
+	/// Checks a directory the user nominated is usable, and returns it.
+	/// </summary>
+	/// <param name="path">The directory from <c>XDG_RUNTIME_DIR</c>.</param>
+	/// <returns>The directory.</returns>
+	/// <exception cref="IOException">When it does not exist and cannot be made.</exception>
+	/// <remarks>
+	/// Created if missing, but NOT re-permissioned. This is the user's own
+	/// runtime directory, shared with everything else that uses it, and already
+	/// owner-only on a system that provides one. Changing its mode would be this
+	/// library reaching outside its own business.
+	/// </remarks>
+	private static string RequireUsableDirectory(string path)
+	{
+		Directory.CreateDirectory(path);
+		return path;
+	}
+
+	/// <summary>
+	/// Creates a directory only this user can enter, and returns it.
+	/// </summary>
+	/// <param name="path">Where it should be.</param>
+	/// <returns>The directory.</returns>
+	/// <exception cref="IOException">When it cannot be created or secured.</exception>
+	private static string EnsureOwnerOnlyDirectory(string path)
+	{
+		Directory.CreateDirectory(path);
+
+		// Best effort, like the socket's own mode: a no-op on Windows, where the
+		// containing directory's ACL does this work instead.
+		try
+		{
+			File.SetUnixFileMode(path,
+				UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+		}
+		catch (PlatformNotSupportedException) { /* Windows */ }
+		catch (IOException) { /* filesystem without modes */ }
+
+		return path;
 	}
 }

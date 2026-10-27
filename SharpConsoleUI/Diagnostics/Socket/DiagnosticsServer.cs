@@ -90,39 +90,52 @@ internal sealed class DiagnosticsServer : IDisposable
 	private async Task ServeAsync(System.Net.Sockets.Socket client)
 	{
 		using var _ = client;
-		using var stream = new NetworkStream(client, ownsSocket: false);
-		using var reader = new StreamReader(stream, Encoding.UTF8);
-		using var writer = new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true };
 
-		await writer.WriteLineAsync(new JsonObject
+		// Nothing stops a process running as this user from connecting - the file
+		// mode bounds other users, and no mechanism bounds this one. What is left
+		// is a record: an unexplained connection should be traceable to the moment
+		// it happened rather than leaving no mark at all.
+		_system.LogService.LogInfo("Diagnostics client connected", "Diagnostics");
+		try
 		{
-			["hello"] = "sharpconsoleui",
-			["protocol"] = 1,
-			["pid"] = Environment.ProcessId,
-		}.ToJsonString());
+			using var stream = new NetworkStream(client, ownsSocket: false);
+			using var reader = new StreamReader(stream, Encoding.UTF8);
+			using var writer = new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true };
 
-		while (!_cts.IsCancellationRequested)
+			await writer.WriteLineAsync(new JsonObject
+			{
+				["hello"] = "sharpconsoleui",
+				["protocol"] = 1,
+				["pid"] = Environment.ProcessId,
+			}.ToJsonString());
+
+			while (!_cts.IsCancellationRequested)
+			{
+				string? line;
+				try { line = await reader.ReadLineAsync(_cts.Token); }
+				catch { return; }
+
+				if (line == null) return;
+				if (string.IsNullOrWhiteSpace(line)) continue;
+
+				string response;
+				try
+				{
+					response = Dispatch(line).ToJsonString();
+				}
+				catch (Exception ex)
+				{
+					// A probe must never be able to crash the app it is probing.
+					response = Error($"{ex.GetType().Name}: {ex.Message}").ToJsonString();
+				}
+
+				try { await writer.WriteLineAsync(response); }
+				catch { return; }
+			}
+		}
+		finally
 		{
-			string? line;
-			try { line = await reader.ReadLineAsync(_cts.Token); }
-			catch { return; }
-
-			if (line == null) return;
-			if (string.IsNullOrWhiteSpace(line)) continue;
-
-			string response;
-			try
-			{
-				response = Dispatch(line).ToJsonString();
-			}
-			catch (Exception ex)
-			{
-				// A probe must never be able to crash the app it is probing.
-				response = Error($"{ex.GetType().Name}: {ex.Message}").ToJsonString();
-			}
-
-			try { await writer.WriteLineAsync(response); }
-			catch { return; }
+			_system.LogService.LogInfo("Diagnostics client disconnected", "Diagnostics");
 		}
 	}
 
