@@ -1277,7 +1277,14 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// <para>
 	/// First match wins. Names are not enforced unique, and two controls sharing
 	/// one resolve to whichever the walk reaches first - consistently, since the
-	/// walk is deterministic, but arbitrarily. An id never collides.
+	/// walk is deterministic, but arbitrarily.
+	/// </para>
+	/// <para>
+	/// Ids do not collide with each other by accident, being instance-derived.
+	/// They are not a separate namespace from names, though: a control
+	/// deliberately named <c>"ButtonControl#3f2a1b"</c> would answer to that
+	/// lookup if the walk reached it first. Contrived, and the same first-match
+	/// rule covers it.
 	/// </para>
 	/// </remarks>
 	private static IWindowControl? FindByName(Window window, string name)
@@ -1313,8 +1320,24 @@ internal sealed class DiagnosticsServer : IDisposable
 			return c;
 		}
 
-		foreach (var child in node.Children)
+		// By index, re-reading Count each step, because this walks the LIVE tree
+		// from the socket thread while the render loop may be rebuilding it. A
+		// foreach over the backing list throws "Collection was modified" the
+		// moment a relayout lands mid-walk, and the caller sees a spurious
+		// InvalidOperationException from focusctl or measure on a busy app.
+		//
+		// Marshalling onto the UI thread would also fix it, at the cost of a
+		// round-trip per lookup and a five-second stall whenever the app is
+		// wedged - which is exactly when a debugger is most needed. Tolerating
+		// the mutation is cheaper and degrades better: a walk that races a
+		// relayout may miss a control that moved, and the caller retries.
+		var children = node.Children;
+		for (int i = 0; i < children.Count; i++)
 		{
+			Layout.LayoutNode child;
+			try { child = children[i]; }
+			catch (ArgumentOutOfRangeException) { break; }   // shrank under us
+
 			var hit = SearchNode(child, name);
 			if (hit != null) return hit;
 		}

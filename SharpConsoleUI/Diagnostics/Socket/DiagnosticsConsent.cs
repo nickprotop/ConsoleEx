@@ -40,7 +40,8 @@ internal static class DiagnosticsConsent
 	internal readonly record struct Decision(
 		bool Allowed, string? SocketPath, string? DenialReason, bool FromEnvironment = false)
 	{
-		internal static Decision No(string reason) => new(false, null, reason);
+		/// <summary>Denied. A null reason means nothing was asked for in the first place.</summary>
+		internal static Decision No(string? reason) => new(false, null, reason);
 
 		/// <summary>Allowed, by someone who wrote the path in code.</summary>
 		internal static Decision Yes(string path) => new(true, path, null);
@@ -83,7 +84,7 @@ internal static class DiagnosticsConsent
 
 		var fromEnv = Environment.GetEnvironmentVariable(SocketEnvVar);
 		if (string.IsNullOrWhiteSpace(fromEnv))
-			return Decision.No(null!);   // nothing was asked for; not a denial worth logging
+			return Decision.No(null);   // nothing was asked for; not a denial worth logging
 
 		string path;
 		try
@@ -220,10 +221,25 @@ internal static class DiagnosticsConsent
 	/// runtime directory, shared with everything else that uses it, and already
 	/// owner-only on a system that provides one. Changing its mode would be this
 	/// library reaching outside its own business.
+	/// <para>
+	/// Writability is PROBED rather than inferred from creating it.
+	/// <see cref="Directory.CreateDirectory(string)"/> succeeds on a directory
+	/// that already exists whatever its mode, so creating proves nothing about
+	/// the likelier failure: a stale <c>XDG_RUNTIME_DIR</c> pointing at another
+	/// user's runtime directory. Without the probe that surfaces as a raw socket
+	/// error at bind time, which a reader has to work backwards from.
+	/// </para>
 	/// </remarks>
 	private static string RequireUsableDirectory(string path)
 	{
 		Directory.CreateDirectory(path);
+
+		// Writing is the only honest test: a mode check would have to reimplement
+		// the platform's own rules, and would still be wrong for ACLs.
+		string probe = Path.Combine(path, $".sharpconsoleui-probe-{Environment.ProcessId}");
+		File.WriteAllBytes(probe, Array.Empty<byte>());
+		try { File.Delete(probe); } catch (IOException) { /* it served its purpose */ }
+
 		return path;
 	}
 

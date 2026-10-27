@@ -24,6 +24,11 @@ namespace SharpConsoleUI.Tests.SocketPaths
 	/// temp directory tells every other user on the machine that this app is
 	/// running and what its process id is, even though they cannot connect.
 	/// </remarks>
+	// Mutates process-wide environment variables, so it cannot run beside
+	// anything else that does. Without this the two classes race and the
+	// loser reads the other's variable - a CI red that hides behind lucky
+	// scheduling in a full-suite run.
+	[Collection("EnvSerial")]
 	public class SocketPathTests
 	{
 		private const string SocketVar = "SHARPCONSOLEUI_DIAGNOSTICS_SOCKET";
@@ -84,6 +89,42 @@ namespace SharpConsoleUI.Tests.SocketPaths
 					| UnixFileMode.OtherRead | UnixFileMode.OtherWrite
 					| UnixFileMode.OtherExecute));
 			});
+		}
+
+		[Fact]
+		public void AnUnwritableRuntimeDirIsDeniedRatherThanFailingAtBind()
+		{
+			// The likelier real case than "does not exist": a stale
+			// XDG_RUNTIME_DIR pointing at another user's /run/user/<uid>, which
+			// exists and cannot be written. Directory.CreateDirectory SUCCEEDS on
+			// an existing directory whatever its mode, so creating it proves
+			// nothing - and the failure would otherwise surface as a raw
+			// SocketException at bind time, which the user has to work backwards
+			// from.
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
+
+			string dir = Path.Combine(Path.GetTempPath(), $"cxdbg-ro-{Guid.NewGuid():N}");
+			Directory.CreateDirectory(dir);
+			File.SetUnixFileMode(dir, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+
+			try
+			{
+				WithVars(socket: "1", runtime: dir, () =>
+				{
+					using var driver = new HeadlessConsoleDriver(80, 24);
+
+					var decision = DiagnosticsConsent.Resolve(null, driver);
+
+					Assert.False(decision.Allowed);
+					Assert.NotNull(decision.DenialReason);
+				});
+			}
+			finally
+			{
+				File.SetUnixFileMode(dir,
+					UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+				Directory.Delete(dir, recursive: true);
+			}
 		}
 
 		[Fact]

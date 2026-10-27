@@ -281,6 +281,72 @@ namespace SharpConsoleUI.Tests.ControlIdentity
 		}
 
 		[Fact]
+		public void FindingAControlWhileTheTreeIsBeingRebuiltDoesNotThrow()
+		{
+			// FindByName walks the live layout tree. The render loop rebuilds that
+			// tree during relayout, so a walk from the socket thread can land
+			// mid-mutation and throw "Collection was modified". The request
+			// handler catches it, so the app survives - but the caller gets a
+			// spurious InvalidOperationException from focusctl or measure on a
+			// busy app, which is a confusing way to be told "try again".
+			var (_, window) = Build();
+
+			for (int i = 0; i < 40; i++)
+				window.AddControl(new ButtonControl { Text = $"b{i}" });
+			window.RenderAndGetVisibleContent();
+
+			string id = DiagnosticsSerializer.ControlId(window.GetControls()[20]);
+
+			// One thread churns the tree while another looks controls up in it.
+			var stop = new System.Threading.CancellationTokenSource(
+				System.TimeSpan.FromMilliseconds(600));
+			Exception? seen = null;
+
+			var churn = System.Threading.Tasks.Task.Run(() =>
+			{
+				while (!stop.IsCancellationRequested)
+				{
+					window.AddControl(new ButtonControl { Text = "churn" });
+					window.RenderAndGetVisibleContent();
+				}
+			});
+
+			while (!stop.IsCancellationRequested)
+			{
+				try { DiagnosticsServer.FindControlForTest(window, id); }
+				catch (Exception ex) { seen = ex; break; }
+			}
+
+			stop.Cancel();
+			churn.Wait(System.TimeSpan.FromSeconds(5));
+
+			Assert.True(seen == null, $"lookup threw while the tree changed: {seen}");
+		}
+
+		[Fact]
+		public void AnEmptyNameResolvesConsistentlyOnTheMeasurePathToo()
+		{
+			// ControlId treats "" as no-name via IsNullOrEmpty; the measure trace
+			// stores Name ?? TypeName, which is null-coalescing and keeps "". The
+			// two agree today only because ResolveMeasureKey uses the same
+			// coalescing the trace does. Pin it: change either side alone and an
+			// empty-named control stops being addressable by its id.
+			var (_, window) = Build();
+
+			var blank = new MarkupControl(new List<string> { "x" }) { Name = "" };
+			window.AddControl(blank);
+			window.RenderAndGetVisibleContent();
+
+			string id = DiagnosticsSerializer.ControlId(blank);
+			Assert.StartsWith("MarkupControl#", id);
+
+			// Whatever the trace would have stored for it, resolving the id must
+			// produce exactly that - not the id, and not a different control.
+			string traceKey = blank.Name ?? blank.GetType().Name;
+			Assert.Equal(traceKey, DiagnosticsServer.ResolveMeasureKeyForTest(window, id));
+		}
+
+		[Fact]
 		public void EveryControlInTheTreeCarriesAnId()
 		{
 			var (_, window) = Build();

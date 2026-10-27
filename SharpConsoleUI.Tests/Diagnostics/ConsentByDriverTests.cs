@@ -28,6 +28,11 @@ namespace SharpConsoleUI.Tests.ConsentRules
 	/// there, and denying when they do not answer, protects nobody.
 	/// </para>
 	/// </remarks>
+	// Mutates process-wide environment variables, so it cannot run beside
+	// anything else that does. Without this the two classes race and the
+	// loser reads the other's variable - a CI red that hides behind lucky
+	// scheduling in a full-suite run.
+	[Collection("EnvSerial")]
 	public class ConsentByDriverTests
 	{
 		private const string SocketVar = "SHARPCONSOLEUI_DIAGNOSTICS_SOCKET";
