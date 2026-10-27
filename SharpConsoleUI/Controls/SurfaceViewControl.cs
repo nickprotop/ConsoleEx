@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Drawing;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
@@ -30,7 +31,7 @@ namespace SharpConsoleUI.Controls
 	/// everything after it shifts left.
 	/// </para>
 	/// </remarks>
-	public class SurfaceViewControl : BaseControl
+	public class SurfaceViewControl : BaseControl, IMouseAwareControl
 	{
 		private IReadOnlyList<IReadOnlyList<Cell>> _rows = [];
 		private int _scrollX;
@@ -50,6 +51,62 @@ namespace SharpConsoleUI.Controls
 		{
 			get => _foregroundColorValue ?? Container?.ForegroundColor ?? Color.White;
 			set => SetProperty(ref _foregroundColorValue, value);
+		}
+
+		/// <summary>
+		/// Raised when a cell of the surface is clicked, with its surface
+		/// coordinates.
+		/// </summary>
+		/// <remarks>
+		/// The surface's own coordinates, not the control's: scrolling is
+		/// already accounted for, so a caller showing another application's
+		/// screen can act on the point the user actually pointed at. What that
+		/// means is the caller's business - this control only says where.
+		/// </remarks>
+		public event EventHandler<Point>? CellClicked;
+
+		/// <inheritdoc/>
+		public bool WantsMouseEvents => CellClicked != null;
+
+		/// <inheritdoc/>
+		public bool CanFocusWithMouse => false;
+
+		/// <inheritdoc/>
+		public event EventHandler<Events.MouseEventArgs>? MouseClick;
+
+		/// <inheritdoc/>
+		public event EventHandler<Events.MouseEventArgs>? MouseDoubleClick;
+
+		/// <inheritdoc/>
+		public event EventHandler<Events.MouseEventArgs>? MouseRightClick;
+
+		/// <inheritdoc/>
+		public event EventHandler<Events.MouseEventArgs>? MouseEnter;
+
+		/// <inheritdoc/>
+		public event EventHandler<Events.MouseEventArgs>? MouseLeave;
+
+		/// <inheritdoc/>
+		public event EventHandler<Events.MouseEventArgs>? MouseMove;
+
+		/// <inheritdoc/>
+		public bool ProcessMouseEvent(Events.MouseEventArgs args)
+		{
+			ArgumentNullException.ThrowIfNull(args);
+
+			// Most specific first, and only a plain click: a view of someone
+			// else's screen has no drag of its own, and consuming a press it
+			// did not act on would break dragging the pane it sits in.
+			if (!args.HasFlag(Drivers.MouseFlags.Button1Clicked)) return false;
+
+			int x = _scrollX + args.Position.X - Margin.Left;
+			int y = _scrollY + args.Position.Y - Margin.Top;
+
+			if (x < 0 || y < 0 || y >= SurfaceHeight) return false;
+
+			MouseClick?.Invoke(this, args);
+			CellClicked?.Invoke(this, new Point(x, y));
+			return true;
 		}
 
 		/// <summary>Columns in the surface, which is its widest row.</summary>
