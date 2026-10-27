@@ -31,7 +31,22 @@ echo '{"cmd":"image","path":"/tmp/shot.png"}' | socat - UNIX-CONNECT:/tmp/myapp.
 ```
 
 `SHARPCONSOLEUI_DIAGNOSTICS_SOCKET=1` picks a path for you, under `$XDG_RUNTIME_DIR` with
-the pid in the name.
+the pid in the name. Without `$XDG_RUNTIME_DIR` it creates an owner-only directory inside
+the temp directory rather than dropping the socket in the open: the socket file is
+owner-only either way, but a shared temp directory tells every other user that this app is
+running and what its process id is.
+
+### Who can reach it
+
+**Anything running as this user, on every platform.** On Linux the socket file is
+chmod'd owner-only, which bounds *other* users. `File.SetUnixFileMode` is a no-op on
+Windows, so there the containing directory's ACL does that work. Neither stops a process
+running as the same user — and nothing can: a token written beside the socket is readable
+by exactly the attacker it would be meant to stop. Every local debugger has this property;
+`gdb` attaches to your processes and the .NET diagnostic pipes behave the same way.
+
+So the protection that remains is **visibility**: opening a socket from the environment
+logs a Warning, and every connection logs one too.
 
 In code, which never prompts:
 
@@ -79,9 +94,22 @@ The rules behind that prompt:
 - **Bare Enter is No.** Someone who really started a debugger types `y` without resentment;
   someone who inherited a stray variable gets the safe outcome from the key they were going
   to press anyway.
-- **No TTY means no.** If stdin is redirected there is nobody to ask, and "nobody is
-  watching" must mean no, never "assume yes". That is exactly the case a hostile variable
-  would exploit.
+- **No TTY means no — on a driver that has one.** If stdin is redirected there is nobody
+  to ask, and "nobody is watching" must mean no, never "assume yes". That is exactly the
+  case a hostile variable would exploit.
+
+- **A headless app is asked nothing.** `HeadlessConsoleDriver` has no terminal by design,
+  so "is stdin a terminal?" says nothing about whether a user is present — and denying on
+  it made the variable silently terminal-only. A headless app honours the variable and logs
+  a Warning that it did.
+
+  This is not a hole. The prompt protects one scenario: an ordinary app on your terminal
+  inherits the variable and a channel appears that reads your screen. A headless app has no
+  terminal, no screen to expose, and is headless because someone wrote
+  `new HeadlessConsoleDriver(...)` in code — the same deliberate, compiled-in statement as
+  setting `DiagnosticsSocket` there, which has always been honoured without asking. The
+  threat given up is an attacker who can already set your environment, targeting a headless
+  app, to read a screen nobody is looking at.
 - **The socket is `srw-------`** -- owner only.
 - **The option in code does not prompt.** A property cannot be inherited from a shell
   profile or a desktop file; it can only be set by someone writing it into the program.
@@ -591,9 +619,16 @@ screen), and a `state` block: `windowState`, `active`, `modal`, `movable`, `resi
 `closable`. Those last three decide whether a gesture can work at all — dragging a window
 that is not movable looks exactly like aiming wrong.
 
-Each **control** node reports `desired` (what it asked for), `bounds` (what layout gave it,
-window-relative), `absolute` (where that lands on screen), and `state` (what the control
-currently *is*: checked, open, selected, its text). **A control whose arranged `bounds` has
+Each **control** node reports an `id`, `desired` (what it asked for), `bounds` (what layout
+gave it, window-relative), `absolute` (where that lands on screen), and `state` (what the
+control currently *is*: checked, open, selected, its text).
+
+The **`id`** is how you name one control to another verb. It is the control's `Name` when
+it has one, and otherwise its type and instance — `MarkupControl#3f2a1b`. Hand it back to
+`measure` or `focusctl` and they will find the control the tree was showing you. It is not
+positional: inserting a sibling above a control does not change its id, which is the whole
+reason for the instance part. It does not survive a restart, and an id whose control has
+gone matches nothing rather than matching whatever took its place. **A control whose arranged `bounds` has
 zero width is present in the tree, reachable by focus, and invisible to the mouse** — which
 is the single most useful thing here, and the one question a screen scrape can never answer.
 

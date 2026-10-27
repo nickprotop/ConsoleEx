@@ -248,6 +248,39 @@ namespace SharpConsoleUI.Tests.ControlIdentity
 		}
 
 		[Fact]
+		public void AnIdResolvesForAControlInsideANonHostContainer()
+		{
+			// The bug the live drive caught. FindByName descended only through
+			// IControlHost, but NavigationView and HorizontalGridControl are not
+			// one - so a control inside either was reported by `tree`, with an id,
+			// and could not be found by that id. The id looked real and addressed
+			// nothing.
+			//
+			// The layout tree is what `tree` walks, so it is what resolution must
+			// walk: anything the tree can report, a verb can reach.
+			var (_, window) = Build();
+
+			// The real nesting from the live app: a NavigationView holding a
+			// content panel holding the control. NavigationView is not an
+			// IControlHost, so the old walk stopped at it.
+			var buried = new ButtonControl { Text = "buried" };
+			var page = new ScrollablePanelControl();
+			page.AddControl(buried);
+
+			var nav = new NavigationView();
+			var item = nav.AddItem("Page");
+			nav.SetItemContent(item, page);
+
+			window.AddControl(nav);
+			window.RenderAndGetVisibleContent();
+
+			string id = DiagnosticsSerializer.ControlId(buried);
+
+			Assert.Contains(id, TreeIds(window));
+			Assert.Same(buried, DiagnosticsServer.FindControlForTest(window, id));
+		}
+
+		[Fact]
 		public void EveryControlInTheTreeCarriesAnId()
 		{
 			var (_, window) = Build();

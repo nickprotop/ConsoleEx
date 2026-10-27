@@ -95,7 +95,10 @@ internal sealed class DiagnosticsServer : IDisposable
 		// mode bounds other users, and no mechanism bounds this one. What is left
 		// is a record: an unexplained connection should be traceable to the moment
 		// it happened rather than leaving no mark at all.
-		_system.LogService.LogInfo("Diagnostics client connected", "Diagnostics");
+		// Warning, not Information: the default minimum level is Warning, and a
+		// record nobody sees by default is not a record. Someone attaching to a
+		// live application is worth one line at the level that shows.
+		_system.LogService.LogWarning("Diagnostics client connected", "Diagnostics");
 		try
 		{
 			using var stream = new NetworkStream(client, ownsSocket: false);
@@ -135,6 +138,8 @@ internal sealed class DiagnosticsServer : IDisposable
 		}
 		finally
 		{
+			// Information: the connect line is the one worth seeing by default; a
+			// matching disconnect at Warning would double the noise for no gain.
 			_system.LogService.LogInfo("Diagnostics client disconnected", "Diagnostics");
 		}
 	}
@@ -1277,9 +1282,40 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// </remarks>
 	private static IWindowControl? FindByName(Window window, string name)
 	{
+		// The LAYOUT tree, because that is what `tree` walks and therefore what a
+		// caller's id came from. Walking controls instead descends only through
+		// IControlHost, and NavigationView and HorizontalGridControl are not one:
+		// a control inside either was reported with an id that then resolved to
+		// nothing. An id that names something the tree showed must find it.
+		var hit = SearchNode(window.Renderer?.RootLayoutNode, name);
+		if (hit != null) return hit;
+
+		// The control walk still runs as a fallback, for anything held outside
+		// the layout tree - a portal's content, a control added since the last
+		// layout pass.
 		foreach (var c in window.GetControls())
 		{
-			var hit = Search(c, name);
+			var found = Search(c, name);
+			if (found != null) return found;
+		}
+		return null;
+	}
+
+	/// <summary>Finds a control by name or id anywhere in a layout tree.</summary>
+	private static IWindowControl? SearchNode(Layout.LayoutNode? node, string name)
+	{
+		if (node == null) return null;
+
+		if (node.Control is { } c
+			&& (string.Equals(c.Name, name, StringComparison.Ordinal)
+				|| string.Equals(DiagnosticsSerializer.ControlId(c), name, StringComparison.Ordinal)))
+		{
+			return c;
+		}
+
+		foreach (var child in node.Children)
+		{
+			var hit = SearchNode(child, name);
 			if (hit != null) return hit;
 		}
 		return null;

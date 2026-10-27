@@ -13,6 +13,38 @@ namespace DemoApp;
 
 public class Program
 {
+	/// <summary>Whether a flag appears in the command line.</summary>
+	private static bool HasFlag(string[] args, string flag) =>
+		Array.Exists(args, a => string.Equals(a, flag, StringComparison.Ordinal));
+
+	/// <summary>Columns for a headless run, from <c>--size WxH</c>.</summary>
+	private static int ScreenWidth(string[] args) => ScreenSize(args).Width;
+
+	/// <summary>Rows for a headless run, from <c>--size WxH</c>.</summary>
+	private static int ScreenHeight(string[] args) => ScreenSize(args).Height;
+
+	/// <summary>
+	/// The screen a headless run uses: <c>--size 120x40</c>, or a readable default.
+	/// </summary>
+	private static (int Width, int Height) ScreenSize(string[] args)
+	{
+		for (int i = 0; i < args.Length - 1; i++)
+		{
+			if (args[i] != "--size") continue;
+
+			string[] parts = args[i + 1].Split('x', 'X');
+			if (parts.Length == 2
+				&& int.TryParse(parts[0], out int w)
+				&& int.TryParse(parts[1], out int h)
+				&& w > 0 && h > 0)
+			{
+				return (w, h);
+			}
+		}
+
+		return (120, 40);
+	}
+
 	static async Task<int> Main(string[] args)
 	{
 		if (SharpConsoleUI.PtyShim.RunIfShim(args)) return 127;
@@ -20,7 +52,16 @@ public class Program
 		try
 		{
 			var options = CreateOptions();
-			var windowSystem = new ConsoleWindowSystem(new NetConsoleDriver(RenderMode.Buffer), options: options);
+
+			// --headless runs with no terminal at all, which is how a debugger or
+			// a CI job drives this app: the diagnostics socket still serves, and
+			// the screen is read over it rather than painted anywhere. Size comes
+			// from --size WxH, since there is no terminal to ask.
+			IConsoleDriver driver = HasFlag(args, "--headless")
+				? new HeadlessConsoleDriver(ScreenWidth(args), ScreenHeight(args))
+				: new NetConsoleDriver(RenderMode.Buffer);
+
+			var windowSystem = new ConsoleWindowSystem(driver, options: options);
 
 			Configure(windowSystem, args);
 
