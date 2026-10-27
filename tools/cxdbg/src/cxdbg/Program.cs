@@ -13,36 +13,55 @@ var app = new CommandApp();
 
 app.Configure(config =>
 {
-    config.SetApplicationName("cxdbg");
-    config.SetApplicationVersion("1.0.0");
+	config.SetApplicationName("cxdbg");
+	config.SetApplicationVersion("1.0.0");
 
 
-    // Every protocol verb, as its own command. One list rather than a class
-    // each: the protocol decides what exists, and a hand-written class per verb
-    // drifts the day it grows one. The application can be asked for its own
-    // list at runtime - `cxdbg commands` - and an unknown verb is answered by
-    // the server with the list it knows.
-    foreach (var (verb, what, example) in ProtocolVerbs.All)
-    {
-        config.AddCommand<VerbCommand>(verb)
-            .WithDescription(what)
-            .WithExample(example);
-    }
+	// Every protocol verb, as its own command. One list rather than a class
+	// each: the protocol decides what exists, and a hand-written class per verb
+	// drifts the day it grows one. The application can be asked for its own
+	// list at runtime - `cxdbg commands` - and an unknown verb is answered by
+	// the server with the list it knows.
+	foreach (var (verb, what, example) in ProtocolVerbs.All)
+	{
+		// `set` has a nicer face than --arg pairs: a switch and a value, read
+		// when the value is left off. It is the same verb, worded the way a
+		// person says it, so it is registered from its own class.
+		if (verb == "set")
+		{
+			config.AddCommand<SetCommand>(verb)
+				.WithDescription(what)
+				.WithExample(example);
+			continue;
+		}
 
-    // The readable layer over the same verbs. `cxdbg tree` gives the reply;
-    // `cxdbg show tree` gives it formatted, and `why` asks the questions whose
-    // answer is a cascade.
-    config.AddCommand<ShowCommand>("show")
-        .WithDescription("Report something about the application, formatted to read")
-        .WithExample("show", "tree")
-        .WithExample("show", "reachable");
+		config.AddCommand<VerbCommand>(verb)
+			.WithDescription(what)
+			.WithExample(example);
+	}
 
-    config.AddCommand<WhyCommand>("why")
-        .WithDescription("Explain how something ended up the way it is")
-        .WithExample("why", "size", "ChartControl#b679e5")
-        .WithExample("why", "color", "Danger", "--state", "Disabled")
-        .WithExample("why", "frame")
-        .WithExample("why", "input");
+	// The readable layer over the same verbs. `cxdbg tree` gives the reply;
+	// `cxdbg show tree` gives it formatted, and `why` asks the questions whose
+	// answer is a cascade.
+	config.AddCommand<ShowCommand>("show")
+		.WithDescription("Report something about the application, formatted to read")
+		.WithExample("show", "tree")
+		.WithExample("show", "reachable");
+
+	// The acting layer. `key`, `mouse` and `size` stay available as themselves;
+	// these say what a user would say.
+	config.AddCommand<SendCommand>("send")
+		.WithDescription("Act on the application: press a key, click, resize")
+		.WithExample("send", "key", "Tab")
+		.WithExample("send", "click", "20", "10")
+		.WithExample("send", "resize", "80", "24");
+
+	config.AddCommand<WhyCommand>("why")
+		.WithDescription("Explain how something ended up the way it is")
+		.WithExample("why", "size", "ChartControl#b679e5")
+		.WithExample("why", "color", "Danger", "--state", "Disabled")
+		.WithExample("why", "frame")
+		.WithExample("why", "input");
 });
 
 // No arguments prints help rather than guessing at a socket: a debugger that
@@ -54,10 +73,10 @@ if (args.Length == 0) return app.Run(new[] { "--help" });
 // application - it answers an unknown verb with the list it knows, which is
 // better discovery than anything cxdbg could hard-code.
 if (!args[0].StartsWith('-')
-    && !ProtocolVerbs.All.Any(v => v.Verb == args[0])
-    && args[0] is not ("show" or "why"))
+	&& !ProtocolVerbs.All.Any(v => v.Verb == args[0])
+	&& args[0] is not ("show" or "why" or "send"))
 {
-    return VerbCommand.PassThrough(args);
+	return VerbCommand.PassThrough(args);
 }
 
 return app.Run(args);

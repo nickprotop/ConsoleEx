@@ -164,7 +164,7 @@ public sealed class VerbCommand : Command<VerbSettings>
 		{
 			int eq = pair.IndexOf('=');
 			if (eq <= 0)
-				throw new Protocol.CxdbgException($"--arg wants name=value, got '{pair}'");
+				throw Protocol.CxdbgException.Usage($"--arg wants name=value, got '{pair}'");
 
 			string name = pair[..eq];
 			string value = pair[(eq + 1)..];

@@ -44,7 +44,12 @@ internal static class CommandRunner
 		catch (CxdbgException ex)
 		{
 			AnsiConsole.MarkupLine($"[red]{ex.Message.EscapeMarkup()}[/]");
-			// 2 means there was nothing to talk to; 1 means it answered and said no.
+
+			// 3 means cxdbg rejected the command line and sent nothing; 2 means
+			// there was nothing to talk to; 1 means the application answered and
+			// said no. A script branching on these needs the difference: only 1
+			// says anything about the application.
+			if (ex.Code == CxdbgException.BadUsage) return 3;
 			return ex.Message.Contains("listening", StringComparison.Ordinal) ? 2 : 1;
 		}
 	}
