@@ -38,47 +38,19 @@ falls back to `ConsolePal` and logs that it did.
 It also implements `IGraphicsProtocol`, which is how inline images reach terminals that
 support the Kitty graphics protocol.
 
-### The two render modes
+### Rendering
 
-`RenderMode` is the one real choice this driver offers, and it changes how writes reach the
-terminal — not what gets drawn.
-
-```csharp
-new ConsoleWindowSystem(RenderMode.Buffer)   // the default, and what you want
-new ConsoleWindowSystem(RenderMode.Direct)   // unbuffered
-```
-
-**`Buffer`** allocates a `ConsoleBuffer` at startup. Writes accumulate into it, and `Flush()`
+The driver allocates a `ConsoleBuffer` at startup. Writes accumulate into it, and `Flush()`
 paints by diffing against the previous frame, so only cells that actually changed are sent to
 the terminal. This is what makes a full-screen redraw cheap and flicker-free.
 
-**`Direct`** allocates nothing. Every write formats its own ANSI escape and is sent
-immediately, cursor-addressed to its position.
+```csharp
+new ConsoleWindowSystem(RenderMode.Buffer)
+```
 
-What that costs you, concretely:
-
-| | `Buffer` | `Direct` |
-|---|---|---|
-| Back buffer | Allocated at `Start()` | None |
-| Writes reach the terminal | On `Flush()` | Immediately, per call |
-| Only changed cells sent | Yes, via dirty-region diff | No — every write is emitted |
-| `Flush()` | Paints the frame | **No-op** |
-| `InvalidateFrontBuffer()` | Forces a full repaint | **No-op** |
-| `Clear()` | Clears the buffer | `Console.Clear()` |
-| `GetDirtyCharacterCount()` | Real count | **Always `0`** |
-| `CaptureComposed()` | The composed desktop | **`null`** — nothing is retained |
-| Flicker on complex updates | No | Yes |
-
-Two of those are worth saying plainly, because they are silent rather than loud:
-
-- **`GetDirtyCharacterCount()` returns `0` in `Direct`** — not "unavailable", just zero. Any
-  metric built on it reads as "nothing changed" when the truth is "nobody is counting".
-- **`WriteBufferRegion` in `Direct` re-serialises every cell's decorations** into a string, per
-  strip, every time. The flicker is the visible cost; this is the one you only see in a profile.
-
-`Direct` exists for the cases where the diff is in your way — a one-shot program that paints
-once and exits, or debugging the render path itself. **For an application, use `Buffer`.** It
-is the default for a reason, and the compositor is built around it.
+Because the buffer is retained, the composed desktop is always readable:
+`CaptureComposed()` hands back the frame the diff engine is already holding, which is what
+screenshots, golden-image tests and the diagnostics socket all read.
 
 ---
 
@@ -238,7 +210,6 @@ Optionally implement `IGraphicsProtocol` for inline images.
 | Situation | Use |
 |---|---|
 | An application | `NetConsoleDriver` with `RenderMode.Buffer` |
-| Paint-once, exit; or debugging the render path | `RenderMode.Direct` |
 | Tests, CI, golden images, remote-driven sessions | `HeadlessConsoleDriver` |
 | A new backend (GUI surface, WASM canvas, other terminal) | Implement `IConsoleDriver` |
 

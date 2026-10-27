@@ -50,9 +50,9 @@ A window's buffer exists because the renderer needs it. The composed desktop lik
 diff engine keeps it permanently, to know what to send to the terminal next. Both are read
 directly, so a capture copies once rather than imposing a per-frame cost on the application.
 
-`ComposedSurface()` is unavailable in only one case - `RenderMode.Direct`, which keeps no
-buffer at all because every write goes straight out. It throws then, naming the per-window
-alternative, rather than returning a blank image.
+`ComposedSurface()` is unavailable only on a driver that keeps no buffer at all - a custom
+`IConsoleDriver` that writes straight out and retains nothing. It throws then, naming the
+per-window alternative, rather than returning a blank image.
 
 ---
 

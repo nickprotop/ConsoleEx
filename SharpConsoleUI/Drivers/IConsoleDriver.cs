@@ -195,9 +195,8 @@ namespace SharpConsoleUI.Drivers
 		/// copy per call and needs no diagnostics subsystem.
 		/// </para>
 		/// <para>
-		/// Returns <c>null</c> in <see cref="RenderMode.Direct"/>, where there is no buffer -
-		/// every write goes straight out and nothing retains the composed result. Callers
-		/// should say so rather than substituting a blank image.
+		/// Returns <c>null</c> from a driver that keeps no buffer and so retains no composed
+		/// result. Callers should say so rather than substituting a blank image.
 		/// </para>
 		/// <para>Defaulted so existing drivers are unaffected.</para>
 		/// </remarks>

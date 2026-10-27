@@ -86,8 +86,7 @@ public static class CellSurface
 	/// <param name="system">The window system.</param>
 	/// <returns>A view of the most recent composed frame.</returns>
 	/// <exception cref="InvalidOperationException">
-	/// This driver keeps no composed buffer - it is rendering in
-	/// <see cref="Drivers.RenderMode.Direct"/>, where nothing retains the composed result.
+	/// This driver keeps no composed buffer, so nothing retains the composed result.
 	/// </exception>
 	/// <remarks>
 	/// Needs no diagnostics. A diff-rendering driver already holds the composed desktop
@@ -105,10 +104,9 @@ public static class CellSurface
 		var shot = system.ConsoleDriver.CaptureComposed()
 			?? system.RenderingDiagnostics?.LastConsoleSnapshot
 			?? throw new InvalidOperationException(
-				"no composed frame: this driver keeps no composed buffer to read. A driver "
-				+ "in RenderMode.Direct writes straight to the terminal and retains nothing. "
-				+ "Capture a window instead - window.CaptureSurface() - which needs neither a "
-				+ "composed buffer nor diagnostics, or run with RenderMode.Buffer.");
+				"no composed frame: this driver keeps no composed buffer to read. Capture a "
+				+ "window instead - window.CaptureSurface() - which needs neither a composed "
+				+ "buffer nor diagnostics.");
 
 		return shot.AsSurface(system.Theme);
 	}

@@ -186,8 +186,7 @@ public class ScreenshotWindow : Window
 			}
 
 			case ExportKind.DesktopPng:
-				// Reads the driver's own composed buffer - no diagnostics required. Throws
-				// only in RenderMode.Direct, which keeps no buffer at all.
+				// Reads the driver's own composed buffer - no diagnostics required.
 				return (system.ComposedSurface().ToImage(), ".png");
 
 			default:

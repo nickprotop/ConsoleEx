@@ -27,21 +27,30 @@ namespace SharpConsoleUI.Drivers
 	public enum RenderMode
 	{
 		/// <summary>
-		/// Writes directly to the console without buffering.
+		/// Retired. Renders the same way as <see cref="Buffer"/>.
 		/// </summary>
 		/// <remarks>
-		/// This mode writes each output operation immediately to the console,
-		/// which may result in visible flickering during complex updates.
+		/// This was an unbuffered path from before the compositor existed, kept then as a
+		/// way to check the system end to end without double buffering in the way. The
+		/// compositor has been the only rendering foundation for a long time, and the
+		/// unbuffered path had drifted: it flickered, it retained nothing to screenshot or
+		/// diff, and two of its own write paths disagreed about whether text decorations
+		/// survived.
+		/// <para>
+		/// The value remains so that existing code keeps compiling, and selects buffered
+		/// rendering. Nothing needs to change; <see cref="Buffer"/> says the same thing
+		/// more clearly.
+		/// </para>
 		/// </remarks>
+		[Obsolete("Renders as Buffer. Pass RenderMode.Buffer instead.")]
 		Direct,
 
 		/// <summary>
-		/// Uses double-buffering for smoother rendering.
+		/// Double-buffered rendering: the only mode.
 		/// </summary>
 		/// <remarks>
-		/// This mode accumulates changes in a buffer and renders them all at once,
-		/// only updating portions of the screen that have changed. This provides
-		/// smoother visual updates and is recommended for most applications.
+		/// Changes accumulate in a buffer and reach the terminal in one pass, with only the
+		/// cells that actually changed rewritten. This is what every application gets.
 		/// </remarks>
 		Buffer
 	}
@@ -176,7 +185,12 @@ namespace SharpConsoleUI.Drivers
 		public NetConsoleDriver(NetConsoleDriverOptions options)
 		{
 			Options = options ?? throw new ArgumentNullException(nameof(options));
-			RenderMode = options.RenderMode;
+
+			// Buffered rendering, whatever was asked for. The retired mode remains a legal
+			// value so existing code compiles; resolving it here means the rest of the
+			// driver has one path rather than two, and callers who never looked at this
+			// enum get the behaviour they already expected.
+			RenderMode = RenderMode.Buffer;
 
 			// Refuse redirected stdio on Windows before touching Console at all — see the method.
 			ThrowIfWindowsStdioRedirected();
@@ -369,16 +383,7 @@ namespace SharpConsoleUI.Drivers
 		/// <inheritdoc/>
 		public void Clear()
 		{
-			switch (RenderMode)
-			{
-				case RenderMode.Direct:
-					Console.Clear();
-					break;
-
-				case RenderMode.Buffer:
-					_consoleBuffer?.Clear();
-					break;
-			}
+			_consoleBuffer?.Clear();
 		}
 
 		/// <inheritdoc/>
@@ -852,101 +857,19 @@ namespace SharpConsoleUI.Drivers
 		/// <inheritdoc/>
 		public void SetNarrowCell(int x, int y, char character, Color fg, Color bg)
 		{
-			switch (RenderMode)
-			{
-				case RenderMode.Direct:
-					var fgAnsi = fg.A == 0 ? "39" : $"38;2;{fg.R};{fg.G};{fg.B}";
-					var bgAnsi = bg.A == 0 ? "49" : $"48;2;{bg.R};{bg.G};{bg.B}";
-					var ansi = $"\x1b[{fgAnsi};{bgAnsi}m{character}\x1b[0m";
-					if (_useDirectAnsi)
-					{
-						WriteOutput($"\x1b[{Math.Clamp(y + 1, 1, 9999)};{Math.Clamp(x + 1, 1, 9999)}H");
-						WriteOutput(ansi);
-					}
-					else
-					{
-						Console.SetCursorPosition(x, y);
-						Console.Out.Write(ansi);
-					}
-					break;
-
-				case RenderMode.Buffer:
-					_consoleBuffer?.SetNarrowCell(x, y, character, fg, bg);
-					break;
-			}
+			_consoleBuffer?.SetNarrowCell(x, y, character, fg, bg);
 		}
 
 		/// <inheritdoc/>
 		public void FillCells(int x, int y, int width, char character, Color fg, Color bg)
 		{
-			switch (RenderMode)
-			{
-				case RenderMode.Direct:
-					var sb = new StringBuilder();
-					var fgAnsi = fg.A == 0 ? "39" : $"38;2;{fg.R};{fg.G};{fg.B}";
-					var bgAnsi = bg.A == 0 ? "49" : $"48;2;{bg.R};{bg.G};{bg.B}";
-					sb.Append($"\x1b[{fgAnsi};{bgAnsi}m");
-					sb.Append(character, width);
-					sb.Append("\x1b[0m");
-					if (_useDirectAnsi)
-					{
-						WriteOutput($"\x1b[{Math.Clamp(y + 1, 1, 9999)};{Math.Clamp(x + 1, 1, 9999)}H");
-						WriteOutput(sb.ToString());
-					}
-					else
-					{
-						Console.SetCursorPosition(x, y);
-						Console.Out.Write(sb.ToString());
-					}
-					break;
-
-				case RenderMode.Buffer:
-					_consoleBuffer?.FillCells(x, y, width, character, fg, bg);
-					break;
-			}
+			_consoleBuffer?.FillCells(x, y, width, character, fg, bg);
 		}
 
 		/// <inheritdoc/>
 		public void WriteBufferRegion(int destX, int destY, Layout.CharacterBuffer source, int srcX, int srcY, int width, Color fallbackBg)
 		{
-			switch (RenderMode)
-			{
-				case RenderMode.Direct:
-					// Fallback: format ANSI string and write directly
-					var sb = new StringBuilder();
-					for (int i = 0; i < width; i++)
-					{
-						var cell = source.GetCell(srcX + i, srcY);
-						var cfgAnsi = cell.Foreground.A == 0 ? "39" : $"38;2;{cell.Foreground.R};{cell.Foreground.G};{cell.Foreground.B}";
-						var cbgAnsi = cell.Background.A == 0 ? "49" : $"48;2;{cell.Background.R};{cell.Background.G};{cell.Background.B}";
-						sb.Append($"\x1b[{cfgAnsi};{cbgAnsi}");
-						if ((cell.Decorations & TextDecoration.Bold) != 0) sb.Append(";1");
-						if ((cell.Decorations & TextDecoration.Dim) != 0) sb.Append(";2");
-						if ((cell.Decorations & TextDecoration.Italic) != 0) sb.Append(";3");
-						if ((cell.Decorations & TextDecoration.Underline) != 0) sb.Append(";4");
-						if ((cell.Decorations & TextDecoration.Blink) != 0) sb.Append(";5");
-						if ((cell.Decorations & TextDecoration.Invert) != 0) sb.Append(";7");
-						if ((cell.Decorations & TextDecoration.Strikethrough) != 0) sb.Append(";9");
-						sb.Append('m');
-						sb.Append(cell.Character);
-					}
-					sb.Append("\x1b[0m");
-					if (_useDirectAnsi)
-					{
-						WriteOutput($"\x1b[{Math.Clamp(destY + 1, 1, 9999)};{Math.Clamp(destX + 1, 1, 9999)}H");
-						WriteOutput(sb.ToString());
-					}
-					else
-					{
-						Console.SetCursorPosition(destX, destY);
-						Console.Out.Write(sb.ToString());
-					}
-					break;
-
-				case RenderMode.Buffer:
-					_consoleBuffer?.SetCellsFromBuffer(destX, destY, source, srcX, srcY, width, fallbackBg);
-					break;
-			}
+			_consoleBuffer?.SetCellsFromBuffer(destX, destY, source, srcX, srcY, width, fallbackBg);
 		}
 
 		/// <inheritdoc />
@@ -1013,11 +936,6 @@ namespace SharpConsoleUI.Drivers
 			}
 		}
 
-		/// <inheritdoc/>
-		/// <remarks>
-		/// Returns null in <see cref="RenderMode.Direct"/>: that mode keeps no buffer, so
-		/// there is no composed result to read.
-		/// </remarks>
 		/// <inheritdoc/>
 		public long FrameNumber => _consoleBuffer?.FrameNumber ?? 0;
 

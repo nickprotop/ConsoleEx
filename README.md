@@ -358,7 +358,7 @@ Full reference: [nickprotop.github.io/ConsoleEx/docfx/_site/CONTROLS.html](https
 | [Dialogs](docs/DIALOGS.md) | Standalone Confirm / Prompt / Progress dialogs + file and system dialogs |
 | [Composable Flows](docs/FLOWS.md) | Multi-step wizards + FlowContext over the dialog primitives |
 | [Debugging](docs/DEBUGGING.md) | Inspect and drive a running app over a socket — snapshot, PNG, layout tree, real input |
-| [Drivers & Render Modes](docs/DRIVERS.md) | The driver, Buffer vs Direct, and running headless |
+| [Drivers & Render Modes](docs/DRIVERS.md) | The driver, buffered rendering, and running headless |
 | [Screen Export](docs/EXPORT.md) | A window, a region or the desktop, as an image or text |
 | [Threading & Async](docs/THREADING_AND_ASYNC.md) | The UI thread model, async events, and the unresponsive watchdog |
 | [NativeAOT](docs/AOT.md) | AOT compatibility, the CI smoke gate, and the HtmlControl caveat |
