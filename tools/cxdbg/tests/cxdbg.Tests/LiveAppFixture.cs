@@ -74,6 +74,40 @@ public sealed class LiveAppFixture : IDisposable
 		_app.StandardInput.Close();
 
 		WaitForSocket();
+		WaitForFirstFrame();
+	}
+
+	/// <summary>
+	/// Waits until the app has rendered and has an active window.
+	/// </summary>
+	/// <remarks>
+	/// The socket opens at the end of the constructor, BEFORE the first frame
+	/// and before a demo window is activated. A test that asks immediately gets
+	/// "no active window" from a verb that photographs one, which reads like a
+	/// broken verb and is really a race against startup.
+	/// </remarks>
+	private void WaitForFirstFrame()
+	{
+		var deadline = DateTime.UtcNow.AddSeconds(20);
+
+		while (DateTime.UtcNow < deadline)
+		{
+			try
+			{
+				using var client = Protocol.DiagnosticsClient.Connect(SocketPath);
+				var windows = client.Send("windows")["windows"]!.AsArray();
+
+				foreach (var w in windows)
+				{
+					if (w?["active"]?.GetValue<bool>() == true) return;
+				}
+			}
+			catch (Protocol.CxdbgException) { /* not up yet */ }
+
+			Thread.Sleep(50);
+		}
+
+		throw new TimeoutException($"no active window after 20s.\n{Output}");
 	}
 
 	/// <summary>

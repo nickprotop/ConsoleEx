@@ -7,9 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System.ComponentModel;
-using System.Net.Sockets;
-using System.Text;
-using System.Text.Json.Nodes;
+using Cxdbg.Protocol;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -36,34 +34,19 @@ public sealed class PingCommand : Command<SocketSettings>
 
 		try
 		{
-			using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-			socket.Connect(new UnixDomainSocketEndPoint(settings.SocketPath));
-
-			using var stream = new NetworkStream(socket, ownsSocket: false);
-			using var reader = new StreamReader(stream, Encoding.UTF8);
-			using var writer = new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true };
-
-			// The server greets first, with the protocol version and its pid.
-			var hello = JsonNode.Parse(reader.ReadLine() ?? "")!;
-
-			writer.WriteLine(new JsonObject { ["cmd"] = "ping" }.ToJsonString());
-			var reply = JsonNode.Parse(reader.ReadLine() ?? "")!;
-
-			if (reply["ok"]?.GetValue<bool>() != true)
-			{
-				AnsiConsole.MarkupLine($"[red]{reply["error"]?.GetValue<string>()}[/]");
-				return 1;
-			}
+			using var client = DiagnosticsClient.Connect(settings.SocketPath);
+			client.Send("ping");
 
 			AnsiConsole.MarkupLine(
-				$"[green]pong[/] from pid {hello["pid"]?.GetValue<int>()}"
-				+ $" (protocol {hello["protocol"]?.GetValue<int>()})");
+				$"[green]pong[/] from pid {client.Pid} (protocol {client.Protocol})");
 			return 0;
 		}
-		catch (SocketException)
+		catch (CxdbgException ex)
 		{
-			AnsiConsole.MarkupLine($"[red]nothing is listening at[/] {settings.SocketPath}");
-			return 2;
+			// The server's own message, not a flattened one: it knows why it
+			// refused and that is the only part the user can act on.
+			AnsiConsole.MarkupLine($"[red]{ex.Message.EscapeMarkup()}[/]");
+			return ex.Code == null ? 2 : 1;
 		}
 	}
 }
