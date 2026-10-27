@@ -594,6 +594,20 @@ internal sealed class DiagnosticsServer : IDisposable
 	{
 		bool ansi = req["ansi"]?.GetValue<bool>() ?? false;
 
+		// "cells" answers a different question from the text formats: what is in each
+		// column, rather than what the row says. Text cannot carry it - both writers
+		// drop continuation cells and fold combining marks into the character before
+		// them - so a caller whose columns do not add up has to ask for cells.
+		bool cells = string.Equals(
+			req["format"]?.GetValue<string>(), "cells", StringComparison.OrdinalIgnoreCase);
+
+		if (cells && ansi)
+		{
+			return ErrorBody(
+				"ansi and format:cells are two different answers to the same question; "
+				+ "cells already carries colour as numbers. Ask for one.");
+		}
+
 		// A region, because the interesting part of a 200x60 terminal is usually six rows of
 		// it. Omitted fields mean "to the edge", so {"y":20,"h":3} is a status-bar read.
 		var region = new DiagnosticsSerializer.Region(
@@ -603,12 +617,18 @@ internal sealed class DiagnosticsServer : IDisposable
 			req["h"]?.GetValue<int>());
 
 		if (req["composed"]?.GetValue<bool>() == true)
-			return DiagnosticsSerializer.ConsoleSnapshot(_system, ansi, region);
+		{
+			return cells
+				? DiagnosticsSerializer.ComposedCells(_system, region)
+				: DiagnosticsSerializer.ConsoleSnapshot(_system, ansi, region);
+		}
 
 		var window = ResolveWindow(req, out string? err);
 		if (window == null) return ErrorBody(err!);
 
-		return DiagnosticsSerializer.Snapshot(window, ansi, region);
+		return cells
+			? DiagnosticsSerializer.WindowCells(window, region)
+			: DiagnosticsSerializer.Snapshot(window, ansi, region);
 	}
 
 	/// <summary>
@@ -668,10 +688,9 @@ internal sealed class DiagnosticsServer : IDisposable
 		if (shot == null)
 		{
 			code = ErrorCode.WrongDriver;
-			error = "no composed buffer: this driver retains nothing to read, which means it "
-				  + "is rendering in RenderMode.Direct. Capture a window instead - "
-				  + "{\"cmd\":\"png\",\"window\":\"<title>\"} - which needs no composed "
-				  + "buffer, or run the app with RenderMode.Buffer.";
+			error = "no composed buffer: this driver retains nothing to read. Capture a "
+				  + "window instead - {\"cmd\":\"png\",\"window\":\"<title>\"} - which "
+				  + "needs no composed buffer.";
 			return null;
 		}
 
@@ -1438,7 +1457,7 @@ internal sealed class DiagnosticsServer : IDisposable
 	{
 		/// <summary>
 		/// This driver cannot do it, and no retry will help - resizing a real terminal, or
-		/// reading the composed desktop in RenderMode.Direct. A client should stop asking.
+		/// reading a composed desktop from a driver that keeps no buffer. Stop asking.
 		/// </summary>
 		internal const string WrongDriver = "wrong_driver";
 

@@ -396,6 +396,139 @@ internal static class DiagnosticsSerializer
 	}
 
 
+	/// <summary>A window's painted buffer as cells.</summary>
+	/// <param name="window">The window to read.</param>
+	/// <param name="region">The rectangle, or <see cref="Region.All"/>.</param>
+	internal static JsonObject WindowCells(Window window, Region region)
+	{
+		if (window.Renderer?.Buffer == null)
+		{
+			return new JsonObject
+			{
+				["window"] = window.Title,
+				["error"] = "window has not painted yet",
+			};
+		}
+
+		var o = CellGrid(window.CaptureSurface(), region);
+		o["window"] = window.Title;
+		return o;
+	}
+
+	/// <summary>The composed desktop as cells.</summary>
+	/// <param name="system">The window system.</param>
+	/// <param name="region">The rectangle, or <see cref="Region.All"/>.</param>
+	/// <remarks>
+	/// The composed source is the one that can report a background the application never
+	/// chose, because it is the only one whose colour was stored as an escape and parsed
+	/// back. A window's cells are typed throughout, so their colours are always measured.
+	/// </remarks>
+	internal static JsonObject ComposedCells(ConsoleWindowSystem system, Region region)
+	{
+		var shot = system.ConsoleDriver.CaptureComposed()
+			?? system.RenderingDiagnostics?.LastConsoleSnapshot;
+
+		if (shot == null)
+		{
+			return new JsonObject
+			{
+				["code"] = DiagnosticsServer.ErrorCode.WrongDriver,
+				["error"] = "no composed buffer: this driver retains nothing to read. "
+					+ "Snapshot a window instead - "
+					+ "{\"cmd\":\"snapshot\",\"window\":\"<title>\",\"format\":\"cells\"} "
+					+ "- which reads the live render buffer.",
+			};
+		}
+
+		var o = CellGrid(shot.AsSurface(system.Theme), region);
+		o["composed"] = true;
+		return o;
+	}
+
+	/// <summary>
+	/// A rectangle of cells, one entry per column, with nothing folded away.
+	/// </summary>
+	/// <param name="surface">The painted surface to read.</param>
+	/// <param name="region">The rectangle, or <see cref="Region.All"/>.</param>
+	/// <returns>The grid, or an error when the region does not fit.</returns>
+	/// <remarks>
+	/// <para>
+	/// The text formats answer "what does this say"; this answers "what is in each
+	/// column". They are different questions, and text cannot carry the second: both
+	/// text writers skip continuation cells and append combining marks to the character
+	/// before them, so a wide glyph arrives as one character with no width and the second
+	/// column it occupies is gone. A caller whose columns do not add up is asking about
+	/// exactly the information text threw away.
+	/// </para>
+	/// <para>
+	/// Continuation cells are PRESENT here, so index equals column and a caller can
+	/// trust arithmetic over the row. Colour arrives as numbers rather than escapes,
+	/// because a consumer that wanted to parse SGR could have asked for ANSI.
+	/// </para>
+	/// <para>
+	/// Fields a cell does not have are omitted rather than sent as null: most cells carry
+	/// no decoration and no combining marks, and a thousand nulls per frame is noise.
+	/// </para>
+	/// </remarks>
+	internal static JsonObject CellGrid(Surfaces.ICellSurface surface, Region region)
+	{
+		var r = region.ClampTo(surface.Width, surface.Height, out string? regionError);
+		if (regionError != null) return new JsonObject { ["error"] = regionError };
+
+		int rx = r.X ?? 0, ry = r.Y ?? 0, rw = r.W ?? 0, rh = r.H ?? 0;
+
+		var rows = new JsonArray();
+
+		for (int y = ry; y < ry + rh; y++)
+		{
+			var row = new JsonArray();
+
+			for (int x = rx; x < rx + rw; x++)
+			{
+				var c = surface[x, y];
+				var cell = new JsonObject();
+
+				// A continuation cell has no character of its own: it is the second
+				// column of the glyph before it. Saying so and stopping is clearer
+				// than repeating that glyph twice.
+				if (c.IsWideContinuation)
+				{
+					cell["cont"] = true;
+				}
+				else
+				{
+					cell["ch"] = c.Character.ToString();
+					cell["w"] = Helpers.UnicodeWidth.GetRuneWidth(c.Character);
+					if (c.Combiners != null) cell["comb"] = c.Combiners;
+				}
+
+				cell["fg"] = Rgb(c.Foreground);
+				cell["bg"] = Rgb(c.Background);
+
+				if (c.Decorations != TextDecoration.None)
+					cell["dec"] = c.Decorations.ToString();
+
+				row.Add((JsonNode?)cell);
+			}
+
+			rows.Add((JsonNode?)row);
+		}
+
+		return new JsonObject
+		{
+			["x"] = rx,
+			["y"] = ry,
+			["width"] = rw,
+			["height"] = rh,
+			["format"] = "cells",
+			["rows"] = rows,
+		};
+	}
+
+	/// <summary>A colour as three numbers, which is what a consumer wants to compare.</summary>
+	private static JsonArray Rgb(Color c) =>
+		new() { (JsonNode?)(int)c.R, (JsonNode?)(int)c.G, (JsonNode?)(int)c.B };
+
 	/// <summary>A requested rectangle, before it is known whether it fits.</summary>
 	internal readonly record struct Region(int? X, int? Y, int? W, int? H)
 	{
@@ -452,10 +585,10 @@ internal static class DiagnosticsSerializer
 				// Name the switch the caller actually controls, and the way out that
 				// needs no configuration at all.
 				["code"] = DiagnosticsServer.ErrorCode.WrongDriver,
-				["error"] = "no composed buffer: this driver retains nothing to read, which "
-					+ "means it is rendering in RenderMode.Direct. Snapshot a window instead "
-					+ "- {\"cmd\":\"snapshot\",\"window\":\"<title>\"} - which reads the "
-					+ "live render buffer, or run the app with RenderMode.Buffer.",
+				["error"] = "no composed buffer: this driver retains nothing to read. "
+					+ "Snapshot a window instead - "
+					+ "{\"cmd\":\"snapshot\",\"window\":\"<title>\"} - which reads the "
+					+ "live render buffer.",
 			};
 		}
 

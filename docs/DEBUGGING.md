@@ -135,7 +135,7 @@ differently when it sees one. Those carry a `"code"`:
 
 | `code` | Means | What a client should do |
 |--------|-------|-------------------------|
-| `wrong_driver` | This driver cannot do it -- resizing a real terminal, or reading the composed desktop in `RenderMode.Direct` | Stop asking. No retry helps. |
+| `wrong_driver` | This driver cannot do it -- resizing a real terminal, or reading a composed desktop from a driver that keeps no buffer | Stop asking. No retry helps. |
 | `diagnostics_disabled` | The app was built without the recording this verb reads | Disable the feature. Not switchable from here. |
 
 ```json
@@ -207,6 +207,7 @@ comes back without one.
 {"cmd":"snapshot"}
 {"cmd":"snapshot","window":"Settings"}
 {"cmd":"snapshot","composed":true,"ansi":true}
+{"cmd":"snapshot","format":"cells","y":7,"h":1}
 {"cmd":"snapshot","y":20,"h":3}
 ```
 
@@ -215,7 +216,32 @@ comes back without one.
 | `window` | Window title or GUID. Omitted, the active window. |
 | `composed` | The whole desktop as the user sees it, instead of one window. |
 | `ansi` | Include the colour escapes. Pipe it to a terminal to see it in colour. |
+| `format` | `cells` for one entry per column instead of lines of text. |
 | `x`,`y`,`w`,`h` | A region. Omitted fields mean "to the edge". |
+
+`ansi` is an ANSI **rendering of the desktop**, not a recording of what the driver sent.
+The driver emits a diff -- only changed cells, cursor jumps between fragments, a per-line
+choice of strategy and a style cache that spans cells -- so its output is a fragment of a
+frame, not a picture of one. The snapshot is generated fresh from the retained buffer and
+is complete.
+
+### format: cells
+
+Text answers "what does this row say". `cells` answers "what is in each column", which is
+a different question that text cannot carry: both text writers skip continuation cells and
+fold combining marks into the character before them, so a wide glyph arrives as one
+character with no width and the second column it occupies is gone.
+
+```json
+{"ch":"\u65e5","w":2,"fg":[238,238,238],"bg":[50,50,50],"dec":"Bold"}
+{"cont":true,"fg":[238,238,238],"bg":[50,50,50]}
+{"ch":"A","w":1,"fg":[238,238,238],"bg":[50,50,50]}
+```
+
+One entry per column, continuation cells included, so index equals column and arithmetic
+over a row is trustworthy. Colour comes back as numbers; a caller that wanted escapes
+would have asked for `ansi`, and the two together are refused. Fields a cell does not have
+-- `dec`, `comb` -- are omitted rather than sent as null.
 
 A region matters because the interesting part of a 200x60 terminal is usually six rows of
 it. The reply echoes the **resolved** origin and size, so a request for `h:3` at the bottom
@@ -511,8 +537,8 @@ performance profile of the app it is measuring.
 
 **`composed: true` does not need it.** The driver keeps the composed desktop permanently
 anyway, because the diff engine needs it, so `snapshot` and `image` read that directly and
-cost one copy per capture. The exception is `RenderMode.Direct`, which keeps no buffer at
-all; capture a window instead.
+cost one copy per capture. A custom driver that keeps no buffer has nothing to read;
+capture a window instead.
 
 It is enabled at construction:
 
