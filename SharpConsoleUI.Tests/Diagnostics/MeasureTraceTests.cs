@@ -157,6 +157,41 @@ namespace SharpConsoleUI.Tests.MeasureTracing
 		}
 
 		[Fact]
+		public void TheDecidingLinkIsNamedEvenWhenTheContainerNarrowsFurther()
+		{
+			// Found by driving a real app: a chart offered 85 inside a panel
+			// offering 88 - the innermost container subtracted its own padding, so
+			// NO link in the cascade equalled the final ceiling and setsWidth was
+			// false on every one of them. The cascade showed the chain and never
+			// named the decider, which is the one thing it exists to do.
+			//
+			// An exact match was always too strict. The narrowest ancestor is the
+			// one that bounded the result, whether or not the control then took a
+			// little less.
+			var (_, window) = Build();
+
+			var panel = new ScrollablePanelControl { Name = "panel", Width = 20, Padding = new Padding(2, 0, 2, 0) };
+			panel.AddControl(new ButtonControl { Name = "inner", Text = "In" });
+			window.AddControl(panel);
+
+			LayoutNode.ClearMeasureTrace();
+			using (LayoutNode.BeginMeasureTracing())
+				window.RenderAndGetVisibleContent();
+
+			var entry = LayoutNode.ConsumeMeasureTrace().First(e => e.Control == "inner");
+
+			Assert.NotEmpty(entry.Cascade);
+			Assert.InRange(entry.DecidedBy.Width, 0, entry.Cascade.Count - 1);
+
+			// And it must be the narrowest link, not merely some link.
+			int narrowest = 0;
+			for (int i = 1; i < entry.Cascade.Count; i++)
+				if (entry.Cascade[i].MaxWidth <= entry.Cascade[narrowest].MaxWidth) narrowest = i;
+
+			Assert.Equal(narrowest, entry.DecidedBy.Width);
+		}
+
+		[Fact]
 		public void NothingIsRecordedOutsideATracingScope()
 		{
 			// Measure runs for every node on every relayout, so tracing is scoped

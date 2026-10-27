@@ -342,13 +342,24 @@ namespace SharpConsoleUI.Layout
 			}
 			cascade.Reverse();
 
-			// The outermost link already offering the final ceiling is the one that
-			// set it: a narrower offer below would have narrowed the result too.
+			// The NARROWEST ancestor is the one that bounded the result. An earlier
+			// version looked for the outermost link whose offer EQUALLED the final
+			// ceiling, which silently named nobody whenever the innermost container
+			// narrowed further than it had been offered - subtracting its own
+			// padding, say. A real chart came back offered 85 inside a panel
+			// offering 88, and every link read "did not set this", so the cascade
+			// showed the chain and never answered the question it exists for.
+			//
+			// Later links win ties, so the innermost container that bounded the
+			// value is credited rather than a distant ancestor that happened to
+			// offer the same number.
 			int widthFrom = -1, heightFrom = -1;
 			for (int i = 0; i < cascade.Count; i++)
 			{
-				if (widthFrom < 0 && cascade[i].MaxWidth == constraints.MaxWidth) widthFrom = i;
-				if (heightFrom < 0 && cascade[i].MaxHeight == constraints.MaxHeight) heightFrom = i;
+				if (widthFrom < 0 || cascade[i].MaxWidth <= cascade[widthFrom].MaxWidth)
+					widthFrom = i;
+				if (heightFrom < 0 || cascade[i].MaxHeight <= cascade[heightFrom].MaxHeight)
+					heightFrom = i;
 			}
 
 			var trace = _measureTrace ??= new System.Collections.Generic.Queue<MeasureEntry>();
