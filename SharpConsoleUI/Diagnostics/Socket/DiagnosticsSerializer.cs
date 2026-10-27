@@ -141,6 +141,9 @@ internal static class DiagnosticsSerializer
 
 		if (node.Control is { } c)
 		{
+			// The id is what another verb accepts; name stays as it was, because
+			// something may already be reading it.
+			o["id"] = ControlId(c);
 			if (!string.IsNullOrEmpty(c.Name)) o["name"] = c.Name;
 			if (c.Dock != Dock.None) o["dock"] = c.Dock.ToString();
 
@@ -289,6 +292,38 @@ internal static class DiagnosticsSerializer
 			["chain"] = chain,
 		};
 	}
+
+	/// <summary>
+	/// How a caller names one control when asking another verb about it.
+	/// </summary>
+	/// <param name="c">The control.</param>
+	/// <returns>
+	/// The control's name when it has one, otherwise its type and instance -
+	/// for example <c>MarkupControl#3f2a1b</c>.
+	/// </returns>
+	/// <remarks>
+	/// <para>
+	/// Names carry most of this. Every control has one, the builders expose
+	/// <c>WithName</c>, and anything an app wants to reach later it has already
+	/// named in order to reach it from code.
+	/// </para>
+	/// <para>
+	/// The unnamed remainder gets its instance identity rather than a position.
+	/// An ordinal would shift the moment a sibling is inserted above it, so an
+	/// id captured a moment earlier would silently address a DIFFERENT control -
+	/// the worst failure a selection mechanism can have, because nothing looks
+	/// wrong. An instance id dies with its control instead, so a stale one
+	/// matches nothing.
+	/// </para>
+	/// <para>
+	/// Empty is not a name: <c>string.IsNullOrEmpty</c> is the same guard
+	/// <see cref="Describe"/> uses, so the two agree about what counts as named.
+	/// </para>
+	/// </remarks>
+	internal static string ControlId(IWindowControl c) =>
+		string.IsNullOrEmpty(c.Name)
+			? $"{c.GetType().Name}#{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(c):x}"
+			: c.Name!;
 
 	private static string Describe(IWindowControl c) =>
 		string.IsNullOrEmpty(c.Name) ? c.GetType().Name : $"{c.GetType().Name}#{c.Name}";
