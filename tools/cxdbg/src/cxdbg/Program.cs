@@ -16,12 +16,49 @@ app.Configure(config =>
     config.SetApplicationName("cxdbg");
     config.SetApplicationVersion("1.0.0");
 
-    config.AddCommand<PingCommand>("ping")
-        .WithDescription("Check that an application is listening, and say which")
-        .WithExample("ping")
-        .WithExample("ping", "--socket", "/tmp/myapp.sock");
+
+    // Every protocol verb, as its own command. One list rather than a class
+    // each: the protocol decides what exists, and a hand-written class per verb
+    // drifts the day it grows one. The application can be asked for its own
+    // list at runtime - `cxdbg commands` - and an unknown verb is answered by
+    // the server with the list it knows.
+    foreach (var (verb, what, example) in ProtocolVerbs.All)
+    {
+        config.AddCommand<VerbCommand>(verb)
+            .WithDescription(what)
+            .WithExample(example);
+    }
+
+    // The readable layer over the same verbs. `cxdbg tree` gives the reply;
+    // `cxdbg show tree` gives it formatted, and `why` asks the questions whose
+    // answer is a cascade.
+    config.AddCommand<ShowCommand>("show")
+        .WithDescription("Report something about the application, formatted to read")
+        .WithExample("show", "tree")
+        .WithExample("show", "reachable");
+
+    config.AddCommand<WhyCommand>("why")
+        .WithDescription("Explain how something ended up the way it is")
+        .WithExample("why", "size", "ChartControl#b679e5")
+        .WithExample("why", "color", "Danger", "--state", "Disabled")
+        .WithExample("why", "frame")
+        .WithExample("why", "input");
 });
 
 // No arguments prints help rather than guessing at a socket: a debugger that
 // silently attached to whatever it found would be a surprise.
-return app.Run(args.Length == 0 ? new[] { "--help" } : args);
+if (args.Length == 0) return app.Run(new[] { "--help" });
+
+// A verb cxdbg does not know, but the protocol might: a newer application can
+// answer verbs this build has never heard of. Rather than refuse, ask the
+// application - it answers an unknown verb with the list it knows, which is
+// better discovery than anything cxdbg could hard-code.
+if (!args[0].StartsWith('-')
+    && !ProtocolVerbs.All.Any(v => v.Verb == args[0])
+    && args[0] is not ("show" or "why"))
+{
+    return VerbCommand.PassThrough(args);
+}
+
+return app.Run(args);
+

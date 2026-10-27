@@ -28,7 +28,10 @@ public class PingTests
 		var (exitCode, output) = Cxdbg.Run("ping", "--socket", app.SocketPath);
 
 		Assert.Equal(0, exitCode);
-		Assert.Contains("pid", output, StringComparison.OrdinalIgnoreCase);
+
+		// `ping` is a protocol verb like any other now, so it answers with the
+		// protocol's own reply rather than a sentence of cxdbg's.
+		Assert.Contains("pong", output, StringComparison.OrdinalIgnoreCase);
 	}
 
 	[Fact]

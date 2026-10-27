@@ -74,7 +74,7 @@ public sealed class LiveAppFixture : IDisposable
 		_app.StandardInput.Close();
 
 		WaitForSocket();
-		WaitForFirstFrame();
+		WaitForFirstFrame(demo);
 	}
 
 	/// <summary>
@@ -86,9 +86,10 @@ public sealed class LiveAppFixture : IDisposable
 	/// "no active window" from a verb that photographs one, which reads like a
 	/// broken verb and is really a race against startup.
 	/// </remarks>
-	private void WaitForFirstFrame()
+	private void WaitForFirstFrame(string? demo)
 	{
 		var deadline = DateTime.UtcNow.AddSeconds(20);
+		string? lastSeen = null;
 
 		while (DateTime.UtcNow < deadline)
 		{
@@ -99,7 +100,16 @@ public sealed class LiveAppFixture : IDisposable
 
 				foreach (var w in windows)
 				{
-					if (w?["active"]?.GetValue<bool>() == true) return;
+					if (w?["active"]?.GetValue<bool>() != true) continue;
+
+					lastSeen = w["title"]?.GetValue<string>();
+
+					// With a demo requested, waiting for ANY active window is not
+					// enough: the launcher is active first and the demo opens on
+					// top of it a moment later. A test that proceeded on the
+					// launcher would look for controls that are in the other
+					// window.
+					if (demo == null || lastSeen == demo) return;
 				}
 			}
 			catch (Protocol.CxdbgException) { /* not up yet */ }
@@ -107,7 +117,9 @@ public sealed class LiveAppFixture : IDisposable
 			Thread.Sleep(50);
 		}
 
-		throw new TimeoutException($"no active window after 20s.\n{Output}");
+		throw new TimeoutException(
+			$"waited 20s for {(demo == null ? "an active window" : $"'{demo}' to open")}; "
+			+ $"active window is '{lastSeen}'.\n{Output}");
 	}
 
 	/// <summary>

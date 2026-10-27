@@ -142,9 +142,19 @@ public sealed class DiagnosticsClient : IDisposable
 
 		if (reply["ok"]?.GetValue<bool>() != true)
 		{
-			throw new CxdbgException(
-				reply["error"]?.GetValue<string>() ?? $"'{verb}' failed, without saying why",
-				reply["code"]?.GetValue<string>());
+			string message = reply["error"]?.GetValue<string>()
+				?? $"'{verb}' failed, without saying why";
+
+			// An unknown verb comes back with the list the application knows.
+			// That list IS the answer to what the user was reaching for, so it
+			// travels with the error rather than being dropped.
+			if (reply["known"] is JsonArray known && known.Count > 0)
+			{
+				message += "\n\nThis application knows: "
+					+ string.Join(", ", known.Select(k => k?.GetValue<string>()));
+			}
+
+			throw new CxdbgException(message, reply["code"]?.GetValue<string>());
 		}
 
 		return reply;
