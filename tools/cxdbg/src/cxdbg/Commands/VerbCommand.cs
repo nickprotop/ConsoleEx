@@ -80,9 +80,10 @@ public sealed class VerbCommand : Command<VerbSettings>
 					case "measure": return CascadeFormatter.RenderSize(reply);
 					case "color": return CascadeFormatter.RenderColor(reply);
 					case "snapshot":
-						// Two different replies wear this verb: lines of text, or
-						// one entry per column. They are read differently, so they
-						// print differently.
+						// Several replies wear this verb. Cells are a grid and
+						// read column by column; everything else is lines, and
+						// markup lines are printed as they are so they can be
+						// piped into a file and parsed back later.
 						return reply["rows"] != null
 							? CellFormatter.Render(reply)
 							: string.Join("\n",

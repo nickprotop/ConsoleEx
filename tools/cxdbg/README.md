@@ -58,6 +58,13 @@ row 7
 Text cannot answer this. It folds a wide glyph into one character and drops the
 second column it occupies, which is exactly what you are looking for.
 
+`--format markup` gives the same frame as text that parses back into cells, for
+keeping or replaying:
+
+```bash
+cxdbg snapshot --format markup > frame.txt
+```
+
 ## Explaining
 
 ```bash

@@ -96,6 +96,42 @@ public sealed class SessionFixture : IDisposable
 		}
 	}
 
+	/// <summary>
+	/// The scroll offset of one of the session's own scrollers.
+	/// </summary>
+	/// <param name="name">The control's name, as the session gave it.</param>
+	/// <returns>Rows scrolled, or -1 when the control reports none.</returns>
+	/// <remarks>
+	/// Read from the session's own tree, where every ScrollablePanelControl
+	/// describes its scrollOffset. Asserting on a number the control reports
+	/// is firmer than reading glyphs off a snapshot and guessing which pane
+	/// they came from.
+	/// </remarks>
+	public int ScrollOffsetOf(string name)
+	{
+		using var client = Protocol.DiagnosticsClient.Connect(SocketPath);
+		var reply = client.Send("tree");
+
+		int found = -1;
+
+		void Walk(System.Text.Json.Nodes.JsonNode? node)
+		{
+			if (found >= 0 || node is not System.Text.Json.Nodes.JsonObject o) return;
+
+			if (o["id"]?.GetValue<string>() == name
+				&& o["state"]?["scrollOffset"]?.GetValue<int>() is { } offset)
+			{
+				found = offset;
+				return;
+			}
+
+			foreach (var k in o["children"]?.AsArray() ?? []) Walk(k);
+		}
+
+		foreach (var w in reply["windows"]?.AsArray() ?? []) Walk(w?["node"]);
+		return found;
+	}
+
 	/// <summary>Presses a key in the session.</summary>
 	public void Key(string spec)
 	{

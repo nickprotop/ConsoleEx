@@ -6,23 +6,27 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Text;
 using System.Text.Json.Nodes;
 using Cxdbg.Protocol;
+using SharpConsoleUI;
+using SharpConsoleUI.Layout;
 
 namespace Cxdbg.Session;
 
 /// <summary>What the session last learned about the target.</summary>
 /// <param name="Frame">The target's frame number, or the last one seen.</param>
 /// <param name="Tree">Its control tree.</param>
-/// <param name="Screen">What its screen shows, as lines.</param>
+/// <param name="Screen">Its screen, one list of cells per row.</param>
 /// <param name="Gone">Whether the target has stopped answering.</param>
 internal sealed record TargetState(
 	long Frame,
 	JsonNode? Tree,
-	IReadOnlyList<string> Screen,
+	JsonNode? Focus,
+	IReadOnlyList<IReadOnlyList<Cell>> Screen,
 	bool Gone)
 {
-	internal static TargetState Empty { get; } = new(0, null, [], false);
+	internal static TargetState Empty { get; } = new(0, null, null, [], false);
 }
 
 /// <summary>
@@ -55,6 +59,13 @@ internal sealed class TargetPoller : IDisposable
 
 	/// <summary>Whether polling is paused, so the view holds still.</summary>
 	internal bool Frozen { get; set; }
+
+	/// <summary>The target's process id, from its greeting.</summary>
+	/// <remarks>
+	/// In the header, because a session that does not say which application it
+	/// is looking at is one you cannot tell from a session looking at another.
+	/// </remarks>
+	internal int Pid { get; private set; }
 
 	internal TargetPoller(string socket, TimeSpan? interval = null)
 	{
@@ -91,6 +102,75 @@ internal sealed class TargetPoller : IDisposable
 		}
 	}
 
+	/// <summary>
+	/// Turns a cells reply into rows of cells.
+	/// </summary>
+	/// <param name="snapshot">The reply from <c>snapshot format:cells</c>.</param>
+	/// <returns>The rows, or null when the reply carried none.</returns>
+	/// <remarks>
+	/// A continuation cell is written back as one, so a wide glyph still
+	/// occupies the two columns it occupied in the application. Reconstructing
+	/// it any other way - from the character's own width, say - would be a
+	/// second opinion about something the server already stated.
+	/// </remarks>
+	private static List<IReadOnlyList<Cell>>? ReadCells(JsonNode? snapshot)
+	{
+		var rows = snapshot?["rows"]?.AsArray();
+		if (rows == null) return null;
+
+		var result = new List<IReadOnlyList<Cell>>(rows.Count);
+
+		foreach (var row in rows)
+		{
+			var cells = new List<Cell>();
+
+			foreach (var c in row?.AsArray() ?? [])
+			{
+				var fg = Rgb(c?["fg"], Color.White);
+				var bg = Rgb(c?["bg"], Color.Black);
+
+				var dec = TextDecoration.None;
+				if (c?["dec"]?.GetValue<string>() is { } names
+					&& Enum.TryParse<TextDecoration>(names, true, out var parsed))
+				{
+					dec = parsed;
+				}
+
+				if (c?["cont"]?.GetValue<bool>() == true)
+				{
+					cells.Add(new Cell(' ', fg, bg, dec) { IsWideContinuation = true });
+					continue;
+				}
+
+				string ch = c?["ch"]?.GetValue<string>() ?? " ";
+				var rune = ch.Length > 0
+					? System.Text.Rune.GetRuneAt(ch, 0)
+					: new System.Text.Rune(' ');
+
+				cells.Add(new Cell(rune, fg, bg, dec)
+				{
+					Combiners = c?["comb"]?.GetValue<string>(),
+				});
+			}
+
+			result.Add(cells);
+		}
+
+		return result;
+	}
+
+	/// <summary>Three numbers back into a colour.</summary>
+	private static Color Rgb(JsonNode? node, Color fallback)
+	{
+		var a = node?.AsArray();
+		if (a == null || a.Count < 3) return fallback;
+
+		return new Color(
+			(byte)(a[0]?.GetValue<int>() ?? 0),
+			(byte)(a[1]?.GetValue<int>() ?? 0),
+			(byte)(a[2]?.GetValue<int>() ?? 0));
+	}
+
 	private void Loop(TimeSpan interval)
 	{
 		while (!_stop.IsCancellationRequested)
@@ -111,6 +191,8 @@ internal sealed class TargetPoller : IDisposable
 		{
 			using var client = DiagnosticsClient.Connect(_socket);
 
+			Pid = client.Pid;
+
 			long frame = client.Send("frame")["frame"]?.GetValue<long>() ?? 0;
 			var current = State;
 
@@ -119,14 +201,18 @@ internal sealed class TargetPoller : IDisposable
 			if (!current.Gone && frame == current.Frame && current.Tree != null) return;
 
 			var tree = client.Send("tree");
-			var snapshot = client.Send("snapshot");
+			var focus = client.Send("focus");
 
-			var lines = snapshot["lines"]?.AsArray();
-			var screen = lines == null
-				? current.Screen
-				: lines.Select(l => l?.GetValue<string>() ?? "").ToList();
+			// Cells out, cells in. The target has cells and the pane paints
+			// cells, so nothing is serialised as text and parsed back: no
+			// format sits in the middle to lose a continuation cell or a
+			// combining mark, and no second parser can drift from the first.
+			var snapshot = client.Send("snapshot",
+				new Dictionary<string, JsonNode?> { ["format"] = "cells" });
 
-			next = new TargetState(frame, tree, screen, Gone: false);
+			var screen = ReadCells(snapshot) ?? current.Screen;
+
+			next = new TargetState(frame, tree, focus, screen, Gone: false);
 		}
 		catch (CxdbgException)
 		{
