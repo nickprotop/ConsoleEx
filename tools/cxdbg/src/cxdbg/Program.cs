@@ -56,6 +56,14 @@ app.Configure(config =>
 		.WithExample("send", "click", "20", "10")
 		.WithExample("send", "resize", "80", "24");
 
+	// Starting an app, rather than attaching to one. Everything after `--`
+	// belongs to the application.
+	config.AddCommand<RunCommand>("run")
+		.WithDescription("Start an application with a socket and attach to it")
+		.WithExample("run", "./MyApp")
+		.WithExample("run", "./MyApp", "--", "--headless", "--size", "100x30")
+		.WithExample("run", "--again");
+
 	config.AddCommand<WhyCommand>("why")
 		.WithDescription("Explain how something ended up the way it is")
 		.WithExample("why", "size", "ChartControl#b679e5")
@@ -74,7 +82,7 @@ if (args.Length == 0) return app.Run(new[] { "--help" });
 // better discovery than anything cxdbg could hard-code.
 if (!args[0].StartsWith('-')
 	&& !ProtocolVerbs.All.Any(v => v.Verb == args[0])
-	&& args[0] is not ("show" or "why" or "send"))
+	&& args[0] is not ("show" or "why" or "send" or "run"))
 {
 	return VerbCommand.PassThrough(args);
 }

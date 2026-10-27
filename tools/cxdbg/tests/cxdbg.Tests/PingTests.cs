@@ -50,7 +50,31 @@ public class PingTests
 /// <summary>Runs the built cxdbg binary and captures what it said.</summary>
 internal static class Cxdbg
 {
-	internal static (int ExitCode, string Output) Run(params string[] args)
+	internal static (int ExitCode, string Output) Run(params string[] args) =>
+		RunIn(null, args);
+
+	/// <summary>Runs cxdbg with its state directory pointed somewhere else.</summary>
+	/// <param name="stateDir">
+	/// Where cxdbg should keep what it remembers, or null for the real place.
+	/// </param>
+	/// <param name="args">The command line.</param>
+	/// <remarks>
+	/// Set on the CHILD's environment, never this process's. Two test classes
+	/// mutating process-global variables in parallel is a race this suite has
+	/// already paid for once.
+	/// </remarks>
+	internal static (int ExitCode, string Output) RunIn(string? stateDir, params string[] args) =>
+		RunWithEnv(
+			stateDir == null
+				? null
+				: new Dictionary<string, string> { ["CXDBG_STATE_DIR"] = stateDir },
+			args);
+
+	/// <summary>Runs cxdbg with extra environment variables, set on the child only.</summary>
+	/// <param name="env">Variables for this run, or null for none.</param>
+	/// <param name="args">The command line.</param>
+	internal static (int ExitCode, string Output) RunWithEnv(
+		IReadOnlyDictionary<string, string>? env, params string[] args)
 	{
 		var psi = new ProcessStartInfo(BinaryPath())
 		{
@@ -58,12 +82,33 @@ internal static class Cxdbg
 			RedirectStandardError = true,
 			UseShellExecute = false,
 		};
+		if (env != null)
+		{
+			foreach (var (name, value) in env) psi.Environment[name] = value;
+		}
+
 		foreach (var a in args) psi.ArgumentList.Add(a);
 
 		using var p = Process.Start(psi)!;
-		string output = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
-		p.WaitForExit(30_000);
-		return (p.ExitCode, output);
+
+		// Collect asynchronously rather than ReadToEnd. `run` leaves an
+		// application alive, and that application inherits cxdbg's stdout - so
+		// reading the pipe to EOF waits for the APPLICATION to die, not for
+		// cxdbg to finish. Waiting on the process and then taking what arrived
+		// is what the test actually wants to know.
+		var text = new System.Text.StringBuilder();
+		p.OutputDataReceived += (_, e) => { if (e.Data != null) lock (text) text.AppendLine(e.Data); };
+		p.ErrorDataReceived += (_, e) => { if (e.Data != null) lock (text) text.AppendLine(e.Data); };
+		p.BeginOutputReadLine();
+		p.BeginErrorReadLine();
+
+		if (!p.WaitForExit(60_000))
+		{
+			p.Kill(entireProcessTree: true);
+			throw new TimeoutException($"cxdbg did not exit within 60s. It said:\n{text}");
+		}
+
+		lock (text) return (p.ExitCode, text.ToString());
 	}
 
 	private static string BinaryPath()
