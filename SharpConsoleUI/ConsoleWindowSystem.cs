@@ -357,7 +357,8 @@ namespace SharpConsoleUI
 			// Only the DECISION happens here - the socket itself opens at the end of the
 			// constructor, once there is a system for it to serve.
 			var diagnosticsDecision = Diagnostics.Socket.DiagnosticsConsent.Resolve(
-				(options ?? ConsoleWindowSystemOptions.Create()).DiagnosticsSocket);
+				(options ?? ConsoleWindowSystemOptions.Create()).DiagnosticsSocket,
+				driver);
 
 			// Begin capturing piped stdin. Started before the driver initializes so no input is missed,
 			// but NOT waited on here: stdin held open by a live writer (a streaming producer, or a parent
@@ -525,6 +526,19 @@ namespace SharpConsoleUI
 				if (decision.DenialReason != null)
 					_logService.LogWarning(decision.DenialReason, "Diagnostics");
 				return;
+			}
+
+			// A socket opened from the environment had no prompt behind it - a headless
+			// app has nobody to ask. That is deliberate, and it is exactly the kind of
+			// thing that should leave a record: an unexplained socket is worth being
+			// able to trace back to the run that opened it.
+			if (decision.FromEnvironment)
+			{
+				_logService.LogWarning(
+					$"Diagnostics socket opened from the environment at {decision.SocketPath}. "
+					+ "Anything running as this user can read what this application "
+					+ "displays and send it input.",
+					"Diagnostics");
 			}
 
 			try

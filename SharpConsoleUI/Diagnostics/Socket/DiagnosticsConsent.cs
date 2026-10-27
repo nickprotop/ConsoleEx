@@ -6,6 +6,8 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Drivers;
+
 namespace SharpConsoleUI.Diagnostics.Socket;
 
 /// <summary>
@@ -33,10 +35,24 @@ internal static class DiagnosticsConsent
 	/// <param name="Allowed">Whether the socket may open.</param>
 	/// <param name="SocketPath">Where it should listen, when allowed.</param>
 	/// <param name="DenialReason">Why it may not, for the log, when denied.</param>
-	internal readonly record struct Decision(bool Allowed, string? SocketPath, string? DenialReason)
+	/// <param name="FromEnvironment"></param>
+	internal readonly record struct Decision(
+		bool Allowed, string? SocketPath, string? DenialReason, bool FromEnvironment = false)
 	{
 		internal static Decision No(string reason) => new(false, null, reason);
+
+		/// <summary>Allowed, by someone who wrote the path in code.</summary>
 		internal static Decision Yes(string path) => new(true, path, null);
+
+		/// <summary>
+		/// Allowed, from the environment variable.
+		/// </summary>
+		/// <remarks>
+		/// Tracked separately so the caller can log that route. A socket opened
+		/// without a prompt should leave a record; one configured in code is the
+		/// author's own decision and needs none.
+		/// </remarks>
+		internal static Decision YesFromEnvironment(string path) => new(true, path, null, true);
 	}
 
 	/// <summary>
@@ -46,6 +62,11 @@ internal static class DiagnosticsConsent
 	/// <param name="optionPath">
 	/// The path from <c>ConsoleWindowSystemOptions.DiagnosticsSocket</c>, or null.
 	/// </param>
+	/// <param name="driver">
+	/// The driver this system will run on, which decides whether there is anyone
+	/// to prompt. A headless app has no terminal by design, so the usual
+	/// "is stdin interactive?" test says nothing about whether a user is present.
+	/// </param>
 	/// <returns>What to do.</returns>
 	/// <remarks>
 	/// MUST be called before the console driver initialises. Once raw mode and the alternate
@@ -53,7 +74,7 @@ internal static class DiagnosticsConsent
 	/// there is no second chance to ask. This is the one place in a SharpConsoleUI program
 	/// where writing directly to the console is correct rather than forbidden.
 	/// </remarks>
-	internal static Decision Resolve(string? optionPath)
+	internal static Decision Resolve(string? optionPath, IConsoleDriver? driver = null)
 	{
 		// In code, by someone who wrote it there. No prompt.
 		if (!string.IsNullOrWhiteSpace(optionPath))
@@ -64,6 +85,19 @@ internal static class DiagnosticsConsent
 			return Decision.No(null!);   // nothing was asked for; not a denial worth logging
 
 		string path = ResolvePath(fromEnv);
+
+		// A headless app has no user to ask and no screen to expose. It is headless
+		// because someone wrote HeadlessConsoleDriver in code, which is the same
+		// class of statement as setting DiagnosticsSocket there - a deliberate,
+		// compiled-in decision that this program runs unattended. Prompting someone
+		// who by construction is not present, and denying when they do not answer,
+		// protects nobody; it only makes the variable silently terminal-only.
+		//
+		// The threat given up is narrow: an attacker who can already set your
+		// environment, targeting a headless app, to read a screen nobody is looking
+		// at. Someone who can set your environment can usually do worse.
+		if (driver is HeadlessConsoleDriver)
+			return Decision.YesFromEnvironment(path);
 
 		// Nobody to ask. Deny - this is exactly the case a hostile variable would exploit,
 		// so "nobody is watching" must mean no, never "assume yes".
@@ -76,7 +110,7 @@ internal static class DiagnosticsConsent
 		}
 
 		return Prompt(path)
-			? Decision.Yes(path)
+			? Decision.YesFromEnvironment(path)
 			: Decision.No("diagnostics socket declined by the user at the consent prompt.");
 	}
 
