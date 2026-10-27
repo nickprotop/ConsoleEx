@@ -80,6 +80,111 @@ namespace SharpConsoleUI.Helpers
 			return result;
 		}
 
+		/// <summary>One step in a colour's derivation: what happened, and the result.</summary>
+		/// <param name="Source">What this step was, in the words of the thing that did it.</param>
+		/// <param name="Color">The colour after the step.</param>
+		public readonly record struct ColorStep(string Source, Color Color);
+
+		/// <summary>
+		/// How a role arrives at its colour, step by step.
+		/// </summary>
+		/// <param name="role">The role to explain.</param>
+		/// <param name="theme">The theme supplying the anchors.</param>
+		/// <param name="outline">Whether the role paints as text rather than fill.</param>
+		/// <param name="state">The interaction state.</param>
+		/// <param name="mode">An override for the theme's dark/light decision.</param>
+		/// <returns>The derivation, first step first, ending at the resolved colour.</returns>
+		/// <remarks>
+		/// A resolved role is COMPUTED, not looked up: an anchor seeds it,
+		/// contrast against the surface may move it, focus tints it and disabled
+		/// fades it. When the colour is wrong, the question is which of those
+		/// steps moved it - and the colour alone cannot say.
+		/// <para>
+		/// Mirrors <see cref="Resolve(ColorRole, ITheme, bool, ColorRoleState, ThemeMode?)"/>
+		/// step for step. A test asserts the last step equals what Resolve
+		/// returns, so the two cannot quietly drift apart.
+		/// </para>
+		/// </remarks>
+		public static IReadOnlyList<ColorStep> Explain(ColorRole role, ITheme theme,
+			bool outline = false, ColorRoleState state = ColorRoleState.Normal,
+			ThemeMode? mode = null)
+		{
+			ArgumentNullException.ThrowIfNull(theme);
+
+			var steps = new List<ColorStep>();
+
+			Color surfaceBg = theme.WindowBackgroundColor;
+			Color surfaceFg = theme.WindowForegroundColor;
+
+			if (role == ColorRole.Default)
+			{
+				// Default is not a colour of its own - it IS the window's surface.
+				steps.Add(new ColorStep("theme surface (ColorRole.Default)", surfaceBg));
+				return steps;
+			}
+
+			Color baseColor = ResolveBaseColor(role, theme, mode);
+			steps.Add(new ColorStep($"theme {AnchorName(role)}", baseColor));
+
+			if (state == ColorRoleState.Focused)
+			{
+				baseColor = baseColor.Tint(0.2);
+				steps.Add(new ColorStep("tinted for focused state", baseColor));
+			}
+
+			Color roleTextOnSurface = PaletteColors.EnsureContrast(baseColor, surfaceBg);
+			if (roleTextOnSurface != baseColor)
+			{
+				// Said plainly, because this step moves the colour painted ON the
+				// surface - the outline, the border, the text of a solid variant -
+				// and leaves a solid fill alone. Without saying which, a reader
+				// sees a colour change that the next line appears to undo.
+				steps.Add(new ColorStep(
+					outline
+						? "moved for contrast against the surface"
+						: "moved for contrast against the surface (text and border only)",
+					roleTextOnSurface));
+			}
+
+			ColorRoleSet result = outline
+				? new ColorRoleSet(roleTextOnSurface, surfaceBg, roleTextOnSurface, roleTextOnSurface)
+				: new ColorRoleSet(
+					roleTextOnSurface,
+					baseColor,
+					PaletteColors.ContrastOn(baseColor),
+					roleTextOnSurface);
+
+			steps.Add(new ColorStep(
+				outline ? "painted as outline (surface stays the background)" : "painted as fill",
+				result.Background));
+
+			if (state == ColorRoleState.Disabled)
+			{
+				result = new ColorRoleSet(
+					result.Text.WithAlpha(ControlDefaults.DisabledStateAlpha),
+					result.Background.WithAlpha(ControlDefaults.DisabledStateAlpha),
+					result.TextOnBackground.WithAlpha(ControlDefaults.DisabledStateAlpha),
+					result.Border.WithAlpha(ControlDefaults.DisabledStateAlpha));
+
+				steps.Add(new ColorStep("faded for disabled state", result.Background));
+			}
+
+			return steps;
+		}
+
+		/// <summary>The theme property a role seeds from, for a cascade reader.</summary>
+		private static string AnchorName(ColorRole role) => role switch
+		{
+			ColorRole.Primary => "PrimaryColor",
+			ColorRole.Secondary => "SecondaryColor",
+			ColorRole.Tertiary => "TertiaryColor",
+			ColorRole.Info => "InfoColor",
+			ColorRole.Success => "SuccessColor",
+			ColorRole.Warning => "WarningColor",
+			ColorRole.Danger => "DangerColor",
+			_ => role.ToString(),
+		};
+
 		private static Color ResolveBaseColor(ColorRole role, ITheme theme, ThemeMode? mode = null)
 		{
 			bool dark = (mode ?? theme.Mode) == ThemeMode.Dark;

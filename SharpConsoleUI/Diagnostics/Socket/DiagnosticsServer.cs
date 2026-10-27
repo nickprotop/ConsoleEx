@@ -13,7 +13,9 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Surfaces;
+using SharpConsoleUI.Themes;
 
 namespace SharpConsoleUI.Diagnostics.Socket;
 
@@ -226,6 +228,7 @@ internal sealed class DiagnosticsServer : IDisposable
 			"invalidations" => Ok(Invalidations()),
 			"reachable" => Ok(Reachable()),
 			"measure" => Ok(Measure(req)),
+			"color" => Ok(ColorCascade(req)),
 			"ping" => Ok(new JsonObject { ["pong"] = true }),
 			"commands" => Ok(Commands()),
 
@@ -428,6 +431,58 @@ internal sealed class DiagnosticsServer : IDisposable
 		};
 	}
 
+	/// <summary>
+	/// Why a role is the colour it is, step by step.
+	/// </summary>
+	/// <remarks>
+	/// A resolved role is COMPUTED, not looked up: a theme anchor seeds it,
+	/// contrast against the surface may move it, focus tints it and disabled
+	/// fades it. The result is one colour, and when it is not the colour the
+	/// author set, the question is which step moved it - the same question a
+	/// browser answers by showing the rules that applied and the one that won.
+	/// <para>
+	/// Takes <c>"role"</c> (default Primary), and optionally <c>"state"</c>
+	/// and <c>"outline"</c>.
+	/// </para>
+	/// </remarks>
+	private JsonObject ColorCascade(JsonNode? req)
+	{
+		string roleName = req?["role"]?.GetValue<string>() ?? nameof(ColorRole.Primary);
+		if (!Enum.TryParse<ColorRole>(roleName, ignoreCase: true, out var role))
+			return Error($"unknown role '{roleName}'", null);
+
+		string stateName = req?["state"]?.GetValue<string>() ?? nameof(ColorRoleState.Normal);
+		if (!Enum.TryParse<ColorRoleState>(stateName, ignoreCase: true, out var state))
+			return Error($"unknown state '{stateName}'", null);
+
+		bool outline = req?["outline"]?.GetValue<bool>() ?? false;
+
+		var theme = _system.Theme;
+		var steps = new JsonArray();
+
+		foreach (var step in ColorRoleResolver.Explain(role, theme, outline, state))
+		{
+			steps.Add((JsonNode?)new JsonObject
+			{
+				["source"] = step.Source,
+				["color"] = step.Color.ToString(),
+			});
+		}
+
+		var resolved = ColorRoleResolver.Resolve(role, theme, outline, state);
+
+		return new JsonObject
+		{
+			["theme"] = theme.Name,
+			["role"] = role.ToString(),
+			["state"] = state.ToString(),
+			["outline"] = outline,
+			["background"] = resolved.Background.ToString(),
+			["text"] = resolved.Text.ToString(),
+			["cascade"] = steps,
+		};
+	}
+
 	/// <summary>The command names, for an unknown-command reply.</summary>
 	/// <remarks>
 	/// Built through the non-generic <c>ICollection&lt;JsonNode&gt;.Add</c> rather than a
@@ -453,7 +508,8 @@ internal sealed class DiagnosticsServer : IDisposable
 		"theme", "window", "frame",
 			"invalidations",
 			"reachable",
-			"measure", "ping", "commands",
+			"measure",
+			"color", "ping", "commands",
 	};
 
 	#endregion
