@@ -1212,13 +1212,21 @@ internal sealed class DiagnosticsServer : IDisposable
 	private JsonObject Theme(JsonObject req)
 	{
 		string name = req["name"]?.GetValue<string>() ?? "";
-		if (name.Length == 0) return ErrorBody("theme requires 'name'");
+
+		// With no name it is a question rather than an instruction, which is
+		// how a caller finds out what it may ask for.
+		if (name.Length == 0) return DiagnosticsSerializer.Themes(_system);
 
 		bool ok = false;
 		Marshal(() => ok = _system.ThemeStateService.SwitchTheme(name));
-		return ok
-			? new JsonObject { ["theme"] = name }
-			: ErrorBody($"no theme named '{name}'");
+
+		if (ok) return new JsonObject { ["theme"] = name };
+
+		// Name what exists, the way an unknown verb is answered with the verbs
+		// that do: an error that only says no leaves the caller guessing.
+		var known = string.Join(", ", _system.ThemeRegistryService.GetAvailableThemeNames());
+
+		return ErrorBody($"no theme named '{name}'; known: {known}");
 	}
 
 	private JsonObject WindowCmd(JsonObject req)

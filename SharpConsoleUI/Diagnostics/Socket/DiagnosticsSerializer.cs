@@ -400,6 +400,49 @@ internal static class DiagnosticsSerializer
 	}
 
 
+	/// <summary>
+	/// The themes this application has, and which one is on.
+	/// </summary>
+	/// <param name="system">The window system.</param>
+	/// <remarks>
+	/// A verb that only switches is one a caller can use when it already knows
+	/// the answer. Anything building a list - a debugger's theme picker, a
+	/// script trying each in turn - has to ask, and the socket is the only
+	/// thing there is to ask.
+	/// </remarks>
+	internal static JsonObject Themes(ConsoleWindowSystem system)
+	{
+		var themes = new JsonArray();
+		string? current = null;
+
+		string typeName = system.Theme.GetType().Name;
+
+		foreach (var info in system.ThemeRegistryService.GetAvailableThemes())
+		{
+			themes.Add((JsonNode?)new JsonObject
+			{
+				["name"] = info.Name,
+				["description"] = info.Description,
+			});
+
+			// The registry's name, not the type's: the registry calls it
+			// "ModernGray" and the class is ModernGrayTheme, so reporting the
+			// type leaves a picker unable to match the current theme against
+			// the list it was given.
+			if (typeName.Equals(info.Name, StringComparison.Ordinal)
+				|| typeName.Equals(info.Name + "Theme", StringComparison.Ordinal))
+			{
+				current = info.Name;
+			}
+		}
+
+		return new JsonObject
+		{
+			["theme"] = current ?? typeName,
+			["themes"] = themes,
+		};
+	}
+
 	/// <summary>A window's painted buffer as cells.</summary>
 	/// <param name="window">The window to read.</param>
 	/// <param name="region">The rectangle, or <see cref="Region.All"/>.</param>
