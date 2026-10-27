@@ -68,7 +68,8 @@ app.Configure(config =>
 	config.AddCommand<RunCommand>("run")
 		.WithDescription("Start an application with a diagnostics socket")
 		.WithExample("run", "./MyApp")
-		.WithExample("run", "./MyApp", "--", "--headless", "--size", "100x30");
+		.WithExample("run", "./MyApp", "--", "--headless", "--size", "100x30")
+		.WithExample("run", "./MyApp", "--attach");
 
 	config.AddCommand<WhyCommand>("why")
 		.WithDescription("Explain how something ended up the way it is")

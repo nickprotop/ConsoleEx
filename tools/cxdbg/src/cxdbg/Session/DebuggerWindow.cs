@@ -12,6 +12,7 @@ using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.DataBinding;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using Color = SharpConsoleUI.Color;
@@ -63,6 +64,18 @@ internal sealed class DebuggerWindow
 	private readonly CascadeSource _cascade = new();
 	private readonly FocusSource _focus = new();
 	private readonly EventSource _events = new();
+	private readonly MarkupControl _controlsSaid = new(["[dim]ready[/]"]);
+	private DropdownControl? _themePicker;
+
+	/// <summary>
+	/// Whether a dropdown's change came from the user or from being filled.
+	/// </summary>
+	/// <remarks>
+	/// Setting SelectedIndex raises the same event a click does, so populating
+	/// the theme picker announced "theme is now ModernGray" before anyone had
+	/// touched it - and would have switched the log level to Trace on sight.
+	/// </remarks>
+	private bool _filling;
 	private readonly MarkupControl _eventsStatus = new([""]);
 	private readonly MarkupControl _focusSummary = new([""]);
 	private readonly MarkupControl _cascadeSummary = new([""]);
@@ -127,7 +140,7 @@ internal sealed class DebuggerWindow
 			.AddLeft(_pidItem)
 			.AddLeft(_frameItem)
 			.AddLeft(_stateItem)
-			.AddRight("1 2", "pane", () => SelectRight(_right?.ActiveTabIndex == 0 ? 1 : 0))
+			.AddRight("1-3", "pane", () => SelectRight(((_right?.ActiveTabIndex ?? 0) + 1) % 3))
 			.AddRight("F1-F4", "dock", () => SelectDock(((_dock?.ActiveTabIndex ?? 0) + 1) % 4))
 			.AddRight("[ ]", "row")
 			.AddRight("f", "freeze", ToggleFreeze)
@@ -242,6 +255,8 @@ internal sealed class DebuggerWindow
 			.AddControl(_screen)
 			.Build());
 
+		_right.AddTab("3 control", Controls_());
+
 		return _right;
 	}
 
@@ -289,6 +304,216 @@ internal sealed class DebuggerWindow
 				.StretchHorizontal()
 				.Build())
 			.Build();
+
+	/// <summary>
+	/// The things about the application that can be changed from here.
+	/// </summary>
+	/// <remarks>
+	/// Deliberate acts with consequences - resizing the screen, closing a
+	/// window - so they are controls to press rather than keys that could be
+	/// hit by accident. The dock stays read-only and answers "why"; this
+	/// answers "what can I change".
+	/// </remarks>
+	private IWindowControl Controls_()
+	{
+		var panel = Controls.ScrollablePanel()
+			.WithScrollbar()
+			.WithMouseWheel()
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.WithAlignment(HorizontalAlignment.Stretch)
+			.AddControl(_controlsSaid)
+			.AddControl(Section("screen", Controls.Prompt()
+				.WithPrompt("size ")
+				.WithPlaceholder("120x40")
+				.OnEntered((_, text) => Resize(text))
+				.Build()))
+			.AddControl(Section("theme", ThemePicker()))
+			.AddControl(Section("logging", Controls.Dropdown()
+				.WithPrompt("level ")
+				.AddItems("Trace", "Debug", "Information", "Warning", "Error")
+				.OnSelectedItemChanged((_, item) => SetLogLevel(item?.Text))
+				.Build()))
+			.AddControl(Section("the selected control", Buttons(
+				(" focus ", () => ActOnSelection("focusctl")),
+				(" invoke ", () => ActOnSelection("invoke")))))
+			.AddControl(Section("the selected window", Buttons(
+				(" activate ", () => ActOnWindow("activate")),
+				(" close ", () => ActOnWindow("close")))))
+			.Build();
+
+		return panel;
+	}
+
+	/// <summary>Buttons side by side, each as wide as its own text.</summary>
+	private static IWindowControl Buttons(params (string Text, Action OnClick)[] buttons)
+	{
+		var grid = Controls.Grid()
+			.Columns(Enumerable.Repeat(GridLength.Auto(), buttons.Length).ToArray())
+			.Rows(GridLength.Auto())
+			.ColumnGap(1);
+
+		for (int i = 0; i < buttons.Length; i++)
+		{
+			var (text, onClick) = buttons[i];
+
+			grid = grid.Place(Controls.Button()
+				.WithText(text)
+				.OnClick((_, _) => onClick())
+				.Build(), 0, i);
+		}
+
+		return grid.Build();
+	}
+
+	/// <summary>One titled group of controls.</summary>
+	private static PanelControl Section(string header, IWindowControl content) =>
+		Controls.Panel()
+			.WithHeader(header)
+			.WithBorderStyle(BorderStyle.Rounded)
+			.WithAlignment(HorizontalAlignment.Stretch)
+			.AddControl(content)
+			.Build();
+
+	/// <summary>The themes the application has, asked for rather than assumed.</summary>
+	private IWindowControl ThemePicker()
+	{
+		_themePicker = Controls.Dropdown()
+			.WithPrompt("theme ")
+			.OnSelectedItemChanged((_, item) => SetTheme(item?.Text))
+			.Build();
+
+		return _themePicker;
+	}
+
+	/// <summary>
+	/// Asks the application which themes it has, once.
+	/// </summary>
+	/// <remarks>
+	/// Asked rather than assumed: the list is the application's, and a picker
+	/// offering themes it does not have would be a list of errors waiting to
+	/// happen. Once, because the registry does not change while it runs.
+	/// </remarks>
+	private void FillThemePicker()
+	{
+		if (_themePicker == null || _themePicker.Items.Count > 0) return;
+
+		var reply = _poller.AskNow("theme");
+		var themes = reply?["themes"]?.AsArray();
+
+		if (themes == null || themes.Count == 0) return;
+
+		string? current = reply?["theme"]?.GetValue<string>();
+		int selected = 0;
+
+		_filling = true;
+
+		try
+		{
+			for (int i = 0; i < themes.Count; i++)
+			{
+				string name = themes[i]?["name"]?.GetValue<string>() ?? "";
+				if (name.Length == 0) continue;
+
+				_themePicker.AddItem(new DropdownItem(name));
+				if (name == current) selected = i;
+			}
+
+			// The one that is on, so the picker opens showing the truth rather
+			// than its first entry.
+			_themePicker.SelectedIndex = selected;
+		}
+		finally
+		{
+			_filling = false;
+		}
+	}
+
+	/// <summary>Resizes a headless application's screen.</summary>
+	/// <remarks>
+	/// Only a headless one: a real terminal owns its own size, and the server
+	/// refuses with an explanation rather than pretending. Narrow and short
+	/// sizes are where layout bugs hide, so reaching them without restarting
+	/// is most of the value here.
+	/// </remarks>
+	private void Resize(string? text)
+	{
+		var parts = (text ?? "").Split('x', 'X');
+
+		if (parts.Length != 2
+			|| !int.TryParse(parts[0].Trim(), out int w)
+			|| !int.TryParse(parts[1].Trim(), out int h))
+		{
+			Said("[yellow]a size looks like 120x40[/]");
+			return;
+		}
+
+		Said(_poller.AskNow("size", new Dictionary<string, JsonNode?>
+		{
+			["w"] = w,
+			["h"] = h,
+		}), $"resized to {w}x{h}");
+	}
+
+	private void SetTheme(string? name)
+	{
+		if (_filling || string.IsNullOrWhiteSpace(name)) return;
+
+		Said(_poller.AskNow("theme", new Dictionary<string, JsonNode?> { ["name"] = name }),
+			$"theme is now {name}");
+	}
+
+	private void SetLogLevel(string? level)
+	{
+		if (_filling || string.IsNullOrWhiteSpace(level)) return;
+
+		Said(_poller.AskNow("set", new Dictionary<string, JsonNode?> { ["logLevel"] = level }),
+			$"log level is now {level}");
+	}
+
+	/// <summary>Focuses or activates whatever the tree has selected.</summary>
+	private void ActOnSelection(string verb)
+	{
+		if (_selection is not { Id.Length: > 0 } selected)
+		{
+			Said("[yellow]select a control first[/]");
+			return;
+		}
+
+		Said(_poller.AskNow(verb, new Dictionary<string, JsonNode?> { ["name"] = selected.Id }),
+			$"{verb} {selected.Id}");
+	}
+
+	/// <summary>Activates or closes the window the selection lives in.</summary>
+	private void ActOnWindow(string what)
+	{
+		if (WindowOf(_selection) is not { Length: > 0 } title)
+		{
+			Said("[yellow]select something inside a window first[/]");
+			return;
+		}
+
+		Said(_poller.AskNow("window", new Dictionary<string, JsonNode?>
+		{
+			[what] = title,
+		}), $"{what} {title}");
+	}
+
+	/// <summary>Reports what the application said, or what went wrong.</summary>
+	private void Said(JsonNode? reply, string onSuccess)
+	{
+		if (reply?["ok"]?.GetValue<bool>() == true)
+		{
+			Said($"[green]{Safe(onSuccess)}[/]");
+			return;
+		}
+
+		// The server's own words: it knows why it refused - which driver owns
+		// the size, which themes exist - and flattening that into "failed"
+		// throws away the only part worth reading.
+		Said($"[red]{Safe(reply?["error"]?.GetValue<string>() ?? "no answer")}[/]");
+	}
+
+	private void Said(string markup) => _controlsSaid.SetContent([markup]);
 
 	/// <summary>The dock: why the selection is the way it is.</summary>
 	private IWindowControl Dock()
@@ -403,6 +628,12 @@ internal sealed class DebuggerWindow
 	/// </remarks>
 	private void OnKey(object? sender, KeyPressedEventArgs e)
 	{
+		// A control that took the key keeps it. Without this the session's own
+		// shortcuts ate every 1, 2, 3, [, ], f and q before an input could see
+		// them, so the size prompt received an empty string and the filter
+		// could not be typed into either.
+		if (e.AlreadyHandled) return;
+
 		switch (e.KeyInfo.Key)
 		{
 			case ConsoleKey.F1: e.Handled = SelectDock(0); return;
@@ -411,10 +642,16 @@ internal sealed class DebuggerWindow
 			case ConsoleKey.F4: e.Handled = SelectDock(3); return;
 		}
 
+		// Function keys are the session's whatever has focus, because nothing
+		// types them. Characters are only the session's when no control is
+		// taking text.
+		if (TypingSomewhere()) return;
+
 		switch (e.KeyInfo.KeyChar)
 		{
 			case '1': e.Handled = SelectRight(0); return;
 			case '2': e.Handled = SelectRight(1); return;
+			case '3': e.Handled = SelectRight(2); return;
 
 			// The row the cells dock reads. Square brackets because they sit
 			// next to each other and read as "move the window along".
@@ -437,9 +674,25 @@ internal sealed class DebuggerWindow
 		}
 	}
 
+	/// <summary>
+	/// Whether a control has the keyboard for typing.
+	/// </summary>
+	/// <remarks>
+	/// The tree's filter, the size prompt, a dropdown being searched: all of
+	/// them want plain characters, and a shortcut that takes them first makes
+	/// the control look broken rather than the shortcut look greedy.
+	/// </remarks>
+	private bool TypingSomewhere()
+	{
+		var focused = _tree.GetParentWindow()?.FocusManager.FocusedControl;
+
+		return focused is PromptControl or DropdownControl
+			|| (focused is TableControl table && table.IsFiltering);
+	}
+
 	private bool SelectRight(int index)
 	{
-		if (_right == null || index < 0 || index >= 2) return false;
+		if (_right == null || index < 0 || index >= 3) return false;
 
 		_right.ActiveTabIndex = index;
 		Render(_poller.State);
@@ -519,6 +772,7 @@ internal sealed class DebuggerWindow
 		RenderCells();
 		RenderFocus(state);
 		RenderEvents();
+		FillThemePicker();
 	}
 
 	private void RenderHeader(TargetState state)

@@ -207,6 +207,20 @@ public sealed class AttachCommand : Command<AttachSettings>
 		Connected(client, socket);
 	}
 
+	/// <summary>
+	/// Enters the session on a socket, for a caller that already has one.
+	/// </summary>
+	/// <param name="socket">Where the application is listening.</param>
+	/// <param name="headless">Whether the session itself runs headless.</param>
+	/// <param name="size">Its screen size when headless, as WxH.</param>
+	/// <returns>An exit code.</returns>
+	/// <remarks>
+	/// Exists so <c>run --attach</c> enters the same session this command
+	/// does, rather than a second implementation that could drift from it.
+	/// </remarks>
+	internal static int Session(string socket, bool headless, string? size) =>
+		Tui(new AttachSettings { SocketPath = socket, Headless = headless, Size = size });
+
 	/// <summary>The live view on the socket.</summary>
 	private static int Tui(AttachSettings settings)
 	{

@@ -120,6 +120,93 @@ public class RunTests : IDisposable
 	}
 
 	[Fact]
+	public void RunWithAttachEntersTheSession()
+	{
+		// Launching an application to debug it and then debugging it is one
+		// intent. --attach says so, and run stays what it was without it: the
+		// flag asks for the extra thing rather than the plain case needing a
+		// flag to opt out of it.
+		string socket = Path.Combine(Path.GetTempPath(), $"cxdbg-ra-{Guid.NewGuid():N}.sock");
+
+		var psi = new System.Diagnostics.ProcessStartInfo(Cxdbg.BinaryPathForTests())
+		{
+			RedirectStandardOutput = true,
+			RedirectStandardError = true,
+			UseShellExecute = false,
+		};
+
+		foreach (string a in new[]
+		{
+			"run", DemoApp(), "--attach", "--headless", "--size", "100x30",
+			"--", "--headless", "--size", "100x30",
+		})
+		{
+			psi.ArgumentList.Add(a);
+		}
+
+		// The session's own socket, so the test can read what it is showing.
+		psi.Environment["SHARPCONSOLEUI_DIAGNOSTICS_SOCKET"] = socket;
+
+		using var cxdbg = System.Diagnostics.Process.Start(psi)!;
+
+		try
+		{
+			var deadline = DateTime.UtcNow.AddSeconds(30);
+			while (DateTime.UtcNow < deadline && !File.Exists(socket)) Thread.Sleep(100);
+
+			Assert.True(File.Exists(socket),
+				"run --attach did not enter a session: no socket of its own");
+
+			// And the session is looking at the application it just started.
+			// Waited for rather than slept at: the socket opens before the
+			// first poll has answered, so a fixed sleep is a bet on how long
+			// two applications take to start.
+			string screen = "";
+			var until = DateTime.UtcNow.AddSeconds(20);
+
+			while (DateTime.UtcNow < until)
+			{
+				try
+				{
+					using var client = Protocol.DiagnosticsClient.Connect(socket);
+
+					screen = string.Join("\n",
+						(client.Send("snapshot")["lines"]?.AsArray() ?? [])
+							.Select(l => l?.GetValue<string>() ?? ""));
+
+					if (screen.Contains("desktop", StringComparison.OrdinalIgnoreCase)) break;
+				}
+				catch (Protocol.CxdbgException)
+				{
+					// "window has not painted yet": the socket opens at the end
+					// of the constructor, before the first frame. Waiting is
+					// the answer, not failing.
+				}
+
+				Thread.Sleep(250);
+			}
+
+			Assert.Contains("desktop", screen, StringComparison.OrdinalIgnoreCase);
+		}
+		finally
+		{
+			try { cxdbg.Kill(entireProcessTree: true); } catch { }
+			try { if (File.Exists(socket)) File.Delete(socket); } catch { }
+		}
+	}
+
+	[Fact]
+	public void RunWithoutAttachStillJustPrintsTheSocket()
+	{
+		// The flag is an addition, not a change: run on its own does what it
+		// always did, and says where the application is.
+		var (exit, output, _) = Start("--headless", "--size", "100x30");
+
+		Assert.Equal(0, exit);
+		Assert.Contains("socket", output, StringComparison.OrdinalIgnoreCase);
+	}
+
+	[Fact]
 	public void RunRefusesAnApplicationThatIsNotThere()
 	{
 		var (exit, output) = Cxdbg.Run("run", "/nope/not-an-app");

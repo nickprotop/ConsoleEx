@@ -25,6 +25,18 @@ public class RunSettings : CommandSettings
 	[CommandOption("--no-terminal")]
 	public bool NoTerminal { get; set; }
 
+	[Description("Enter the session on the application once it is up")]
+	[CommandOption("--attach")]
+	public bool Attach { get; set; }
+
+	[Description("With --attach: run the session headless, for tests and CI")]
+	[CommandOption("--headless")]
+	public bool Headless { get; set; }
+
+	[Description("With --attach --headless: the session's screen size, as WxH")]
+	[CommandOption("--size <WxH>")]
+	public string? Size { get; set; }
+
 	[Description("Seconds to wait for the application to open its socket")]
 	[CommandOption("--timeout <SECONDS>")]
 	public int TimeoutSeconds { get; set; } = 30;
@@ -47,7 +59,8 @@ public class RunSettings : CommandSettings
 /// <para>
 /// cxdbg does not supervise what it starts: when run returns, the application
 /// is still going. A debugger that killed its subject on exit would make every
-/// session end by restarting the thing you were looking at.
+/// session end by restarting the thing you were looking at. That holds with
+/// <c>--attach</c> too - leaving the session leaves the application running.
 /// </para>
 /// </remarks>
 public sealed class RunCommand : Command<RunSettings>
@@ -74,8 +87,19 @@ public sealed class RunCommand : Command<RunSettings>
 				app, appArgs, terminal,
 				TimeSpan.FromSeconds(settings.TimeoutSeconds));
 
+			if (!settings.Attach)
+			{
+				Report(result);
+				return 0;
+			}
+
+			// Launching an application to debug it and then debugging it is
+			// one intent. Say what was started before the screen fills, so a
+			// session that cannot start still leaves the socket behind.
 			Report(result);
-			return 0;
+
+			return AttachCommand.Session(
+				result.SocketPath, settings.Headless, settings.Size);
 		}
 		catch (CxdbgException ex)
 		{
