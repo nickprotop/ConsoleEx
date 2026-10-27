@@ -340,7 +340,7 @@ internal static class DiagnosticsSerializer
 	/// deliberately the same source, so a probe and a test cannot disagree about the same
 	/// frame.
 	/// </remarks>
-	internal static JsonObject Snapshot(Window window, bool ansi, Region region)
+	internal static JsonObject Snapshot(Window window, bool ansi, bool markup, Region region)
 	{
 		var buffer = window.Renderer?.Buffer;
 		if (buffer == null)
@@ -356,7 +356,7 @@ internal static class DiagnosticsSerializer
 		if (regionError != null)
 			return new JsonObject { ["window"] = window.Title, ["error"] = regionError };
 
-		var o = Grid(window.CaptureSurface(), clipped, ansi);
+		var o = Grid(window.CaptureSurface(), clipped, ansi, markup);
 		o["window"] = window.Title;
 		return o;
 	}
@@ -370,7 +370,7 @@ internal static class DiagnosticsSerializer
 	/// of it. Returning the whole grid to inspect a status bar wastes the round trip the
 	/// socket exists to save, and buries the answer.
 	/// </remarks>
-	private static JsonObject Grid(Surfaces.ICellSurface surface, Region r, bool ansi)
+	private static JsonObject Grid(Surfaces.ICellSurface surface, Region r, bool ansi, bool markup = false)
 	{
 		int rx = r.X ?? 0, ry = r.Y ?? 0, rw = r.W ?? 0, rh = r.H ?? 0;
 
@@ -378,7 +378,10 @@ internal static class DiagnosticsSerializer
 			? surface
 			: surface.Crop(new Layout.LayoutRect(rx, ry, rw, rh));
 
-		var text = cropped.ToText(ansi ? Surfaces.TextFormat.Ansi : Surfaces.TextFormat.Plain);
+		var text = cropped.ToText(
+			markup ? Surfaces.TextFormat.Markup
+			: ansi ? Surfaces.TextFormat.Ansi
+			: Surfaces.TextFormat.Plain);
 
 		var lines = new JsonArray();
 		foreach (string line in text.Split('\n'))
@@ -391,6 +394,7 @@ internal static class DiagnosticsSerializer
 			["width"] = rw,
 			["height"] = rh,
 			["ansi"] = ansi,
+			["format"] = markup ? "markup" : ansi ? "ansi" : "plain",
 			["lines"] = lines,
 		};
 	}
@@ -572,7 +576,7 @@ internal static class DiagnosticsSerializer
 	}
 
 	/// <summary>The whole desktop as the user sees it, composed, from the render diagnostics.</summary>
-	internal static JsonObject ConsoleSnapshot(ConsoleWindowSystem system, bool ansi, Region region)
+	internal static JsonObject ConsoleSnapshot(ConsoleWindowSystem system, bool ansi, bool markup, Region region)
 	{
 		// Live front buffer first - the composed desktop, always current, no diagnostics
 		// needed. The recorded snapshot is only a fallback for a driver that has no buffer.
@@ -595,7 +599,7 @@ internal static class DiagnosticsSerializer
 		var clipped = region.ClampTo(shot.Width, shot.Height, out string? regionError);
 		if (regionError != null) return new JsonObject { ["error"] = regionError };
 
-		var o = Grid(shot.AsSurface(system.Theme), clipped, ansi);
+		var o = Grid(shot.AsSurface(system.Theme), clipped, ansi, markup);
 		o["composed"] = true;
 		return o;
 	}

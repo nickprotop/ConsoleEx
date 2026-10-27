@@ -598,14 +598,21 @@ internal sealed class DiagnosticsServer : IDisposable
 		// column, rather than what the row says. Text cannot carry it - both writers
 		// drop continuation cells and fold combining marks into the character before
 		// them - so a caller whose columns do not add up has to ask for cells.
-		bool cells = string.Equals(
-			req["format"]?.GetValue<string>(), "cells", StringComparison.OrdinalIgnoreCase);
+		string? format = req["format"]?.GetValue<string>();
 
-		if (cells && ansi)
+		bool cells = string.Equals(format, "cells", StringComparison.OrdinalIgnoreCase);
+
+		// Markup is the format that parses back into cells, so it is what a
+		// viewer asks for when it intends to REPAINT the screen rather than
+		// read it. A text line loses the wide-glyph continuation; an escape
+		// stream would need a second SGR parser at the other end.
+		bool markup = string.Equals(format, "markup", StringComparison.OrdinalIgnoreCase);
+
+		if ((cells || markup) && ansi)
 		{
 			return ErrorBody(
-				"ansi and format:cells are two different answers to the same question; "
-				+ "cells already carries colour as numbers. Ask for one.");
+				$"ansi and format:{format} are two different answers to the same question. "
+				+ "Ask for one.");
 		}
 
 		// A region, because the interesting part of a 200x60 terminal is usually six rows of
@@ -620,7 +627,7 @@ internal sealed class DiagnosticsServer : IDisposable
 		{
 			return cells
 				? DiagnosticsSerializer.ComposedCells(_system, region)
-				: DiagnosticsSerializer.ConsoleSnapshot(_system, ansi, region);
+				: DiagnosticsSerializer.ConsoleSnapshot(_system, ansi, markup, region);
 		}
 
 		var window = ResolveWindow(req, out string? err);
@@ -628,7 +635,7 @@ internal sealed class DiagnosticsServer : IDisposable
 
 		return cells
 			? DiagnosticsSerializer.WindowCells(window, region)
-			: DiagnosticsSerializer.Snapshot(window, ansi, region);
+			: DiagnosticsSerializer.Snapshot(window, ansi, markup, region);
 	}
 
 	/// <summary>

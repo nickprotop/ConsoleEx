@@ -216,7 +216,7 @@ comes back without one.
 | `window` | Window title or GUID. Omitted, the active window. |
 | `composed` | The whole desktop as the user sees it, instead of one window. |
 | `ansi` | Include the colour escapes. Pipe it to a terminal to see it in colour. |
-| `format` | `cells` for one entry per column instead of lines of text. |
+| `format` | `cells` for one entry per column, `markup` to repaint it elsewhere. |
 | `x`,`y`,`w`,`h` | A region. Omitted fields mean "to the edge". |
 
 `ansi` is an ANSI **rendering of the desktop**, not a recording of what the driver sent.
@@ -224,6 +224,27 @@ The driver emits a diff -- only changed cells, cursor jumps between fragments, a
 choice of strategy and a style cache that spans cells -- so its output is a fragment of a
 frame, not a picture of one. The snapshot is generated fresh from the retained buffer and
 is complete.
+
+### format: markup
+
+The format that parses back into cells, which is what a viewer asks for when it intends to
+**repaint** the screen rather than read it.
+
+```json
+{"cmd":"snapshot","format":"markup"}
+```
+
+```
+[#EEEEEE on #323232 bold]  SharpConsoleUI[/][#EEEEEE on #323232]    [/]...
+```
+
+`MarkupParser.Parse` reconstructs the cells exactly -- colours, decorations, combining
+marks, and the continuation cell of a wide glyph. Both ends use the same parser, so they
+cannot drift. `SurfaceViewControl` takes the result and paints it, which is how one
+application shows another application's screen.
+
+Plain text would lose the wide-glyph continuation and all colour; ANSI would need a second
+SGR parser at the receiving end. Markup is the one format designed for the round trip.
 
 ### format: cells
 
