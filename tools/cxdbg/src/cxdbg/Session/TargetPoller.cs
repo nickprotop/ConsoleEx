@@ -23,10 +23,11 @@ internal sealed record TargetState(
 	long Frame,
 	JsonNode? Tree,
 	JsonNode? Focus,
+	JsonNode? Reachable,
 	IReadOnlyList<IReadOnlyList<Cell>> Screen,
 	bool Gone)
 {
-	internal static TargetState Empty { get; } = new(0, null, null, [], false);
+	internal static TargetState Empty { get; } = new(0, null, null, null, [], false);
 }
 
 /// <summary>
@@ -59,6 +60,17 @@ internal sealed class TargetPoller : IDisposable
 
 	/// <summary>Whether polling is paused, so the view holds still.</summary>
 	internal bool Frozen { get; set; }
+
+	/// <summary>
+	/// Which window the screen should show, or null for the whole desktop.
+	/// </summary>
+	/// <remarks>
+	/// Follows the tree's selection: the desktop selected means the composed
+	/// desktop, every window and the system's own panels; a window selected
+	/// means that window alone. One picture answering the question you are
+	/// actually asking, rather than always the active window.
+	/// </remarks>
+	internal string? ScreenOf { get; set; }
 
 	/// <summary>The target's process id, from its greeting.</summary>
 	/// <remarks>
@@ -203,16 +215,25 @@ internal sealed class TargetPoller : IDisposable
 			var tree = client.Send("tree");
 			var focus = client.Send("focus");
 
+			// The tab order, joined against the tree by the focus pane: on its
+			// own it is a list of names, and the question people actually ask
+			// is which of them can be seen.
+			var reachable = client.Send("reachable");
+
 			// Cells out, cells in. The target has cells and the pane paints
 			// cells, so nothing is serialised as text and parsed back: no
 			// format sits in the middle to lose a continuation cell or a
 			// combining mark, and no second parser can drift from the first.
-			var snapshot = client.Send("snapshot",
-				new Dictionary<string, JsonNode?> { ["format"] = "cells" });
+			var want = new Dictionary<string, JsonNode?> { ["format"] = "cells" };
+
+			if (ScreenOf is { Length: > 0 } window) want["window"] = window;
+			else want["composed"] = true;
+
+			var snapshot = client.Send("snapshot", want);
 
 			var screen = ReadCells(snapshot) ?? current.Screen;
 
-			next = new TargetState(frame, tree, focus, screen, Gone: false);
+			next = new TargetState(frame, tree, focus, reachable, screen, Gone: false);
 		}
 		catch (CxdbgException)
 		{

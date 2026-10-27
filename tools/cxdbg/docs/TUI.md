@@ -1,193 +1,234 @@
 # cxdbg attach tui
 
-`cxdbg attach tui -s <socket>` enters a live view on a running SharpConsoleUI
-application.
-
-Tree on the left, two tabs on the right answering *what is this control*, a
-docked strip below answering *why*. Every boundary is a draggable splitter, so
-the panes are yours to size rather than mine to guess.
-
-Every screenshot here is the real thing: cxdbg running headless against the
-DemoApp's Chart Showcase, photographed over cxdbg's own diagnostics socket.
-cxdbg debugging cxdbg.
-
-## details + size
-
-A control selected. The right pane says what it is; the dock says why it is
-that size.
+A debug IDE for a running SharpConsoleUI application.
 
 ```
-cxdbg  pid 1701435  frame 715   up/down select   1 2 pane   F1 dock   f freeze   q quit
-Chart Showcase                                                               ▲║ 1 details │ 2 screen ─────────────────
-  (root)  114x38                                                             █║MarkupControl#3385da1
-    BodyMarker  114x38                                                       █║
-      NavigationView  114x38                                                 █║wants       24 x 1
-        HorizontalGridControl  114x38                                        │║got         26 x 1
-          ColumnContainer  26x38  wants 26x13                                │║layout      -
-            MarkupControl  26x3                                              │║visible     true
-            ScrollablePanelControl  26x35  wants 26x10                       │║
-              MarkupControl  26x1  wants 11x1                                │║enabled     true
-              MarkupControl  26x1  wants 24x1                                │║focusable   false
-              MarkupControl  26x1  wants 24x1                                │║text        [bold rgb(255,255,255) on
-              MarkupControl  26x1  wants 24x1                                │║rgb(88,88,88)]    ▸ Line & Area      …
-              MarkupControl  26x1  wants 24x1                                │║
-              MarkupControl  26x1  wants 15x1                                │║focus is on ScrollablePanelControl
-              MarkupControl  26x1  wants 24x1                                │║
-              MarkupControl  26x1  wants 24x1                                │║
-              MarkupControl  26x1  wants 24x1                                │║
-              MarkupControl  26x1  wants 14x1                                │║
-              MarkupControl  26x1  wants 24x1                                │║
-              MarkupControl  26x1  wants 24x1                                │║
-              MarkupControl  26x1  wants 24x1                                │║
-              MarkupControl  26x1  wants 10x1                                │║
-              MarkupControl  26x1  wants 24x1                                ▼║
-══════════════════════════════════════════════════════════════════════════════╬═══════════════════════════════════════
- 1 size │ 3 cells ────────────────────────────────────────────────────────────────────────────────────────────────────
+cxdbg attach -s <socket>          # the tui
+cxdbg attach shell -s <socket>    # a cxdbg> prompt instead
+```
+
+The tree is the target's **desktop**, with its windows under it and their
+controls under them. Beside it, two tabs saying what a thing is and what it
+looks like. Below, four tabs saying why it is that way. Every boundary is a
+draggable splitter.
+
+Every screenshot here is real: cxdbg running headless against the DemoApp's
+Chart Showcase, photographed over cxdbg's own diagnostics socket. cxdbg
+debugging cxdbg.
+
+## the tree, and what a control is
+
+```
+pid:1821373  frame:433                                                              1 2:pane  F1-F4:dock  [ ]:row  f:freeze  q:q
+┌────────────────────────────────┬─────────┬─────────┬─────────────────────────────┐ ║ 1 details │ 2 screen ────────────────────
+│control                         │      got│    wants│layout                       │ ║MarkupControl#1189baa
+├────────────────────────────────┼─────────┼─────────┼─────────────────────────────┤ ║╭─ size ─────────────────────────────────╮
+│[-] desktop                     │   120x40│         │ModernGrayTheme              │▲║│ got         26 x 3                     │
+│├─ [-] Chart Showcase           │   116x40│   active│DockRootLayout               │█║╰────────────────────────────────────────╯
+││  └─ [-] BodyMarker            │   114x38│         │ScrollLayout                 ││║╭─ where ────────────────────────────────╮
+││     └─ [-] NavigationView     │   114x38│         │VerticalStackLayout          ││║│ in window   0,0                        │
+││        └─ [-] HorizontalGridCo│   114x38│         │GridLayout                   ││║│ on screen   0,0                        │
+││           ├─ [-] ColumnContain│    26x38│    26x13│VerticalStackLayout          ││║│ layout      -                          │
+││           │  ├─     MarkupCont│     26x3│         │                             ││║╰────────────────────────────────────────╯
+││           │  └─ [-] Scrollable│    26x35│    26x10│ScrollLayout                 ││║╭─ reach ────────────────────────────────╮
+││           │     ├─     MarkupC│     26x1│     11x1│                             ││║│ visible     true                       │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║│ enabled     yes                        │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║│ focusable   no                         │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║╰────────────────────────────────────────╯
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║╭─ state ────────────────────────────────╮
+││           │     ├─     MarkupC│     26x1│     15x1│                             ││║│ text        [bold]  ChartCon           │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║╰────────────────────────────────────────╯
+├──────────────────────────────────────────────────────────────────────────────────┤│║
+│ Row 7/130  / filter                                                              ││║
+└──────────────────────────────────────────────────────────────────────────────────┘▼║
+═════════════════════════════════════════════════════════════════════════════════════╬══════════════════════════════════════════
+ 1 size │ 2 focus │ 3 cells │ 4 events ─────────────────────────────────────────────────────────────────────────────────────────
 MarkupControl   wants 26x3   offered 26x38
-  DockRootLayout           offered  114 x 38
-  BodyMarker               offered  114 x 38
-  NavigationView           offered  114 x 38
-  HorizontalGridControl    offered  114 x 38
-  ColumnContainer          offered   26 x 38     decided the size
+┌────────────────────────────────────────────────────┬──────────────────────────────────────────────────┬────────────┬─────────┐
+│container                                           │layout                                            │offered     │decided  │
+├────────────────────────────────────────────────────┼──────────────────────────────────────────────────┼────────────┼─────────┤
+│-                                                   │DockRootLayout                                    │114 x 38    │         │
+│BodyMarker                                          │ScrollLayout                                      │114 x 38    │         │
+│NavigationView                                      │VerticalStackLayout                               │114 x 38    │         │
+│HorizontalGridControl                               │GridLayout                                        │114 x 38    │         │
+│ColumnContainer                                     │VerticalStackLayout                               │26 x 38     │size     │
+└────────────────────────────────────────────────────┴──────────────────────────────────────────────────┴────────────┴─────────┘
 ```
 
-**`wants 26x13` on a tree line.** Shown only where desired and arranged
-differ, so the lines that disagree stand out instead of being buried among the
-ones that got what they asked for. A control with a zero extent says
-`invisible` - present in the tree, reachable by focus, painting nothing.
+**`wants 26x13` appears only where it differs from what the control got**, so
+the lines that disagree stand out instead of being buried among the ones that
+got what they asked for. A control with a zero extent says `invisible`:
+present in the tree, reachable by focus, painting nothing.
 
-**The details pane reads the control's own state** in the shared vocabulary.
-Those names come from the library, so every control answers in the same words.
+The tree is a real tree table, so it clicks, expands, and filters with `/` -
+keeping the ancestors of a match, so filtering to `Scroll` still shows where it
+lives. Selection survives the polls, because the rows are diffed rather than
+rebuilt.
 
-**The size dock names the container that decided.** `measure` marks the
-deciding cascade link with `setsWidth`/`setsHeight`; cxdbg prints what it is
-told rather than working it out from the numbers.
+The details pane answers in sections, and what it says depends on what you
+picked: a **desktop** has a theme and panel rows, a **window** has a state and
+a root layout and what the user may do with it, a **control** has a size, a
+place, and whatever it reports about itself in the library's shared vocabulary.
 
-## screen
-
-The same frame, right tab switched to the target's own screen.
+## focus
 
 ```
-cxdbg  pid 1701435  frame 739   up/down select   1 2 pane   F1 dock   f freeze   q quit
-Chart Showcase                                                               ▲║ 1 details │ 2 screen ─────────────────
-  (root)  114x38                                                             █║selection at 0,4 spanning 26x1        ▲
-    BodyMarker  114x38                                                       █║                                      █
-      NavigationView  114x38                                                 █║  ChartControl            Line & Area █
-        HorizontalGridControl  114x38                                        │║                          The two cur █
-          ColumnContainer  26x38  wants 26x13                                │║  [-] Plots                A line joi █
-            MarkupControl  26x3                                              │║    ▸ Line & Area                     █
-            ScrollablePanelControl  26x35  wants 26x10                       │║      Bar & Scatter        Line       █
-              MarkupControl  26x1  wants 11x1                                │║      Gauges               100        █
-              MarkupControl  26x1  wants 24x1                                │║      Combo                           █
-              MarkupControl  26x1  wants 24x1                                │║  [-] Rendering                       █
-              MarkupControl  26x1  wants 24x1                                │║      Render Modes                  ▀ █
-              MarkupControl  26x1  wants 24x1                                │║      Gradients                  ▀▀▀  █
-              MarkupControl  26x1  wants 15x1                                │║      Thresholds                      │
-              MarkupControl  26x1  wants 24x1                                │║  [-] Heatmaps                 ▀      │
-              MarkupControl  26x1  wants 24x1                                │║      Heatmap                         │
-              MarkupControl  26x1  wants 24x1                                │║      Sparse Grid                     │
-              MarkupControl  26x1  wants 14x1                                │║      Colour Scale           0        │
-              MarkupControl  26x1  wants 24x1                                │║  [-] Axes                     0      │
-              MarkupControl  26x1  wants 24x1                                │║      Ticks & Labels       ────────── │
-              MarkupControl  26x1  wants 24x1                                │║      Custom Ticks         Area       │
-              MarkupControl  26x1  wants 10x1                                │║      Two Scales           100        │
-              MarkupControl  26x1  wants 24x1                                ▼║  [-] Composition                     ▼
-══════════════════════════════════════════════════════════════════════════════╬═══════════════════════════════════════
- 1 size │ 3 cells ────────────────────────────────────────────────────────────────────────────────────────────────────
-MarkupControl   wants 26x3   offered 26x38
-  DockRootLayout           offered  114 x 38
-  BodyMarker               offered  114 x 38
-  NavigationView           offered  114 x 38
-  HorizontalGridControl    offered  114 x 38
-  ColumnContainer          offered   26 x 38     decided the size
+pid:1821373  frame:473                                                              1 2:pane  F1-F4:dock  [ ]:row  f:freeze  q:q
+┌────────────────────────────────┬─────────┬─────────┬─────────────────────────────┐ ║ 1 details │ 2 screen ────────────────────
+│control                         │      got│    wants│layout                       │ ║MarkupControl#1189baa
+├────────────────────────────────┼─────────┼─────────┼─────────────────────────────┤ ║╭─ size ─────────────────────────────────╮
+│[-] desktop                     │   120x40│         │ModernGrayTheme              │▲║│ got         26 x 3                     │
+│├─ [-] Chart Showcase           │   116x40│   active│DockRootLayout               │█║╰────────────────────────────────────────╯
+││  └─ [-] BodyMarker            │   114x38│         │ScrollLayout                 ││║╭─ where ────────────────────────────────╮
+││     └─ [-] NavigationView     │   114x38│         │VerticalStackLayout          ││║│ in window   0,0                        │
+││        └─ [-] HorizontalGridCo│   114x38│         │GridLayout                   ││║│ on screen   0,0                        │
+││           ├─ [-] ColumnContain│    26x38│    26x13│VerticalStackLayout          ││║│ layout      -                          │
+││           │  ├─     MarkupCont│     26x3│         │                             ││║╰────────────────────────────────────────╯
+││           │  └─ [-] Scrollable│    26x35│    26x10│ScrollLayout                 ││║╭─ reach ────────────────────────────────╮
+││           │     ├─     MarkupC│     26x1│     11x1│                             ││║│ visible     true                       │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║│ enabled     yes                        │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║│ focusable   no                         │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║╰────────────────────────────────────────╯
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║╭─ state ────────────────────────────────╮
+││           │     ├─     MarkupC│     26x1│     15x1│                             ││║│ text        [bold]  ChartCon           │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║╰────────────────────────────────────────╯
+├──────────────────────────────────────────────────────────────────────────────────┤│║
+│ Row 7/130  / filter                                                              ││║
+└──────────────────────────────────────────────────────────────────────────────────┘▼║
+═════════════════════════════════════════════════════════════════════════════════════╬══════════════════════════════════════════
+ 1 size │ 2 focus │ 3 cells │ 4 events ─────────────────────────────────────────────────────────────────────────────────────────
+1 stops   the keyboard is on ScrollablePanelControl
+tab  control                     size
+1    ScrollablePanelControl      26 x 35   it has the keyboard
 ```
 
-This is the application's real screen, repainted from its cells, with one line
-saying where the selection sits in it - `selection paints nothing` when the
-rectangle is empty.
+`reachable` gives the Tab order and no geometry; the tree gives geometry and no
+order. Joined, they answer the question people actually ask of a focus list:
+which of these can be seen. A stop that is reachable by Tab and paints nothing
+is a real bug and invisible in either source alone.
 
-**Cells out, cells in.** `snapshot {"format":"cells"}` hands over one entry per
-column and `SurfaceViewControl` paints them. Nothing is serialised as text in
-between, so no second parser can drift from the first and a wide glyph still
-occupies the two columns it occupied in the application.
-
-The protocol also offers `{"format":"markup"}`, equally lossless, for anything
-that wants text it can keep or replay - a file, a log, a golden test - rather
-than a pane repainting several times a second.
+The DemoApp's `DropdownControl` shows the other case: a Tab stop that is not in
+the window's tree at all, because it lives in a portal.
 
 ## cells
 
-`F3`, and `[` `]` to move the row. The question text cannot answer, in the
-place you are already looking.
-
 ```
-cxdbg  pid 1701435  frame 1009   up/down select   1 2 pane   F1 dock   f freeze   q quit
-Chart Showcase                                                               ▲║ 1 details │ 2 screen ─────────────────
-  (root)  114x38                                                             █║selection at 0,4 spanning 26x1        ▲
-    BodyMarker  114x38                                                       █║                                      █
-      NavigationView  114x38                                                 █║  ChartControl            Line & Area █
-        HorizontalGridControl  114x38                                        │║                          The two cur █
-          ColumnContainer  26x38  wants 26x13                                │║  [-] Plots                A line joi █
-            MarkupControl  26x3                                              │║    ▸ Line & Area                     █
-            ScrollablePanelControl  26x35  wants 26x10                       │║      Bar & Scatter        Line       █
-              MarkupControl  26x1  wants 11x1                                │║      Gauges               100        █
-              MarkupControl  26x1  wants 24x1                                │║      Combo                           █
-              MarkupControl  26x1  wants 24x1                                │║  [-] Rendering                       █
-              MarkupControl  26x1  wants 24x1                                │║      Render Modes                  ▀ █
-              MarkupControl  26x1  wants 24x1                                │║      Gradients                  ▀▀▀  █
-              MarkupControl  26x1  wants 15x1                                │║      Thresholds                      │
-              MarkupControl  26x1  wants 24x1                                │║  [-] Heatmaps                 ▀      │
-              MarkupControl  26x1  wants 24x1                                │║      Heatmap                         │
-              MarkupControl  26x1  wants 24x1                                │║      Sparse Grid                     │
-              MarkupControl  26x1  wants 14x1                                │║      Colour Scale           0        │
-              MarkupControl  26x1  wants 24x1                                │║  [-] Axes                     0      │
-              MarkupControl  26x1  wants 24x1                                │║      Ticks & Labels       ────────── │
-              MarkupControl  26x1  wants 24x1                                │║      Custom Ticks         Area       │
-              MarkupControl  26x1  wants 10x1                                │║      Two Scales           100        │
-              MarkupControl  26x1  wants 24x1                                ▼║  [-] Composition                     ▼
-══════════════════════════════════════════════════════════════════════════════╬═══════════════════════════════════════
- 1 size │ 3 cells ────────────────────────────────────────────────────────────────────────────────────────────────────
-row 7   114 columns   [ ] moves the row                                                                              ▲
-                                                                                                                     █
-    0   ' '   width 1                                                                                                │
-    1   ' '   width 1                                                                                                │
-    2   ' '   width 1                                                                                                │
-    3   ' '   width 1                                                                                                │
-    4   ' '   width 1                                                                                                │
-    5   ' '   width 1                                                                                                │
-    6   C   width 1                                                                                                  │
-    7   o   width 1                                                                                                  ▼
+pid:1821373  frame:702                                                              1 2:pane  F1-F4:dock  [ ]:row  f:freeze  q:q
+┌────────────────────────────────┬─────────┬─────────┬─────────────────────────────┐ ║ 1 details │ 2 screen ────────────────────
+│control                         │      got│    wants│layout                       │ ║MarkupControl#1189baa
+├────────────────────────────────┼─────────┼─────────┼─────────────────────────────┤ ║╭─ size ─────────────────────────────────╮
+│[-] desktop                     │   120x40│         │ModernGrayTheme              │▲║│ got         26 x 3                     │
+│├─ [-] Chart Showcase           │   116x40│   active│DockRootLayout               │█║╰────────────────────────────────────────╯
+││  └─ [-] BodyMarker            │   114x38│         │ScrollLayout                 ││║╭─ where ────────────────────────────────╮
+││     └─ [-] NavigationView     │   114x38│         │VerticalStackLayout          ││║│ in window   0,0                        │
+││        └─ [-] HorizontalGridCo│   114x38│         │GridLayout                   ││║│ on screen   0,0                        │
+││           ├─ [-] ColumnContain│    26x38│    26x13│VerticalStackLayout          ││║│ layout      -                          │
+││           │  ├─     MarkupCont│     26x3│         │                             ││║╰────────────────────────────────────────╯
+││           │  └─ [-] Scrollable│    26x35│    26x10│ScrollLayout                 ││║╭─ reach ────────────────────────────────╮
+││           │     ├─     MarkupC│     26x1│     11x1│                             ││║│ visible     true                       │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║│ enabled     yes                        │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║│ focusable   no                         │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║╰────────────────────────────────────────╯
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║╭─ state ────────────────────────────────╮
+││           │     ├─     MarkupC│     26x1│     15x1│                             ││║│ text        [bold]  ChartCon           │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║╰────────────────────────────────────────╯
+├──────────────────────────────────────────────────────────────────────────────────┤│║
+│ Row 7/130  / filter                                                              ││║
+└──────────────────────────────────────────────────────────────────────────────────┘▼║
+═════════════════════════════════════════════════════════════════════════════════════╬══════════════════════════════════════════
+ 1 size │ 2 focus │ 3 cells │ 4 events ─────────────────────────────────────────────────────────────────────────────────────────
+row 5   114 columns, 114 glyphs   [ ] moves the row
+┌─────┬───────┬──────┬──────┬─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│col  │glyph  │width │marks │style                                                                                            │
+├─────┼───────┼──────┼──────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│0    │space  │1     │      │                                                                                                 │▲
+│1    │space  │1     │      │                                                                                                 │█
+│2    │space  │1     │      │                                                                                                 ││
+│3    │space  │1     │      │                                                                                                 ││
+│4    │space  │1     │      │                                                                                                 ││
+└─────┴───────┴──────┴──────┴─────────────────────────────────────────────────────────────────────────────────────────────────┘▼
 ```
 
-A continuation cell says so rather than repeating the glyph before it, which is
-the whole reason to look here. Combining marks are counted, not folded away.
-Read from the cells the screen pane is already holding, so the dock costs no
-extra round trip and always agrees with the picture above it.
+What is in each column of one row of the screen, which text cannot carry: the
+text formats drop the continuation cell of a wide glyph and fold combining
+marks into the character before them. `[` and `]` move the row.
+
+## the screen, and clicking it
+
+```
+pid:1821373  frame:734                                                              1 2:pane  F1-F4:dock  [ ]:row  f:freeze  q:q
+┌────────────────────────────────┬─────────┬─────────┬─────────────────────────────┐ ║ 1 details │ 2 screen ────────────────────
+│control                         │      got│    wants│layout                       │ ║selection at 0,0 spanning 26x3           ▲
+├────────────────────────────────┼─────────┼─────────┼─────────────────────────────┤ ║                                         █
+│[-] desktop                     │   120x40│         │ModernGrayTheme              │▲║  ChartControl            Line & Area    █
+│├─ [-] Chart Showcase           │   116x40│   active│DockRootLayout               │█║                          The two curve  █
+││  └─ [-] BodyMarker            │   114x38│         │ScrollLayout                 ││║  [-] Plots                A line joins  █
+││     └─ [-] NavigationView     │   114x38│         │VerticalStackLayout          ││║    ▸ Line & Area                        █
+││        └─ [-] HorizontalGridCo│   114x38│         │GridLayout                   ││║      Bar & Scatter        Line          █
+││           ├─ [-] ColumnContain│    26x38│    26x13│VerticalStackLayout          ││║      Gauges               100           █
+││           │  ├─     MarkupCont│     26x3│         │                             ││║      Combo                              █
+││           │  └─ [-] Scrollable│    26x35│    26x10│ScrollLayout                 ││║  [-] Rendering                          █
+││           │     ├─     MarkupC│     26x1│     11x1│                             ││║      Render Modes                  ▀▀▀▀ │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║      Gradients                  ▀▀▀     │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║      Thresholds                         │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║  [-] Heatmaps                 ▀         │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║      Heatmap                            │
+││           │     ├─     MarkupC│     26x1│     15x1│                             ││║      Sparse Grid                        │
+││           │     ├─     MarkupC│     26x1│     24x1│                             ││║      Colour Scale           0           │
+├──────────────────────────────────────────────────────────────────────────────────┤│║  [-] Axes                     0         │
+│ Row 7/130  / filter                                                              ││║      Ticks & Labels       ───────────── │
+└──────────────────────────────────────────────────────────────────────────────────┘▼║      Custom Ticks         Area          ▼
+═════════════════════════════════════════════════════════════════════════════════════╬══════════════════════════════════════════
+ 1 size │ 2 focus │ 3 cells │ 4 events ─────────────────────────────────────────────────────────────────────────────────────────
+row 5   114 columns, 114 glyphs   [ ] moves the row
+┌─────┬───────┬──────┬──────┬─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│col  │glyph  │width │marks │style                                                                                            │
+├─────┼───────┼──────┼──────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│0    │space  │1     │      │                                                                                                 │▲
+│1    │space  │1     │      │                                                                                                 │█
+│2    │space  │1     │      │                                                                                                 ││
+│3    │space  │1     │      │                                                                                                 ││
+│4    │space  │1     │      │                                                                                                 ││
+└─────┴───────┴──────┴──────┴─────────────────────────────────────────────────────────────────────────────────────────────────┘▼
+```
+
+The application's own screen, repainted from its cells - `snapshot
+{"format":"cells"}` straight into a `SurfaceViewControl`, with no text format
+in between to lose anything or to need a second parser.
+
+It follows the selection: the desktop shows the **composed desktop**, with the
+system's panels and every window's border; anything inside a window shows that
+window alone.
+
+**And it is interactive.** A click in the picture is dispatched to the
+application at that point, through its own hit-test routing, so it responds
+exactly as it would to someone sitting in front of it - and cxdbg selects the
+control painting there.
 
 ## keys
 
 | | |
 |---|---|
-| up / down | move the tree selection; the tree scrolls to follow |
-| 1 / 2 | right pane tab |
-| F1 / F3 | dock tab |
-| [ / ] | the row the cells dock reads |
-| Tab | move between panes and splitters |
-| f | freeze - the target carries on, only the looking stops |
-| q | quit |
+| click / arrows | select in the tree |
+| click a guide | expand or collapse |
+| `/` | filter the tree |
+| `1` `2` | right pane: details, screen |
+| `F1`-`F4` | dock: size, focus, cells, events |
+| `[` `]` | the row the cells dock reads |
+| `Tab` | move between panes and splitters |
+| `f` | freeze - the target carries on, only the looking stops |
+| `q` | quit |
 
-Digits for the right pane, function keys for the dock. Two tab strips on one
-screen is this layout's real risk, so they take visibly different classes of
-key rather than sharing one and leaving you to guess which moved.
+The status bar's right-hand items are clickable as well as readable.
 
-## What it costs the target
+## what it costs the target
 
-`frame` leads every poll. It is cheap and unmarshalled, and when the counter has
-not moved nothing has changed, so the expensive questions are skipped entirely.
+`frame` leads every poll: it is cheap and unmarshalled, and when the counter
+has not moved nothing has changed, so the expensive questions are skipped.
 
 `measure` runs on selection change only, never on the poll. It forces a
 relayout, so polling it would make the debugger the cause of the churn its own
-invalidation view reports.
+views report. `events` is asked for only while its tab is showing.
 
 Freeze stops the polling. The application carries on; only the looking stops,
-which is what the held frame counter in the header is telling you.
+which is what the held frame counter is telling you.

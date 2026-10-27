@@ -11,8 +11,11 @@ using System.Text.Json.Nodes;
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.DataBinding;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using Color = SharpConsoleUI.Color;
+using Point = System.Drawing.Point;
 
 namespace Cxdbg.Session;
 
@@ -21,40 +24,63 @@ namespace Cxdbg.Session;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Tree on the left, always. Two tabs on the right answering "what is this
-/// control", a docked tab strip below answering "why". Two independent axes:
-/// you can hold a detail view and change the question underneath it, or hold a
-/// question and flip between the facts and the picture.
+/// Tree on the left, two tabs on the right answering "what is this control", a
+/// docked tab strip below answering "why". Every boundary is a draggable
+/// splitter, because fixed pane sizes are a guess about someone else's
+/// terminal.
 /// </para>
 /// <para>
-/// The screen tab is a tab rather than a third column because a permanent one
-/// spent a third of the width showing an unreadable thumbnail. As a tab it
-/// costs nothing when unused and gets the full pane when wanted.
+/// Built out of the library's own controls rather than out of formatted text:
+/// the tree is a <c>TreeTableControl</c> bound to a hierarchy, so clicking,
+/// expanding, filtering and scroll-into-view are the control's job and not
+/// this file's. An earlier version painted the tree as markup lines and had
+/// none of that.
 /// </para>
 /// </remarks>
 internal sealed class DebuggerWindow
 {
 	private readonly ConsoleWindowSystem _system;
 	private readonly TargetPoller _poller;
+	private readonly ControlTreeModel _model = new();
 
-	private readonly MarkupControl _header = new(["attaching..."]);
-	private readonly MarkupControl _tree = new([""]);
-	private readonly MarkupControl _details = new(["nothing selected"]);
-	private readonly MarkupControl _size = new([""]);
-	private readonly MarkupControl _cells = new([""]);
+	private StatusBarControl _status = null!;
+	private StatusBarItem _pidItem = null!;
+	private StatusBarItem _frameItem = null!;
+	private StatusBarItem _stateItem = null!;
+	// One section per panel, each a table of facts: a column of names beside a
+	// column of values is a table, and writing it with padding simulates one.
+	private readonly FactsSource _factsA = new();
+	private readonly FactsSource _factsB = new();
+	private readonly FactsSource _factsC = new();
+	private readonly FactsSource _factsD = new();
+
+	private readonly MarkupControl _detailsTitle = new(["[dim]nothing selected[/]"]);
+	private PanelControl _panelA = null!;
+	private PanelControl _panelB = null!;
+	private PanelControl _panelC = null!;
+	private PanelControl _panelD = null!;
+
+	private readonly CascadeSource _cascade = new();
+	private readonly FocusSource _focus = new();
+	private readonly EventSource _events = new();
+	private readonly MarkupControl _eventsStatus = new([""]);
+	private readonly MarkupControl _focusSummary = new([""]);
+	private readonly MarkupControl _cascadeSummary = new([""]);
+	private readonly CellRowSource _cellRow = new();
+	private readonly MarkupControl _cellHeader = new([""]);
+	private TableControl _cellTable = null!;
 	private readonly SurfaceViewControl _screen = new();
 	private readonly MarkupControl _screenWhere = new(["[dim]no selection[/]"]);
 
-	private ScrollablePanelControl _treeScroller = null!;
+	private TreeTableControl _tree = null!;
+	private TabControl? _right;
+	private TabControl? _dock;
+
+	/// <summary>The control the panes are describing.</summary>
+	private ControlNode? _selection;
 
 	/// <summary>The screen row the cells dock is reading.</summary>
 	private int _row;
-
-	private TabControl _right = null!;
-	private TabControl _dock = null!;
-
-	private int _selected;
-	private List<string> _ids = [];
 
 	internal DebuggerWindow(ConsoleWindowSystem system, TargetPoller poller)
 	{
@@ -73,15 +99,7 @@ internal sealed class DebuggerWindow
 
 		window.KeyPressed += OnKey;
 
-		// Top first: a dock child claims its whole edge before the ones after
-		// it narrow what is left. Bottom next, so the right pane is the height
-		// that is actually left over.
-		// The header docks; everything else is a grid with draggable
-		// boundaries. Fixed pane sizes were the wrong answer - an 8-row dock
-		// on a short terminal leaves the tree one row, and a breakpoint that
-		// drops a pane is me guessing which one you wanted. Splitters let you
-		// decide, and the grid already knows how to carry them.
-		window.DockTop.Add(_header);
+		window.DockTop.Add(Status());
 		window.DockBody.Add(Body());
 
 		_poller.Changed += OnTargetChanged;
@@ -91,20 +109,52 @@ internal sealed class DebuggerWindow
 	}
 
 	/// <summary>
+	/// The status bar: what is being looked at, and what the keys do.
+	/// </summary>
+	/// <remarks>
+	/// The real status bar control rather than a markup line pretending to be
+	/// one, so the key hints are items that can be clicked as well as read, and
+	/// the live values are labels updated in place rather than a string rebuilt
+	/// each frame.
+	/// </remarks>
+	private IWindowControl Status()
+	{
+		_pidItem = new StatusBarItem { Shortcut = "pid", Label = "-" };
+		_frameItem = new StatusBarItem { Shortcut = "frame", Label = "0" };
+		_stateItem = new StatusBarItem { Label = "", IsVisible = false };
+
+		_status = new StatusBarBuilder()
+			.AddLeft(_pidItem)
+			.AddLeft(_frameItem)
+			.AddLeft(_stateItem)
+			.AddRight("1 2", "pane", () => SelectRight(_right?.ActiveTabIndex == 0 ? 1 : 0))
+			.AddRight("F1-F4", "dock", () => SelectDock(((_dock?.ActiveTabIndex ?? 0) + 1) % 4))
+			.AddRight("[ ]", "row")
+			.AddRight("f", "freeze", ToggleFreeze)
+			.AddRight("q", "quit", () => _system.Shutdown())
+			.Build();
+
+		return _status;
+	}
+
+	private void ToggleFreeze()
+	{
+		_poller.Frozen = !_poller.Frozen;
+		Render(_poller.State);
+	}
+
+	/// <summary>
 	/// Tree beside the right pane, dock underneath, every boundary draggable.
 	/// </summary>
 	/// <remarks>
-	/// Two star columns at 2:1 and two star rows at 2:1 to start, so nothing
-	/// is fixed and nothing is starved at any size. The splitters are Tab
-	/// stops as well as drag targets, so the layout is reachable from the
-	/// keyboard too.
+	/// Two star columns at 2:1 and two star rows at 2:1 to start, so nothing is
+	/// fixed and nothing is starved at any size. Fill and Stretch, or the grid
+	/// sizes to its content and the star tracks divide a single row - which the
+	/// tree reported as "GridControl got 118x1 wants 118x1" inside a 35-row
+	/// body, found by attaching cxdbg to itself.
 	/// </remarks>
 	private IWindowControl Body() =>
 		Controls.Grid()
-			// Fill and Stretch, or the grid sizes to its content: star rows
-			// dividing one row give every pane a height of zero, which the
-			// tree reports as "GridControl got 118x1 wants 118x1" inside a
-			// 35-row body. Found by attaching cxdbg to itself.
 			.WithVerticalAlignment(VerticalAlignment.Fill)
 			.WithAlignment(HorizontalAlignment.Stretch)
 			.Columns(GridLength.Star(2), GridLength.Star(1))
@@ -116,18 +166,50 @@ internal sealed class DebuggerWindow
 			.Place(Dock(), 1, 0, rowSpan: 1, colSpan: 2)
 			.Build();
 
+	/// <summary>
+	/// The target's control tree, as a real tree table.
+	/// </summary>
+	/// <remarks>
+	/// Everything a tree needs is already in the control: clicking selects,
+	/// clicking a guide expands, <c>/</c> filters while keeping the ancestors
+	/// of a match so you still see where it lives, the selected row scrolls
+	/// into view, and the columns line up because they are columns.
+	/// <para>
+	/// Bound to the model rather than filled on each poll, so a poll updates
+	/// properties and the rows are diffed. That is what keeps the selection and
+	/// the expansion through an update several times a second.
+	/// </para>
+	/// </remarks>
 	private IWindowControl Tree()
 	{
-		_treeScroller = Controls.ScrollablePanel()
+		_tree = TreeTableControl.Create()
 			.WithName("tree")
-			.WithScrollbar()
-			.WithMouseWheel()
+			.AddColumn("control", TextJustification.Left, width: 32)
+			.AddColumn("got", TextJustification.Right, width: 9)
+			.AddColumn("wants", TextJustification.Right, width: 9)
+			.AddColumn("layout", TextJustification.Left)
+			.WithFiltering()
+			.WithFilterIncludingDescendants()
+			.WithTreeColumn(0)
 			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.WithAlignment(HorizontalAlignment.Stretch)
-			.AddControl(_tree)
+			.StretchHorizontal()
+			.BindItems(
+				_model.Roots,
+				n => n.Children,
+				n => n.Cells(),
+				o =>
+				{
+					// Identity by control id, so a node is the same node across
+					// polls and keeps its row - with its selection and expansion.
+					o.ItemComparer = ControlNodeComparer.Instance;
+					o.IsExpanded = n => n.Expanded;
+					o.IsExpandedChanged = (n, open) => n.Expanded = open;
+				})
 			.Build();
 
-		return _treeScroller;
+		_tree.SelectedRowChanged += (_, _) => OnSelectionChanged();
+
+		return _tree;
 	}
 
 	/// <summary>The right pane: what this control is, or what it looks like.</summary>
@@ -140,25 +222,73 @@ internal sealed class DebuggerWindow
 			HorizontalAlignment = HorizontalAlignment.Stretch,
 		};
 
-		_right.AddTab("1 details", Controls.ScrollablePanel()
-			.WithScrollbar()
-			.AddControl(_details)
-			.Build());
+		_right.AddTab("1 details", Details());
 
 		// The screen tab repaints the target's own cells, so what appears here
-		// is the application's screen rather than a description of it, with
-		// one line saying where the selection sits in it.
-		var screenPane = Controls.ScrollablePanel()
+		// is the application's screen rather than a description of it, with one
+		// line saying where the selection sits in it.
+		// A click in the picture goes to the application at that point, and
+		// selects whatever is painting there. The protocol routes it through
+		// the target's own hit-test dispatch, so the application responds
+		// exactly as it would to someone sitting in front of it.
+		_screen.CellClicked += (_, at) => OnScreenClicked(at);
+
+		_right.AddTab("2 screen", Controls.ScrollablePanel()
 			.WithScrollbar()
 			.WithMouseWheel()
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.WithAlignment(HorizontalAlignment.Stretch)
 			.AddControl(_screenWhere)
 			.AddControl(_screen)
-			.Build();
-
-		_right.AddTab("2 screen", screenPane);
+			.Build());
 
 		return _right;
 	}
+
+	/// <summary>
+	/// What is known about the selection, a panel per section.
+	/// </summary>
+	/// <remarks>
+	/// Panels inside a scroller, each holding a table of facts, rather than one
+	/// markup control with blank lines between headings. The sections are real
+	/// regions with their own borders, so they read as sections.
+	/// </remarks>
+	private IWindowControl Details()
+	{
+		_panelA = Section("size", _factsA);
+		_panelB = Section("where", _factsB);
+		_panelC = Section("reach", _factsC);
+		_panelD = Section("state", _factsD);
+
+		return Controls.ScrollablePanel()
+			.WithScrollbar()
+			.WithMouseWheel()
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.WithAlignment(HorizontalAlignment.Stretch)
+			.AddControl(_detailsTitle)
+			.AddControl(_panelA)
+			.AddControl(_panelB)
+			.AddControl(_panelC)
+			.AddControl(_panelD)
+			.Build();
+	}
+
+	/// <summary>One titled section of the details pane.</summary>
+	private static PanelControl Section(string header, FactsSource facts) =>
+		Controls.Panel()
+			.WithHeader(header)
+			.WithBorderStyle(BorderStyle.Rounded)
+			.WithAlignment(HorizontalAlignment.Stretch)
+			// No border and no header: the panel already has both, and a
+			// facts table drawing its own inside them is chrome around
+			// chrome in a pane that has no width to spare.
+			.AddControl(TableControl.Create()
+				.WithDataSource(facts)
+				.NoBorder()
+				.HideHeader()
+				.StretchHorizontal()
+				.Build())
+			.Build();
 
 	/// <summary>The dock: why the selection is the way it is.</summary>
 	private IWindowControl Dock()
@@ -172,48 +302,120 @@ internal sealed class DebuggerWindow
 
 		_dock.AddTab("1 size", Controls.ScrollablePanel()
 			.WithScrollbar()
-			.AddControl(_size)
+			.WithMouseWheel()
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.WithAlignment(HorizontalAlignment.Stretch)
+			.AddControl(_cascadeSummary)
+			.AddControl(TableControl.Create()
+				.WithName("cascade")
+				.WithDataSource(_cascade)
+				.StretchHorizontal()
+				.Build())
 			.Build());
-
-		// Cells is the question text cannot answer, docked where you are
-		// already looking rather than in a mode of its own. The screen tab
-		// drives it: pick a row up there, read its columns down here.
-		_dock.AddTab("3 cells", Controls.ScrollablePanel()
+		// Tab order with each stop's geometry: the one question neither
+		// reachable nor the tree answers alone.
+		_dock.AddTab("2 focus", Controls.ScrollablePanel()
 			.WithScrollbar()
 			.WithMouseWheel()
-			.AddControl(_cells)
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.WithAlignment(HorizontalAlignment.Stretch)
+			.AddControl(_focusSummary)
+			.AddControl(TableControl.Create()
+				.WithName("focus")
+				.WithDataSource(_focus)
+				.NoBorder()
+				.StretchHorizontal()
+				.Build())
+			.Build());
+
+		_dock.AddTab("3 cells", Cells());
+
+		// Input as the target recorded it, when it was built to record. The
+		// recorder is fixed at construction, so when it is off this tab says
+		// so rather than showing an empty table that reads as silence.
+		_dock.AddTab("4 events", Controls.ScrollablePanel()
+			.WithScrollbar()
+			.WithMouseWheel()
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.WithAlignment(HorizontalAlignment.Stretch)
+			.AddControl(_eventsStatus)
+			.AddControl(TableControl.Create()
+				.WithName("events")
+				.WithDataSource(_events)
+				.NoBorder()
+				.StretchHorizontal()
+				.Build())
 			.Build());
 
 		return _dock;
 	}
 
 	/// <summary>
+	/// One row of the target's screen, column by column, reading across.
+	/// </summary>
+	/// <remarks>
+	/// A table over a data source, so the dock's width is the row's direction.
+	/// An earlier version wrote a line per column, which ran vertically down a
+	/// horizontal dock - the wrong way round for a row of a screen.
+	/// </remarks>
+	private IWindowControl Cells()
+	{
+		// The columns and their widths come from the data source, which is what
+		// defines them when there is one.
+		_cellTable = TableControl.Create()
+			.WithName("cells")
+			.WithDataSource(_cellRow)
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.StretchHorizontal()
+			.Build();
+
+		// A scroller rather than a nested grid: the grid's Auto row had nothing
+		// to size to, because a table over a data source does not ask for a
+		// height, and both children came out 0x0 inside a 118x10 cell.
+		return Controls.ScrollablePanel()
+			.WithScrollbar()
+			.WithMouseWheel()
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.WithAlignment(HorizontalAlignment.Stretch)
+			.AddControl(_cellHeader)
+			.AddControl(_cellTable)
+			.Build();
+	}
+
+	/// <summary>A scrolling pane around one markup control.</summary>
+	private static IWindowControl Pane(IWindowControl content) =>
+		Controls.ScrollablePanel()
+			.WithScrollbar()
+			.WithMouseWheel()
+			.WithVerticalAlignment(VerticalAlignment.Fill)
+			.WithAlignment(HorizontalAlignment.Stretch)
+			.AddControl(content)
+			.Build();
+
+	/// <summary>
 	/// The session's own keys.
 	/// </summary>
 	/// <remarks>
-	/// Digits move the right pane, function keys the dock. Two tab strips on
-	/// one screen is this layout's real risk, so the two take visibly
-	/// different classes of key rather than sharing one and hoping focus says
-	/// which is which.
+	/// Few, and deliberately not the ones the tree wants: arrows, Enter, the
+	/// filter key and the mouse all belong to the tree table, which does more
+	/// with them than this file could. These are the ones that are about the
+	/// session rather than about a control.
 	/// </remarks>
 	private void OnKey(object? sender, KeyPressedEventArgs e)
 	{
 		switch (e.KeyInfo.Key)
 		{
-			case ConsoleKey.DownArrow: e.Handled = Move(+1); return;
-			case ConsoleKey.UpArrow: e.Handled = Move(-1); return;
 			case ConsoleKey.F1: e.Handled = SelectDock(0); return;
-			case ConsoleKey.F3: e.Handled = SelectDock(1); return;
+			case ConsoleKey.F2: e.Handled = SelectDock(1); return;
+			case ConsoleKey.F3: e.Handled = SelectDock(2); return;
+			case ConsoleKey.F4: e.Handled = SelectDock(3); return;
 		}
 
 		switch (e.KeyInfo.KeyChar)
 		{
 			case '1': e.Handled = SelectRight(0); return;
 			case '2': e.Handled = SelectRight(1); return;
-		}
 
-		switch (e.KeyInfo.KeyChar)
-		{
 			// The row the cells dock reads. Square brackets because they sit
 			// next to each other and read as "move the window along".
 			case '[': e.Handled = MoveRow(-1); return;
@@ -224,8 +426,7 @@ internal sealed class DebuggerWindow
 		{
 			case 'f':
 				// Freeze: the target carries on, only the looking stops.
-				_poller.Frozen = !_poller.Frozen;
-				Render(_poller.State);
+				ToggleFreeze();
 				e.Handled = true;
 				return;
 
@@ -238,7 +439,7 @@ internal sealed class DebuggerWindow
 
 	private bool SelectRight(int index)
 	{
-		if (index < 0 || index >= 2) return false;
+		if (_right == null || index < 0 || index >= 2) return false;
 
 		_right.ActiveTabIndex = index;
 		Render(_poller.State);
@@ -247,7 +448,7 @@ internal sealed class DebuggerWindow
 
 	private bool SelectDock(int index)
 	{
-		if (index < 0 || index >= 2) return false;
+		if (_dock == null || index < 0 || index >= 4) return false;
 
 		_dock.ActiveTabIndex = index;
 		Render(_poller.State);
@@ -256,40 +457,35 @@ internal sealed class DebuggerWindow
 
 	private bool MoveRow(int by)
 	{
-		int height = Math.Max(1, _screen.SurfaceHeight);
+		int height = Math.Max(1, _poller.State.Screen.Count);
 		_row = Math.Clamp(_row + by, 0, height - 1);
 
 		RenderCells();
 		return true;
 	}
 
-	private bool Move(int by)
-	{
-		if (_ids.Count == 0) return true;
-
-		int next = Math.Clamp(_selected + by, 0, _ids.Count - 1);
-		if (next == _selected) return true;
-
-		_selected = next;
-
-		// The cascade is asked for on SELECTION, never on the poll: measure
-		// forces a relayout, so polling it would make the debugger the cause
-		// of the churn it reports.
-		Render(_poller.State);
-		ShowSelection();
-		return true;
-	}
-
 	/// <summary>
-	/// Scrolls the tree so the selected row is on screen.
+	/// Takes the tree's selection and re-answers everything about it.
 	/// </summary>
 	/// <remarks>
-	/// A highlight that moves out of view leaves you steering something you
-	/// cannot see. The tree is one markup control inside a scroller, so the
-	/// row is a region of that child rather than a child of its own.
+	/// The cascade is asked for HERE, on selection, and never on the poll:
+	/// measure forces a relayout, so polling it would make the debugger the
+	/// cause of the churn it reports.
 	/// </remarks>
-	private void ShowSelection() =>
-		_treeScroller.ScrollChildRegionIntoView(_tree, _selected, 1);
+	private void OnSelectionChanged()
+	{
+		_selection = _tree.SelectedRow?.Tag as ControlNode;
+
+		// The screen follows the selection: the desktop shows the composed
+		// desktop, anything inside a window shows that window. Asking for the
+		// window the selection lives in is what makes the picture answer the
+		// question you are asking rather than always the active one.
+		_poller.ScreenOf = WindowOf(_selection);
+
+		RenderDetails();
+		RenderSize();
+		RenderScreenWhere();
+	}
 
 	private void OnTargetChanged(TargetState state) =>
 		_system.EnqueueOnUIThread(() => Render(state));
@@ -297,287 +493,380 @@ internal sealed class DebuggerWindow
 	private void Render(TargetState state)
 	{
 		RenderHeader(state);
-		RenderTree(state);
-		RenderDetails(state);
+
+		// The model merges rather than replaces, so the bound rows keep their
+		// selection and expansion through this.
+		_model.Merge(state.Tree);
+
+		// The selected node object may have been replaced by the merge, so the
+		// panes re-read it from the tree rather than holding the old one.
+		_selection = _tree.SelectedRow?.Tag as ControlNode;
+
+		// The focus chain comes from the poll, so the details pane can say
+		// whether the selection is the control that has the keyboard.
+		_focusChain = (state.Focus?["chain"]?.AsArray() ?? [])
+			.Select(n => n?.GetValue<string>() ?? "")
+			.ToList();
+
+		_tabStops = (state.Reachable?["stops"]?.AsArray() ?? [])
+			.Select(n => n?["control"]?.GetValue<string>() ?? "")
+			.ToList();
+
+		RenderDetails();
 		RenderSize();
 		RenderScreen(state);
+		RenderScreenWhere();
 		RenderCells();
+		RenderFocus(state);
+		RenderEvents();
 	}
 
 	private void RenderHeader(TargetState state)
 	{
-		var parts = new List<string>
+		// Labels updated in place, in one batch, so the bar is not rebuilt
+		// several times a second and its items keep their identity.
+		_status.BatchUpdate(() =>
 		{
-			$"[bold]cxdbg[/]  pid {_poller.Pid}  frame {state.Frame}",
-		};
+			_pidItem.Label = _poller.Pid.ToString();
+			_frameItem.Label = state.Frame.ToString();
 
-		if (state.Gone) parts.Add("[red]the application is gone[/]");
-		else if (_poller.Frozen) parts.Add("[yellow]frozen[/]");
-
-		parts.Add("[dim]up/down select   1 2 pane   F1 dock   f freeze   q quit[/]");
-
-		_header.SetContent([string.Join("   ", parts)]);
+			if (state.Gone)
+			{
+				_stateItem.Label = "the application is gone";
+				_stateItem.LabelForeground = Color.Red;
+				_stateItem.IsVisible = true;
+			}
+			else if (_poller.Frozen)
+			{
+				_stateItem.Label = "frozen";
+				_stateItem.LabelForeground = Color.Yellow;
+				_stateItem.IsVisible = true;
+			}
+			else
+			{
+				_stateItem.IsVisible = false;
+			}
+		});
 	}
 
-	private void RenderTree(TargetState state)
+	/// <summary>
+	/// Everything known about the selection, section by section.
+	/// </summary>
+	/// <remarks>
+	/// Each section is a panel holding a table of facts. The desktop, a window
+	/// and a control are three different things with three different sets of
+	/// facts, so each fills the sections with its own.
+	/// </remarks>
+	private void RenderDetails()
 	{
-		if (state.Tree == null)
-		{
-			_tree.SetContent(["[dim]waiting for the application[/]"]);
-			return;
-		}
+		_factsA.Clear();
+		_factsB.Clear();
+		_factsC.Clear();
+		_factsD.Clear();
 
-		var lines = new List<string>();
-		var ids = new List<string>();
+		var node = _selection;
 
-		foreach (var window in state.Tree["windows"]?.AsArray() ?? [])
-		{
-			string title = window?["title"]?.GetValue<string>() ?? "window";
-			lines.Add($"[bold]{Safe(title)}[/]");
-			ids.Add("");
-
-			Walk(window?["node"], 1, lines, ids);
-		}
-
-		_ids = ids;
-		if (_selected >= _ids.Count) _selected = Math.Max(0, _ids.Count - 1);
-
-		for (int i = 0; i < lines.Count && i < _ids.Count; i++)
-		{
-			if (i == _selected) lines[i] = "[invert]" + lines[i] + "[/]";
-		}
-
-		_tree.SetContent(lines.Count == 0 ? ["[dim]no controls[/]"] : lines);
-	}
-
-	private static void Walk(JsonNode? node, int depth, List<string> lines, List<string> ids)
-	{
-		if (node == null) return;
-
-		string type = node["control"]?.GetValue<string>() ?? "?";
-		string id = node["id"]?.GetValue<string>() ?? "";
-		var bounds = node["bounds"];
-		var desired = node["desired"];
-
-		var line = new StringBuilder();
-		line.Append(new string(' ', depth * 2));
-		line.Append(Safe(type));
-
-		if (bounds != null)
-		{
-			int w = bounds["w"]?.GetValue<int>() ?? -1;
-			int h = bounds["h"]?.GetValue<int>() ?? -1;
-			line.Append($"  [dim]{w}x{h}[/]");
-
-			// What it wanted, only when it differs from what it got. Most
-			// controls got what they asked for, and saying so for all of them
-			// buries the ones that did not.
-			int dw = desired?["w"]?.GetValue<int>() ?? w;
-			int dh = desired?["h"]?.GetValue<int>() ?? h;
-			if (dw != w || dh != h) line.Append($"  [yellow]wants {dw}x{dh}[/]");
-
-			// Present in the tree, reachable by focus, painting nothing: the
-			// pattern no other tool shows you.
-			if (w == 0 || h == 0) line.Append("  [red]invisible[/]");
-		}
-
-		lines.Add(line.ToString());
-		ids.Add(id);
-
-		foreach (var child in node["children"]?.AsArray() ?? [])
-			Walk(child, depth + 1, lines, ids);
-	}
-
-	private void RenderDetails(TargetState state)
-	{
-		var node = SelectedNode(state);
 		if (node == null)
 		{
-			_details.SetContent(["[dim]nothing selected[/]"]);
+			_detailsTitle.SetContent(["[dim]nothing selected[/]"]);
+			ShowSections(false, false, false, false);
 			return;
 		}
 
-		var lines = new List<string>
+		switch (node.Kind)
 		{
-			$"[bold]{Safe(node["id"]?.GetValue<string>() ?? node["control"]?.GetValue<string>() ?? "?")}[/]",
-			"",
-		};
-
-		var bounds = node["bounds"];
-		var desired = node["desired"];
-
-		lines.Add($"wants       {desired?["w"]} x {desired?["h"]}");
-		lines.Add($"got         {bounds?["w"]} x {bounds?["h"]}");
-
-		if ((bounds?["w"]?.GetValue<int>() ?? 1) == 0 || (bounds?["h"]?.GetValue<int>() ?? 1) == 0)
-			lines.Add("            [red]invisible[/]");
-
-		lines.Add($"layout      {Safe(node["layout"]?.GetValue<string>() ?? "-")}");
-		lines.Add($"visible     {node["visible"]}");
-
-		// Whatever this control type reports about itself, in the shared
-		// vocabulary: the state names are the library's, not cxdbg's.
-		if (node["state"] is JsonObject s && s.Count > 0)
-		{
-			lines.Add("");
-			foreach (var (key, value) in s)
-				lines.Add($"{key,-11} {Safe(value?.ToString() ?? "")}");
+			case ControlNode.NodeKind.Desktop: DesktopFacts(node.Raw); break;
+			case ControlNode.NodeKind.Window: WindowFacts(node.Raw); break;
+			default: ControlFacts(node); break;
 		}
 
+		_factsA.Done();
+		_factsB.Done();
+		_factsC.Done();
+		_factsD.Done();
+
+		ShowSections(_factsA.HasFacts, _factsB.HasFacts, _factsC.HasFacts, _factsD.HasFacts);
+	}
+
+	/// <summary>Hides the sections that have nothing in them.</summary>
+	/// <remarks>
+	/// An empty bordered panel reads as something missing rather than something
+	/// absent, so a section with no facts is not drawn at all.
+	/// </remarks>
+	private void ShowSections(bool a, bool b, bool c, bool d)
+	{
+		_panelA.Visible = a;
+		_panelB.Visible = b;
+		_panelC.Visible = c;
+		_panelD.Visible = d;
+	}
+
+	/// <summary>The desktop: the screen everything else is drawn on.</summary>
+	private void DesktopFacts(JsonObject d)
+	{
+		_detailsTitle.SetContent([$"[bold]desktop[/]  [dim]{d["theme"]}[/]"]);
+
+		_factsA.Add("screen", $"{d["width"]} x {d["height"]}");
+		_factsA.Add("windows", d["windows"]?.ToString());
+
+		_factsB.Add("origin", $"{d["originX"]},{d["originY"]}");
+		_factsB.Add("bottom", d["desktopBottom"]?.ToString());
+
+		int top = d["topPanelRows"]?.GetValue<int>() ?? 0;
+		int bottom = d["bottomPanelRows"]?.GetValue<int>() ?? 0;
+
+		_factsB.Add("top rows", top.ToString(), "[dim]the system's own panel[/]");
+		_factsB.Add("bottom rows", bottom.ToString());
+
+		if (top + bottom > 0)
+		{
+			_factsB.Add("", "",
+				$"[dim]{top + bottom} of {d["height"]} rows are not a window's to use[/]");
+		}
+
+		// Both of these change how input is routed, so a window that seems
+		// deaf is often a modal or a portal open somewhere else.
+		if (d["modals"]?.GetValue<bool>() == true)
+			_factsC.Add("modal", "[yellow]open[/]", "[yellow]it is taking the input[/]");
+
+		if (d["portals"]?.GetValue<bool>() == true)
+			_factsC.Add("portal", "[yellow]open[/]", "[yellow]it sees the keys first[/]");
+	}
+
+	/// <summary>A window: where it is, what it is allowed to do.</summary>
+	private void WindowFacts(JsonObject w)
+	{
+		var b = w["bounds"];
+		var a = w["absolute"];
+		var st = w["state"];
+
+		_detailsTitle.SetContent([
+			$"[bold]{Safe(w["title"]?.GetValue<string>() ?? "window")}[/]",
+			$"[dim]{Safe(w["id"]?.GetValue<string>() ?? "")}[/]",
+		]);
+
+		_factsA.Add("size", $"{b?["w"]} x {b?["h"]}");
+		_factsA.Add("root", Safe(w["root"]?.GetValue<string>() ?? "-"));
+
+		_factsB.Add("on desktop", $"{b?["x"]},{b?["y"]}");
+		_factsB.Add("on screen", $"{a?["x"]},{a?["y"]}");
+
+		_factsC.Add("window", Safe(st?["windowState"]?.GetValue<string>() ?? "-"));
+		_factsC.Add("active", Yes(st?["active"]), st?["active"]?.GetValue<bool>() == true
+			? "[dim]its keys are the ones being typed[/]" : null);
+		_factsC.Add("modal", Yes(st?["modal"]));
+
+		_factsD.Add("move", Yes(st?["movable"]));
+		_factsD.Add("resize", Yes(st?["resizable"]));
+		_factsD.Add("close", Yes(st?["closable"]));
+	}
+
+	/// <summary>A control: its size, its place, whether it can be reached.</summary>
+	private void ControlFacts(ControlNode node)
+	{
+		var raw = node.Raw;
+
+		_detailsTitle.SetContent(node.Id.Length > 0
+			? [$"[bold]{Safe(node.Id)}[/]"]
+			: [$"[bold]{Safe(node.Type)}[/]",
+				"[dim]layout scaffolding - nothing else can be asked about it[/]"]);
+
+		var bounds = raw["bounds"];
+		var desired = raw["desired"];
+		var absolute = raw["absolute"];
+
+		int w = bounds?["w"]?.GetValue<int>() ?? -1;
+		int h = bounds?["h"]?.GetValue<int>() ?? -1;
+		int dw = desired?["w"]?.GetValue<int>() ?? w;
+		int dh = desired?["h"]?.GetValue<int>() ?? h;
+
+		_factsA.Add("got", $"{w} x {h}");
+
+		if (dw != w || dh != h)
+		{
+			_factsA.Add("wanted", $"[yellow]{dw} x {dh}[/]",
+				dw > w || dh > h
+					? "[yellow]it asked for more than it was given[/]"
+					: "[dim]it was given more than it asked for[/]");
+		}
+
+		if (w == 0 || h == 0)
+			_factsA.Add("", "", "[red]it paints nothing[/]");
+
+		_factsB.Add("in window", $"{bounds?["x"]},{bounds?["y"]}");
+		_factsB.Add("on screen", $"{absolute?["x"]},{absolute?["y"]}");
+		_factsB.Add("layout", Safe(node.Layout.Length > 0 ? node.Layout : "-"));
+
+		var state = raw["state"] as JsonObject;
+		bool focusable = state?["focusable"]?.GetValue<bool>() == true;
+
+		_factsC.Add("visible", raw["visible"]?.ToString());
+		_factsC.Add("enabled", Yes(state?["enabled"]));
+		_factsC.Add("focusable", Yes(state?["focusable"]),
+			focusable && (w == 0 || h == 0)
+				? "[red]Tab reaches it, you cannot see it[/]"
+				: null);
+
+		int stop = TabStopOf(node);
+		if (stop > 0) _factsC.Add("tab stop", $"{stop} of {_tabStops.Count}");
+
+		if (_focusChain.Count > 0 && _focusChain[^1] == node.Type)
+			_factsC.Add("focused", "[green]yes[/]", "[dim]it has the keyboard[/]");
+
+		// Whatever this control type reports about itself, in the library's
+		// shared vocabulary - the names are its, not cxdbg's.
+		if (state != null)
+		{
+			foreach (var (key, value) in state)
+			{
+				if (key is "enabled" or "focusable" or "interactive") continue;
+				_factsD.Add(key, Safe(Short(value?.ToString() ?? "")));
+			}
+
+			// The three scroll names together answer a question none of them
+			// answers alone.
+			if (state["scrollOffset"]?.GetValue<int>() is { } off
+				&& state["viewportExtent"]?.GetValue<int>() is { } view
+				&& state["contentExtent"]?.GetValue<int>() is { } content
+				&& content > view)
+			{
+				_factsD.Add("", "", $"[dim]showing {view} of {content}, {content - view - off} below[/]");
+			}
+		}
+	}
+
+	/// <summary>This control's place in the Tab order, or 0 when it has none.</summary>
+	private int TabStopOf(ControlNode node)
+	{
+		for (int i = 0; i < _tabStops.Count; i++)
+		{
+			if (_tabStops[i] == node.Type) return i + 1;
+		}
+
+		return 0;
+	}
+
+	private static string Yes(JsonNode? node) =>
+		node?.GetValue<bool>() == true ? "yes" : "no";
+
+	/// <summary>
+	/// Passes a click on the picture through to the application.
+	/// </summary>
+	/// <param name="at">Where, in the target's own coordinates.</param>
+	/// <remarks>
+	/// Two things at once, because both are what you meant: the application
+	/// gets the click, and the tree selects the control painting there. The
+	/// first is the point of a remote view; the second saves hunting down the
+	/// tree for what you just pointed at.
+	/// </remarks>
+	private void OnScreenClicked(Point at)
+	{
+		// The picture may be one window rather than the desktop, in which case
+		// its cells start at the window's own origin.
+		int x = at.X + _screenOrigin.X;
+		int y = at.Y + _screenOrigin.Y;
+
+		_poller.AskNow("mouse", new Dictionary<string, JsonNode?>
+		{
+			["x"] = x,
+			["y"] = y,
+			["button"] = "left",
+			["action"] = "click",
+		});
+
+		SelectPainting(x, y);
+	}
+
+	/// <summary>Selects the deepest control whose rectangle holds a point.</summary>
+	/// <remarks>
+	/// Deepest, because every ancestor contains the point too and the one you
+	/// pointed at is the innermost. The snapshot does no hit-testing, so this
+	/// is cxdbg's own arithmetic over the tree's absolute bounds.
+	/// </remarks>
+	private void SelectPainting(int x, int y)
+	{
+		ControlNode? best = null;
+		int bestArea = int.MaxValue;
+
+		void Search(ControlNode node)
+		{
+			var b = node.Raw["absolute"];
+
+			if (b != null && node.Kind == ControlNode.NodeKind.Control)
+			{
+				int bx = b["x"]?.GetValue<int>() ?? 0;
+				int by = b["y"]?.GetValue<int>() ?? 0;
+				int bw = b["w"]?.GetValue<int>() ?? 0;
+				int bh = b["h"]?.GetValue<int>() ?? 0;
+
+				if (bw > 0 && bh > 0
+					&& x >= bx && x < bx + bw
+					&& y >= by && y < by + bh
+					&& bw * bh < bestArea)
+				{
+					best = node;
+					bestArea = bw * bh;
+				}
+			}
+
+			foreach (var child in node.Children) Search(child);
+		}
+
+		foreach (var root in _model.Roots) Search(root);
+
+		if (best is not { Id.Length: > 0 } found) return;
+
+		// By index, because the selection is set by index: the row object
+		// leads to it through the table's own row list, which is the only
+		// public way across.
+		var rows = _tree.Rows;
+
+		for (int i = 0; i < rows.Count; i++)
+		{
+			if (!ReferenceEquals(rows[i].Tag, found)) continue;
+
+			_tree.SelectedRowIndex = i;
+			return;
+		}
+	}
+
+	/// <summary>Where the screen pane's cells start, in the target's coordinates.</summary>
+	private Point _screenOrigin;
+
+	/// <summary>The Tab order, with what each stop looks like.</summary>
+	private void RenderFocus(TargetState state)
+	{
 		string? focused = state.Focus?["focused"]?.GetValue<string>();
-		if (focused != null)
-		{
-			lines.Add("");
-			lines.Add($"focus is on {Safe(focused)}");
-		}
 
-		_details.SetContent(lines);
-	}
+		_focusSummary.SetContent([
+			_tabStops.Count == 0
+				? "[dim]nothing in this window can take the keyboard[/]"
+				: $"[bold]{_tabStops.Count}[/] {(_tabStops.Count == 1 ? "stop" : "stops")}   "
+					+ $"[dim]the keyboard is on[/] [green]{Safe(focused ?? "nothing")}[/]",
+		]);
 
-	private void RenderSize()
-	{
-		if (_ids.Count == 0 || _selected >= _ids.Count || _ids[_selected].Length == 0)
-		{
-			_size.SetContent(["[dim]select a control with an id[/]"]);
-			return;
-		}
-
-		string id = _ids[_selected];
-		var reply = _poller.AskNow("measure", new Dictionary<string, JsonNode?> { ["control"] = id });
-
-		var controls = reply?["controls"]?.AsArray();
-		if (controls == null || controls.Count == 0)
-		{
-			_size.SetContent([$"[dim]no cascade for {Safe(id)}[/]"]);
-			return;
-		}
-
-		var lines = new List<string>();
-
-		foreach (var c in controls)
-		{
-			lines.Add($"[bold]{Safe(c?["control"]?.GetValue<string>() ?? id)}[/]"
-				+ $"   wants {c?["desiredWidth"]}x{c?["desiredHeight"]}"
-				+ $"   offered {c?["offeredWidth"]}x{c?["offeredHeight"]}");
-
-			foreach (var link in c?["cascade"]?.AsArray() ?? [])
-			{
-				string who = link?["control"]?.GetValue<string>()
-					?? link?["layout"]?.GetValue<string>() ?? "?";
-
-				// setsWidth / setsHeight is the SERVER saying which link
-				// decided. cxdbg does not work it out from the numbers.
-				bool setsW = link?["setsWidth"]?.GetValue<bool>() == true;
-				bool setsH = link?["setsHeight"]?.GetValue<bool>() == true;
-
-				string row = $"  {Safe(who),-24} offered "
-					+ $"{link?["offeredWidth"],4} x {link?["offeredHeight"],-4}";
-
-				if (setsW || setsH)
-				{
-					string which = setsW && setsH ? "size" : setsW ? "width" : "height";
-					lines.Add($"[yellow]{row}   decided the {which}[/]");
-				}
-				else
-				{
-					lines.Add(row);
-				}
-			}
-		}
-
-		_size.SetContent(lines);
+		_focus.SetOrder(_tabStops, focused, _model);
 	}
 
 	/// <summary>
-	/// What is in each column of one screen row.
+	/// What input the target has seen.
 	/// </summary>
 	/// <remarks>
-	/// Read from the cells the pane is already holding, so the dock costs no
-	/// extra round trip and always agrees with the picture above it. A
-	/// continuation cell says so rather than repeating the glyph before it,
-	/// which is the whole reason to look here.
+	/// Asked for only while its tab is showing: a tape nobody is reading is a
+	/// round trip per frame for nothing.
 	/// </remarks>
-	private void RenderCells()
+	private void RenderEvents()
 	{
-		var screen = _poller.State.Screen;
+		if (_dock?.ActiveTabIndex != 3) return;
 
-		if (screen.Count == 0)
-		{
-			_cells.SetContent(["[dim]waiting for the application[/]"]);
-			return;
-		}
-
-		int row = Math.Clamp(_row, 0, screen.Count - 1);
-		var cells = screen[row];
-
-		var lines = new List<string>
-		{
-			$"[bold]row {row}[/]   {cells.Count} columns"
-				+ "   [dim][[ ]] moves the row[/]",
-			"",
-		};
-
-		int wide = 0;
-		int glyphs = 0;
-
-		foreach (var c in cells)
-		{
-			if (c.IsWideContinuation) continue;
-			glyphs++;
-			if (UnicodeWidth.GetRuneWidth(c.Character) == 2) wide++;
-		}
-
-		for (int col = 0; col < cells.Count; col++)
-		{
-			var c = cells[col];
-
-			if (c.IsWideContinuation)
-			{
-				lines.Add($"{col,5}         [dim]<- the column before this one is two wide[/]");
-				continue;
-			}
-
-			int w = UnicodeWidth.GetRuneWidth(c.Character);
-			string ch = c.Character.Value == ' ' ? "[dim]' '[/]" : Safe(c.Character.ToString());
-
-			var line = new StringBuilder();
-			line.Append($"{col,5}   {ch}   [dim]width {w}[/]");
-
-			if (c.Combiners is { Length: > 0 } comb)
-				line.Append($"   [yellow]+{comb.Length} combining[/]");
-
-			if (c.Decorations != TextDecoration.None)
-				line.Append($"   [dim]{c.Decorations.ToString().ToLowerInvariant()}[/]");
-
-			lines.Add(line.ToString());
-		}
-
-        lines.Add("");
-		lines.Add(wide > 0
-			? $"[yellow]{glyphs} glyphs in {cells.Count} columns: {wide} wide, taking {wide * 2}[/]"
-			: $"[dim]{glyphs} glyphs in {cells.Count} columns[/]");
-
-		_cells.SetContent(lines);
+		_events.SetEvents(_poller.AskNow("events"));
+		_eventsStatus.SetContent([$"[dim]{_events.Status}[/]"]);
 	}
 
-	/// <summary>
-	/// Shows the target's own screen.
-	/// </summary>
-	/// <remarks>
-	/// The cells arrive as cells and are painted as cells, so the pane shows
-	/// the application rather than a description of it. Nothing is serialised
-	/// as text in between, which is why there is nothing here to go wrong.
-	/// </remarks>
-	private void RenderScreen(TargetState state)
+	/// <summary>Where the selection sits on the target's screen.</summary>
+	private void RenderScreenWhere()
 	{
-		if (state.Screen.Count > 0) _screen.SetSurface(state.Screen);
-
-		// Where the selection paints, in the target's own coordinates. The
-		// snapshot does no hit-testing, so this is cxdbg's arithmetic over the
-		// tree's absolute bounds - and the case worth seeing is the control
-		// whose rectangle is empty, which paints nowhere at all.
-		var node = SelectedNode(state);
-		var box = node?["absolute"];
+		var box = _selection?.Raw["absolute"];
 
 		if (box == null)
 		{
@@ -593,27 +882,132 @@ internal sealed class DebuggerWindow
 			: $"[dim]selection at[/] {box["x"]},{box["y"]} [dim]spanning[/] {w}x{h}"]);
 	}
 
-	private JsonObject? SelectedNode(TargetState state)
+	/// <summary>Shortens a value that would otherwise fill the pane.</summary>
+	private static string Short(string text) =>
+		text.Length <= 80 ? text : text[..77] + "...";
+
+	/// <summary>Why the selection is the size it is.</summary>
+	/// <remarks>
+	/// Asked for on SELECTION and never on the poll: measure forces a relayout,
+	/// so polling it would make the debugger the cause of the churn it reports.
+	/// </remarks>
+	private void RenderSize()
 	{
-		if (state.Tree == null || _ids.Count == 0 || _selected >= _ids.Count) return null;
-
-		string want = _ids[_selected];
-		if (want.Length == 0) return null;
-
-		JsonObject? found = null;
-
-		void Search(JsonNode? node)
+		if (_selection is not { Id.Length: > 0 } selected)
 		{
-			if (found != null || node is not JsonObject o) return;
-
-			if (o["id"]?.GetValue<string>() == want) { found = o; return; }
-
-			foreach (var k in o["children"]?.AsArray() ?? []) Search(k);
+			_cascadeSummary.SetContent(["[dim]select a control with an id[/]"]);
+			_cascade.SetCascade(null, "");
+			return;
 		}
 
-		foreach (var w in state.Tree["windows"]?.AsArray() ?? []) Search(w?["node"]);
-		return found;
+		var reply = _poller.AskNow("measure",
+			new Dictionary<string, JsonNode?> { ["control"] = selected.Id });
+
+		_cascade.SetCascade(reply, Safe(selected.Id));
+		_cascadeSummary.SetContent([_cascade.Summary]);
 	}
+
+	/// <summary>
+	/// Hands the cells dock one row of the screen.
+	/// </summary>
+	/// <remarks>
+	/// Read from the cells the screen pane is already holding, so the dock
+	/// costs no extra round trip and cannot disagree with the picture above it.
+	/// </remarks>
+	private void RenderCells()
+	{
+		var screen = _poller.State.Screen;
+
+		if (screen.Count == 0)
+		{
+			_cellHeader.SetContent(["[dim]waiting for the application[/]"]);
+			return;
+		}
+
+		int row = Math.Clamp(_row, 0, screen.Count - 1);
+		var cells = screen[row];
+
+		int wide = 0;
+		int glyphs = 0;
+
+		foreach (var c in cells)
+		{
+			if (c.IsWideContinuation) continue;
+			glyphs++;
+			if (UnicodeWidth.GetRuneWidth(c.Character) == 2) wide++;
+		}
+
+		var header = new StringBuilder();
+		header.Append($"[bold]row {row}[/]   {cells.Count} columns, {glyphs} glyphs");
+
+		if (wide > 0)
+			header.Append($"   [yellow]{wide} wide, taking {wide * 2} columns[/]");
+
+		header.Append("   [dim][[ ]] moves the row[/]");
+
+		_cellHeader.SetContent([header.ToString()]);
+		_cellRow.SetRow(row, cells);
+	}
+
+	/// <summary>
+	/// Shows the target's own screen.
+	/// </summary>
+	/// <remarks>
+	/// The cells arrive as cells and are painted as cells, so the pane shows
+	/// the application rather than a description of it. Nothing is serialised
+	/// as text in between, which is why there is nothing here to go wrong.
+	/// </remarks>
+	private void RenderScreen(TargetState state)
+	{
+		if (state.Screen.Count > 0) _screen.SetSurface(state.Screen);
+
+		// A window snapshot's cells start at that window's own origin, so a
+		// click in the picture has to be put back where it came from before
+		// the application can be asked about it.
+		_screenOrigin = WindowOrigin();
+	}
+
+	/// <summary>The origin of whatever the screen pane is showing.</summary>
+	private Point WindowOrigin()
+	{
+		if (_poller.ScreenOf is not { Length: > 0 } title) return new Point(0, 0);
+
+		foreach (var window in _model.Roots.SelectMany(r => r.Children))
+		{
+			if (window.Type != title) continue;
+
+			var a = window.Raw["absolute"];
+			return new Point(a?["x"]?.GetValue<int>() ?? 0, a?["y"]?.GetValue<int>() ?? 0);
+		}
+
+		return new Point(0, 0);
+	}
+
+	/// <summary>
+	/// The window a node lives in, or null when it is the desktop.
+	/// </summary>
+	private string? WindowOf(ControlNode? node)
+	{
+		if (node == null || node.Kind == ControlNode.NodeKind.Desktop) return null;
+
+		// Walk up to the window: a control knows its own id, not its window's,
+		// so the model's shape is what answers this.
+		foreach (var window in _model.Roots.SelectMany(r => r.Children))
+		{
+			if (window == node || Contains(window, node)) return window.Type;
+		}
+
+		return null;
+	}
+
+	private static bool Contains(ControlNode parent, ControlNode node) =>
+		parent.Children.Any(c => c == node || Contains(c, node));
+
+	/// <summary>The Tab order the target last reported.</summary>
+	private List<string> _tabStops = [];
+
+	/// <summary>The focus chain the target last reported.</summary>
+	private List<string> _focusChain = [];
 
 	/// <summary>Keeps a control's own text from being read as markup.</summary>
 	private static string Safe(string text) => text.Replace("[", "[[");

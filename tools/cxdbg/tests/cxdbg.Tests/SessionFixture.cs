@@ -73,12 +73,19 @@ public sealed class SessionFixture : IDisposable
 		// Read from the session's own screen rather than by asking the target:
 		// the claim under test is what the SESSION says, and asking the target
 		// directly would pass even if the header never updated.
+		// The status bar writes "frame:1234" - a shortcut and a label with the
+		// bar's own separator between them, not the free text an earlier
+		// version of this parsed.
 		foreach (string line in Screen().Split('\n'))
 		{
-			int at = line.IndexOf("frame ", StringComparison.OrdinalIgnoreCase);
+			int at = line.IndexOf("frame", StringComparison.OrdinalIgnoreCase);
 			if (at < 0) continue;
 
-			string rest = new string(line[(at + 6)..].TakeWhile(char.IsDigit).ToArray());
+			string rest = new string(line[(at + 5)..]
+				.SkipWhile(c => !char.IsDigit(c))
+				.TakeWhile(char.IsDigit)
+				.ToArray());
+
 			if (long.TryParse(rest, out long n)) return n;
 		}
 
@@ -130,6 +137,75 @@ public sealed class SessionFixture : IDisposable
 
 		foreach (var w in reply["windows"]?.AsArray() ?? []) Walk(w?["node"]);
 		return found;
+	}
+
+	/// <summary>The selected row index of one of the session's own tables.</summary>
+	/// <param name="name">The control's name.</param>
+	/// <returns>The index, or -1 when nothing is selected.</returns>
+	public int SelectedIndexOf(string name)
+	{
+		using var client = Protocol.DiagnosticsClient.Connect(SocketPath);
+		var reply = client.Send("tree");
+
+		int found = -2;
+
+		void Walk(System.Text.Json.Nodes.JsonNode? node)
+		{
+			if (found > -2 || node is not System.Text.Json.Nodes.JsonObject o) return;
+
+			if (o["id"]?.GetValue<string>()?.EndsWith(name, StringComparison.Ordinal) == true
+				&& o["state"]?["selectedIndex"]?.GetValue<int>() is { } index)
+			{
+				found = index;
+				return;
+			}
+
+			foreach (var k in o["children"]?.AsArray() ?? []) Walk(k);
+		}
+
+		foreach (var w in reply["windows"]?.AsArray() ?? []) Walk(w?["node"]);
+		return found == -2 ? -1 : found;
+	}
+
+	/// <summary>A control's absolute rectangle in the SESSION.</summary>
+	public System.Drawing.Rectangle? AbsoluteOf(string type)
+	{
+		using var client = Protocol.DiagnosticsClient.Connect(SocketPath);
+		var reply = client.Send("tree");
+
+		System.Drawing.Rectangle? found = null;
+
+		void Walk(System.Text.Json.Nodes.JsonNode? node)
+		{
+			if (found != null || node is not System.Text.Json.Nodes.JsonObject o) return;
+
+			if (o["control"]?.GetValue<string>() == type && o["absolute"] is { } a)
+			{
+				found = new System.Drawing.Rectangle(
+					a["x"]!.GetValue<int>(), a["y"]!.GetValue<int>(),
+					a["w"]!.GetValue<int>(), a["h"]!.GetValue<int>());
+
+				return;
+			}
+
+			foreach (var k in o["children"]?.AsArray() ?? []) Walk(k);
+		}
+
+		foreach (var w in reply["windows"]?.AsArray() ?? []) Walk(w?["node"]);
+		return found;
+	}
+
+	/// <summary>Clicks in the session, through its real hit-test dispatch.</summary>
+	public void Click(int x, int y)
+	{
+		using var client = Protocol.DiagnosticsClient.Connect(SocketPath);
+		client.Send("mouse", new Dictionary<string, System.Text.Json.Nodes.JsonNode?>
+		{
+			["x"] = x,
+			["y"] = y,
+			["button"] = "left",
+			["action"] = "click",
+		});
 	}
 
 	/// <summary>Presses a key in the session.</summary>

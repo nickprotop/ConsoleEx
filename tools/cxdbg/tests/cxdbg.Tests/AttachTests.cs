@@ -47,11 +47,14 @@ public class AttachTests : IDisposable
 	{
 		var (_, session) = Attached();
 
-		// cxdbg's own screen, read over cxdbg's own socket, contains controls
-		// that belong to the TARGET - which is the whole claim of the session.
+		// cxdbg's own screen, read over cxdbg's own socket, shows the target's
+		// desktop with the target's windows under it - which is the whole claim
+		// of the session. Type names are truncated to the column, so the
+		// assertion is on what cannot be: the desktop row and the window.
 		string screen = session.Screen();
 
-		Assert.Contains("ScrollablePanelControl", screen);
+		Assert.Contains("desktop", screen, StringComparison.Ordinal);
+		Assert.Contains("SharpConsoleUI Demo", screen, StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -93,17 +96,40 @@ public class AttachTests : IDisposable
 	}
 
 	[Fact]
-	public void ScaffoldingWithoutAnIdCannotBeAskedAbout()
+	public void TheFirstRowIsTheDesktop()
 	{
-		// The root layout node is in the tree because the shape matters, but
-		// nothing else can be asked about it. Saying so is better than showing
-		// a pane of blanks that looks like a failure.
+		// The tree is the desktop, with windows under it and controls under
+		// them - so the first thing selected describes the screen everything
+		// is drawn on, not a control. The desktop's panel rows are the fact
+		// worth having there: they are why a maximized window is shorter than
+		// the screen.
 		var (_, session) = Attached();
 
 		session.Key("Down");
 		session.Settle();
 
-		Assert.Contains("nothing selected", session.Screen());
+		string screen = session.Screen();
+
+		Assert.Contains("desktop", screen, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("theme", screen, StringComparison.OrdinalIgnoreCase);
+	}
+
+	[Fact]
+	public void AWindowIsDescribedAsAWindow()
+	{
+		// A window is not a control and does not have a control's facts. An
+		// earlier version described it as one, which threw away its state, its
+		// root layout and what the user is allowed to do with it.
+		var (_, session) = Attached();
+
+		session.Key("Down");
+		session.Key("Down");
+		session.Settle();
+
+		string screen = session.Screen();
+
+		Assert.Contains("root", screen, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("resize", screen, StringComparison.OrdinalIgnoreCase);
 	}
 
 	[Fact]
@@ -134,7 +160,7 @@ public class AttachTests : IDisposable
 		// It says the app is gone, keeps what it last saw, and does not hang.
 		string screen = session.Screen();
 		Assert.Contains("gone", screen, StringComparison.OrdinalIgnoreCase);
-		Assert.Contains("ScrollablePanelControl", screen);
+		Assert.Contains("SharpConsoleUI Demo", screen, StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -249,6 +275,183 @@ public class AttachTests : IDisposable
 
 		Assert.Contains("selection", session.Screen(), StringComparison.OrdinalIgnoreCase);
 	}
+
+	[Fact]
+	public void ASelectionSurvivesThePolls()
+	{
+		// The bug this pins: selection was set, then cleared within a frame.
+		// The tree binds to a model that MERGES each poll, and scaffolding
+		// nodes carry a positional key - recomputing that key from a node's
+		// current index made every one of them look new the moment anything
+		// shifted, so the rows were rebuilt and took the selection with them.
+		//
+		// Reported from use, not from a test: "each select on table, after a
+		// while it is unselected."
+		using var app = new LiveAppFixture();
+		using var session = new SessionFixture(app.SocketPath);
+
+		session.Key("Down");
+		session.Settle();
+
+		int immediately = session.SelectedIndexOf("tree");
+		Assert.True(immediately >= 0, "the key did not select anything");
+
+		// Several polls later, deliberately: one frame is not enough to catch
+		// a selection that survives the first merge and dies on the second.
+		session.Settle(frames: 12);
+
+		Assert.Equal(immediately, session.SelectedIndexOf("tree"));
+	}
+
+	[Fact]
+	public void ClickingARowSelectsIt()
+	{
+		// The tree is a real TreeTableControl, so the mouse is the control's
+		// own business - but the click has to reach it, and the row it lands
+		// on has to be the row that ends up selected.
+		using var app = new LiveAppFixture();
+		using var session = new SessionFixture(app.SocketPath);
+
+		session.Click(20, 6);
+		session.Settle();
+		int high = session.SelectedIndexOf("tree");
+
+		session.Click(20, 12);
+		session.Settle();
+		int low = session.SelectedIndexOf("tree");
+
+		Assert.True(high >= 0 && low >= 0, "a click selected nothing");
+		Assert.True(low > high, $"clicking lower selected {low}, not past {high}");
+	}
+
+	[Fact]
+	public void TheFocusDockJoinsTheTabOrderWithGeometry()
+	{
+		// Neither source answers this alone: reachable gives names in order
+		// and no sizes, the tree gives sizes and no order. Joined, they say
+		// which stops can actually be seen.
+		var (_, session) = Attached();
+
+		session.Key("F2");
+		session.Settle();
+
+		string screen = session.Screen();
+
+		Assert.Contains("tab", screen, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("keyboard", screen, StringComparison.OrdinalIgnoreCase);
+	}
+
+	[Fact]
+	public void TheEventsDockSaysWhyItIsEmpty()
+	{
+		// The recorder is fixed at construction and cannot be switched on over
+		// the socket, so an empty table would read as "no input happened" when
+		// the truth is "nothing is recording". DemoApp is built without it.
+		var (_, session) = Attached();
+
+		session.Key("F4");
+		session.Settle();
+
+		Assert.Contains("EnableDiagnostics", session.Screen(), StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void ClickingTheScreenReachesTheApplication()
+	{
+		// The claim that makes this a remote control rather than a view: a
+		// click in the picture is dispatched to the target at that point, and
+		// the target responds as it would to someone sitting in front of it.
+		//
+		// The point is SEARCHED for rather than computed, because a control's
+		// rectangle does not predict where it answers a click: ButtonControl
+		// reports h:4 and only its top row takes focus, the rest being its
+		// padding. Asserting from geometry made this test fail against working
+		// code four times.
+		using var app = new LiveAppFixture(size: "120x40");
+		using var session = new SessionFixture(app.SocketPath, "200x40");
+
+		string? before = FocusedControl(app);
+
+		session.Key("2");
+		session.Settle();
+
+		var pane = session.AbsoluteOf("SurfaceViewControl");
+		Assert.NotNull(pane);
+
+		var stops = FocusableRects(app)
+			.Where(r => r.X + 1 < pane!.Value.Width && r.Y < pane.Value.Height)
+			.ToList();
+
+		Assert.NotEmpty(stops);
+
+		foreach (var r in stops)
+		{
+			// Every row of the control that the pane can show. One of them is
+			// the row it answers on.
+			for (int dy = 0; dy < r.Height && r.Y + dy < pane!.Value.Height; dy++)
+			{
+				session.Click(pane.Value.X + r.X + 1, pane.Value.Y + r.Y + dy);
+				session.Settle();
+
+				if (FocusedControl(app) != before) return;
+			}
+		}
+
+		Assert.Fail($"clicked {stops.Count} focus stops through the pane and the "
+			+ $"application's focus never moved from {before}");
+	}
+
+	/// <summary>Every focusable control's rectangle in the target.</summary>
+	private static List<System.Drawing.Rectangle> FocusableRects(LiveAppFixture app)
+	{
+		using var client = Protocol.DiagnosticsClient.Connect(app.SocketPath);
+		var reply = client.Send("tree");
+
+		var rects = new List<System.Drawing.Rectangle>();
+
+		void Walk(System.Text.Json.Nodes.JsonNode? node)
+		{
+			if (node is not System.Text.Json.Nodes.JsonObject o) return;
+
+			if (o["state"]?["focusable"]?.GetValue<bool>() == true
+				&& o["absolute"] is { } a
+				&& a["w"]!.GetValue<int>() > 1
+				&& a["h"]!.GetValue<int>() > 0
+				&& !HasFocusableChild(o))
+			{
+				rects.Add(new System.Drawing.Rectangle(
+					a["x"]!.GetValue<int>(), a["y"]!.GetValue<int>(),
+					a["w"]!.GetValue<int>(), a["h"]!.GetValue<int>()));
+			}
+
+			foreach (var k in o["children"]?.AsArray() ?? []) Walk(k);
+		}
+
+		foreach (var w in reply["windows"]?.AsArray() ?? []) Walk(w?["node"]);
+		return rects;
+	}
+
+	/// <summary>Whether anything inside this node can take focus.</summary>
+	private static bool HasFocusableChild(System.Text.Json.Nodes.JsonObject node)
+	{
+		foreach (var child in node["children"]?.AsArray() ?? [])
+		{
+			if (child is not System.Text.Json.Nodes.JsonObject c) continue;
+
+			if (c["state"]?["focusable"]?.GetValue<bool>() == true) return true;
+			if (HasFocusableChild(c)) return true;
+		}
+
+		return false;
+	}
+
+	/// <summary>What the TARGET application says has the keyboard.</summary>
+	private static string? FocusedControl(LiveAppFixture app)
+	{
+		using var client = Protocol.DiagnosticsClient.Connect(app.SocketPath);
+		return client.Send("focus")["focused"]?.GetValue<string>();
+	}
+
 
 	public void Dispose()
 	{
