@@ -215,6 +215,182 @@ namespace SharpConsoleUI.Layout
 		/// </summary>
 		internal static long MeasureInvocationCount;
 
+		/// <summary>One link in a measure cascade: a container, and what it offered.</summary>
+		/// <param name="Layout">The layout that narrowed the offer, or null at the root.</param>
+		/// <param name="Control">The control at that level, when there is one.</param>
+		/// <param name="MaxWidth">The widest it passed down.</param>
+		/// <param name="MaxHeight">The tallest it passed down.</param>
+		public readonly record struct MeasureLink(
+			string? Layout, string? Control, int MaxWidth, int MaxHeight);
+
+		/// <summary>Which ancestor's offer a control's final size came from.</summary>
+		/// <param name="Width">The cascade index that set the width ceiling, or -1.</param>
+		/// <param name="Height">The cascade index that set the height ceiling, or -1.</param>
+		/// <remarks>
+		/// "Why is this forty wide" has an answer, and it is usually a container
+		/// several levels up rather than the control itself. The deciding link is
+		/// the OUTERMOST one offering the same ceiling the control finally got:
+		/// anything narrower below it would have narrowed the result too.
+		/// </remarks>
+		public readonly record struct MeasureDecidedBy(int Width, int Height);
+
+		/// <summary>
+		/// One recorded measure: what a control asked for, and the chain of offers
+		/// that got it there.
+		/// </summary>
+		/// <param name="Control">The control's name, or its type when it has none.</param>
+		/// <param name="MaxWidth">The widest it was allowed to be.</param>
+		/// <param name="MaxHeight">The tallest it was allowed to be.</param>
+		/// <param name="DesiredWidth">The width it asked for.</param>
+		/// <param name="DesiredHeight">The height it asked for.</param>
+		/// <param name="Cascade">
+		/// The containers above it, outermost first, each with the offer it made.
+		/// Reading down the chain shows WHERE a size was decided, in the way a
+		/// browser's rule cascade shows which rule won.
+		/// </param>
+		/// <param name="DecidedBy">Which link in the cascade set each ceiling.</param>
+		public readonly record struct MeasureEntry(
+			string? Control, int MaxWidth, int MaxHeight, int DesiredWidth, int DesiredHeight,
+			System.Collections.Generic.IReadOnlyList<MeasureLink> Cascade,
+			MeasureDecidedBy DecidedBy);
+
+		/// <summary>How many measures the trace keeps before dropping the oldest.</summary>
+		private const int MeasureTraceLimit = 1024;
+
+		/// <summary>
+		/// The recorded measures, per thread.
+		/// </summary>
+		/// <remarks>
+		/// Per thread rather than shared, because measure tracing is scoped by
+		/// whoever asked and two scopes can be open at once - two windows being
+		/// probed, or two tests running in parallel. A shared buffer would hand
+		/// each of them the other's entries, which is worse than no answer: the
+		/// numbers would look plausible and belong to a different window.
+		/// <para>
+		/// Layout runs on the thread that asked for it, so per-thread is also
+		/// per-probe without needing a handle to pass around.
+		/// </para>
+		/// </remarks>
+		[ThreadStatic]
+		private static System.Collections.Generic.Queue<MeasureEntry>? _measureTrace;
+
+		/// <summary>How many live systems have asked for measure tracing.</summary>
+		/// <remarks>
+		/// A count rather than a flag, and static rather than a reference to the
+		/// system, because a layout node has no system to ask and
+		/// <see cref="Measure"/> runs for every node on every relayout - one
+		/// volatile read is the whole cost when nothing is tracing.
+		/// <para>
+		/// Counting matters because the switch is process-wide: a flag set by one
+		/// system would stay on after it was gone, and every other system in the
+		/// process would quietly start paying for diagnostics it never asked for.
+		/// </para>
+		/// </remarks>
+		[ThreadStatic]
+		private static int _measureTracers;
+
+		/// <summary>Whether THIS thread is recording measures.</summary>
+		internal static bool TraceMeasures => _measureTracers > 0;
+
+		/// <summary>
+		/// Starts recording measures, until the returned token is disposed.
+		/// </summary>
+		/// <returns>A token that stops recording when disposed.</returns>
+		/// <remarks>
+		/// Scoped by the CALLER rather than switched on for a system's lifetime.
+		/// Measure runs for every node on every relayout, and a trace left on is
+		/// a cost paid by every window in the process - including ones that never
+		/// asked. A probe turns it on around the frames it wants and off again.
+		/// </remarks>
+		public static IDisposable BeginMeasureTracing() => new MeasureTracingToken();
+
+		private sealed class MeasureTracingToken : IDisposable
+		{
+			private bool _released;
+
+			internal MeasureTracingToken() => _measureTracers++;
+
+			public void Dispose()
+			{
+				if (_released) return;
+				_released = true;
+				_measureTracers--;
+			}
+		}
+
+		/// <summary>Records a measure and the offers that led to it, when tracing is on.</summary>
+		/// <remarks>
+		/// Only LEAF measures are recorded. Every container measures too, and
+		/// recording those as well would bury the controls a reader is looking
+		/// for under the scaffolding that holds them - the containers appear in
+		/// each leaf's cascade instead, which is where they answer something.
+		/// </remarks>
+		private void RecordMeasure(LayoutConstraints constraints, LayoutSize desired)
+		{
+			if (!TraceMeasures) return;
+			if (Control == null) return;
+
+			// Outermost first, so reading down the list follows the offer as it
+			// narrows - the order a cascade is read in.
+			var cascade = new System.Collections.Generic.List<MeasureLink>();
+			for (var node = Parent; node != null; node = node.Parent)
+			{
+				cascade.Add(new MeasureLink(
+					node.Layout?.GetType().Name,
+					node.Control?.Name ?? node.Control?.GetType().Name,
+					node.LastOfferedWidth, node.LastOfferedHeight));
+			}
+			cascade.Reverse();
+
+			// The outermost link already offering the final ceiling is the one that
+			// set it: a narrower offer below would have narrowed the result too.
+			int widthFrom = -1, heightFrom = -1;
+			for (int i = 0; i < cascade.Count; i++)
+			{
+				if (widthFrom < 0 && cascade[i].MaxWidth == constraints.MaxWidth) widthFrom = i;
+				if (heightFrom < 0 && cascade[i].MaxHeight == constraints.MaxHeight) heightFrom = i;
+			}
+
+			var trace = _measureTrace ??= new System.Collections.Generic.Queue<MeasureEntry>();
+			{
+				if (trace.Count >= MeasureTraceLimit) trace.Dequeue();
+
+				trace.Enqueue(new MeasureEntry(
+					Control.Name ?? Control.GetType().Name,
+					constraints.MaxWidth, constraints.MaxHeight,
+					desired.Width, desired.Height,
+					cascade,
+					new MeasureDecidedBy(widthFrom, heightFrom)));
+			}
+		}
+
+		/// <summary>The width this node was last offered, for a child's cascade.</summary>
+		internal int LastOfferedWidth { get; private set; }
+
+		/// <summary>The height this node was last offered, for a child's cascade.</summary>
+		internal int LastOfferedHeight { get; private set; }
+
+		/// <summary>Empties the trace without reading it.</summary>
+		public static void ClearMeasureTrace() => _measureTrace?.Clear();
+
+		/// <summary>
+		/// Returns the measures recorded since the last call, and clears them.
+		/// </summary>
+		/// <remarks>
+		/// The layout tree reports desired against arranged, which says a control
+		/// wanted one size and got another - without saying what it was ALLOWED
+		/// to want. A chart measuring itself at int.MaxValue rows is obvious once
+		/// you can see it was handed an unbounded height, and a puzzle until then.
+		/// </remarks>
+		public static System.Collections.Generic.IReadOnlyList<MeasureEntry> ConsumeMeasureTrace()
+		{
+			if (_measureTrace == null) return Array.Empty<MeasureEntry>();
+
+			var snapshot = _measureTrace.ToArray();
+			_measureTrace.Clear();
+			return snapshot;
+		}
+
 		/// <summary>
 		/// Measures this node and all its children.
 		/// Returns the desired size based on content and constraints.
@@ -247,6 +423,9 @@ namespace SharpConsoleUI.Layout
 					.WithMaxHeight(clampedHeight);
 			}
 
+			LastOfferedWidth = effectiveConstraints.MaxWidth;
+			LastOfferedHeight = effectiveConstraints.MaxHeight;
+
 			LayoutSize desiredSize;
 
 			if (Layout != null && _children.Count > 0)
@@ -268,6 +447,8 @@ namespace SharpConsoleUI.Layout
 			// Constrain to bounds
 			DesiredSize = effectiveConstraints.Constrain(desiredSize);
 			NeedsMeasure = false;
+
+			RecordMeasure(effectiveConstraints, DesiredSize);
 
 			return DesiredSize;
 		}

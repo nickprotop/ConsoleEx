@@ -225,6 +225,7 @@ internal sealed class DiagnosticsServer : IDisposable
 			"frame" => Ok(new JsonObject { ["frame"] = _system.ConsoleDriver.FrameNumber }),
 			"invalidations" => Ok(Invalidations()),
 			"reachable" => Ok(Reachable()),
+			"measure" => Ok(Measure(req)),
 			"ping" => Ok(new JsonObject { ["pong"] = true }),
 			"commands" => Ok(Commands()),
 
@@ -339,6 +340,94 @@ internal sealed class DiagnosticsServer : IDisposable
 		};
 	}
 
+	/// <summary>
+	/// Why a control is the size it is: the chain of offers that got it there.
+	/// </summary>
+	/// <remarks>
+	/// <c>tree</c> reports desired against arranged, which says a control wanted
+	/// one size and got another without saying what it was ALLOWED to want.
+	/// This renders a frame with measures recorded and reports, per control, the
+	/// containers above it and the offer each made - the layout answer to a
+	/// browser's rule cascade, where the question is "why is this forty wide"
+	/// and the answer is usually a container several levels up.
+	/// <para>
+	/// Pass <c>"control"</c> to narrow it to one, since a whole frame is every
+	/// leaf in the window.
+	/// </para>
+	/// </remarks>
+	private JsonObject Measure(JsonNode? req)
+	{
+		string? only = req?["control"]?.GetValue<string>();
+
+		var window = _system.WindowStateService.ActiveWindow;
+		if (window == null)
+			return new JsonObject { ["window"] = null, ["controls"] = new JsonArray() };
+
+		// One traced frame: tracing is scoped rather than left on, because measure
+		// runs for every node on every relayout.
+		//
+		// All three steps go inside the marshal. The trace is per-thread, so that
+		// it cannot hand one probe another's numbers - which means reading it from
+		// the socket thread would read a buffer layout never wrote to.
+		System.Collections.Generic.IReadOnlyList<Layout.LayoutNode.MeasureEntry> measures =
+			Array.Empty<Layout.LayoutNode.MeasureEntry>();
+
+		Marshal(() =>
+		{
+			Layout.LayoutNode.ClearMeasureTrace();
+			using (Layout.LayoutNode.BeginMeasureTracing())
+			{
+				window.Invalidate(Invalidation.Relayout);
+				window.RenderAndGetVisibleContent();
+			}
+			measures = Layout.LayoutNode.ConsumeMeasureTrace();
+		});
+
+		var controls = new JsonArray();
+		var seen = new HashSet<string>();
+
+		foreach (var entry in measures)
+		{
+			if (entry.Control == null) continue;
+			if (only != null && entry.Control != only) continue;
+
+			// The last measure of a control is the one that stuck; earlier ones
+			// in the same frame are a container trying sizes out.
+			if (!seen.Add(entry.Control)) continue;
+
+			var cascade = new JsonArray();
+			for (int i = 0; i < entry.Cascade.Count; i++)
+			{
+				var link = entry.Cascade[i];
+				cascade.Add((JsonNode?)new JsonObject
+				{
+					["layout"] = link.Layout,
+					["control"] = link.Control,
+					["offeredWidth"] = link.MaxWidth,
+					["offeredHeight"] = link.MaxHeight,
+					["setsWidth"] = i == entry.DecidedBy.Width,
+					["setsHeight"] = i == entry.DecidedBy.Height,
+				});
+			}
+
+			controls.Add((JsonNode?)new JsonObject
+			{
+				["control"] = entry.Control,
+				["offeredWidth"] = entry.MaxWidth,
+				["offeredHeight"] = entry.MaxHeight,
+				["desiredWidth"] = entry.DesiredWidth,
+				["desiredHeight"] = entry.DesiredHeight,
+				["cascade"] = cascade,
+			});
+		}
+
+		return new JsonObject
+		{
+			["window"] = window.Title,
+			["controls"] = controls,
+		};
+	}
+
 	/// <summary>The command names, for an unknown-command reply.</summary>
 	/// <remarks>
 	/// Built through the non-generic <c>ICollection&lt;JsonNode&gt;.Add</c> rather than a
@@ -363,7 +452,8 @@ internal sealed class DiagnosticsServer : IDisposable
 		"logs", "key", "mouse", "size", "focusctl", "invoke",
 		"theme", "window", "frame",
 			"invalidations",
-			"reachable", "ping", "commands",
+			"reachable",
+			"measure", "ping", "commands",
 	};
 
 	#endregion

@@ -482,6 +482,7 @@ namespace SharpConsoleUI
 			if (_options.EnableDiagnostics)
 			{
 				_renderingDiagnostics = new Diagnostics.RenderingDiagnostics(_options);
+
 			}
 
 			// NOW initialize driver with 'this' reference (after services and diagnostics exist)
