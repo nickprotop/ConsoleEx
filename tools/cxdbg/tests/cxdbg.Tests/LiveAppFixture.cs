@@ -165,6 +165,13 @@ public sealed class LiveAppFixture : IDisposable
 		return path;
 	}
 
+	/// <summary>Stops the application, for tests about it going away.</summary>
+	public void Kill()
+	{
+		try { if (!_app.HasExited) _app.Kill(entireProcessTree: true); } catch { /* already gone */ }
+		try { _app.WaitForExit(5000); } catch { /* best effort */ }
+	}
+
 	public void Dispose()
 	{
 		if (_disposed) return;

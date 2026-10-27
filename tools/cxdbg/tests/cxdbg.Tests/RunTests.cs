@@ -120,60 +120,6 @@ public class RunTests : IDisposable
 	}
 
 	[Fact]
-	public void ReRunStartsTheSameCommandAgain()
-	{
-		// A restarted app is a DIFFERENT process at a different socket, and
-		// nothing links it to the old one except the command that launched it.
-		// So that command is what gets remembered - watching a directory for a
-		// new socket and guessing which one is "the same app" would be a
-		// heuristic that is wrong sometimes, and wrong silently.
-		var (exit, _, first) = Start("--headless", "--size", "100x30");
-
-		Assert.Equal(0, exit);
-
-		var (againExit, againOutput) = Cxdbg.Run("run", "--again");
-
-		Assert.Equal(0, againExit);
-		string second = SocketFrom(againOutput);
-
-		// A new process, not the old one handed back.
-		Assert.NotEqual(first, second);
-
-		// And it really is the same command: --headless reached it, which only
-		// a headless app will accept a resize for.
-		var (resizeExit, _) = Cxdbg.Run("send", "resize", "70", "20", "--socket", second);
-		Assert.Equal(0, resizeExit);
-	}
-
-	[Fact]
-	public void ReRunWithNothingRememberedSaysSo()
-	{
-		string empty = Path.Combine(Path.GetTempPath(), $"cxdbg-state-{Guid.NewGuid():N}");
-
-		var (exit, output) = Cxdbg.RunIn(empty, "run", "--again");
-
-		Assert.Equal(3, exit);
-		Assert.Contains("cxdbg run", output);
-	}
-
-	[Fact]
-	public void NoEmulatorPrintsTheLinesToPaste()
-	{
-		// Over SSH, in a container, in CI there is no emulator, and a terminal
-		// app needs a terminal cxdbg cannot conjure. Refusing would be unhelpful
-		// and guessing worse, so it says exactly what to type.
-
-		var (exit, output) = Cxdbg.RunWithEnv(
-			new Dictionary<string, string> { ["CXDBG_TERMINAL"] = "none" },
-			"run", DemoApp());
-
-		Assert.Equal(0, exit);
-		Assert.Contains("SHARPCONSOLEUI_DIAGNOSTICS_SOCKET=", output);
-		Assert.Contains("DemoApp", output);
-		Assert.Contains("--socket", output);
-	}
-
-	[Fact]
 	public void RunRefusesAnApplicationThatIsNotThere()
 	{
 		var (exit, output) = Cxdbg.Run("run", "/nope/not-an-app");

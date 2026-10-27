@@ -17,6 +17,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The debugger is built with the thing it debugs. That is not a flourish:
+         it means every session is a live test of the library, and a layout bug
+         an adopter would hit shows up here first. -->
+    <ProjectReference Include="../../../../SharpConsoleUI/SharpConsoleUI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Spectre.Console" Version="0.55.2" />
     <PackageReference Include="Spectre.Console.Cli" Version="0.55.0" />
   </ItemGroup>

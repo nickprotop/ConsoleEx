@@ -36,10 +36,27 @@ them is usually the bug:
 |---|---|
 | `cxdbg show tree` | what layout BELIEVES, desired against arranged |
 | `cxdbg snapshot` | what the screen SHOWS, as text |
+| `cxdbg snapshot --format cells` | what is in each COLUMN, one entry per cell |
 | `cxdbg image` | what it LOOKS LIKE, with real glyphs |
 
 A control with a zero-width arranged rect is in `tree`, reachable by focus, and
 invisible in `snapshot`. That pattern is obvious here and invisible to tmux.
+
+When the columns do not add up, ask for cells:
+
+```bash
+cxdbg snapshot --format cells --arg y=7 --arg h=1
+```
+
+```
+row 7
+    2   日   width 2
+    3        <- the column before this one is two wide
+    4   A    width 1
+```
+
+Text cannot answer this. It folds a wide glyph into one character and drops the
+second column it occupies, which is exactly what you are looking for.
 
 ## Explaining
 

@@ -51,28 +51,16 @@ public class PingTests
 internal static class Cxdbg
 {
 	internal static (int ExitCode, string Output) Run(params string[] args) =>
-		RunIn(null, args);
+		RunWithEnv(null, args);
 
-	/// <summary>Runs cxdbg with its state directory pointed somewhere else.</summary>
-	/// <param name="stateDir">
-	/// Where cxdbg should keep what it remembers, or null for the real place.
-	/// </param>
+	/// <summary>Runs cxdbg with extra environment variables, set on the child only.</summary>
+	/// <param name="env">Variables for this run, or null for none.</param>
 	/// <param name="args">The command line.</param>
 	/// <remarks>
 	/// Set on the CHILD's environment, never this process's. Two test classes
 	/// mutating process-global variables in parallel is a race this suite has
 	/// already paid for once.
 	/// </remarks>
-	internal static (int ExitCode, string Output) RunIn(string? stateDir, params string[] args) =>
-		RunWithEnv(
-			stateDir == null
-				? null
-				: new Dictionary<string, string> { ["CXDBG_STATE_DIR"] = stateDir },
-			args);
-
-	/// <summary>Runs cxdbg with extra environment variables, set on the child only.</summary>
-	/// <param name="env">Variables for this run, or null for none.</param>
-	/// <param name="args">The command line.</param>
 	internal static (int ExitCode, string Output) RunWithEnv(
 		IReadOnlyDictionary<string, string>? env, params string[] args)
 	{
@@ -110,6 +98,9 @@ internal static class Cxdbg
 
 		lock (text) return (p.ExitCode, text.ToString());
 	}
+
+	/// <summary>The built binary, for tests that drive it themselves.</summary>
+	internal static string BinaryPathForTests() => BinaryPath();
 
 	private static string BinaryPath()
 	{

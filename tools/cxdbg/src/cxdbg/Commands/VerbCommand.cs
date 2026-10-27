@@ -80,9 +80,14 @@ public sealed class VerbCommand : Command<VerbSettings>
 					case "measure": return CascadeFormatter.RenderSize(reply);
 					case "color": return CascadeFormatter.RenderColor(reply);
 					case "snapshot":
-						return string.Join("\n",
-							(reply["lines"]?.AsArray() ?? [])
-								.Select(l => l?.GetValue<string>() ?? "")) + "\n";
+						// Two different replies wear this verb: lines of text, or
+						// one entry per column. They are read differently, so they
+						// print differently.
+						return reply["rows"] != null
+							? CellFormatter.Render(reply)
+							: string.Join("\n",
+								(reply["lines"]?.AsArray() ?? [])
+									.Select(l => l?.GetValue<string>() ?? "")) + "\n";
 				}
 			}
 
@@ -102,23 +107,44 @@ public sealed class VerbCommand : Command<VerbSettings>
 	/// </remarks>
 	public static int PassThrough(string[] args)
 	{
-		string verb = args[0];
-		string? socket = null;
-		var fields = new Dictionary<string, JsonNode?>();
+		var fields = ParseFlags(args.Skip(1), out string? socket);
+		var settings = new VerbSettings { SocketPath = socket };
 
-		for (int i = 1; i < args.Length; i++)
+		return CommandRunner.Run(settings, json: true, client =>
+			CommandRunner.Raw(client.Send(args[0], fields)) + "\n");
+	}
+
+	/// <summary>
+	/// Reads <c>--name value</c> flags into request fields.
+	/// </summary>
+	/// <param name="words">The words after the verb.</param>
+	/// <param name="socket">Set when the words carried a socket.</param>
+	/// <returns>The protocol fields.</returns>
+	/// <remarks>
+	/// Shared by the pass-through path and the shell, which both see a verb
+	/// and a bare word list rather than something Spectre has parsed. A flag
+	/// with no value is <c>true</c>, so <c>--outline</c> says what it reads as.
+	/// </remarks>
+	internal static Dictionary<string, JsonNode?> ParseFlags(
+		IEnumerable<string> words, out string? socket)
+	{
+		socket = null;
+		var fields = new Dictionary<string, JsonNode?>();
+		var list = words.ToList();
+
+		for (int i = 0; i < list.Count; i++)
 		{
-			if (args[i] is "--socket" or "-s")
+			if (list[i] is "--socket" or "-s")
 			{
-				if (++i < args.Length) socket = args[i];
+				if (++i < list.Count) socket = list[i];
 				continue;
 			}
 
-			if (!args[i].StartsWith("--")) continue;
+			if (!list[i].StartsWith("--")) continue;
 
-			string name = args[i][2..];
-			string? value = i + 1 < args.Length && !args[i + 1].StartsWith("--")
-				? args[++i]
+			string name = list[i][2..];
+			string? value = i + 1 < list.Count && !list[i + 1].StartsWith("--")
+				? list[++i]
 				: null;
 
 			fields[name] = value == null ? true
@@ -127,10 +153,7 @@ public sealed class VerbCommand : Command<VerbSettings>
 				: value;
 		}
 
-		var settings = new VerbSettings { SocketPath = socket };
-
-		return CommandRunner.Run(settings, json: true, client =>
-			CommandRunner.Raw(client.Send(verb, fields)) + "\n");
+		return fields;
 	}
 
 	/// <summary>Turns <c>name=value</c> pairs into request fields.</summary>

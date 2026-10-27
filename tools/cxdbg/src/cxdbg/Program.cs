@@ -58,11 +58,17 @@ app.Configure(config =>
 
 	// Starting an app, rather than attaching to one. Everything after `--`
 	// belongs to the application.
+	// The live session: the TUI you enter on a socket. Every other verb asks
+	// one question; this one keeps asking until you leave.
+	config.AddCommand<AttachCommand>("attach")
+		.WithDescription("Enter a session on a running application: the tui, or a prompt")
+		.WithExample("attach", "-s", "/run/user/1000/app.sock")
+		.WithExample("attach", "shell", "-s", "/run/user/1000/app.sock");
+
 	config.AddCommand<RunCommand>("run")
-		.WithDescription("Start an application with a socket and attach to it")
+		.WithDescription("Start an application with a diagnostics socket")
 		.WithExample("run", "./MyApp")
-		.WithExample("run", "./MyApp", "--", "--headless", "--size", "100x30")
-		.WithExample("run", "--again");
+		.WithExample("run", "./MyApp", "--", "--headless", "--size", "100x30");
 
 	config.AddCommand<WhyCommand>("why")
 		.WithDescription("Explain how something ended up the way it is")
@@ -82,7 +88,7 @@ if (args.Length == 0) return app.Run(new[] { "--help" });
 // better discovery than anything cxdbg could hard-code.
 if (!args[0].StartsWith('-')
 	&& !ProtocolVerbs.All.Any(v => v.Verb == args[0])
-	&& args[0] is not ("show" or "why" or "send" or "run"))
+	&& args[0] is not ("show" or "why" or "send" or "run" or "attach"))
 {
 	return VerbCommand.PassThrough(args);
 }

@@ -31,7 +31,7 @@ internal static class ProtocolVerbs
 	/// </remarks>
 	internal static readonly (string Verb, string What, string[] Example)[] All =
 	[
-		("snapshot", "What the screen shows, as text", ["snapshot", "--ansi", "true"]),
+		("snapshot", "What the screen shows: text, or --format cells", ["snapshot", "--format", "cells", "--y", "7", "--h", "1"]),
 		("image", "What the screen looks like, as a PNG", ["image", "--window", "Settings"]),
 		("tree", "What layout believes: desired against arranged, per control", ["tree", "--depth", "2", "--props", "true"]),
 		("focus", "What currently has focus, and the chain to it", ["focus"]),

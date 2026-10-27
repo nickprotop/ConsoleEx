@@ -17,13 +17,9 @@ namespace Cxdbg.Commands;
 /// <summary>Settings for starting an application under cxdbg.</summary>
 public class RunSettings : CommandSettings
 {
-	[Description("The application to start. Omit it with --again")]
-	[CommandArgument(0, "[APP]")]
-	public string? App { get; set; }
-
-	[Description("Start the last application cxdbg ran, with the same arguments")]
-	[CommandOption("--again")]
-	public bool Again { get; set; }
+	[Description("The application to start")]
+	[CommandArgument(0, "<APP>")]
+	public string App { get; set; } = "";
 
 	[Description("Run the app as a child of cxdbg rather than opening a terminal for it")]
 	[CommandOption("--no-terminal")]
@@ -45,6 +41,10 @@ public class RunSettings : CommandSettings
 /// it was started by a debugger.
 /// </para>
 /// <para>
+/// There is no "run it again": the shell already remembers the command, and a
+/// state file of cxdbg's own would be a worse version of shell history.
+/// </para>
+/// <para>
 /// cxdbg does not supervise what it starts: when run returns, the application
 /// is still going. A debugger that killed its subject on exit would make every
 /// session end by restarting the thing you were looking at.
@@ -56,24 +56,8 @@ public sealed class RunCommand : Command<RunSettings>
 	{
 		try
 		{
-			string app;
-			List<string> appArgs;
-
-			if (settings.Again)
-			{
-				// A restart is a NEW process at a new socket. Nothing is handed
-				// back; the command is run again, which is the only thing that
-				// honestly links the two.
-				var last = LastRun.Require();
-				app = last.App;
-				appArgs = last.Args.ToList();
-			}
-			else
-			{
-				app = settings.App ?? throw CxdbgException.Usage(
-					"cxdbg run needs an application, or --again to repeat the last one");
-				appArgs = context.Remaining.Raw.ToList();
-			}
+			string app = settings.App;
+			var appArgs = context.Remaining.Raw.ToList();
 
 			// A headless app has no screen to own, so it runs as a child of cxdbg
 			// and its output lands here. Anything else needs a terminal of its
@@ -89,8 +73,6 @@ public sealed class RunCommand : Command<RunSettings>
 			var result = AppLauncher.Launch(
 				app, appArgs, terminal,
 				TimeSpan.FromSeconds(settings.TimeoutSeconds));
-
-			LastRun.Remember(app, appArgs);
 
 			Report(result);
 			return 0;
