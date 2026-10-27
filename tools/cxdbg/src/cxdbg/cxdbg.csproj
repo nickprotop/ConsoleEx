@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Cxdbg</RootNamespace>
+    <AssemblyName>cxdbg</AssemblyName>
+
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>cxdbg</ToolCommandName>
+    <PackageId>SharpConsoleUI.Debugger</PackageId>
+    <Version>1.0.0</Version>
+    <Description>Attach to a running SharpConsoleUI application and inspect it.</Description>
+    <PackageOutputPath>./nupkg</PackageOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Spectre.Console" Version="0.55.2" />
+    <PackageReference Include="Spectre.Console.Cli" Version="0.55.0" />
+  </ItemGroup>
+
+</Project>

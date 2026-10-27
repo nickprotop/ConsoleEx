@@ -382,3 +382,6 @@ docs/docfx/.manifest
 
 # Display-server program: planning corpus (vision, specs, plans, progress) — local-only
 SharpConsoleUI/Server/docs/vision/
+
+# cxdbg local package output
+tools/cxdbg/src/cxdbg/nupkg/
