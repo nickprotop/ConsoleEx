@@ -230,7 +230,7 @@ public class Issue67RowJitterTest
 
 		window.FocusManager.SetFocus(null, FocusReason.Programmatic);
 
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(new List<MouseFlags> { MouseFlags.Button1Clicked }, new Point(clickX, clickY));
 		system.Input.ProcessInput();
 		system.Render.UpdateDisplay();

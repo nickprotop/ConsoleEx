@@ -98,7 +98,7 @@ public class CollapsiblePanelGridHostTests
 	{
 		int screenX = t.Window.Left + 1 + x;
 		int screenY = t.Window.Top + 1 + contentY;
-		var driver = (MockConsoleDriver)t.System.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)t.System.ConsoleDriver;
 		driver.SimulateMouseEvent(new List<MouseFlags> { MouseFlags.Button1Clicked }, new Point(screenX, screenY));
 		t.System.Input.ProcessInput();
 	}

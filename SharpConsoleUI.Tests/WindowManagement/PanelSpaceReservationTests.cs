@@ -8,8 +8,8 @@
 
 using SharpConsoleUI;
 using SharpConsoleUI.Configuration;
-using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
+using SharpConsoleUI.Drivers;
 
 namespace SharpConsoleUI.Tests.WindowManagement;
 
@@ -26,7 +26,7 @@ public class PanelSpaceReservationTests
 	/// <summary>Creates a system with a fixed screen size and both panels visible.</summary>
 	private static ConsoleWindowSystem CreateSystemWithPanels(bool top, bool bottom)
 	{
-		var mockDriver = new MockConsoleDriver(ScreenWidth, ScreenHeight);
+		var mockDriver = new HeadlessConsoleDriver(ScreenWidth, ScreenHeight);
 		var options = new ConsoleWindowSystemOptions(
 			EnableFrameRateLimiting: false,
 			EnablePerformanceMetrics: false,

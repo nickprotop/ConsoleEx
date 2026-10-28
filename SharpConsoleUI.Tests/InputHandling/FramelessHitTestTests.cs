@@ -25,7 +25,7 @@ public class FramelessHitTestTests
 	[Fact]
 	public void Frameless_HasNoInteractiveFrame()
 	{
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(80, 30));
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(80, 30));
 		var win = new Window(sys) { Width = 30, Height = 12, BorderStyle = BorderStyle.Frameless };
 		Assert.False(win.HasInteractiveFrame);
 	}
@@ -33,7 +33,7 @@ public class FramelessHitTestTests
 	[Fact]
 	public void Bordered_HasInteractiveFrame()
 	{
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(80, 30));
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(80, 30));
 		var win = new Window(sys) { Width = 30, Height = 12, BorderStyle = BorderStyle.DoubleLine };
 		Assert.True(win.HasInteractiveFrame);
 	}
@@ -41,7 +41,7 @@ public class FramelessHitTestTests
 	[Fact]
 	public void None_StillHasInteractiveFrame()
 	{
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(80, 30));
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(80, 30));
 		var win = new Window(sys) { Width = 30, Height = 12, BorderStyle = BorderStyle.None };
 		Assert.True(win.HasInteractiveFrame);
 	}
@@ -53,7 +53,7 @@ public class FramelessHitTestTests
 	/// <summary>
 	/// Injects a full press/click/release at the given absolute screen cell and pumps input.
 	/// </summary>
-	private static void InjectClick(ConsoleWindowSystem sys, MockConsoleDriver driver, int x, int y)
+	private static void InjectClick(ConsoleWindowSystem sys, HeadlessConsoleDriver driver, int x, int y)
 	{
 		driver.SimulateMouseEvent(new List<MouseFlags> { MouseFlags.Button1Pressed }, new Point(x, y));
 		sys.Input.ProcessInput();
@@ -80,7 +80,7 @@ public class FramelessHitTestTests
 
 		int dy = sys.DesktopUpperLeft.Y;
 		// Close button sits at the top-right of a bordered window (Width - 2, title row).
-		InjectClick(sys, driver: (MockConsoleDriver)sys.ConsoleDriver, 30 - 2, 0 + dy);
+		InjectClick(sys, driver: (HeadlessConsoleDriver)sys.ConsoleDriver, 30 - 2, 0 + dy);
 
 		Assert.True(closing, "bordered close button click must drive the chrome path (harness sanity)");
 	}
@@ -93,7 +93,7 @@ public class FramelessHitTestTests
 	public void Frameless_FormerChromeCells_DoNotTriggerChrome()
 	{
 		var sys = TestWindowSystemBuilder.CreateTestSystem();
-		var driver = (MockConsoleDriver)sys.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)sys.ConsoleDriver;
 		var win = new Window(sys) { Left = 0, Top = 0, Width = 30, Height = 12, BorderStyle = BorderStyle.Frameless };
 		win.AddControl(new MarkupControl(new List<string> { "frameless content area" }));
 		sys.AddWindow(win);
@@ -135,7 +135,7 @@ public class FramelessHitTestTests
 	public void Frameless_InteriorClick_ReachesContentPropagation()
 	{
 		var sys = TestWindowSystemBuilder.CreateTestSystem();
-		var driver = (MockConsoleDriver)sys.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)sys.ConsoleDriver;
 		var win = new Window(sys) { Left = 0, Top = 0, Width = 30, Height = 12, BorderStyle = BorderStyle.Frameless };
 		win.AddControl(new MarkupControl(new List<string> { "frameless content area" }));
 		sys.AddWindow(win);
@@ -161,7 +161,7 @@ public class FramelessHitTestTests
 	public void Frameless_NonMouseAwareContent_NoDragOrResizeLeak()
 	{
 		var sys = TestWindowSystemBuilder.CreateTestSystem();
-		var driver = (MockConsoleDriver)sys.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)sys.ConsoleDriver;
 		var win = new Window(sys) { Left = 0, Top = 0, Width = 30, Height = 12, BorderStyle = BorderStyle.Frameless };
 		win.AddControl(new MarkupControl(new List<string> { "plain content here" }));
 		sys.AddWindow(win);
@@ -193,7 +193,7 @@ public class FramelessHitTestTests
 	[Fact]
 	public void Frameless_SetPositionAndSetSize_StillWork()
 	{
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(80, 30));
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(80, 30));
 		var win = new Window(sys) { Width = 20, Height = 8, BorderStyle = BorderStyle.Frameless };
 		win.SetPosition(new Point(7, 4));
 		Assert.Equal(7, win.Left);
@@ -206,7 +206,7 @@ public class FramelessHitTestTests
 	[Fact]
 	public void SettingFrameless_DoesNotMutateMovableResizable()
 	{
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(80, 30));
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(80, 30));
 		var win = new Window(sys) { IsMovable = true, IsResizable = true };
 		win.BorderStyle = BorderStyle.Frameless;
 		Assert.True(win.IsMovable);

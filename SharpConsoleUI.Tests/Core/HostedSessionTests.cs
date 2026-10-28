@@ -14,7 +14,6 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Size = SharpConsoleUI.Helpers.Size;
 
@@ -361,8 +360,8 @@ public class HostedSessionTests
 		// Existing front-ends must keep working with Run() — the interface default is true and
 		// HeadlessConsoleDriver does not override it.
 		// Read through the interface: the default lives on IConsoleDriver, and HeadlessConsoleDriver
-		// (which MockConsoleDriver derives from) does not override it.
-		Assert.True(((IConsoleDriver)new MockConsoleDriver()).SupportsBlockingLoop);
+		// (which HeadlessConsoleDriver derives from) does not override it.
+		Assert.True(((IConsoleDriver)new HeadlessConsoleDriver()).SupportsBlockingLoop);
 		Assert.True(((IConsoleDriver)new RecordingDriver()).SupportsBlockingLoop);
 	}
 

@@ -144,7 +144,7 @@ public class GridControlGapLineTests
 		int sx = grid.GetColumnSplitterScreenX(0, window);
 		int sy = window.Top + 1 + grid.ActualY + 2;
 
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(new List<MouseFlags> { MouseFlags.Button1Pressed }, new Point(sx, sy));
 		system.Input.ProcessInput();
 		driver.SimulateMouseEvent(new List<MouseFlags> { MouseFlags.Button1Pressed, MouseFlags.Button1Dragged }, new Point(sx + 4, sy));

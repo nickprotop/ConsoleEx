@@ -11,7 +11,6 @@ using System.Runtime.InteropServices;
 using SharpConsoleUI;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
-using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Drivers;
@@ -165,7 +164,7 @@ public class WindowsRedirectedStdioTests
 		{
 			Console.SetIn(new System.IO.StringReader("alpha\nbeta\n"));
 
-			var system = new ConsoleWindowSystem(new MockConsoleDriver(),
+			var system = new ConsoleWindowSystem(new HeadlessConsoleDriver(),
 				options: new SharpConsoleUI.Configuration.ConsoleWindowSystemOptions() with
 				{
 					PipedInput = new SharpConsoleUI.Configuration.PipedInputOptions(Enabled: true)

@@ -4,7 +4,6 @@ using SharpConsoleUI;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
-using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Core;
@@ -39,7 +38,7 @@ public class ConsoleWindowSystemWatchdogTests
 				StaleThresholdMs: 40, UnresponsiveThresholdMs: 80, PollIntervalMs: 20,
 				ShowUnresponsiveBanner: false, AllowProcessExit: false)
 		};
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(), options: opts) { BlockWhenIdle = false };
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(), options: opts) { BlockWhenIdle = false };
 
 		int unresponsiveAfterStop = 0;
 		using (var session = sys.BeginHosted())
@@ -87,7 +86,7 @@ public class ConsoleWindowSystemWatchdogTests
 		// A real NetConsoleDriver here writes screen renders to stdout; under CI (stdout is a pipe)
 		// the ANSI volume stalls the test-host output pipe and trips --blame-hang. The watchdog logic
 		// under test is driver-agnostic. (Headless shutdown verified: Run()+Shutdown() exits in ~230ms.)
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(), options: opts);
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(), options: opts);
 
 		UnresponsiveEventArgs? captured = null;
 		sys.Unresponsive += (s, e) => captured = e;
@@ -118,7 +117,7 @@ public class ConsoleWindowSystemWatchdogTests
 				AllowProcessExit: false)
 		};
 		// Headless driver — see note in Unresponsive_Raised_WithDrainPhase_WhenLoopBlocks.
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(), options: opts);
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(), options: opts);
 
 		UnresponsiveEventArgs? captured = null;
 		sys.Unresponsive += (s, e) => captured = e;

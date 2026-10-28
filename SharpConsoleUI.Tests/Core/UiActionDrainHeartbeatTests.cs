@@ -13,7 +13,6 @@ using SharpConsoleUI;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Drivers;
-using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Core;
@@ -45,7 +44,7 @@ public class UiActionDrainHeartbeatTests
 		{
 			Watchdog = new WatchdogOptions(StaleThresholdMs: 60, UnresponsiveThresholdMs: 150, PollIntervalMs: 30, ShowUnresponsiveBanner: false)
 		};
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(), options: opts);
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(), options: opts);
 
 		UnresponsiveEventArgs? captured = null;
 		sys.Unresponsive += (s, e) => captured = e;

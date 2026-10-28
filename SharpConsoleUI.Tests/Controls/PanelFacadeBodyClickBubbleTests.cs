@@ -88,7 +88,7 @@ public class PanelFacadeBodyClickBubbleTests
 
 	private static void Dispatch(ConsoleWindowSystem system, List<MouseFlags> flags, int x, int y)
 	{
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(flags, new Point(x, y));
 		system.Input.ProcessInput();
 	}

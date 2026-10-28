@@ -39,7 +39,7 @@ public class TableFilterBarInputTests
 	#region Harness
 
 	/// <summary>
-	/// Builds the real nesting on a MockConsoleDriver so clicks go through the ACTUAL window
+	/// Builds the real nesting on a HeadlessConsoleDriver so clicks go through the ACTUAL window
 	/// dispatcher rather than the control's own method, and with more rows than fit so the list is
 	/// genuinely scrollable — which is the condition that let the stale RowCount check pass.
 	/// </summary>
@@ -74,7 +74,7 @@ public class TableFilterBarInputTests
 	/// <summary>Delivers a left click through the REAL dispatcher, in window coordinates.</summary>
 	private static void RealClick(ConsoleWindowSystem system, int x, int y)
 	{
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(new List<MouseFlags> { MouseFlags.Button1Clicked }, new Point(x, y));
 		system.Input.ProcessInput();
 		system.Render.UpdateDisplay();

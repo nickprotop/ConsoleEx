@@ -12,8 +12,8 @@ using System.IO;
 using System.Threading;
 using SharpConsoleUI;
 using SharpConsoleUI.Configuration;
-using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
+using SharpConsoleUI.Drivers;
 
 namespace SharpConsoleUI.Tests.Core;
 
@@ -68,7 +68,7 @@ public class PipedInputStartupTests : IDisposable
 		Console.SetIn(new NeverEndingReader("partial data\n"));
 
 		var sw = Stopwatch.StartNew();
-		var system = new ConsoleWindowSystem(new MockConsoleDriver());
+		var system = new ConsoleWindowSystem(new HeadlessConsoleDriver());
 		sw.Stop();
 
 		Assert.True(sw.ElapsedMilliseconds < 2000,
@@ -89,7 +89,7 @@ public class PipedInputStartupTests : IDisposable
 		{
 			PipedInput = new PipedInputOptions(PreUiTimeoutMs: 250, ShowDialog: false)
 		};
-		var system = new ConsoleWindowSystem(new MockConsoleDriver(), options: options);
+		var system = new ConsoleWindowSystem(new HeadlessConsoleDriver(), options: options);
 
 		var sw = Stopwatch.StartNew();
 		string? text = system.PipedInput;
@@ -112,7 +112,7 @@ public class PipedInputStartupTests : IDisposable
 	{
 		Console.SetIn(new StringReader("alpha\nbeta\ngamma\n"));
 
-		var system = new ConsoleWindowSystem(new MockConsoleDriver(),
+		var system = new ConsoleWindowSystem(new HeadlessConsoleDriver(),
 			options: new ConsoleWindowSystemOptions() with
 			{
 				PipedInput = new PipedInputOptions(Enabled: true)
@@ -131,7 +131,7 @@ public class PipedInputStartupTests : IDisposable
 		{
 			PipedInput = new PipedInputOptions(Enabled: false)
 		};
-		var system = new ConsoleWindowSystem(new MockConsoleDriver(), options: options);
+		var system = new ConsoleWindowSystem(new HeadlessConsoleDriver(), options: options);
 
 		Assert.Null(system.PipedInput);
 		Assert.Null(system.PipedLines);
@@ -146,7 +146,7 @@ public class PipedInputStartupTests : IDisposable
 	{
 		Console.SetIn(new NeverEndingReader("streaming...\n"));
 
-		var driver = new MockConsoleDriver(60, 20);
+		var driver = new HeadlessConsoleDriver(60, 20);
 		var options = new ConsoleWindowSystemOptions() with
 		{
 			// Dialog off: this test pins the loop, and the dialog needs a real interactive session.

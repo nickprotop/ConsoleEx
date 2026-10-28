@@ -115,7 +115,7 @@ public class RadioInputTests
 		int clickX = window.Left + 1 + b.ActualX + 2;
 		int clickY = window.Top + 1 + b.ActualY;
 
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(new List<MouseFlags> { MouseFlags.Button1Clicked }, new Point(clickX, clickY));
 		system.Input.ProcessInput();
 
@@ -164,7 +164,7 @@ public class RadioInputTests
 		int clickX = window.Left + 1 + b.ActualX + 2;
 		int clickY = window.Top + 1 + b.ActualY + 1; // +1 → second row of the radio
 
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(new List<MouseFlags> { MouseFlags.Button1Clicked }, new Point(clickX, clickY));
 		system.Input.ProcessInput();
 
@@ -231,7 +231,7 @@ public class RadioInputTests
 		int clickX = window.Left + 1 + b.ActualX + 2;
 		int clickY = window.Top + 1 + b.ActualY;
 
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(new List<MouseFlags> { MouseFlags.Button1Clicked }, new Point(clickX, clickY));
 		system.Input.ProcessInput();
 

@@ -14,8 +14,8 @@ using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Diagnostics.Snapshots;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
+using SharpConsoleUI.Tests.Infrastructure;
 
 namespace SharpConsoleUI.Tests.Controls;
 

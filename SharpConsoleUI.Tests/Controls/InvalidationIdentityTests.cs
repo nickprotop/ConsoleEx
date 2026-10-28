@@ -7,8 +7,8 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI.Controls;
-using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
+using SharpConsoleUI.Tests.Infrastructure;
 
 namespace SharpConsoleUI.Tests.Controls
 {

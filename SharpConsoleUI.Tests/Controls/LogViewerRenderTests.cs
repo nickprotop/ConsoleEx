@@ -145,7 +145,7 @@ public class LogViewerRenderTests
 
 	/// <summary>
 	/// Builds the REAL nesting (window > LogViewerControl > inner grid > virtualized table) on a
-	/// MockConsoleDriver so wheel input can be delivered through the actual window dispatcher.
+	/// HeadlessConsoleDriver so wheel input can be delivered through the actual window dispatcher.
 	/// </summary>
 	private static (ConsoleWindowSystem system, Window window, LogViewerControl lv, LogService log)
 		BuildRealDispatchViewer(int maxBuffer = 1000)
@@ -170,7 +170,7 @@ public class LogViewerRenderTests
 	/// <summary>Delivers wheel events through the REAL dispatcher, not the control's method.</summary>
 	private static void RealWheel(ConsoleWindowSystem system, MouseFlags flag, int times)
 	{
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		for (int i = 0; i < times; i++)
 		{
 			driver.SimulateMouseEvent(new List<MouseFlags> { flag }, new Point(10, 8));

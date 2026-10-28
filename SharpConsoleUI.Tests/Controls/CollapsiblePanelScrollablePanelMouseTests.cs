@@ -55,7 +55,7 @@ public class CollapsiblePanelScrollablePanelMouseTests
 	/// </summary>
 	private static void DispatchWheelDown(ConsoleWindowSystem system, int x, int y)
 	{
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(new List<MouseFlags> { MouseFlags.WheeledDown }, new Point(x, y));
 		system.Input.ProcessInput();
 	}
@@ -162,7 +162,7 @@ public class CollapsiblePanelScrollablePanelMouseTests
 		int clickX = window.Left + 1 + targetButton.ActualX + 1;
 		int clickY = window.Top + 1 + targetButton.ActualY;
 
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(new List<MouseFlags> { MouseFlags.Button1Clicked }, new Point(clickX, clickY));
 		system.Input.ProcessInput();
 

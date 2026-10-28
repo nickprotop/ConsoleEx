@@ -131,7 +131,7 @@ public class EventCancellationTests
 		var clickY = button.ActualY;
 
 		var clickFlags = new List<MouseFlags> { MouseFlags.Button1Clicked };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(clickFlags, new Point(clickX, clickY));
 		system.Input.ProcessInput();
 
@@ -219,7 +219,7 @@ public class EventCancellationTests
 
 		// Start drag
 		var pressFlags = new List<MouseFlags> { MouseFlags.Button1Pressed };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(pressFlags, new Point(20, 10));
 		system.Input.ProcessInput();
 

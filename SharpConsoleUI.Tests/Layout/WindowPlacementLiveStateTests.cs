@@ -56,7 +56,7 @@ namespace SharpConsoleUI.Tests.Layout
 		{
 			// Real-thing test: drive the actual resize path end-to-end and assert the window re-occupies
 			// LeftHalf of the NEW desktop, surviving a re-render.
-			var driver = new MockConsoleDriver(100, 40);
+			var driver = new HeadlessConsoleDriver(100, 40);
 			var system = new ConsoleWindowSystem(driver, options: new ConsoleWindowSystemOptions(
 				EnableFrameRateLimiting: false,
 				EnablePerformanceMetrics: false,

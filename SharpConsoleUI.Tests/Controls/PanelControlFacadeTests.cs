@@ -106,7 +106,7 @@ public class PanelControlFacadeTests
 
 		int clickX = window.Left + 1 + 3;
 		int clickY = window.Top + 1 + 2;
-		var driver = (SharpConsoleUI.Tests.Infrastructure.MockConsoleDriver)system.ConsoleDriver;
+		var driver = (SharpConsoleUI.Drivers.HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(new List<SharpConsoleUI.Drivers.MouseFlags> { SharpConsoleUI.Drivers.MouseFlags.Button1Clicked }, new System.Drawing.Point(clickX, clickY));
 		system.Input.ProcessInput();
 

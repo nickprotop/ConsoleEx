@@ -177,7 +177,7 @@ public class FormRealThingTest
 		Assert.InRange(clickY, window.Top + 1, window.Top + Height - 1);
 
 		window.FocusManager.SetFocus(null, FocusReason.Programmatic);
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(new List<MouseFlags> { MouseFlags.Button1Clicked }, new Point(clickX, clickY));
 		system.Input.ProcessInput();
 		Render(system);

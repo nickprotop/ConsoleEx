@@ -7,7 +7,6 @@ using SharpConsoleUI.Dialogs;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Flows;
 using SharpConsoleUI.Parsing;
-using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Flows
@@ -15,7 +14,7 @@ namespace SharpConsoleUI.Tests.Flows
 	public class ProgressContentTests
 	{
 		private static ConsoleWindowSystem NewSystem() =>
-			new ConsoleWindowSystem(new MockConsoleDriver(120, 40));
+			new ConsoleWindowSystem(new HeadlessConsoleDriver(120, 40));
 
 		private static ProgressContent<int> Build(ConsoleWindowSystem ws, bool allowMarkup = false)
 		{

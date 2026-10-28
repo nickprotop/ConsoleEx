@@ -163,7 +163,7 @@ public class RadioInGridInPanelRealThingTest
 		int b2ClickY = ClickY(window, b2.ActualY);
 		Assert.True(b2.ActualX >= 0 && b2.ActualY >= 0, "B2 must have arranged bounds after render.");
 
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(new List<MouseFlags> { MouseFlags.Button1Clicked }, new Point(b2ClickX, b2ClickY));
 		system.Input.ProcessInput();
 

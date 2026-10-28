@@ -93,7 +93,7 @@ public class EventPropagationTests
 		var clickY = window.Top + 1 + label.ActualY;
 
 		var clickFlags = new List<MouseFlags> { MouseFlags.Button1Clicked };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(clickFlags, new Point(clickX, clickY));
 		system.Input.ProcessInput();
 
@@ -379,7 +379,7 @@ public class EventPropagationTests
 
 		// Move over button1 (convert content-relative to absolute screen coords)
 		var move1Flags = new List<MouseFlags> { MouseFlags.ReportMousePosition };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(move1Flags, new Point(window.Left + 1 + button1.ActualX + 2, window.Top + 1 + button1.ActualY));
 		system.Input.ProcessInput();
 

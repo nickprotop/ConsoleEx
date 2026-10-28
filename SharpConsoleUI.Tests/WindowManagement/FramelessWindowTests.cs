@@ -9,8 +9,8 @@
 using SharpConsoleUI;
 using SharpConsoleUI.Builders;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
+using SharpConsoleUI.Drivers;
 
 namespace SharpConsoleUI.Tests.WindowManagement;
 
@@ -24,7 +24,7 @@ public class FramelessWindowTests
 
 	private static (ConsoleWindowSystem sys, Window win) MakeWindow()
 	{
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(80, 30));
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(80, 30));
 		var win = new Window(sys) { Width = W, Height = H, Left = 5, Top = 3 };
 		return (sys, win);
 	}
@@ -98,7 +98,7 @@ public class FramelessWindowTests
 	[Fact]
 	public void Builder_Frameless_SetsBorderStyleAndFillsContent()
 	{
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(80, 30));
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(80, 30));
 		var win = new WindowBuilder(sys).WithSize(30, 12).Frameless().Build();
 		Assert.Equal(BorderStyle.Frameless, win.BorderStyle);
 		Assert.Equal(30, win.ContentWidth);
@@ -108,7 +108,7 @@ public class FramelessWindowTests
 	[Fact]
 	public void Builder_WithPadding_Uniform()
 	{
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(80, 30));
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(80, 30));
 		var win = new WindowBuilder(sys).WithSize(30, 12).Frameless().WithPadding(2).Build();
 		Assert.Equal(new Padding(2), win.Padding);
 		Assert.Equal(30 - 4, win.ContentWidth);
@@ -117,7 +117,7 @@ public class FramelessWindowTests
 	[Fact]
 	public void Builder_WithPadding_PerSide()
 	{
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(80, 30));
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(80, 30));
 		var win = new WindowBuilder(sys).WithSize(30, 12).Frameless()
 			.WithPadding(new Padding(3, 1, 0, 2)).Build();
 		Assert.Equal(new Padding(3, 1, 0, 2), win.Padding);
@@ -126,7 +126,7 @@ public class FramelessWindowTests
 	[Fact]
 	public void Builder_WithPadding_HorizontalVertical()
 	{
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(80, 30));
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(80, 30));
 		var win = new WindowBuilder(sys).WithSize(30, 12).Frameless().WithPadding(4, 1).Build();
 		Assert.Equal(new Padding(4, 1), win.Padding);
 	}
@@ -134,7 +134,7 @@ public class FramelessWindowTests
 	[Fact]
 	public void Frameless_ScrollbarShown_ReservesLastColumn()
 	{
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(80, 30));
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(80, 30));
 		var win = new Window(sys) { Width = 20, Height = 6, BorderStyle = BorderStyle.Frameless, IsScrollable = true };
 		Assert.False(win.FramelessScrollbarReserved(totalLines: 6));   // fits (== ContentHeight)
 		Assert.True(win.FramelessScrollbarReserved(totalLines: 7));    // overflows
@@ -145,7 +145,7 @@ public class FramelessWindowTests
 	[Fact]
 	public void NonScrollable_Frameless_NeverReservesColumn()
 	{
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(80, 30));
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(80, 30));
 		var win = new Window(sys) { Width = 20, Height = 6, BorderStyle = BorderStyle.Frameless, IsScrollable = false };
 		Assert.False(win.FramelessScrollbarReserved(totalLines: 999));
 		Assert.Equal(win.ContentWidth, win.FramelessLayoutWidth(totalLines: 999));
@@ -154,7 +154,7 @@ public class FramelessWindowTests
 	[Fact]
 	public void Bordered_NeverReservesFramelessColumn()
 	{
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(80, 30));
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(80, 30));
 		var win = new Window(sys) { Width = 20, Height = 6, BorderStyle = BorderStyle.DoubleLine, IsScrollable = true };
 		Assert.False(win.FramelessScrollbarReserved(totalLines: 999)); // only Frameless reserves
 		Assert.Equal(win.ContentWidth, win.FramelessLayoutWidth(totalLines: 999));
@@ -170,7 +170,7 @@ public class FramelessWindowTests
 	[Fact]
 	public void Frameless_OverflowingContent_BufferIsNarrowedForScrollbar()
 	{
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(100, 30));
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(100, 30));
 		var lines = new System.Collections.Generic.List<string>();
 		for (int i = 0; i < 80; i++) lines.Add($"line {i} of overflowing frameless content");
 		var win = new WindowBuilder(sys).Frameless().Maximized()
@@ -188,7 +188,7 @@ public class FramelessWindowTests
 	[Fact]
 	public void Frameless_NonOverflowingContent_BufferUsesFullWidth()
 	{
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(100, 30));
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(100, 30));
 		var win = new WindowBuilder(sys).Frameless().Maximized()
 			.AddControl(new SharpConsoleUI.Controls.MarkupControl(new System.Collections.Generic.List<string> { "short" })).BuildAndShow();
 

@@ -58,7 +58,7 @@ public static class TestWindowSystemBuilder
 		}
 
 		// Create mock console driver
-		var mockDriver = new MockConsoleDriver();
+		var mockDriver = new HeadlessConsoleDriver();
 
 		// Create window system with input handlers registered
 		return WithInputHandlers(new ConsoleWindowSystem(mockDriver, options: options));
@@ -69,7 +69,7 @@ public static class TestWindowSystemBuilder
 	/// </summary>
 	public static ConsoleWindowSystem CreateTestSystem(int width, int height)
 	{
-		var mockDriver = new MockConsoleDriver(width, height);
+		var mockDriver = new HeadlessConsoleDriver(width, height);
 
 		var options = new ConsoleWindowSystemOptions(
 			EnableDiagnostics: true,
@@ -90,7 +90,7 @@ public static class TestWindowSystemBuilder
 	/// </summary>
 	public static ConsoleWindowSystem CreateTestSystemWithoutDiagnostics()
 	{
-		var mockDriver = new MockConsoleDriver();
+		var mockDriver = new HeadlessConsoleDriver();
 
 		var options = new ConsoleWindowSystemOptions(
 			EnableDiagnostics: false,
@@ -121,7 +121,7 @@ public static class TestWindowSystemBuilder
 		);
 
 		// Create mock console driver
-		var mockDriver = new MockConsoleDriver();
+		var mockDriver = new HeadlessConsoleDriver();
 
 		// Create window system
 		return WithInputHandlers(new ConsoleWindowSystem(mockDriver, options: options));
@@ -145,7 +145,7 @@ public static class TestWindowSystemBuilder
 		);
 
 		// Create mock console driver
-		var mockDriver = new MockConsoleDriver();
+		var mockDriver = new HeadlessConsoleDriver();
 
 		// Create window system
 		return WithInputHandlers(new ConsoleWindowSystem(mockDriver, options: options));

@@ -12,7 +12,6 @@ using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Events;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 using Color = SharpConsoleUI.Color;
 

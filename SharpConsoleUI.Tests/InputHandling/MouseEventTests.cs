@@ -23,7 +23,7 @@ public class MouseEventTests
 
 		// Click on window2
 		var clickFlags = new List<MouseFlags> { MouseFlags.Button1Clicked };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(clickFlags, new Point(60, 15));
 		system.Input.ProcessInput();
 
@@ -56,7 +56,7 @@ public class MouseEventTests
 		var clickY = window.Top + 1 + button.ActualY;
 
 		var clickFlags = new List<MouseFlags> { MouseFlags.Button1Clicked };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(clickFlags, new Point(clickX, clickY));
 		system.Input.ProcessInput();
 
@@ -87,7 +87,7 @@ public class MouseEventTests
 	//
 	//    // First click
 	//    var click1Flags = new List<MouseFlags> { MouseFlags.Button1Clicked };
-	//    var driver = (MockConsoleDriver)system.ConsoleDriver;
+	//    var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 	//    driver.SimulateMouseEvent(click1Flags, new Point(clickX, clickY));
 	//    system.Input.ProcessInput();
 	//
@@ -110,7 +110,7 @@ public class MouseEventTests
 
 		// Click on title bar (Y = window.Top, which is the title bar)
 		var pressFlags = new List<MouseFlags> { MouseFlags.Button1Pressed };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(pressFlags, new Point(20, 10));
 		system.Input.ProcessInput();
 
@@ -129,7 +129,7 @@ public class MouseEventTests
 
 		// Start drag on title bar
 		var pressFlags = new List<MouseFlags> { MouseFlags.Button1Pressed };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(pressFlags, new Point(20, 10));
 		system.Input.ProcessInput();
 
@@ -169,7 +169,7 @@ public class MouseEventTests
 		var closeButtonY = 10; // Title bar
 
 		var clickFlags = new List<MouseFlags> { MouseFlags.Button1Clicked };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(clickFlags, new Point(closeButtonX, closeButtonY));
 		system.Input.ProcessInput();
 
@@ -190,7 +190,7 @@ public class MouseEventTests
 		var maximizeButtonY = 10;
 
 		var clickFlags = new List<MouseFlags> { MouseFlags.Button1Clicked };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(clickFlags, new Point(maximizeButtonX, maximizeButtonY));
 		system.Input.ProcessInput();
 
@@ -211,7 +211,7 @@ public class MouseEventTests
 		var minimizeButtonY = 10;
 
 		var clickFlags = new List<MouseFlags> { MouseFlags.Button1Clicked };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(clickFlags, new Point(minimizeButtonX, minimizeButtonY));
 		system.Input.ProcessInput();
 
@@ -232,7 +232,7 @@ public class MouseEventTests
 		var cornerY = 10 + 20 - 1;
 
 		var pressFlags = new List<MouseFlags> { MouseFlags.Button1Pressed };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(pressFlags, new Point(cornerX, cornerY));
 		system.Input.ProcessInput();
 
@@ -254,7 +254,7 @@ public class MouseEventTests
 
 		// Start resize from bottom-right corner
 		var pressFlags = new List<MouseFlags> { MouseFlags.Button1Pressed };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(pressFlags, new Point(49, 29));
 		system.Input.ProcessInput();
 
@@ -291,7 +291,7 @@ public class MouseEventTests
 
 		// Click in overlapping area (X=25)
 		var clickFlags = new List<MouseFlags> { MouseFlags.Button1Clicked };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(clickFlags, new Point(25, 15));
 		system.Input.ProcessInput();
 
@@ -310,7 +310,7 @@ public class MouseEventTests
 
 		// Click on empty desktop area
 		var clickFlags = new List<MouseFlags> { MouseFlags.Button1Clicked };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(clickFlags, new Point(100, 100));
 		system.Input.ProcessInput();
 
@@ -339,7 +339,7 @@ public class MouseEventTests
 		var clickY = window.Top + 1 + button.ActualY;
 
 		var moveFlags = new List<MouseFlags> { MouseFlags.ReportMousePosition };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(moveFlags, new Point(clickX, clickY));
 		system.Input.ProcessInput();
 
@@ -369,7 +369,7 @@ public class MouseEventTests
 
 		// Enter button
 		var enterFlags = new List<MouseFlags> { MouseFlags.ReportMousePosition };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(enterFlags, new Point(clickX, clickY));
 		system.Input.ProcessInput();
 
@@ -402,7 +402,7 @@ public class MouseEventTests
 		var clickY = window.Top + 1 + button.ActualY;
 
 		var clickFlags = new List<MouseFlags> { MouseFlags.Button1Clicked };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(clickFlags, new Point(clickX, clickY));
 		system.Input.ProcessInput();
 
@@ -419,7 +419,7 @@ public class MouseEventTests
 
 		// Click on title bar
 		var pressFlags = new List<MouseFlags> { MouseFlags.Button1Pressed };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(pressFlags, new Point(20, 10));
 		system.Input.ProcessInput();
 
@@ -436,7 +436,7 @@ public class MouseEventTests
 
 		// Click on corner
 		var pressFlags = new List<MouseFlags> { MouseFlags.Button1Pressed };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(pressFlags, new Point(49, 29));
 		system.Input.ProcessInput();
 
@@ -458,7 +458,7 @@ public class MouseEventTests
 
 		// Try to click on parent window
 		var clickFlags = new List<MouseFlags> { MouseFlags.Button1Clicked };
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(clickFlags, new Point(20, 15));
 		system.Input.ProcessInput();
 

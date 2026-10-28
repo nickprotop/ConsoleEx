@@ -7,8 +7,8 @@
 // -----------------------------------------------------------------------
 
 using SharpConsoleUI;
-using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
+using SharpConsoleUI.Drivers;
 
 namespace SharpConsoleUI.Tests.Themes;
 
@@ -22,7 +22,7 @@ public class ThemeSwitchBorderTests
 	[Fact]
 	public void SwitchTheme_InvalidatesWindowBorderCache()
 	{
-		var sys = new ConsoleWindowSystem(new MockConsoleDriver(80, 30));
+		var sys = new ConsoleWindowSystem(new HeadlessConsoleDriver(80, 30));
 		var win = new Window(sys) { Title = "t", Width = 20, Height = 8 };
 		sys.AddWindow(win);
 		sys.SetActiveWindow(win);

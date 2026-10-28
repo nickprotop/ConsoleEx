@@ -125,7 +125,7 @@ public class CollapsiblePanelMouseFocusTests
 		int clickX = window.Left + 1 + button.ActualX + 1;
 		int clickY = window.Top + 1 + button.ActualY;
 
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(new List<MouseFlags> { MouseFlags.Button1Clicked }, new Point(clickX, clickY));
 		system.Input.ProcessInput();
 
@@ -169,7 +169,7 @@ public class CollapsiblePanelMouseFocusTests
 		int clickX = window.Left + 1 + nestedButton.ActualX + 1;
 		int clickY = window.Top + 1 + nestedButton.ActualY;
 
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(new List<MouseFlags> { MouseFlags.Button1Clicked }, new Point(clickX, clickY));
 		system.Input.ProcessInput();
 
@@ -213,7 +213,7 @@ public class CollapsiblePanelMouseFocusTests
 		int clickX = window.Left + 1 + bodyButton.ActualX + 1;
 		int clickY = window.Top + 1 + bodyButton.ActualY;
 
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		driver.SimulateMouseEvent(new List<MouseFlags> { MouseFlags.Button1Clicked }, new Point(clickX, clickY));
 		system.Input.ProcessInput();
 

@@ -14,8 +14,8 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Diagnostics.Snapshots;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
+using SharpConsoleUI.Tests.Infrastructure;
 
 namespace SharpConsoleUI.Tests.Controls;
 
@@ -88,7 +88,7 @@ public class CollapsiblePanelHeaderClipTests
 		// Wheel-scroll through many offsets via the REAL input path. The overwrite only surfaced at
 		// certain offsets (a message header landing exactly on the header row), so every step is
 		// checked rather than a single scroll.
-		var driver = (MockConsoleDriver)system.ConsoleDriver;
+		var driver = (HeadlessConsoleDriver)system.ConsoleDriver;
 		for (int step = 1; step <= 12; step++)
 		{
 			driver.SimulateMouseEvent(
