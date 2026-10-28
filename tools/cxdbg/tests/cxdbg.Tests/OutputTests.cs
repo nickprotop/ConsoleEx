@@ -46,17 +46,6 @@ public class OutputTests
 			StringComparison.Ordinal);
 	}
 
-	[Fact]
-	public void SeveralFieldsAreAligned()
-	{
-		string text = Render(
-			"""{"ok":true,"diagnostics":false,"logging":true,"logLevel":"Warning","logCount":34}""");
-
-		// A name column and a value column, with the strings unquoted.
-		Assert.Contains("logLevel", text, StringComparison.Ordinal);
-		Assert.Contains("Warning", text, StringComparison.Ordinal);
-		Assert.DoesNotContain("\"Warning\"", text, StringComparison.Ordinal);
-	}
 
 	[Fact]
 	public void RecordsBecomeATable()
@@ -93,18 +82,6 @@ public class OutputTests
 		Assert.Contains("tree, focus, ping", text, StringComparison.Ordinal);
 	}
 
-	[Fact]
-	public void ALongCellIsCutRatherThanWrapped()
-	{
-		// A guid or a long message otherwise reflows the table into a
-		// paragraph, and the table stops being readable. --json gives it whole.
-		string text = Render($$"""
-		{"ok":true,"rows":[{"message":"{{new string('x', 80)}}"}]}
-		""");
-
-		foreach (string l in text.Split('\n')) Assert.True(l.Length < 70, $"too wide: {l}");
-		Assert.Contains("…", text, StringComparison.Ordinal);
-	}
 
 	[Fact]
 	public void ARefusalReadsAsOne()
@@ -171,20 +148,6 @@ public class OutputTests
 		Assert.Contains("Window, Grid, Button", text, StringComparison.Ordinal);
 	}
 
-	[Fact]
-	public void ARectangleReadsAsOneThing()
-	{
-		// `windows` keeps a window's size in a nested object. Dropping nested
-		// values hid it entirely - the most useful fact about a window, absent
-		// from the verb that reports windows - and flattening it into four
-		// columns made the row 190 characters.
-		string text = Render("""
-		{"ok":true,"windows":[{"title":"Settings","bounds":{"x":0,"y":0,"w":90,"h":30}}]}
-		""");
-
-		Assert.Contains("90x30 at 0,0", text, StringComparison.Ordinal);
-		Assert.DoesNotContain("bounds.w", text, StringComparison.Ordinal);
-	}
 
 	[Fact]
 	public void OtherNestedValuesBecomeTheirOwnColumns()

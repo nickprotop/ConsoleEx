@@ -68,6 +68,16 @@ internal static class Surface
 		});
 
 		console.Profile.Width = Width;
+
+		// Forced on the PROFILE, not only asked for in the settings. Ansi and
+		// ColorSystem above are a REQUEST that Spectre reconciles against what
+		// it detects, and on a CI runner it decided the writer could take ANSI
+		// after all - so a bold escape reached a pipe and the "no colour in a
+		// file" test failed there while passing on every developer's machine.
+		// The profile is the last word, so it is where the answer belongs.
+		console.Profile.Capabilities.Ansi = colour;
+		console.Profile.Capabilities.ColorSystem = colour ? ColorSystem.TrueColor : ColorSystem.NoColors;
+
 		console.Write(widget);
 
 		return writer.ToString();

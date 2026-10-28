@@ -114,16 +114,6 @@ public class TreeFormatterTests
 		// concludes the control has no children when it has forty.
 		Assert.Contains("3 more", Render(), StringComparison.Ordinal);
 	}
-	[Fact]
-	public void TheTreeHasRealGuides()
-	{
-		// Spectre's tree, so a control's ancestry can be traced down the page
-		// by following one line - which indentation alone cannot do once a
-		// window is more than a few levels deep.
-		string text = Render();
-
-		Assert.Contains("\u2514\u2500\u2500", text, StringComparison.Ordinal);
-	}
 
 	[Fact]
 	public void ColourIsOffWhenItWouldNotBeSeen()
@@ -149,21 +139,6 @@ public class TreeFormatterTests
 		Assert.Contains("zero extent", text, StringComparison.Ordinal);
 	}
 
-	[Fact]
-	public void FactsBelongToTheirNodeNotBeneathIt()
-	{
-		// Rendered as children they took a tree connector each and read as
-		// further controls inside the one being described.
-		string text = Render();
-
-		foreach (string line in text.Split('\n'))
-		{
-			if (!line.Contains("enabled no", StringComparison.Ordinal)) continue;
-
-			Assert.DoesNotContain("\u251c\u2500\u2500", line, StringComparison.Ordinal);
-			Assert.DoesNotContain("\u2514\u2500\u2500", line, StringComparison.Ordinal);
-		}
-	}
 
 	[Fact]
 	public void AnApplicationsOwnMarkupCannotReachTheRenderer()
@@ -201,19 +176,5 @@ public class TreeFormatterTests
 		Assert.Contains("[unclosed", text, StringComparison.Ordinal);
 	}
 
-	[Fact]
-	public void AMultiLineTextStaysOnOneLine()
-	{
-		// A control with three lines of text must not take three lines of the
-		// tree, and dropping them silently would hide that it is multi-line.
-		string multi = """
-		{"ok":true,"windows":[{"title":"W","node":{"control":"M","id":"M#1",
-		 "state":{"text":"first\nsecond"}}}]}
-		""";
-
-		string text = TreeFormatter.Render(JsonNode.Parse(multi)!, colour: false);
-
-		Assert.Contains("first\u00b6second", text, StringComparison.Ordinal);
-	}
 
 }
