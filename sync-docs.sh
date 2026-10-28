@@ -17,24 +17,38 @@ NC='\033[0m'
 
 CHECK_ONLY=false
 FORCE=false
+SERVE=false
+PORT=8099
 
-for arg in "$@"; do
-    case $arg in
+while [ $# -gt 0 ]; do
+    case $1 in
         --check) CHECK_ONLY=true ;;
         --force) FORCE=true ;;
+        --serve) SERVE=true ;;
+        --port) PORT="$2"; shift ;;
+        --port=*) PORT="${1#*=}" ;;
         -h|--help)
-            echo "Usage: ./sync-docs.sh [--check] [--force]"
+            echo "Usage: ./sync-docs.sh [--check] [--force] [--serve [--port N]]"
             echo ""
             echo "  --check   Report what would change. Commits nothing. CI runs this."
             echo "              exit 0  everything current"
             echo "              exit 1  a screenshot is stale  (advisory)"
             echo "              exit 2  a link is broken       (blocking)"
             echo "  --force   Commit without asking."
+            echo "  --serve   Build, then serve the site until you stop it."
+            echo "  --port N  Which port to serve on. Default 8099."
             exit 0
             ;;
-        *) echo -e "${RED}Unknown option: $arg${NC}"; exit 1 ;;
+        *) echo -e "${RED}Unknown option: $1${NC}"; exit 1 ;;
     esac
+    shift
 done
+
+# Serving is for looking at the result, so it skips the commit step rather than
+# leaving a prompt waiting behind a server that never returns.
+if [ "$SERVE" = true ]; then
+    CHECK_ONLY=false
+fi
 
 cd "$(dirname "$0")"
 
@@ -235,7 +249,23 @@ if [ "$CHECK_ONLY" = true ]; then
     exit 0
 fi
 
-# ── 4. Commit ────────────────────────────────────────────────────────────
+# ── 4. Serve, or commit ──────────────────────────────────────────────────
+
+if [ "$SERVE" = true ]; then
+    # The API reference is copied from docs/docfx/_site, which is gitignored and
+    # so absent until DocFX has run at least once. Saying so beats letting
+    # someone wonder why every /api/ link is a 404.
+    if [ ! -d docs/docfx/_site ]; then
+        echo -e "  ${YELLOW}note:${NC} no API reference in this build."
+        echo -e "        Run ${BLUE}docfx docs/docfx/docfx.json${NC} once to include it."
+    fi
+
+    echo ""
+    echo -e "${GREEN}Serving${NC} http://localhost:${PORT}  ${YELLOW}(ctrl-c to stop)${NC}"
+    echo ""
+
+    exec python3 -m http.server "$PORT" -d _site --bind 127.0.0.1
+fi
 
 echo -e "${BLUE}[4/4]${NC} Changes..."
 
