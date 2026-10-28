@@ -358,12 +358,18 @@ internal static class Pages
 
 		if (!big)
 		{
-			sb.Append("<div class=\"shot\">");
+			// The whole card is the link. Every one of these has a section in
+			// the examples guide - taglines, what it shows, how to run it - and
+			// a card that showed a screenshot and then went nowhere left the
+			// reader to find that section by name.
+			string href = $"docs/EXAMPLES.html#{e.Anchor}";
+
+			sb.Append($"<a class=\"shot\" href=\"{href}\">");
 
 			if (e.Hero != null) sb.Append(Term(e.Hero, e.Name, e.Name));
 
 			sb.Append("<div><h3>").Append(Shell.Esc(e.Name)).Append("</h3>");
-			sb.Append("<p>").Append(Shell.Esc(e.Tagline)).Append("</p></div></div>");
+			sb.Append("<p>").Append(Shell.Esc(e.Tagline)).Append("</p></div></a>");
 
 			return sb.ToString();
 		}

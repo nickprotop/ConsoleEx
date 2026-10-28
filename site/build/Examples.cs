@@ -25,7 +25,8 @@ internal sealed record Example(
 	string? Project,
 	IReadOnlyList<string> Body,
 	IReadOnlyList<string> Shows,
-	IReadOnlyList<string> More);
+	IReadOnlyList<string> More,
+	string Anchor);
 
 /// <summary>
 /// Reads the showcase out of <c>docs/EXAMPLES.md</c>.
@@ -95,6 +96,12 @@ internal static partial class Examples
 	private static Example? Parse(string[] lines, int from, int to)
 	{
 		string name = lines[from][4..].Trim();
+
+		// The id Markdig will give this heading. Taken from the WHOLE heading,
+		// before the name is trimmed at its dash: "WebHost - a terminal UI in a
+		// browser" becomes a long id, and linking to the short name would point
+		// at a section that does not exist.
+		string anchor = Heading.Slug(name);
 
 		// A heading like "WebHost — a terminal UI in a browser" carries its own
 		// tagline; the name is the part before the dash.
@@ -200,7 +207,7 @@ internal static partial class Examples
 		if (tagline == null) return null;
 
 		return new Example(name, tagline, Site(hero), project, body, shows,
-			[.. more.Select(Site).OfType<string>()]);
+			[.. more.Select(Site).OfType<string>()], anchor);
 	}
 
 	/// <summary>An image path as the site serves it.</summary>
