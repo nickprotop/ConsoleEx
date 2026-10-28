@@ -836,3 +836,289 @@ section { position: relative; z-index: 1; }
 /* highlight.js paints its own background; the page's surface is the one that
    belongs with the rest of the prose, so that is the one that wins. */
 .prose pre code.hljs { background: transparent; padding: 0; }
+
+/* ── On this page ─────────────────────────────────────────────────────────
+   A third column, and only on pages that have enough headings to need one.
+   The sidebar says where you are in the documentation; this says where you
+   are in the page, which on a long reference is the question being asked. */
+
+/* A third column needs a wider page, not narrower prose. At the standard
+   1180px the sidebar, the list and two gaps leave the text about 650px -
+   well under the 820px measure .prose asks for, and the reason both columns
+   looked like they were squeezing the content. The page grows instead, so
+   the text keeps its measure and the list is added beside it. */
+.container.page:has(.doc-layout.has-toc) { max-width: 1420px; }
+
+.doc-layout.has-toc { grid-template-columns: 250px minmax(0, 820px) 200px; gap: 48px; }
+
+.doc-toc {
+    position: sticky;
+    top: 84px;
+    max-height: calc(100vh - 110px);
+    overflow-y: auto;
+    font-size: 0.82rem;
+    border-left: 1px solid var(--border-dim);
+    padding-left: 16px;
+}
+
+.doc-toc .toc-title {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-3);
+    margin-bottom: 10px;
+}
+
+.doc-toc nav { display: flex; flex-direction: column; gap: 2px; }
+
+.doc-toc a {
+    color: var(--text-2);
+    text-decoration: none;
+    padding: 3px 0;
+    line-height: 1.35;
+    border-left: 2px solid transparent;
+    padding-left: 10px;
+    margin-left: -12px;
+}
+
+.doc-toc a.lv3 { padding-left: 22px; font-size: 0.78rem; color: var(--text-3); }
+.doc-toc a:hover { color: var(--text-1); }
+
+/* The section being read. Set by the scrollspy, which is the only thing
+   here that needs script - the list itself is plain links and works without. */
+.doc-toc a.here { color: var(--accent); border-left-color: var(--accent); }
+
+/* ── Heading anchors ──────────────────────────────────────────────────────
+   Hidden until the heading is hovered, so a page of headings does not read
+   as a page of hashes, and always reachable by keyboard. */
+
+.prose h2, .prose h3 { position: relative; }
+
+.prose .anchor {
+    opacity: 0;
+    margin-left: 0.4em;
+    color: var(--text-3);
+    text-decoration: none;
+    font-weight: 400;
+    transition: opacity 0.12s ease, color 0.12s ease;
+}
+
+.prose h2:hover .anchor,
+.prose h3:hover .anchor,
+.prose .anchor:focus { opacity: 1; }
+.prose .anchor:hover { color: var(--accent); }
+
+/* A heading jumped to sits under the sticky header without this. */
+.prose h2, .prose h3 { scroll-margin-top: 90px; }
+
+/* ── Copy buttons ─────────────────────────────────────────────────────────
+   The site exists to get commands into a terminal, and selecting wrapped
+   monospace text by hand is where that goes wrong. */
+
+.prose pre, .hero-install { position: relative; }
+
+.prose pre .copy, .hero-install .copy {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    padding: 4px 9px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface-1);
+    color: var(--text-2);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.hero-install .copy { top: 50%; transform: translateY(-50%); }
+
+/* Shown on hover, and whenever it has focus, so it is reachable by keyboard
+   on a device that never hovers at all. */
+.prose pre:hover .copy,
+.hero-install:hover .copy,
+.prose pre .copy:focus,
+.hero-install .copy:focus { opacity: 1; }
+
+.prose pre .copy:hover, .hero-install .copy:hover {
+    color: var(--text-1);
+    border-color: var(--accent);
+}
+
+.prose pre .copy.ok, .hero-install .copy.ok { color: var(--green); border-color: var(--green); }
+
+/* The language, when the block declares one. Left of the button, and it
+   steps aside while the button is showing rather than being covered. */
+.prose pre .lang {
+    position: absolute;
+    top: 10px;
+    right: 62px;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    opacity: 0.75;
+    pointer-events: none;
+}
+
+/* A touch device never hovers, so the button would never appear. */
+@media (hover: none) {
+    .prose pre .copy, .hero-install .copy { opacity: 1; }
+}
+
+/* ── Callouts ─────────────────────────────────────────────────────────────
+   A blockquote whose first line names a kind. Breaks a wall of reference
+   text into the parts that are advice and the parts that are warnings. */
+
+.prose blockquote.note    { border-left-color: var(--accent); background: var(--accent-bg); }
+.prose blockquote.tip     { border-left-color: var(--green);  background: color-mix(in srgb, var(--green) 9%, transparent); }
+.prose blockquote.warning { border-left-color: var(--amber, #d98324); background: color-mix(in srgb, var(--amber, #d98324) 10%, transparent); }
+
+.prose blockquote .callout-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+}
+
+.prose blockquote.note    .callout-label { color: var(--accent); }
+.prose blockquote.tip     .callout-label { color: var(--green); }
+.prose blockquote.warning .callout-label { color: var(--amber, #d98324); }
+
+/* Below the width that fits three columns the list goes rather than the
+   text: the sidebar says where you are in the documentation, which is the
+   more useful of the two when only one fits. */
+@media (max-width: 1340px) {
+    .container.page:has(.doc-layout.has-toc) { max-width: var(--page); }
+    .doc-layout.has-toc { grid-template-columns: 250px minmax(0, 1fr); gap: 52px; }
+    .doc-toc { display: none; }
+}
+
+@media (max-width: 920px) {
+    .doc-layout.has-toc { grid-template-columns: 1fr; }
+}
+
+/* ── Terminal chrome ──────────────────────────────────────────────────────
+   A one-pixel specular line along the top edge, the way light catches the
+   lip of a physical screen. It is the difference between a rectangle with a
+   border and something that reads as a panel. */
+
+.term {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.07),
+        0 20px 55px -22px rgba(0, 0, 0, 0.6);
+}
+
+/* Screenshots inside documentation. Spaced like the block element they
+   replace, and never wider than the prose measure. */
+.term-shot { margin: 1.5em 0; }
+.term-shot img { display: block; width: 100%; border: none; border-radius: 0; }
+
+/* The frame already carries the border and the rounding, so an image inside
+   one must not draw its own - two borders a pixel apart look like a mistake. */
+.prose .term-shot img { border: none; border-radius: 0; }
+
+/* ── Inner-page wash ──────────────────────────────────────────────────────
+   The home page has a glow behind its hero; every other page had nothing, so
+   Controls, Showcase and the documentation read as flatter than the page
+   people arrive on. The same light, at about a third of the strength: enough
+   that the pages belong together, not so much that it competes with text. */
+
+.page-wash {
+    position: absolute;
+    top: -140px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 110vw;
+    height: 46vmax;
+    max-height: 560px;
+    pointer-events: none;
+    z-index: 0;
+    background:
+        radial-gradient(ellipse 46% 42% at 50% 0%, var(--accent-glow), transparent 72%),
+        radial-gradient(ellipse 64% 46% at 50% 8%, var(--accent-bg), transparent 76%);
+    opacity: 0.28;
+}
+
+/* Someone who asked for less movement gets less of everything that is only
+   there to be looked at. */
+@media (prefers-reduced-motion: reduce) {
+    .page-wash { opacity: 0.18; }
+}
+
+/* ── Example gallery ──────────────────────────────────────────────────────
+   The grid these cards were written for had gone missing - only the mobile
+   override at the bottom of the file still referred to it - so seventeen
+   entries stacked as plain blocks with nothing between them, and each
+   caption read as a heading for the screenshot below it rather than the one
+   above. */
+
+.gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    gap: 26px;
+    margin-top: 8px;
+}
+
+/* Each entry is one thing: frame, name, tagline, with the frame at the top
+   whatever the tagline's length, so a row of cards lines up. */
+.shot {
+    display: flex;
+    text-decoration: none;
+    color: inherit;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    transition: border-color .18s, transform .18s, box-shadow .18s;
+}
+
+.shot .term { margin: 0; }
+.shot img { display: block; width: 100%; }
+
+/* The caption grows, so the cards in a row end level even when one tagline
+   wraps to three lines and its neighbour to one. */
+.shot > div:last-child { flex: 1; }
+.shot h3 { margin: 0 0 4px; }
+.shot p { margin: 0; }
+
+.shot:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px -16px var(--accent-glow);
+}
+
+/* ── Pillars ──────────────────────────────────────────────────────────────
+   The cards on the home page answer the same kind of question as .card and
+   were the only ones that did not respond to a pointer at all. Same lift,
+   same accent edge, so the page behaves consistently rather than having one
+   block that looks interactive and one that does not. */
+
+.pillar {
+    transition: border-color .18s, transform .18s, box-shadow .18s;
+}
+
+.pillar:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px -16px var(--accent-glow);
+}
+
+/* A pointer anywhere on the card underlines the link, so the whole block
+   reads as one target even though only the link navigates. */
+.pillar:hover a { text-decoration: underline; }
+
+/* Movement is the part someone asking for less of it means. The edge and
+   the shadow stay, because they carry the same information without moving. */
+@media (prefers-reduced-motion: reduce) {
+    .shot, .pillar, .card { transition: border-color .18s, box-shadow .18s; }
+    .shot:hover, .pillar:hover, a.card:hover { transform: none; }
+}

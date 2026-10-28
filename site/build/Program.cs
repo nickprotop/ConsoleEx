@@ -134,15 +134,27 @@ void RenderDoc(string rel, string title)
 
 	html = Links.Rewrite(html, rel, depth);
 
+	html = Callouts.Apply(html);
+
+	html = Shots.Frame(html);
+
 	// Each table gets a scroll container of its own, so one genuinely wide
 	// table can scroll without every table being laid out as a block.
 	html = html.Replace("<table>", "<div class=\"table-scroll\"><table>", StringComparison.Ordinal)
 		.Replace("</table>", "</table></div>", StringComparison.Ordinal);
 
+	// Built before the anchors go in, so the heading text in the list is the
+	// heading's words rather than its words plus a hash.
+	string toc = Toc.Render(html);
+
+	html = Toc.Anchor(html);
+
 	string body =
-		"<div class=\"container page\"><div class=\"doc-layout\">"
+		"<div class=\"container page\"><div class=\"doc-layout"
+		+ (toc.Length > 0 ? " has-toc" : "") + "\">"
 		+ Pages.Sidebar(rel, depth, root)
 		+ "<article class=\"prose\">" + html + "</article>"
+		+ toc
 		+ "</div></div>";
 
 	Write(outRel, Shell.Render(title, Summary(md, title), body, "docs", depth));

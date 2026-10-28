@@ -60,7 +60,18 @@ internal static class Shell
 		// Code blocks. Markdig already tags them "language-csharp" and friends;
 		// this is what colours them. Only the languages this documentation
 		// actually uses, so the page does not fetch a megabyte of grammars.
-		sb.AppendLine("<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/"
+		// Both themes, each behind a media query, so the one that applies is the
+		// one that matches. A single dark stylesheet put light-grey syntax
+		// colours on the light theme's near-white code background, which left
+		// commands legible only where they happened not to be highlighted.
+		//
+		// The media attribute picks by system preference; the data-theme toggle
+		// can disagree with it, so the script below follows the toggle too.
+		sb.AppendLine("<link rel=\"stylesheet\" id=\"hljs-light\" media=\"(prefers-color-scheme: light)\" "
+			+ "href=\"https://cdnjs.cloudflare.com/ajax/libs/"
+			+ "highlight.js/11.9.0/styles/github.min.css\">");
+		sb.AppendLine("<link rel=\"stylesheet\" id=\"hljs-dark\" media=\"(prefers-color-scheme: dark)\" "
+			+ "href=\"https://cdnjs.cloudflare.com/ajax/libs/"
 			+ "highlight.js/11.9.0/styles/github-dark.min.css\">");
 		sb.AppendLine("<script src=\"https://cdnjs.cloudflare.com/ajax/libs/"
 			+ "highlight.js/11.9.0/highlight.min.js\"></script>");
@@ -76,6 +87,12 @@ internal static class Shell
 
 		Header(sb, up, active);
 
+		// The ambient wash, on every page that does not already have the home
+		// page's stronger one. Emitted here rather than in each page so a page
+		// added later gets it without remembering to.
+		if (!body.Contains("hero-wash", StringComparison.Ordinal))
+			sb.AppendLine("<div class=\"page-wash\"></div>");
+
 		sb.AppendLine(body);
 
 		Footer(sb, up);
@@ -83,6 +100,98 @@ internal static class Shell
 		// The toggle writes the choice down; the inline script above reads it.
 		sb.AppendLine("<script>");
 		sb.AppendLine("(function(){");
+
+		// The two highlight.js stylesheets are chosen by media query, which
+		// follows the SYSTEM preference. The toggle can disagree with it, so the
+		// media attribute is rewritten to match whichever theme is actually on -
+		// otherwise someone on a dark desktop who picks the light theme reads
+		// pale syntax colours on a near-white background.
+		sb.AppendLine("  function syntax(theme){");
+		sb.AppendLine("    var l=document.getElementById('hljs-light');");
+		sb.AppendLine("    var d=document.getElementById('hljs-dark');");
+		sb.AppendLine("    if(!l||!d)return;");
+		sb.AppendLine("    if(theme){l.media=theme==='light'?'all':'not all';");
+		sb.AppendLine("              d.media=theme==='dark'?'all':'not all';}");
+		sb.AppendLine("    else{l.media='(prefers-color-scheme: light)';");
+		sb.AppendLine("         d.media='(prefers-color-scheme: dark)';}");
+		sb.AppendLine("  }");
+		sb.AppendLine("  try{syntax(document.documentElement.getAttribute('data-theme'));}catch(e){}");
+
+		// Scrollspy for the "on this page" list. The list is plain links and
+		// works without this; what it adds is knowing WHERE you are, which on a
+		// reference page several screens long is the thing a map is for.
+		sb.AppendLine("  (function(){");
+		sb.AppendLine("    var toc=document.querySelector('.doc-toc');if(!toc)return;");
+		sb.AppendLine("    var links={},ids=[];");
+		sb.AppendLine("    toc.querySelectorAll('a[href^=\"#\"]').forEach(function(a){");
+		sb.AppendLine("      var id=decodeURIComponent(a.getAttribute('href').slice(1));");
+		sb.AppendLine("      if(document.getElementById(id)){links[id]=a;ids.push(id);}");
+		sb.AppendLine("    });");
+		sb.AppendLine("    if(!ids.length)return;");
+		sb.AppendLine("    var here=null;");
+		sb.AppendLine("    function mark(id){");
+		sb.AppendLine("      if(id===here)return;");
+		sb.AppendLine("      if(here&&links[here])links[here].classList.remove('here');");
+		sb.AppendLine("      here=id;");
+		sb.AppendLine("      if(links[id]){links[id].classList.add('here');");
+		sb.AppendLine("        var r=links[id].getBoundingClientRect(),b=toc.getBoundingClientRect();");
+		sb.AppendLine("        if(r.top<b.top||r.bottom>b.bottom)links[id].scrollIntoView({block:'nearest'});}");
+		sb.AppendLine("    }");
+
+		// Chosen by position rather than by which heading the observer fired
+		// for: several can cross the line in one scroll, and the last to fire
+		// is not the one at the top of the screen.
+		sb.AppendLine("    function current(){");
+		sb.AppendLine("      var best=ids[0],top=120;");
+		sb.AppendLine("      for(var i=0;i<ids.length;i++){");
+		sb.AppendLine("        var el=document.getElementById(ids[i]);if(!el)continue;");
+		sb.AppendLine("        if(el.getBoundingClientRect().top<=top)best=ids[i];else break;");
+		sb.AppendLine("      }");
+		sb.AppendLine("      return best;");
+		sb.AppendLine("    }");
+
+		// Read on a frame rather than on every scroll event, so a fast scroll
+		// does not queue a layout read per pixel.
+		sb.AppendLine("    var queued=false;");
+		sb.AppendLine("    function tick(){queued=false;mark(current());}");
+		sb.AppendLine("    window.addEventListener('scroll',function(){");
+		sb.AppendLine("      if(queued)return;queued=true;requestAnimationFrame(tick);");
+		sb.AppendLine("    },{passive:true});");
+		sb.AppendLine("    mark(current());");
+		sb.AppendLine("  })();");
+
+		// Copy buttons. The point of this site is getting a command into
+		// someone's terminal, and selecting monospace text that wraps is the
+		// step where that goes wrong. Added here rather than in the generator
+		// so every code block gets one, including the ones in rendered
+		// markdown that the generator never sees individually.
+		sb.AppendLine("  function copyable(el,text,label){");
+		sb.AppendLine("    if(el.querySelector('.copy'))return;");
+		sb.AppendLine("    var btn=document.createElement('button');");
+		sb.AppendLine("    btn.className='copy';btn.type='button';");
+		sb.AppendLine("    btn.setAttribute('aria-label','Copy to clipboard');");
+		sb.AppendLine("    btn.textContent='Copy';");
+		sb.AppendLine("    btn.addEventListener('click',function(){");
+		sb.AppendLine("      navigator.clipboard.writeText(text()).then(function(){");
+		sb.AppendLine("        btn.textContent='Copied';btn.classList.add('ok');");
+		sb.AppendLine("        setTimeout(function(){btn.textContent='Copy';btn.classList.remove('ok');},1400);");
+		sb.AppendLine("      }).catch(function(){btn.textContent='Press Ctrl+C';");
+		sb.AppendLine("        setTimeout(function(){btn.textContent='Copy';},1800);});");
+		sb.AppendLine("    });");
+		sb.AppendLine("    el.appendChild(btn);");
+		sb.AppendLine("    if(label){var t=document.createElement('span');");
+		sb.AppendLine("      t.className='lang';t.textContent=label;el.appendChild(t);}");
+		sb.AppendLine("  }");
+		sb.AppendLine("  document.querySelectorAll('.prose pre').forEach(function(pre){");
+		sb.AppendLine("    var code=pre.querySelector('code');if(!code)return;");
+		sb.AppendLine("    var m=(code.className||'').match(/language-([a-z0-9]+)/i);");
+		sb.AppendLine("    copyable(pre,function(){return code.innerText;},m?m[1]:'');");
+		sb.AppendLine("  });");
+		sb.AppendLine("  document.querySelectorAll('.hero-install').forEach(function(p){");
+		sb.AppendLine("    var code=p.querySelector('code');if(!code)return;");
+		sb.AppendLine("    copyable(p,function(){return code.innerText;},'');");
+		sb.AppendLine("  });");
+
 		sb.AppendLine("  var b=document.getElementById('themeToggle');");
 		sb.AppendLine("  if(!b)return;");
 		sb.AppendLine("  b.addEventListener('click',function(){");
@@ -91,6 +200,7 @@ internal static class Shell
 		sb.AppendLine("    if(!cur)cur=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';");
 		sb.AppendLine("    var next=cur==='dark'?'light':'dark';");
 		sb.AppendLine("    r.setAttribute('data-theme',next);");
+		sb.AppendLine("    syntax(next);");
 		sb.AppendLine("    try{localStorage.setItem('scui-theme',next);}catch(e){}");
 		sb.AppendLine("  });");
 		sb.AppendLine("})();");
