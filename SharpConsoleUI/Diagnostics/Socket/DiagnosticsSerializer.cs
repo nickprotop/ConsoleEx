@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json.Nodes;
 using SharpConsoleUI.Controls;
@@ -919,6 +920,146 @@ internal static class DiagnosticsSerializer
 	#region Metrics
 
 	/// <summary>The frame metrics the renderer already records.</summary>
+	/// <summary>
+	/// The rate the screen actually changes at, against the rate that was configured.
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// Distinct from <c>metrics</c>, which reports the last frame. A rate needs a
+	/// window: one frame interval cannot tell a steady sixty from a mean of sixty
+	/// with a stutter in it, and the stutter is the thing worth finding.
+	/// </para>
+	/// <para>
+	/// Flat scalars, grouped by prefix rather than nested. A caller piping this to
+	/// <c>jq</c> wants <c>.achievedFps</c>, not <c>.window.rate.achieved.fps</c>,
+	/// and the client's grouped renderer composes the headings from the field
+	/// names it is given - so one shape serves both readers.
+	/// </para>
+	/// </remarks>
+	internal static JsonObject Performance(ConsoleWindowSystem system)
+	{
+		var perf = system.Performance;
+		var stats = perf.Frames.Stats();
+
+		// Order matters: the client renders a group in the order the fields arrive,
+		// so the number someone is looking for goes first within each group.
+		var body = new JsonObject();
+
+		if (stats != null) body["achievedFps"] = Round(stats.Fps);
+
+		// Configured, and what it works out to. Both, because the interval is
+		// derived and a rate that does not divide 1000 exactly does not get the
+		// interval it looks like it asked for.
+		body["targetFps"] = perf.TargetFPS;
+		body["minFrameMs"] = Round(perf.MinFrameTime);
+		body["frameRateLimiting"] = perf.IsFrameRateLimitingEnabled;
+
+		if (stats == null)
+		{
+			// Not an error: a freshly started application has rendered nothing yet,
+			// and saying so beats a row of zeroes that look like a stalled loop.
+			body["frames"] = 0;
+			body["note"] = "nothing rendered yet";
+			return body;
+		}
+
+		body["frames"] = stats.Frames;
+		body["totalFrames"] = stats.TotalFrames;
+		body["windowMs"] = Round(stats.SpanMs);
+
+		body["minMs"] = Round(stats.MinMs);
+		body["meanMs"] = Round(stats.MeanMs);
+		body["p95Ms"] = Round(stats.P95Ms);
+		body["maxMs"] = Round(stats.MaxMs);
+
+		// Where the time went and what went on the wire. Both come from the
+		// renderer's own metrics, which it records only while diagnostics are on - so
+		// omitted rather than reported as zero, because a stage cost of zero reads as
+		// "this stage is free" when it means "nobody measured it".
+		if (stats.Measured)
+		{
+			// Per frame, not per window. A total of 22ms is meaningless without
+			// knowing it covered three hundred frames, and the per-frame figure is
+			// the one that compares against the frame interval above it.
+			body["layoutMs"] = Round(stats.LayoutMs / stats.Frames, 3);
+			body["ansiMs"] = Round(stats.AnsiMs / stats.Frames, 3);
+			body["outputMs"] = Round(stats.OutputMs / stats.Frames, 3);
+			body["compareMs"] = Round(stats.CompareMs / stats.Frames, 3);
+
+			// And the share of the frame those four stages account for, which is
+			// what says whether rendering is the thing holding the rate down.
+			double busy = stats.LayoutMs + stats.AnsiMs + stats.OutputMs + stats.CompareMs;
+			body["busyPercent"] = Round(100.0 * busy / stats.SpanMs, 1);
+
+			body["bytesPerSecond"] = Round(stats.BytesPerSecond);
+			body["bytesWritten"] = stats.BytesWritten;
+			body["cellsRendered"] = stats.CellsRendered;
+			body["cellsMarked"] = stats.CellsMarked;
+			body["efficiency"] = stats.Efficiency is { } e ? Round(e, 3) : null;
+		}
+		else
+		{
+			body["costNote"] = "stage cost and byte counts need `set --diagnostics true`";
+		}
+
+		// What the loop is waiting on. A rate below the target is only interesting
+		// once you know whether the cap is holding it there or the work is.
+		body["bound"] = Bound(perf, stats);
+
+		// A frozen clock looks exactly like a dead render loop from the outside.
+		body["clocksFrozen"] = FrozenClocks(system);
+
+		// The tracker's own dirtyChars/dirtyWindows/windows are deliberately NOT
+		// reported. They are display values: the tracker holds a zero at its last
+		// non-zero reading so a status bar does not blink, which is right for a
+		// person reading it and wrong for a measurement. `cellsMarked` above is
+		// the same count, measured rather than smoothed, and summed over the
+		// window instead of taken at an instant.
+
+		return body;
+	}
+
+	/// <summary>Whether the cap is holding the rate down, or the work is.</summary>
+	/// <remarks>
+	/// Judged from the mean against the configured interval, with a tolerance: a
+	/// capped loop sits a hair above its interval, never exactly on it, because
+	/// the sleep rounds up and the loop has its own overhead.
+	/// </remarks>
+	private static string Bound(Performance.PerformanceTracker perf, Performance.FrameWindowStats stats)
+	{
+		if (!perf.IsFrameRateLimitingEnabled || perf.MinFrameTime <= 0)
+			return "uncapped";
+
+		// Within a fifth of the interval of the cap: the cap is what it is waiting for.
+		if (stats.MeanMs <= perf.MinFrameTime * 1.2)
+			return "cap";
+
+		return "work";
+	}
+
+	/// <summary>The names of any clocks that have been frozen, newest first.</summary>
+	private static JsonArray FrozenClocks(ConsoleWindowSystem system)
+	{
+		var frozen = new JsonArray();
+
+		foreach (string name in ConsoleWindowSystem.ClockNames)
+		{
+			// Cast rather than the generic Add, which needs dynamic code and makes
+			// the whole call chain AOT-unsafe. The convention everywhere else here.
+			if (system.ClockFor(name).Inner is Core.ManualTimeProvider)
+				frozen.Add((JsonNode?)JsonValue.Create(name));
+		}
+
+		return frozen;
+	}
+
+	/// <summary>A millisecond figure rounded to something a person can read.</summary>
+	/// <remarks>
+	/// Three decimals of a frame time is noise, and a raw double serialises as
+	/// 16.666666666666668, which is wider than the column and no more true.
+	/// </remarks>
+	private static double Round(double value, int digits = 2) => Math.Round(value, digits);
+
 	internal static JsonObject Metrics(ConsoleWindowSystem system)
 	{
 		var m = system.RenderingDiagnostics?.LastMetrics;

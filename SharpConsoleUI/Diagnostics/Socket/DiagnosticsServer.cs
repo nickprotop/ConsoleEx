@@ -227,6 +227,7 @@ internal sealed class DiagnosticsServer : IDisposable
 			"focus" => Ok(DiagnosticsSerializer.Focus(_system)),
 			"windows" => Ok(new JsonObject { ["windows"] = DiagnosticsSerializer.Windows(_system) }),
 			"metrics" => Ok(DiagnosticsSerializer.Metrics(_system)),
+			"performance" => Ok(Performance(req)),
 
 			// --- Tier 5: the log ------------------------------------------------------
 			"logs" => Ok(Logs(req)),
@@ -679,6 +680,29 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// Without a target it reports all three, which is what a reader wants first:
 	/// a clock that is frozen when you did not freeze it explains a great deal.
 	/// </remarks>
+	/// <summary>The achieved frame rate and what each frame cost.</summary>
+	/// <remarks>
+	/// Read off a ring the render loop fills, so it needs no flag and perturbs
+	/// nothing: answering is a walk of three hundred structs. <c>reset</c> empties
+	/// the window first, for measuring an action rather than whatever the
+	/// application happened to be doing before you attached.
+	/// </remarks>
+	private JsonObject Performance(JsonObject req)
+	{
+		if (req["reset"]?.GetValue<bool>() == true)
+		{
+			_system.Performance.Frames.Reset();
+
+			return new JsonObject
+			{
+				["reset"] = true,
+				["note"] = "window emptied; ask again once frames have rendered",
+			};
+		}
+
+		return DiagnosticsSerializer.Performance(_system);
+	}
+
 	private JsonObject Clock(JsonObject req)
 	{
 		string? target = Text(req, "target");
@@ -753,6 +777,7 @@ internal sealed class DiagnosticsServer : IDisposable
 		"snapshot", "image", "tree", "focus", "windows", "metrics", "set",
 		"logs", "key", "mouse", "size", "focusctl", "invoke",
 		"theme", "window", "frame", "settled", "clock",
+			"performance",
 			"invalidations",
 			"reachable",
 			"desktop",
