@@ -78,7 +78,7 @@ rather than assignment.
 | `Watchdog` | `WatchdogOptions?` | `null` | Main-loop watchdog settings. `null` uses `new WatchdogOptions()` |
 | `InstallSynchronizationContext` | `bool` | `false` | Install a UI `SynchronizationContext` for the duration of `Run()`. See the caveat below |
 | `PipedInput` | `PipedInputOptions?` | `null` | Piped-stdin capture settings. `null` uses `new PipedInputOptions()` |
-| `TimeProvider` | `TimeProvider?` | `null` | The clock the system reads. `null` uses the real one. Reaches the mouse multi-click window only; the watchdog, animations and control timers still read the machine clock |
+| `Time` | `TimeOptions?` | `null` | Which clock each part of the system runs on. `null` means the real clock everywhere. See [Clocks](#clocks) |
 
 #### Diagnostics and testing
 
@@ -257,6 +257,46 @@ Toggle panel visibility at runtime:
 windowSystem.PanelStateService.ShowTopPanel = false;
 windowSystem.PanelStateService.ShowBottomPanel = true;
 ```
+
+## Clocks
+
+A test that needs to tell one double click from two slow ones otherwise waits out
+the real multi-click window, once per assertion. `TimeOptions` lets an application
+supply the clock each part of the system runs on, so a test can move time instead:
+
+```csharp
+var clock = new FakeTimeProvider();   // Microsoft.Extensions.TimeProvider.Testing
+
+var system = new ConsoleWindowSystem(driver,
+    ConsoleWindowSystemOptions.Create() with
+    {
+        Time = new TimeOptions { All = clock }
+    });
+```
+
+| Property | Controls |
+|----------|----------|
+| `All` | every part that does not name its own |
+| `Mouse` | the multi-click window |
+| `ScheduleRepaint` | controls that repaint on a cadence: a panel clock, an FPS readout, an indeterminate progress bar |
+| `Animation` | the per-frame animation delta - every tween, and animated desktop backgrounds |
+
+Each resolves **named, then `All`, then `TimeProvider.System`**. Configuring nothing
+changes nothing: every part runs on the real clock.
+
+The named ones exist because the parts measure different things, and a test usually
+wants one of them still: freezing the mouse clock to step a double click apart
+should not also stop a progress bar.
+
+```csharp
+// The mouse stops; everything else keeps running.
+Time = new TimeOptions { Mouse = clock }
+```
+
+**Frame pacing is not here, deliberately.** Frame-rate limiting is a statement about
+the terminal - do not redraw more than `TargetFPS` times a second - so it stays on
+the machine clock. Pacing on a configurable clock means a frozen one renders nothing
+at all and an application cannot start.
 
 ## Environment Variables
 

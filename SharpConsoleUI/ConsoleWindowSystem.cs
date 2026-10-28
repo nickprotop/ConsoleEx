@@ -65,30 +65,25 @@ namespace SharpConsoleUI
 		private readonly ManualResetEventSlim _wakeSignal = new(false);
 
 		// Piped-stdin capture. Null when stdin is a TTY, capture is disabled, or stdin is unreadable.
+
+		/// <summary>The clock the multi-click window is measured on.</summary>
+		public TimeProvider MouseTime { get; }
+
 		/// <summary>
-		/// The clock this system reads.
+		/// The clock controls that repaint on a cadence are scheduled against - a
+		/// panel clock, an FPS readout, an indeterminate progress bar.
+		/// </summary>
+		public TimeProvider ScheduleRepaintTime { get; }
+
+		/// <summary>
+		/// The clock the per-frame animation delta is measured on: every tween, and
+		/// animated desktop backgrounds.
 		/// </summary>
 		/// <remarks>
-		/// <para>
-		/// <see cref="TimeProvider.System"/> unless an application supplied one through
-		/// <see cref="Configuration.ConsoleWindowSystemOptions.TimeProvider"/>. A test
-		/// passes a fake so it can move time rather than wait it out.
-		/// </para>
-		/// <para>
-		/// <b>It reaches one decision today:</b> the mouse multi-click window, where
-		/// telling a double click from two slow clicks otherwise costs a real delay per
-		/// assertion. The watchdog's thresholds, the animation clock and the control
-		/// timers still read the machine clock directly, so a fake here does not stop
-		/// them.
-		/// </para>
-		/// <para>
-		/// The name describes the clock, not its only consumer. Scoping it to the mouse
-		/// would make the next thing that moves onto it read oddly, and would invite a
-		/// second clock per subsystem - which is what removing
-		/// <c>NetConsoleDriver</c>'s own click timing was undoing.
-		/// </para>
+		/// Not the same as frame PACING, which stays on the machine clock -
+		/// see <see cref="Configuration.TimeOptions"/>.
 		/// </remarks>
-		public TimeProvider Time { get; }
+		public TimeProvider AnimationTime { get; }
 
 		/// <summary>
 		/// Whether this system captures piped standard input.
@@ -154,7 +149,7 @@ namespace SharpConsoleUI
 			var schedule = new RepaintSchedule
 			{
 				Interval = interval,
-				Due = Time.GetUtcNow().UtcDateTime + interval,
+				Due = ScheduleRepaintTime.GetUtcNow().UtcDateTime + interval,
 				Callback = callback,
 				Owner = this,
 			};
@@ -181,7 +176,7 @@ namespace SharpConsoleUI
 		public bool ServiceRepaintSchedules()
 		{
 			RepaintSchedule[] due;
-			DateTime now = Time.GetUtcNow().UtcDateTime;
+			DateTime now = ScheduleRepaintTime.GetUtcNow().UtcDateTime;
 
 			lock (_repaintLock)
 			{
@@ -336,7 +331,7 @@ namespace SharpConsoleUI
 		/// every tick and rendering does not: sharing one timestamp made a tick that
 		/// skipped rendering count its elapsed span twice.
 		/// </remarks>
-		private DateTime _lastAnimationTime = DateTime.UtcNow;
+		private DateTime _lastAnimationTime;   // seeded from AnimationTime in the constructor
 
 		// Performance metrics tracking - delegated to PerformanceTracker
 		private ConsoleWindowSystemOptions _options;
@@ -635,8 +630,18 @@ namespace SharpConsoleUI
 				?? (driver is Drivers.HeadlessConsoleDriver
 					? new Configuration.PipedInputOptions(Enabled: false)
 					: new Configuration.PipedInputOptions());
-			Time = (options ?? ConsoleWindowSystemOptions.Create()).TimeProvider
-				?? TimeProvider.System;
+			var timeOptions = (options ?? ConsoleWindowSystemOptions.Create()).Time
+				?? new Configuration.TimeOptions();
+
+			MouseTime = timeOptions.Resolve(timeOptions.Mouse);
+			ScheduleRepaintTime = timeOptions.Resolve(timeOptions.ScheduleRepaint);
+			AnimationTime = timeOptions.Resolve(timeOptions.Animation);
+
+			// Seeded from the CONFIGURED clock, not the field initialiser's
+			// DateTime.UtcNow: a fake clock usually starts at some fixed instant, and
+			// the first animation delta would otherwise be the gap between that and
+			// the real year - hugely negative, or hugely positive.
+			_lastAnimationTime = AnimationTime.GetUtcNow().UtcDateTime;
 			// Deliberately NOT gated on Windows. Whether piped input can reach the application is a
 			// property of the DRIVER, not the OS: NetConsoleDriver refuses redirected stdio on Windows
 			// and throws from its own constructor — which runs before this one, since the driver is
@@ -1541,8 +1546,20 @@ namespace SharpConsoleUI
 			// than running a timer of its own on a pool thread.
 			bool repaintDue = ServiceRepaintSchedules();
 
-			var now = DateTime.UtcNow;
-			var elapsed = (now - _lastRenderTime).TotalMilliseconds;
+			// TWO clocks here, deliberately.
+			//
+			// `machineNow` paces the FRAME. Frame-rate limiting is a statement about
+			// the terminal - do not redraw more than TargetFPS times a second - so it
+			// belongs to the machine. Pacing on a configured clock means a frozen one
+			// renders nothing at all, and an application cannot even start.
+			//
+			// `now` is what the application BELIEVES the time is, and feeds the
+			// animation delta. Reading the machine clock for that meant a
+			// TimeProvider an application supplied was ignored by every tween.
+			var machineNow = DateTime.UtcNow;
+			var elapsed = (machineNow - _lastRenderTime).TotalMilliseconds;
+
+			var now = AnimationTime.GetUtcNow().UtcDateTime;
 
 			// Track performance metrics on EVERY iteration (independent of rendering)
 			bool metricsNeedUpdate = false;
@@ -1602,7 +1619,7 @@ namespace SharpConsoleUI
 				{
 					_currentPhase = Core.MainLoopPhase.Render;
 					Render.UpdateDisplay();
-					_lastRenderTime = now;
+					_lastRenderTime = machineNow;
 					_idleTime = (int)Performance.MinFrameTime;
 				}
 				else
@@ -1618,7 +1635,7 @@ namespace SharpConsoleUI
 				{
 					_currentPhase = Core.MainLoopPhase.Render;
 					Render.UpdateDisplay();
-					_lastRenderTime = now;
+					_lastRenderTime = machineNow;
 					_idleTime = Configuration.SystemDefaults.FastLoopIdleMs; // Fast loop when dirty, no frame rate cap
 				}
 				else

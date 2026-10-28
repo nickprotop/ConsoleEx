@@ -38,7 +38,7 @@ public class RepaintScheduleTests
 
 	private static ConsoleWindowSystem Headless(TimeProvider clock) =>
 		new(new HeadlessConsoleDriver(40, 10),
-			ConsoleWindowSystemOptions.Create() with { TimeProvider = clock });
+			ConsoleWindowSystemOptions.Create() with { Time = new TimeOptions { All = clock } });
 
 	[Fact]
 	public void A_schedule_fires_once_its_interval_has_passed()
@@ -120,7 +120,7 @@ public class RepaintScheduleTests
 		var system = new ConsoleWindowSystem(driver,
 			ConsoleWindowSystemOptions.Create() with
 			{
-				TimeProvider = clock,
+				Time = new TimeOptions { All = clock },
 				TopPanelConfig = panel => panel.Left(SharpConsoleUI.Panel.Elements.Clock()),
 			});
 

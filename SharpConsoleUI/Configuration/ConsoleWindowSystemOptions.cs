@@ -166,17 +166,13 @@ public record ConsoleWindowSystemOptions(
 	// Appended last so existing positional arguments keep their meaning.
 	string? DiagnosticsSocket = null,
 
-	// The clock this system reads, for a test that needs to move time rather than
-	// wait it out. Null uses TimeProvider.System, the real clock, so production
-	// behaviour is unchanged.
-	//
-	// It reaches ONE decision today: the mouse multi-click window, where telling a
-	// double click from two slow clicks otherwise costs a real delay per assertion.
-	// The watchdog, animations and the control timers still read the machine clock
-	// directly. Named for what it is rather than its only consumer, because the
-	// point of having one clock is that the others move onto it.
+	// Which clock each part of the system runs on, for a test that needs to move
+	// time rather than wait it out. Null means every part uses the real clock, so
+	// production behaviour is unchanged. One container rather than a property per
+	// clock, so adding one later is a property on TimeOptions and not another
+	// positional argument here.
 	// Appended last so existing positional arguments keep their meaning.
-	TimeProvider? TimeProvider = null
+	TimeOptions? Time = null
 )
 {
 	private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";

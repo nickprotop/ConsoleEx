@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using SharpConsoleUI.Configuration;
 using System;
 using System.Drawing;
 using System.Linq;
@@ -76,10 +77,10 @@ public class GestureClockTests
 			SharpConsoleUI.Configuration.ConsoleWindowSystemOptions.Create() with
 			{
 				PipedInput = new SharpConsoleUI.Configuration.PipedInputOptions(Enabled: false),
-				TimeProvider = time
+				Time = new TimeOptions { All = time }
 			});
 
-		Assert.Same(time, system.Time);
+		Assert.Same(time, system.MouseTime);
 	}
 
 	[Fact]
@@ -109,7 +110,7 @@ public class GestureClockTests
 			SharpConsoleUI.Configuration.ConsoleWindowSystemOptions.Create() with
 			{
 				PipedInput = new SharpConsoleUI.Configuration.PipedInputOptions(Enabled: false),
-				TimeProvider = time
+				Time = new TimeOptions { All = time }
 			});
 
 		// The tape records the flags AFTER the recognizer has had them, which is

@@ -52,7 +52,7 @@ namespace SharpConsoleUI.Input
 			// move time instead of sleeping through the multi-click window. Without
 			// this the recognizer was constructed with `new()` and its injectable
 			// clock was unreachable from outside the assembly.
-			_gestures = new MouseGestureRecognizer(time: context.Time);
+			_gestures = new MouseGestureRecognizer(time: context.MouseTime);
 		}
 
 		/// <summary>

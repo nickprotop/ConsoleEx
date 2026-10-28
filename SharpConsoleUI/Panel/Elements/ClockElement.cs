@@ -74,14 +74,14 @@ public class ClockElement : PanelElement, IDisposable
 	/// <inheritdoc/>
 	public override int MeasureWidth()
 	{
-		return DateTime.Now.ToString(_format).Length;
+		return Now().ToString(_format).Length;
 	}
 
 	/// <inheritdoc/>
 	public override void Render(CharacterBuffer buffer, int x, int y, int width, Color fg, Color bg)
 	{
 		var effectiveFg = TextColor ?? fg;
-		var timeText = DateTime.Now.ToString(_format);
+		var timeText = Now().ToString(_format);
 		var cells = MarkupParser.Parse(timeText, effectiveFg, bg);
 		var clipRect = new LayoutRect(x, y, width, 1);
 		buffer.WriteCellsClipped(x, y, cells, clipRect);
@@ -105,6 +105,18 @@ public class ClockElement : PanelElement, IDisposable
 	{
 		RestartTimer();
 	}
+
+	/// <summary>The time this clock shows.</summary>
+	/// <remarks>
+	/// The clock this element is SCHEDULED on, so what it shows and when it
+	/// refreshes agree. Reading a different one would let the two drift. Without this the element was
+	/// half-migrated: its REFRESH went through the system, while what it DISPLAYED
+	/// came from <c>DateTime.Now</c> - so a frozen clock stopped it updating but any
+	/// other repaint made it jump to real time. Local, not UTC: this is a wall clock
+	/// for a person to read.
+	/// </remarks>
+	private DateTime Now() =>
+		WindowSystem is { } ws ? ws.ScheduleRepaintTime.GetLocalNow().DateTime : DateTime.Now;
 
 	private void StartTimer()
 	{
