@@ -35,6 +35,50 @@ internal sealed record Field(string Name, string? Takes, string What);
 /// </remarks>
 internal static class ProtocolVerbs
 {
+	/// <summary>
+	/// The fields this build knows a verb takes, or empty for one it does not know.
+	/// </summary>
+	/// <remarks>
+	/// For warning about a likely typo, never for refusing one: an application
+	/// newer than its debugger reads fields that are listed nowhere here, and a
+	/// gate would make those unreachable.
+	/// </remarks>
+	internal static IReadOnlyList<string> FieldsFor(string verb)
+	{
+		foreach (var (name, _, fields, _) in All)
+		{
+			if (string.Equals(name, verb, StringComparison.OrdinalIgnoreCase))
+				return fields.Select(f => f.Name).ToList();
+		}
+
+		return [];
+	}
+
+	/// <summary>
+	/// The known field a misspelling probably meant, if one is close enough.
+	/// </summary>
+	/// <remarks>
+	/// Prefix and containment only, not an edit distance: `--compose` for
+	/// `composed` is the case that actually happens - a flag remembered slightly
+	/// short - and a looser rule starts suggesting `window` for `widow` in a
+	/// protocol where the unknown field may simply be newer than this build.
+	/// </remarks>
+	internal static string? NearestField(string verb, string typed)
+	{
+		foreach (string known in FieldsFor(verb))
+		{
+			if (string.Equals(known, typed, StringComparison.OrdinalIgnoreCase)) return null;
+
+			if (known.StartsWith(typed, StringComparison.OrdinalIgnoreCase)
+				|| typed.StartsWith(known, StringComparison.OrdinalIgnoreCase))
+			{
+				return known;
+			}
+		}
+
+		return null;
+	}
+
 	/// <summary>Every verb, what it answers, its fields, and an example.</summary>
 	internal static readonly (string Verb, string What, Field[] Fields, string[] Example)[] All =
 	[
@@ -103,6 +147,12 @@ internal static class ProtocolVerbs
 		("windows", "The windows, their bounds and their state", [], ["windows"]),
 
 		("metrics", "Render metrics. Needs `set --diagnostics true`", [], ["metrics"]),
+
+		("performance", "The rate the screen actually changes at, over the last few hundred frames",
+			[
+				new("reset", null, "Empty the window first, to measure from here"),
+			],
+			["performance"]),
 
 		("measure", "Why a control is the size it is",
 			[new("control", "name|id|type", "Which control")],

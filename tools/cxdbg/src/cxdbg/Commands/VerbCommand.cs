@@ -28,7 +28,11 @@ namespace Cxdbg.Commands;
 internal static class VerbCommand
 {
 	/// <summary>Sends the verb on the command line.</summary>
-	internal static int Execute(CommandLine line) =>
-		CommandRunner.Run(line, client =>
+	internal static int Execute(CommandLine line)
+	{
+		Output.WarnAboutLikelyTypos(line.Verb, line.Fields.Keys);
+
+		return CommandRunner.Run(line, client =>
 			Output.Render(line.Verb, client.Send(line.Verb, line.Fields), line));
+	}
 }
