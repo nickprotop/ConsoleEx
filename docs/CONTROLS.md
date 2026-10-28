@@ -106,6 +106,7 @@ Controls for custom graphics and free-form drawing.
 | **[CanvasControl](controls/CanvasControl.md)** | Free-form drawing surface | 30+ cell primitives plus `PixelSurface` for pixel art at double vertical resolution, retained & immediate modes, thread-safe async painting |
 | **[ImageControl](controls/ImageControl.md)** | Image display with Kitty graphics | Full-resolution via Kitty/WezTerm/Ghostty with half-block fallback; PNG/JPEG/BMP/GIF/TGA; async loading |
 | **[VideoControl](controls/VideoControl.md)** | Terminal video player | Kitty graphics + half-block/ASCII/braille fallbacks (auto-detected); FFmpeg decode; overlay bar; dynamic resize; looping |
+| **[SurfaceViewControl](controls/SurfaceViewControl.md)** | Another app's screen, as cells | Shows a cell grid from a diagnostics socket, a remote host or a recording; scrolls a viewport over it; reports the surface cell a click landed on |
 
 ## Layout Controls
 

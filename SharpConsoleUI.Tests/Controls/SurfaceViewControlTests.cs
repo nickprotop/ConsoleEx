@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System.Collections.Generic;
+using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
@@ -182,6 +183,74 @@ namespace SharpConsoleUI.Tests.Controls
 
 			Assert.Equal(20, size.Width);
 			Assert.Equal(5, size.Height);
+		}
+
+		[Fact]
+		public void TheBuilderCarriesEverythingItWasGiven()
+		{
+			// The control was the one control with no builder, so an application
+			// composing with Controls.X() had to break the pattern for this one
+			// and set properties by hand.
+			int clicked = 0;
+
+			var view = SharpConsoleUI.Builders.Controls.SurfaceView(20, 6)
+				.WithSurface(Rows("hello", "world"))
+				.WithName("screen")
+				.OnCellClicked((_, _) => clicked++)
+				.Build();
+
+			Assert.Equal("screen", view.Name);
+			Assert.Equal(5, view.SurfaceWidth);
+			Assert.Equal(2, view.SurfaceHeight);
+
+			// The handler is attached, not merely stored: WantsMouseEvents is
+			// derived from CellClicked having a subscriber.
+			Assert.True(view.WantsMouseEvents);
+			Assert.Equal(0, clicked);
+		}
+
+		[Fact]
+		public void TheBuilderSetsTheSurfaceBeforeTheScrollOffset()
+		{
+			// ScrollX and ScrollY clamp against the surface's size, so an offset
+			// applied to an empty view would be clamped to zero and lost. Order
+			// is the whole correctness of the builder's Build.
+			var view = SharpConsoleUI.Builders.Controls.SurfaceView(10, 3)
+				.WithSurface(Rows("0123456789abcdef", "two", "three", "four", "five"))
+				.WithScroll(4, 2)
+				.Build();
+
+			Assert.Equal(4, view.ScrollX);
+			Assert.Equal(2, view.ScrollY);
+		}
+
+		[Fact]
+		public void AnExplicitSizeFromTheBuilderWinsOverTheSurface()
+		{
+			// The reason the explicit size exists: the surface is someone else's
+			// screen and resizes when they do, so a pane that must hold still
+			// says so and is obeyed.
+			var view = SharpConsoleUI.Builders.Controls.SurfaceView(12, 4)
+				.WithSurface(Rows("0123456789abcdefghij", "b", "c", "d", "e", "f", "g", "h"))
+				.Build();
+
+			var size = view.MeasureDOM(new LayoutConstraints(0, 100, 0, 100));
+
+			Assert.Equal(12, size.Width);
+			Assert.Equal(4, size.Height);
+		}
+
+		[Fact]
+		public void TheBuilderWithoutASizeStillMeasuresFromTheSurface()
+		{
+			var view = SharpConsoleUI.Builders.Controls.SurfaceView()
+				.WithSurface(Rows("abcde", "fghij"))
+				.Build();
+
+			var size = view.MeasureDOM(new LayoutConstraints(0, 100, 0, 100));
+
+			Assert.Equal(5, size.Width);
+			Assert.Equal(2, size.Height);
 		}
 	}
 }

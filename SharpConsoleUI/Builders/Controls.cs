@@ -375,6 +375,27 @@ public static class Controls
 	public static ImageControlBuilder Image() => new ImageControlBuilder();
 
 	/// <summary>
+	/// Creates a new surface view builder.
+	/// </summary>
+	/// <remarks>
+	/// A surface view shows a grid of cells that came from somewhere else -
+	/// another application over a diagnostics socket, a remote host, a recorded
+	/// session - rather than content of its own.
+	/// </remarks>
+	/// <param name="width">Optional view width in cells.</param>
+	/// <param name="height">Optional view height in cells.</param>
+	/// <returns>A new surface view builder.</returns>
+	public static SurfaceViewBuilder SurfaceView(int? width = null, int? height = null)
+	{
+		var builder = new SurfaceViewBuilder();
+
+		if (width.HasValue) builder.WithWidth(width.Value);
+		if (height.HasValue) builder.WithHeight(height.Value);
+
+		return builder;
+	}
+
+	/// <summary>
 	/// Creates a new canvas control builder.
 	/// </summary>
 	/// <param name="width">Optional canvas width in characters.</param>

@@ -389,6 +389,58 @@ try
 		return Fail($"CanvasControl: {ex.Message}");
 	}
 
+	// 5i. SurfaceViewControl — shows another app's screen as cells. The cell
+	//     grid comes from outside the library (a diagnostics socket, a remote
+	//     host), so the Cell/Color marshalling and the explicit-size measure
+	//     path are what a trim failure would take out.
+	try
+	{
+		var rows = new List<IReadOnlyList<Cell>>();
+		for (int y = 0; y < 10; y++)
+		{
+			var row = new List<Cell>();
+			for (int x = 0; x < 30; x++)
+				row.Add(new Cell((char)('a' + ((x + y) % 26)), Color.White, Color.Black));
+
+			rows.Add(row);
+		}
+
+		int clicked = 0;
+
+		var view = Controls.SurfaceView(20, 6)
+			.WithSurface(rows)
+			.OnCellClicked((_, _) => clicked++)
+			.Build();
+
+		controlCount++;
+
+		var viewWindow = new Window(system) { Width = 40, Height = 12, Top = 1, Left = 1, Title = "surface" };
+		viewWindow.AddControl(view);
+		system.AddWindow(viewWindow);
+		for (int i = 0; i < 3; i++) system.ProcessOnce();
+
+		// Scrolling reads the grid at an offset, which is the other way the
+		// cell data is walked.
+		view.ScrollX = 4;
+		view.ScrollY = 2;
+		for (int i = 0; i < 2; i++) system.ProcessOnce();
+
+		if (view.SurfaceWidth != 30 || view.SurfaceHeight != 10)
+			return Fail($"SurfaceViewControl: surface is {view.SurfaceWidth}x{view.SurfaceHeight}, expected 30x10");
+
+		// An explicit size wins over the surface's own, so the view holds still
+		// while the screen it shows changes size.
+		if (view.ActualWidth != 20)
+			return Fail($"SurfaceViewControl: explicit width ignored, got {view.ActualWidth}");
+
+		system.CloseWindow(viewWindow, force: true);
+		_ = clicked;
+	}
+	catch (Exception ex)
+	{
+		return Fail($"SurfaceViewControl: {ex.Message}");
+	}
+
 	// 6. SpectreRenderableControl — wraps a Spectre IRenderable. Exercises Spectre.Console under AOT.
 	try
 	{
