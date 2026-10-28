@@ -188,8 +188,16 @@ new WindowBuilder(ws)
         while (!ct.IsCancellationRequested)
         {
             await Task.Delay(1000, ct);
-            clock.Text = DateTime.Now.ToString("HH:mm:ss");
-            window.Invalidate(Invalidation.Relayout);
+
+            // Best Practice 6 below: the delegate is off the UI thread, so the
+            // property change goes through it. Invalidate is the one call that
+            // would be safe directly.
+            var now = DateTime.Now.ToString("HH:mm:ss");
+            windowSystem.EnqueueOnUIThread(() =>
+            {
+                clock.Text = now;
+                window.Invalidate(Invalidation.Relayout);
+            });
         }
     })
     .BuildAndShow();

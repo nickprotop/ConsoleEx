@@ -44,7 +44,8 @@ internal static class Pages
 		sb.AppendLine("<h1>A terminal GUI framework<br>for .NET.</h1>");
 		sb.AppendLine("<p class=\"hero-sub\">Overlapping windows with per-cell alpha blending, a "
 			+ "Measure&rarr;Arrange&rarr;Paint layout pipeline, and a compositor that only redraws "
-			+ "what changed. Each window runs its own async loop.</p>");
+			+ "what changed. One UI thread drives it, and any window can opt into a background "
+			+ "async loop of its own.</p>");
 		sb.AppendLine("<div class=\"hero-actions\">");
 		sb.AppendLine("<a class=\"btn btn-primary\" href=\"docs/tutorials/README.html\">Get started</a>");
 		sb.AppendLine("<a class=\"btn btn-ghost\" href=\"controls.html\">Browse controls</a>");
@@ -87,7 +88,8 @@ internal static class Pages
 			+ "run of text, and links that open. Not a separate rich-text widget.",
 			"docs/MARKUP_SYNTAX.html", "Markup syntax"));
 		sb.AppendLine(Pillar("An async loop per window",
-			"Each window runs its own async loop, with marshalling back to the UI thread handled "
+			"One UI thread runs the loop; a window can opt into a background async loop of its own, "
+			+ "with marshalling back to the UI thread handled "
 			+ "for you. A slow window does not freeze the others.",
 			"docs/THREADING_AND_ASYNC.html", "Threading"));
 		sb.AppendLine(Pillar("Runs headless",

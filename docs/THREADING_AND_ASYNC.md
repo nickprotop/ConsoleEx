@@ -122,7 +122,7 @@ var system = new ConsoleWindowSystem(RenderMode.Buffer, options: options);
 > work on the UI thread (`.Result` / `.Wait()` / `.GetAwaiter().GetResult()`), or the
 > captured continuation deadlocks against the loop (see above).
 
-> 📌 **This will become the default in a future major version.** It is opt-in today only
+> 📌 **This may become the default in a future major version.** It is opt-in today only
 > to avoid silently breaking existing apps that block on async from UI handlers on upgrade.
 > The constraint it enforces — never block the UI thread on async work — is simply good
 > async practice, and good practices are always good practices: writing `await`-based
@@ -172,7 +172,9 @@ else
 ## Golden rule: never block the UI thread
 
 Blocking the UI thread freezes rendering and input for every open window. Even a
-50 ms stall is perceptible; a second-long block will trigger the watchdog.
+50 ms stall is perceptible, and a block past the watchdog's thresholds — 2000 ms
+stale, 5000 ms unresponsive by default — raises
+[`Unresponsive`](#the-unresponsive-watchdog).
 
 | DON'T (freezes the UI) | DO instead |
 |---|---|
@@ -345,8 +347,8 @@ void UpdateCriticalState(int value)
 
 ## Contract vs notification events
 
-Not every event has an async twin. Events that return a value or carry back-
-behavior to the framework stay **synchronous** and have no `<Name>Async`
+Not every event has an async twin. Events that return a value, or carry
+behavior back to the framework, stay **synchronous** and have no `<Name>Async`
 counterpart, because the framework must read the result before it can proceed.
 
 | Synchronous-only event | What the framework reads back |

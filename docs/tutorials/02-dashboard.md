@@ -161,19 +161,25 @@ while (!ct.IsCancellationRequested)
 
     var elapsed = DateTime.Now - startTime;
     var cpu     = random.Next(10, 90);
+    var color   = cpu > 70 ? "red" : "green";
 
-    win.FindControl<MarkupControl>("uptime")?.SetContent(
-        new List<string> { $"Uptime: [green]{elapsed:hh\\:mm\\:ss}[/]" });
+    // This delegate runs on a thread-pool thread, and the render loop reads
+    // control state without a lock. Compute out here; touch the controls on
+    // the UI thread.
+    windowSystem.EnqueueOnUIThread(() =>
+    {
+        win.FindControl<MarkupControl>("uptime")?.SetContent(
+            new List<string> { $"Uptime: [green]{elapsed:hh\\:mm\\:ss}[/]" });
 
-    win.FindControl<MarkupControl>("time")?.SetContent(
-        new List<string> { $"Time:   [cyan]{DateTime.Now:HH:mm:ss}[/]" });
+        win.FindControl<MarkupControl>("time")?.SetContent(
+            new List<string> { $"Time:   [cyan]{DateTime.Now:HH:mm:ss}[/]" });
 
-    win.FindControl<LineGraphControl>("cpu")?.AddDataPoint("CPU", cpu);
+        win.FindControl<LineGraphControl>("cpu")?.AddDataPoint("CPU", cpu);
 
-    var color = cpu > 70 ? "red" : "green";
-    logPanel.AddControl(Controls.Markup()
-        .AddLine($"[dim]{DateTime.Now:HH:mm:ss}[/] CPU [{color}]{cpu}%[/]")
-        .Build());
+        logPanel.AddControl(Controls.Markup()
+            .AddLine($"[dim]{DateTime.Now:HH:mm:ss}[/] CPU [{color}]{cpu}%[/]")
+            .Build());
+    });
 }
 ```
 
@@ -234,19 +240,25 @@ var window = new WindowBuilder(windowSystem)
 
             var elapsed = DateTime.Now - startTime;
             var cpu     = random.Next(10, 90);
+            var color   = cpu > 70 ? "red" : "green";
 
-            win.FindControl<MarkupControl>("uptime")?.SetContent(
-                new List<string> { $"Uptime: [green]{elapsed:hh\\:mm\\:ss}[/]" });
+            // This delegate runs on a thread-pool thread, and the render loop reads
+            // control state without a lock. Compute out here; touch the controls on
+            // the UI thread.
+            windowSystem.EnqueueOnUIThread(() =>
+            {
+                win.FindControl<MarkupControl>("uptime")?.SetContent(
+                    new List<string> { $"Uptime: [green]{elapsed:hh\\:mm\\:ss}[/]" });
 
-            win.FindControl<MarkupControl>("time")?.SetContent(
-                new List<string> { $"Time:   [cyan]{DateTime.Now:HH:mm:ss}[/]" });
+                win.FindControl<MarkupControl>("time")?.SetContent(
+                    new List<string> { $"Time:   [cyan]{DateTime.Now:HH:mm:ss}[/]" });
 
-            win.FindControl<LineGraphControl>("cpu")?.AddDataPoint("CPU", cpu);
+                win.FindControl<LineGraphControl>("cpu")?.AddDataPoint("CPU", cpu);
 
-            var color = cpu > 70 ? "red" : "green";
-            logPanel.AddControl(Controls.Markup()
-                .AddLine($"[dim]{DateTime.Now:HH:mm:ss}[/] CPU [{color}]{cpu}%[/]")
-                .Build());
+                logPanel.AddControl(Controls.Markup()
+                    .AddLine($"[dim]{DateTime.Now:HH:mm:ss}[/] CPU [{color}]{cpu}%[/]")
+                    .Build());
+            });
         }
     })
     .Build();

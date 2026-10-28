@@ -1102,9 +1102,46 @@ public void Render() // Buffer mode
 - Frequent UI updates
 - Production applications
 
-#---
+---
 
-## 13. File Reference Table
+## 8. The loop and `WithAsyncWindowThread`
+
+Everything above runs on **one thread**: the UI thread, inside
+`ConsoleWindowSystem.Run()`. Input is polled, animations advance, dirty windows
+measure, arrange and paint, the compositor merges them, and the driver flushes
+the diff - in that order, synchronously, once per frame.
+
+`WithAsyncWindowThread` does not add a second render loop. It starts a delegate
+on a thread-pool task (`Task.Run`) that belongs to one window and lives as long
+as that window does. Nothing in the frame sequence above waits for it.
+
+That is what makes it useful and what makes it dangerous. A slow query in that
+delegate cannot stall the frame, because the frame never joins it. For the same
+reason the delegate must not touch control state directly: the render loop reads
+that state without a lock, so a background write is a data race.
+
+```csharp
+.WithAsyncWindowThread(async (win, ct) =>
+{
+    var rows = await QueryAsync(ct);          // off the UI thread - fine
+
+    windowSystem.EnqueueOnUIThread(() =>      // back on the UI thread
+    {
+        table.SetRows(rows);                  // control state: UI thread only
+    });
+})
+```
+
+`EnqueueOnUIThread` queues the action onto the loop; it runs at the top of the
+next frame, before measure. `Invalidate` is the one call that is safe to make
+directly from the delegate, because it folds into the window's pending-work
+accumulator atomically rather than touching layout.
+
+See [Threading & async](THREADING_AND_ASYNC.md) for the full model.
+
+---
+
+## 9. File Reference Table
 
 ### Core Rendering Pipeline
 
@@ -1147,7 +1184,7 @@ public void Render() // Buffer mode
 
 ---
 
-## 14. Common Patterns & Examples
+## 10. Common Patterns & Examples
 
 ### Pattern 1: Invalidating Content
 
@@ -1364,7 +1401,7 @@ var tooltip = new Window(windowSystem)
 
 ---
 
-## 15. Debugging & Troubleshooting
+## 11. Debugging & Troubleshooting
 
 ### Rendering Issues
 

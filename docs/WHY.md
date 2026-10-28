@@ -5,9 +5,9 @@ output — a framework for applications that happen to run in a terminal.
 
 The difference shows up in the architecture. Every window owns a cell buffer.
 A compositor merges them with occlusion culling and per-cell alpha. A
-Measure→Arrange→Paint pipeline lays out a tree of controls. Each window runs
-its own async loop. If that sounds like a desktop UI framework, that is the
-point.
+Measure→Arrange→Paint pipeline lays out a tree of controls. One UI thread drives
+the loop, and any window can opt into a background loop of its own. If that
+sounds like a desktop UI framework, that is the point.
 
 ## It is a multi-window system. Full screen is one window.
 
@@ -134,7 +134,8 @@ images, a terminal emulator hosting another terminal application, video. The
 compositor is what makes these possible: a control that draws pixels is just a
 control that fills cells.
 
-**Applications that stay responsive.** Each window can run its own async loop,
+**Applications that stay responsive.** One UI thread runs the loop, and any window
+can opt into a background async loop of its own,
 with marshalling back to the UI thread handled for you. A
 panel waiting on a slow query does not freeze the panel next to it.
 
