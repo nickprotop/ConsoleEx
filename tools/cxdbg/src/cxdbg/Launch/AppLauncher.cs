@@ -39,6 +39,10 @@ internal static class AppLauncher
 	/// </summary>
 	/// <param name="app">The application to run.</param>
 	/// <param name="appArgs">Arguments for the application itself.</param>
+	/// <param name="socket">
+	/// Where to tell the application to listen. Chosen by the caller, because
+	/// it is printed - and sometimes asked about - before anything starts.
+	/// </param>
 	/// <param name="terminal">
 	/// An emulator to open it in, or null to run it as a child of cxdbg.
 	/// </param>
@@ -51,24 +55,35 @@ internal static class AppLauncher
 	internal static LaunchResult Launch(
 		string app,
 		IReadOnlyList<string> appArgs,
+		string socket,
 		string? terminal = null,
 		TimeSpan? timeout = null)
 	{
 		string resolved = Resolve(app);
-		string socket = NewSocketPath();
 
 		var psi = terminal == null
 			? Direct(resolved, appArgs)
-			: ViaTerminal(terminal, resolved, appArgs);
+			: ViaTerminal(terminal, resolved, appArgs, socket);
 
 		psi.Environment["SHARPCONSOLEUI_DIAGNOSTICS_SOCKET"] = socket;
 		psi.UseShellExecute = false;
+
+		// The application gets its own, empty stdin. Left inherited, an app
+		// running as a child of cxdbg reads the same stream the prompt does and
+		// eats what was typed at it - both then wait, and `run --attach` hangs
+		// on any piped input. Its stdout and stderr stay inherited on purpose:
+		// for a child that is where a crash becomes visible.
+		psi.RedirectStandardInput = true;
 
 		Process child;
 		try
 		{
 			child = Process.Start(psi)
 				?? throw CxdbgException.Usage($"could not start {resolved}");
+
+			// Closed at once, so the application sees end-of-input rather than
+			// an open pipe nothing will ever write to.
+			child.StandardInput.Close();
 		}
 		catch (Exception ex) when (ex is not CxdbgException)
 		{
@@ -99,10 +114,10 @@ internal static class AppLauncher
 
 	/// <summary>The application in its own terminal window.</summary>
 	private static ProcessStartInfo ViaTerminal(
-		string terminal, string app, IReadOnlyList<string> appArgs)
+		string terminal, string app, IReadOnlyList<string> appArgs, string socket)
 	{
 		var psi = new ProcessStartInfo(terminal);
-		foreach (string a in TerminalFinder.ArgsFor(terminal, app, appArgs))
+		foreach (string a in TerminalFinder.ArgsFor(terminal, app, appArgs, socket))
 			psi.ArgumentList.Add(a);
 
 		return psi;
@@ -154,7 +169,7 @@ internal static class AppLauncher
 	/// the path is known before the application exists, so nothing has to be
 	/// found afterwards.
 	/// </remarks>
-	private static string NewSocketPath()
+	internal static string NewSocketPath()
 	{
 		string? runtime = Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR");
 
@@ -167,7 +182,13 @@ internal static class AppLauncher
 	}
 
 	/// <summary>Finds the application, saying so when it is not there.</summary>
-	private static string Resolve(string app)
+	/// <remarks>
+	/// Public to the command, which checks before it asks anything: offering to
+	/// open a terminal for an application that does not exist wastes the
+	/// question, and handing back lines to paste for a missing binary is worse
+	/// than saying so.
+	/// </remarks>
+	internal static string Resolve(string app)
 	{
 		if (File.Exists(app)) return Path.GetFullPath(app);
 

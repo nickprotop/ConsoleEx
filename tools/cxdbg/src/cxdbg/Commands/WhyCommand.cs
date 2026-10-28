@@ -6,37 +6,11 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using System.ComponentModel;
 using System.Text.Json.Nodes;
 using Cxdbg.Format;
 using Cxdbg.Protocol;
-using Spectre.Console.Cli;
 
 namespace Cxdbg.Commands;
-
-/// <summary>Settings for the questions that have a cascade for an answer.</summary>
-public class WhySettings : SocketSettings
-{
-	[Description("What to explain: size, color, frame, input")]
-	[CommandArgument(0, "<WHAT>")]
-	public string What { get; set; } = "size";
-
-	[Description("The control id (for size) or role name (for color)")]
-	[CommandArgument(1, "[SUBJECT]")]
-	public string? Subject { get; set; }
-
-	[Description("Interaction state for a colour: Normal, Focused, Disabled")]
-	[CommandOption("--state <STATE>")]
-	public string? State { get; set; }
-
-	[Description("Resolve the colour as an outline rather than a fill")]
-	[CommandOption("--outline")]
-	public bool Outline { get; set; }
-
-	[Description("Print the raw reply instead of formatting it")]
-	[CommandOption("--json")]
-	public bool Json { get; set; }
-}
 
 /// <summary>
 /// Explains how something ended up the way it is.
@@ -46,55 +20,67 @@ public class WhySettings : SocketSettings
 /// an answer and it is usually a container several levels up; "why is this
 /// green" has one and it is usually a contrast adjustment.
 /// </remarks>
-public sealed class WhyCommand : Command<WhySettings>
+internal static class WhyCommand
 {
-	protected override int Execute(CommandContext context, WhySettings settings, CancellationToken ct)
-		=> CommandRunner.Run(settings, settings.Json, client =>
+	/// <summary>Runs <c>why &lt;what&gt; [subject]</c>.</summary>
+	internal static int Execute(CommandLine line)
+	{
+		if (line.Rest.Count == 0)
 		{
-			switch (settings.What.ToLowerInvariant())
-			{
-				case "size":
-				{
-					if (string.IsNullOrEmpty(settings.Subject))
-						throw new CxdbgException("why size needs a control id, from `show tree`");
+			throw CxdbgException.Usage(
+				"why needs a question: size, color, frame or input.");
+		}
 
-					var reply = client.Send("measure", new Dictionary<string, JsonNode?>
-					{
-						["control"] = settings.Subject,
-					});
-					return settings.Json ? CommandRunner.Raw(reply) : CascadeFormatter.RenderSize(reply);
-				}
+		string what = line.Rest[0].ToLowerInvariant();
+		string? subject = line.Rest.Count > 1 ? line.Rest[1] : null;
 
-				case "color":
-				case "colour":
-				{
-					var args = new Dictionary<string, JsonNode?>
-					{
-						["role"] = settings.Subject ?? "Primary",
-					};
-					if (settings.State != null) args["state"] = settings.State;
-					if (settings.Outline) args["outline"] = true;
+		return what switch
+		{
+			"size" => Size(line, subject),
+			"color" or "colour" => Color(line, subject),
+			"frame" => Ask(line, "invalidations", RenderFrames),
+			"input" => Ask(line, "events", RenderEvents),
+			_ => throw CxdbgException.Usage(
+				$"'{what}' is not something to explain. Try: size, color, frame, input"),
+		};
+	}
 
-					var reply = client.Send("color", args);
-					return settings.Json ? CommandRunner.Raw(reply) : CascadeFormatter.RenderColor(reply);
-				}
+	/// <summary>Which container decided a control's size.</summary>
+	private static int Size(CommandLine line, string? subject)
+	{
+		if (string.IsNullOrEmpty(subject))
+			throw CxdbgException.Usage("why size needs a control id, from `cxdbg show tree`");
 
-				case "frame":
-				{
-					var reply = client.Send("invalidations");
-					return settings.Json ? CommandRunner.Raw(reply) : RenderFrames(reply);
-				}
+		var fields = new Dictionary<string, JsonNode?>(line.Fields) { ["control"] = subject };
 
-				case "input":
-				{
-					var reply = client.Send("events");
-					return settings.Json ? CommandRunner.Raw(reply) : RenderEvents(reply);
-				}
+		return CommandRunner.Run(line, client =>
+		{
+			var reply = client.Send("measure", fields);
+			return line.Json ? Output.Json(reply) : CascadeFormatter.RenderSize(reply, Surface.Colour(line.NoColor));
+		});
+	}
 
-				default:
-					throw new CxdbgException(
-						$"'{settings.What}' is not something to explain. Try: size, color, frame, input");
-			}
+	/// <summary>How a role's colour was resolved.</summary>
+	private static int Color(CommandLine line, string? subject)
+	{
+		var fields = new Dictionary<string, JsonNode?>(line.Fields)
+		{
+			["role"] = subject ?? "Primary",
+		};
+
+		return CommandRunner.Run(line, client =>
+		{
+			var reply = client.Send("color", fields);
+			return line.Json ? Output.Json(reply) : CascadeFormatter.RenderColor(reply, Surface.Colour(line.NoColor));
+		});
+	}
+
+	/// <summary>Sends a verb and renders it with one of the two below.</summary>
+	private static int Ask(CommandLine line, string verb, Func<JsonNode, string> render) =>
+		CommandRunner.Run(line, client =>
+		{
+			var reply = client.Send(verb, line.Fields);
+			return line.Json ? Output.Json(reply) : render(reply);
 		});
 
 	/// <summary>Which control asked for the frames, and how often.</summary>
@@ -103,10 +89,10 @@ public sealed class WhyCommand : Command<WhySettings>
 		var windows = reply["windows"]?.AsArray();
 		if (windows == null || windows.Count == 0)
 		{
-			// Empty and "never recording" are different answers, and the second is
-			// likelier: invalidations are only kept when diagnostics are enabled.
-			return "Nothing recorded. Invalidations are only kept when the application "
-				+ "was started with EnableDiagnostics.\n";
+			// Empty and "never recording" are different answers, and the second
+			// is likelier: invalidations are only kept while diagnostics are on.
+			return "Nothing recorded. Invalidations are kept only while diagnostics "
+				+ "are on - turn them on with `cxdbg set --diagnostics true`.\n";
 		}
 
 		var sb = new System.Text.StringBuilder();
@@ -119,6 +105,7 @@ public sealed class WhyCommand : Command<WhySettings>
 					+ $"{c["repaints"]} repaints");
 			}
 		}
+
 		return sb.ToString();
 	}
 
@@ -127,16 +114,24 @@ public sealed class WhyCommand : Command<WhySettings>
 	{
 		if (reply["recording"]?.GetValue<bool>() == false)
 		{
-			return "Not recording. Start the application with EnableDiagnostics to tape "
-				+ "the input it receives.\n";
+			return "Not recording. Turn input recording on with "
+				+ "`cxdbg set --diagnostics true`.\n";
 		}
 
 		var events = reply["events"]?.AsArray();
 		if (events == null || events.Count == 0) return "No input since the last look.\n";
 
 		var sb = new System.Text.StringBuilder();
+
 		foreach (var e in events)
-			sb.AppendLine($"    ({e!["x"]},{e["y"]})   {e["flags"]}");
+		{
+			// A key carries no point, and "(,)" in front of every one of them
+			// is noise where the tape is mostly keys.
+			string where = e!["x"] != null ? $"({e["x"]},{e["y"]})" : "";
+
+			sb.Append("    ").Append(where.PadRight(10)).AppendLine(
+				e["flags"]?.GetValue<string>() ?? "");
+		}
 
 		return sb.ToString();
 	}

@@ -6,66 +6,34 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using System.ComponentModel;
-using System.Text.Json.Nodes;
-using Cxdbg.Format;
 using Cxdbg.Protocol;
-using Spectre.Console;
-using Spectre.Console.Cli;
 
 namespace Cxdbg.Commands;
 
-/// <summary>Settings for a command that reports something.</summary>
-public class ShowSettings : SocketSettings
+/// <summary>
+/// Asks the application a question and prints the answer, formatted.
+/// </summary>
+/// <remarks>
+/// <c>cxdbg tree</c> and <c>cxdbg show tree</c> now differ only in emphasis:
+/// both render through <see cref="Output"/>, and both take <c>--json</c> for
+/// the reply as the protocol sent it. <c>show</c> remains because it reads as
+/// a sentence, and because it is where someone looks first.
+/// </remarks>
+internal static class ShowCommand
 {
-	[Description("What to show: tree, snapshot, image, focus, reachable, windows, metrics, logs")]
-	[CommandArgument(0, "<WHAT>")]
-	public string What { get; set; } = "tree";
-
-	[Description("Print the raw reply instead of formatting it")]
-	[CommandOption("--json")]
-	public bool Json { get; set; }
-}
-
-/// <summary>Asks the application a question and prints the answer.</summary>
-public sealed class ShowCommand : Command<ShowSettings>
-{
-	/// <summary>What `show` will ask for, and the verb each maps to.</summary>
-	private static readonly Dictionary<string, string> Verbs = new(StringComparer.OrdinalIgnoreCase)
+	/// <summary>Runs <c>show &lt;verb&gt;</c>.</summary>
+	internal static int Execute(CommandLine line)
 	{
-		["tree"] = "tree",
-		["snapshot"] = "snapshot",
-		["image"] = "image",
-		["focus"] = "focus",
-		["reachable"] = "reachable",
-		["windows"] = "windows",
-		["metrics"] = "metrics",
-		["logs"] = "logs",
-	};
-
-	protected override int Execute(CommandContext context, ShowSettings settings, CancellationToken ct)
-		=> CommandRunner.Run(settings, settings.Json, client =>
+		if (line.Rest.Count == 0)
 		{
-			if (!Verbs.TryGetValue(settings.What, out string? verb))
-			{
-				throw new CxdbgException(
-					$"'{settings.What}' is not something to show. Try one of: "
-					+ string.Join(", ", Verbs.Keys));
-			}
+			throw CxdbgException.Usage(
+				"show needs something to show, e.g. `cxdbg show tree`. "
+				+ "Run `cxdbg help` for the list.");
+		}
 
-			var reply = client.Send(verb);
+		string verb = line.Rest[0];
 
-			// --json is the escape hatch for scripting: the reply as the protocol
-			// sent it, so a caller is never stuck behind our formatting choices.
-			if (settings.Json) return CommandRunner.Raw(reply);
-
-			return verb switch
-			{
-				"tree" => TreeFormatter.Render(reply),
-				"snapshot" => string.Join("\n",
-					(reply["lines"]?.AsArray() ?? new JsonArray())
-						.Select(l => l?.GetValue<string>() ?? "")),
-				_ => Plain.Render(reply),
-			};
-		});
+		return CommandRunner.Run(line, client =>
+			Output.Render(verb, client.Send(verb, line.Fields), line));
+	}
 }

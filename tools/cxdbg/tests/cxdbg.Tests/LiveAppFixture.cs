@@ -30,6 +30,12 @@ namespace Cxdbg.Tests;
 public sealed class LiveAppFixture : IDisposable
 {
 	private readonly Process _app;
+
+	/// <summary>The application's process id, as the socket reports it.</summary>
+	public int Pid => _app.Id;
+
+	/// <summary>Whether the application is still running.</summary>
+	public bool IsRunning => !_app.HasExited;
 	private bool _disposed;
 
 	/// <summary>Where this app's socket lives. Unique per fixture.</summary>

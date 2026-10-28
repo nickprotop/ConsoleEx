@@ -6,133 +6,112 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using System.ComponentModel;
 using System.Text.Json.Nodes;
 using Cxdbg.Protocol;
-using Spectre.Console.Cli;
 
 namespace Cxdbg.Commands;
 
 /// <summary>Settings for acting on the application.</summary>
-public class SendSettings : SocketSettings
+internal static class SendCommand
 {
-	[Description("What to send: key, click, doubleclick, rightclick, wheelup, wheeldown, move, resize")]
-	[CommandArgument(0, "<WHAT>")]
-	public string What { get; set; } = "key";
-
-	[Description("The key spec, or the X coordinate / width")]
-	[CommandArgument(1, "[A]")]
-	public string? A { get; set; }
-
-	[Description("The Y coordinate / height")]
-	[CommandArgument(2, "[B]")]
-	public string? B { get; set; }
-
-	[Description("Print the raw reply instead of a line saying what was sent")]
-	[CommandOption("--json")]
-	public bool Json { get; set; }
-}
-
-/// <summary>
-/// Acts on the running application, the way a user would.
-/// </summary>
-/// <remarks>
-/// <para>
-/// The readable face of <c>key</c>, <c>mouse</c> and <c>size</c>. Those three
-/// stay available as themselves - <c>cxdbg key --spec Tab</c> works - but
-/// nobody reaching for a debugger wants to remember that a click is the mouse
-/// verb with an action field, or that the key verb's field is called spec.
-/// </para>
-/// <para>
-/// Input is asynchronous: the application has the keystroke when this returns,
-/// it has not necessarily acted on it. A caller that wants to observe the
-/// effect polls <c>frame</c> until the counter moves, which is the same
-/// discipline the library's own docs prescribe.
-/// </para>
-/// </remarks>
-public sealed class SendCommand : Command<SendSettings>
-{
-	protected override int Execute(CommandContext context, SendSettings settings, CancellationToken ct)
-		=> CommandRunner.Run(settings, settings.Json, client =>
+	/// <summary>Runs <c>send &lt;what&gt; [a] [b]</c>.</summary>
+	internal static int Execute(CommandLine line)
+	{
+		if (line.Rest.Count == 0)
 		{
-			var (verb, args, said) = Translate(settings);
+			throw CxdbgException.Usage(
+				"send needs something to do: key, click, resize, and so on.");
+		}
+
+		return CommandRunner.Run(line, client =>
+		{
+			var (verb, args, said) = Translate(
+				line.Rest[0],
+				line.Rest.Count > 1 ? line.Rest[1] : null,
+				line.Rest.Count > 2 ? line.Rest[2] : null);
+
+			// The caller's own fields win, so `send click 20 10 --button right`
+			// reaches the protocol even though click spells it for you.
+			foreach (var (name, value) in line.Fields) args[name] = value;
+
 			var reply = client.Send(verb, args);
 
-			return settings.Json
-				? CommandRunner.Raw(reply) + "\n"
-				: said + "\n";
+			return line.Json ? Output.Json(reply) : said + "\n";
 		});
+	}
 
 	/// <summary>
 	/// Turns what the user typed into the protocol field names.
 	/// </summary>
-	/// <param name="settings">The parsed command line.</param>
+	/// <param name="whatWord">The action: key, click, resize, and so on.</param>
+	/// <param name="a">Its first argument, if it takes one.</param>
+	/// <param name="b">Its second.</param>
 	/// <returns>The verb, its fields, and the line to print when it worked.</returns>
 	/// <exception cref="CxdbgException">When an argument is missing or not a number.</exception>
 	private static (string Verb, Dictionary<string, JsonNode?> Args, string Said) Translate(
-		SendSettings settings)
+		string whatWord, string? a, string? b)
 	{
-		string what = settings.What.ToLowerInvariant();
+		string what = whatWord.ToLowerInvariant();
 
 		switch (what)
 		{
 			case "key":
 			case "keys":
-			{
-				string spec = settings.A
-					?? throw CxdbgException.Usage(
-						"send key needs a spec, in tmux notation: Tab, Down, C-c, S-Tab, or literal text");
+				{
+					string spec = a
+						?? throw CxdbgException.Usage(
+							"send key needs a spec, in tmux notation: Tab, Down, C-c, S-Tab, or literal text");
 
-				return ("key",
-					new Dictionary<string, JsonNode?> { ["spec"] = spec },
-					$"sent {spec}");
-			}
+					return ("key",
+						new Dictionary<string, JsonNode?> { ["spec"] = spec },
+						$"sent {spec}");
+				}
 
 			case "resize":
 			case "size":
-			{
-				int w = Number(settings.A, "width", "send resize 80 24");
-				int h = Number(settings.B, "height", "send resize 80 24");
+				{
+					int w = Number(a, "width", "send resize 80 24");
+					int h = Number(b, "height", "send resize 80 24");
 
-				return ("size",
-					new Dictionary<string, JsonNode?> { ["w"] = w, ["h"] = h },
-					$"resized to {w}x{h}");
-			}
+					return ("size",
+						new Dictionary<string, JsonNode?> { ["w"] = w, ["h"] = h },
+						$"resized to {w}x{h}");
+				}
 
 			default:
-			{
-				// Everything else is the mouse. The action names are the protocol's
-				// own, so a new one the server grows needs no change here.
-				string action = what switch
 				{
-					"click" => "click",
-					"doubleclick" => "doubleclick",
-					"rightclick" => "click",
-					"move" => "move",
-					"press" => "press",
-					"release" => "release",
-					"drag" => "drag",
-					"wheelup" => "wheelup",
-					"wheeldown" => "wheeldown",
-					_ => throw CxdbgException.Usage(
-						$"don't know how to send '{settings.What}'; try key, click, doubleclick, "
-						+ "rightclick, press, release, drag, move, wheelup, wheeldown, resize"),
-				};
-
-				string button = what == "rightclick" ? "right" : "left";
-				int x = Number(settings.A, "x", $"send {what} 20 10");
-				int y = Number(settings.B, "y", $"send {what} 20 10");
-
-				return ("mouse",
-					new Dictionary<string, JsonNode?>
+					// Everything else is the mouse. The action names are the protocol's
+					// own, so a new one the server grows needs no change here.
+					string action = what switch
 					{
-						["x"] = x,
-						["y"] = y,
-						["button"] = button,
-						["action"] = action,
-					},
-					$"sent {action} at {x},{y}");
-			}
+						"click" => "click",
+						"doubleclick" => "doubleclick",
+						"rightclick" => "click",
+						"move" => "move",
+						"press" => "press",
+						"release" => "release",
+						"drag" => "drag",
+						"wheelup" => "wheelup",
+						"wheeldown" => "wheeldown",
+						_ => throw CxdbgException.Usage(
+							$"don't know how to send '{whatWord}'; try key, click, doubleclick, "
+							+ "rightclick, press, release, drag, move, wheelup, wheeldown, resize"),
+					};
+
+					string button = what == "rightclick" ? "right" : "left";
+					int x = Number(a, "x", $"send {what} 20 10");
+					int y = Number(b, "y", $"send {what} 20 10");
+
+					return ("mouse",
+						new Dictionary<string, JsonNode?>
+						{
+							["x"] = x,
+							["y"] = y,
+							["button"] = button,
+							["action"] = action,
+						},
+						$"sent {action} at {x},{y}");
+				}
 		}
 	}
 

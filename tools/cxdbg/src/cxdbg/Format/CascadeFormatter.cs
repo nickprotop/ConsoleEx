@@ -23,7 +23,28 @@ namespace Cxdbg.Format;
 public static class CascadeFormatter
 {
 	/// <summary>Renders the reply from the <c>measure</c> verb.</summary>
-	public static string RenderSize(JsonNode reply)
+	/// <summary>What each kind of thing is coloured. Matches the tree's.</summary>
+	private const string Id = "cyan";
+	private const string Size = "white";
+	private const string LayoutName = "magenta";
+	private const string Quiet = "grey";
+	private const string Culprit = "yellow";
+
+	/// <summary>Why a control is the size it is.</summary>
+	/// <param name="reply">The reply.</param>
+	public static string RenderSize(JsonNode reply) => RenderSize(reply, colour: false);
+
+	/// <summary>Why a control is the size it is, coloured when it will be seen.</summary>
+	/// <param name="reply">The reply.</param>
+	/// <param name="colour">Whether colour reaches a person.</param>
+	public static string RenderSize(JsonNode reply, bool colour)
+	{
+		var text = BuildSize(reply);
+		return colour ? Surface.Render(new Spectre.Console.Markup(text), true) : Strip(text);
+	}
+
+	/// <summary>The cascade as markup, coloured or not.</summary>
+	private static string BuildSize(JsonNode reply)
 	{
 		var sb = new StringBuilder();
 		var controls = reply["controls"]?.AsArray();
@@ -38,22 +59,56 @@ public static class CascadeFormatter
 		{
 			if (c is not JsonObject o) continue;
 
-			sb.AppendLine($"{o["control"]}")
-			  .AppendLine($"  offered {Extent(o["offeredWidth"])}x{Extent(o["offeredHeight"])}"
-				+ $"   wants {o["desiredWidth"]}x{o["desiredHeight"]}")
+			// The id, because it is what another verb accepts; the name is
+			// only what it is called.
+			sb.AppendLine($"[{Id}]{Safe(o["id"] ?? o["control"])}[/]")
+			  .AppendLine($"  [{Quiet}]offered[/] [{Size}]{Extent(o["offeredWidth"])}x{Extent(o["offeredHeight"])}[/]"
+				+ $"   [{Quiet}]wants[/] [{Size}]{o["desiredWidth"]}x{o["desiredHeight"]}[/]")
 			  .AppendLine();
 
-			foreach (var link in o["cascade"]?.AsArray() ?? new JsonArray())
+			// Measured across the cascade rather than fixed: an id is a type
+			// name plus a hash, so a long control name overran a hardcoded 24
+			// and swallowed the gap that separated it from the layout column -
+			// "HorizontalGridControl#21093c0 GridLayout", read as one word.
+			var links = (o["cascade"]?.AsArray() ?? new JsonArray())
+				.OfType<JsonObject>().ToList();
+
+			int whoWidth = 0, layoutWidth = 0;
+
+			foreach (var l in links)
+			{
+				whoWidth = Math.Max(whoWidth, Safe(Who(l)).Length);
+				layoutWidth = Math.Max(layoutWidth, Safe(l["layout"]).Length);
+			}
+
+			foreach (var link in links)
 			{
 				if (link is not JsonObject l) continue;
 
-				string who = l["control"]?.GetValue<string>() ?? "(root)";
+				// Each link names the container that narrowed the offer, and
+				// that container is the next thing a reader asks about - so it
+				// is named by what `control` and `measure` will accept.
+				string who = Who(l);
 				var marks = new List<string>();
 				if (l["setsWidth"]?.GetValue<bool>() == true) marks.Add("sets width");
 				if (l["setsHeight"]?.GetValue<bool>() == true) marks.Add("sets height");
 
-				sb.Append($"    {who,-24} {l["layout"],-22} offers {l["offeredWidth"]}x{l["offeredHeight"]}");
-				if (marks.Count > 0) sb.Append($"   <== {string.Join(" and ", marks)}");
+				// The container that set the size is the ANSWER - the one line
+				// someone ran this verb to find - so it is the one thing that
+				// stands out.
+				bool decides = marks.Count > 0;
+
+				sb.Append("    ")
+				  .Append($"[{Id}]{Safe(who).PadRight(whoWidth)}[/]  ")
+				  .Append($"[{LayoutName}]{Safe(l["layout"]).PadRight(layoutWidth)}[/]  ")
+				  .Append($"[{Quiet}]offers[/] ")
+				  .Append(decides
+					  ? $"[{Culprit}]{l["offeredWidth"]}x{l["offeredHeight"]}[/]"
+					  : $"[{Size}]{l["offeredWidth"]}x{l["offeredHeight"]}[/]");
+
+				if (decides)
+					sb.Append($"   [{Culprit}]<== {string.Join(" and ", marks)}[/]");
+
 				sb.AppendLine();
 			}
 
@@ -79,21 +134,99 @@ public static class CascadeFormatter
 	}
 
 	/// <summary>Renders the reply from the <c>color</c> verb.</summary>
-	public static string RenderColor(JsonNode reply)
+	public static string RenderColor(JsonNode reply) => RenderColor(reply, colour: false);
+
+	/// <summary>How a role's colour was resolved, coloured when it will be seen.</summary>
+	/// <param name="reply">The reply.</param>
+	/// <param name="colour">Whether colour reaches a person.</param>
+	public static string RenderColor(JsonNode reply, bool colour)
+	{
+		string text = BuildColor(reply);
+		return colour ? Surface.Render(new Spectre.Console.Markup(text), true) : Strip(text);
+	}
+
+	/// <summary>The colour cascade as markup.</summary>
+	private static string BuildColor(JsonNode reply)
 	{
 		var sb = new StringBuilder();
 
-		sb.AppendLine($"{reply["role"]}/{reply["state"]}"
-			+ (reply["outline"]?.GetValue<bool>() == true ? " outline" : "")
-			+ $"   background {reply["background"]}   text {reply["text"]}")
+		sb.Append($"[{Id}]{Safe(reply["role"])}/{Safe(reply["state"])}[/]")
+		  .Append(reply["outline"]?.GetValue<bool>() == true ? $" [{Quiet}]outline[/]" : "")
+		  .Append($"   [{Quiet}]background[/] {Swatch(reply["background"])}")
+		  .AppendLine($"   [{Quiet}]text[/] {Swatch(reply["text"])}")
 		  .AppendLine();
 
 		foreach (var step in reply["cascade"]?.AsArray() ?? new JsonArray())
 		{
 			if (step is not JsonObject s) continue;
-			sb.AppendLine($"    {s["color"],-24} {s["source"]}");
+
+			// Padded by what is SEEN, not by the markup's length: the tags
+			// are invisible and counting them puts every column somewhere
+			// different.
+			string swatch = Swatch(s["color"]);
+			int visible = Strip(swatch).Length;
+
+			sb.Append("    ").Append(swatch)
+			  .Append(new string(' ', Math.Max(1, 32 - visible)))
+			  .AppendLine($"[{Quiet}]{Safe(s["source"])}[/]");
 		}
 
 		return sb.ToString();
 	}
+
+	/// <summary>
+	/// A colour shown IN that colour, beside its numbers.
+	/// </summary>
+	/// <remarks>
+	/// The one verb whose answer can be shown rather than described: a block
+	/// painted in the resolved colour says in one glance what
+	/// <c>Color(185, 114, 114)</c> takes a moment to picture. The numbers stay,
+	/// because a debugger that only showed the swatch could not be compared
+	/// against a theme file.
+	/// </remarks>
+	private static string Swatch(JsonNode? value)
+	{
+		string text = Safe(value);
+
+		var m = System.Text.RegularExpressions.Regex.Match(
+			text, @"(\d{1,3})\D+(\d{1,3})\D+(\d{1,3})");
+
+		if (!m.Success) return text;
+
+		string rgb = $"rgb({m.Groups[1].Value},{m.Groups[2].Value},{m.Groups[3].Value})";
+
+		// Two blocks, enough to judge a colour without taking a column.
+		return $"[{rgb}]\u2588\u2588[/] [{Quiet}]{text}[/]";
+	}
+
+	/// <summary>A value that cannot be read as markup.</summary>
+	/// <summary>What a cascade link is called, by something another verb accepts.</summary>
+	/// <remarks>
+	/// The id first: it is what `control` and `measure` take. The bare type is
+	/// a fallback for a link that has none, and "(root)" for the window itself.
+	/// </remarks>
+	private static string Who(JsonObject link) =>
+		link["id"]?.GetValue<string>()
+			?? link["control"]?.GetValue<string>()
+			?? "(root)";
+
+	private static string Safe(JsonNode? value) =>
+		(value is JsonValue v && v.TryGetValue(out string? t) ? t : value?.ToJsonString() ?? "")
+			.Replace("[", "[[").Replace("]", "]]");
+
+	/// <summary>The same text with the markup taken back out.</summary>
+	/// <remarks>
+	/// One template, rendered or stripped, so the coloured and the plain
+	/// output cannot say different things.
+	/// </remarks>
+	private static string Strip(string markup) =>
+		// Doubled brackets are protected first: "[[active]]" is the literal
+		// text "[active]", and a tag-stripping pass cannot tell it from a
+		// style without that. Restored last, so nothing it protects is seen
+		// by the stripper.
+		System.Text.RegularExpressions.Regex
+			.Replace(
+				markup.Replace("[[", "\u0001").Replace("]]", "\u0002"),
+				@"\[/\]|\[[a-z][^\]]*\]", "")
+			.Replace("\u0001", "[").Replace("\u0002", "]");
 }

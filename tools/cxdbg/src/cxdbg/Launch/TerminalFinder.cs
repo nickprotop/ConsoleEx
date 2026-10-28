@@ -30,6 +30,17 @@ namespace Cxdbg.Launch;
 internal static class TerminalFinder
 {
 	/// <summary>Emulators in order of preference.</summary>
+	/// <summary>The variable an application reads its socket path from.</summary>
+	private const string SocketVariable = "SHARPCONSOLEUI_DIAGNOSTICS_SOCKET";
+
+	/// <summary>The program that sets a variable for one command.</summary>
+	/// <remarks>
+	/// On Windows there is no env(1); cmd's own `set X=Y &amp;&amp; app` is the
+	/// equivalent, and wt.exe takes a command line rather than an argv.
+	/// </remarks>
+	private static string EnvProgram =>
+		RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "cmd.exe" : "/usr/bin/env";
+
 	private static readonly string[] LinuxOrder =
 	[
 		"ghostty", "kitty", "alacritty", "wezterm", "foot",
@@ -57,6 +68,32 @@ internal static class TerminalFinder
 		if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
 			return null;
 
+		// No display, no window. On Linux a terminal emulator needs an X or
+		// Wayland session, and the launchers below are on PATH whether or not
+		// one exists - xdg-terminal-exec is installed by the desktop package,
+		// not by the running session. Looking only at PATH would make `run` try
+		// to open a window over SSH and in CI, where the honest answer is the
+		// line to paste.
+		if (Environment.GetEnvironmentVariable("DISPLAY") is not { Length: > 0 }
+			&& Environment.GetEnvironmentVariable("WAYLAND_DISPLAY") is not { Length: > 0 })
+		{
+			return null;
+		}
+
+		// The desktop's own answer, before any list of ours. xdg-terminal-exec
+		// is the freedesktop Default Terminal Specification: it runs a command
+		// in the terminal the USER chose, which on a GNOME desktop is
+		// gnome-terminal and on someone else's is whatever they set. A
+		// hardcoded preference order cannot know that, and ours got it wrong -
+		// it opened kitty on a GNOME session because kitty sorted earlier.
+		if (OnPath("xdg-terminal-exec") != null) return "xdg-terminal-exec";
+
+		// Debian and Ubuntu answer the same question through alternatives.
+		if (File.Exists("/etc/alternatives/x-terminal-emulator"))
+			return "x-terminal-emulator";
+
+		// Only then a list, for a desktop that answers neither. First one
+		// found wins, and the order is schost's.
 		foreach (string name in LinuxOrder)
 		{
 			if (OnPath(name) != null) return name;
@@ -71,35 +108,75 @@ internal static class TerminalFinder
 	/// <param name="terminal">An emulator name from <see cref="Find"/>.</param>
 	/// <param name="app">The application to run.</param>
 	/// <param name="appArgs">Its own arguments.</param>
+	/// <param name="socket">
+	/// The socket path, carried in the command rather than the environment.
+	/// </param>
 	/// <returns>The emulator's arguments, app last.</returns>
-	internal static List<string> ArgsFor(string terminal, string app, IReadOnlyList<string> appArgs)
+	/// <remarks>
+	/// The socket travels as <c>env NAME=value app</c> because a terminal
+	/// emulator started by the DESKTOP does not necessarily inherit the
+	/// environment of whoever asked for it. On a GNOME session
+	/// xdg-terminal-exec is activated over D-Bus and the variable arrived
+	/// empty, so the application never asked for consent, never opened a
+	/// socket, and `run` waited out its timeout with nothing to say. Putting
+	/// it in the argv removes the assumption entirely.
+	/// </remarks>
+	internal static List<string> ArgsFor(
+		string terminal, string app, IReadOnlyList<string> appArgs, string socket)
 	{
 		var args = new List<string>();
 
 		// Every one of these ends with "and here is the command", but they
 		// disagree about the word for it. The app and its arguments go last
 		// either way, unquoted, because each is passed as its own argv entry.
+		//
+		// These forms are schost's, which has the same table (with geometry and
+		// font besides, which cxdbg does not want - schost owns how an app
+		// looks, cxdbg only needs a window to exist). A tenth emulator has to
+		// be added in both: tools/schost/src/schost/Terminal/LinuxTerminal.cs.
 		switch (Path.GetFileNameWithoutExtension(terminal).ToLowerInvariant())
 		{
-			case "gnome-terminal":
-			case "xfce4-terminal":
+			case "xdg-terminal-exec":
+				// The specification's own form: the command follows the
+				// separator, so an argument of the app's is never read as one
+				// of the launcher's.
 				args.Add("--");
 				break;
 
-			case "konsole":
-			case "xterm":
+			case "x-terminal-emulator":
+				// Debian's alternatives wrapper takes xterm's spelling, which
+				// every alternative is required to accept.
 				args.Add("-e");
 				break;
 
+			case "wezterm":
+				// Not a flag but a subcommand, and then the separator.
+				args.Add("start");
+				args.Add("--");
+				break;
+
+			case "gnome-terminal":
+			case "kitty":
+				args.Add("--");
+				break;
+
+			case "foot":
 			case "wt":
-				// Windows Terminal takes the command directly.
+				// These take the command directly, with no separator at all.
 				break;
 
 			default:
-				// ghostty, kitty, alacritty, wezterm, foot: "-e command args".
+				// ghostty, alacritty, konsole, xfce4-terminal, xterm, and
+				// anything unknown: "-e command args" is the common spelling.
 				args.Add("-e");
 				break;
 		}
+
+		// env, then the variable, then the application: the app and its own
+		// arguments stay the tail of the command, which is what an emulator
+		// that takes "everything after -e" expects to find.
+		args.Add(EnvProgram);
+		args.Add($"{SocketVariable}={socket}");
 
 		args.Add(app);
 		args.AddRange(appArgs);

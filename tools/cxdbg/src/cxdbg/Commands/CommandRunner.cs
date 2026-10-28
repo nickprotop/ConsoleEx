@@ -23,9 +23,9 @@ namespace Cxdbg.Commands;
 /// </remarks>
 internal static class CommandRunner
 {
-	internal static int Run(SocketSettings settings, bool json, Func<DiagnosticsClient, string> body)
+	internal static int Run(CommandLine line, Func<DiagnosticsClient, string> body)
 	{
-		string? path = settings.SocketPath ?? SoleCandidate();
+		string? path = line.Socket ?? SocketDiscovery.Sole();
 
 		if (string.IsNullOrEmpty(path))
 		{
@@ -58,21 +58,4 @@ internal static class CommandRunner
 	internal static string Raw(JsonNode reply) =>
 		reply.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 
-	/// <summary>The only socket on this machine, when there is exactly one.</summary>
-	/// <remarks>
-	/// Only when there is exactly one: guessing between several would attach to
-	/// an app the user did not mean, silently.
-	/// </remarks>
-	private static string? SoleCandidate()
-	{
-		var found = SocketDiscovery.FindCandidates();
-		return found.Count == 1 ? found[0] : null;
-	}
-}
-
-/// <summary>Renders a reply nobody has written a formatter for yet.</summary>
-internal static class Plain
-{
-	internal static string Render(JsonNode reply) =>
-		reply.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n";
 }

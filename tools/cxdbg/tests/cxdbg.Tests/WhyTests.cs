@@ -81,8 +81,8 @@ public class WhyTests
 	[Fact]
 	public void WhyFrameAndWhyInputReportTheirOwnAbsence()
 	{
-		// DemoApp does not set EnableDiagnostics, so both are empty - and must
-		// SAY so. "No input happened" and "nothing was recording" are different
+		// DemoApp starts with diagnostics off, so both are empty - and must SAY
+		// so. "No input happened" and "nothing was recording" are different
 		// answers, and the second is the likelier one.
 		using var app = new LiveAppFixture(demo: "Chart Showcase");
 
@@ -91,6 +91,6 @@ public class WhyTests
 
 		Assert.Equal(0, frameExit);
 		Assert.Equal(0, inputExit);
-		Assert.Contains("EnableDiagnostics", inputOut, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("recording", inputOut, StringComparison.OrdinalIgnoreCase);
 	}
 }

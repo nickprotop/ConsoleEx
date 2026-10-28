@@ -151,7 +151,9 @@ public class SendTests
 	{
 		using var app = new LiveAppFixture();
 
-		var (exit, _) = Cxdbg.Run("set", "logLevel", "Trace", "--socket", app.SocketPath);
+		// set takes named fields like every other verb: on the wire it is
+		// {"cmd":"set","logLevel":"Trace"}, so that is how it is typed.
+		var (exit, _) = Cxdbg.Run("set", "--logLevel", "Trace", "--socket", app.SocketPath);
 		Assert.Equal(0, exit);
 
 		using var client = Protocol.DiagnosticsClient.Connect(app.SocketPath);

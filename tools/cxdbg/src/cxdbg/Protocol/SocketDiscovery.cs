@@ -57,4 +57,15 @@ public static class SocketDiscovery
 			.Distinct()
 			.ToList();
 	}
+	/// <summary>The only socket on this machine, when there is exactly one.</summary>
+	/// <remarks>
+	/// Only when there is exactly one: guessing between several would attach to
+	/// an application the user did not mean, silently.
+	/// </remarks>
+	internal static string? Sole()
+	{
+		var found = FindCandidates();
+		return found.Count == 1 ? found[0] : null;
+	}
+
 }

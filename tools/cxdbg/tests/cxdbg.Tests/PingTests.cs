@@ -31,7 +31,7 @@ public class PingTests
 
 		// `ping` is a protocol verb like any other now, so it answers with the
 		// protocol's own reply rather than a sentence of cxdbg's.
-		Assert.Contains("pong", output, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("alive", output, StringComparison.OrdinalIgnoreCase);
 	}
 
 	[Fact]
@@ -70,6 +70,15 @@ internal static class Cxdbg
 			RedirectStandardError = true,
 			UseShellExecute = false,
 		};
+		// NEVER open a terminal window from a test. `run` opens one for an
+		// application that wants a screen, which during a suite means kitty
+		// windows appearing on whoever's desktop is running the tests - and a
+		// test that touches the desktop is a test nobody can run twice. The
+		// variable says "there is no emulator here", which is the truth in CI
+		// and the behaviour every test wants. A test that means to exercise
+		// the emulator path sets it back deliberately.
+		psi.Environment["CXDBG_TERMINAL"] = "none";
+
 		if (env != null)
 		{
 			foreach (var (name, value) in env) psi.Environment[name] = value;
@@ -100,7 +109,16 @@ internal static class Cxdbg
 	}
 
 	/// <summary>The built binary, for tests that drive it themselves.</summary>
+	/// <remarks>
+	/// A caller spawning cxdbg itself must set <c>CXDBG_TERMINAL=none</c> on
+	/// the child, as <see cref="RunWithEnv"/> does - see
+	/// <see cref="NoTerminals"/>, which is that line.
+	/// </remarks>
 	internal static string BinaryPathForTests() => BinaryPath();
+
+	/// <summary>Stops a spawned cxdbg from opening a terminal window.</summary>
+	internal static void NoTerminals(ProcessStartInfo psi) =>
+		psi.Environment["CXDBG_TERMINAL"] = "none";
 
 	private static string BinaryPath()
 	{
