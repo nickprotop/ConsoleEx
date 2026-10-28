@@ -1,5 +1,5 @@
 #!/usr/bin/env dotnet
-#:package SharpConsoleUI@2.10.1
+#:package SharpConsoleUI@2.10.2
 
 // confirm.cs — Yes/no confirmation dialog.
 //
