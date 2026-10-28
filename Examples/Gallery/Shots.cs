@@ -178,7 +178,7 @@ internal static class Shots
 			.WithValue(68)
 			.Build()),
 
-		new("FigleControl", 58, 7, () => Controls.Figlet("Sharp").Build()),
+		new("FigletControl", 58, 7, () => Controls.Figlet("Sharp").Build()),
 
 		// ── Text ─────────────────────────────────────────────────────────
 

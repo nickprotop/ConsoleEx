@@ -851,7 +851,7 @@ label.AppendLine("- second point");
 ## See Also
 
 - [Markup Syntax Reference](../MARKUP_SYNTAX.md) - Complete markup syntax guide with all colors and decorations
-- [FigleControl](FigleControl.md) - For large ASCII art text
+- [FigletControl](FigletControl.md) - For large ASCII art text
 - [SpectreRenderableControl](SpectreRenderableControl.md) - For Spectre.Console widgets
 - [LogViewerControl](LogViewerControl.md) - For log display with filtering
 

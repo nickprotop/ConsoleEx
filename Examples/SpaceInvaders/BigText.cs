@@ -62,7 +62,7 @@ internal static class BigText
 		if (Fonts.TryGetValue(name, out var font)) return font;
 
 		// The fonts ship as embedded resources of the SharpConsoleUI assembly.
-		var assembly = typeof(FigleControl).Assembly;
+		var assembly = typeof(FigletControl).Assembly;
 		using var stream = assembly.GetManifestResourceStream($"SharpConsoleUI.Resources.Fonts.{name}.flf")
 			?? throw new InvalidOperationException($"FIGlet font '{name}' is not embedded in SharpConsoleUI.");
 		font = FigletFont.Load(stream);

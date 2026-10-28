@@ -162,7 +162,7 @@ Notes on the real APIs used:
 - `Ctl.List()` returns a `ListBuilder`. `AddItem(string text, object? tag = null)` attaches your source item to the row via `ListItem.Tag`, and `OnItemActivated(EventHandler<ListItem>)` fires when a row is activated. These are the real builder methods — verify them in `SharpConsoleUI/Builders/ListBuilder.cs`.
 - The picker has **no OK button** — activating a list row *is* the affirmative action (exactly like pressing Enter in `PromptContent`'s field). The only button is Cancel, so the bottom band is a one-button toolbar like `ProgressContent`'s.
 
-> **Reactive-contract note:** this class is dialog plumbing — it configures controls through their builders and never defines a control property setter. If you ever *do* add a property to a control while wiring a dialog, it must go through `SetProperty(ref _field, value)`, never a hand-rolled `set { _field = value; ... }`. See [Patterns](../../patterns.md). It doesn't arise here, but keep it in mind.
+> **Reactive-contract note:** this class is dialog plumbing — it configures controls through their builders and never defines a control property setter. If you ever *do* add a property to a control while wiring a dialog, it must go through `SetProperty(ref _field, value)`, never a hand-rolled `set { _field = value; ... }`. See [Patterns](../../PATTERNS.md). It doesn't arise here, but keep it in mind.
 
 ## Step 3: The `Dialogs.PickAsync<T>` entry point
 

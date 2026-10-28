@@ -211,7 +211,7 @@ class FontSizesWindow : Window
 
 		// Small font
 		AddControl(new MarkupControl(new List<string> { "[yellow]Small Font:[/]" }));
-		var smallFigle = new FigleControl
+		var smallFigle = new FigletControl
 		{
 			Text = "SMALL",
 			Size = FigletSize.Small,
@@ -223,7 +223,7 @@ class FontSizesWindow : Window
 
 		// Default font
 		AddControl(new MarkupControl(new List<string> { "[yellow]Default Font (Standard):[/]" }));
-		var defaultFigle = new FigleControl
+		var defaultFigle = new FigletControl
 		{
 			Text = "DEFAULT",
 			Size = FigletSize.Default,
@@ -235,7 +235,7 @@ class FontSizesWindow : Window
 
 		// Large font
 		AddControl(new MarkupControl(new List<string> { "[yellow]Large Font:[/]" }));
-		var largeFigle = new FigleControl
+		var largeFigle = new FigletControl
 		{
 			Text = "LARGE",
 			Size = FigletSize.Large,
@@ -267,7 +267,7 @@ class AlignmentWindow : Window
 
 		// Left aligned
 		AddControl(new MarkupControl(new List<string> { "[yellow]Left Aligned:[/]" }));
-		var leftAlign = new FigleControl
+		var leftAlign = new FigletControl
 		{
 			Text = "LEFT",
 			Size = FigletSize.Small,
@@ -281,7 +281,7 @@ class AlignmentWindow : Window
 
 		// Center aligned
 		AddControl(new MarkupControl(new List<string> { "[yellow]Center Aligned:[/]" }));
-		var centerAlign = new FigleControl
+		var centerAlign = new FigletControl
 		{
 			Text = "CENTER",
 			Size = FigletSize.Small,
@@ -295,7 +295,7 @@ class AlignmentWindow : Window
 
 		// Right aligned
 		AddControl(new MarkupControl(new List<string> { "[yellow]Right Aligned:[/]" }));
-		var rightAlign = new FigleControl
+		var rightAlign = new FigletControl
 		{
 			Text = "RIGHT",
 			Size = FigletSize.Small,
@@ -330,7 +330,7 @@ class CustomFontsWindow : Window
 
 		// Cyberlarge font
 		AddControl(new MarkupControl(new List<string> { "[yellow]Cyberlarge Font:[/]" }));
-		var cyberFont = new FigleControl
+		var cyberFont = new FigletControl
 		{
 			Text = "CYBER",
 			FontPath = "Fonts/cyberlarge.flf",
@@ -342,7 +342,7 @@ class CustomFontsWindow : Window
 
 		// Isometric font
 		AddControl(new MarkupControl(new List<string> { "[yellow]Isometric1 Font:[/]" }));
-		var isoFont = new FigleControl
+		var isoFont = new FigletControl
 		{
 			Text = "ISO",
 			FontPath = "Fonts/isometric1.flf",
@@ -354,7 +354,7 @@ class CustomFontsWindow : Window
 
 		// Star Wars font
 		AddControl(new MarkupControl(new List<string> { "[yellow]Star Wars Font:[/]" }));
-		var swFont = new FigleControl
+		var swFont = new FigletControl
 		{
 			Text = "WARS",
 			FontPath = "Fonts/starwars.flf",
@@ -369,7 +369,7 @@ class CustomFontsWindow : Window
 // Window 4: Rainbow Animation
 class RainbowAnimationWindow : Window
 {
-	private FigleControl? _animatedText;
+	private FigletControl? _animatedText;
 	private System.Timers.Timer? _animationTimer;
 	private int _colorIndex = 0;
 	private float _waveOffset = 0;
@@ -400,7 +400,7 @@ class RainbowAnimationWindow : Window
 		}));
 
 		// Animated FIGlet text
-		_animatedText = new FigleControl
+		_animatedText = new FigletControl
 		{
 			Text = "RAINBOW",
 			Size = FigletSize.Default,

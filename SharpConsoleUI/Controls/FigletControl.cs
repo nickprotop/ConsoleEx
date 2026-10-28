@@ -35,7 +35,7 @@ namespace SharpConsoleUI.Controls
 	/// A control that renders text using FIGlet ASCII art fonts.
 	/// Uses a custom FIGlet parser for direct rendering without Spectre.Console dependency.
 	/// </summary>
-	public class FigleControl : BaseControl, IColorRoleableControl
+	public class FigletControl : BaseControl, IColorRoleableControl
 	{
 
 		#region ColorRole
@@ -81,9 +81,9 @@ namespace SharpConsoleUI.Controls
 		private string? _cachedFontPath;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="FigleControl"/> class.
+		/// Initializes a new instance of the <see cref="FigletControl"/> class.
 		/// </summary>
-		public FigleControl()
+		public FigletControl()
 		{
 		}
 
@@ -297,7 +297,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private static FigletFont LoadEmbeddedFont(string fileName)
 		{
-			var assembly = typeof(FigleControl).Assembly;
+			var assembly = typeof(FigletControl).Assembly;
 			var resourceName = $"SharpConsoleUI.Resources.Fonts.{fileName}";
 
 			try

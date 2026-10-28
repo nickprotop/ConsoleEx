@@ -177,7 +177,7 @@ void SetBidirectionalData(IEnumerable<double> primaryData, IEnumerable<double> s
 ## Events
 
 None. `SparklineControl` implements `INotifyPropertyChanged` via `BaseControl`, so its properties can
-be data-bound — see [Data Binding](../binding.md).
+be data-bound — see [Data Binding](../BINDING.md).
 
 ## Keyboard and mouse support
 

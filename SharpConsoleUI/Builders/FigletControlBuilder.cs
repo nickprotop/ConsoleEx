@@ -16,7 +16,7 @@ namespace SharpConsoleUI.Builders;
 /// <summary>
 /// Fluent builder for Figlet ASCII art controls
 /// </summary>
-public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
+public class FigletControlBuilder : IControlBuilder<FigletControl>
 {
 	private string? _text;
 	private Color? _color;
@@ -43,7 +43,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// <param name="role">The semantic role determining the banner colour.</param>
 	/// <param name="mode">Optional <see cref="Themes.ThemeMode"/> override for dark/light role-colour derivation. When null, the active theme's mode is used.</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithColorRole(Themes.ColorRole role, Themes.ThemeMode? mode = null)
+	public FigletControlBuilder WithColorRole(Themes.ColorRole role, Themes.ThemeMode? mode = null)
 	{
 		_role = role;
 		_colorRoleMode = mode;
@@ -55,7 +55,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// </summary>
 	/// <param name="outline">Whether to use outline style.</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder Outline(bool outline = true)
+	public FigletControlBuilder Outline(bool outline = true)
 	{
 		_outline = outline;
 		return this;
@@ -66,7 +66,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// </summary>
 	/// <param name="text">The text to render as ASCII art</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithText(string text)
+	public FigletControlBuilder WithText(string text)
 	{
 		_text = text;
 		return this;
@@ -77,7 +77,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// </summary>
 	/// <param name="color">The text color</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithColor(Color color)
+	public FigletControlBuilder WithColor(Color color)
 	{
 		_color = color;
 		return this;
@@ -88,7 +88,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// </summary>
 	/// <param name="alignment">The horizontal alignment</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithAlignment(HorizontalAlignment alignment)
+	public FigletControlBuilder WithAlignment(HorizontalAlignment alignment)
 	{
 		_horizontalAlignment = alignment;
 		return this;
@@ -98,7 +98,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// Centers the FIGlet text horizontally
 	/// </summary>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder Centered()
+	public FigletControlBuilder Centered()
 	{
 		_horizontalAlignment = HorizontalAlignment.Center;
 		return this;
@@ -109,7 +109,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// </summary>
 	/// <param name="alignment">The vertical alignment</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithVerticalAlignment(VerticalAlignment alignment)
+	public FigletControlBuilder WithVerticalAlignment(VerticalAlignment alignment)
 	{
 		_verticalAlignment = alignment;
 		return this;
@@ -123,7 +123,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// <param name="right">Right margin</param>
 	/// <param name="bottom">Bottom margin</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithMargin(int left, int top, int right, int bottom)
+	public FigletControlBuilder WithMargin(int left, int top, int right, int bottom)
 	{
 		_margin = new Margin(left, top, right, bottom);
 		return this;
@@ -134,7 +134,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// </summary>
 	/// <param name="margin">The margin value for all sides</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithMargin(int margin)
+	public FigletControlBuilder WithMargin(int margin)
 	{
 		_margin = new Margin(margin, margin, margin, margin);
 		return this;
@@ -145,7 +145,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// </summary>
 	/// <param name="width">The control width</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithWidth(int width)
+	public FigletControlBuilder WithWidth(int width)
 	{
 		_width = width;
 		return this;
@@ -156,7 +156,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// </summary>
 	/// <param name="visible">Whether the control is visible</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder Visible(bool visible = true)
+	public FigletControlBuilder Visible(bool visible = true)
 	{
 		_visible = visible;
 		return this;
@@ -167,7 +167,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// </summary>
 	/// <param name="name">The control name</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithName(string name)
+	public FigletControlBuilder WithName(string name)
 	{
 		_name = name;
 		return this;
@@ -178,7 +178,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// </summary>
 	/// <param name="tag">The tag object</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithTag(object tag)
+	public FigletControlBuilder WithTag(object tag)
 	{
 		_tag = tag;
 		return this;
@@ -189,7 +189,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// </summary>
 	/// <param name="position">The sticky position</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithStickyPosition(StickyPosition position)
+	public FigletControlBuilder WithStickyPosition(StickyPosition position)
 	{
 		_stickyPosition = position;
 		return this;
@@ -199,7 +199,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// Makes the control stick to the top of the window
 	/// </summary>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder StickyTop()
+	public FigletControlBuilder StickyTop()
 	{
 		_stickyPosition = StickyPosition.Top;
 		return this;
@@ -209,7 +209,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// Makes the control stick to the bottom of the window
 	/// </summary>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder StickyBottom()
+	public FigletControlBuilder StickyBottom()
 	{
 		_stickyPosition = StickyPosition.Bottom;
 		return this;
@@ -220,7 +220,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// </summary>
 	/// <param name="rightPadded">Whether to pad the right side</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithRightPadded(bool rightPadded)
+	public FigletControlBuilder WithRightPadded(bool rightPadded)
 	{
 		_rightPadded = rightPadded;
 		return this;
@@ -231,7 +231,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// </summary>
 	/// <param name="size">The font size</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithSize(FigletSize size)
+	public FigletControlBuilder WithSize(FigletSize size)
 	{
 		_size = size;
 		return this;
@@ -241,7 +241,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// Sets the FIGlet text to use small font
 	/// </summary>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder Small()
+	public FigletControlBuilder Small()
 	{
 		_size = FigletSize.Small;
 		return this;
@@ -251,7 +251,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// Sets the FIGlet text to use large font
 	/// </summary>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder Large()
+	public FigletControlBuilder Large()
 	{
 		_size = FigletSize.Large;
 		return this;
@@ -262,7 +262,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// </summary>
 	/// <param name="font">The custom font</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithCustomFont(FigletFont font)
+	public FigletControlBuilder WithCustomFont(FigletFont font)
 	{
 		_customFont = font;
 		return this;
@@ -273,7 +273,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// </summary>
 	/// <param name="fontPath">Path to the .flf font file</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithFontPath(string fontPath)
+	public FigletControlBuilder WithFontPath(string fontPath)
 	{
 		_fontPath = fontPath;
 		return this;
@@ -284,7 +284,7 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// </summary>
 	/// <param name="wrapMode">The wrap mode to apply.</param>
 	/// <returns>The builder for chaining</returns>
-	public FigleControlBuilder WithWrapMode(WrapMode wrapMode)
+	public FigletControlBuilder WithWrapMode(WrapMode wrapMode)
 	{
 		_wrapMode = wrapMode;
 		return this;
@@ -294,9 +294,9 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	/// Builds the Figlet control
 	/// </summary>
 	/// <returns>The configured Figlet control</returns>
-	public FigleControl Build()
+	public FigletControl Build()
 	{
-		var control = new FigleControl
+		var control = new FigletControl
 		{
 			Text = _text,
 			HorizontalAlignment = _horizontalAlignment,
@@ -325,9 +325,9 @@ public sealed class FigleControlBuilder : IControlBuilder<FigleControl>
 	}
 
 	/// <summary>
-	/// Implicit conversion to FigleControl
+	/// Implicit conversion to FigletControl
 	/// </summary>
 	/// <param name="builder">The builder</param>
 	/// <returns>The built Figlet control</returns>
-	public static implicit operator FigleControl(FigleControlBuilder builder) => builder.Build();
+	public static implicit operator FigletControl(FigletControlBuilder builder) => builder.Build();
 }

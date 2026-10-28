@@ -154,7 +154,7 @@ static PanelBuilder Create();                 // Same as Controls.Panel()
 
 `PanelControl` raises no panel-specific events of its own. It inherits the mouse events and
 container behavior of `CollapsiblePanel`, and implements `INotifyPropertyChanged` through
-`BaseControl` — see [Data Binding](../binding.md).
+`BaseControl` — see [Data Binding](../BINDING.md).
 
 ## Keyboard and mouse support
 

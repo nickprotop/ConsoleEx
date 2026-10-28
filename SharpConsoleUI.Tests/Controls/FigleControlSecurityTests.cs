@@ -13,7 +13,7 @@ using Xunit;
 namespace SharpConsoleUI.Tests.Controls
 {
 	/// <summary>
-	/// Security tests for FigleControl to verify path traversal protection.
+	/// Security tests for FigletControl to verify path traversal protection.
 	/// </summary>
 	public class FigleControlSecurityTests
 	{
@@ -30,7 +30,7 @@ namespace SharpConsoleUI.Tests.Controls
 		public void FontPath_PathTraversalAttempt_ThrowsArgumentException()
 		{
 			// Arrange
-			var control = new FigleControl
+			var control = new FigletControl
 			{
 				Container = _window,
 				Text = "Test",
@@ -51,7 +51,7 @@ namespace SharpConsoleUI.Tests.Controls
 		public void FontPath_AbsolutePathOutsideFonts_ThrowsArgumentException()
 		{
 			// Arrange
-			var control = new FigleControl
+			var control = new FigletControl
 			{
 				Container = _window,
 				Text = "Test",
@@ -71,7 +71,7 @@ namespace SharpConsoleUI.Tests.Controls
 		public void FontPath_ValidFontName_NoException()
 		{
 			// Arrange
-			var control = new FigleControl
+			var control = new FigletControl
 			{
 				Container = _window,
 				Text = "Test",
@@ -92,7 +92,7 @@ namespace SharpConsoleUI.Tests.Controls
 		public void FontPath_NullOrEmpty_NoException()
 		{
 			// Arrange
-			var control = new FigleControl
+			var control = new FigletControl
 			{
 				Container = _window,
 				Text = "Test",
@@ -116,7 +116,7 @@ namespace SharpConsoleUI.Tests.Controls
 		public void FontPath_VariousTraversalAttempts_ThrowsArgumentException(string maliciousPath)
 		{
 			// Arrange
-			var control = new FigleControl
+			var control = new FigletControl
 			{
 				Container = _window,
 				Text = "Test",

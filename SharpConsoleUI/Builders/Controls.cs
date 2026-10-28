@@ -216,9 +216,9 @@ public static class Controls
 	/// </summary>
 	/// <param name="text">The FIGlet ASCII art text</param>
 	/// <returns>A new Figlet control builder</returns>
-	public static FigleControlBuilder Figlet(string? text = null)
+	public static FigletControlBuilder Figlet(string? text = null)
 	{
-		var builder = new FigleControlBuilder();
+		var builder = new FigletControlBuilder();
 		if (text != null)
 			builder.WithText(text);
 		return builder;

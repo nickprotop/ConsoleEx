@@ -84,7 +84,7 @@ Controls for displaying formatted content.
 |---------|-------------|---------|
 | **[MarkupControl](controls/MarkupControl.md)** | Rich text with markup | Colors, bold, italic, **clickable & keyboard-navigable links** (`[link=url]`); renders Markdown (incl. links) via the [`[markdown]` tag](MARKUP_SYNTAX.md#markdown), optional border/header |
 | **[HtmlControl](controls/HtmlControl.md)** | HTML content renderer | Parse & render HTML with images, links, tables, keyboard navigation |
-| **[FigleControl](controls/FigleControl.md)** | ASCII art text (Figlet) | Large stylized text, multiple fonts |
+| **[FigletControl](controls/FigletControl.md)** | ASCII art text (Figlet) | Large stylized text, multiple fonts |
 | **[ChatTranscriptControl](controls/ChatTranscriptControl.md)** | Agent/chat transcript | Role-tagged messages (User/Assistant/System/Tool/Error), token-by-token streaming, collapsible tool messages, thinking indicator, gradient headers, alpha bubbles |
 | **[LogViewerControl](controls/LogViewerControl.md)** | Log message viewer | Auto-scroll, filtering, severity colors |
 | **[SpectreRenderableControl](controls/SpectreRenderableControl.md)** | Wrapper for Spectre widgets | Display Tables, Trees, Panels, Charts, etc. |

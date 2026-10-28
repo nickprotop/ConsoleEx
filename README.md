@@ -29,8 +29,8 @@ Build complete applications with overlapping windows, a real compositor, and rea
 component UI, rendered efficiently to any modern terminal. (The runtime ships as the
 `SharpConsoleUI` NuGet package.)
 
-One UI thread runs the loop; any window can opt into a background async loop of
-its own, with built-in marshalling back to the UI
+A single UI thread owns rendering and input; work that must not block it goes on
+a per-window background task, with built-in marshalling back to the UI
 thread. A DOM-based layout engine measures, arranges, and paints a tree of controls,
 including responsive panes and flexible grids with fixed, auto-sized, and proportional
 tracks, spans, and splitters. The compositor merges per-window buffers with per-cell
@@ -55,8 +55,8 @@ NativeAOT-ready.
 
 SharpConsoleUI gives each window its own `CharacterBuffer`. A compositor merges
 them — with occlusion culling, per-cell Porter-Duff alpha blending, and a
-Measure→Arrange→Paint layout pipeline. One UI thread drives it; a window can opt
-into a background async loop of its own.
+Measure→Arrange→Paint layout pipeline. A single UI thread owns rendering and
+input; work that must not block it goes on a per-window background task.
 Gradient backgrounds propagate through every transparent control automatically.
 
 Because rendering goes through a diff-based cell buffer rather than writing
@@ -99,7 +99,7 @@ self-contained native binary, verified on every push by a publish-and-run CI gat
 | Blur, fade and custom post-processing | `PreBufferPaint` / `PostBufferPaint` hooks | [Compositor Effects](docs/COMPOSITOR_EFFECTS.md) |
 | Hidden regions cost nothing to render | Occlusion culling in the compositor | [Rendering Pipeline](docs/RENDERING_PIPELINE.md) |
 | Dropdowns and overlays that escape their window | Portal system | [Portals](docs/PORTAL_SYSTEM.md) |
-| An opt-in background loop per window | A UI thread model with marshalling | [Threading & Async](docs/THREADING_AND_ASYNC.md) |
+| A per-window background task | A UI thread model with marshalling | [Threading & Async](docs/THREADING_AND_ASYNC.md) |
 | A real shell running inside a control | PTY-backed terminal emulator | [Examples](docs/EXAMPLES.md) |
 | Video playback, not still frames | Kitty graphics with cell-based fallback | [Video Playback](docs/VIDEO_PLAYBACK.md) |
 | Animated desktop backgrounds | Gradient and pattern compositing | [Desktop Background](docs/DESKTOP_BACKGROUND.md) |
@@ -166,7 +166,7 @@ windowSystem.AddWindow(window);
 windowSystem.Run();
 ```
 
-Each window can run its own async loop:
+Work that must not block the UI thread goes on a per-window background task:
 
 ```csharp
 var clockWindow = new WindowBuilder(windowSystem)

@@ -43,7 +43,7 @@ Give it a goal in plain language and it reads your files, works out what to chan
 - A transcript of collapsible tool-call rows (`expand…`) beside a sticky live status panel
 - Modal permission prompts with `Allow once` / `Always allow` / `Deny` buttons over the running transcript
 - Markdown rendered inline in the transcript — headings, bullet lists, tables and syntax-colored code
-- `FigleControl` banner, horizontal bar charts, and a status bar carrying live context percentage
+- `FigletControl` banner, horizontal bar charts, and a status bar carrying live context percentage
 
 | Permission prompt | Diff view | Usage stats |
 |-------------------|-----------|-------------|
@@ -516,7 +516,7 @@ dotnet run --project Examples/SpaceInvaders
 - `PreviewKeyPressed` key capture, `TargetFPS: 120` frame cap, `Frameless()` maximised window with a gradient background
 - FIGlet fonts (`FigletFont`/`FigletRenderer`) rasterised into gradient pixel lettering; `EasingFunctions.Bounce` fly-ins
 - `PostBufferPaint` compositor hook for the damage flash (`ColorBlendHelper.ApplyColorOverlay`) and an optional CRT scanline filter
-- HUD made of `FigleControl`, `ProgressBarControl`, `BarGraphControl` (animated, smooth gradients) and `SparklineControl`, all updated through `.Bind()` from an `INotifyPropertyChanged` model
+- HUD made of `FigletControl`, `ProgressBarControl`, `BarGraphControl` (animated, smooth gradients) and `SparklineControl`, all updated through `.Bind()` from an `INotifyPropertyChanged` model
 - `ToastService` announcements, `WindowAnimations.FadeIn`, clickable `StatusBarControl` items
 
 **Controls:** ←/→ or A/D to move, ↓/S to stop, Space/↑ to fire, mouse to steer and click to fire, P/Esc to pause, K for keyboard mode, C for CRT, R to restart, Q to quit
@@ -558,7 +558,7 @@ dotnet run --project Examples/SnakeGame -- --headless --socket --width 120 --hei
 - `PreviewKeyPressed` key capture, `TargetFPS: 120` frame cap, `Frameless()` maximised window with a gradient background
 - `EasingFunctions.Elastic` fruit pop-in; `ColorGradient` particle palettes
 - `PostBufferPaint` compositor hook for the eat flash (`ColorBlendHelper.ApplyColorOverlay`) and an optional CRT scanline filter
-- HUD made of `FigleControl`, `ProgressBarControl`, `BarGraphControl` (animated, smooth gradients) and `SparklineControl`, all updated through `.Bind()` from an `INotifyPropertyChanged` model
+- HUD made of `FigletControl`, `ProgressBarControl`, `BarGraphControl` (animated, smooth gradients) and `SparklineControl`, all updated through `.Bind()` from an `INotifyPropertyChanged` model
 - `ToastService` announcements, `WindowAnimations.FadeIn`, clickable `StatusBarControl` items
 - `--socket` / `--headless`: the diagnostics socket and `HeadlessConsoleDriver`, so the game can be played and screenshotted by another process with no terminal involved
 
@@ -703,7 +703,7 @@ ASCII art font showcase demonstrating Figlet font rendering.
 ![Figlet Showcase](images/examples/figletshowcase.png)
 
 ```bash
-dotnet run --project Examples/FigleShowcaseExample
+dotnet run --project Examples/FigletShowcaseExample
 ```
 
 **Key Features:**

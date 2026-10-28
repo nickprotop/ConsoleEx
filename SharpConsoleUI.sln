@@ -13,7 +13,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompositorEffectsExample", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DemoApp", "Examples\DemoApp\DemoApp.csproj", "{9272729B-62ED-417E-910B-1BA3B1366A9A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FigleShowcaseExample", "Examples\FigleShowcaseExample\FigleShowcaseExample.csproj", "{E0A747D8-D392-4172-8CDE-7E9C1215D162}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FigletShowcaseExample", "Examples\FigletShowcaseExample\FigletShowcaseExample.csproj", "{E0A747D8-D392-4172-8CDE-7E9C1215D162}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FrameRateDemo", "Examples\FrameRateDemo\FrameRateDemo.csproj", "{855FEBF2-1D36-45B3-B9CE-084A5D39A853}"
 EndProject

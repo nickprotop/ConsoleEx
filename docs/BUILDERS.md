@@ -571,7 +571,7 @@ Controls.MultilineEdit()
     .Build();
 ```
 
-### FigleControlBuilder
+### FigletControlBuilder
 
 ```csharp
 Controls.Figlet("BIG TEXT")
@@ -880,7 +880,7 @@ Controls.CollapsiblePanel(title?)   // CollapsiblePanelBuilder (click-to-expand 
 Controls.Menu()                     // MenuBuilder
 Controls.Toolbar()                  // ToolbarBuilder
 Controls.MultilineEdit()            // MultilineEditControlBuilder
-Controls.Figlet(text)               // FigleControlBuilder
+Controls.Figlet(text)               // FigletControlBuilder
 Controls.RuleBuilder()              // RuleBuilder
 Controls.Panel()                    // PanelBuilder (for bordered content panels)
 Controls.Panel(text)                // PanelControl directly with text content

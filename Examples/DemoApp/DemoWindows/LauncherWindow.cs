@@ -909,7 +909,7 @@ public static class LauncherWindow
 				"every second using async window thread.",
 				"",
 				"[dim]Controls used:[/]",
-				"  - FigleControl",
+				"  - FigletControl",
 			},
 			"Log Viewer" => new List<string>
 			{
@@ -1032,7 +1032,7 @@ public static class LauncherWindow
 				"FIGlet ASCII art banner with project info.",
 				"",
 				"[dim]Controls used:[/]",
-				"  - FigleControl, MarkupControl",
+				"  - FigletControl, MarkupControl",
 			},
 			"Canvas Animations" => new List<string>
 			{

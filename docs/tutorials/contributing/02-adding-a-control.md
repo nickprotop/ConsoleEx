@@ -35,7 +35,7 @@ Start every source file with the project's license banner (copy it verbatim from
 
 ## Step 2: The interfaces — implement only what the badge needs
 
-SharpConsoleUI follows Interface Segregation: a control implements one small interface per capability it actually has, rather than one broad interface with methods it must stub out. A badge is not focusable and does not react to the mouse, so it implements *neither* `IFocusableControl` *nor* `IMouseAwareControl`. It *does* have a themable surface (the pill color), so — exactly like `SpinnerControl` — it implements `IColorRoleableControl`. See [Patterns](../../patterns.md) for the full interface catalog and the ISP rationale.
+SharpConsoleUI follows Interface Segregation: a control implements one small interface per capability it actually has, rather than one broad interface with methods it must stub out. A badge is not focusable and does not react to the mouse, so it implements *neither* `IFocusableControl` *nor* `IMouseAwareControl`. It *does* have a themable surface (the pill color), so — exactly like `SpinnerControl` — it implements `IColorRoleableControl`. See [Patterns](../../PATTERNS.md) for the full interface catalog and the ISP rationale.
 
 The base class `BaseControl` already supplies the layout plumbing (`ActualWidth`, `Margin`, `Invalidate`, `SetProperty`). It leaves you three **abstract** members you *must* implement — `ContentWidth`, `MeasureDOM`, `PaintDOM` — plus `GetLogicalContentSize`, which is **virtual**: it has a default that returns `ContentWidth` by one line plus vertical margin, so you only override it when your control is taller than one line or sizes itself differently. The badge overrides it anyway, to state its size explicitly. So the declaration mirrors `SpinnerControl : BaseControl, IColorRoleableControl`:
 
@@ -113,7 +113,7 @@ Why this exact form matters. `SetProperty` (defined on `BaseControl`, `SharpCons
 2. **Raises `INotifyPropertyChanged`** (`OnPropertyChanged`) — so data-bound consumers see the change.
 3. **Self-invalidates** — calls `Invalidate(Invalidation.Relayout)` on the control itself, which schedules a re-measure and repaint.
 
-That third step is *why the framework is reactive at the property boundary*: assigning `badge.Count = 5` makes the UI update on its own. You never write an `Invalidate` call for a property change. See [Patterns](../../patterns.md) for the full property/invalidation contract.
+That third step is *why the framework is reactive at the property boundary*: assigning `badge.Count = 5` makes the UI update on its own. You never write an `Invalidate` call for a property change. See [Patterns](../../PATTERNS.md) for the full property/invalidation contract.
 
 > **Do NOT hand-roll `Container?.Invalidate(...)` in a setter.** A setter that pokes the container directly (`set { _count = value; Container?.Invalidate(true); }`) bypasses the change-guard and the notification, and invalidates the wrong node. It is rejected in review. Invalidate *`this`* via `SetProperty`; the framework forwards identity for you.
 

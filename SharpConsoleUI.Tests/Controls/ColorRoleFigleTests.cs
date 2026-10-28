@@ -14,21 +14,21 @@ public class ColorRoleFigleTests
 	[Fact]
 	public void DefaultRole_ProducesNoRoleForeground()
 	{
-		var fig = new FigleControl();
+		var fig = new FigletControl();
 		Assert.Null(ColorResolver.ColorRoleForeground(fig.ColorRole, fig.Container, fig.Outline));
 	}
 
 	[Fact]
 	public void DangerRole_ProducesRoleForeground()
 	{
-		var fig = new FigleControl { ColorRole = ColorRole.Danger };
+		var fig = new FigletControl { ColorRole = ColorRole.Danger };
 		Assert.NotNull(ColorResolver.ColorRoleForeground(fig.ColorRole, fig.Container, fig.Outline));
 	}
 
 	[Fact]
 	public void ExplicitColorWins_RoleStillResolvable()
 	{
-		var fig = new FigleControl { ColorRole = ColorRole.Danger, Color = Color.Black };
+		var fig = new FigletControl { ColorRole = ColorRole.Danger, Color = Color.Black };
 		Assert.Equal(Color.Black, fig.Color);
 		Assert.NotNull(ColorResolver.ColorRoleForeground(fig.ColorRole, fig.Container, fig.Outline));
 	}
@@ -36,7 +36,7 @@ public class ColorRoleFigleTests
 	[Fact]
 	public void Builder_RoundTripsRoleAndOutline()
 	{
-		var fig = new FigleControlBuilder()
+		var fig = new FigletControlBuilder()
 			.WithColorRole(ColorRole.Success)
 			.Outline()
 			.Build();

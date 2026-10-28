@@ -47,7 +47,7 @@ internal static class Nav
 				new("BUILDERS.md", "Builder API", "The fluent API: windows, controls, and how they compose."),
 				new("CONFIGURATION.md", "Configuration", "ConsoleWindowSystemOptions and what each switch changes."),
 				new("EXAMPLES.md", "Examples", "The example applications in this repository, and what each one shows."),
-				new("patterns.md", "Patterns", "Shapes that recur: dialogs, long work, live data."),
+				new("PATTERNS.md", "Patterns", "Shapes that recur: dialogs, long work, live data."),
 				new("WHY.md", "Why SharpConsoleUI?", "What it is, what it is not, and the three shapes an application can take."),
 			]),
 
@@ -59,7 +59,7 @@ internal static class Nav
 				new("DIALOGS.md", "Dialogs", "Modal windows, file pickers, prompts."),
 				new("FLOWS.md", "Composable flows", "Multi-step interactions built from controls."),
 				new("FORM_XML.md", "Form XML", "Declaring a form rather than assembling one."),
-				new("binding.md", "Data binding", "Bind a control to a value and let it track."),
+				new("BINDING.md", "Data binding", "Bind a control to a value and let it track."),
 			]),
 
 		new("Layout",

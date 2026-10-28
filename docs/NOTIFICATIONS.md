@@ -239,4 +239,4 @@ ws.NotificationStateService.NotificationDismissed += (_, e) => { };
 
 - [State Services](STATE-SERVICES.md) — all built-in state services
 - [Themes](THEMES.md) — color roles used by toast borders and severities
-- [Common Patterns](patterns.md) — quick recipes
+- [Common Patterns](PATTERNS.md) — quick recipes

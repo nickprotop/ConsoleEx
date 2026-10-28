@@ -133,7 +133,7 @@ The bar is drawn with `█` for the filled portion and `░` for the remainder.
 ## Events
 
 `BarGraphControl` raises no control-specific events. It implements `INotifyPropertyChanged` through
-`BaseControl`, so its properties can be data-bound — see [Data Binding](../binding.md).
+`BaseControl`, so its properties can be data-bound — see [Data Binding](../BINDING.md).
 
 ## Keyboard and mouse support
 

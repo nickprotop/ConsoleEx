@@ -122,7 +122,7 @@ you give it a `BarWidth` or a different alignment.
 ## Events
 
 None. `ProgressBarControl` implements `INotifyPropertyChanged` via `BaseControl`, so its properties
-can be data-bound — see [Data Binding](../binding.md).
+can be data-bound — see [Data Binding](../BINDING.md).
 
 ## Keyboard and mouse support
 

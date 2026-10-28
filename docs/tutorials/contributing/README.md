@@ -35,7 +35,7 @@ These tutorials link out to the deeper reference docs where you need them:
 - [DOM Layout System](../../DOM_LAYOUT_SYSTEM.md) — Measure → Arrange → Paint
 - [Threading & Async](../../THREADING_AND_ASYNC.md) — the UI-thread contract
 - [Themes](../../THEMES.md) and Color Roles
-- [Patterns](../../patterns.md) — the reactive property contract and conventions
+- [Patterns](../../PATTERNS.md) — the reactive property contract and conventions
 - [Builders](../../BUILDERS.md) — the fluent builder pattern
 - [Flows](../../FLOWS.md) and [Dialogs](../../DIALOGS.md) — the dialog subsystem
 - [Code Quality](../../CODE_QUALITY.md) — the standards your PR is reviewed against

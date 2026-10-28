@@ -468,5 +468,5 @@ var ws = new ConsoleWindowSystem(
 ## See Also
 
 - [Configuration Guide](CONFIGURATION.md) — `ConsoleWindowSystemOptions` reference
-- [Patterns Cookbook](patterns.md) — Pattern 3: async data updates, Pattern C: `EnqueueOnUIThread`
+- [Patterns Cookbook](PATTERNS.md) — Pattern 3: async data updates, Pattern C: `EnqueueOnUIThread`
 - [State Services](STATE-SERVICES.md) — runtime state management

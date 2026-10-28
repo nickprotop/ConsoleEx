@@ -290,7 +290,7 @@ Create a builder with `Controls.TreeTable()` or `TreeTableControl.Create()`. Eve
 
 ## Binding to Items
 
-`BindItems` (namespace `SharpConsoleUI.DataBinding`) shows a hierarchy of view models, one row per item, and keeps the rows in step as the items and their `ObservableCollection`s change: added, removed, moved and replaced items, item property changes, and expansion in both directions. See [Data Binding](../binding.md#binding-a-tree-table-to-items).
+`BindItems` (namespace `SharpConsoleUI.DataBinding`) shows a hierarchy of view models, one row per item, and keeps the rows in step as the items and their `ObservableCollection`s change: added, removed, moved and replaced items, item property changes, and expansion in both directions. See [Data Binding](../BINDING.md#binding-a-tree-table-to-items).
 
 ```csharp
 table.BindItems(backlog.Roots,

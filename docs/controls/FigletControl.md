@@ -1,15 +1,15 @@
-# FigleControl
+# FigletControl
 
 Render large text as FIGlet ASCII art for banners, titles, and clocks.
 
 <!-- gallery -->
 
-![FigleControl](../images/controls/FigleControl.png)
+![FigletControl](../images/controls/FigletControl.png)
 
 
 ## Overview
 
-FigleControl renders text using FIGlet ASCII art fonts, turning short strings into large multi-line block letters. It uses a built-in FIGlet parser and embedded fonts, so it has no dependency on Spectre.Console.
+FigletControl renders text using FIGlet ASCII art fonts, turning short strings into large multi-line block letters. It uses a built-in FIGlet parser and embedded fonts, so it has no dependency on Spectre.Console.
 
 Three embedded font sizes are available (Small, Default/Standard, Large/Banner), or you can supply a custom `FigletFont` instance or load a `.flf` font file by name. Loaded fonts are cached internally so the text is not re-parsed on every render frame.
 
@@ -30,7 +30,7 @@ window.AddControl(banner);
 
 ## Builder API
 
-Create a builder with `Controls.Figlet(text)` (text is optional) or `new FigleControlBuilder()`.
+Create a builder with `Controls.Figlet(text)` (text is optional) or `new FigletControlBuilder()`.
 
 ### Content
 
@@ -76,10 +76,10 @@ Create a builder with `Controls.Figlet(text)` (text is optional) or `new FigleCo
 ### Build
 
 ```csharp
-.Build()                            // Returns the configured FigleControl
+.Build()                            // Returns the configured FigletControl
 ```
 
-A `FigleControlBuilder` also implicitly converts to `FigleControl`, so it can be passed wherever a control is expected without an explicit `.Build()` call.
+A `FigletControlBuilder` also implicitly converts to `FigletControl`, so it can be passed wherever a control is expected without an explicit `.Build()` call.
 
 ## Properties
 
@@ -123,7 +123,7 @@ When rendering, the font is chosen by this precedence:
 
 ## Events
 
-FigleControl does not expose any control-specific events.
+FigletControl does not expose any control-specific events.
 
 ## Examples
 

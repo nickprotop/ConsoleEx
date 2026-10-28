@@ -118,7 +118,7 @@ void ClearProgress(TimeSpan? fadeDuration = null);
 ## Events
 
 None. `RuleControl` implements `INotifyPropertyChanged` via `BaseControl` — see
-[Data Binding](../binding.md).
+[Data Binding](../BINDING.md).
 
 ## Keyboard and mouse support
 
