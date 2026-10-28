@@ -75,8 +75,6 @@ namespace SharpConsoleUI.Controls
 		private Padding _padding = new Padding(0, 0, 0, 0);
 
 		// Double-click detection
-		private DateTime _lastClickTime = DateTime.MinValue;
-		private Point _lastClickPosition = Point.Empty;
 		private int _doubleClickThresholdMs = Configuration.ControlDefaults.DefaultDoubleClickThresholdMs;
 		private bool _doubleClickEnabled = true;
 

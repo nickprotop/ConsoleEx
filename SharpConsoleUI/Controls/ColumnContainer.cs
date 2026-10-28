@@ -40,8 +40,6 @@ namespace SharpConsoleUI.Controls
 		private int? _height;
 
 		// Double-click detection
-		private DateTime _lastClickTime = DateTime.MinValue;
-		private Point _lastClickPosition = Point.Empty;
 		private int _doubleClickThresholdMs = Configuration.ControlDefaults.DefaultDoubleClickThresholdMs;
 		private bool _doubleClickEnabled = true;
 

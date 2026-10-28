@@ -42,7 +42,6 @@ namespace SharpConsoleUI.Controls
 		private bool _wantsMouseEvents = true;
 		private bool _canFocusWithMouse = false;
 		private bool _isMouseInside = false;
-		private DateTime _lastClickTime = DateTime.MinValue;
 		private int _clickCount = 0;
 
 		/// <summary>

@@ -27,8 +27,6 @@ namespace SharpConsoleUI.Controls
 		// Body-interaction hover/double-click tracking (mirrors PanelControl). Only used for the
 		// non-header body events raised by RaiseBodyMouseEvent.
 		private bool _isMouseInside = false;
-		private DateTime _lastClickTime = DateTime.MinValue;
-		private int _clickCount = 0;
 
 		/// <inheritdoc/>
 		public bool WantsMouseEvents => true;
@@ -188,8 +186,6 @@ namespace SharpConsoleUI.Controls
 			// Driver-provided double-click (preferred).
 			if (args.HasFlag(MouseFlags.Button1DoubleClicked))
 			{
-				_clickCount = 0;
-				_lastClickTime = DateTime.MinValue;
 				MouseDoubleClick?.Invoke(this, args);
 				args.Handled = true;
 				Invalidate(Invalidation.Repaint);
