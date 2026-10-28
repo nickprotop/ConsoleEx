@@ -231,6 +231,46 @@ A click on chrome and a click on a control that ignored it look identical on
 screen. The window and the region come from the same code a real press runs,
 so this is what the click actually finds - not what should be there.
 
+## Watching
+
+```bash
+cxdbg watch performance            # a reading that refreshes, in place
+cxdbg watch snapshot --composed    # the screen itself, live
+cxdbg watch tree --depth 2 --interval 5
+```
+
+`watch` asks one verb over and over and redraws it where it stands. Any verb -
+the verb's own fields pass straight through, so a watch is the thing you
+already typed with `watch` in front of it. `--interval` sets the seconds
+between asks, `--count` stops after a number of them, and esc or q stops it
+otherwise.
+
+Numbers carry how far they moved since the last tick, and ones that held still
+are dimmed, so a page of figures shows you what changed rather than making you
+find it. Down a pipe, or with `--json`, each ask is appended instead of
+redrawn - a log of samples, which is what a script wants.
+
+It polls rather than subscribing. An application serves one client at a time,
+so a watch typed at the prompt borrows that connection and gives it back; the
+figures worth watching are already windowed on the application's side, so
+nothing falls between two asks.
+
+### Watching the screen
+
+`snapshot` answers with the screen as text, so watching it is a live mirror of
+the application: a spinner spins, a dialog opens and closes. `--composed` is
+the whole desktop, windows and panels together - without it you get the active
+window on its own.
+
+This is the only way to **see** a headless application. One built on
+`HeadlessConsoleDriver` has no terminal and paints into a buffer rather than
+onto a screen, which is what makes it reproducible in CI and what otherwise
+makes it invisible. Watching its snapshot puts that buffer on your terminal
+while it runs, over the socket, without attaching anything to it or changing
+anything about it. Pair it with `size`, which resizes a headless application,
+and a layout can be driven narrow and watched reflowing without touching a
+terminal corner.
+
 ## Explaining
 
 ```bash
@@ -320,6 +360,69 @@ cxdbg metrics --json        # the reply as the protocol sent it
 
 `--help` works at every level: `cxdbg help`, `cxdbg help tree`, `cxdbg tree
 --help`, `cxdbg run --help`.
+
+## Every command
+
+cxdbg's own commands, which have arguments rather than protocol fields:
+
+| Command | What it does |
+|---|---|
+| `run <app>` | Start an application with a diagnostics socket. `--attach`, `--no-terminal`, `--timeout <n>` |
+| `shell` / `attach` | Open a prompt on a running application |
+| `watch <verb>` | Ask one verb over and over, redrawn in place. `--interval <s>`, `--count <n>` |
+| `show <verb>` | Ask, and render the reply to read |
+| `why size <control>` | Which container decided a size |
+| `why color <role>` | How a colour was resolved |
+| `send key <spec>` | Act on the application the way a user would |
+| `help [verb]` | This, or one verb in detail |
+
+At the prompt there are also `.help`, `.show`, `.why`, `.last`, `.socket`,
+`connect <path>` and `exit`.
+
+Every option below is also a field of the JSON the application actually
+receives, so `cxdbg tree --depth 2` and `{"cmd":"tree","depth":2}` are the same
+request. `-s/--socket`, `--json` and `--no-color` are cxdbg's own and reach no
+application.
+
+| Verb | Answers | Fields |
+|---|---|---|
+| `snapshot` | What the screen shows: text, cells or markup | `--format` `--window` `--composed` `--ansi` `--x` `--y` `--w` `--h` |
+| `image` | What the screen looks like, as a PNG, TGA or JPEG | `--path` `--format` `--quality` `--window` `--composed` `--glyphs` `--font` `--fontSource` `--cellWidth` `--cellHeight` `--x` `--y` `--w` `--h` `--sinceFrame` |
+| `tree` | What layout believes: desired against arranged, per control | `--depth` `--props` `--window` |
+| `desktop` | The screen itself: size, where it starts, what is on it | — |
+| `control` | What one control is: its size, state, and what contains it | `--control` `--window` |
+| `inspect` | What is under a point: window, region, control, cell | `--x` `--y` |
+| `focus` | What currently has focus, and the chain to it | — |
+| `reachable` | Which controls Tab can reach, in Tab order | — |
+| `windows` | The windows, their bounds and their state | — |
+| `metrics` | Render metrics. Needs `set --diagnostics true` | — |
+| `performance` | The rate the screen actually changes at, over the last few hundred frames | `--reset` |
+| `measure` | Why a control is the size it is | `--control` |
+| `color` | Why a role is the colour it is | `--role` `--state` `--outline` |
+| `invalidations` | Which control asked for the frame. Needs diagnostics on | — |
+| `events` | What input the application was told about. Needs diagnostics on | — |
+| `logs` | The log buffer the application cannot print itself | `--level` `--count` `--category` `--contains` |
+| `frame` | The frame counter - if it stops, so has the app | — |
+| `settled` | Whether the app has finished reacting, and what is holding it | — |
+| `clock` | Read the clocks, or freeze one and step it by hand | `--target` `--fake` `--system` `--advance` |
+| `set` | Read the runtime switches, or change one | `--diagnostics` `--logging` `--logLevel` `--clearLogs` |
+| `theme` | Read the themes, or switch to one | `--name` |
+| `window` | Act on a window: activate, close | `--activate` `--close` `--window` |
+| `size` | Read the screen size, or set it on a headless app | `--w` `--h` |
+| `key` | Send a key, in tmux notation | `--spec` |
+| `mouse` | Send a mouse event | `--x` `--y` `--action` `--button` |
+| `focusctl` | Move focus to a control | `--name` `--window` |
+| `invoke` | Activate a control the way a user would | `--name` `--window` |
+| `ping` | Check that an application is listening | — |
+| `commands` | Ask the application which verbs it knows | — |
+
+Fields this build has never heard of still reach the application - the protocol
+decides what exists, and an application newer than its debugger answers an
+unknown verb with the list it knows. A field that merely looks like a
+misspelling of a known one is passed through too, with a warning.
+
+The wire itself, and what each reply carries, is in
+[DEBUGGING.md](../../docs/DEBUGGING.md).
 
 ## Exit codes
 

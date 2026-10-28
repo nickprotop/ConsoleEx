@@ -92,6 +92,8 @@ internal static class DotCommands
 		Console.WriteLine("  .why size <control>      which container decided a size");
 		Console.WriteLine("  .last [show|> file]      the reply that was too big to print");
 		Console.WriteLine("  .socket                  which application this is");
+		Console.WriteLine("  watch <verb> [--interval s] [--count n]");
+		Console.WriteLine("                           ask it over and over; esc or q to stop");
 		Console.WriteLine("  connect <path>           move to another application");
 		Console.WriteLine("  exit                     leave, offering to stop the application");
 		console.WriteLine();

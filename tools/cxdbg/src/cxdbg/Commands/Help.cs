@@ -49,6 +49,7 @@ internal static class Help
 		console.WriteLine();
 
 		console.MarkupLine("[yellow]Reading, formatted[/]");
+		Row("watch <verb>", "Ask one over and over, redrawn in place");
 		Row("show <verb>", "The same verbs, rendered to read");
 		Row("why size <control>", "Which container decided a size, and where");
 		Row("why color <role>", "How a colour was resolved");
@@ -150,6 +151,43 @@ internal static class Help
 					("-s, --socket", "Which application"));
 				Console.WriteLine();
 				Console.WriteLine("  At the prompt, .help lists what can be typed there.");
+				return 0;
+
+			case "watch":
+				Section("watch <verb> [--field value] [--interval s] [--count n]",
+					"Ask one verb over and over, redrawn in place. Esc or q stops it.",
+					("--interval <s>", "Seconds between asks (default 1)"),
+					("--count <n>", "Stop after this many, instead of on a key"));
+				Console.WriteLine();
+				Console.WriteLine("  Any verb, not just the measuring ones. The verb's own fields are");
+				Console.WriteLine("  passed through, so `watch tree --depth 2` works. Numbers show how");
+				Console.WriteLine("  far they moved since the last tick, and ones that held still are");
+				Console.WriteLine("  dimmed, so the eye goes to what changed.");
+				Console.WriteLine();
+				Console.WriteLine("  Polling, not a subscription: an application serves one client at");
+				Console.WriteLine("  a time, so a watch at the prompt borrows that connection and");
+				Console.WriteLine("  hands it back. In a pipe or with --json each ask is appended");
+				Console.WriteLine("  instead of redrawn, which is what a log of samples wants.");
+				Console.WriteLine();
+				AnsiConsole.MarkupLine("  [yellow]watch snapshot - a live view of the screen[/]");
+				Console.WriteLine();
+				Console.WriteLine("    cxdbg watch snapshot --composed");
+				Console.WriteLine();
+				Console.WriteLine("  snapshot answers with the screen as text, so watching it mirrors");
+				Console.WriteLine("  the application as it runs - a spinner spins, a dialog opens and");
+				Console.WriteLine("  closes. --composed is the whole desktop, windows and panels");
+				Console.WriteLine("  together; without it you get the active window alone.");
+				Console.WriteLine();
+				Console.WriteLine("  This is the only way to SEE a headless application. One built on");
+				Console.WriteLine("  HeadlessConsoleDriver has no terminal and paints to a buffer");
+				Console.WriteLine("  rather than a screen, which is what makes it reproducible in CI -");
+				Console.WriteLine("  and what otherwise makes it invisible. Watching its snapshot puts");
+				Console.WriteLine("  that buffer on your terminal, live, over the socket. Nothing is");
+				Console.WriteLine("  attached to the application and nothing about it changes; it does");
+				Console.WriteLine("  not know it is being watched.");
+				Console.WriteLine();
+				Console.WriteLine("  `size` resizes a headless application, so a layout can be driven");
+				Console.WriteLine("  narrow and watched reflowing without touching a terminal corner.");
 				return 0;
 
 			case "show":

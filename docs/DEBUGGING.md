@@ -30,7 +30,14 @@ dotnet tool install -g cxdbg
 cxdbg run ./MyApp --attach        # start it, and open a prompt on it
 cxdbg show tree -s /tmp/myapp.sock
 cxdbg why size ChartControl#b679e5
+cxdbg watch snapshot --composed   # the screen, live, even headless
 ```
+
+`watch` asks one verb over and over and redraws it in place. It is cxdbg's, not the
+protocol's - any verb works, the verb's own fields are passed through, and esc or q stops
+it. Watching `snapshot` mirrors the application as it runs, which is the only way to SEE
+one built on `HeadlessConsoleDriver`: it has no terminal, so its screen exists only as a
+buffer until something asks for it. `cxdbg --help watch` has the detail.
 
 Every verb below is a cxdbg command of the same name, and every field below is an option of
 the same name:
@@ -218,6 +225,7 @@ comes back without one.
 | `measure` | Why a control is the size it is: the offers, and which one decided |
 | `color` | Why a role is the color it is, resolution step by step |
 | `metrics` | Frame number, bytes written, characters changed |
+| `performance` | The rate the screen actually changes at, over the last few hundred frames. `cellsMarked` is the status bar's dirty-chars count, summed over the window |
 | `invalidations` | Which control asked for the frame. Needs diagnostics on |
 | `events` | What input the app was told about. Needs diagnostics on |
 | `logs` | The log buffer a TUI can never print to itself |
