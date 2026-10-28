@@ -2,6 +2,11 @@
 
 An animated indeterminate-progress spinner that cycles through a set of glyph frames on a fixed interval. Built on the window system's animation manager, so it runs smoothly alongside all other animations with no blocking calls.
 
+<!-- gallery -->
+
+![SpinnerControl](../images/controls/SpinnerControl.png)
+
+
 ## Overview
 
 SpinnerControl is the control form of the spinner feature. The same animation subsystem is also exposed as:

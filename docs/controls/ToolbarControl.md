@@ -2,6 +2,11 @@
 
 Horizontal toolbar with buttons, separators, and other controls. Supports wrapping, auto-height, separator lines, and content padding.
 
+<!-- gallery -->
+
+![ToolbarControl](../images/controls/ToolbarControl.png)
+
+
 ## Overview
 
 `ToolbarControl` arranges child controls (typically buttons) in a horizontal strip. When wrapping is enabled, items that exceed the available width flow to the next row. Each row auto-sizes to the height of its tallest item, allowing bordered buttons and plain controls to coexist naturally.

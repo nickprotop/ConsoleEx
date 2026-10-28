@@ -2,6 +2,11 @@
 
 A scrollable container that hosts child controls with automatic vertical/horizontal scrolling, mouse wheel support, and visual scrollbars.
 
+<!-- gallery -->
+
+![ScrollablePanelControl](../images/controls/ScrollablePanelControl.png)
+
+
 ## Overview
 
 ScrollablePanelControl is a container control that stacks child controls vertically and provides scrolling when the combined content exceeds the visible viewport. It is the standard building block for grouping multiple controls into a single, scrollable region — for example the body of a tab, a form, a log view, or a side panel in an IDE-style layout.

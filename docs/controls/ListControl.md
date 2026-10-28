@@ -2,6 +2,11 @@
 
 Scrollable list control with single selection and keyboard/mouse navigation.
 
+<!-- gallery -->
+
+![ListControl](../images/controls/ListControl.png)
+
+
 ## Overview
 
 ListControl displays a scrollable list of items with selection support. Users can navigate with keyboard or mouse, select items, and activate items (double-click or Enter).

@@ -2,6 +2,11 @@
 
 Compact time-series graph — a scrolling history of values rendered as vertical bars or braille dots.
 
+<!-- gallery -->
+
+![SparklineControl](../images/controls/SparklineControl.png)
+
+
 ## Overview
 
 `SparklineControl` keeps a rolling window of `double` values and draws them as a dense little chart.

@@ -2,6 +2,11 @@
 
 Locale-aware time picker with segmented editing, 12h/24h modes, and min/max time constraints.
 
+<!-- gallery -->
+
+![TimePickerControl](../images/controls/TimePickerControl.png)
+
+
 ## Overview
 
 The `TimePickerControl` displays segmented hour/minute (and optionally second) fields with an optional AM/PM segment. Users type digits directly or use arrow keys to adjust values. The 12h/24h format and AM/PM designators are derived from the configured `CultureInfo`.

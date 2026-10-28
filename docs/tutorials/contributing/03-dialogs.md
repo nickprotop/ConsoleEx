@@ -24,13 +24,13 @@ Your `PickContent<T>` is structurally a `PromptContent` whose body is a **select
 Every built-in dialog in SharpConsoleUI is the same **three-band modal**:
 
 ```
-┌─ StickyTop ────────────────────────┐   ← title banner + accent rule  (built by the HOST)
-│  ⟳  My Dialog                      │
-│  ────────────────────────────────  │
+┌─ StickyTop ─────────────────────────┐   ← title banner + accent rule  (built by the HOST)
+│  ⟳  My Dialog                       │
+│  ────────────────────────────────   │
 │                                     │
 │  (scrollable body)                  │   ← your BuildContent(chrome)
 │                                     │
-│  ────────────────────────────────  │   ← ruler + right-aligned buttons (your BuildBottomBand)
+│  ────────────────────────────────   │   ← ruler + right-aligned buttons (your BuildBottomBand)
 │                          [ Cancel ] │   ← StickyBottom
 └─────────────────────────────────────┘
 ```

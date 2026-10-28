@@ -2,6 +2,11 @@
 
 Multi-column layout container that arranges child columns horizontally with optional draggable splitters between them.
 
+<!-- gallery -->
+
+![HorizontalGridControl](../images/controls/HorizontalGridControl.png)
+
+
 ## Overview
 
 HorizontalGridControl is a layout container that places its children side by side in columns. Each column is a `ColumnContainer` that can hold one or more controls and can be sized with a fixed width, minimum/maximum widths, or a flex factor that distributes remaining space proportionally. This makes it the primary building block for side-by-side layouts such as master/detail views, IDE-style panes, status bars, and dialog button rows.

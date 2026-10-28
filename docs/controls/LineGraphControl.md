@@ -2,6 +2,11 @@
 
 A line graph control for visualizing time-series data using connected lines rendered with braille patterns or ASCII box-drawing characters. Supports multiple named data series.
 
+<!-- gallery -->
+
+![LineGraphControl](../images/controls/LineGraphControl.png)
+
+
 ## Overview
 
 `LineGraphControl` renders data as connected line segments across a graph area. It offers two rendering modes: **Braille** mode uses Unicode braille characters (U+2800 block) with a 2x4 pixel-per-cell grid for smooth, high-resolution lines. **ASCII** mode uses box-drawing characters (`─`, `│`, `╱`, `╲`) for simpler display. Both modes support multiple named series, color gradients, Y-axis labels, title, baseline, and borders.

@@ -2,6 +2,11 @@
 
 Render large text as FIGlet ASCII art for banners, titles, and clocks.
 
+<!-- gallery -->
+
+![FigleControl](../images/controls/FigleControl.png)
+
+
 ## Overview
 
 FigleControl renders text using FIGlet ASCII art fonts, turning short strings into large multi-line block letters. It uses a built-in FIGlet parser and embedded fonts, so it has no dependency on Spectre.Console.

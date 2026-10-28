@@ -2,6 +2,11 @@
 
 Single-row status bar with three alignment zones, clickable items, and shortcut key hints.
 
+<!-- gallery -->
+
+![StatusBarControl](../images/controls/StatusBarControl.png)
+
+
 ## Overview
 
 `StatusBarControl` renders a horizontal bar with left, center, and right zones for displaying status information, keyboard shortcuts, and clickable items. Items consist of an optional shortcut hint (rendered with an accent color) and a label. The control does not receive keyboard focus — it is display and click only.

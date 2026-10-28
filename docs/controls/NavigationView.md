@@ -346,7 +346,7 @@ This is useful when content switching involves complex state management or when 
 ```
 ┌────────────────────────┬─────────────────────────────────┐
 │  ⚙  Settings           │  IDE Layout                     │
-│                        │  Window layout demo              │
+│                        │  Window layout demo             │
 │  [-] Layout & Windows  │ ╭─────────────────────────────╮ │
 │      ▸ IDE Layout      │ │                             │ │
 │        File Explorer   │ │  IDE-style layout content   │ │

@@ -2,6 +2,11 @@
 
 A chat/agent transcript control that displays an ordered list of role-tagged messages with per-role styling, token-by-token streaming, collapsible verbose messages, and a thinking indicator.
 
+<!-- gallery -->
+
+![ChatTranscriptControl](../images/controls/ChatTranscriptControl.png)
+
+
 ## Overview
 
 `ChatTranscriptControl` is an honest composition: it subclasses `ScrollablePanelControl` and hosts one real `CollapsiblePanel` per message, each containing a `MarkupControl` body (or a `SpinnerControl` while a message is "thinking"). Scrolling, word-wrap, markdown rendering, selection, and collapse animation are all provided by those child controls — none of it is re-implemented.

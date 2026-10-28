@@ -2,6 +2,11 @@
 
 A labeled-input form that composes real input controls in a two-column `GridControl` layout (label | editor).
 
+<!-- gallery -->
+
+![FormControl](../images/controls/FormControl.png)
+
+
 ## Overview
 
 `FormControl` is an **honest subclass** of `GridControl` — it adds no custom paint or measure code. Each field is a real `MarkupControl` label placed in column 0 and a real input control placed in column 1, via the inherited `GridControl.Place`. Layout, focus, and rendering are handled entirely by the underlying grid.

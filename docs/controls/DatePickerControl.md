@@ -2,6 +2,10 @@
 
 Locale-aware date picker with segmented editing, calendar popup, and min/max date constraints.
 
+<!-- gallery -->
+
+![DatePickerControl](../images/controls/DatePickerControl.png)
+
 ## Overview
 
 The `DatePickerControl` displays an inline date editor with segmented month/day/year fields. Users can type digits directly into each segment, use arrow keys to increment/decrement values, or open a calendar popup overlay for visual date selection. The segment order and separator are derived from the configured `CultureInfo`.

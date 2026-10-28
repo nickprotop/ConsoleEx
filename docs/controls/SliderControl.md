@@ -2,6 +2,11 @@
 
 A single-value slider control that allows users to select a value from a range by dragging a thumb along a track. Supports horizontal and vertical orientations, keyboard and mouse interaction, and optional value and min/max labels.
 
+<!-- gallery -->
+
+![SliderControl](../images/controls/SliderControl.png)
+
+
 ## Properties
 
 | Property | Type | Default | Description |

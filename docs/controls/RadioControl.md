@@ -2,6 +2,11 @@
 
 Single-select radio button control, coordinated through an explicit group object that enforces the single-selection invariant.
 
+<!-- gallery -->
+
+![RadioControl](../images/controls/RadioControl.png)
+
+
 ## Overview
 
 `RadioControl<T>` renders a `(●)` / `(○)` indicator next to a text label and selects itself through a shared `RadioGroup<T>` when activated. The group is the single source of truth: it owns the selected value, enforces the single-selection rule, and fires `SelectionChanged` exactly once per change. Each radio's `Checked` property is **computed** — it reflects `EqualityComparer<T>.Default.Equals(Group.SelectedValue, Value)` and carries no stored state, making desync impossible by design.

@@ -2,6 +2,11 @@
 
 Render real HTML content in the terminal with scrolling, link navigation, and inline images.
 
+<!-- gallery -->
+
+![HtmlControl](../images/controls/HtmlControl.png)
+
+
 ## Overview
 
 HtmlControl parses and renders HTML content using the AngleSharp HTML parser, displaying it with colors, text formatting, block layout, tables, lists, images (via half-block rendering), and interactive link navigation. It supports both inline HTML content and loading from URLs with progressive image loading.

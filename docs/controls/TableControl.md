@@ -2,6 +2,11 @@
 
 Interactive data grid with virtual data support, sorting, inline editing, and multi-selection.
 
+<!-- gallery -->
+
+![TableControl](../images/controls/TableControl.png)
+
+
 ## Overview
 
 TableControl renders tabular data with full keyboard and mouse interaction. It supports two data modes: **in-memory rows** for simple tables, and **ITableDataSource** for virtual/lazy data binding that handles millions of rows by querying only visible rows on demand.

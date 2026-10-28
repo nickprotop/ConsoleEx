@@ -2,6 +2,13 @@
 
 Click-to-expand container with a header that toggles a body of child controls.
 
+<!-- gallery -->
+
+![CollapsiblePanel](../images/controls/CollapsiblePanel.png)
+
+![CollapsiblePanel, collapsed](../images/controls/CollapsiblePanel-collapsed.png)
+
+
 ## Overview
 
 CollapsiblePanel is a container control with a clickable header. Clicking the header (or pressing Enter/Space when focused) toggles a body that hosts any number of child controls, collapsing or expanding it vertically. When collapsed, the body's children are hidden and skipped in Tab traversal — only the header row remains visible.

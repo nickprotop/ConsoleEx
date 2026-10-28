@@ -2,6 +2,11 @@
 
 A table whose rows nest: rows hold rows of their own, shown indented under them in the tree column and expanded or collapsed in place.
 
+<!-- gallery -->
+
+![TreeTableControl](../images/controls/TreeTableControl.png)
+
+
 ## Overview
 
 TreeTableControl is a [TableControl](TableControl.md) whose rows form a hierarchy: features with their stories and tasks, folders with their files, accounts with their sub-accounts. Each row is a `TreeTableRow`, which has cells like any `TableRow` plus a parent, children and an expansion state. The tree column draws, in front of each value, the guide lines to the row's parent and an expander, `[-]` or `[+]`, in the same guide styles as [TreeControl](TreeControl.md).

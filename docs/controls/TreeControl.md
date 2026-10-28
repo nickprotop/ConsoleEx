@@ -2,6 +2,11 @@
 
 Hierarchical tree control that displays nodes in a collapsible structure with keyboard and mouse navigation.
 
+<!-- gallery -->
+
+![TreeControl](../images/controls/TreeControl.png)
+
+
 ## Overview
 
 TreeControl displays data as an expandable, collapsible tree of `TreeNode` objects. Each node has text, an optional color, an optional `Tag` for custom data, and a list of child nodes. Parent nodes can be expanded or collapsed; leaf nodes can be activated.

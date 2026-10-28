@@ -2,6 +2,11 @@
 
 A bordered box with an optional header that holds either text content or child controls.
 
+<!-- gallery -->
+
+![PanelControl](../images/controls/PanelControl.png)
+
+
 ## Overview
 
 `PanelControl` frames content in a border with an optional header — the terminal equivalent of a

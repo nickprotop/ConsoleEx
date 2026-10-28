@@ -2,6 +2,11 @@
 
 Multi-page container with tab headers for organizing content into switchable views.
 
+<!-- gallery -->
+
+![TabControl](../images/controls/TabControl.png)
+
+
 ## Overview
 
 TabControl is a container control that displays multiple pages of content (tabs) with a header bar for switching between them. Only one tab is visible at a time, making it perfect for organizing complex interfaces with multiple sections. Tab switching is supported via mouse clicks on headers and keyboard shortcuts (Ctrl+Tab).
@@ -151,9 +156,9 @@ TabControl uses a hybrid layout approach:
 ## Visual Layout
 
 ```
-┌─ Overview │ Settings │ Help ────────────────┐
+┌─ Overview │ Settings │ Help ──────────────────┐
 │                                               │
-│  Tab content area (only active tab visible)  │
+│  Tab content area (only active tab visible)   │
 │                                               │
 │                                               │
 └───────────────────────────────────────────────┘

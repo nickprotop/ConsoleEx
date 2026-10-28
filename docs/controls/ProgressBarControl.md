@@ -3,6 +3,11 @@
 Progress indicator for tasks — determinate with a percentage, or indeterminate with a pulsing
 animation.
 
+<!-- gallery -->
+
+![ProgressBarControl](../images/controls/ProgressBarControl.png)
+
+
 ## Overview
 
 `ProgressBarControl` shows how far along a task is. In **determinate** mode you set `Value` against

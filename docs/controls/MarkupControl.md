@@ -2,6 +2,12 @@
 
 Display rich formatted text using SharpConsoleUI markup syntax.
 
+<!-- gallery -->
+
+![MarkupControl](../images/controls/MarkupControl.png)
+
+![MarkupControl, markdown](../images/controls/MarkupControl-markdown.png)
+
 ## Overview
 
 MarkupControl displays multi-line rich text using SharpConsoleUI's markup syntax. It supports colors

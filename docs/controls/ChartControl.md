@@ -6,6 +6,11 @@ line, area, bar and scatter are plot types on one shared frame rather than
 separate controls, and the type can be set per series, so a combo chart is a
 configuration rather than a special case.
 
+<!-- gallery -->
+
+![ChartControl](../images/controls/ChartControl.png)
+
+
 The plot area is painted as pixels; every piece of chrome around it — axis
 labels, legend, title — is normal cell text, because those must align to cell
 columns and stay readable.

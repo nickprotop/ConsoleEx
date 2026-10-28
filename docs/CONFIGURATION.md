@@ -8,6 +8,7 @@ SharpConsoleUI provides comprehensive configuration options through `ConsoleWind
 - [ConsoleWindowSystemOptions](#consolewindowsystemoptions)
 - [Panel Configuration](#panel-configuration)
 - [Environment Variables](#environment-variables)
+  - [Diagnostics Socket](#diagnostics-socket)
 - [ControlDefaults](#controldefaults)
 - [Complete Configuration Examples](#complete-configuration-examples)
 - [RegistryConfiguration](#registryconfiguration)
@@ -76,6 +77,7 @@ rather than assignment.
 | `AltDigitSelectsWindow` | `bool` | `true` | Alt+1..9 activates a top-level window by taskbar index. `false` leaves the chord to your app |
 | `Watchdog` | `WatchdogOptions?` | `null` | Main-loop watchdog settings. `null` uses `new WatchdogOptions()` |
 | `InstallSynchronizationContext` | `bool` | `false` | Install a UI `SynchronizationContext` for the duration of `Run()`. See the caveat below |
+| `PipedInput` | `PipedInputOptions?` | `null` | Piped-stdin capture settings. `null` uses `new PipedInputOptions()` |
 
 #### Diagnostics and testing
 
@@ -86,6 +88,7 @@ rather than assignment.
 | `DiagnosticsLayers` | `DiagnosticsLayers` | `All` | Which layers to capture diagnostics for |
 | `EnableQualityAnalysis` | `bool` | `false` | Enable render quality analysis |
 | `EnablePerformanceProfiling` | `bool` | `false` | Enable detailed performance profiling |
+| `DiagnosticsSocket` | `string?` | `null` | Open a diagnostics socket at this path, without a consent prompt. `null` means none unless `SHARPCONSOLEUI_DIAGNOSTICS_SOCKET` asks for one. See [Diagnostics Socket](#diagnostics-socket) |
 
 ### InstallSynchronizationContext
 
@@ -293,6 +296,48 @@ This allows enabling metrics without code changes:
 // Will check SHARPCONSOLEUI_PERF_METRICS environment variable
 var options = ConsoleWindowSystemOptions.Create();
 ```
+
+### Diagnostics Socket
+
+Ask a running application to open its diagnostics socket, so another program can
+read what it displays and drive it:
+
+```bash
+# A path of your choosing
+export SHARPCONSOLEUI_DIAGNOSTICS_SOCKET=/tmp/myapp.sock
+
+# Or 1, to have one picked for you: $XDG_RUNTIME_DIR with the pid in the name,
+# falling back to an owner-only directory inside the temp directory
+export SHARPCONSOLEUI_DIAGNOSTICS_SOCKET=1
+```
+
+**This route always asks first.** The application prints a consent prompt on the plain
+console, before it paints anything, and a bare Enter means no. That is deliberate: an
+environment variable is not consent, because it can be inherited from a shell profile,
+baked into a `.desktop` file or a systemd unit, or left over in a terminal from hours
+ago — and the socket lets another program both read the screen and press keys.
+
+Two cases skip the prompt:
+
+| Case | Why |
+|------|-----|
+| `ConsoleWindowSystemOptions.DiagnosticsSocket` set in code | A property cannot be inherited from a shell or a unit file, so it can only be there because someone wrote it there. Intended for tests and for an application's own `--debug-socket` flag. |
+| `HeadlessConsoleDriver` | There is no user to ask and no screen on display. Being headless is itself a compiled-in decision that the program runs unattended. |
+
+If the variable is set but stdin is not interactive, the socket does **not** open — "nobody
+is watching" has to mean no, since that is exactly the case a stray variable would exploit.
+
+```csharp
+// The no-prompt route, for an app's own debug flag
+var options = ConsoleWindowSystemOptions.Create() with
+{
+    DiagnosticsSocket = "/tmp/myapp.sock"
+};
+```
+
+See [`DEBUGGING.md`](DEBUGGING.md) for the wire protocol, the twenty-six verbs, who can
+reach the socket, and `cxdbg` — the attach-and-drive debugger
+(`dotnet tool install -g cxdbg`).
 
 ## Complete Configuration Examples
 
@@ -539,3 +584,4 @@ See the [Registry guide](REGISTRY.md) for full documentation.
 - [State Services](STATE-SERVICES.md) - Runtime state management
 - [Registry](REGISTRY.md) - Persistent key-value storage
 - [Themes](THEMES.md) - Theme system and customization
+- [Debugging](DEBUGGING.md) - The diagnostics socket, its verbs, and `cxdbg`

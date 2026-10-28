@@ -19,11 +19,6 @@
       },
       {
         "files": ["*.md", "toc.yml"]
-      },
-      {
-        "src": "../",
-        "files": ["*.md", "toc.yml", "controls/**.md", "tutorials/**.md", "scripting/**.md", "benchmarks/**.md"],
-        "exclude": ["**/obj/**", "**/bin/**", "docfx/**"]
       }
     ],
     "resource": [

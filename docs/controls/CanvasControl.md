@@ -2,6 +2,11 @@
 
 Free-form drawing surface that exposes `CharacterBuffer` drawing primitives through a local-coordinate API. Supports both retained-mode (async) and immediate-mode (event-driven) painting, or a combination of both.
 
+<!-- gallery -->
+
+![CanvasControl](../images/controls/CanvasControl.png)
+
+
 ## Overview
 
 `CanvasControl` gives you a pixel-level (cell-level) drawing canvas inside any window. It owns an internal `CharacterBuffer` that persists drawn content across render cycles. You can draw to this buffer at any time from any thread using `BeginPaint()`/`EndPaint()`, or subscribe to the `Paint` event to redraw each frame. Both approaches can be combined: the internal buffer is composited first, then the `Paint` event fires for overlay drawing on top.

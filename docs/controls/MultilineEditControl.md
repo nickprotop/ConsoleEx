@@ -2,6 +2,11 @@
 
 A full-featured multiline text editor with syntax highlighting, pluggable gutter system, find/replace, undo/redo, word wrap, and extensive keyboard/mouse interaction.
 
+<!-- gallery -->
+
+![MultilineEditControl](../images/controls/MultilineEditControl.png)
+
+
 ## Overview
 
 The `MultilineEditControl` is one of SharpConsoleUI's most powerful controls — a complete text editing component comparable to editors found in production IDEs and developer tools. It supports two interaction modes: **browse mode** (scroll/navigate with arrow keys) and **edit mode** (full text editing with Enter to activate, Escape to exit).

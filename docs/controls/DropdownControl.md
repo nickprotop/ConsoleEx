@@ -2,6 +2,11 @@
 
 A dropdown/combobox control that displays a list of selectable items with keyboard navigation, type-ahead search, and custom item formatting.
 
+<!-- gallery -->
+
+![DropdownControl](../images/controls/DropdownControl.png)
+
+
 ## Overview
 
 The `DropdownControl` renders a single-line header showing the prompt and the currently selected item, followed by a triangle indicator. Activating the control expands a scrollable list of items rendered as a portal overlay, so the list can extend beyond the bounds of the parent container without affecting the control's own height (which stays constant at one line plus margins).

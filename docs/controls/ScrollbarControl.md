@@ -2,6 +2,11 @@
 
 A standalone scrollbar, decoupled from any single scrollable view.
 
+<!-- gallery -->
+
+![ScrollbarControl](../images/controls/ScrollbarControl.png)
+
+
 ## Overview
 
 ScrollbarControl is a bar control that is not attached to a particular scrollable view — it just tracks a range (`Maximum`, `ViewportLength`, `Value`) and reports user interaction through events. Every built-in scrolling control (`ScrollablePanelControl`, `ListControl`, `TreeControl`, `TableControl`, `HtmlControl`) already draws its own embedded scrollbar using the same shared engine; `ScrollbarControl` exposes that engine as its own control so it can drive views that don't have — or shouldn't each have — their own bar.

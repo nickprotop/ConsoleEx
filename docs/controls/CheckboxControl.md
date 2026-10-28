@@ -2,6 +2,11 @@
 
 Toggleable checkbox control with a label, checked/unchecked state, and keyboard/mouse support.
 
+<!-- gallery -->
+
+![CheckboxControl](../images/controls/CheckboxControl.png)
+
+
 ## Overview
 
 CheckboxControl displays a label next to a `[ ]` / `[X]` indicator and toggles its checked state when activated. It responds to keyboard (Space/Enter) and mouse clicks, and fires a `CheckedChanged` event whenever the state flips.

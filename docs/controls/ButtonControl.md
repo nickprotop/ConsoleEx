@@ -2,6 +2,11 @@
 
 Interactive button control with click events and keyboard/mouse support.
 
+<!-- gallery -->
+
+![ButtonControl](../images/controls/ButtonControl.png)
+
+
 ## Overview
 
 ButtonControl is a clickable button that responds to keyboard (Space/Enter) and mouse clicks. It supports custom text, width, colors, and click event handlers.

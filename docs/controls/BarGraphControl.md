@@ -3,6 +3,11 @@
 Horizontal bar graph for showing a single value against a maximum — CPU load, memory use, disk
 capacity, progress toward a target.
 
+<!-- gallery -->
+
+![BarGraphControl](../images/controls/BarGraphControl.png)
+
+
 ## Overview
 
 `BarGraphControl` renders one labelled horizontal bar: an optional label, a filled/unfilled bar

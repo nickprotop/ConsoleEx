@@ -2,6 +2,11 @@
 
 A WinUI-`<Grid>`-style two-dimensional layout container for the terminal: arrange child controls into rows and columns with fixed, size-to-content, or proportional tracks, span cells across rows and columns, add CSS-style gaps, and style each cell individually with a background, border, and padding.
 
+<!-- gallery -->
+
+![GridControl](../images/controls/GridControl.png)
+
+
 ## Overview
 
 GridControl is a pure layout container. It divides its area into a grid of rows and columns — each sized as a fixed number of cells, `Auto` (sized to its content), or `Star` (a proportional share of the leftover space) — and places one child control per cell. Cells can span multiple rows and/or columns, and the grid honours each child's `HorizontalAlignment`/`VerticalAlignment` (default `Stretch`/`Fill`) and `Margin` within its cell. This makes it the building block for dashboards, tiled status displays, settings forms, and any layout that is naturally a 2D matrix rather than a single row or column.

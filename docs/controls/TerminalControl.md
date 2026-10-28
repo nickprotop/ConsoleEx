@@ -2,6 +2,11 @@
 
 PTY-backed terminal emulator control that embeds a fully interactive shell or process inside any window.
 
+<!-- gallery -->
+
+![TerminalControl](../images/controls/TerminalControl.png)
+
+
 > **Platform:** Linux and Windows 10 1809+ (build 17763). The control throws `PlatformNotSupportedException` on other operating systems.
 
 ## Overview

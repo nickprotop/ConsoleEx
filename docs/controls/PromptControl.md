@@ -3,6 +3,11 @@
 Text input with readline-style editing, history, selection, clipboard, and tab completion.
 Single-line by default; optionally wraps and grows.
 
+<!-- gallery -->
+
+![PromptControl](../images/controls/PromptControl.png)
+
+
 ## Overview
 
 PromptControl provides a labeled text input field with rich editing capabilities including cursor

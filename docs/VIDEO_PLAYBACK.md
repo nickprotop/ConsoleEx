@@ -362,15 +362,16 @@ video.MouseClick += (sender, args) => { /* ... */ };
 ### Frame Pipeline
 
 ```
-                              ┌─── IVideoFrameSink ───┐
-                              │                       │
-┌──────────┐    raw RGB24     │  ┌────────────────┐   │    Cell[,] / Kitty APC   ┌──────────┐
-│  FFmpeg  │ ──────────────── ├─▶│ CellVideoFrameSink│ ─┼──── placeholder cells ──▶│ Terminal │
-│subprocess│   byte[] pipe    │  └────────────────┘   │                          └──────────┘
-└──────────┘                  │  ┌────────────────┐   │    ESC_G… image bytes ────▶
-     ▲                        └─▶│KittyVideoFrameSink│ ─┘    (bypasses cell buffer)
-     │                           └────────────────┘
-     │ stdin redirected (terminal safe)
+                              ┌──── IVideoFrameSink ─────┐
+                              │                          │
+┌──────────┐    raw RGB24     │  ┌─────────────────────┐ │   Cell[,]        ┌──────────┐
+│  FFmpeg  │ ──────────────── ├─►│ CellVideoFrameSink  │ ├── placeholder ──►│ Terminal │
+│subprocess│   byte[] pipe    │  └─────────────────────┘ │   cells          └──────────┘
+└──────────┘                  │  ┌─────────────────────┐ │
+     ▲                        └─►│ KittyVideoFrameSink │ ├── ESC_G… image bytes ──►
+     │                           └─────────────────────┘ │   (bypasses cell buffer)
+     │                                                   │
+     │ stdin redirected (terminal safe)                  ┘
      │
      └─── ffmpeg -i file -f rawvideo -pix_fmt rgb24 -s WxH -
 ```

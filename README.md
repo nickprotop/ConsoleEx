@@ -14,9 +14,13 @@
 </p>
 
 <p align="center">
-  <a href="https://nickprotop.github.io/ConsoleEx/">Website</a> &nbsp;·&nbsp;
-  <a href="https://nickprotop.github.io/ConsoleEx/docfx/_site/EXAMPLES.html">Examples</a> &nbsp;·&nbsp;
-  <a href="https://nickprotop.github.io/ConsoleEx/docfx/_site/tutorials/README.html">Tutorials</a>
+  <strong><a href="https://nickprotop.github.io/ConsoleEx/">sharpconsoleui — documentation, controls and showcase</a></strong>
+</p>
+
+<p align="center">
+  <a href="https://nickprotop.github.io/ConsoleEx/docs/tutorials/README.html">Get started</a> &nbsp;·&nbsp;
+  <a href="https://nickprotop.github.io/ConsoleEx/controls.html">Controls</a> &nbsp;·&nbsp;
+  <a href="https://nickprotop.github.io/ConsoleEx/showcase.html">Showcase</a>
 </p>
 
 A Terminal Application Framework for .NET — the terminal, as an application surface.
@@ -107,7 +111,7 @@ self-contained native binary, verified on every push by a publish-and-run CI gat
 Alpha blending is **not** a unique feature: XenoAtom.Terminal.UI also does RGBA blending, in
 linear colour space. What differs is where it happens — we blend *between per-window buffers*
 during compositing, which is what makes overlapping translucent windows and compositor effects
-possible. See the [full comparison](https://nickprotop.github.io/ConsoleEx/docfx/_site/COMPARISON.html)
+possible. See [Why SharpConsoleUI](https://nickprotop.github.io/ConsoleEx/docs/WHY.html)
 for an honest side-by-side with Terminal.Gui, Spectre.Console and XenoAtom.Terminal.UI.
 
 ---
@@ -201,7 +205,7 @@ schost run         # Launch in a configured terminal window
 schost pack --installer  # Package as portable zip + optional installer
 ```
 
-See the [schost guide](https://nickprotop.github.io/ConsoleEx/docfx/_site/SCHOST.html) for details.
+See the [schost guide](https://nickprotop.github.io/ConsoleEx/docs/SCHOST.html) for details.
 
 ---
 
@@ -344,7 +348,7 @@ terminates, so no TIFF decoder is linked into the library.
 **Selection:** ListControl, TableControl (virtual data, 10k+ rows, sort, filter,
 inline edit), TreeTableControl (nested rows, tree-aware sort and filter), TreeControl
 
-Full reference: [nickprotop.github.io/ConsoleEx/docfx/_site/CONTROLS.html](https://nickprotop.github.io/ConsoleEx/docfx/_site/CONTROLS.html)
+Full reference: [nickprotop.github.io/ConsoleEx/docfx/_site/CONTROLS.html](https://nickprotop.github.io/ConsoleEx/docs/CONTROLS.html)
 
 ---
 
@@ -352,19 +356,19 @@ Full reference: [nickprotop.github.io/ConsoleEx/docfx/_site/CONTROLS.html](https
 
 | | |
 |---|---|
-| [Get Started](https://nickprotop.github.io/ConsoleEx/docfx/_site/BUILDERS.html) | Fluent builder API reference |
-| [Tutorials](https://nickprotop.github.io/ConsoleEx/docfx/_site/tutorials/README.html) | Three step-by-step tutorials |
-| [Controls](https://nickprotop.github.io/ConsoleEx/docfx/_site/CONTROLS.html) | All 30+ controls |
-| [Examples](https://nickprotop.github.io/ConsoleEx/docfx/_site/EXAMPLES.html) | 20+ runnable example projects |
-| [Alpha Blending](https://nickprotop.github.io/ConsoleEx/docfx/_site/ALPHA_BLENDING.html) | Transparent windows & TransparencyBrush |
+| [Get Started](https://nickprotop.github.io/ConsoleEx/docs/BUILDERS.html) | Fluent builder API reference |
+| [Tutorials](https://nickprotop.github.io/ConsoleEx/docs/tutorials/README.html) | Three step-by-step tutorials |
+| [Controls](https://nickprotop.github.io/ConsoleEx/docs/CONTROLS.html) | All 30+ controls |
+| [Examples](https://nickprotop.github.io/ConsoleEx/docs/EXAMPLES.html) | 20+ runnable example projects |
+| [Alpha Blending](https://nickprotop.github.io/ConsoleEx/docs/ALPHA_BLENDING.html) | Transparent windows & TransparencyBrush |
 | [Rendering Pipeline](docs/RENDERING_PIPELINE.md) | The layers a frame passes through: DOM layout, compositor, buffers, driver |
-| [Compositor Effects](https://nickprotop.github.io/ConsoleEx/docfx/_site/COMPOSITOR_EFFECTS.html) | PreBufferPaint / PostBufferPaint |
-| [Video Playback](https://nickprotop.github.io/ConsoleEx/docfx/_site/VIDEO_PLAYBACK.html) | VideoControl reference |
-| [Panel System](https://nickprotop.github.io/ConsoleEx/docfx/_site/PANELS.html) | Taskbar, Start Menu, Clock |
-| [Desktop Background](https://nickprotop.github.io/ConsoleEx/docfx/_site/DESKTOP_BACKGROUND.html) | Gradients, patterns, animations |
-| [Plugins](https://nickprotop.github.io/ConsoleEx/docfx/_site/PLUGINS.html) | Extending the framework |
-| [State Services](https://nickprotop.github.io/ConsoleEx/docfx/_site/STATE-SERVICES.html) | All 11 built-in services |
-| [Notifications](https://nickprotop.github.io/ConsoleEx/docfx/_site/NOTIFICATIONS.html) | Corner toasts (ToastService) + modal notifications |
+| [Compositor Effects](https://nickprotop.github.io/ConsoleEx/docs/COMPOSITOR_EFFECTS.html) | PreBufferPaint / PostBufferPaint |
+| [Video Playback](https://nickprotop.github.io/ConsoleEx/docs/VIDEO_PLAYBACK.html) | VideoControl reference |
+| [Panel System](https://nickprotop.github.io/ConsoleEx/docs/PANELS.html) | Taskbar, Start Menu, Clock |
+| [Desktop Background](https://nickprotop.github.io/ConsoleEx/docs/DESKTOP_BACKGROUND.html) | Gradients, patterns, animations |
+| [Plugins](https://nickprotop.github.io/ConsoleEx/docs/PLUGINS.html) | Extending the framework |
+| [State Services](https://nickprotop.github.io/ConsoleEx/docs/STATE-SERVICES.html) | All 11 built-in services |
+| [Notifications](https://nickprotop.github.io/ConsoleEx/docs/NOTIFICATIONS.html) | Corner toasts (ToastService) + modal notifications |
 | [Dialogs](docs/DIALOGS.md) | Standalone Confirm / Prompt / Progress dialogs + file and system dialogs |
 | [Composable Flows](docs/FLOWS.md) | Multi-step wizards + FlowContext over the dialog primitives |
 | [Debugging](docs/DEBUGGING.md) | Inspect and drive a running app over a socket — snapshot, PNG, layout tree, real input |
@@ -374,9 +378,9 @@ Full reference: [nickprotop.github.io/ConsoleEx/docfx/_site/CONTROLS.html](https
 | [NativeAOT](docs/AOT.md) | AOT compatibility, the CI smoke gate, and the HtmlControl caveat |
 | [Clipboard, Copy & Paste](docs/CLIPBOARD.md) | OSC 52 remote copy (works over SSH), bracketed paste, and configuration |
 | [Benchmarks](docs/benchmarks/README.md) | Headless BenchmarkDotNet regression suite + baseline (distinct from the live `BenchmarkApp` showcase) |
-| [Themes](https://nickprotop.github.io/ConsoleEx/docfx/_site/THEMES.html) | Built-in and custom themes |
-| [Comparison](https://nickprotop.github.io/ConsoleEx/docfx/_site/COMPARISON.html) | vs Terminal.Gui, Spectre.Console |
-| [API Reference](https://nickprotop.github.io/ConsoleEx/docfx/_site/api/SharpConsoleUI.html) | Full API docs |
+| [Themes](https://nickprotop.github.io/ConsoleEx/docs/THEMES.html) | Built-in and custom themes |
+| [Why SharpConsoleUI](https://nickprotop.github.io/ConsoleEx/docs/WHY.html) | What it is, what it is not |
+| [API Reference](https://nickprotop.github.io/ConsoleEx/api/index.html) | Full API docs |
 
 ---
 

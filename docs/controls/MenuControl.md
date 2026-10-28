@@ -2,6 +2,11 @@
 
 Full-featured menu control supporting horizontal (menu bar) and vertical (sidebar) orientations, unlimited submenu nesting, keyboard and mouse navigation, and overlay-rendered dropdowns.
 
+<!-- gallery -->
+
+![MenuControl](../images/controls/MenuControl.png)
+
+
 ## Overview
 
 `MenuControl` renders either a horizontal menu bar (File, Edit, View) or a vertical sidebar of menu items. Each top-level item can have an unlimited hierarchy of child items, separators, keyboard-shortcut hints, and disabled states. Dropdowns and submenus are rendered as portal overlays that float above other content and are automatically positioned and clamped to the available screen space (opening below/above for horizontal bars, right/left for submenus).

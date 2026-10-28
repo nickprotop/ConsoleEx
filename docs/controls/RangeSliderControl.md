@@ -2,6 +2,11 @@
 
 A dual-thumb range slider that allows users to select a range of values by dragging two thumbs along a track. Supports minimum range enforcement, keyboard thumb switching, and both horizontal and vertical orientations.
 
+<!-- gallery -->
+
+![RangeSliderControl](../images/controls/RangeSliderControl.png)
+
+
 ## Properties
 
 | Property | Type | Default | Description |

@@ -3,6 +3,11 @@
 A horizontal divider line with an optional title — and, when you want it, a progress bar in
 disguise.
 
+<!-- gallery -->
+
+![RuleControl](../images/controls/RuleControl.png)
+
+
 ## Overview
 
 `RuleControl` draws a horizontal line across its container, optionally with a title embedded in it.
