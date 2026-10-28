@@ -338,6 +338,11 @@ namespace SharpConsoleUI.Controls
 					lock (_contentLock)
 						imageCache[url] = buffer;
 
+					// The layout that would have shown this image may already have run.
+					// Paint re-runs it when it sees this, the same way it does for a
+					// theme change.
+					_imagesChangedSinceLayout = true;
+
 					_imageLoadCompleted++;
 					_loadingStatus = $"Loading images ({_imageLoadCompleted}/{_imageLoadTotal})...";
 					Invalidate(Invalidation.Relayout);
@@ -452,6 +457,17 @@ namespace SharpConsoleUI.Controls
 			{
 				if (_rawHtml != capturedHtml)
 					return false;
+
+				// The width the control is ACTUALLY laid out at, not the one
+				// guessed when the load started. SetContent begins an image load
+				// before the first layout has run, so _lastLayoutWidth was 0 and
+				// the loader fell back to 80 - it then committed a layout at 80,
+				// the control repainted at its real width, and the relayout
+				// dropped the images it had just downloaded. Every <img> in
+				// content set through SetContent rendered as alt text because of
+				// those few columns.
+				if (_lastLayoutWidth > 0)
+					capturedWidth = _lastLayoutWidth;
 
 				var fg = ForegroundColor;
 				var bg = BackgroundColor; // theme-resolved (was Container?.BackgroundColor ?? Color.Black)

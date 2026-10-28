@@ -94,10 +94,18 @@ namespace SharpConsoleUI.Controls
 			// The layout bakes theme colors into every cell. If the active theme changed since the last
 			// layout (resolved bg/fg/link differ), the cached layout is stale — re-run it so a live theme
 			// switch recolors the page (without this, only a reload fixed it).
+			// Images that arrived after the last layout make it stale for exactly the
+			// same reason a theme switch does: the cached lines were built without
+			// something they should contain.
 			if (_rawHtml != null && _lastLayoutWidth > 0 &&
-				(_lastLayoutBg != bg || _lastLayoutFg != fg || _lastLayoutLinkColor != LinkColor))
+				(_lastLayoutBg != bg || _lastLayoutFg != fg || _lastLayoutLinkColor != LinkColor
+					|| _imagesChangedSinceLayout))
 			{
-				lock (_contentLock) { RunLayout(_lastLayoutWidth); }
+				lock (_contentLock)
+				{
+					_imagesChangedSinceLayout = false;
+					RunLayout(_lastLayoutWidth);
+				}
 			}
 
 			int contentWidth = bounds.Width - Margin.Left - Margin.Right;

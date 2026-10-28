@@ -64,6 +64,18 @@ namespace SharpConsoleUI.Controls
 		private Color? _lastLayoutFg;
 		private Color? _lastLayoutBg;
 		private Color? _lastLayoutLinkColor;
+
+		/// <summary>
+		/// Set when a downloaded image lands after the layout that would have used it.
+		/// </summary>
+		/// <remarks>
+		/// Images arrive on a background task, and the layout they belong in may already
+		/// have run: a control whose width never changes again is never re-laid out, so
+		/// the picture stayed as its alt text while the decoded bytes sat in the cache.
+		/// Paint checks this the same way it checks for a theme change - the layout is
+		/// stale for the same reason, and the fix is the same one.
+		/// </remarks>
+		private volatile bool _imagesChangedSinceLayout;
 		private string? _rawHtml;
 		private string? _baseUrl;
 		private string? _currentUrl;
