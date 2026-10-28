@@ -558,7 +558,7 @@ internal static class DiagnosticsSerializer
 	/// </para>
 	/// <para>
 	/// Empty is not a name: <c>string.IsNullOrEmpty</c> is the same guard
-	/// <see cref="Describe"/> uses, so the two agree about what counts as named.
+	/// <see cref="Control"/> uses, so the two agree about what counts as named.
 	/// </para>
 	/// </remarks>
 	internal static string ControlId(IWindowControl c) =>
