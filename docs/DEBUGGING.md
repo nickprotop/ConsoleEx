@@ -531,10 +531,16 @@ Note that a window's `bounds` are in the desktop's own space: with a top panel v
 window reported at `y: 0` has its title bar on screen row 1, and pressing row 0 hits the
 panel instead. `windows` before and after is the check that it worked.
 
-The remaining actions send a flag directly, for a client that wants one specific event
-rather than a gesture: `click`, `doubleclick`, and `releaseclick` (release and click in one
-event, which is how a terminal reports the end of a click). They are idempotent with the
-recogniser - a flag already present is not added twice.
+`click` and `doubleclick` send the press and release a terminal sends - two events for a
+click, four for a double - so the recogniser derives the gesture exactly as it does for a
+real one. That matters: sending `Button1DoubleClicked` directly would skip the derivation,
+and a bug in it would be invisible from here while a real terminal misbehaved.
+
+`press`, `release` and `releaseclick` still send exactly one event each, for a client that
+wants one specific thing rather than a gesture. `releaseclick` carries the release and the
+click together, which is how a terminal reports the end of a click - a client that sends
+them as two messages breaks any control that opens a portal on release. All of them are
+idempotent with the recogniser: a flag already present is not added twice.
 
 ---
 

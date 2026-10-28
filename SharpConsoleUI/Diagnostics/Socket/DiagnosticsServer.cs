@@ -1134,14 +1134,58 @@ internal sealed class DiagnosticsServer : IDisposable
 		string button = Text(req, "button") ?? "left";
 		string action = Text(req, "action") ?? "click";
 
-		var flags = MouseFlagsFor(button, action, out string? flagError);
-		if (flags == null) return ErrorBody(flagError!);
+		var sequence = MouseSequenceFor(button, action, out string? flagError);
+		if (sequence == null) return ErrorBody(flagError!);
 
-		Marshal(() => _system.Input.InjectMouseEvent(flags, new System.Drawing.Point(x.Value, y.Value)));
+		var point = new System.Drawing.Point(x.Value, y.Value);
+
+		Marshal(() =>
+		{
+			foreach (var flags in sequence) _system.Input.InjectMouseEvent(flags, point);
+		});
 		return new JsonObject
 		{
 			["mouse"] = $"{action} {button} @ {x},{y}",
 		};
+	}
+
+	/// <summary>
+	/// The event or events an action sends, in order.
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// A click is a PRESS and then a RELEASE, which is what a terminal reports and
+	/// what <c>HeadlessConsoleDriver.SimulateClick</c> sends, so the recognizer
+	/// derives <c>Button1Clicked</c> the same way for both. Sending the derived
+	/// flag directly would skip that derivation - and a bug in it, which is what
+	/// issue #92 was, would then be invisible from here while a real terminal
+	/// double-fired.
+	/// </para>
+	/// <para>
+	/// <c>press</c>, <c>release</c> and <c>releaseclick</c> still send exactly one
+	/// event each, for a caller that wants one specific thing rather than a gesture.
+	/// </para>
+	/// </remarks>
+	private static List<List<MouseFlags>>? MouseSequenceFor(string button, string action, out string? error)
+	{
+		string wanted = action.ToLowerInvariant();
+
+		// A click and a double click are SEQUENCES. Everything else is one event.
+		if (wanted is "click" or "doubleclick")
+		{
+			var press = MouseFlagsFor(button, "press", out error);
+			if (press == null) return null;
+
+			var release = MouseFlagsFor(button, "release", out error);
+			if (release == null) return null;
+
+			return wanted == "click"
+				? [press, release]
+				: [press, release, press, release];
+		}
+
+		var single = MouseFlagsFor(button, action, out error);
+		return single == null ? null : [single];
 	}
 
 	private static List<MouseFlags>? MouseFlagsFor(string button, string action, out string? error)
@@ -1182,9 +1226,13 @@ internal sealed class DiagnosticsServer : IDisposable
 				return null;
 		}
 
-		// "clicked" is its own flag, not a press plus a release: controls listen for
-		// Button1Clicked, and a terminal reports it in addition to the press/release pair.
-		// A caller sending only press and release produces a drag that never clicks.
+		// These are the SINGLE events. A click and a double click are sequences and
+		// are assembled in MouseSequenceFor, which calls this for each half.
+		//
+		// The comment that used to sit here said a press plus a release "produces a
+		// drag that never clicks". That was true before MouseGestureRecognizer: the
+		// recognizer now derives Button1Clicked from the pair, which is exactly why
+		// click sends the pair rather than the derived flag.
 		return action.ToLowerInvariant() switch
 		{
 			"click" => new List<MouseFlags> { clicked },
