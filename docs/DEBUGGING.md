@@ -16,6 +16,42 @@ $ echo '{"cmd":"windows"}' | socat - UNIX-CONNECT:/tmp/myapp.sock
 
 ---
 
+## cxdbg, or raw JSON
+
+Everything here is the wire protocol: one JSON object per line, over a Unix socket. That is
+worth knowing, because it is what a script or an agent talks to, and it is the authority
+when a reply surprises you.
+
+For working by hand there is **cxdbg**, a dotnet tool that speaks it for you:
+
+```bash
+dotnet tool install -g SharpConsoleUI.Debugger
+
+cxdbg run ./MyApp --attach        # start it, and open a prompt on it
+cxdbg show tree -s /tmp/myapp.sock
+cxdbg why size ChartControl#b679e5
+```
+
+Every verb below is a cxdbg command of the same name, and every field below is an option of
+the same name:
+
+```json
+{"cmd":"snapshot","format":"cells","y":7,"h":1}
+```
+```bash
+cxdbg snapshot --format cells --y 7 --h 1
+```
+
+So nothing here has to be learned twice, and a verb this document has not caught up with
+still works - cxdbg declares no list of its own. See
+[`tools/cxdbg/README.md`](../tools/cxdbg/README.md) for the tool.
+
+**This document is the protocol's.** It describes the wire, which is the library's feature
+and the thing an agent, a script or a future client talks to. cxdbg is one client of it and
+is documented separately; where the two disagree, the wire is right.
+
+---
+
 ## Quick start
 
 ```bash
@@ -136,7 +172,7 @@ differently when it sees one. Those carry a `"code"`:
 | `code` | Means | What a client should do |
 |--------|-------|-------------------------|
 | `wrong_driver` | This driver cannot do it -- resizing a real terminal, or reading a composed desktop from a driver that keeps no buffer | Stop asking. No retry helps. |
-| `diagnostics_disabled` | The app was built without the recording this verb reads | Disable the feature. Not switchable from here. |
+| `diagnostics_disabled` | The recording this verb reads is off | Turn it on with `{"cmd":"set","diagnostics":true}` and ask again. |
 
 ```json
 {"ok":false,"code":"diagnostics_disabled","error":"no metrics: this app runs with..."}
@@ -174,8 +210,16 @@ comes back without one.
 | `image` | What is on the screen, as a PNG, TGA or JPEG |
 | `windows` | What windows exist, in z-order |
 | `tree` | What the layout engine believes |
+| `desktop` | The screen itself: size, where it starts, what is on it |
+| `control` | One control: its size, state, and what contains it |
+| `inspect` | What is under a point: window, region, control, cell |
 | `focus` | Where keyboard input will go |
+| `reachable` | Which controls Tab can reach, in Tab order |
+| `measure` | Why a control is the size it is: the offers, and which one decided |
+| `color` | Why a role is the colour it is, resolution step by step |
 | `metrics` | Frame number, bytes written, characters changed |
+| `invalidations` | Which control asked for the frame. Needs diagnostics on |
+| `events` | What input the app was told about. Needs diagnostics on |
 | `logs` | The log buffer a TUI can never print to itself |
 
 ### Driving
@@ -528,10 +572,11 @@ fields it is a pure read, so `{"cmd":"set"}` answers "what is this app doing rig
 | `logLevel` | `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`. |
 | `clearLogs` | Empties the buffer. |
 
-The reply's `diagnosticsAvailable` says whether a recorder exists at all. `false` means the
-app was built with `EnableDiagnostics: false`, so `diagnostics: true` cannot turn one on -
-it was never created. `true` with `diagnostics: false` means it exists but is paused, which
-IS switchable from here.
+The reply's `diagnosticsAvailable` says whether a recorder exists at all. It is `true` for
+any app built on the current library: the recorder is always created, and
+`EnableDiagnostics` decides only whether it STARTS enabled. So `diagnostics: true` works on
+an app already running, including one built without the option -- which is the app you most
+often want to interrogate, since restarting it loses the state you attached to look at.
 
 The reply always reports the resulting state, so a write reads back and verifies itself.
 
@@ -561,7 +606,7 @@ anyway, because the diff engine needs it, so `snapshot` and `image` read that di
 cost one copy per capture. A custom driver that keeps no buffer has nothing to read;
 capture a window instead.
 
-It is enabled at construction:
+Start it on at construction:
 
 ```csharp
 var options = ConsoleWindowSystemOptions.Create() with
@@ -570,14 +615,21 @@ var options = ConsoleWindowSystemOptions.Create() with
 };
 ```
 
-If an app was built **without** it, the recorder is never created and no verb can conjure
-it, so `metrics` returns an error naming the switch rather than reporting zeroes.
+Or turn it on over the socket, on an app already running:
+
+```bash
+echo '{"cmd":"set","diagnostics":true}' | socat - UNIX-CONNECT:/tmp/myapp.sock
+```
+
+Until it is on, `metrics` returns an error naming the switch rather than reporting zeroes.
+Turn it back off when you are done: a probe that cannot stop costs the app a deep copy
+every frame from then on.
 
 Every other verb works regardless. Per-window `snapshot` and `image` read the window's own
 render buffer, and `composed` reads the driver's -- both exist because the renderer needs
 them.
 
-If the recorder exists but is paused, `composed` turns it on and **waits for a frame
+If recording is off, `composed` turns it on and **waits for a frame
 captured after that point** -- never serving the stale snapshot still in hand, which would
 be a screenshot of the past presented as the present.
 
@@ -646,6 +698,114 @@ test should fail rather than assert against a frozen frame.
 
 ---
 
+## inspect
+
+What is under a point. The inspector: you are looking at a screenshot, something is wrong
+*there*, and you have coordinates rather than a name.
+
+```json
+{"cmd":"inspect","x":20,"y":10}
+```
+
+```json
+{"ok":true,"x":20,"y":10,
+ "cell":{"ch":"a","fg":[238,238,238],"bg":[45,45,45]},
+ "region":"client",
+ "window":{"title":"Settings","active":true,"movable":true,"resizable":true,"bounds":{...}},
+ "control":{"control":"MarkupControl","parents":[...], ...},
+ "covered":[]}
+```
+
+Layered on purpose, because the interesting answer is often not the topmost thing.
+
+**`region`** is the field most questions end at:
+
+| | |
+|---|---|
+| `desktop` | bare desktop, no window there |
+| `topPanel` `bottomPanel` | the desktop's own chrome |
+| `client` | inside a window, where controls live |
+| `title` | the title bar — a drag here moves the window, if it is movable |
+| `resize` | the frame; `resize` names the direction (`TopLeft`, `Right`, …) |
+
+A point with **no control** is a real answer: `"control": null` with a window means window
+chrome, which is why a click there does nothing. That case and "a control that ignored the
+click" look identical on screen and nowhere else.
+
+**`covered`** lists the windows under this point that lost. A modal eating clicks is
+invisible without it.
+
+The window and the region come from the **input coordinator** — the same code a real press
+runs, asked in the same order. A reimplementation walking the layout tree would report what
+*should* be under the point rather than what a click will find, and the gap between those
+two is what this verb exists to show.
+
+---
+
+## desktop
+
+The screen itself, without walking anything on it.
+
+```json
+{"cmd":"desktop"}
+```
+
+```json
+{"ok":true,"width":100,"height":30,"originX":0,"originY":1,
+ "topPanelRows":1,"bottomPanelRows":1,"desktopBottom":28,
+ "theme":"ModernGray","windows":1,"modals":false,"portals":true,
+ "driver":"HeadlessConsoleDriver"}
+```
+
+`originY` is the row the desktop starts on, below any top panel — the reason a window's
+`bounds` and its `absolute` differ, and the commonest way to click in the wrong place.
+
+**`modals` and `portals` answer "why does nothing respond".** A modal takes the keyboard
+and a portal takes the frame; both are invisible in a screenshot and decisive for input.
+
+The same block appears inside a `tree` reply, from the same code — ask `tree` when you want
+the controls too, and this when you do not.
+
+---
+
+## control
+
+One control: what it is, where it sits, and what contains it.
+
+```json
+{"cmd":"control","control":"okButton"}
+{"cmd":"control","control":"MarkupControl#3f2a1b"}
+{"cmd":"control","control":"okButton","window":"Settings"}
+```
+
+Name it by its `Name`, by the `id` that `tree` reports, or by its bare type when only one
+of that type is around — the same three spellings `measure` takes. Without a `window`, the
+active one.
+
+The reply is the same shape `tree` gives a control node — `desired`, `bounds`, `absolute`,
+`props`, `state` — plus **`parents`**: the chain of containers above it, outermost first.
+
+```json
+{"ok":true,"control":"ScrollablePanelControl","id":"ScrollablePanelControl#165f26b",
+ "desired":{"w":30,"h":10},"bounds":{"x":0,"y":3,"w":30,"h":25},
+ "props":{"horizontal":"Left","vertical":"Fill"},
+ "state":{"scrollOffset":0,"viewportExtent":25,"contentExtent":65},
+ "parents":[{"control":"(root)","layout":"DockRootLayout","bounds":{"w":88,"h":28}}],
+ "window":"SharpConsoleUI Demo"}
+```
+
+**No children.** This answers about one control; `tree` is the verb for a subtree.
+
+Before this verb, reading what a control *is* meant asking for the whole tree with `props`
+and walking it — a reply that grows with the application, to answer one question. The four
+other control-scoped verbs (`measure`, `color`, `focusctl`, `invoke`) act on a control or
+explain one axis of it; this one describes it.
+
+An unknown control is an error that names what was asked for, because a typo and a control
+that is genuinely absent otherwise read the same.
+
+---
+
 ## tree
 
 What the layout engine believes, as opposed to what the screen shows. The whole stack —
@@ -672,7 +832,11 @@ control currently *is*: checked, open, selected, its text).
 
 The **`id`** is how you name one control to another verb. It is the control's `Name` when
 it has one, and otherwise its type and instance — `MarkupControl#3f2a1b`. Hand it back to
-`measure` or `focusctl` and they will find the control the tree was showing you. It is not
+`control`, `measure`, `focusctl` or `invoke` and they will find the control the tree was
+showing you. **Every verb that names a control names it this way** — `focus` says what has
+the keyboard, `reachable` lists the Tab stops, `inspect` reports what is under a point, and
+each of them answers in ids you can ask the next question with. A bare type would read
+fine and go nowhere, since most applications have several controls of a type. It is not
 positional: inserting a sibling above a control does not change its id, which is the whole
 reason for the instance part. It does not survive a restart, and an id whose control has
 gone matches nothing rather than matching whatever took its place. **A control whose arranged `bounds` has
@@ -864,6 +1028,8 @@ through `JsonValue.Create` in the serializer are not noise -- they pick the safe
 
 ## See also
 
+- [`tools/cxdbg/README.md`](../tools/cxdbg/README.md) -- the dotnet tool that speaks this
+  protocol, for working by hand
 - [`DRIVERS.md`](DRIVERS.md) -- drivers, render modes, and running headless
 - [`EXPORT.md`](EXPORT.md) -- the same captures as a public API, for use inside your own app
 - [`AOT.md`](AOT.md) -- NativeAOT support and the CI gate

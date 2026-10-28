@@ -38,7 +38,7 @@ chart.AddSeries("requests", Color.Green).SetValues(samples);
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `PlotType` | `ChartPlotType` | `Line` | `Line`, `Area`, `Bar`, `Scatter` or `Gauge`. |
+| `PlotType` | `ChartPlotType` | `Line` | `Line`, `Area`, `Bar`, `Scatter`, `Heatmap` or `Gauge`. |
 | `Orientation` | `ChartOrientation` | `Vertical` | Which way bars run. |
 | `Sizing` | `ChartSizing` | `Stretch` | Stretch to the width, or a fixed step per point. |
 | `StepWidth` | `int` | `2` | Cells per point in `FixedStep` mode. |
@@ -138,6 +138,65 @@ series always reads current.
 
 The label and the value are each optional, and the value is formatted through
 `YAxis`, so units and percentages need no second concept.
+
+## Heatmaps
+
+Every other plot type answers "what is the value at X". A heatmap answers "what
+is the value at X,Y", so colour stops being decoration and becomes the value
+channel:
+
+```csharp
+var grid = new double[7, 24];        // [row, column]
+// ... fill it ...
+
+var chart = Controls.Chart()
+    .WithTitle("Request latency by hour and day")
+    .WithYRange(0, 100)
+    .WithColorBarLegend()
+    .AddHeatmap("latency", grid, ColorGradient.Predefined["spectrum"])
+    .Build();
+```
+
+`AddHeatmap` sets `PlotType` for you, so the plot type and the grid cannot
+disagree. A heatmap needs two things an ordinary series does not: a
+**gradient**, because colour is carrying the reading, and a **grid**, set
+through `SetGrid` and indexed `[row, column]`.
+
+The scale is the **Y axis**, which is what makes a colour mean the same number
+on every chart that shares the range — so set `YAxis.Min` and `YAxis.Max`
+rather than letting two charts scale themselves independently and read as
+though they agree.
+
+Pair it with `WithColorBarLegend()`. A swatch legend shows one colour per
+series, and a series that spans a whole gradient has no single colour to show —
+the swatch picks one and implies the rest do not exist. Where colour carries the
+value, the legend has to be the scale.
+
+### Holes are not zeroes
+
+The second overload builds the grid from scattered readings, sized to the
+largest coordinate given:
+
+```csharp
+chart = Controls.Chart()
+    .WithYRange(0, 100)
+    .WithColorBarLegend()
+    .AddHeatmap("samples", observed, ColorGradient.Predefined["warm"])
+    .Build();   // observed: IEnumerable<(int X, int Y, double Value)>
+```
+
+Cells nobody measured stay as background instead of reading as zero. A missing
+measurement and a measurement of zero are different facts, and a heatmap that
+paints them the same invents data. Non-finite values in a `double[,]` become
+holes the same way.
+
+A series reports its grid through `HasGrid`, `GridWidth` and `GridHeight`.
+
+### Render mode
+
+A heatmap draws in half blocks whatever `RenderMode` asks for. Braille resolves
+a *line* finely but can only colour one foreground per cell, and a heatmap has
+no line and nothing but colour to say — so the mode that keeps colour wins.
 
 ## Growing charts
 
