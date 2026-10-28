@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>SharpConsoleUI.SiteBuild</RootNamespace>
+    <AssemblyName>sitebuild</AssemblyName>
+
+    <!-- Not packed, not published: this builds the website and nothing else. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The same renderer the library uses for its markdown control, so the
+         site and the application agree about what markdown means. -->
+    <PackageReference Include="Markdig" Version="0.41.3" />
+  </ItemGroup>
+
+</Project>

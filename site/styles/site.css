@@ -1,0 +1,838 @@
+/* -----------------------------------------------------------------------
+   SharpConsoleUI — site stylesheet
+
+   One sheet for every page. Colour is defined once as tokens on :root and
+   redefined for light; nothing below the token block hardcodes a colour, so
+   a theme change is a token change.
+
+   Light and dark both ship. The browser's preference decides by default and
+   a toggle overrides it, so the two cannot disagree: the dark values are
+   written twice, once under the media query and once under the explicit
+   attribute the toggle sets.
+   ----------------------------------------------------------------------- */
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ── Tokens: light is the base ───────────────────────────────────────── */
+
+:root {
+    --bg:           #fbfcfe;
+    --surface-1:    #ffffff;
+    --surface-2:    #f2f5fa;
+    --border:       #dde4ee;
+    --border-dim:   #e9eef5;
+    --accent:       #0366a8;
+    --accent-bg:    rgba(3, 102, 168, 0.07);
+    --accent-glow:  rgba(3, 102, 168, 0.18);
+    --text-1:       #11181f;
+    --text-2:       #51606f;
+    --text-3:       #8e9bab;
+    --green:        #0a7f49;
+    --red:          #c0392b;
+    --yellow:       #9a6a00;
+
+    /* The terminal frame around a screenshot stays dark in both modes: every
+       screenshot is a dark terminal, and a light chrome around it reads as a
+       mistake rather than a choice. */
+    --term-bar:     #1c2432;
+    --term-border:  #2a3446;
+    --dot-red:      #ff5f57;
+    --dot-yellow:   #ffbd2e;
+    --dot-green:    #28c840;
+
+    --font-mono:    'Fragment Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+    /* Fragment Mono ships no box-drawing glyphs (U+2500-257F): its Google
+       unicode-range stops at Latin + a few symbols. Left to --font-mono, every
+       ASCII diagram falls back per-character to whatever the OS supplies, at
+       different metrics, and the grid tears. These fonts all cover the block
+       and ship with the platform, so nothing extra is downloaded. */
+    --font-diagram: 'Fira Code', 'DejaVu Sans Mono', 'Liberation Mono', Menlo,
+                    Consolas, 'Cascadia Mono', 'Noto Sans Mono', ui-monospace, monospace;
+    --font-body:    'DM Sans', system-ui, -apple-system, sans-serif;
+    --radius:       10px;
+    --radius-sm:    6px;
+    --page:         1180px;
+}
+
+/* Dark, when the browser asks for it and the reader has not overridden. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg:          #070b12;
+        --surface-1:   #0c1220;
+        --surface-2:   #111827;
+        --border:      #1c2a42;
+        --border-dim:  #131d2e;
+        --accent:      #00d4ff;
+        --accent-bg:   rgba(0, 212, 255, 0.08);
+        --accent-glow: rgba(0, 212, 255, 0.25);
+        --text-1:      #e8edf5;
+        --text-2:      #8a9bb8;
+        --text-3:      #54657f;
+        --green:       #00ff88;
+        --red:         #ff5f57;
+        --yellow:      #ffbd2e;
+        --term-bar:    #0c1220;
+        --term-border: #1c2a42;
+    }
+}
+
+/* Dark, when the reader asked for it explicitly. Same values; written twice
+   because a media query cannot be overridden by an attribute on its own. */
+:root[data-theme="dark"] {
+    --bg:          #070b12;
+    --surface-1:   #0c1220;
+    --surface-2:   #111827;
+    --border:      #1c2a42;
+    --border-dim:  #131d2e;
+    --accent:      #00d4ff;
+    --accent-bg:   rgba(0, 212, 255, 0.08);
+    --accent-glow: rgba(0, 212, 255, 0.25);
+    --text-1:      #e8edf5;
+    --text-2:      #8a9bb8;
+    --text-3:      #54657f;
+    --green:       #00ff88;
+    --red:         #ff5f57;
+    --yellow:      #ffbd2e;
+    --term-bar:    #0c1220;
+    --term-border: #1c2a42;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.65;
+    color: var(--text-1);
+    background-color: var(--bg);
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* The dot grid that gives the page its texture. */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(var(--border-dim) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.7;
+}
+
+.container { position: relative; z-index: 1; max-width: var(--page); margin: 0 auto; padding: 0 28px; }
+
+/* ── Site header ─────────────────────────────────────────────────────── */
+
+.site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-dim);
+}
+
+.site-header-inner {
+    max-width: var(--page);
+    margin: 0 auto;
+    padding: 0 28px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+}
+
+.site-brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-1);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.site-brand .mark { color: var(--accent); }
+
+.site-nav { display: flex; gap: 4px; margin-left: auto; align-items: center; }
+
+.site-nav a {
+    color: var(--text-2);
+    text-decoration: none;
+    font-size: 0.9rem;
+    padding: 7px 12px;
+    border-radius: var(--radius-sm);
+    transition: color .15s, background .15s;
+}
+
+.site-nav a:hover { color: var(--text-1); background: var(--surface-2); }
+.site-nav a.active { color: var(--accent); background: var(--accent-bg); }
+
+.theme-toggle {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-2);
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    margin-left: 6px;
+    transition: color .15s, border-color .15s, background .15s;
+}
+
+.theme-toggle:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
+.theme-toggle svg { width: 16px; height: 16px; }
+
+/* One icon shows at a time, chosen by the mode in force. */
+.theme-toggle .i-sun  { display: none; }
+.theme-toggle .i-moon { display: block; }
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .theme-toggle .i-sun  { display: block; }
+    :root:not([data-theme="light"]) .theme-toggle .i-moon { display: none; }
+}
+:root[data-theme="dark"] .theme-toggle .i-sun  { display: block; }
+:root[data-theme="dark"] .theme-toggle .i-moon { display: none; }
+:root[data-theme="light"] .theme-toggle .i-sun  { display: none; }
+:root[data-theme="light"] .theme-toggle .i-moon { display: block; }
+
+/* ── Typography ──────────────────────────────────────────────────────── */
+
+h1, h2, h3, h4 { line-height: 1.25; font-weight: 600; letter-spacing: -0.02em; }
+h1 { font-size: clamp(2rem, 4.5vw, 3rem); }
+h2 { font-size: clamp(1.4rem, 2.6vw, 1.85rem); }
+h3 { font-size: 1.15rem; }
+
+a { color: var(--accent); }
+
+code, pre, .mono { font-family: var(--font-mono); }
+
+/* Diagrams live in fenced blocks; they need the box-drawing coverage above,
+   and a grid that cannot drift. */
+pre, pre code {
+    font-family: var(--font-diagram);
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0, "calt" 0;
+}
+
+/* ── Page shell ──────────────────────────────────────────────────────── */
+
+.page { padding: 56px 0 96px; }
+.page-head { max-width: 760px; margin-bottom: 44px; }
+.page-head h1 { margin-bottom: 14px; }
+.page-head p { color: var(--text-2); font-size: 1.05rem; }
+
+.eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    margin-bottom: 12px;
+    display: block;
+}
+
+/* ── Cards ───────────────────────────────────────────────────────────── */
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 18px;
+}
+
+.card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: border-color .18s, transform .18s, box-shadow .18s;
+}
+
+a.card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px -14px var(--accent-glow);
+}
+
+.card h3 { margin-bottom: 7px; }
+.card p { color: var(--text-2); font-size: 0.92rem; line-height: 1.55; }
+
+/* ── Doc group (the docs index) ──────────────────────────────────────── */
+
+.doc-group { margin-bottom: 52px; }
+.doc-group > h2 { margin-bottom: 6px; }
+.doc-group > .group-summary { color: var(--text-2); margin-bottom: 20px; font-size: 0.95rem; }
+
+.doc-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 2px; }
+
+.doc-list a {
+    display: block;
+    padding: 13px 15px;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid transparent;
+    transition: background .15s, border-color .15s;
+}
+
+.doc-list a:hover { background: var(--surface-2); border-color: var(--border); }
+.doc-list .t { font-weight: 500; display: block; margin-bottom: 2px; }
+.doc-list .b { color: var(--text-2); font-size: 0.86rem; line-height: 1.45; }
+
+/* ── Terminal frame around a screenshot ──────────────────────────────── */
+
+.term {
+    border: 1px solid var(--term-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--term-bar);
+    box-shadow: 0 18px 50px -22px rgba(0, 0, 0, 0.55);
+}
+
+.term-bar {
+    height: 32px;
+    background: var(--term-bar);
+    border-bottom: 1px solid var(--term-border);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 7px;
+}
+
+.term-dot { width: 11px; height: 11px; border-radius: 50%; }
+.term-dot.r { background: var(--dot-red); }
+.term-dot.y { background: var(--dot-yellow); }
+.term-dot.g { background: var(--dot-green); }
+
+.term-title {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: #8a9bb8;
+    margin-left: 8px;
+}
+
+.term img { display: block; width: 100%; height: auto; }
+
+.shot h3 { font-size: 1rem; }
+.shot h3 a { text-decoration: none; }
+.shot h3 a:hover { text-decoration: underline; }
+.shot p { color: var(--text-2); font-size: 0.88rem; line-height: 1.5; }
+
+/* ── Rendered markdown ───────────────────────────────────────────────── */
+
+.doc-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 52px; align-items: start; }
+
+.doc-side { position: sticky; top: 84px; max-height: calc(100vh - 110px); overflow-y: auto; font-size: 0.88rem; }
+.doc-side .grp { margin-bottom: 22px; }
+.doc-side .grp-name {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-3);
+    margin-bottom: 7px;
+}
+.doc-side a { display: block; padding: 4px 9px; border-radius: 5px; color: var(--text-2); text-decoration: none; }
+.doc-side a:hover { color: var(--text-1); background: var(--surface-2); }
+.doc-side a.active { color: var(--accent); background: var(--accent-bg); font-weight: 500; }
+
+.prose { max-width: 820px; min-width: 0; }
+.prose > * + * { margin-top: 1.15em; }
+.prose h1 { margin-bottom: 0.5em; }
+.prose h2 { margin-top: 2em; padding-bottom: 0.3em; border-bottom: 1px solid var(--border-dim); }
+.prose h3 { margin-top: 1.5em; }
+.prose ul, .prose ol { padding-left: 1.4em; }
+.prose li + li { margin-top: 0.35em; }
+.prose img { max-width: 100%; height: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.prose blockquote {
+    border-left: 3px solid var(--accent);
+    padding: 0.2em 0 0.2em 1.1em;
+    color: var(--text-2);
+    background: var(--accent-bg);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.prose code {
+    background: var(--surface-2);
+    border: 1px solid var(--border-dim);
+    border-radius: 4px;
+    padding: 0.12em 0.4em;
+    font-size: 0.88em;
+}
+
+.prose pre {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.86rem;
+    line-height: 1.55;
+}
+
+.prose pre code { background: none; border: none; padding: 0; font-size: inherit; }
+
+/* A table lays out as a TABLE. display:block stopped it honouring width:100%
+   against the column, so a five-column properties table sized itself to its
+   content and ran off the right edge with the last column cut in half. The
+   scroll container is the wrapper, added around each table by the generator,
+   so a genuinely wide table scrolls instead of being clipped. */
+.prose .table-scroll { overflow-x: auto; max-width: 100%; }
+
+.prose table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.9rem;
+}
+
+.prose th, .prose td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+    overflow-wrap: anywhere;
+}
+
+.prose th { background: var(--surface-2); font-weight: 600; }
+
+/* table-layout:fixed divides the available width by the columns instead of
+   by their content, which is the only way a five-column properties table both
+   fits AND leaves the description column readable. Auto layout gave the three
+   short columns everything and squeezed the sentences into one character per
+   line; min-widths pushed the whole table past its container. */
+.prose table { table-layout: fixed; }
+
+/* The last column carries the sentences, so it gets the lion's share. */
+.prose th:last-child, .prose td:last-child { width: 42%; }
+
+.prose code { overflow-wrap: break-word; word-break: normal; }
+
+.prose hr { border: none; border-top: 1px solid var(--border); }
+
+/* ── Buttons ─────────────────────────────────────────────────────────── */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 18px;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    font-size: 0.92rem;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    color: var(--text-1);
+    transition: border-color .15s, background .15s, transform .15s;
+}
+
+.btn:hover { transform: translateY(-1px); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.btn-primary:hover { box-shadow: 0 8px 22px -10px var(--accent-glow); }
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+
+/* ── Footer ──────────────────────────────────────────────────────────── */
+
+.site-footer {
+    border-top: 1px solid var(--border-dim);
+    padding: 40px 0;
+    margin-top: 80px;
+    color: var(--text-3);
+    font-size: 0.86rem;
+}
+
+.site-footer-inner { max-width: var(--page); margin: 0 auto; padding: 0 28px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.site-footer a { color: var(--text-2); text-decoration: none; }
+.site-footer a:hover { color: var(--accent); }
+.site-footer .sep { margin-left: auto; }
+
+/* ── Narrow screens ──────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+    .doc-layout { grid-template-columns: 1fr; gap: 28px; }
+    .doc-side { position: static; max-height: none; }
+    .site-nav a { padding: 7px 9px; font-size: 0.85rem; }
+    .site-brand span.full { display: none; }
+}
+
+@media (max-width: 560px) {
+    .container, .site-header-inner, .site-footer-inner { padding: 0 18px; }
+    .gallery { grid-template-columns: 1fr; }
+}
+
+/* ── Home: hero ──────────────────────────────────────────────────────── */
+
+/* A soft wash behind the hero. Sized in vmax so it scales with the viewport
+   rather than snapping at a breakpoint, and pinned behind everything. */
+.hero-wash {
+    position: absolute;
+    top: -180px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120vw;
+    height: 70vmax;
+    max-height: 900px;
+    pointer-events: none;
+    z-index: 0;
+    background:
+        radial-gradient(ellipse 50% 45% at 50% 0%, var(--accent-glow), transparent 70%),
+        radial-gradient(ellipse 70% 50% at 50% 10%, var(--accent-bg), transparent 75%);
+    opacity: 0.75;
+}
+
+.hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 56px;
+    align-items: center;
+    padding: 72px 0 88px;
+}
+
+.hero-logo { height: 42px; width: auto; margin-bottom: 26px; }
+.hero h1 { margin-bottom: 20px; }
+
+.hero-sub {
+    color: var(--text-2);
+    font-size: 1.08rem;
+    line-height: 1.62;
+    max-width: 50ch;
+    margin-bottom: 30px;
+}
+
+.hero-actions { display: flex; flex-wrap: wrap; gap: 11px; margin-bottom: 26px; }
+
+.hero-install code {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 9px 14px;
+    display: inline-block;
+    color: var(--text-1);
+}
+
+/* ── Home: carousel ──────────────────────────────────────────────────── */
+
+/* overflow:hidden because the slides are absolutely positioned and the sources
+   are not one aspect ratio - a 16:9 GIF in a 16:10 frame spilled over the dot
+   bar below it and covered the dots. */
+.carousel { position: relative; aspect-ratio: 16 / 10; background: #0a0e16; overflow: hidden; }
+
+.carousel-slide {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top left;
+    opacity: 0;
+    transition: opacity .7s ease;
+}
+
+.carousel-slide.active { opacity: 1; }
+
+.carousel-dots {
+    display: flex;
+    justify-content: center;
+    gap: 7px;
+    padding: 11px;
+    background: var(--term-bar);
+    border-top: 1px solid var(--term-border);
+}
+
+.carousel-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    border: none;
+    background: #3a4760;
+    cursor: pointer;
+    padding: 0;
+    transition: background .2s, transform .2s;
+}
+
+.carousel-dot:hover { transform: scale(1.3); }
+.carousel-dot.active { background: var(--accent); }
+.carousel-dot:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* Previous and next. Hidden until the frame is hovered or something inside it
+   has keyboard focus, so they do not sit on top of the screenshot while it is
+   being read. */
+.carousel-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 34px;
+    height: 46px;
+    border: none;
+    background: rgba(8, 12, 20, 0.55);
+    color: #e8edf5;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    font-size: 1.1rem;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity .18s, background .18s;
+    z-index: 2;
+}
+
+.carousel-nav.prev { left: 0; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.carousel-nav.next { right: 0; border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+
+.carousel-term:hover .carousel-nav,
+.carousel-term:focus-within .carousel-nav { opacity: 1; }
+
+.carousel-nav:hover { background: rgba(8, 12, 20, 0.85); }
+.carousel-nav:focus-visible { opacity: 1; outline: 2px solid var(--accent); outline-offset: -2px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .carousel-nav { transition: none; }
+}
+
+/* A touch screen has no hover, so the arrows stay visible there. */
+@media (hover: none) {
+    .carousel-nav { opacity: 1; }
+}
+
+/* ── Home: pillars and feature ───────────────────────────────────────── */
+
+.pillars {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    padding: 16px 0 88px;
+}
+
+.pillar {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 26px;
+}
+
+.pillar h3 { margin-bottom: 10px; }
+.pillar p { color: var(--text-2); font-size: 0.93rem; line-height: 1.6; margin-bottom: 14px; }
+.pillar a { font-size: 0.89rem; text-decoration: none; font-weight: 500; }
+.pillar a:hover { text-decoration: underline; }
+
+.feature {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: 52px;
+    align-items: center;
+    padding: 0 0 92px;
+}
+
+.feature h2 { margin-bottom: 16px; }
+.feature p { color: var(--text-2); margin-bottom: 14px; }
+.feature code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--surface-2);
+    border: 1px solid var(--border-dim);
+    border-radius: 4px;
+    padding: 0.1em 0.38em;
+}
+
+.feature .hero-install { margin: 20px 0 16px; }
+.more { margin-top: 26px; }
+.more a { text-decoration: none; font-weight: 500; }
+.more a:hover { text-decoration: underline; }
+
+section { position: relative; z-index: 1; }
+
+/* ── Scroll reveal ───────────────────────────────────────────────────── */
+
+.reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity .6s ease, transform .6s ease;
+}
+
+.reveal.in { opacity: 1; transform: none; }
+
+/* Nothing moves for a reader who asked for that. */
+@media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .carousel-slide { transition: none; }
+    html { scroll-behavior: auto; }
+    .btn:hover, a.card:hover, .carousel-dot:hover { transform: none; }
+}
+
+@media (max-width: 900px) {
+    .hero, .feature { grid-template-columns: 1fr; gap: 36px; padding-bottom: 56px; }
+    .hero { padding-top: 44px; }
+}
+
+/* ── Showcase rows ───────────────────────────────────────────────────── */
+
+.show-h2 { margin: 8px 0 8px; }
+.show-h2 + .group-summary { margin-bottom: 26px; }
+
+.show-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 42px;
+    align-items: center;
+    padding: 36px 0;
+    border-bottom: 1px solid var(--border-dim);
+}
+
+.show-row:last-of-type { border-bottom: none; }
+
+/* Alternate sides, so a long page of entries does not read as a column of
+   identical rows. */
+.show-row:nth-child(even) .show-media { order: 2; }
+
+.show-text h3 { font-size: 1.45rem; margin-bottom: 6px; }
+
+.show-tag {
+    color: var(--text-1);
+    font-size: 1.02rem;
+    font-weight: 500;
+    margin-bottom: 12px;
+}
+
+.show-text p { color: var(--text-2); font-size: 0.93rem; line-height: 1.6; }
+
+.show-label {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-3);
+    margin: 18px 0 8px;
+}
+
+.show-list { list-style: none; padding: 0; }
+
+.show-list li {
+    color: var(--text-2);
+    font-size: 0.89rem;
+    line-height: 1.5;
+    padding-left: 18px;
+    position: relative;
+    margin-bottom: 7px;
+}
+
+.show-list li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-size: 0.8em;
+    top: 0.15em;
+}
+
+.show-text .btn { margin-top: 18px; }
+
+/* The extra angles under a hero shot. */
+.show-more { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+
+.show-more { grid-template-columns: repeat(4, 1fr); }
+
+/* A thumbnail is a button, because clicking it does something: it replaces
+   the hero above. It looked clickable before and was not, which is worse
+   than not looking clickable at all. */
+.show-thumb {
+    padding: 0;
+    border: 1px solid var(--term-border);
+    border-radius: var(--radius-sm);
+    background: var(--term-bar);
+    cursor: pointer;
+    overflow: hidden;
+    display: block;
+    transition: border-color .18s, transform .18s, box-shadow .18s;
+}
+
+.show-thumb img {
+    width: 100%;
+    height: 66px;
+    object-fit: cover;
+    object-position: top left;
+    display: block;
+    opacity: 0.72;
+    transition: opacity .18s;
+}
+
+.show-thumb:hover { transform: translateY(-2px); border-color: var(--accent); }
+.show-thumb:hover img { opacity: 1; }
+
+.show-thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Which view is on screen. */
+.show-thumb.is-on {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+}
+
+.show-thumb.is-on img { opacity: 1; }
+
+.show-hero {
+    transition: opacity .14s ease;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    object-position: top left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .show-thumb:hover { transform: none; }
+    .show-hero { transition: none; }
+}
+
+@media (max-width: 900px) {
+    .show-row { grid-template-columns: 1fr; gap: 24px; padding: 28px 0; }
+    .show-row:nth-child(even) .show-media { order: 0; }
+}
+
+/* Controls nested under their catalogue in the sidebar. */
+.doc-side .grp-sub { margin: 4px 0 8px 10px; border-left: 1px solid var(--border-dim); padding-left: 8px; }
+.doc-side .grp-sub a { font-size: 0.84rem; padding: 3px 8px; color: var(--text-3); }
+.doc-side .grp-sub a:hover { color: var(--text-1); }
+.doc-side .grp-sub a.active { color: var(--accent); background: var(--accent-bg); font-weight: 500; }
+
+/* ── Home: the small application strip ───────────────────────────────── */
+
+/* Compact, because the home page is a signpost: the big treatment belongs on
+   the showcase page, and four full-width screenshots broke the scroll. */
+.mini-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+
+.mini {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--surface-1);
+    transition: border-color .18s, transform .18s;
+}
+
+.mini:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+.mini img {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    object-position: top left;
+    display: block;
+    border-bottom: 1px solid var(--border);
+}
+
+.mini-text { padding: 11px 13px 13px; }
+.mini-text h3 { font-size: 0.9rem; margin-bottom: 3px; }
+.mini-text p { color: var(--text-2); font-size: 0.8rem; line-height: 1.45; }
+
+/* highlight.js paints its own background; the page's surface is the one that
+   belongs with the rest of the prose, so that is the one that wins. */
+.prose pre code.hljs { background: transparent; padding: 0; }

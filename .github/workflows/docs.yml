@@ -2,6 +2,19 @@ name: Documentation
 
 on:
   push:
+    # The site follows master. Documentation that only ships with a release is
+    # documentation nobody can correct: a typo fix used to wait for the next
+    # tag. Path-filtered, so a change that cannot affect the site does not
+    # redeploy it - SharpConsoleUI/** is in the list because DocFX reads the
+    # library's XML comments, so a doc comment IS a site change.
+    branches:
+      - master
+    paths:
+      - 'docs/**'
+      - 'site/**'
+      - 'README.md'
+      - 'SharpConsoleUI/**'
+      - '.github/workflows/docs.yml'
     tags:
       - 'v*'
   workflow_dispatch:
@@ -33,16 +46,51 @@ jobs:
       - name: Build SharpConsoleUI (generate XML docs)
         run: dotnet build SharpConsoleUI/SharpConsoleUI.csproj --configuration Release
 
+      # The gallery renders every control headlessly and must produce the bytes
+      # that are committed. It verifies here and authors nothing: a screenshot
+      # that lands without anyone looking at it is worse than a stale one
+      # somebody notices. ./sync-docs.sh is what regenerates them, locally.
+      #
+      # Two outcomes, treated differently. A stale screenshot is ADVISORY - the
+      # page is worse, not broken, and blocking a deploy over a picture that is
+      # a day behind helps nobody. A broken link is BLOCKING, because that page
+      # 404s for whoever clicks it. The script exits 1 for the first and 2 for
+      # the second; this step forgives 1 and fails on 2.
+      - name: Screenshots and links
+        run: |
+          set +e
+          ./sync-docs.sh --check
+          code=$?
+          set -e
+
+          if [ "$code" -eq 2 ]; then
+            echo "::error::broken internal links - see the job summary"
+            exit 1
+          fi
+
+          if [ "$code" -eq 1 ]; then
+            echo "::warning::control screenshots are out of date - run ./sync-docs.sh"
+          fi
+
+          exit 0
+
       - name: Install DocFX
         run: dotnet tool install -g docfx
 
       - name: Build DocFX Documentation
         run: docfx docs/docfx/docfx.json
 
+      # Renders docs/*.md into the site's shell and copies the DocFX output to
+      # _site/api/, so the API reference keeps its URL.
+      - name: Build the website
+        run: dotnet run --project site/build -- . _site
+
+      # _site, not docs. Publishing the source directory served 45 raw markdown
+      # files and the benchmarks folder as a side effect of deploying the site.
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'docs'
+          path: '_site'
 
   deploy:
     environment:

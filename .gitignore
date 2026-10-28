@@ -385,3 +385,6 @@ SharpConsoleUI/Server/docs/vision/
 
 # cxdbg local package output
 tools/cxdbg/src/cxdbg/nupkg/
+
+# Generated website output
+_site/
