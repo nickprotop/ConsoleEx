@@ -298,7 +298,7 @@ public class MyCustomTheme : ITheme
     public Color InactiveTitleForegroundColor => Color.Gray;
     public Color DesktopBackgroundColor => Color.Black;
     public Color DesktopForegroundColor => Color.DarkGray;
-    public char DesktopBackroundChar => '░';
+    public char DesktopBackgroundChar => '░';
 }
 ```
 
@@ -369,7 +369,7 @@ public class SolarizedDarkTheme : ITheme
     public Color InactiveTitleForegroundColor => new Color(88, 110, 117);  // base01
     public Color DesktopBackgroundColor => new Color(7, 54, 66);      // base02
     public Color DesktopForegroundColor => new Color(88, 110, 117);   // base01
-    public char DesktopBackroundChar => '·';
+    public char DesktopBackgroundChar => '·';
 }
 
 // Usage

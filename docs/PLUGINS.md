@@ -129,7 +129,7 @@ public class MyTheme : ITheme
     public Color InactiveTitleForegroundColor => Color.Gray;
     public Color DesktopBackgroundColor => Color.Black;
     public Color DesktopForegroundColor => Color.DarkGray;
-    public char DesktopBackroundChar => '░';
+    public char DesktopBackgroundChar => '░';
 }
 
 public class MyPlugin : PluginBase
@@ -645,7 +645,7 @@ public class CorporateTheme : ITheme
     public Color InactiveTitleForegroundColor => Color.Grey70;
     public Color DesktopBackgroundColor => new Color(0, 26, 51);  // Dark blue
     public Color DesktopForegroundColor => Color.Grey30;
-    public char DesktopBackroundChar => '·';
+    public char DesktopBackgroundChar => '·';
 }
 
 // Custom control

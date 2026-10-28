@@ -276,7 +276,7 @@ Manages modal window stack and blocking behavior.
 bool HasModals { get; }
 
 // Get the topmost modal window
-Window? TopModal { get; }
+Window? TopmostModal { get; }
 
 // Get count of modal windows
 int ModalCount { get; }

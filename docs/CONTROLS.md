@@ -250,7 +250,7 @@ public interface IMouseAwareControl : IWindowControl
     event EventHandler<MouseEventArgs>? MouseEnter;
     event EventHandler<MouseEventArgs>? MouseLeave;
     event EventHandler<MouseEventArgs>? MouseMove;
-    void ProcessMouseEvent(MouseEventArgs e);
+    bool ProcessMouseEvent(MouseEventArgs args);
 }
 ```
 
@@ -368,8 +368,8 @@ window.AddControl(Controls.Prompt("Email:").WithName("email").Build());
 window.AddControl(Controls.Button("Submit")
     .OnClick((s, e, w) =>
     {
-        var name = w.FindControl<PromptControl>("name")?.Text;
-        var email = w.FindControl<PromptControl>("email")?.Text;
+        var name = w.FindControl<PromptControl>("name")?.Input;
+        var email = w.FindControl<PromptControl>("email")?.Input;
         // Process form...
     })
     .Build());

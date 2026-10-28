@@ -1155,7 +1155,7 @@ See [Threading & async](THREADING_AND_ASYNC.md) for the full model.
 | **Window Content** | `Window.Rendering.cs` | `EnsureContentReady()`, `ContentBuffer`, `RenderAndGetVisibleContent()` (test API) | — |
 | **Layout Pipeline** | `Window.Layout.cs` | `RebuildContentBufferOnly()` | — |
 | **DOM Rendering** | `Windows/WindowRenderer.cs` | `RebuildContentBuffer()` | — |
-| **Character Buffer** | `Layout/CharacterBuffer.cs` | `SetChar()`, `GetCell()`, `ToLines()` (test/diagnostic) | — |
+| **Character Buffer** | `Layout/CharacterBuffer.cs` | `SetCell()`, `SetNarrowCell()`, `GetCell()`, `ToLines()` (test/diagnostic) | — |
 | **Console Buffer** | `Drivers/ConsoleBuffer.cs` | `SetCell()`, `FillCells()`, `SetCellsFromBuffer()`, `Render()` | — |
 | **Console Driver** | `Drivers/NetConsoleDriver.cs` | `SetNarrowCell()`, `FillCells()`, `WriteBufferRegion()`, `Render()` | — |
 | **Driver Interface** | `Drivers/IConsoleDriver.cs` | `SetNarrowCell()`, `FillCells()`, `WriteBufferRegion()` | — |
