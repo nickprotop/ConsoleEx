@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Diagnostics.Socket;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
 using Xunit;
@@ -255,6 +256,43 @@ namespace SharpConsoleUI.Tests.MeasureTracing
 
 			Assert.NotEmpty(LayoutNode.ConsumeMeasureTrace());
 			Assert.Empty(LayoutNode.ConsumeMeasureTrace());
+		}
+
+		[Fact]
+		public void EachLinkCarriesTheIdThatCanBeHandedBack()
+		{
+			// The cascade names the container that decided a size - and that
+			// is the next thing you want to ask about. It carried Name ??
+			// TypeName, so an UNNAMED container came back as a bare type, and
+			// `control` cannot find a type once an application has two.
+			var (system, window) = Build(diagnostics: true);
+
+			// Two of a kind, unnamed - which is most controls, and the case a
+			// bare type cannot tell apart.
+			window.AddControl(new MarkupControl(new List<string> { "one" }));
+			window.AddControl(new MarkupControl(new List<string> { "two" }));
+
+			LayoutNode.ClearMeasureTrace();
+			using (LayoutNode.BeginMeasureTracing())
+				window.RenderAndGetVisibleContent();
+
+			var trace = LayoutNode.ConsumeMeasureTrace();
+
+			Assert.NotEmpty(trace);
+
+			// Every entry names its control by something another verb accepts,
+			// and the ids tell two controls of a type apart where a bare type
+			// could not.
+			foreach (var entry in trace)
+			{
+				Assert.False(string.IsNullOrEmpty(entry.Id),
+					$"'{entry.Control}' has no id to hand back");
+
+				Assert.NotNull(DiagnosticsServer.FindControlForTest(window, entry.Id!));
+			}
+
+			Assert.True(trace.Select(e => e.Id).Distinct().Count() == trace.Count,
+				"two entries share an id");
 		}
 	}
 }

@@ -220,8 +220,14 @@ namespace SharpConsoleUI.Layout
 		/// <param name="Control">The control at that level, when there is one.</param>
 		/// <param name="MaxWidth">The widest it passed down.</param>
 		/// <param name="MaxHeight">The tallest it passed down.</param>
+		/// <param name="Id">
+		/// What another verb accepts for that control: its name, or its type
+		/// and instance. A cascade names the container that decided a size,
+		/// and that container is the next thing a reader asks about - a bare
+		/// type cannot be handed back once an application has two of them.
+		/// </param>
 		public readonly record struct MeasureLink(
-			string? Layout, string? Control, int MaxWidth, int MaxHeight);
+			string? Layout, string? Control, int MaxWidth, int MaxHeight, string? Id = null);
 
 		/// <summary>Which ancestor's offer a control's final size came from.</summary>
 		/// <param name="Width">The cascade index that set the width ceiling, or -1.</param>
@@ -249,10 +255,12 @@ namespace SharpConsoleUI.Layout
 		/// browser's rule cascade shows which rule won.
 		/// </param>
 		/// <param name="DecidedBy">Which link in the cascade set each ceiling.</param>
+		/// <param name="Id"></param>
 		public readonly record struct MeasureEntry(
 			string? Control, int MaxWidth, int MaxHeight, int DesiredWidth, int DesiredHeight,
 			System.Collections.Generic.IReadOnlyList<MeasureLink> Cascade,
-			MeasureDecidedBy DecidedBy);
+			MeasureDecidedBy DecidedBy,
+			string? Id = null);
 
 		/// <summary>How many measures the trace keeps before dropping the oldest.</summary>
 		private const int MeasureTraceLimit = 1024;
@@ -338,7 +346,8 @@ namespace SharpConsoleUI.Layout
 				cascade.Add(new MeasureLink(
 					node.Layout?.GetType().Name,
 					node.Control?.Name ?? node.Control?.GetType().Name,
-					node.LastOfferedWidth, node.LastOfferedHeight));
+					node.LastOfferedWidth, node.LastOfferedHeight,
+					node.Control is { } c ? Diagnostics.Socket.DiagnosticsSerializer.ControlId(c) : null));
 			}
 			cascade.Reverse();
 
@@ -371,7 +380,8 @@ namespace SharpConsoleUI.Layout
 					constraints.MaxWidth, constraints.MaxHeight,
 					desired.Width, desired.Height,
 					cascade,
-					new MeasureDecidedBy(widthFrom, heightFrom)));
+					new MeasureDecidedBy(widthFrom, heightFrom),
+					Diagnostics.Socket.DiagnosticsSerializer.ControlId(Control)));
 			}
 		}
 

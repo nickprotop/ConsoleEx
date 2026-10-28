@@ -739,19 +739,30 @@ namespace SharpConsoleUI
 		/// <summary>Records an invalidation, when the system was asked for diagnostics.</summary>
 		/// <remarks>
 		/// <see cref="Request(Invalidation, IWindowControl?)"/> is lock-free and on
-		/// the hot path, so an app that did not ask for diagnostics does no work
-		/// here beyond one null check.
+		/// the hot path, so an app with diagnostics off does no work here beyond
+		/// one flag check. Gated on IsEnabled rather than on the recorder
+		/// existing: the recorder is always constructed so it can be switched on
+		/// mid-session, and testing for it would put a lock and an allocation on
+		/// the invalidation path of every application.
 		/// </remarks>
 		private void RecordInvalidation(Invalidation work, IWindowControl? caller)
 		{
-			if (_windowSystem?.RenderingDiagnostics == null) return;
+			if (_windowSystem?.RenderingDiagnostics?.IsEnabled != true) return;
 
 			lock (_invalidationTraceLock)
 			{
 				if (_invalidationTrace.Count >= InvalidationTraceLimit)
 					_invalidationTrace.Dequeue();
 
-				_invalidationTrace.Enqueue(new InvalidationEntry(work, caller?.Name));
+				// The id, not the name: most controls are unnamed, and a name
+				// of null collapsed every one of them into "(window)" - which
+				// made the verb that exists to say WHICH control asked for a
+				// frame unable to answer for the common case.
+				_invalidationTrace.Enqueue(new InvalidationEntry(
+					work,
+					caller is { } c
+						? Diagnostics.Socket.DiagnosticsSerializer.ControlId(c)
+						: null));
 			}
 		}
 

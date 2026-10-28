@@ -6,9 +6,11 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Linq;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Diagnostics.Socket;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
 using Xunit;
@@ -142,6 +144,33 @@ namespace SharpConsoleUI.Tests.InvalidationTracing
 
 			var trace = window.ConsumeInvalidationTrace();
 			Assert.Contains(trace, e => e.Control == null);
+		}
+
+		[Fact]
+		public void AnUnnamedControlIsStillNamed()
+		{
+			// The verb exists to say WHICH control asked for the frame. It
+			// recorded caller?.Name, so an unnamed control - most controls -
+			// recorded null and collapsed into "(window)": the one question
+			// the verb answers, unanswerable for the common case.
+			var (system, window) = Build(diagnostics: true);
+
+			var markup = new MarkupControl(new List<string> { "x" });
+			window.AddControl(markup);
+			window.RenderAndGetVisibleContent();
+
+			window.ConsumeInvalidationTrace();
+			markup.Invalidate(Invalidation.Repaint);
+
+			var trace = window.ConsumeInvalidationTrace();
+
+			Assert.NotEmpty(trace);
+			Assert.All(trace, e => Assert.False(string.IsNullOrEmpty(e.Control),
+				"an invalidation recorded no control at all"));
+
+			// And what it recorded is what another verb accepts.
+			Assert.Contains(trace, e =>
+				DiagnosticsServer.FindControlForTest(window, e.Control!) == markup);
 		}
 	}
 }
