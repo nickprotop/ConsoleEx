@@ -164,6 +164,7 @@ internal static class Help
 					("size <control>", "Which container decided a size, and where"),
 					("color <role>", "How a colour was resolved"),
 					("frame", "Which control asked for the last frames"),
+					("settled", "Has it finished reacting, and if not what is pending"),
 					("input", "What the application was told"));
 				return 0;
 

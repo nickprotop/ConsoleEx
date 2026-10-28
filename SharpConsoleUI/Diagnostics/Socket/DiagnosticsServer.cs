@@ -243,6 +243,7 @@ internal sealed class DiagnosticsServer : IDisposable
 			"image" => Ok(Image(req)),
 			"set" => Ok(Set(req)),
 			"frame" => Ok(new JsonObject { ["frame"] = _system.ConsoleDriver.FrameNumber }),
+			"settled" => Ok(Settled()),
 			"invalidations" => Ok(Invalidations()),
 			"reachable" => Ok(Reachable()),
 			"desktop" => Ok(DiagnosticsSerializer.DesktopInfo(_system)),
@@ -649,11 +650,32 @@ internal sealed class DiagnosticsServer : IDisposable
 		return new JsonObject { ["known"] = known };
 	}
 
+	/// <summary>
+	/// Whether the application has finished reacting, and what is holding it.
+	/// </summary>
+	/// <remarks>
+	/// The same four conditions <see cref="ConsoleWindowSystem.IsSettled"/> checks,
+	/// so a script polling this and a test calling WaitUntilSettledAsync agree. The
+	/// blockers are reported because a bare false gives a script nothing to say when
+	/// it gives up waiting.
+	/// </remarks>
+	private JsonObject Settled()
+	{
+		string blockers = _system.SettleBlockers();
+
+		return new JsonObject
+		{
+			["settled"] = _system.IsSettled,
+			["frame"] = _system.ConsoleDriver.FrameNumber,
+			["blockers"] = blockers.Length == 0 ? null : blockers,
+		};
+	}
+
 	private static readonly string[] KnownCommands =
 	{
 		"snapshot", "image", "tree", "focus", "windows", "metrics", "set",
 		"logs", "key", "mouse", "size", "focusctl", "invoke",
-		"theme", "window", "frame",
+		"theme", "window", "frame", "settled",
 			"invalidations",
 			"reachable",
 			"desktop",

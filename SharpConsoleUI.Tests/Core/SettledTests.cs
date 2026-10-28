@@ -85,6 +85,19 @@ public class SettledTests
 		Assert.True(got > before, $"frame did not advance: {before} -> {got}");
 	}
 
+	[Fact]
+	public void SettleBlockers_names_what_is_holding_it()
+	{
+		var system = Headless(out _);
+
+		Assert.Equal(string.Empty, system.SettleBlockers());
+
+		system.EnqueueOnUIThread(() => { });
+
+		// A bare false tells a timing-out caller nothing; the reason is the point.
+		Assert.Contains("queued action", system.SettleBlockers());
+	}
+
 	/// <summary>
 	/// The real thing: a window with a control, driven through the real input
 	/// path, settling after the effect has actually been painted.

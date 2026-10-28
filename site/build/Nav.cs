@@ -91,7 +91,7 @@ internal static class Nav
 		new("Tooling & debugging",
 			"A terminal application is the one program you cannot printf-debug.",
 			[
-				new("DEBUGGING.md", "Debugging & the socket protocol", "The wire: twenty-six verbs, what each answers."),
+				new("DEBUGGING.md", "Debugging & the socket protocol", "The wire: twenty-seven verbs, what each answers."),
 				new("DRIVERS.md", "Drivers & render modes", "Real terminal, headless, or one of your own."),
 				new("SHELL_SCRIPTING.md", "Shell scripting", "Driving an application from a script."),
 				new("SCHOST.md", "schost", "Packaging an application as a desktop app."),

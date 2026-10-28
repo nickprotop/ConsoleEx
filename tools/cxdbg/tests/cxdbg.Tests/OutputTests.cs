@@ -28,6 +28,30 @@ public class OutputTests
 		Output.Pretty(verb, JsonNode.Parse(json)!);
 
 	[Fact]
+	public void SettledReadsAsAWordNotABoolean()
+	{
+		// "settled: True" makes a reader translate. The word is the answer.
+		string text = Render("""{"ok":true,"settled":true,"frame":1204,"blockers":null}""",
+			"settled");
+
+		Assert.Contains("settled", text);
+		Assert.Contains("1204", text);
+		Assert.DoesNotContain("True", text);
+	}
+
+	[Fact]
+	public void NotSettledSaysWhatIsHoldingIt()
+	{
+		// A bare "working" gives a script that times out nothing to report.
+		string text = Render(
+			"""{"ok":true,"settled":false,"frame":1204,"blockers":"2 window(s) with work pending"}""",
+			"settled");
+
+		Assert.Contains("working", text);
+		Assert.Contains("2 window(s) with work pending", text);
+	}
+
+	[Fact]
 	public void OneAnswerIsOneLine()
 	{
 		// {"ok":true,"frame":5176} as four lines of JSON is noise around a

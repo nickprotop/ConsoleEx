@@ -133,6 +133,9 @@ internal static class ProtocolVerbs
 
 		("frame", "The frame counter - if it stops, so has the app", [], ["frame"]),
 
+		("settled", "Whether the app has finished reacting, and what is holding it",
+			[], ["settled"]),
+
 		("set", "Read the runtime switches, or change one",
 			[
 				new("diagnostics", "true|false", "Render recording and the input tape"),

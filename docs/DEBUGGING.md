@@ -240,6 +240,7 @@ comes back without one.
 |------|--------------|
 | `set` | Reads, and optionally changes, runtime switches |
 | `frame` | How many frames have been presented |
+| `settled` | Whether the application has finished reacting, and what is holding it |
 | `ping` | Liveness |
 | `commands` | Lists the verbs |
 
@@ -437,6 +438,9 @@ is where a terminal puts them.
 
 ```json
 {"cmd":"frame"}     →  {"ok":true,"frame":1204}
+{"cmd":"settled"}   →  {"ok":true,"settled":true,"frame":1204,"blockers":null}
+                    →  {"ok":true,"settled":false,"frame":1204,
+                        "blockers":"2 window(s) with work pending"}
 ```
 
 How many frames the renderer has presented. Monotonic, needs no diagnostics, and is the

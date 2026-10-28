@@ -76,6 +76,7 @@ internal static class Output
 			case "inspect": return Inspect(body, colour);
 			case "control": return ControlReply(body, colour);
 			case "focus": return FocusReply(body, colour);
+			case "settled": return SettledReply(body, colour);
 
 			// Grouped, because these replies answer several questions at once
 			// and a flat column cannot say which number belongs to which.
@@ -643,6 +644,37 @@ internal static class Output
 	/// Base64 of a screenshot is tens of kilobytes and no use on a terminal.
 	/// The metadata says what was captured; the bytes are written to a file.
 	/// </remarks>
+	/// <summary>
+	/// Whether the application has finished reacting, and what is holding it.
+	/// </summary>
+	/// <remarks>
+	/// The blockers are the point. "working" alone tells a script nothing it can
+	/// act on; "working" with "2 window(s) with work pending" says whether to keep
+	/// waiting or to go and find out why a window never paints.
+	/// </remarks>
+	private static string SettledReply(JsonObject body, bool colour)
+	{
+		bool settled = body["settled"]?.GetValue<bool>() ?? false;
+		long frame = body["frame"]?.GetValue<long>() ?? 0;
+		string? blockers = body["blockers"]?.GetValue<string>();
+
+		var sb = new StringBuilder();
+
+		sb.Append(settled ? "[green]settled[/]" : "[yellow]working[/]")
+		  .Append("  [grey]frame[/] [white]").Append(frame).Append("[/]");
+
+		if (!string.IsNullOrEmpty(blockers))
+			sb.Append("  [grey]").Append(Escaped(blockers)).Append("[/]");
+
+		// Markup is a request, not output: it has to be rendered, or stripped when
+		// the caller is a pipe. Returning the string raw prints the tags.
+		string text = sb.ToString();
+
+		return colour
+			? Surface.Render(new Spectre.Console.Markup(text), true)
+			: Plain(text);
+	}
+
 	private static string Image(JsonObject body)
 	{
 		if (body["path"] != null)

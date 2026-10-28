@@ -335,7 +335,7 @@ var options = ConsoleWindowSystemOptions.Create() with
 };
 ```
 
-See [Debugging](DEBUGGING.md) for the wire protocol, the twenty-six verbs, who can
+See [Debugging](DEBUGGING.md) for the wire protocol, the twenty-seven verbs, who can
 reach the socket, and `cxdbg` — the attach-and-drive debugger
 (`dotnet tool install -g cxdbg`).
 

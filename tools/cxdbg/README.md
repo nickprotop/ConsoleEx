@@ -252,7 +252,18 @@ cxdbg set --logLevel Trace    # bare `cxdbg set` reads them all
 ```
 
 Input is asynchronous: the app has the keystroke when the command returns, not
-necessarily the result. Poll `cxdbg frame` until the counter moves.
+necessarily the result. Ask `cxdbg settled` whether it has finished reacting —
+it answers the four questions that matter (input pending, work queued, windows
+still to paint, animations running) and names whichever is holding it, so a
+script that gives up waiting can say why:
+
+```
+settled  frame 1204
+working  frame 1204  2 window(s) with work pending
+```
+
+`cxdbg frame` is still there when the counter itself is what you want; a
+counter that never moves means the render loop has stopped.
 
 ## One syntax
 
