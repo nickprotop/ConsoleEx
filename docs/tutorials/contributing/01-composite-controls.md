@@ -14,7 +14,7 @@ Every rendering bug in a terminal UI lives in the same few places: painting cell
 
 The framework already ships two composites you can read as reference implementations. Both are "honest compositions" — they subclass a real container and host real child controls, delegating all the hard work downward:
 
-- **`SharpConsoleUI/Controls/PanelControl.cs`** — a bordered panel implemented as a `CollapsiblePanel` whose body is a single child `MarkupControl`. It re-uses the panel's border, colours, and container behaviour; it adds none of its own paint code.
+- **`SharpConsoleUI/Controls/PanelControl.cs`** — a bordered panel implemented as a `CollapsiblePanel` whose body is a single child `MarkupControl`. It re-uses the panel's border, colors, and container behavior; it adds none of its own paint code.
 - **`SharpConsoleUI/Controls/ChatTranscriptControl.cs`** — a chat transcript that subclasses `ScrollablePanelControl` and hosts one `CollapsiblePanel` (with a `MarkupControl` body) per message. Its own doc-comment says it best: *"Scrolling, wrapping, markdown rendering, selection and the collapse animation are all provided by those child controls — none of it is re-implemented here."*
 
 Keep those two files open in another tab. When this tutorial says "model on the reference control," that is what it means: copy the *shape*, not a snippet.
@@ -26,7 +26,7 @@ Two homes, depending on your goal:
 - **Contributing to the framework** → `SharpConsoleUI/Controls/LabeledValueControl.cs`, alongside `PanelControl.cs` and `ChatTranscriptControl.cs`. This is what you PR.
 - **Just want it in your own app** → any file in your app project. Same code; you skip the PR steps at the end.
 
-Every source file in `SharpConsoleUI/Controls/` opens with the standard licence banner. Copy it verbatim from any existing control (e.g. the top of `PanelControl.cs`):
+Every source file in `SharpConsoleUI/Controls/` opens with the standard license banner. Copy it verbatim from any existing control (e.g. the top of `PanelControl.cs`):
 
 ```csharp
 // -----------------------------------------------------------------------
@@ -38,7 +38,7 @@ Every source file in `SharpConsoleUI/Controls/` opens with the standard licence 
 // -----------------------------------------------------------------------
 ```
 
-The full style rules your PR is reviewed against are in [CODE_QUALITY.md](../../CODE_QUALITY.md) — worth a skim, but the banner and "no invented paint code" are the load-bearing ones for a composite.
+The full style rules your PR is reviewed against are in [Code quality](../../CODE_QUALITY.md) — worth a skim, but the banner and "no invented paint code" are the load-bearing ones for a composite.
 
 ## Step 2: The composite shape — subclass a container, host children
 
@@ -92,7 +92,7 @@ namespace SharpConsoleUI.Controls
 }
 ```
 
-The pattern to internalise: **subclass a container, keep field references to the child controls, build them in the constructor.** That's every composite in the repo.
+The pattern to internalize: **subclass a container, keep field references to the child controls, build them in the constructor.** That's every composite in the repo.
 
 ## Step 3: Build and arrange the children
 
@@ -138,7 +138,7 @@ public string Value
 }
 ```
 
-This is the **reactive property contract** every control setter in the codebase follows: `SetProperty` change-guards (returns `false` and bails when the value is unchanged), raises `INotifyPropertyChanged`, and invalidates — so you never call `Invalidate` by hand. Only after it confirms a real change do you write the new text through to the child. It matches how `ChatTranscriptControl.MessagesSelectable` does `if (!SetProperty(ref _field, value)) return;` before writing through to its children. `SetProperty` is available because the composite subclasses a `BaseControl`-derived container. See [patterns.md](../../patterns.md) for the full contract.
+This is the **reactive property contract** every control setter in the codebase follows: `SetProperty` change-guards (returns `false` and bails when the value is unchanged), raises `INotifyPropertyChanged`, and invalidates — so you never call `Invalidate` by hand. Only after it confirms a real change do you write the new text through to the child. It matches how `ChatTranscriptControl.MessagesSelectable` does `if (!SetProperty(ref _field, value)) return;` before writing through to its children. `SetProperty` is available because the composite subclasses a `BaseControl`-derived container. See [Patterns](../../patterns.md) for the full contract.
 
 ## Step 4: Add a `Controls.LabeledValue(...)` builder
 
@@ -160,11 +160,11 @@ Callers now get:
 window.AddControl(Controls.LabeledValue("Downloads", "1,204"));
 ```
 
-If your composite grows more options, promote this to a fluent builder class instead — see [BUILDERS.md](../../BUILDERS.md) and the existing `HorizontalGridBuilder` for the `Controls.<Name>()` → `Builder` → `.Build()` pattern. A one-argument factory is fine to start.
+If your composite grows more options, promote this to a fluent builder class instead — see [Builder API](../../BUILDERS.md) and the existing `HorizontalGridBuilder` for the `Controls.<Name>()` → `Builder` → `.Build()` pattern. A one-argument factory is fine to start.
 
 ## Step 5: A "real thing" test
 
-The rule for this codebase (see [CODE_QUALITY.md](../../CODE_QUALITY.md), the *"Real thing" test required* section) is that a test must exercise the **actual usage path end to end**, not just poke the control in isolation. For a composite that means: build it with real children, add it to a real window, drive the framework, and assert the composed result — both parts present.
+The rule for this codebase (see [Code quality](../../CODE_QUALITY.md), the *"Real thing" test required* section) is that a test must exercise the **actual usage path end to end**, not just poke the control in isolation. For a composite that means: build it with real children, add it to a real window, drive the framework, and assert the composed result — both parts present.
 
 Tests run headless against **`MockConsoleDriver`** (`SharpConsoleUI.Tests/Infrastructure/MockConsoleDriver.cs`) so there is no real terminal. A minimal "real thing" test for `LabeledValueControl`:
 

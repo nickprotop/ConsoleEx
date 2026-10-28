@@ -53,7 +53,7 @@ chart.AddSeries("requests", Color.Green).SetValues(samples);
 | `TitleAlignment` | `ChartTitleAlignment` | `Left` | Where the title and subtitle sit. |
 | `BorderStyle` | `BorderStyle` | `None` | A border around the chart. |
 | `Stacked` | `bool` | `false` | Each series sits on the sum of those before it. |
-| `SecondaryYAxis` | `ChartAxis` | — | A second scale, labelled on the right. |
+| `SecondaryYAxis` | `ChartAxis` | — | A second scale, labeled on the right. |
 | `ShowHighLowLabels` | `bool` | `false` | Label each series' peak and trough. |
 | `EmptyText` | `string?` | `null` | Message shown when there is nothing to plot. |
 | `RenderMode` | `ChartRenderMode` | `Pixel` | How the plot is rasterised. |
@@ -63,7 +63,7 @@ chart.AddSeries("requests", Color.Green).SetValues(samples);
 | `ShowLegend` | `bool` | `false` | Whether the legend is drawn. |
 | `LegendPosition` | `ChartLegendPosition` | `Bottom` | Where it sits. |
 | `ShowAxisLines` | `bool` | `false` | Rules along the left and bottom edges. |
-| `SplitView` | `bool` | `false` | Splits the plot about its centre. |
+| `SplitView` | `bool` | `false` | Splits the plot about its center. |
 | `PlotBackground` | `Color?` | `null` | Fill behind the plot; `Transparent` shows what is behind. |
 | `PlotHeight` | `int?` | `null` | Fixed plot height; null fills the container. |
 | `EnableHover` | `bool` | `false` | Crosshair and readout on the nearest point. |
@@ -98,7 +98,7 @@ sends a `NaN`, and one reaching the axis bounds would blank the whole chart.
 
 Ticks use "nice numbers" — 1, 2 or 5 times a power of ten — because those are
 the values a reader can divide at a glance. The axis kind decides how they are
-labelled:
+labeled:
 
 ```csharp
 chart.XAxis.Kind = ChartAxisKind.Time;
@@ -137,7 +137,7 @@ foreach (var (name, value) in readings)
 A gauge has no vertical dimension to encode anything, so the bar's **length** is
 the reading and the gradient along it says where that reading sits on the scale.
 The gradient is sampled against the **axis range**, not the bar's own length —
-sampled along the bar, every reading would finish the same colour and the tip
+sampled along the bar, every reading would finish the same color and the tip
 would say nothing. A series' last point is the one shown, so a gauge fed a live
 series always reads current.
 
@@ -147,7 +147,7 @@ The label and the value are each optional, and the value is formatted through
 ## Heatmaps
 
 Every other plot type answers "what is the value at X". A heatmap answers "what
-is the value at X,Y", so colour stops being decoration and becomes the value
+is the value at X,Y", so color stops being decoration and becomes the value
 channel:
 
 ```csharp
@@ -164,17 +164,17 @@ var chart = Controls.Chart()
 
 `AddHeatmap` sets `PlotType` for you, so the plot type and the grid cannot
 disagree. A heatmap needs two things an ordinary series does not: a
-**gradient**, because colour is carrying the reading, and a **grid**, set
+**gradient**, because color is carrying the reading, and a **grid**, set
 through `SetGrid` and indexed `[row, column]`.
 
-The scale is the **Y axis**, which is what makes a colour mean the same number
+The scale is the **Y axis**, which is what makes a color mean the same number
 on every chart that shares the range — so set `YAxis.Min` and `YAxis.Max`
 rather than letting two charts scale themselves independently and read as
 though they agree.
 
-Pair it with `WithColorBarLegend()`. A swatch legend shows one colour per
-series, and a series that spans a whole gradient has no single colour to show —
-the swatch picks one and implies the rest do not exist. Where colour carries the
+Pair it with `WithColorBarLegend()`. A swatch legend shows one color per
+series, and a series that spans a whole gradient has no single color to show —
+the swatch picks one and implies the rest do not exist. Where color carries the
 value, the legend has to be the scale.
 
 ### Holes are not zeroes
@@ -200,8 +200,8 @@ A series reports its grid through `HasGrid`, `GridWidth` and `GridHeight`.
 ### Render mode
 
 A heatmap draws in half blocks whatever `RenderMode` asks for. Braille resolves
-a *line* finely but can only colour one foreground per cell, and a heatmap has
-no line and nothing but colour to say — so the mode that keeps colour wins.
+a *line* finely but can only color one foreground per cell, and a heatmap has
+no line and nothing but color to say — so the mode that keeps color wins.
 
 ## Growing charts
 
@@ -244,7 +244,7 @@ would claim a limit sits at the top of the chart when it is off the scale.
 
 ### Thresholds
 
-A series can change colour past a boundary, which is usually more legible than
+A series can change color past a boundary, which is usually more legible than
 a reference line because the data itself carries the warning:
 
 ```csharp
@@ -253,7 +253,7 @@ cpu.SetThresholds(new ChartThreshold(70, Color.Yellow),
                   new ChartThreshold(90, Color.Red));
 ```
 
-Applied per point, so a series crossing a limit changes colour **at** the
+Applied per point, so a series crossing a limit changes color **at** the
 crossing. A `Gradient` on the same series wins, since both set is a
 contradiction and the gradient is the more specific request.
 
@@ -283,7 +283,7 @@ var latency = chart.AddSeries("latency", Color.Yellow);
 latency.UseSecondaryAxis = true;
 ```
 
-Labelled on the right, and only drawn when a visible series actually uses it —
+Labeled on the right, and only drawn when a visible series actually uses it —
 an empty gutter is not worth the width it costs the plot. Left unpinned it
 auto-ranges from its own series, not from the ones sharing the plot.
 
@@ -312,14 +312,14 @@ longer on the chart to point at.
 
 | Mode | Resolution | Overlapping series |
 |------|-----------|--------------------|
-| `Pixel` (default) | 2 px/cell | Each cell carries two independent colours |
-| `Braille` | 4 px/cell | One colour per cell; a crossing loses one series |
+| `Pixel` (default) | 2 px/cell | Each cell carries two independent colors |
+| `Braille` | 4 px/cell | One color per cell; a crossing loses one series |
 | `Ascii` | 1 char/cell | For terminals without the above |
 
 `Pixel` is the default because a chart routinely shows several series, and that
-is exactly where braille loses colours. Measured on two series tracking each
+is exactly where braille loses colors. Measured on two series tracking each
 other across a 96-column plot: braille produced **0** cells showing both
-colours, pixel mode produced **9**. Choose `Braille` for the smoothest single
+colors, pixel mode produced **9**. Choose `Braille` for the smoothest single
 line.
 
 > **Screenshots:** the diagnostics `image` verb renders with an embedded font
@@ -334,17 +334,17 @@ A gradient can run along the plot, by value, or both:
 ```csharp
 var s = chart.AddSeries("load", Color.White);
 s.Gradient = ColorGradient.Predefined["spectrum"];
-s.GradientAxis = ChartGradientAxis.Y;   // colour tracks magnitude
+s.GradientAxis = ChartGradientAxis.Y;   // color tracks magnitude
 ```
 
 | Axis | Meaning |
 |------|---------|
 | `X` (default) | Progression along the series |
 | `Y` | Magnitude — low values take the first stop, high the last |
-| `Both` | A diagonal blend of the two (not a 2-D colour field) |
+| `Both` | A diagonal blend of the two (not a 2-D color field) |
 
 `Y` normalises against the **axis range**, not the series' own spread, so
-pinning `YAxis.Min`/`Max` pins the colour scale and "red is over 80" means the
+pinning `YAxis.Min`/`Max` pins the color scale and "red is over 80" means the
 same thing on every chart that shares the axis.
 
 ## Split view
@@ -355,9 +355,9 @@ chart.AddSeries("down", Color.Green).SetValues(downSamples);
 chart.AddSeries("up", Color.Cyan1).SetValues(upSamples);
 ```
 
-The first visible series grows upward from the centre and the second downward —
+The first visible series grows upward from the center and the second downward —
 the shape for a pair of opposed quantities such as download against upload.
-Both halves measure the same positive range growing away from the centre,
+Both halves measure the same positive range growing away from the center,
 because five megabits down is not minus five megabits, so the Y axis reads the
 maximum at both ends and **zero at the middle**.
 
@@ -375,7 +375,7 @@ chart.EnableSelection = true;   // click and keyboard; makes the chart focusable
 chart.EnableZoom = true;        // drag a range, wheel, +/-, Escape to reset
 ```
 
-| Gesture | Behaviour |
+| Gesture | Behavior |
 |---------|-----------|
 | Move over the plot | Crosshair and readout on the nearest point |
 | Click a point | Selects it, raises `SelectionChanged` |
@@ -412,4 +412,4 @@ intend to drive it over the socket. A drag is three calls — `press`, `drag`,
 
 - [LineGraphControl](LineGraphControl.md) — the older line-only control
 - [SparklineControl](SparklineControl.md) — compact inline trends
-- [BarGraphControl](BarGraphControl.md) — a single labelled bar
+- [BarGraphControl](BarGraphControl.md) — a single labeled bar

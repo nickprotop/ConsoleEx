@@ -91,7 +91,7 @@ This is exactly what the library's own AOT smoke test uses — see `SharpConsole
 ## Tips for AOT-publishing your own app
 
 - Keep your own code reflection-free, or annotate it with the standard `[RequiresUnreferencedCode]` / `[RequiresDynamicCode]` attributes.
-- For JSON, use `System.Text.Json` source generators (`JsonTypeInfo<T>`); the library's registry has AOT-safe overloads — see [REGISTRY.md](REGISTRY.md).
+- For JSON, use `System.Text.Json` source generators (`JsonTypeInfo<T>`); the library's registry has AOT-safe overloads — see [Registry](REGISTRY.md).
 - Set `<IsAotCompatible>true</IsAotCompatible>` in your own project to get the analyzers, then fix warnings as they appear.
 - Test with an actual `dotnet publish -p:PublishAot=true` run, not just a build — some issues only surface during native compilation.
 

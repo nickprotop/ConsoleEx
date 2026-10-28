@@ -206,7 +206,7 @@ splitters, progress bars, spinners, sparklines. Each has
 ## What it is not
 
 **It is not the thing for pretty CLI output.** If you want a progress bar, a
-table and some colour in a command-line tool, use
+table and some color in a command-line tool, use
 [Spectre.Console](https://spectreconsole.net). It is purpose-built for that and
 does it better. SharpConsoleUI understands Spectre's markup syntax and can host
 any `IRenderable`, so the two compose rather than compete.
@@ -216,7 +216,7 @@ has been at this for years, has the widest mature control set, and has a
 community behind it. If you need StackOverflow answers at two in the morning,
 that matters.
 
-**It does not have everything.** No colour picker, no hex viewer. Reactive
+**It does not have everything.** No color picker, no hex viewer. Reactive
 binding is lambda-based `Bind()`/`BindTwoWay()` over `INotifyPropertyChanged`,
 not source-generated — [XenoAtom.Terminal.UI](https://github.com/xoofx/XenoAtom.Terminal.UI)
 does that more thoroughly, on .NET 10.
@@ -239,7 +239,7 @@ that changed. Nothing else in the .NET terminal space composites, and the
 reason it is practical here is that the expensive-sounding part is free until
 something moves.
 
-**Markup everywhere.** Twenty-nine controls parse inline styling — colour,
+**Markup everywhere.** Twenty-nine controls parse inline styling — color,
 weight, gradients, clickable links, embedded Markdown. Not a dedicated
 rich-text widget; a property of every control that shows text.
 
@@ -256,7 +256,7 @@ The applications built on it are listed in the
 [README](https://github.com/nickprotop/ConsoleEx#built-with-sharpconsoleui) —
 ten in the cx/lazy family, which are ours, and third-party projects including a
 database client, an event-store workbench, a 6502 assembler, a MU\* client and
-an AI skill catalogue.
+an AI skill catalog.
 
 They have one thing in common: every one is a serious stateful application, not
 a tool that prints a menu and exits. That is the niche, and it chose itself.

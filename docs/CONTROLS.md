@@ -113,7 +113,7 @@ Controls for custom graphics and free-form drawing.
 Controls for organizing other controls.
 
 For laying out a window itself - edges, a scrolling body, and replacing the root layout -
-see [WINDOW_LAYOUT.md](WINDOW_LAYOUT.md) and [DOCKING.md](DOCKING.md).
+see [Window layout](WINDOW_LAYOUT.md) and [Docking](DOCKING.md).
 
 | Control | Description | Details |
 |---------|-------------|---------|

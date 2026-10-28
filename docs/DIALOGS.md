@@ -160,7 +160,7 @@ title-bar close).
 | `message` | — | Body text shown to the user (rendered as markup unless `literal`). |
 | `ok` | `"OK"` | Label for the affirmative button. |
 | `cancel` | `"Cancel"` | Label for the dismiss button. |
-| `severity` | `Info` | Glyph, accent rule colour, and button color role. |
+| `severity` | `Info` | Glyph, accent rule color, and button color role. |
 | `parent` | `null` | When provided, the dialog is modal to that window only. |
 | `literal` | `false` | When `true`, the message brackets are escaped and rendered verbatim. |
 
@@ -199,7 +199,7 @@ OK/Enter, or `null` on Cancel or dismiss.
 | `title` | — | Title in the window chrome. |
 | `message` | — | Question or label shown above the input. |
 | `initial` | `null` | Pre-filled text (empty when `null`). |
-| `severity` | `Info` | Glyph, accent rule colour, and button color role. |
+| `severity` | `Info` | Glyph, accent rule color, and button color role. |
 | `parent` | `null` | When provided, the dialog is modal to that window only. |
 
 ```csharp
@@ -265,7 +265,7 @@ else
 ### The severity parameter
 
 `ConfirmAsync` and `PromptAsync` accept a `NotificationSeverityEnum severity` parameter
-controlling four visual elements: the glyph in the banner line, the accent rule colour, the
+controlling four visual elements: the glyph in the banner line, the accent rule color, the
 window border tint, and the color role applied to the affirmative button.
 
 | `NotificationSeverityEnum` | Glyph | Color role |

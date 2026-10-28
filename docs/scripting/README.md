@@ -2,7 +2,7 @@
 
 Ready-to-use SharpConsoleUI templates and shell recipes for building interactive TUI steps into shell pipelines.
 
-**Prerequisites:** .NET 10 SDK installed, `dotnet` on your PATH. See [SHELL_SCRIPTING.md](../SHELL_SCRIPTING.md) for the I/O contract and runtime details.
+**Prerequisites:** .NET 10 SDK installed, `dotnet` on your PATH. See [Shell scripting](../SHELL_SCRIPTING.md) for the I/O contract and runtime details.
 
 ## Templates
 
@@ -17,7 +17,7 @@ Each template is a single `.cs` file runnable with `dotnet run <file>.cs`. On Un
 | [table-select.cs](https://github.com/nickprotop/ConsoleEx/blob/master/docs/scripting/templates/table-select.cs) | JSON array row picker | stdin: JSON array of objects | stdout: selected row as JSON object |
 | [progress.cs](https://github.com/nickprotop/ConsoleEx/blob/master/docs/scripting/templates/progress.cs) | Run a command with progress monitoring | args: `-- <command> [args...]` | stdout: command's stdout, exit = command's exit |
 
-All templates follow the shared exit-code contract documented in [SHELL_SCRIPTING.md](../SHELL_SCRIPTING.md):
+All templates follow the shared exit-code contract documented in [Shell scripting](../SHELL_SCRIPTING.md):
 `0` = success/confirmed, `1` = user cancelled, `2` = invalid input, `>2` = unexpected error.
 
 ## Shell Recipes

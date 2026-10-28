@@ -167,10 +167,10 @@ Picks the best backend for the current terminal:
 
 ### Kitty Graphics Protocol
 
-Transmits video frames as real pixel data to the terminal using the [Kitty graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/). The first frame creates an image with a virtual placement (`a=T,U=1,c=cols,r=rows,o=z`) and subsequent frames update the root frame data in place (`a=f,r=1,o=z`) — this is the only sequence that avoids the protocol's "retransmit with same id deletes all placements" behaviour, so frames update smoothly with no flicker.
+Transmits video frames as real pixel data to the terminal using the [Kitty graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/). The first frame creates an image with a virtual placement (`a=T,U=1,c=cols,r=rows,o=z`) and subsequent frames update the root frame data in place (`a=f,r=1,o=z`) — this is the only sequence that avoids the protocol's "retransmit with same id deletes all placements" behavior, so frames update smoothly with no flicker.
 
 - **Resolution**: True pixel output — Kitty upscales the decoded frame into the placement rectangle.
-- **Color fidelity**: Full 24-bit RGB, no cell-grid quantisation.
+- **Color fidelity**: Full 24-bit RGB, no cell-grid quantization.
 - **Best for**: Pixel-accurate playback on supporting terminals.
 - **Wire format**: `f=24` raw RGB24 with `o=z` zlib compression — keeps bandwidth manageable at 30 fps.
 - **Detection**: Via `TerminalCapabilities.SupportsKittyGraphics` (active APC probe + `KITTY_PID` / `WEZTERM_PANE` env-var fallback).
@@ -270,7 +270,7 @@ should not consume all the available space.
 | `.WithVerticalAlignment(VerticalAlignment alignment)` | Vertical alignment within the container |
 
 ```csharp
-// A fixed-size video centred in its container rather than filling it
+// A fixed-size video centered in its container rather than filling it
 var video = Controls.Video("clip.mp4")
     .WithAlignment(HorizontalAlignment.Center)
     .WithVerticalAlignment(VerticalAlignment.Center)

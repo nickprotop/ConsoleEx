@@ -53,7 +53,7 @@ var window = new WindowBuilder(windowSystem)
     .Build();
 ```
 
-Run `dotnet run` after adding `windowSystem.AddWindow(window); windowSystem.Run();` (covered in Step 6) — you'll see a bordered window centred in the terminal.
+Run `dotnet run` after adding `windowSystem.AddWindow(window); windowSystem.Run();` (covered in Step 6) — you'll see a bordered window centered in the terminal.
 
 ## Step 4: Add a label
 

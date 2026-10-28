@@ -737,7 +737,7 @@ private void DismissPortal()
 
 ## 17. Notifications
 
-Two systems — see [NOTIFICATIONS.md](NOTIFICATIONS.md) for the full guide.
+Two systems — see [Notifications](NOTIFICATIONS.md) for the full guide.
 
 **Toasts** — non-blocking, single-line, auto-stacking corner overlays:
 

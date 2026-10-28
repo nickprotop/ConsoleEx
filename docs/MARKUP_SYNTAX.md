@@ -321,7 +321,7 @@ Language ids, aliases, and file extensions all work, case-insensitively:
 
 A fenced block with **no language hint** — or one whose hint matches no grammar — falls back to a flat, shaded code block (no token coloring). Indented code blocks carry no hint and are always flat.
 
-> The same engine powers `MultilineEditControl`, and code colours come from the active theme via `ITheme.SyntaxColors`. See the [Syntax Highlighting](SYNTAX_HIGHLIGHTING.md) guide for theming, the registry, and how to register your own.
+> The same engine powers `MultilineEditControl`, and code colors come from the active theme via `ITheme.SyntaxColors`. See the [Syntax Highlighting](SYNTAX_HIGHLIGHTING.md) guide for theming, the registry, and how to register your own.
 
 **Custom highlighters.** Register a highlighter **globally** so it applies everywhere Markdown is rendered:
 
@@ -563,7 +563,7 @@ int width = MarkupParser.StripLength("[green]hello[/]");   // 5
 
 Prefer these over a `[...]`-stripping regex + `.Length`: the latter miscounts emoji, CJK, and
 combining marks. (Dialog message bodies render markup by default — pass `literal: true`, or
-`MarkupParser.Escape` the text yourself, when the content is untrusted. See [DIALOGS.md](DIALOGS.md).)
+`MarkupParser.Escape` the text yourself, when the content is untrusted. See [Dialogs](DIALOGS.md).)
 
 ---
 

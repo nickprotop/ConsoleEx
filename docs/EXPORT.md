@@ -17,7 +17,7 @@ different source or a different format.
 ## Surfaces
 
 The library holds cells in several shapes -- a window's live buffer, an immutable snapshot,
-the renderer's composed frame -- and they do not agree on how colour is stored. `ICellSurface`
+the renderer's composed frame -- and they do not agree on how color is stored. `ICellSurface`
 is the one read lens over all of them, so an exporter is written once instead of once per
 source.
 
@@ -40,7 +40,7 @@ public interface ICellSurface
 
 `SurfaceCell` carries the character, its combining marks, foreground, background,
 decorations, whether it is the second column of a wide glyph, and whether the background was
-*substituted rather than measured* -- see [Defaulted colours](#defaulted-colours).
+*substituted rather than measured* -- see [Defaulted colors](#defaulted-colors).
 
 ### What it costs
 
@@ -118,7 +118,7 @@ surface.ToImage(new ExportOptions { Format = ImageFormat.Tga });
 | `JpegQuality` | `90` | 1--100. Ignored unless `Format` is `Jpeg`. |
 | `CellHeight` | `16` | Pixels per cell vertically. |
 | `CellWidth` | *(font advance)* | Pixels per cell horizontally. |
-| `Glyphs` | `true` | Draw text. `false` gives a colour map and needs no font. |
+| `Glyphs` | `true` | Draw text. `false` gives a color map and needs no font. |
 | `FontPath` | *(none)* | A specific `.ttf`. Implies `FontSource.File`. |
 | `FontSource` | `Automatic` | Where to find the font. See below. |
 
@@ -135,7 +135,7 @@ Measured on a 174x50 desktop at 8x16 (1392x800 pixels), encoding the same pixels
 | `Tga` | 4 ms | 569 KB | Streaming. Lossless, encodes in a fraction of the time, and the bytes never reach a disk. |
 | `Jpeg` | 9 ms (q75) | 113 KB | Attachments, and surfaces carrying an image or a gradient. |
 
-PNG is smallest because terminal output is large areas of flat colour -- the case deflate
+PNG is smallest because terminal output is large areas of flat color -- the case deflate
 handles best and JPEG handles worst. That advantage disappears as a surface gains
 photographic content, which is when JPEG starts to win.
 
@@ -157,7 +157,7 @@ public enum FontSource { Automatic, Embedded, Strict, File }
 
 **`Automatic` is not your terminal's font.** A terminal's font lives in that emulator's own
 configuration, and there is no cross-platform way to ask which one is in use, so a common
-monospace face is picked off disk. Layout, colour and content are exact; the letterforms may
+monospace face is picked off disk. Layout, color and content are exact; the letterforms may
 differ from what is on screen.
 
 **Nothing silently renders blank.** `Automatic` always ends at the embedded face, because an
@@ -165,7 +165,7 @@ image with no text would still hash consistently -- and so would pass a golden-i
 ought to have failed. `Strict` and `File` fail loudly instead, which is why you would ask for
 them.
 
-The embedded face is DejaVu Sans Mono (Bitstream Vera licence, ~335 KB), covering Latin,
+The embedded face is DejaVu Sans Mono (Bitstream Vera license, ~335 KB), covering Latin,
 Greek, Cyrillic, box-drawing and common symbols. **It has no CJK**, which is why `Automatic`
 still reaches for installed fonts.
 
@@ -173,7 +173,7 @@ Braille is drawn from geometry rather than taken from the face, because no monos
 carries the block and `Embedded` cannot compose system fonts without losing the determinism
 it exists for. Braille charts therefore render in every mode.
 
-> stb_truetype rasterises TrueType (`glyf`) outlines only, and most modern CJK faces on macOS
+> stb_truetype rasterizes TrueType (`glyf`) outlines only, and most modern CJK faces on macOS
 > and Windows -- Noto CJK, PingFang, the Microsoft `.ttc` collections -- are CFF/PostScript.
 > Those are detected and skipped rather than loaded to draw nothing. CJK through system fonts
 > is reliable on Linux and best-effort elsewhere.
@@ -241,10 +241,10 @@ File.WriteAllBytes(path, snapshot.AsSurface().ToImage());    // still the old sc
 
 ---
 
-## Defaulted colours
+## Defaulted colors
 
 The composed desktop stores the escape the renderer emitted rather than the values behind it,
-and that escape may say `39`/`49` -- "whatever the terminal's default is" -- a colour this
+and that escape may say `39`/`49` -- "whatever the terminal's default is" -- a color this
 process genuinely does not know.
 
 Those cells are filled from the theme and **flagged**, rather than passed off as measured:
@@ -257,15 +257,15 @@ if (cell.BackgroundWasDefaulted)
 }
 ```
 
-`ToText(TextFormat.Ansi)` honours the flag by emitting `49` rather than the substitute, so
+`ToText(TextFormat.Ansi)` honors the flag by emitting `49` rather than the substitute, so
 the output round-trips through a real terminal correctly instead of baking in a guess. A
-per-window surface never sets it: those cells carry real typed colour.
+per-window surface never sets it: those cells carry real typed color.
 
 ---
 
 ## See also
 
-- [`DRIVERS.md`](DRIVERS.md) -- the headless driver, for exporting with no terminal
-- [`DEBUGGING.md`](DEBUGGING.md) -- the diagnostics socket, which exposes the same exports
+- [Drivers](DRIVERS.md) -- the headless driver, for exporting with no terminal
+- [Debugging](DEBUGGING.md) -- the diagnostics socket, which exposes the same exports
   over a socket to another process
-- [`MARKUP_SYNTAX.md`](MARKUP_SYNTAX.md) -- the syntax `TextFormat.Markup` produces
+- [Markup syntax](MARKUP_SYNTAX.md) -- the syntax `TextFormat.Markup` produces

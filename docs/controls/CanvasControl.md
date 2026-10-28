@@ -250,7 +250,7 @@ are wide, so circles come out as ovals.
 
 `PixelSurface` is the other model. It treats each cell as **two stacked pixels** and
 paints it with `▀` — foreground the top pixel, background the bottom. The pixels
-come out nearly square, the vertical resolution doubles, and you draw in colours
+come out nearly square, the vertical resolution doubles, and you draw in colors
 rather than characters.
 
 The canvas can own one for you — lazily, so a canvas that only draws text pays nothing:
@@ -304,7 +304,7 @@ labels, boxes, tables, diagrams made of box-drawing characters.
 | `EnsureSize(columns, rows)` | Match the canvas size, in cells. Cheap when unchanged. |
 | `Width` / `Height` / `Rows` | Size in pixels, and height in canvas rows. |
 | `Set(x, y, c)` / `Get(x, y)` | Write and read one pixel. |
-| `Blend(x, y, c, alpha)` | Blend a colour over a pixel. |
+| `Blend(x, y, c, alpha)` | Blend a color over a pixel. |
 | `Add(x, y, c, amount)` | Add light to a pixel. Clamps at white. |
 | `Fill(c)` | Fill every pixel. |
 | `FillRect(x, y, w, h, c)` / `BlendRect(...)` | Rectangles, solid or blended. |
@@ -317,7 +317,7 @@ labels, boxes, tables, diagrams made of box-drawing characters.
 
 On the control: `Pixels` (lazy, auto-sized), `HasPixelSurface` (asks without allocating),
 `PresentPixels(voidColor)` and `PresentPixels(offsetX, offsetY, voidColor)`.
-| `Lerp(a, b, t)` / `Scale(c, k)` *(static)* | Colour helpers. |
+| `Lerp(a, b, t)` / `Scale(c, k)` *(static)* | Color helpers. |
 
 ### Text over pixels
 

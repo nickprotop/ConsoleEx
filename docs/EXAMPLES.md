@@ -42,7 +42,7 @@ Give it a goal in plain language and it reads your files, works out what to chan
 **SharpConsoleUI features on show:**
 - A transcript of collapsible tool-call rows (`expand…`) beside a sticky live status panel
 - Modal permission prompts with `Allow once` / `Always allow` / `Deny` buttons over the running transcript
-- Markdown rendered inline in the transcript — headings, bullet lists, tables and syntax-coloured code
+- Markdown rendered inline in the transcript — headings, bullet lists, tables and syntax-colored code
 - `FigleControl` banner, horizontal bar charts, and a status bar carrying live context percentage
 
 | Permission prompt | Diff view | Usage stats |
@@ -299,7 +299,7 @@ same code reaching the same decisions — only the final surface changed.
 
 **Loopback only.** It grants full control of the application, not a read-only view. See the
 [example's README](../Examples/WebHost/README.md) and
-[`DRIVERS.md`](DRIVERS.md) for the driver story behind it.
+[Drivers](DRIVERS.md) for the driver story behind it.
 
 ### DemoApp
 The flagship demo — six independent windows running simultaneously.
@@ -401,7 +401,7 @@ dotnet run --project Examples/DemoApp
 # Navigate to Rendering → Alpha Blending
 ```
 
-Five zones demonstrate every level of the alpha pipeline against a continuously cycling full-spectrum gradient (three hues 120° apart rotating through the colour wheel every ~12 s):
+Five zones demonstrate every level of the alpha pipeline against a continuously cycling full-spectrum gradient (three hues 120° apart rotating through the color wheel every ~12 s):
 
 | Zone | What it shows |
 |------|--------------|
@@ -413,7 +413,7 @@ Five zones demonstrate every level of the alpha pipeline against a continuously 
 
 **APIs Demonstrated:**
 - `Color.Blend()` — Porter-Duff "over" compositing
-- `ColorGradient.FromColors()` with time-varying hues for a smooth colour-wheel cycle
+- `ColorGradient.FromColors()` with time-varying hues for a smooth color-wheel cycle
 - `ScrollablePanel` with semi-transparent `BackgroundColor` (glass effect)
 - `SliderControl` wired to a live `MarkupControl` preview
 - Markup inline alpha: `[#RRGGBBAA]text[/]`
@@ -481,7 +481,7 @@ dotnet run --project Examples/AgentStudio
 **SharpConsoleUI features on show:**
 - `ChatTranscriptControl` — a composite control that arranges markup, wrapping and scroll for a message log
 - Modal overlays floating above the live transcript, dismissed with Escape
-- Markdown and syntax-coloured code rendered inline in transcript messages, with bordered result tables
+- Markdown and syntax-colored code rendered inline in transcript messages, with bordered result tables
 - A status bar carrying model and keybinding hints while the driver hides the chrome
 
 ---

@@ -391,7 +391,7 @@ they declare an **intent** through `Invalidate`:
 
 | `Invalidation` (the request) | Meaning | Cost on the next frame |
 |---|---|---|
-| `Repaint` | Appearance only — a colour, selection, or the content of existing cells changed. Layout is unaffected. | Paint only; the Measure pass is **skipped** and the cached layout reused. |
+| `Repaint` | Appearance only — a color, selection, or the content of existing cells changed. Layout is unaffected. | Paint only; the Measure pass is **skipped** and the cached layout reused. |
 | `Relayout` | Size or position changed. | Full Measure + Arrange + Paint. |
 
 ```csharp
@@ -1239,7 +1239,7 @@ public class MyListControl : BaseControl
 **Optimization:**
 - Batch updates: modify multiple items, then call `Invalidate()` once — the max-join coalesces them.
 - Use `Invalidate(Invalidation.Repaint)` for appearance-only changes (e.g. a selection or
-  colour change that doesn't move anything): the layout is reused and the Measure pass is skipped.
+  color change that doesn't move anything): the layout is reused and the Measure pass is skipped.
 - A burst of `Repaint`s plus one `Relayout` in the same frame resolves to `Relayout` — you never need
   to track "the strongest invalidation so far" yourself; the accumulator does it.
 

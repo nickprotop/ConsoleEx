@@ -2,8 +2,8 @@
 
 A **Window** is the primary container in SharpConsoleUI. Windows hold controls, draw a border and
 title bar, can be moved/resized/maximized, and stack in z-order on the desktop. This guide covers
-creating and configuring windows; for the controls you put inside them see [CONTROLS.md](CONTROLS.md),
-and for the full fluent builder surface see [BUILDERS.md](BUILDERS.md).
+creating and configuring windows; for the controls you put inside them see [Controls](CONTROLS.md),
+and for the full fluent builder surface see [Builder API](BUILDERS.md).
 
 ## Table of Contents
 
@@ -50,7 +50,7 @@ windowSystem.AddWindow(window);
 ```
 
 Positions are in **desktop coordinates** (the area inside any top/bottom status bars). The desktop
-automatically excludes the status bars; a hidden bar reclaims its row (see [STATUS_SYSTEM.md](STATUS_SYSTEM.md)).
+automatically excludes the status bars; a hidden bar reclaims its row (see [Status system](STATUS_SYSTEM.md)).
 
 ## Placement (snap zones)
 
@@ -59,7 +59,7 @@ placement that resolves to bounds against the live usable desktop. It is **stick
 
 - Setting it snaps the window to the resolved zone/anchor.
 - On a **desktop resize** the placement **re-resolves** (a `LeftHalf` window stays the left half at
-  the new size) — the same auto-refit behaviour `Maximized` windows already have.
+  the new size) — the same auto-refit behavior `Maximized` windows already have.
 - A **manual drag or resize detaches it** — the window becomes free-floating `Normal` again (exactly
   as dragging a maximized window restores it).
 
@@ -78,7 +78,7 @@ Build-time (declarative): `new WindowBuilder(ws).WithPlacement(Placement.Snap(Sn
 **Tier-1 `SnapZone`s (9):** `Full`, `LeftHalf`, `RightHalf`, `TopHalf`, `BottomHalf`, `TopLeft`,
 `TopRight`, `BottomLeft`, `BottomRight`. On odd desktop sizes the remainder cell goes to the
 left/top zone. Placement is orthogonal to `WindowState` — a placed window stays `Normal`. Bounds are
-resolved by the `WindowPlacementService` (see [STATE-SERVICES.md](STATE-SERVICES.md)).
+resolved by the `WindowPlacementService` (see [State services](STATE-SERVICES.md)).
 
 ## Border styles
 
@@ -180,7 +180,7 @@ have nowhere to live (the flags keep their values but are inert for mouse intera
 ```
 
 A modal window blocks interaction with windows beneath it until it closes. Combine with a
-`TaskCompletionSource` for await-style dialogs — see [DIALOGS.md](DIALOGS.md).
+`TaskCompletionSource` for await-style dialogs — see [Dialogs](DIALOGS.md).
 
 ## Events
 
@@ -220,4 +220,4 @@ window.SetSize(width, height);         // resize
 
 > ⚠️ **Threading:** mutate window properties (including `Title`, `BorderStyle`, `Padding`, position,
 > size) on the UI thread. From a background thread, marshal via
-> `windowSystem.EnqueueOnUIThread(() => { ... })`. See [THREADING_AND_ASYNC.md](THREADING_AND_ASYNC.md).
+> `windowSystem.EnqueueOnUIThread(() => { ... })`. See [Threading & async](THREADING_AND_ASYNC.md).

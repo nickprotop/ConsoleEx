@@ -24,7 +24,7 @@ ordinary code needs to know none of this. `StickyTop()` / `StickyBottom()` map o
 and bottom edges, so existing applications keep working unchanged.
 
 The edges, the surfaces and the allocation rule are documented in
-**[DOCKING.md](DOCKING.md)**.
+**[Docking](DOCKING.md)**.
 
 ---
 
@@ -76,7 +76,7 @@ scrolling region reports a zero range and ignores the verbs; `window.ScrollBy()`
 nothing, which is the honest answer for a layout that does not scroll.
 
 **`ILayoutContainer`** is the ordinary measure/arrange pair every container implements. See
-[DOM_LAYOUT_SYSTEM.md](DOM_LAYOUT_SYSTEM.md).
+[DOM layout](DOM_LAYOUT_SYSTEM.md).
 
 **`IRegionClippingLayout`** lets the root clip each child separately. A root with pinned edges
 needs this: without it, scrolling body content paints straight over a docked toolbar once the
@@ -175,13 +175,13 @@ did not, and making it polymorphic is what `IWindowRootLayout` is for.
 ## Border-delegated scrollbars
 
 A scrolling region can hand its scrollbar to the window frame, reclaiming the column or row
-it would otherwise spend drawing one. Covered in [DOCKING.md](DOCKING.md#border-delegated-scrollbars).
+it would otherwise spend drawing one. Covered in [Docking](DOCKING.md#border-delegated-scrollbars).
 
 ---
 
 ## See also
 
-- [DOCKING.md](DOCKING.md) — the edges, the surfaces, and the allocation rule
-- [DOM_LAYOUT_SYSTEM.md](DOM_LAYOUT_SYSTEM.md) — how measure, arrange and paint work
-- [WINDOWS.md](WINDOWS.md) — window lifecycle and the rest of the window API
-- [controls/GridControl.md](controls/GridControl.md) — docking inside a grid
+- [Docking](DOCKING.md) — the edges, the surfaces, and the allocation rule
+- [DOM layout](DOM_LAYOUT_SYSTEM.md) — how measure, arrange and paint work
+- [Windows](WINDOWS.md) — window lifecycle and the rest of the window API
+- [GridControl](controls/GridControl.md) — docking inside a grid

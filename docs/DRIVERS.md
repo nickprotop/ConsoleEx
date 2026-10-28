@@ -81,7 +81,7 @@ What it adds over the interface:
 | `ClearHistory()` | Reset between phases |
 
 `SimulateScreenResize` is the one with no real-terminal equivalent. `NetConsoleDriver.ScreenSize`
-is owned by the terminal and read-only, so resize behaviour — where a great many layout bugs
+is owned by the terminal and read-only, so resize behavior — where a great many layout bugs
 live — is otherwise only reachable by hand. Headless, it is a method call, which is why the
 diagnostics socket's `size` verb can resize a headless app and returns an explicit error against
 a real one rather than silently doing nothing.
@@ -163,7 +163,7 @@ taskbar all behave as they would in a terminal, because they are the same code r
 same decisions; only the final surface changed.
 
 The web layer reaches the application solely through its diagnostics socket, so it would
-work unchanged against an app in another process. See [`DEBUGGING.md`](DEBUGGING.md) for the
+work unchanged against an app in another process. See [Debugging](DEBUGGING.md) for the
 verbs it uses.
 
 ---
@@ -198,7 +198,7 @@ Things that are easy to get wrong:
   buffer need not implement it.
 - **`CaptureComposed()` defaults to returning `null`**, likewise. Implement it if your driver
   keeps a composed buffer — it is what lets a caller read the whole desktop
-  ([`EXPORT.md`](EXPORT.md)) without turning on diagnostics. Copy under whatever lock guards
+  ([Screen export](EXPORT.md)) without turning on diagnostics. Copy under whatever lock guards
   your render path, so a capture never mixes two frames.
 
 Optionally implement `IGraphicsProtocol` for inline images.
@@ -217,8 +217,8 @@ Optionally implement `IGraphicsProtocol` for inline images.
 
 ## See also
 
-- [`RENDERING_PIPELINE.md`](RENDERING_PIPELINE.md) — what happens before the driver sees a cell
-- [`DEBUGGING.md`](DEBUGGING.md) — the diagnostics socket, including driving a headless app
-- [`EXPORT.md`](EXPORT.md) — exporting a window or the desktop as an image or text
-- [`THREADING_AND_ASYNC.md`](THREADING_AND_ASYNC.md) — which thread may touch what
-- [`IMAGE_RENDERING.md`](IMAGE_RENDERING.md) — `IGraphicsProtocol` and Kitty graphics
+- [Rendering pipeline](RENDERING_PIPELINE.md) — what happens before the driver sees a cell
+- [Debugging](DEBUGGING.md) — the diagnostics socket, including driving a headless app
+- [Screen export](EXPORT.md) — exporting a window or the desktop as an image or text
+- [Threading & async](THREADING_AND_ASYNC.md) — which thread may touch what
+- [Image rendering](IMAGE_RENDERING.md) — `IGraphicsProtocol` and Kitty graphics

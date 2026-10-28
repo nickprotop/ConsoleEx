@@ -239,7 +239,7 @@ var grid = Controls.Table()
 
 A column is either **fixed** (an explicit `Width`) or **auto** (sized from its content). When the
 auto columns do not fit, they are shrunk proportionally — which means one column holding a very
-long value can squeeze its neighbours down to a couple of characters:
+long value can squeeze its neighbors down to a couple of characters:
 
 ```
 │St│Ti│Message
@@ -268,12 +268,12 @@ Or on an existing column:
 table.Columns[0].MinWidth = 8;
 ```
 
-Behaviour worth knowing:
+Behavior worth knowing:
 
 - **Fixed columns ignore `MinWidth`.** An explicit `Width` is already a decision; its floor stays 1.
 - **`null`, `0` or a negative value all mean no floor** — the column can shrink to 1 character, which
   is how the table behaved before floors existed.
-- **Floors can overflow the viewport.** When honouring every floor needs more room than there is, the
+- **Floors can overflow the viewport.** When honoring every floor needs more room than there is, the
   table lets its total content width exceed the viewport and relies on the horizontal scrollbar to
   pan, rather than crushing a column below a usable width. Pair `MinWidth` with
   `WithHorizontalScrollbar(ScrollbarVisibility.Auto)` so the overflow is reachable.
@@ -532,7 +532,7 @@ Return one of three answers:
 | `TableFilterResult.SourceNarrowed` | The source narrowed its own `RowCount`; rows are read by identity |
 | `TableFilterResult.WithDisplayRows(indices)` | The source names which rows to show, and keeps reporting all of them |
 
-`SourceNarrowed` is what to use for large, remote or virtualized sources: nothing is materialised,
+`SourceNarrowed` is what to use for large, remote or virtualized sources: nothing is materialized,
 the table holds no map, and cells are read only for rows about to be painted.
 
 `WithDisplayRows` is for a source whose visible set its own `RowCount` cannot express — a hierarchy

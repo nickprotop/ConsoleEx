@@ -333,7 +333,7 @@ Controls.Prompt("Enter name:")
 ```
 
 A prompt that wraps and grows instead of scrolling sideways — `Multiline()` is opt-in, so every
-existing prompt keeps its single-row behaviour:
+existing prompt keeps its single-row behavior:
 
 ```csharp
 Controls.Prompt("> ")

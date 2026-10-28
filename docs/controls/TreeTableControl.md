@@ -11,7 +11,7 @@ A table whose rows nest: rows hold rows of their own, shown indented under them 
 
 TreeTableControl is a [TableControl](TableControl.md) whose rows form a hierarchy: features with their stories and tasks, folders with their files, accounts with their sub-accounts. Each row is a `TreeTableRow`, which has cells like any `TableRow` plus a parent, children and an expansion state. The tree column draws, in front of each value, the guide lines to the row's parent and an expander, `[-]` or `[+]`, in the same guide styles as [TreeControl](TreeControl.md).
 
-Because it is a `TableControl`, everything a table does it does too: columns and their widths, selection, multi-select, checkboxes, cell navigation, inline editing, scrollbars, colours, the builder settings. Sorting and filtering follow the hierarchy: a sort orders each row's children among themselves, and a filter shows each match together with the rows above it.
+Because it is a `TableControl`, everything a table does it does too: columns and their widths, selection, multi-select, checkboxes, cell navigation, inline editing, scrollbars, colors, the builder settings. Sorting and filtering follow the hierarchy: a sort orders each row's children among themselves, and a filter shows each match together with the rows above it.
 
 ```
 ┌──────────────────────┬─────┐

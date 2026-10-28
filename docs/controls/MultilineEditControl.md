@@ -376,7 +376,7 @@ var editor = Controls.MultilineEdit()
 
 `SyntaxHighlighters.For(lang)` is case-insensitive and accepts language ids, aliases, and file extensions (`cs`, `js`, `yml`, `sh`, `py`); it returns `null` only when no grammar covers the language. You can also `SyntaxHighlighters.Register(...)` a custom highlighter, which takes precedence over the built-in grammars.
 
-Token colours come from the active theme via `ITheme.SyntaxColors`, so highlighted code matches the surrounding UI and follows theme switches. See the [Syntax Highlighting](../SYNTAX_HIGHLIGHTING.md) guide for theming and the full contract.
+Token colors come from the active theme via `ITheme.SyntaxColors`, so highlighted code matches the surrounding UI and follows theme switches. See the [Syntax Highlighting](../SYNTAX_HIGHLIGHTING.md) guide for theming and the full contract.
 
 Tokenized lines are cached, so repainting an unchanged editor costs nothing. If you mutate a highlighter **in place** (for example layering LSP semantic tokens onto a decorator), call `RefreshSyntaxHighlighting()` to drop the cache — re-assigning `SyntaxHighlighter` to the same instance is a no-op:
 

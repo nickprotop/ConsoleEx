@@ -9,7 +9,7 @@ redistribute height between them — by dragging with the mouse, or by focusing 
 Up/Down. It is the vertical-axis counterpart to the column splitters built into
 [GridControl](GridControl.md).
 
-You do not wire the neighbours up manually in the common case: dropped between two controls in a
+You do not wire the neighbors up manually in the common case: dropped between two controls in a
 window or column, the splitter resolves the control immediately above and below itself. Use
 `SetControls` (or `.WithControls(...)`) only when you need to target specific controls explicitly.
 
@@ -29,7 +29,7 @@ window.AddControl(Controls.HorizontalSplitter().Build());
 window.AddControl(bottomPanel);
 ```
 
-That is the whole setup — the splitter finds its neighbours. Give the panels
+That is the whole setup — the splitter finds its neighbors. Give the panels
 `VerticalAlignment.Fill` so they have height to trade.
 
 ## Builder API
@@ -142,7 +142,7 @@ window.AddControl(bottom);
 
 ### Resizing a grid against a panel below it
 
-The neighbour can be any control, including a container.
+The neighbor can be any control, including a container.
 
 ```csharp
 window.AddControl(grid);                                  // a HorizontalGrid or Grid
@@ -170,7 +170,7 @@ var splitter = Controls.HorizontalSplitter()
     .Build();
 ```
 
-### Explicit neighbours
+### Explicit neighbors
 
 When the splitter is not directly between the two controls it should resize:
 
@@ -185,9 +185,9 @@ splitter.SetControls(editorPanel, outputPanel);
 
 ## Best Practices
 
-1. **Give both neighbours `VerticalAlignment.Fill`.** A fixed-height control has no slack to trade,
+1. **Give both neighbors `VerticalAlignment.Fill`.** A fixed-height control has no slack to trade,
    so the splitter appears to do nothing.
-2. **Rely on automatic neighbour resolution.** Only call `SetControls` / `.WithControls(...)` when
+2. **Rely on automatic neighbor resolution.** Only call `SetControls` / `.WithControls(...)` when
    the splitter is not physically between the two controls.
 3. **Set minimum heights for panes that become useless when squashed** — a log pane at two rows is
    worse than no log pane.

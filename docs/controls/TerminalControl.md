@@ -17,7 +17,7 @@ On **Linux** the control uses `openpty` and an in-process shim. On **Windows** i
 
 ## Critical Setup Requirement (Linux only)
 
-On Linux, `TerminalControl` relies on an in-process PTY shim — the host executable re-launches itself as the slave-side process. **You must add the following as the very first line of your `Main` method**, before any UI initialisation:
+On Linux, `TerminalControl` relies on an in-process PTY shim — the host executable re-launches itself as the slave-side process. **You must add the following as the very first line of your `Main` method**, before any UI initialization:
 
 ```csharp
 // Program.cs
@@ -240,7 +240,7 @@ ws.GlobalKeyPressed += (sender, e) =>
 
 ## Best Practices
 
-- **Linux: always add `PtyShim.RunIfShim(args)` first** — it must run before any console or UI initialisation. The call is a safe no-op on Windows.
+- **Linux: always add `PtyShim.RunIfShim(args)` first** — it must run before any console or UI initialization. The call is a safe no-op on Windows.
 - **Let the window close itself** — when the child exits, the window closes automatically; do not force-close it from outside.
 - **Prefer `Open()`** for simple cases; use `Build()` only when you need custom window configuration.
 - **Do not set `HasFocus = false`** while the terminal is the only control — keyboard input will stop being forwarded.

@@ -106,7 +106,7 @@ anyone asks of it.
 | `WithWidth(w)` / `WithHeight(h)` | One dimension |
 | `WithSurface(rows)` | The cells to show |
 | `WithScroll(x, y)` | Where in the surface to start |
-| `WithBackgroundColor(c)` / `WithForegroundColor(c)` / `WithColors(fg, bg)` | Colours |
+| `WithBackgroundColor(c)` / `WithForegroundColor(c)` / `WithColors(fg, bg)` | Colors |
 | `OnCellClicked(handler)` | Subscribe to `CellClicked` |
 | `WithAlignment` / `WithVerticalAlignment` / `WithMargin` / `WithVisible` / `WithName` / `WithTag` / `WithStickyPosition` | The usual control chrome |
 
@@ -131,5 +131,5 @@ zero and be lost.
 
 - [CanvasControl](CanvasControl.md) — draw your own cells rather than show
   someone else's
-- [DEBUGGING.md](../DEBUGGING.md) — the diagnostics socket, one source of a
+- [Debugging](../DEBUGGING.md) — the diagnostics socket, one source of a
   surface to show

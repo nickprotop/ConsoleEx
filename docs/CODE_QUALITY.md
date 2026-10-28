@@ -62,7 +62,7 @@ When rendering text to a `CharacterBuffer`:
 - Use the narrow indicator symbols in `ControlDefaults` (e.g. `▾▴`, `◄►`), never the
   East-Asian-ambiguous `▼▲◆●`.
 
-See [`docs/THREADING_AND_ASYNC.md`](THREADING_AND_ASYNC.md) and the control source for
+See [Threading & async](THREADING_AND_ASYNC.md) and the control source for
 worked examples.
 
 ## 7. Thread safety — marshal UI mutations to the UI thread
@@ -98,5 +98,5 @@ dotnet format --verify-no-changes                              # formatting matc
 CI runs **code-quality checks** on every PR. Formatting, license headers, and a
 warning-clean build are **blocking** — a PR that regresses any of them fails. File size
 is advisory (annotates only) until the remaining oversized files are split. See
-[`docs/CODE_QUALITY_ENFORCEMENT.md`](CODE_QUALITY_ENFORCEMENT.md) for the enforcement
+[Quality enforcement](CODE_QUALITY_ENFORCEMENT.md) for the enforcement
 status and remaining phases.

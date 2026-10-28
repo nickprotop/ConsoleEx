@@ -197,7 +197,33 @@ if [ "$BROKEN" -ne 0 ]; then
     exit 2
 fi
 
-echo -e "  ${GREEN}$PAGES pages, 0 broken links${NC}"
+# What a reader SEES, which well-formed markdown can still get wrong: a link
+# labelled with a filename, a description cut mid-word, a table cell an
+# unescaped pipe split in half.
+LINT=$(python3 -I tools/docscheck/lint.py _site 2>&1)
+LINT_CODE=$?
+
+if [ $LINT_CODE -ne 0 ]; then
+    echo -e "${RED}Error: docs lint${NC}"
+    echo "$LINT" | head -20
+
+    if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+        {
+            echo "## Docs lint"
+            echo ""
+            echo "Findings a reader would see on the page:"
+            echo ""
+            echo '```'
+            echo "$LINT" | head -40
+            echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+    fi
+
+    # Same class as a broken link: the page is wrong for whoever reads it.
+    exit 2
+fi
+
+echo -e "  ${GREEN}$PAGES pages, 0 broken links, lint clean${NC}"
 
 if [ "$CHECK_ONLY" = true ]; then
     if [ "$STALE" -gt 0 ]; then

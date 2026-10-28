@@ -44,7 +44,7 @@ cxdbg snapshot --format cells --y 7 --h 1
 
 So nothing here has to be learned twice, and a verb this document has not caught up with
 still works - cxdbg declares no list of its own. See
-[`tools/cxdbg/README.md`](../tools/cxdbg/README.md) for the tool.
+[Readme](../tools/cxdbg/README.md) for the tool.
 
 **This document is the protocol's.** It describes the wire, which is the library's feature
 and the thing an agent, a script or a future client talks to. cxdbg is one client of it and
@@ -136,7 +136,7 @@ The rules behind that prompt:
 
 - **A headless app is asked nothing.** `HeadlessConsoleDriver` has no terminal by design,
   so "is stdin a terminal?" says nothing about whether a user is present — and denying on
-  it made the variable silently terminal-only. A headless app honours the variable and logs
+  it made the variable silently terminal-only. A headless app honors the variable and logs
   a Warning that it did.
 
   This is not a hole. The prompt protects one scenario: an ordinary app on your terminal
@@ -216,7 +216,7 @@ comes back without one.
 | `focus` | Where keyboard input will go |
 | `reachable` | Which controls Tab can reach, in Tab order |
 | `measure` | Why a control is the size it is: the offers, and which one decided |
-| `color` | Why a role is the colour it is, resolution step by step |
+| `color` | Why a role is the color it is, resolution step by step |
 | `metrics` | Frame number, bytes written, characters changed |
 | `invalidations` | Which control asked for the frame. Needs diagnostics on |
 | `events` | What input the app was told about. Needs diagnostics on |
@@ -259,7 +259,7 @@ comes back without one.
 |-------|---------|
 | `window` | Window title or GUID. Omitted, the active window. |
 | `composed` | The whole desktop as the user sees it, instead of one window. |
-| `ansi` | Include the colour escapes. Pipe it to a terminal to see it in colour. |
+| `ansi` | Include the color escapes. Pipe it to a terminal to see it in color. |
 | `format` | `cells` for one entry per column, `markup` to repaint it elsewhere. |
 | `x`,`y`,`w`,`h` | A region. Omitted fields mean "to the edge". |
 
@@ -282,12 +282,12 @@ The format that parses back into cells, which is what a viewer asks for when it 
 [#EEEEEE on #323232 bold]  SharpConsoleUI[/][#EEEEEE on #323232]    [/]...
 ```
 
-`MarkupParser.Parse` reconstructs the cells exactly -- colours, decorations, combining
+`MarkupParser.Parse` reconstructs the cells exactly -- colors, decorations, combining
 marks, and the continuation cell of a wide glyph. Both ends use the same parser, so they
 cannot drift. `SurfaceViewControl` takes the result and paints it, which is how one
 application shows another application's screen.
 
-Plain text would lose the wide-glyph continuation and all colour; ANSI would need a second
+Plain text would lose the wide-glyph continuation and all color; ANSI would need a second
 SGR parser at the receiving end. Markup is the one format designed for the round trip.
 
 ### format: cells
@@ -304,7 +304,7 @@ character with no width and the second column it occupies is gone.
 ```
 
 One entry per column, continuation cells included, so index equals column and arithmetic
-over a row is trustworthy. Colour comes back as numbers; a caller that wanted escapes
+over a row is trustworthy. Color comes back as numbers; a caller that wanted escapes
 would have asked for `ansi`, and the two together are refused. Fields a cell does not have
 -- `dec`, `comb` -- are omitted rather than sent as null.
 
@@ -326,7 +326,7 @@ A screenshot, with real text.
 {"cmd":"image"}                                    → PNG, inline base64url
 {"cmd":"image","path":"/tmp/shot.png"}             → written to disk
 {"cmd":"image","composed":true,"cellHeight":24}    → the whole desktop, larger
-{"cmd":"image","glyphs":false}                     → colour blocks only, no font needed
+{"cmd":"image","glyphs":false}                     → color blocks only, no font needed
 {"cmd":"image","format":"tga"}                     → fast to encode, large
 {"cmd":"image","format":"jpeg","quality":75}       → lossy, small
 ```
@@ -341,7 +341,7 @@ file extension or a decoder reads that rather than inferring it from the request
 | `path` | *(none)* | Write to a file instead of returning bytes. |
 | `cellHeight` | `16` | Pixels per cell vertically. |
 | `cellWidth` | *(font advance)* | Pixels per cell horizontally. |
-| `glyphs` | `true` | Draw text. `false` gives a colour map with no font. |
+| `glyphs` | `true` | Draw text. `false` gives a color map with no font. |
 | `font` | *(auto)* | Path to a monospace `.ttf`. Implies `fontSource: "file"`. |
 | `fontSource` | `"automatic"` | `automatic`, `embedded`, `strict` or `file`. See below. |
 | `composed` | `false` | The whole desktop instead of one window. |
@@ -368,7 +368,7 @@ Measured on a 174x50 desktop at 8x16, encoding the same pixels:
 | `tga` | 4 ms | 569 KB | Streaming frames over a local socket, where encode time bounds the frame rate. |
 | `jpeg` | 9 ms (q75) | 113 KB | Attachments, and surfaces carrying an image or a gradient. |
 
-PNG is smallest because terminal output is flat colour, which deflate handles best. The
+PNG is smallest because terminal output is flat color, which deflate handles best. The
 reply always names what it produced in its `format` field, so a client never has to infer
 it. Only PNG is byte-identical run to run, so golden-image comparison stays on PNG.
 
@@ -386,7 +386,7 @@ depends on `fontSource`:
 
 **The default is not your terminal's font.** A terminal's font lives in that emulator's own
 configuration, and there is no cross-platform way to ask which one is in use -- so
-`automatic` picks a common monospace face found on disk. Layout, colour and content are
+`automatic` picks a common monospace face found on disk. Layout, color and content are
 exact; the letterforms may differ from what is on your screen.
 
 **Nothing silently renders blank.** `automatic` always ends at the embedded face, because an
@@ -394,7 +394,7 @@ image with no text would still hash consistently and so would pass a golden-imag
 ought to have failed. `strict` and `file` fail loudly instead, which is the point of asking
 for them.
 
-The embedded face (DejaVu Sans Mono, Bitstream Vera licence, ~335 KB) covers Latin, Greek,
+The embedded face (DejaVu Sans Mono, Bitstream Vera license, ~335 KB) covers Latin, Greek,
 Cyrillic, box-drawing and common symbols. **It has no CJK**, which is why `automatic` still
 reaches for installed fonts: a Han or Kana glyph can only come from the system.
 
@@ -406,15 +406,15 @@ Braille charts photograph correctly in `embedded` mode as a result. Anything no
 available face can draw is listed in `missingGlyphs` rather than left as a silent gap, and
 `fallbackFonts` names the faces that filled in.
 
-> A caveat on CJK away from Linux: stb_truetype rasterises TrueType (`glyf`) outlines only,
+> A caveat on CJK away from Linux: stb_truetype rasterizes TrueType (`glyf`) outlines only,
 > and most modern CJK faces on macOS and Windows -- Noto CJK, PingFang, and the Microsoft
 > `.ttc` collections -- are CFF/PostScript. Those are detected and skipped rather than loaded
 > to draw nothing, so CJK via system fonts is reliable on Linux and best-effort elsewhere.
 
-### Substituted colours
+### Substituted colors
 
 The composed desktop stores the escape the renderer emitted, and that escape may say `39` or
-`49` -- "whatever the terminal's default is" -- a colour this process genuinely does not
+`49` -- "whatever the terminal's default is" -- a color this process genuinely does not
 know. Those cells are filled from the theme, and the reply **says so** rather than letting a
 guess pass for a measurement:
 
@@ -423,11 +423,11 @@ guess pass for a measurement:
  "note":"cells using the terminal's default background were filled from the theme"}
 ```
 
-A per-window capture never reports this: those cells carry real typed colour.
+A per-window capture never reports this: those cells carry real typed color.
 
 The glyph is composited over whatever is already in the image, not over its own cell's
 background. Box-drawing characters are designed to overhang their cell -- `─` is drawn 10px
-wide at an 8px pitch precisely so neighbours fuse -- and compositing per-cell would chop a
+wide at an 8px pitch precisely so neighbors fuse -- and compositing per-cell would chop a
 continuous rule into dashes. Combining marks are drawn at the base glyph's own origin, which
 is where a terminal puts them.
 
@@ -848,7 +848,7 @@ exists.
 
 ## color
 
-Why a role is the colour it is.
+Why a role is the color it is.
 
 ```json
 {"cmd":"color","role":"Danger"}
@@ -857,7 +857,7 @@ Why a role is the colour it is.
 ```
 
 A role resolves through the theme, then through contrast adjustment, then through how it is
-painted. Each step can move the colour, and the reply shows all of them in order.
+painted. Each step can move the color, and the reply shows all of them in order.
 
 ```json
 {"ok":true,"theme":"ModernGray","role":"Danger","state":"Normal","outline":false,
@@ -1153,7 +1153,7 @@ dispatch a user's click does.
 `RunInBackground()` runs the loop on its own thread and returns once a frame exists, so the
 socket is already accepting connections and there is something to look at. If your host has
 a frame loop of its own, use `BeginHosted()` and call `Tick()` yourself instead — see
-[`DRIVERS.md`](DRIVERS.md) for the difference.
+[Drivers](DRIVERS.md) for the difference.
 
 Why this is worth the setup: most TUI test tooling drives a pty and scrapes text, so you end up
 testing what the *terminal* did, not what the framework decided. Here the app runs with no
@@ -1288,11 +1288,11 @@ through `JsonValue.Create` in the serializer are not noise -- they pick the safe
 
 ## See also
 
-- [`tools/cxdbg/README.md`](../tools/cxdbg/README.md) -- the dotnet tool that speaks this
+- [Readme](../tools/cxdbg/README.md) -- the dotnet tool that speaks this
   protocol, for working by hand
-- [`DRIVERS.md`](DRIVERS.md) -- drivers, render modes, and running headless
-- [`EXPORT.md`](EXPORT.md) -- the same captures as a public API, for use inside your own app
-- [`AOT.md`](AOT.md) -- NativeAOT support and the CI gate
-- [`CONFIGURATION.md`](CONFIGURATION.md) -- `ConsoleWindowSystemOptions`
+- [Drivers](DRIVERS.md) -- drivers, render modes, and running headless
+- [Screen export](EXPORT.md) -- the same captures as a public API, for use inside your own app
+- [NativeAOT](AOT.md) -- NativeAOT support and the CI gate
+- [Configuration](CONFIGURATION.md) -- `ConsoleWindowSystemOptions`
 - `SHARPCONSOLEUI_DEBUG_LOG` / `SHARPCONSOLEUI_DEBUG_LEVEL` -- file-based debug logging,
   the same buffer the `logs` verb reads

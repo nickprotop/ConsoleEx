@@ -825,7 +825,7 @@ c.SetMarkdown("# Updated\n\nNew content");   // live update  (Markdown(...) is a
 Styling is controlled by `MarkdownStyle` (per-control via `MarkupControl.MarkdownStyle` or builder `.WithMarkdownStyle(...)`, globally via `MarkdownStyle.Default`). See [Markup Syntax → Markdown](../MARKUP_SYNTAX.md#markdown) for the full reference.
 
 **Fenced code blocks are syntax-highlighted.** A fenced block with a language tag is tokenized and
-coloured (highlighting carries across multi-line constructs like block comments and strings). Built-in
+colored (highlighting carries across multi-line constructs like block comments and strings). Built-in
 languages: C#, JavaScript, JSON, YAML, XML, HTML, CSS, Bash, Dockerfile, Razor, SLN, Diff, Markdown.
 You can register your own highlighter for a language via `MarkdownStyle.CodeHighlighters`.
 

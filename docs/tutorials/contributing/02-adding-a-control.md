@@ -35,7 +35,7 @@ Start every source file with the project's license banner (copy it verbatim from
 
 ## Step 2: The interfaces — implement only what the badge needs
 
-SharpConsoleUI follows Interface Segregation: a control implements one small interface per capability it actually has, rather than one broad interface with methods it must stub out. A badge is not focusable and does not react to the mouse, so it implements *neither* `IFocusableControl` *nor* `IMouseAwareControl`. It *does* have a themable surface (the pill color), so — exactly like `SpinnerControl` — it implements `IColorRoleableControl`. See [patterns.md](../../patterns.md) for the full interface catalog and the ISP rationale.
+SharpConsoleUI follows Interface Segregation: a control implements one small interface per capability it actually has, rather than one broad interface with methods it must stub out. A badge is not focusable and does not react to the mouse, so it implements *neither* `IFocusableControl` *nor* `IMouseAwareControl`. It *does* have a themable surface (the pill color), so — exactly like `SpinnerControl` — it implements `IColorRoleableControl`. See [Patterns](../../patterns.md) for the full interface catalog and the ISP rationale.
 
 The base class `BaseControl` already supplies the layout plumbing (`ActualWidth`, `Margin`, `Invalidate`, `SetProperty`). It leaves you three **abstract** members you *must* implement — `ContentWidth`, `MeasureDOM`, `PaintDOM` — plus `GetLogicalContentSize`, which is **virtual**: it has a default that returns `ContentWidth` by one line plus vertical margin, so you only override it when your control is taller than one line or sizes itself differently. The badge overrides it anyway, to state its size explicitly. So the declaration mirrors `SpinnerControl : BaseControl, IColorRoleableControl`:
 
@@ -113,7 +113,7 @@ Why this exact form matters. `SetProperty` (defined on `BaseControl`, `SharpCons
 2. **Raises `INotifyPropertyChanged`** (`OnPropertyChanged`) — so data-bound consumers see the change.
 3. **Self-invalidates** — calls `Invalidate(Invalidation.Relayout)` on the control itself, which schedules a re-measure and repaint.
 
-That third step is *why the framework is reactive at the property boundary*: assigning `badge.Count = 5` makes the UI update on its own. You never write an `Invalidate` call for a property change. See [patterns.md](../../patterns.md) for the full property/invalidation contract.
+That third step is *why the framework is reactive at the property boundary*: assigning `badge.Count = 5` makes the UI update on its own. You never write an `Invalidate` call for a property change. See [Patterns](../../patterns.md) for the full property/invalidation contract.
 
 > **Do NOT hand-roll `Container?.Invalidate(...)` in a setter.** A setter that pokes the container directly (`set { _count = value; Container?.Invalidate(true); }`) bypasses the change-guard and the notification, and invalidates the wrong node. It is rejected in review. Invalidate *`this`* via `SetProperty`; the framework forwards identity for you.
 
@@ -121,7 +121,7 @@ That third step is *why the framework is reactive at the property boundary*: ass
 
 ## Step 4: Measure → Arrange → Paint
 
-Every primitive answers two questions for the layout engine: *how big am I?* (measure) and *draw yourself here* (paint). Arrange happens in between and is done for you by the container — it hands your `PaintDOM` the final `bounds`. Read [DOM_LAYOUT_SYSTEM.md](../../DOM_LAYOUT_SYSTEM.md) for the full measure/arrange/paint walk.
+Every primitive answers two questions for the layout engine: *how big am I?* (measure) and *draw yourself here* (paint). Arrange happens in between and is done for you by the container — it hands your `PaintDOM` the final `bounds`. Read [DOM layout](../../DOM_LAYOUT_SYSTEM.md) for the full measure/arrange/paint walk.
 
 First, a small helper for the rendered pill text and its display width — we'll use it in both measure and paint so the two never disagree:
 
@@ -133,7 +133,7 @@ First, a small helper for the rendered pill text and its display width — we'll
     private int PillWidth() => UnicodeWidth.GetStringWidth(PillText());
 ```
 
-Note we measure with `UnicodeWidth.GetStringWidth` (`SharpConsoleUI/Helpers/UnicodeWidth.cs`), **not** `PillText().Length`. `string.Length` counts UTF-16 code units, not terminal columns — it's wrong for wide and combining characters (see the Unicode-aware rendering rules in [CODE_QUALITY.md](../../CODE_QUALITY.md)). For an all-ASCII pill the two happen to agree, but using the correct API from the start means the control stays correct if the format ever gains a wide glyph.
+Note we measure with `UnicodeWidth.GetStringWidth` (`SharpConsoleUI/Helpers/UnicodeWidth.cs`), **not** `PillText().Length`. `string.Length` counts UTF-16 code units, not terminal columns — it's wrong for wide and combining characters (see the Unicode-aware rendering rules in [Code quality](../../CODE_QUALITY.md)). For an all-ASCII pill the two happen to agree, but using the correct API from the start means the control stays correct if the format ever gains a wide glyph.
 
 Now the three `BaseControl` overrides. `ContentWidth` reports the intrinsic width; `GetLogicalContentSize` reports intrinsic size including margins; `MeasureDOM` clamps that into the constraints. These mirror `SpinnerControl` exactly:
 
@@ -197,9 +197,9 @@ The paint signature is fixed by `IDOMPaintable` — copy it character-for-charac
     }
 ```
 
-Two rules from the buffer-write contract (see the Unicode-aware rendering section of [CODE_QUALITY.md](../../CODE_QUALITY.md)) are load-bearing here:
+Two rules from the buffer-write contract (see the Unicode-aware rendering section of [Code quality](../../CODE_QUALITY.md)) are load-bearing here:
 
-- **Color comes from the role, not a literal.** `ColorResolver.ColorRoleForeground(...)` (`SharpConsoleUI/Helpers/ColorResolver.cs`) derives the color from the active theme's palette for the chosen `ColorRole` — so a `Danger` badge is red *in whatever the current theme calls red*, and it re-themes for free. This is the identical call `SpinnerControl.PaintDOM` makes. Never write `Color.Red` in a control. See [THEMES.md](../../THEMES.md).
+- **Color comes from the role, not a literal.** `ColorResolver.ColorRoleForeground(...)` (`SharpConsoleUI/Helpers/ColorResolver.cs`) derives the color from the active theme's palette for the chosen `ColorRole` — so a `Danger` badge is red *in whatever the current theme calls red*, and it re-themes for free. This is the identical call `SpinnerControl.PaintDOM` makes. Never write `Color.Red` in a control. See [Theming](../../THEMES.md).
 - **Literal narrow chars use `SetNarrowCell`.** `SetNarrowCell` assumes a width-1 character and clears cell flags — correct for the brackets, spaces, and ASCII digits of the pill. The other API, `buffer.SetCell(x, y, cell)`, is for cells that came out of `MarkupParser.Parse` (which already carries wide-continuation flags). If your text could contain markup or wide glyphs, you'd parse it instead — that's what `SpinnerControl` does for its (possibly marked-up) frames:
 
   ```csharp
@@ -213,7 +213,7 @@ Two rules from the buffer-write contract (see the Unicode-aware rendering sectio
 
 ## Step 6: A `Controls.Badge(int count)` builder
 
-Users create controls through the fluent `Controls.<Name>()` factory, not `new`. Add a builder modeled on `SpinnerBuilder` (`SharpConsoleUI/Builders/SpinnerBuilder.cs`); see [BUILDERS.md](../../BUILDERS.md) for the convention.
+Users create controls through the fluent `Controls.<Name>()` factory, not `new`. Add a builder modeled on `SpinnerBuilder` (`SharpConsoleUI/Builders/SpinnerBuilder.cs`); see [Builder API](../../BUILDERS.md) for the convention.
 
 `SharpConsoleUI/Builders/BadgeControlBuilder.cs`:
 
@@ -231,7 +231,7 @@ namespace SharpConsoleUI.Builders
         /// <summary>Sets the count shown in the pill.</summary>
         public BadgeControlBuilder WithCount(int count) { _control.Count = count; return this; }
 
-        /// <summary>Sets the semantic colour role (e.g. Primary, Danger).</summary>
+        /// <summary>Sets the semantic color role (e.g. Primary, Danger).</summary>
         public BadgeControlBuilder WithColorRole(ColorRole role, ThemeMode? mode = null)
         { _control.ColorRole = role; _control.ColorRoleMode = mode; return this; }
 
@@ -261,7 +261,7 @@ Now a caller writes `Controls.Badge(3).WithColorRole(ColorRole.Danger).Build()`.
 
 ## Step 7: The "real thing" test
 
-The rule for this codebase (see [CODE_QUALITY.md](../../CODE_QUALITY.md), the *"Real thing" test required* section) is that a test must exercise the **actual usage path end to end** and, crucially, assert that a change **survives a re-render**. Isolated asserts have passed green while the live control was visibly broken — so we build the real control, paint it, read the cells back, change `Count`, paint again, and confirm the new value is what's on screen.
+The rule for this codebase (see [Code quality](../../CODE_QUALITY.md), the *"Real thing" test required* section) is that a test must exercise the **actual usage path end to end** and, crucially, assert that a change **survives a re-render**. Isolated asserts have passed green while the live control was visibly broken — so we build the real control, paint it, read the cells back, change `Count`, paint again, and confirm the new value is what's on screen.
 
 Tests paint into a `CharacterBuffer` and read cells back with `buffer.GetCell(x, y)` — the recipe used throughout `SharpConsoleUI.Tests/Controls/`. A tiny paint helper mirrors `SpinnerControlTests`:
 

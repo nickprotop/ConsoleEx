@@ -9,7 +9,7 @@ A WinUI-`<Grid>`-style two-dimensional layout container for the terminal: arrang
 
 ## Overview
 
-GridControl is a pure layout container. It divides its area into a grid of rows and columns — each sized as a fixed number of cells, `Auto` (sized to its content), or `Star` (a proportional share of the leftover space) — and places one child control per cell. Cells can span multiple rows and/or columns, and the grid honours each child's `HorizontalAlignment`/`VerticalAlignment` (default `Stretch`/`Fill`) and `Margin` within its cell. This makes it the building block for dashboards, tiled status displays, settings forms, and any layout that is naturally a 2D matrix rather than a single row or column.
+GridControl is a pure layout container. It divides its area into a grid of rows and columns — each sized as a fixed number of cells, `Auto` (sized to its content), or `Star` (a proportional share of the leftover space) — and places one child control per cell. Cells can span multiple rows and/or columns, and the grid honors each child's `HorizontalAlignment`/`VerticalAlignment` (default `Stretch`/`Fill`) and `Margin` within its cell. This makes it the building block for dashboards, tiled status displays, settings forms, and any layout that is naturally a 2D matrix rather than a single row or column.
 
 Children are placed explicitly with `grid.Place(control, row, col, rowSpan, colSpan)`, or appended in row-major **AutoFlow** order with `grid.AddControl(control)` (each lands in the next free cell, growing rows as needed). `RowGap`/`ColumnGap` insert blank tracks between cells (a spanned cell absorbs the gaps it crosses). The grid has its own `Margin` and `Padding`, and a content control marked `Wrap=true` reflows to its column width via a two-pass measure, growing `Auto` rows to the wrapped height.
 
@@ -170,7 +170,7 @@ innerGrid.DockChild(child, Dock.Top);       // an edge inside the inner grid
 Edges are claimed in declaration order, each shrinking what is left for the rest, so a
 toolbar declared before a sidebar spans the full width while the sidebar starts beneath it.
 Far edges (`Bottom`, `Right`) keep author order within a run. The full rule, shared with the
-window root, is in [DOCKING.md](../DOCKING.md).
+window root, is in [Docking](../DOCKING.md).
 
 > `HorizontalAlignment` defaults to `Left`, which sizes the grid to its content. Star tracks
 > only divide the real width under `Stretch`.
@@ -273,16 +273,16 @@ A resize writes the new size straight into the live `RowDefinitions`/`ColumnDefi
 
 ### Colors
 
-The highlight is **foreground-only**: the handle's **background is the same in every state** (idle / focused / hovered / dragging) — only the glyph (`║` / `═`) changes. By default everything is theme- and `ColorRole`-driven, so the splitter matches the rest of the grid's chrome with no manual colours:
+The highlight is **foreground-only**: the handle's **background is the same in every state** (idle / focused / hovered / dragging) — only the glyph (`║` / `═`) changes. By default everything is theme- and `ColorRole`-driven, so the splitter matches the rest of the grid's chrome with no manual colors:
 
-- **Idle:** the grid's `ColorRole` border colour, **shaded dimmer**, so the resting handle reads as a quiet line.
+- **Idle:** the grid's `ColorRole` border color, **shaded dimmer**, so the resting handle reads as a quiet line.
 - **Focused / dragging:** the **full-bright** role border (its focused state is brightened), drawn **bold** — a clear dim→bright, normal→bold highlight on the same hue, visible on every theme.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `SplitterColor` | `Color?` | Idle handle glyph colour; `null` resolves to the grid's `ColorRole` border colour (shaded dimmer) |
-| `SplitterFocusedForeground` | `Color?` | Glyph colour when focused/hovered; `null` resolves to the bright role border / theme accent |
-| `SplitterDraggingForeground` | `Color?` | Glyph colour while dragging; `null` resolves the same as focused |
+| `SplitterColor` | `Color?` | Idle handle glyph color; `null` resolves to the grid's `ColorRole` border color (shaded dimmer) |
+| `SplitterFocusedForeground` | `Color?` | Glyph color when focused/hovered; `null` resolves to the bright role border / theme accent |
+| `SplitterDraggingForeground` | `Color?` | Glyph color while dragging; `null` resolves the same as focused |
 | `SplitterFocusedBackground` | `Color?` | Optional fixed handle background; `null` keeps it transparent. **Does not change between states** — it pins the constant background |
 | `SplitterDraggingBackground` | `Color?` | Alias for pinning the same constant background (kept for API symmetry) |
 
@@ -322,14 +322,14 @@ Per-boundary (a rule at a *specific* boundary only); composes with the grid-leve
 | `HasGridlineAfterColumn(int index)` / `HasGridlineAfterRow(int index)` | Query a per-boundary rule |
 | `ClearGridlines()` | Remove all per-boundary rules (does not change the `Show*` flags) |
 
-### Style and colour
+### Style and color
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `GridlineStyle` | `BorderStyle` | Box-drawing style. Default `Single` (`│ ─ ┼`); also `DoubleLine` (`║ ═ ╬`), `Rounded` |
-| `GridlineColor` | `Color?` | Glyph colour; `null` resolves to the grid's `ColorRole` border colour **shaded dimmer** (a rule reads lighter than a full border). Set it for full border-weight colour |
+| `GridlineColor` | `Color?` | Glyph color; `null` resolves to the grid's `ColorRole` border color **shaded dimmer** (a rule reads lighter than a full border). Set it for full border-weight color |
 
-Gridlines are static (no focus/hover reaction) — quiet structure, the same colour every frame.
+Gridlines are static (no focus/hover reaction) — quiet structure, the same color every frame.
 
 ### Junctions, spans, and splitters
 
@@ -337,7 +337,7 @@ Where a vertical and a horizontal rule cross, the correct junction glyph is chos
 
 A boundary that carries a **splitter wins**: the interactive splitter handle is drawn there and the gridline is suppressed at that boundary; gridlines fill every other boundary.
 
-Lines are **centred** in their gap, so a `ColumnGap(2)`/`RowGap` grid shows symmetric rules (this applies to splitters too).
+Lines are **centered** in their gap, so a `ColumnGap(2)`/`RowGap` grid shows symmetric rules (this applies to splitters too).
 
 ### Example
 
@@ -409,7 +409,7 @@ Create a builder with `Controls.Grid()` (or `new GridBuilder()`). A builder impl
 .GridlineAfterColumn(int index)          // rule at one column boundary
 .GridlineAfterRow(int index)             // rule at one row boundary
 .GridlineStyle(BorderStyle style)        // Single (default) / DoubleLine / Rounded
-.GridlineColor(Color color)              // explicit gridline colour (else role-derived, dimmer)
+.GridlineColor(Color color)              // explicit gridline color (else role-derived, dimmer)
 ```
 
 ### Alignment, Theming, and Identity
@@ -435,14 +435,14 @@ Create a builder with `Controls.Grid()` (or `new GridBuilder()`). A builder impl
 | `HorizontalAlignment` | `HorizontalAlignment` | `Left` | Horizontal alignment of the grid within its container |
 | `VerticalAlignment` | `VerticalAlignment` | `Top` | Vertical alignment of the grid within its container |
 | `BackgroundColor` | `Color` | `Transparent` | Background fill (transparent shows through when unset) |
-| `ForegroundColor` | `Color` | from theme | Foreground (text) colour for the grid and its children |
+| `ForegroundColor` | `Color` | from theme | Foreground (text) color for the grid and its children |
 | `Width` | `int?` | `null` | Fixed width (auto-sized when null) |
 | `Height` | `int?` | `null` | Fixed height (auto-sized when null) |
 | `ColorRole` | `ColorRole` | `Default` | Semantic role tinting per-cell chrome (borders and surface fills) from the theme palette |
 | `Outline` | `bool` | `false` | Renders role chrome in outline style |
 | `ShowColumnGridlines` / `ShowRowGridlines` | `bool` | `false` | Draw a rule between every adjacent column / row (see [Gridlines](#gridlines)) |
 | `GridlineStyle` | `BorderStyle` | `Single` | Box-drawing style for gridlines (`Single` → `│ ─ ┼`; `DoubleLine`; `Rounded`) |
-| `GridlineColor` | `Color?` | `null` | Gridline glyph colour; `null` = role border shaded dimmer |
+| `GridlineColor` | `Color?` | `null` | Gridline glyph color; `null` = role border shaded dimmer |
 | `Visible` | `bool` | `true` | Whether the grid is visible |
 | `IsEnabled` | `bool` | `true` | Enables/disables keyboard and mouse handling |
 | `HasFocus` | `bool` | `false` | True when this grid or one of its descendants is focused (read-only) |

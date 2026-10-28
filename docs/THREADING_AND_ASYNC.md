@@ -346,7 +346,7 @@ void UpdateCriticalState(int value)
 ## Contract vs notification events
 
 Not every event has an async twin. Events that return a value or carry back-
-behaviour to the framework stay **synchronous** and have no `<Name>Async`
+behavior to the framework stay **synchronous** and have no `<Name>Async`
 counterpart, because the framework must read the result before it can proceed.
 
 | Synchronous-only event | What the framework reads back |

@@ -331,7 +331,7 @@ var form = FormXml.FromXml(@"
 elements map to the `Add*` methods, and `<text>` fields support declarative validation attributes plus
 a `rule='name'` registry hook. It adds no dependency and is AOT-safe.
 
-→ **Full schema and validation reference:** [FORM_XML.md](../FORM_XML.md)
+→ **Full schema and validation reference:** [Form XML](../FORM_XML.md)
 
 ## Layout Properties
 

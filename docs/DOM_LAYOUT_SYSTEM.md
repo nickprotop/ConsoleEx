@@ -185,7 +185,7 @@ foreach (var control in _controls)
 
 Every node below the root already chose its layout polymorphically through
 `LayoutNodeFactory`. The root was the last one that did not. See
-[WINDOW_LAYOUT.md](WINDOW_LAYOUT.md).
+[Window layout](WINDOW_LAYOUT.md).
 
 ---
 
@@ -309,7 +309,7 @@ The layout handles sticky controls by:
 `StickyPosition` is a **projection over `IWindowControl.Dock`** — one stored value, two
 names. `Top` is `Dock.Top`, `Bottom` is `Dock.Bottom`, and setting either sets the other.
 `Dock` adds the horizontal axis that sticky never had. Both are fully supported; see
-[DOCKING.md](DOCKING.md).
+[Docking](DOCKING.md).
 
 Sticky is honoured by the window root **and** by `ScrollablePanelControl`, so a pinned header
 or footer works inside a scrolling panel as well as at the window.
@@ -441,7 +441,7 @@ Used by all controls that display markup-formatted content. Located in `Parsing/
 When a property changes, a control declares the **kind of work** the change requires by calling
 `Invalidate` with an `Invalidation` intent:
 
-- `Invalidation.Repaint` — appearance only (a colour, selected state, content of existing cells). The
+- `Invalidation.Repaint` — appearance only (a color, selected state, content of existing cells). The
   cached layout is reused and the Measure pass is skipped.
 - `Invalidation.Relayout` — size or position changed. The control needs a full Measure + Arrange + Paint.
 

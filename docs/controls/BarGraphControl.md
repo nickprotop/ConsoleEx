@@ -10,7 +10,7 @@ capacity, progress toward a target.
 
 ## Overview
 
-`BarGraphControl` renders one labelled horizontal bar: an optional label, a filled/unfilled bar
+`BarGraphControl` renders one labeled horizontal bar: an optional label, a filled/unfilled bar
 track, and an optional formatted value. It is a **display control** — it takes no focus, handles no
 input, and simply reflects whatever you assign to `Value`.
 

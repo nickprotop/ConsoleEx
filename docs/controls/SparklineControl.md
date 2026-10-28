@@ -15,7 +15,7 @@ live "last N samples" view in a handful of terminal rows.
 
 Four render modes cover the common shapes: `Block` (the classic `▁▂▃▄▅▆▇█` ramp, 8 levels per cell),
 `Braille` (denser and smoother), and the two **bidirectional** variants that draw a second series
-downward from a centre line — the natural fit for upload/download or read/write pairs.
+downward from a center line — the natural fit for upload/download or read/write pairs.
 
 It is a **display control**: no focus, no keyboard or mouse handling. Colors can be flat, role-based,
 or interpolated across a gradient, and an optional title, baseline, and X-axis can be layered on.
@@ -221,7 +221,7 @@ var mem = Controls.Sparkline()
 
 ### Bidirectional network graph
 
-Upload rises from the centre line, download falls below it.
+Upload rises from the center line, download falls below it.
 
 ```csharp
 var net = Controls.Sparkline()

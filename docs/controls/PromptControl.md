@@ -19,7 +19,7 @@ outgrows it. Set [`Multiline`](#multiline) and it soft-wraps instead, growing be
 `MaxRows` — a command line, chat composer, or comment box without leaving the control. The value is a
 single string in both modes, so code that binds to `Input` does not care which mode it is in.
 
-> **Upgrading:** every property below defaults to the behaviour PromptControl had before multiline
+> **Upgrading:** every property below defaults to the behavior PromptControl had before multiline
 > existed. A prompt you already ship renders identically until you opt in.
 
 ## Properties

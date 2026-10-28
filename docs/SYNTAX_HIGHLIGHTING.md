@@ -1,6 +1,6 @@
 # Syntax Highlighting
 
-SharpConsoleUI highlights code with [TextMate grammars](https://macromates.com/manual/en/language_grammars) — the same grammar format Visual Studio Code uses — coloured by **your application's theme** rather than a bundled editor theme. Roughly **64 languages** resolve out of the box with no initialization call.
+SharpConsoleUI highlights code with [TextMate grammars](https://macromates.com/manual/en/language_grammars) — the same grammar format Visual Studio Code uses — colored by **your application's theme** rather than a bundled editor theme. Roughly **64 languages** resolve out of the box with no initialization call.
 
 > **Scope:** This is *lexical* (grammar-based) highlighting — keywords, strings, comments, numbers, types, functions, variables. The library does **not** include LSP/semantic highlighting; that is intentionally out of scope. For LSP-powered IntelliSense, see external projects such as [LazyDotIDE](https://github.com/nickprotop/lazydotide), which builds on top of SharpConsoleUI.
 
@@ -44,9 +44,9 @@ Grammars load **lazily on first use**, so an application that never highlights a
 
 ## Theming
 
-Code colours come from the active theme, so highlighted code matches the rest of your UI and follows theme switches — including light themes, where a fixed editor palette would look wrong.
+Code colors come from the active theme, so highlighted code matches the rest of your UI and follows theme switches — including light themes, where a fixed editor palette would look wrong.
 
-A theme supplies colours through `ITheme.SyntaxColors`, a `SyntaxPalette` with one colour per semantic role:
+A theme supplies colors through `ITheme.SyntaxColors`, a `SyntaxPalette` with one color per semantic role:
 
 | Role | Applies to |
 |------|-----------|
@@ -65,7 +65,7 @@ A theme supplies colours through `ITheme.SyntaxColors`, a `SyntaxPalette` with o
 | `Punctuation` | braces, semicolons, commas |
 | `Invalid` | text the grammar marks invalid |
 
-`ITheme.SyntaxColors` returns `null` by default, in which case `SyntaxPalette.DeriveFrom(theme)` generates a readable palette from the theme's base colours. To customise, return your own:
+`ITheme.SyntaxColors` returns `null` by default, in which case `SyntaxPalette.DeriveFrom(theme)` generates a readable palette from the theme's base colors. To customize, return your own:
 
 ```csharp
 public override SyntaxPalette? SyntaxColors => new()
@@ -77,11 +77,11 @@ public override SyntaxPalette? SyntaxColors => new()
 };
 ```
 
-Every resolved colour passes through a contrast floor against the code background, so a low-contrast palette cannot render unreadable code.
+Every resolved color passes through a contrast floor against the code background, so a low-contrast palette cannot render unreadable code.
 
 ### Using a bundled VS Code theme instead
 
-To render code in Visual Studio Code's own colours rather than your app's:
+To render code in Visual Studio Code's own colors rather than your app's:
 
 ```csharp
 using SharpConsoleUI.Highlighting.TextMate;
@@ -98,7 +98,7 @@ An explicit registration always wins over the TextMate fallback:
 SyntaxHighlighters.Register("mylang", new MyHighlighter());
 ```
 
-Implement `ISyntaxHighlighter` to supply your own tokenizer. `Tokenize` receives the line, its index, and the parser state from the previous line, and returns coloured spans plus the state to carry forward — that state is what makes multi-line constructs such as block comments work.
+Implement `ISyntaxHighlighter` to supply your own tokenizer. `Tokenize` receives the line, its index, and the parser state from the previous line, and returns colored spans plus the state to carry forward — that state is what makes multi-line constructs such as block comments work.
 
 ## How resolution works
 
@@ -125,11 +125,11 @@ See [Markup Syntax → Syntax Highlighting in Code Blocks](MARKUP_SYNTAX.md#synt
 
 ### MultilineEditControl
 
-The editor colours its content with any `ISyntaxHighlighter`, assigned through the builder or the `SyntaxHighlighter` property. Its token cache is invalidated on content changes, re-tokenizing only affected lines and their successors. See [MultilineEditControl → Syntax Highlighting](controls/MultilineEditControl.md#syntax-highlighting).
+The editor colors its content with any `ISyntaxHighlighter`, assigned through the builder or the `SyntaxHighlighter` property. Its token cache is invalidated on content changes, re-tokenizing only affected lines and their successors. See [MultilineEditControl → Syntax Highlighting](controls/MultilineEditControl.md#syntax-highlighting).
 
 ## Upgrading
 
-Code blocks **change appearance** after upgrading to the TextMate engine: colours now come from your theme, more languages highlight than before, and grammars distinguish variables and function names that the previous regex highlighters could not. No API changed.
+Code blocks **change appearance** after upgrading to the TextMate engine: colors now come from your theme, more languages highlight than before, and grammars distinguish variables and function names that the previous regex highlighters could not. No API changed.
 
 The thirteen former regex highlighter classes (`CSharpSyntaxHighlighter`, `JsonSyntaxHighlighter`, and so on) still exist and still work, but are `[Obsolete]`: they now delegate to the TextMate engine. Replace `new CSharpSyntaxHighlighter()` with `SyntaxHighlighters.For("csharp")`.
 

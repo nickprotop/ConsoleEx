@@ -241,7 +241,7 @@ The `FlowVerdict` emitted by each button drives the navigation loop:
 | `Stay` | Re-present the current step unchanged (failed validation). |
 
 `FlowVerdict` also carries dialog-answer values — `Ok`, `Yes`, `No`, `Retry`, `Abort`, `Ignore`, and
-`None` (the Esc/dismiss sentinel) — used by the message dialogs (see [DIALOGS.md](DIALOGS.md)). The
+`None` (the Esc/dismiss sentinel) — used by the message dialogs (see [Dialogs](DIALOGS.md)). The
 `FlowButton(string Label, FlowVerdict Verdict, bool Enabled = true)` record and the `FlowButtons`
 preset enum are public, so you can define arbitrary custom button sets for both flows and dialogs.
 

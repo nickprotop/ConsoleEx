@@ -1,6 +1,6 @@
 # Code Quality Enforcement Plan
 
-The standards in [`CODE_QUALITY.md`](CODE_QUALITY.md) are currently enforced by **review
+The standards in [Code quality](CODE_QUALITY.md) are currently enforced by **review
 plus advisory CI** — the `Code Quality (advisory)` workflow reports findings but never
 fails a PR. This document is the staged plan to turn the mechanical checks into **blocking
 gates**. The phases are ordered so the build is never broken mid-migration.

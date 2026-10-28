@@ -175,7 +175,7 @@ grid.Undock(sidebar);                  // returns the strip to the tracks
 
 The method is `DockChild`, not `Dock`, because a grid also has a `Dock` property of its own -
 the edge it claims in its parent. Full detail in
-[controls/GridControl.md](controls/GridControl.md#docking).
+[GridControl](controls/GridControl.md#docking).
 
 **Docking never shifts a cell coordinate.** A docked child claims no row and no column, so
 `grid[1, 0]` means the same cell however many children are docked. This is why docks are
@@ -217,7 +217,7 @@ implementation of that interface keeps compiling without defining it.
 
 ### Sticky inside a scrollable panel
 
-A `ScrollablePanelControl` honours `StickyPosition` on its children: sticky children are
+A `ScrollablePanelControl` honors `StickyPosition` on its children: sticky children are
 pinned to the top or bottom of the panel's viewport and the rest scroll between them.
 
 ```csharp
@@ -236,7 +236,7 @@ claim. For left/right docking inside a scrolling region, nest a `GridControl`.
 
 Docking is what the *default* root does. The root itself is replaceable per window, and a
 different root can define different regions entirely. See
-**[WINDOW_LAYOUT.md](WINDOW_LAYOUT.md)**.
+**[Window layout](WINDOW_LAYOUT.md)**.
 
 ---
 
@@ -295,8 +295,8 @@ everything such a control would, with real column gaps.
 
 ## See also
 
-- [WINDOW_LAYOUT.md](WINDOW_LAYOUT.md) — root layouts, and writing your own
-- [controls/GridControl.md](controls/GridControl.md) — docking inside a grid
-- [DOM_LAYOUT_SYSTEM.md](DOM_LAYOUT_SYSTEM.md) — how the layout tree measures and arranges
-- [WINDOWS.md](WINDOWS.md) — window lifecycle and the rest of the window API
-- [CONTROLS.md](CONTROLS.md) — the control catalogue
+- [Window layout](WINDOW_LAYOUT.md) — root layouts, and writing your own
+- [GridControl](controls/GridControl.md) — docking inside a grid
+- [DOM layout](DOM_LAYOUT_SYSTEM.md) — how the layout tree measures and arranges
+- [Windows](WINDOWS.md) — window lifecycle and the rest of the window API
+- [Controls](CONTROLS.md) — the control catalog

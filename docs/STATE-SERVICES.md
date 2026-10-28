@@ -347,7 +347,7 @@ windowSystem.NotificationStateService.ShowNotification(
     NotificationSeverity.Danger, blockUi: true, timeout: null);
 ```
 
-> **For the full notifications guide — including the non-blocking corner `ToastService` (`ws.ToastService`) and when to use which system — see [NOTIFICATIONS.md](NOTIFICATIONS.md).**
+> **For the full notifications guide — including the non-blocking corner `ToastService` (`ws.ToastService`) and when to use which system — see [Notifications](NOTIFICATIONS.md).**
 
 ## ThemeStateService
 

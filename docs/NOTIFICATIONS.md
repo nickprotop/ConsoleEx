@@ -168,7 +168,7 @@ Toast defaults live in `Configuration.ControlDefaults`:
 
 ### Theming
 
-Toast borders and the inner accent bar resolve from the severity's color role against the active theme, so toasts adapt to light/dark themes automatically. See [THEMES.md](THEMES.md) for the role palette.
+Toast borders and the inner accent bar resolve from the severity's color role against the active theme, so toasts adapt to light/dark themes automatically. See [Theming](THEMES.md) for the role palette.
 
 ### Demo
 

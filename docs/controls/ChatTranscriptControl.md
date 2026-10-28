@@ -131,15 +131,15 @@ bool IsThinking(ChatMessageId id)                 // Whether a message is still 
 
 ```csharp
 void SetMessageRail(ChatMessageId id, bool? rail)           // Rail this message (true), never (false), or inherit (null)
-void SetMessageRailColor(ChatMessageId id, Color? color)    // This message's own rail colour; null inherits
+void SetMessageRailColor(ChatMessageId id, Color? color)    // This message's own rail color; null inherits
 Color? GetMessageRailColor(ChatMessageId id)
 void SetMessageBackground(ChatMessageId id, Color? color)   // This message's own background; null returns to the role's
 Color? GetMessageBackground(ChatMessageId id)
 ```
 
-A message's own setting wins over its role's, and survives `RestyleMessages()`. A rail colour resolves
+A message's own setting wins over its role's, and survives `RestyleMessages()`. A rail color resolves
 most specific first: the message's, then its role's `RailColor`, then `MessageRailColor`, then a dimmed
-role colour.
+role color.
 
 ## Role Style API
 
@@ -306,7 +306,7 @@ Defines the visual presentation of messages for a given role. All properties are
 | `HeaderGradient` | `(Color From, Color To)?` | `null` | Optional gradient sweep applied to the header text. When non-`null`, the header is rendered with a color transition from `From` to `To`. |
 | `Background` | `Color?` | `null` | Optional background color for the message body area. Accepts colors with an alpha channel (via `Color.WithAlpha`) so the compositor blends the bubble over the window background. |
 | `Rail` | `bool?` | `null` | Whether this role's messages show the left rail. `null` keeps the footer-gated rule; `true` rails every message of the role. A message's own `SetMessageRail` wins. |
-| `RailColor` | `Color?` | `null` | Colour of this role's rail. `null` uses `MessageRailColor`, else a dimmed role colour. A message's own `SetMessageRailColor` wins. |
+| `RailColor` | `Color?` | `null` | Color of this role's rail. `null` uses `MessageRailColor`, else a dimmed role color. A message's own `SetMessageRailColor` wins. |
 | `DefaultActions` | `IReadOnlyList<ChatMessageAction>?` | `null` | Footer actions seeded on every message of this role at creation. `null` (the default) adds no actions. An explicit `AddMessage(..., actions:, ...)` overload overrides these per message. See [Message Actions & Status](#message-actions--status). |
 
 ## Themed Defaults

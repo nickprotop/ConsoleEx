@@ -242,7 +242,7 @@ The binding layer is **AOT- and trim-safe**. `Bind` / `BindTwoWay` compile membe
 `Expression<Func<>>` trees, but under NativeAOT (`IsDynamicCodeSupported=false`)
 `System.Linq.Expressions` falls back to its **interpreter** instead of `Reflection.Emit`, so the
 bindings run correctly in a native binary. The library's AOT smoke gate exercises this path. See
-[AOT.md](AOT.md). `BindItems` takes plain delegates, so it compiles nothing at all.
+[NativeAOT](AOT.md). `BindItems` takes plain delegates, so it compiles nothing at all.
 
 ---
 
@@ -252,4 +252,4 @@ bindings run correctly in a native binary. The library's AOT smoke gate exercise
   binding, a two-way compose dialog, a `TableControl` data source).
 - [Tutorial 5 — Terminal Music Player](tutorials/05-music-player.md): one-way bindings with
   converters driving a "Now Playing" view.
-- [AOT.md](AOT.md): the AOT/trim story, including the binding interpreter fallback.
+- [NativeAOT](AOT.md): the AOT/trim story, including the binding interpreter fallback.
