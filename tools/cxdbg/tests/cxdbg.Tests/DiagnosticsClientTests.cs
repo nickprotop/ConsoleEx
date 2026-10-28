@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Text.Json.Nodes;
 using Cxdbg.Protocol;
 using Xunit;
 
@@ -121,5 +122,45 @@ public class DiagnosticsClientTests
 		var found = SocketDiscovery.FindCandidates(extraDirectories: new[] { Path.GetTempPath() });
 
 		Assert.Contains(app.SocketPath, found);
+	}
+
+	[Fact]
+	public void TheSameFieldsCanBeSentMoreThanOnce()
+	{
+		// A JsonNode may have one parent, and assigning it into the request
+		// adopts it - so sending the same dictionary twice threw "the node
+		// already has a parent" on the second send. No one-shot caller could
+		// reach it; `watch` does, every tick, with the fields it was given.
+		using var app = new LiveAppFixture();
+		using var client = DiagnosticsClient.Connect(app.SocketPath);
+
+		var fields = new Dictionary<string, JsonNode?>
+		{
+			["composed"] = JsonValue.Create(true),
+		};
+
+		client.Send("snapshot", fields);
+		client.Send("snapshot", fields);
+
+		var third = client.Send("snapshot", fields);
+
+		Assert.NotNull(third);
+	}
+
+	[Fact]
+	public void AVerbSurvivesTheApplicationGoingAway()
+	{
+		// An application that exits takes its socket with it: the write fails at
+		// the OS level, and an IOException escaping reached the user as a stack
+		// trace rather than a sentence.
+		var app = new LiveAppFixture();
+		using var client = DiagnosticsClient.Connect(app.SocketPath);
+
+		client.Send("ping");
+		app.Dispose();
+
+		var failure = Assert.Throws<CxdbgException>(() => client.Send("ping"));
+
+		Assert.Contains("gone", failure.Message, StringComparison.OrdinalIgnoreCase);
 	}
 }

@@ -113,6 +113,16 @@ public sealed class DiagnosticsClient : IDisposable
 		}
 	}
 
+	/// <summary>The application is no longer there.</summary>
+	/// <remarks>
+	/// One message for every way that shows up - a failed write, a failed read, a
+	/// clean end of stream - because they are one event as far as anyone at the
+	/// prompt is concerned, and the difference between them is not actionable.
+	/// </remarks>
+	private CxdbgException Gone(Exception? inner) => new(
+		$"the application at {SocketPath} is gone; it exited or was stopped. "
+		+ "Use `connect <path>` to attach to another one.", inner: inner);
+
 	private static CxdbgException Busy(string path) => new(
 		$"the application at {path} is busy with another client. "
 		+ "It serves one at a time, so that concurrent probes cannot make its answers ambiguous.");
@@ -127,15 +137,44 @@ public sealed class DiagnosticsClient : IDisposable
 		ObjectDisposedException.ThrowIf(_disposed, this);
 
 		var request = new JsonObject { ["cmd"] = verb };
-		if (args != null)
-			foreach (var (k, v) in args) request[k] = v;
 
-		_writer.WriteLine(request.ToJsonString());
+		// Copied, not adopted. Assigning a JsonNode into an object makes that
+		// object its parent, and a node may only have one - so a caller that
+		// sends the SAME fields twice, as a watch does every tick, would have
+		// its second send throw "the node already has a parent". A one-shot
+		// caller never sees it, which is why it survived until watch existed.
+		if (args != null)
+			foreach (var (k, v) in args) request[k] = v?.DeepClone();
+
+		// Guarded, because an application that has exited takes its socket with
+		// it: the write fails at the OS level and an IOException escaping here
+		// reaches the user as a stack trace. The reader below already says this
+		// in words, and a send that cannot be sent is the same event.
+		try
+		{
+			_writer.WriteLine(request.ToJsonString());
+		}
+		catch (Exception ex) when (ex is IOException or ObjectDisposedException
+			or System.Net.Sockets.SocketException)
+		{
+			throw Gone(ex);
+		}
+
+		string? line;
 
 		// ReadLine, not a fixed buffer: `image` answers with a base64 PNG of tens
 		// of kilobytes on a single line, and a short read looks like corruption.
-		string? line = _reader.ReadLine()
-			?? throw new CxdbgException($"the application at {SocketPath} closed the connection");
+		try
+		{
+			line = _reader.ReadLine();
+		}
+		catch (Exception ex) when (ex is IOException or ObjectDisposedException
+			or System.Net.Sockets.SocketException)
+		{
+			throw Gone(ex);
+		}
+
+		if (line == null) throw Gone(null);
 
 		var reply = JsonNode.Parse(line)
 			?? throw new CxdbgException($"the application at {SocketPath} sent a reply that is not JSON");
