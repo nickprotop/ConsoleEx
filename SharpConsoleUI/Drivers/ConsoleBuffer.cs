@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using SharpConsoleUI.Drivers.Input;
@@ -560,6 +561,16 @@ namespace SharpConsoleUI.Drivers
 			return !_frontBuffer[x, y].Equals(_backBuffer[x, y]);
 		}
 
+		/// <summary>Milliseconds since a <see cref="Stopwatch"/> timestamp.</summary>
+		/// <remarks>
+		/// <see cref="Stopwatch.GetTimestamp"/> rather than a Stopwatch instance: the
+		/// stages are timed on the render path, and a long pair costs nothing to take
+		/// where allocating and starting an object per stage per frame would show up
+		/// in the very measurement it is taking.
+		/// </remarks>
+		private static double ElapsedMs(long since) =>
+			(Stopwatch.GetTimestamp() - since) * 1000.0 / Stopwatch.Frequency;
+
 		/// <summary>
 		/// Renders the back buffer to the console, updating only the changed portions.
 		/// </summary>
@@ -598,6 +609,11 @@ namespace SharpConsoleUI.Drivers
 					CaptureConsoleBufferSnapshot();
 				}
 
+				// Timed only when something is collecting: a Stopwatch per stage per
+				// frame is cheap, but not free, and the normal path should not pay for
+				// a measurement nobody asked for.
+				long compareStart = metrics != null ? Stopwatch.GetTimestamp() : 0;
+
 				// Pre-process wide character dirty pair coherence.
 				// The terminal treats wide chars as atomic 2-cell units, so when either half
 				// of a pair changes, both must be re-emitted to avoid display corruption.
@@ -627,12 +643,23 @@ namespace SharpConsoleUI.Drivers
 					}
 				}
 
+				if (metrics != null)
+				{
+					metrics.BufferComparisonTimeMs = ElapsedMs(compareStart);
+
+					// Measured by the render coordinator earlier in this same frame and
+					// left for us, since layout finishes before the buffer paints.
+					metrics.DomLayoutTimeMs = _diagnostics?.PendingLayoutMs ?? 0;
+				}
+
 				// Hide cursor during render — use raw write on Unix to bypass .NET entirely
 				WriteOutput("\x1b[?25l");
 
 				// Build entire screen in one string for atomic output
 				// This eliminates flickering by doing a single write instead of multiple cursor moves
 				_screenBuilder.Clear();
+
+				long ansiStart = metrics != null ? Stopwatch.GetTimestamp() : 0;
 
 				int cellsRendered = 0;
 
@@ -704,12 +731,20 @@ namespace SharpConsoleUI.Drivers
 					}
 				}
 
+				if (metrics != null)
+					metrics.AnsiGenerationTimeMs = ElapsedMs(ansiStart);
+
 				// Single atomic write of entire screen via raw libc write() on Unix
 				// Completely bypasses .NET's Console/StreamWriter/SyncTextWriter
+				long outputStart = metrics != null ? Stopwatch.GetTimestamp() : 0;
+
 				if (_screenBuilder.Length > 0)
 				{
 					WriteOutput(_screenBuilder);
 				}
+
+				if (metrics != null)
+					metrics.ConsoleOutputTimeMs = ElapsedMs(outputStart);
 
 				// Diagnostics: Capture output metrics
 				if (metrics != null)

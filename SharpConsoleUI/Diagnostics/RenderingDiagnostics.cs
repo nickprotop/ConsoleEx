@@ -139,6 +139,17 @@ public class RenderingDiagnostics
 		_enableQualityAnalysis = options.EnableQualityAnalysis;
 	}
 
+	/// <summary>Milliseconds the frame being composed spent in layout.</summary>
+	/// <remarks>
+	/// Staged here because of where the two halves happen: layout runs in the render
+	/// coordinator, and the <see cref="RenderingMetrics"/> that carries it is not
+	/// created until the buffer paints, further down the same frame. The coordinator
+	/// leaves the figure here and the buffer picks it up, which is why
+	/// <see cref="RenderingMetrics.DomLayoutTimeMs"/> was always zero before - there
+	/// was no path between them.
+	/// </remarks>
+	public double PendingLayoutMs { get; set; }
+
 	/// <summary>
 	/// Begins a new frame, incrementing the frame counter.
 	/// </summary>
