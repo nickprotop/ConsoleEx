@@ -1,3 +1,11 @@
+// -----------------------------------------------------------------------
+// ConsoleEx - A simple console window system for .NET Core
+//
+// Author: Nikolaos Protopapas
+// Email: nikolaos.protopapas@gmail.com
+// License: MIT
+// -----------------------------------------------------------------------
+
 using System.Runtime.InteropServices;
 using ScHost.Models;
 using ScHost.Terminal;
@@ -10,27 +18,27 @@ namespace ScHost.Packaging;
 /// </summary>
 public static class ShortcutCreator
 {
-    /// <summary>
-    /// Creates a platform-appropriate launcher in the output directory.
-    /// Returns the path to the created launcher.
-    /// </summary>
-    public static string CreateLauncher(SchostConfig config, string exePath, string outputDir)
-    {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            return CreateWindowsLauncher(config, exePath, outputDir);
+	/// <summary>
+	/// Creates a platform-appropriate launcher in the output directory.
+	/// Returns the path to the created launcher.
+	/// </summary>
+	public static string CreateLauncher(SchostConfig config, string exePath, string outputDir)
+	{
+		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+			return CreateWindowsLauncher(config, exePath, outputDir);
 
-        return CreateLinuxLauncher(config, exePath, outputDir);
-    }
+		return CreateLinuxLauncher(config, exePath, outputDir);
+	}
 
-    private static string CreateWindowsLauncher(SchostConfig config, string exePath, string outputDir)
-    {
-        var title = config.GetEffectiveTitle();
-        var exeName = Path.GetFileName(exePath);
-        var launcherName = $"{config.AssemblyName}.cmd";
-        var launcherPath = Path.Combine(outputDir, launcherName);
+	private static string CreateWindowsLauncher(SchostConfig config, string exePath, string outputDir)
+	{
+		var title = config.GetEffectiveTitle();
+		var exeName = Path.GetFileName(exePath);
+		var launcherName = $"{config.AssemblyName}.cmd";
+		var launcherPath = Path.Combine(outputDir, launcherName);
 
-        // CMD launcher that tries Windows Terminal first, falls back to direct exe
-        var cmd = $"""
+		// CMD launcher that tries Windows Terminal first, falls back to direct exe
+		var cmd = $"""
             @echo off
             where wt >nul 2>nul
             if %errorlevel% equ 0 (
@@ -40,13 +48,13 @@ public static class ShortcutCreator
             )
             """;
 
-        File.WriteAllText(launcherPath, cmd);
-        AnsiConsole.MarkupLine($"[green]Created launcher:[/] {launcherPath}");
-        return launcherPath;
-    }
+		File.WriteAllText(launcherPath, cmd);
+		AnsiConsole.MarkupLine($"[green]Created launcher:[/] {launcherPath}");
+		return launcherPath;
+	}
 
-    private static string CreateLinuxLauncher(SchostConfig config, string exePath, string outputDir)
-    {
-        return LinuxTerminal.CreateDesktopFile(config, exePath, outputDir);
-    }
+	private static string CreateLinuxLauncher(SchostConfig config, string exePath, string outputDir)
+	{
+		return LinuxTerminal.CreateDesktopFile(config, exePath, outputDir);
+	}
 }
