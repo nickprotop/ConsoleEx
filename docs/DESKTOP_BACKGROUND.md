@@ -162,7 +162,32 @@ This produces dots whose colors shift along the gradient.
 
 ## Animated Backgrounds
 
-Animated backgrounds use a `PaintCallback` that receives the buffer, dimensions, and elapsed time. The callback is invoked on the render thread at `AnimationIntervalMs` intervals.
+Animated backgrounds use a `PaintCallback` that receives the buffer, dimensions, and elapsed time. It runs on the render thread.
+
+> **Draw from `elapsed`, not from being called.** The callback is invoked whenever the
+> desktop repaints, which is **not** a fixed cadence: a busy interface renders more
+> often, so a callback that steps its state once per call speeds up while a window is
+> being dragged. `AnimationIntervalMs` is a hint about how often the background *wants*
+> to be redrawn, not a promise about how often it will be.
+>
+> `elapsed` is animation time, capped per frame and paused with the animation system, so
+> a callback that derives its state from it looks the same at any frame rate. For a
+> simulation that advances in discrete steps rather than from a formula, accumulate
+> `elapsed` into a budget and take whole steps out of it:
+>
+> ```csharp
+> var since = elapsed - lastElapsed;
+> lastElapsed = elapsed;
+>
+> // Cap the catch-up so a pause is not repaid in one lurch.
+> budget = Math.Min(budget + since.TotalMilliseconds, stepMs * 3);
+>
+> int steps = (int)(budget / stepMs);
+> budget -= steps * stepMs;
+>
+> for (int i = 0; i < steps; i++) Advance();   // state
+> Draw();                                      // every call, whatever the state did
+> ```
 
 ### Built-in Effects
 

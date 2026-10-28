@@ -370,13 +370,21 @@ public static class DesktopBackgroundWindow
 		const double spawnChance = 0.04;
 		const string glyphs = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789";
 
-		// Per-column state: head row (-1 = inactive), speed (rows per tick), char buffer
+		// How often the rain steps, in wall-clock time. The callback may be invoked
+		// far more often than this - a busy loop renders more - so the step is
+		// driven by elapsed time rather than by being called, which is what keeps
+		// the rain falling at the same speed whatever the frame rate is doing.
+		const double stepMs = 70.0;
+
+		// Per-column state: head row (-1 = inactive), speed (rows per STEP), char buffer
 		int[]? heads = null;
 		int[]? speeds = null;
 		int[]? cooldowns = null;
 		char[,]? chars = null;
 		Random? rng = null;
 		int lastW = 0, lastH = 0;
+		TimeSpan lastElapsed = TimeSpan.Zero;
+		double stepBudget = 0;
 
 		return new DesktopBackgroundConfig
 		{
@@ -384,6 +392,17 @@ public static class DesktopBackgroundWindow
 			PaintCallback = (buffer, width, height, elapsed) =>
 			{
 				rng ??= new Random();
+
+				// Time since the previous paint, however long ago that was.
+				var sinceLast = elapsed - lastElapsed;
+				lastElapsed = elapsed;
+
+				// A pause should not be repaid all at once, so cap the catch-up at
+				// a few steps rather than letting a stalled second arrive in one go.
+				stepBudget = Math.Min(stepBudget + sinceLast.TotalMilliseconds, stepMs * 3);
+
+				int steps = (int)(stepBudget / stepMs);
+				stepBudget -= steps * stepMs;
 
 				// Re-init state on resize
 				if (heads == null || width != lastW || height != lastH)
@@ -410,42 +429,50 @@ public static class DesktopBackgroundWindow
 					for (int x = 0; x < width; x++)
 						buffer.SetCell(x, y, new Cell(' ', Color.Black, Color.Black));
 
-				// Update columns
-				for (int col = 0; col < width; col++)
+				// Advance the simulation by however many whole steps are owed. Drawing
+				// happens once per call below, whatever the state did - so a frame
+				// that owes no step still paints, and one that owes three catches up.
+				for (int step = 0; step < steps; step++)
 				{
-					// Advance active columns
-					if (heads![col] >= 0)
+					for (int col = 0; col < width; col++)
 					{
-						if (cooldowns![col] <= 0)
+						if (heads![col] >= 0)
 						{
-							heads[col] += speeds![col];
-							cooldowns[col] = speeds[col] > 1 ? 0 : 1;
+							if (cooldowns![col] <= 0)
+							{
+								heads[col] += speeds![col];
+								cooldowns[col] = speeds[col] > 1 ? 0 : 1;
+							}
+							else
+							{
+								cooldowns[col]--;
+							}
+
+							// Deactivate if trail fully off screen
+							if (heads[col] - trailLength >= height)
+							{
+								heads[col] = -1;
+							}
 						}
 						else
 						{
-							cooldowns[col]--;
-						}
-
-						// Deactivate if trail fully off screen
-						if (heads[col] - trailLength >= height)
-						{
-							heads[col] = -1;
-						}
-					}
-					else
-					{
-						// Randomly spawn new column
-						if (rng.NextDouble() < spawnChance)
-						{
-							heads[col] = 0;
-							speeds![col] = rng.Next(1, 3);
-							cooldowns![col] = 0;
-							// Refresh chars for this column
-							for (int y = 0; y < height; y++)
-								chars![y, col] = glyphs[rng.Next(glyphs.Length)];
+							// Randomly spawn new column
+							if (rng.NextDouble() < spawnChance)
+							{
+								heads[col] = 0;
+								speeds![col] = rng.Next(1, 3);
+								cooldowns![col] = 0;
+								// Refresh chars for this column
+								for (int y = 0; y < height; y++)
+									chars![y, col] = glyphs[rng.Next(glyphs.Length)];
+							}
 						}
 					}
+				}
 
+				// Draw
+				for (int col = 0; col < width; col++)
+				{
 					// Draw trail
 					if (heads![col] < 0) continue;
 
