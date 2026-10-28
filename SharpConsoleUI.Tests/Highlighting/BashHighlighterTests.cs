@@ -6,6 +6,12 @@ using Color = SharpConsoleUI.Color;
 
 namespace SharpConsoleUI.Tests.Highlighting
 {
+	// The class under test IS the obsolete one: BashSyntaxHighlighter was
+	// superseded by the TextMate engine, and these tests exist to prove the
+	// deprecated path still behaves while it remains public API. Calling it is
+	// the point, so CS0612 is suppressed for the file rather than silenced by
+	// giving every [Obsolete] a message it does not need.
+#pragma warning disable CS0612 // Type or member is obsolete
 	public class BashHighlighterTests
 	{
 		[Obsolete]
@@ -13,6 +19,7 @@ namespace SharpConsoleUI.Tests.Highlighting
 			=> new BashSyntaxHighlighter().Tokenize(line, 0, SyntaxLineState.Initial);
 
 		[Fact]
+		[Obsolete]
 		public void Comment_ColoredToEndOfLine()
 		{
 			const string line = "echo hi  # a comment";
@@ -32,6 +39,7 @@ namespace SharpConsoleUI.Tests.Highlighting
 		}
 
 		[Fact]
+		[Obsolete]
 		public void Keyword_If_Then_Fi_Colored()
 		{
 			var (tokens, _) = Tok("if true; then echo x; fi");
@@ -41,6 +49,7 @@ namespace SharpConsoleUI.Tests.Highlighting
 		}
 
 		[Fact]
+		[Obsolete]
 		public void Variable_Dollar_Colored()
 		{
 			var (tokens, _) = Tok("echo $HOME ${PATH} $1 $?");
@@ -50,6 +59,7 @@ namespace SharpConsoleUI.Tests.Highlighting
 		}
 
 		[Fact]
+		[Obsolete]
 		public void DoubleAndSingleQuotedStrings_Colored()
 		{
 			var (tokens, _) = Tok("export X=\"abc\" Y='def'");
@@ -58,6 +68,7 @@ namespace SharpConsoleUI.Tests.Highlighting
 		}
 
 		[Fact]
+		[Obsolete]
 		public void HashInsideParamExpansion_NotTreatedAsComment()
 		{
 			// ${X#prefix} — the # is parameter-expansion, not a comment.
@@ -78,3 +89,4 @@ namespace SharpConsoleUI.Tests.Highlighting
 		}
 	}
 }
+#pragma warning restore CS0612
