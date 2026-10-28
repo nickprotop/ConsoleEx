@@ -164,7 +164,14 @@ public record ConsoleWindowSystemOptions(
 	// file or a systemd unit, so it can only be here because someone wrote it here.
 	// Intended for tests and for an application's own --debug-socket flag.
 	// Appended last so existing positional arguments keep their meaning.
-	string? DiagnosticsSocket = null
+	string? DiagnosticsSocket = null,
+
+	// The clock the system reads, for tests that need to move time rather than wait
+	// it out - telling one double click from two slow clicks otherwise means a real
+	// delay past the multi-click window. Null uses TimeProvider.System, which is the
+	// real clock, so production behaviour is unchanged.
+	// Appended last so existing positional arguments keep their meaning.
+	TimeProvider? TimeProvider = null
 )
 {
 	private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";

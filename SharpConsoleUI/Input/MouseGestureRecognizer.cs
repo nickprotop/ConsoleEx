@@ -67,11 +67,23 @@ internal sealed class MouseGestureRecognizer
 	/// How long after a click a further press still counts as part of the same run.
 	/// </param>
 	/// <param name="now">The clock, for tests. Defaults to <see cref="DateTime.UtcNow"/>.</param>
-	public MouseGestureRecognizer(TimeSpan? multiClickWindow = null, Func<DateTime>? now = null)
+	/// <param name="time">
+	/// The clock, for tests. A <see cref="TimeProvider"/> rather than the older
+	/// <c>Func&lt;DateTime&gt;</c> because that is what .NET 8 standardised and what
+	/// <c>FakeTimeProvider</c> implements, so a test can move time instead of
+	/// sleeping through the multi-click window. Wins over <paramref name="now"/>
+	/// when both are given; defaults to <see cref="TimeProvider.System"/>.
+	/// </param>
+	public MouseGestureRecognizer(
+		TimeSpan? multiClickWindow = null,
+		Func<DateTime>? now = null,
+		TimeProvider? time = null)
 	{
 		_multiClickWindow = multiClickWindow
 			?? TimeSpan.FromMilliseconds(Configuration.ControlDefaults.DefaultDebounceMs);
-		_now = now ?? (() => DateTime.UtcNow);
+		_now = time is not null
+			? () => time.GetUtcNow().UtcDateTime
+			: now ?? (() => DateTime.UtcNow);
 	}
 
 	/// <summary>True while a button is down, so the caller can treat motion as a drag.</summary>

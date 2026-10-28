@@ -269,6 +269,66 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 	}
 
 	/// <summary>
+	/// Simulates a full click: the press and the release a terminal sends.
+	/// </summary>
+	/// <param name="point">Where to click, in screen coordinates.</param>
+	/// <remarks>
+	/// <para>
+	/// Spelling the pair out by hand is easy to get subtly wrong, and none of it is
+	/// what a test is about. The gesture flags - clicked, double, triple - are NOT
+	/// added here: <c>MouseGestureRecognizer</c> derives them downstream, once, for
+	/// every driver, and a driver that invented its own would disagree with the real
+	/// input path.
+	/// </para>
+	/// <para>
+	/// The first click on an inactive window activates it rather than reaching the
+	/// control under the cursor, exactly as in a real terminal. Click twice, or
+	/// activate the window first, when the control is the target.
+	/// </para>
+	/// </remarks>
+	public void SimulateClick(Point point) => SimulateClick(point, MouseFlags.Button1Pressed);
+
+	/// <summary>
+	/// Simulates a full click with a specific button.
+	/// </summary>
+	/// <param name="point">Where to click, in screen coordinates.</param>
+	/// <param name="button">The PRESS flag of the button, such as
+	/// <see cref="MouseFlags.Button1Pressed"/>.</param>
+	public void SimulateClick(Point point, MouseFlags button)
+	{
+		SimulateMouseEvent([button], point);
+		SimulateMouseEvent([ReleaseFor(button)], point);
+	}
+
+	/// <summary>
+	/// Simulates two clicks in the same place, close enough in time to be one
+	/// double click.
+	/// </summary>
+	/// <param name="point">Where to click, in screen coordinates.</param>
+	/// <remarks>
+	/// Four raw events: press, release, press, release. The recognizer derives
+	/// <c>Button1DoubleClicked</c> on the SECOND PRESS, which is why a control must
+	/// test for the double before the press. Whether the two clicks fall inside the
+	/// multi-click window is decided by the recognizer's clock - pass a
+	/// <see cref="TimeProvider"/> through
+	/// <c>ConsoleWindowSystemOptions.TimeProvider</c> to control it.
+	/// </remarks>
+	public void SimulateDoubleClick(Point point)
+	{
+		SimulateClick(point);
+		SimulateClick(point);
+	}
+
+	/// <summary>The release flag matching a press flag.</summary>
+	private static MouseFlags ReleaseFor(MouseFlags press) => press switch
+	{
+		MouseFlags.Button2Pressed => MouseFlags.Button2Released,
+		MouseFlags.Button3Pressed => MouseFlags.Button3Released,
+		MouseFlags.Button4Pressed => MouseFlags.Button4Released,
+		_ => MouseFlags.Button1Released,
+	};
+
+	/// <summary>
 	/// Simulates a screen resize event.
 	/// </summary>
 	/// <remarks>

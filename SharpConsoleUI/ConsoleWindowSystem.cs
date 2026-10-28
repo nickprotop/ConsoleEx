@@ -65,6 +65,135 @@ namespace SharpConsoleUI
 		private readonly ManualResetEventSlim _wakeSignal = new(false);
 
 		// Piped-stdin capture. Null when stdin is a TTY, capture is disabled, or stdin is unreadable.
+		/// <summary>
+		/// The clock this system reads.
+		/// </summary>
+		/// <remarks>
+		/// <see cref="TimeProvider.System"/> unless an application supplied one through
+		/// <see cref="Configuration.ConsoleWindowSystemOptions.TimeProvider"/>. A test
+		/// passes a fake so it can move time rather than wait it out - the multi-click
+		/// window is the common case, where telling one double click from two slow
+		/// clicks otherwise costs a real delay per assertion.
+		/// </remarks>
+		public TimeProvider Time { get; }
+
+		/// <summary>
+		/// Whether this system captures piped standard input.
+		/// </summary>
+		/// <remarks>
+		/// Resolved from <see cref="Configuration.ConsoleWindowSystemOptions.PipedInput"/>
+		/// when one was given, and otherwise from the driver: a headless system does not
+		/// read stdin, since nothing it is attached to is a terminal.
+		/// </remarks>
+		public bool PipedInputEnabled => _pipedInputOptions.Enabled;
+
+		#region Settling
+
+		/// <summary>
+		/// Whether the system has finished reacting to everything it has been given.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// Four conditions, all of them: no input waiting to be processed, nothing
+		/// queued for the UI thread, no window with painting still to do, and no
+		/// animation in flight. Any one of them false means another frame will
+		/// change something.
+		/// </para>
+		/// <para>
+		/// Distinct from <see cref="IsIdle"/>, which is a wall-clock timeout - "no
+		/// key for a while". That can be true while work is queued, and it needs
+		/// real time to pass. This is the question a test is actually asking: is it
+		/// safe to look at the screen yet.
+		/// </para>
+		/// </remarks>
+		public bool IsSettled =>
+			!_inputStateService.HasPendingInput
+			&& _uiActionQueue.IsEmpty
+			&& !Animations.HasActiveAnimations
+			&& !Windows.Values.Any(w => w.PendingWork != FrameWork.None);
+
+		/// <summary>
+		/// Why the system is not settled, for a caller that has to report it.
+		/// </summary>
+		/// <returns>
+		/// The conditions that are holding it, or an empty string when it is settled.
+		/// </returns>
+		/// <remarks>
+		/// A bare false is not actionable. A test that times out wants to know whether
+		/// it was an animation that never finished or a window that never painted.
+		/// </remarks>
+		public string SettleBlockers()
+		{
+			var parts = new List<string>(4);
+
+			if (_inputStateService.HasPendingInput) parts.Add("input pending");
+			if (!_uiActionQueue.IsEmpty) parts.Add($"{_uiActionQueue.Count} queued action(s)");
+			if (Animations.HasActiveAnimations) parts.Add("animations running");
+
+			int dirty = Windows.Values.Count(w => w.PendingWork != FrameWork.None);
+			if (dirty > 0) parts.Add($"{dirty} window(s) with work pending");
+
+			return string.Join(", ", parts);
+		}
+
+		/// <summary>
+		/// Completes once another frame has been composed.
+		/// </summary>
+		/// <param name="cancellationToken">Cancels the wait.</param>
+		/// <returns>The frame number reached.</returns>
+		/// <remarks>
+		/// The frame counter is the same one the diagnostics socket's <c>frame</c>
+		/// verb reports, so a test in process and a cxdbg session agree on what a
+		/// frame is rather than inventing two definitions.
+		/// </remarks>
+		public async Task<long> WaitForFrameAsync(CancellationToken cancellationToken = default)
+		{
+			long start = ConsoleDriver.FrameNumber;
+
+			while (ConsoleDriver.FrameNumber <= start)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				await Task.Yield();
+
+				// A system that is not running its own loop will never advance on its
+				// own, so a caller that renders by hand still gets an answer.
+				if (ConsoleDriver.FrameNumber <= start) await Task.Delay(1, cancellationToken);
+			}
+
+			return ConsoleDriver.FrameNumber;
+		}
+
+		/// <summary>
+		/// Completes once <see cref="IsSettled"/> is true.
+		/// </summary>
+		/// <param name="cancellationToken">Cancels the wait.</param>
+		/// <remarks>
+		/// Replaces polling for a window to have a height and then polling again for
+		/// the effect of an input. Pumps the UI queue and renders when the system is
+		/// not running its own loop, so a test need not interleave the two by hand.
+		/// </remarks>
+		public async Task WaitUntilSettledAsync(CancellationToken cancellationToken = default)
+		{
+			while (!IsSettled)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+
+				if (!_running)
+				{
+					DrainUIActionQueue();
+					Render.UpdateDisplay();
+				}
+				else
+				{
+					await WaitForFrameAsync(cancellationToken).ConfigureAwait(false);
+				}
+
+				await Task.Yield();
+			}
+		}
+
+		#endregion
+
 		private readonly Core.PipedInputCapture? _pipedInputCapture;
 		private readonly Configuration.PipedInputOptions _pipedInputOptions;
 
@@ -364,8 +493,18 @@ namespace SharpConsoleUI
 			// but NOT waited on here: stdin held open by a live writer (a streaming producer, or a parent
 			// process that keeps the pipe open) would otherwise block construction forever, before the
 			// application could draw anything. See PipedInputCapture and PipedInput.
+			// The DEFAULT is per driver. Capturing piped stdin is right for a terminal
+			// application started with `cat file | app`. It is wrong for a headless
+			// one: nothing it is attached to is a terminal, and the common case by
+			// far is a test runner or a CI job that redirected stdin for its own
+			// reasons - reading that is never what anyone wanted. Piping INTO a
+			// headless app still works; it is opt-in now rather than assumed.
 			_pipedInputOptions = (options ?? ConsoleWindowSystemOptions.Create()).PipedInput
-				?? new Configuration.PipedInputOptions();
+				?? (driver is Drivers.HeadlessConsoleDriver
+					? new Configuration.PipedInputOptions(Enabled: false)
+					: new Configuration.PipedInputOptions());
+			Time = (options ?? ConsoleWindowSystemOptions.Create()).TimeProvider
+				?? TimeProvider.System;
 			// Deliberately NOT gated on Windows. Whether piped input can reach the application is a
 			// property of the DRIVER, not the OS: NetConsoleDriver refuses redirected stdio on Windows
 			// and throws from its own constructor — which runs before this one, since the driver is

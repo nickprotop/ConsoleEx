@@ -158,14 +158,18 @@ public class WindowsRedirectedStdioTests
 	/// could have consumed perfectly well.
 	/// </remarks>
 	[Fact]
-	public void PipedInput_IsCapturedForHeadlessDrivers_OnEveryPlatform()
+	public void PipedInput_IsCapturedForHeadlessDrivers_OnEveryPlatform_WhenAskedFor()
 	{
 		var original = Console.In;
 		try
 		{
 			Console.SetIn(new System.IO.StringReader("alpha\nbeta\n"));
 
-			var system = new ConsoleWindowSystem(new MockConsoleDriver());
+			var system = new ConsoleWindowSystem(new MockConsoleDriver(),
+				options: new SharpConsoleUI.Configuration.ConsoleWindowSystemOptions() with
+				{
+					PipedInput = new SharpConsoleUI.Configuration.PipedInputOptions(Enabled: true)
+				});
 
 			if (!Console.IsInputRedirected)
 				return; // A real console: nothing was piped, so there is nothing to capture.

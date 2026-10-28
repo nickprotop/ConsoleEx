@@ -100,13 +100,23 @@ public class PipedInputStartupTests : IDisposable
 			$"PipedInput blocked for {sw.ElapsedMilliseconds}ms despite a 250ms bound");
 	}
 
-	/// <summary>The documented finite-pipe case must behave exactly as it always has.</summary>
+	/// <summary>The documented finite-pipe case, which is opt-in on a headless driver.</summary>
+	/// <remarks>
+	/// A headless system does not capture stdin by default - nothing it is attached
+	/// to is a terminal, and a redirected stdin is far more often a test runner's
+	/// than a deliberate pipe. Asking for capture explicitly is what a program that
+	/// really is being piped into does.
+	/// </remarks>
 	[Fact]
 	public void PipedInput_ReturnsCompleteText_ForAFinitePipe()
 	{
 		Console.SetIn(new StringReader("alpha\nbeta\ngamma\n"));
 
-		var system = new ConsoleWindowSystem(new MockConsoleDriver());
+		var system = new ConsoleWindowSystem(new MockConsoleDriver(),
+			options: new ConsoleWindowSystemOptions() with
+			{
+				PipedInput = new PipedInputOptions(Enabled: true)
+			});
 
 		Assert.Equal("alpha\nbeta\ngamma\n", system.PipedInput);
 		Assert.Equal(new[] { "alpha", "beta", "gamma" }, system.PipedLines);

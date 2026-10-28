@@ -62,6 +62,54 @@ public class ConsoleBufferSnapshot
 	public bool IsCellDirty(int x, int y) => DirtyCells.Contains((x, y));
 
 	/// <summary>
+	/// The composed screen as one string per row, for asserting on what is displayed.
+	/// </summary>
+	/// <returns>
+	/// <see cref="Height"/> strings, each <see cref="Width"/> columns wide.
+	/// </returns>
+	/// <remarks>
+	/// <para>
+	/// The alternative is stripping ANSI escapes out of the driver's raw output with
+	/// a regular expression, which is what every caller was doing. This reads the
+	/// cells instead, so there is nothing to strip and nothing to get wrong.
+	/// </para>
+	/// <para>
+	/// Width is in COLUMNS, not characters: the second cell of a wide glyph is a
+	/// continuation and contributes nothing, so a row holding two CJK characters is
+	/// four columns and two runes. Combining marks are appended to the rune they
+	/// modify, which is where they belong and where a search for the base character
+	/// still finds them.
+	/// </para>
+	/// </remarks>
+	public List<string> ToLines()
+	{
+		var lines = new List<string>(Height);
+		var row = new StringBuilder(Width);
+
+		for (int y = 0; y < Height; y++)
+		{
+			row.Clear();
+
+			for (int x = 0; x < Width; x++)
+			{
+				var cell = FrontBuffer[x, y];
+
+				// The trailing half of a wide glyph. Its character is whatever the
+				// buffer happened to leave there; emitting it would double the glyph.
+				if (cell.IsWideContinuation) continue;
+
+				row.Append(cell.Character.ToString());
+
+				if (!string.IsNullOrEmpty(cell.Combiners)) row.Append(cell.Combiners);
+			}
+
+			lines.Add(row.ToString());
+		}
+
+		return lines;
+	}
+
+	/// <summary>
 	/// Gets the front buffer cell at the specified position.
 	/// </summary>
 	public ConsoleCell GetFront(int x, int y)

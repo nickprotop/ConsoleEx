@@ -47,6 +47,12 @@ namespace SharpConsoleUI.Input
 			_windowStateService = windowStateService ?? throw new ArgumentNullException(nameof(windowStateService));
 			_logService = logService ?? throw new ArgumentNullException(nameof(logService));
 			_context = context ?? throw new ArgumentNullException(nameof(context));
+
+			// The recognizer's clock comes from the system's options, so a test can
+			// move time instead of sleeping through the multi-click window. Without
+			// this the recognizer was constructed with `new()` and its injectable
+			// clock was unreachable from outside the assembly.
+			_gestures = new MouseGestureRecognizer(time: context.Time);
 		}
 
 		/// <summary>
@@ -208,7 +214,7 @@ namespace SharpConsoleUI.Input
 		/// means the same thing wherever it came from. The drivers used to each run
 		/// their own copy of this logic, which is how they came to disagree.
 		/// </remarks>
-		private readonly MouseGestureRecognizer _gestures = new();
+		private readonly MouseGestureRecognizer _gestures;
 
 		/// <summary>
 		/// Main mouse event router - handles all mouse events in priority order.
