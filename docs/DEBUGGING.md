@@ -25,7 +25,7 @@ when a reply surprises you.
 For working by hand there is **cxdbg**, a dotnet tool that speaks it for you:
 
 ```bash
-dotnet tool install -g SharpConsoleUI.Debugger
+dotnet tool install -g cxdbg
 
 cxdbg run ./MyApp --attach        # start it, and open a prompt on it
 cxdbg show tree -s /tmp/myapp.sock

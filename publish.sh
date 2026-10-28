@@ -256,7 +256,7 @@ echo ""
 echo -e "${YELLOW}This will trigger GitHub Actions to:${NC}"
 echo -e "  1. Build the solution"
 echo -e "  2. Run tests"
-echo -e "  3. Create NuGet packages (SharpConsoleUI + SharpConsoleUI.Templates + SharpConsoleUI.Host + SharpConsoleUI.Debugger ${NEW_VERSION})"
+echo -e "  3. Create NuGet packages (SharpConsoleUI + SharpConsoleUI.Templates + SharpConsoleUI.Host + cxdbg ${NEW_VERSION})"
 if [ "$IS_RC" = true ]; then
     echo -e "  4. Publish to NuGet.org ${YELLOW}as a prerelease${NC}"
     echo ""

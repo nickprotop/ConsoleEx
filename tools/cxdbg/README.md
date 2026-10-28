@@ -13,7 +13,7 @@ can do by itself what this README does by hand. The readable layer - `show`,
 `why` - formats instead, and takes `--json` when you want the reply raw.
 
 ```bash
-dotnet tool install -g SharpConsoleUI.Debugger
+dotnet tool install -g cxdbg
 ```
 
 ![cxdbg asking a running application what it is doing](https://raw.githubusercontent.com/nickprotop/ConsoleEx/master/docs/images/cxdbg.png)

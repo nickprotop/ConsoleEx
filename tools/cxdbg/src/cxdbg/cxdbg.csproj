@@ -10,7 +10,7 @@
 
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>cxdbg</ToolCommandName>
-    <PackageId>SharpConsoleUI.Debugger</PackageId>
+    <PackageId>cxdbg</PackageId>
     <Version>1.0.0</Version>
     <Description>Attach to a running SharpConsoleUI application over its diagnostics socket and ask it what it is doing: what the screen shows, what layout believes, why a control is the size it is. Drives the app too - keys, clicks, resizes - through its own input dispatch.</Description>
     <PackageOutputPath>./nupkg</PackageOutputPath>
