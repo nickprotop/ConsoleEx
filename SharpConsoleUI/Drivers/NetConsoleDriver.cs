@@ -89,7 +89,6 @@ namespace SharpConsoleUI.Drivers
 	public class NetConsoleDriver : IConsoleDriver, IGraphicsProtocol
 	{
 		private const uint DISABLE_NEWLINE_AUTO_RETURN = 8;
-		private const int DoubleClickTime = 500;
 
 		/// <summary>Safety cap on bracketed-paste payload chars on the Windows ReadKey path, so a
 		/// missing ESC[201~ end marker can never hang the input loop. ~1 MiB of text.</summary>
@@ -160,8 +159,6 @@ namespace SharpConsoleUI.Drivers
 		private readonly bool _errorModeCaptured;
 		private ConsoleBuffer? _consoleBuffer;
 		private MouseFlags _lastButton;
-		private Point? _lastClickPosition;
-		private DateTime _lastClickTime;
 		private int _lastConsoleHeight;
 		private int _lastConsoleWidth;
 		private bool _running = false;
@@ -1678,33 +1675,14 @@ namespace SharpConsoleUI.Drivers
 						}
 						else if (_lastButton == MouseFlags.Button1Pressed)
 						{
-							// SAFEGUARD: Ignore duplicate release events (< 50ms = driver bug)
-							// The console mouse driver sometimes generates duplicate Button1Released events
-							var timeSinceLastClick = (DateTime.Now - _lastClickTime).TotalMilliseconds;
-							if (_lastClickPosition?.X == position.X &&
-								_lastClickPosition?.Y == position.Y &&
-								timeSinceLastClick < 50)
-							{
-								// Duplicate event, ignore it
-								return true;
-							}
-
+							// The RELEASE, and only the release. Clicked, DoubleClicked
+							// and TripleClicked used to be worked out here, with this
+							// driver's own clock and its own threshold - a second
+							// opinion on a question MouseGestureRecognizer already
+							// answers for every platform, from one implementation with
+							// an injectable clock. A duplicate release is handled there
+							// too: a release whose press it never saw is discarded.
 							mouseFlags.Add(MouseFlags.Button1Released);
-							mouseFlags.Add(MouseFlags.Button1Clicked);
-
-							// Check for double/triple click
-							if (_lastClickPosition?.X == position.X &&
-								_lastClickPosition?.Y == position.Y &&
-								timeSinceLastClick < DoubleClickTime)
-							{
-								if (mouseFlags.Contains(MouseFlags.Button1DoubleClicked))
-									mouseFlags.Add(MouseFlags.Button1TripleClicked);
-								else
-									mouseFlags.Add(MouseFlags.Button1DoubleClicked);
-							}
-
-							_lastClickPosition = position;
-							_lastClickTime = DateTime.Now;
 						}
 						break;
 
@@ -1717,7 +1695,6 @@ namespace SharpConsoleUI.Drivers
 						else if (_lastButton == MouseFlags.Button2Pressed)
 						{
 							mouseFlags.Add(MouseFlags.Button2Released);
-							mouseFlags.Add(MouseFlags.Button2Clicked);
 						}
 						break;
 
@@ -1730,7 +1707,6 @@ namespace SharpConsoleUI.Drivers
 						else if (_lastButton == MouseFlags.Button3Pressed)
 						{
 							mouseFlags.Add(MouseFlags.Button3Released);
-							mouseFlags.Add(MouseFlags.Button3Clicked);
 						}
 						break;
 

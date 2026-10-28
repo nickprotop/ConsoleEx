@@ -190,6 +190,11 @@ Things that are easy to get wrong:
   `ConsoleWindowSystem.WindowResized` instead, which fires on the UI thread after reposition
   and re-invalidates automatically.
 - **Rebuild your buffer before raising `ScreenResized`**, as described above.
+- **Report mouse facts, not gestures.** A driver raises what the terminal said: a press,
+  a release, motion, a wheel turn. `Button1Clicked`, `Button1DoubleClicked` and
+  `Button1TripleClicked` are derived downstream by `MouseGestureRecognizer`, which also
+  discards a release whose press it never saw — so a duplicate release needs no guard
+  here either.
 - **`Paste` must be delivered atomically** — a pasted block arrives as one event, not as a
   storm of synthetic keystrokes, so an editor can tell typing from pasting.
 - **`WriteBufferRegion` must preserve cell flags.** `IsWideContinuation`, combining marks and
