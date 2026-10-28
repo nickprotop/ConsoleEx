@@ -35,6 +35,19 @@ public class TimeOptionsTests
 		public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
 	}
 
+	/// <summary>
+	/// What a clock reports, not which instance it is.
+	/// </summary>
+	/// <remarks>
+	/// The system wraps each clock so the diagnostics socket can point it at
+	/// another one while the application runs, so identity is no longer the thing
+	/// to assert - and what a caller depends on was always the reading anyway.
+	/// </remarks>
+	private static DateTimeOffset Reads(TimeProvider clock) => clock.GetUtcNow();
+
+	private static DateTimeOffset At(int minute) =>
+		new(2026, 1, 1, 12, minute, 0, TimeSpan.Zero);
+
 	private static ConsoleWindowSystem Build(TimeOptions? time) =>
 		new(new HeadlessConsoleDriver(40, 10),
 			ConsoleWindowSystemOptions.Create() with { Time = time });
@@ -44,9 +57,12 @@ public class TimeOptionsTests
 	{
 		var system = Build(null);
 
-		Assert.Same(TimeProvider.System, system.MouseTime);
-		Assert.Same(TimeProvider.System, system.ScheduleRepaintTime);
-		Assert.Same(TimeProvider.System, system.AnimationTime);
+		// Within a second of the real clock, which a fixed fake never is.
+		var now = DateTimeOffset.UtcNow;
+
+		Assert.True((Reads(system.MouseTime) - now).Duration() < TimeSpan.FromSeconds(1));
+		Assert.True((Reads(system.ScheduleRepaintTime) - now).Duration() < TimeSpan.FromSeconds(1));
+		Assert.True((Reads(system.AnimationTime) - now).Duration() < TimeSpan.FromSeconds(1));
 	}
 
 	[Fact]
@@ -56,9 +72,9 @@ public class TimeOptionsTests
 
 		var system = Build(new TimeOptions { All = clock });
 
-		Assert.Same(clock, system.MouseTime);
-		Assert.Same(clock, system.ScheduleRepaintTime);
-		Assert.Same(clock, system.AnimationTime);
+		Assert.Equal(At(1), Reads(system.MouseTime));
+		Assert.Equal(At(1), Reads(system.ScheduleRepaintTime));
+		Assert.Equal(At(1), Reads(system.AnimationTime));
 	}
 
 	[Fact]
@@ -69,9 +85,9 @@ public class TimeOptionsTests
 
 		var system = Build(new TimeOptions { All = fallback, Mouse = mouse });
 
-		Assert.Same(mouse, system.MouseTime);
-		Assert.Same(fallback, system.ScheduleRepaintTime);
-		Assert.Same(fallback, system.AnimationTime);
+		Assert.Equal(At(2), Reads(system.MouseTime));
+		Assert.Equal(At(1), Reads(system.ScheduleRepaintTime));
+		Assert.Equal(At(1), Reads(system.AnimationTime));
 	}
 
 	[Fact]
@@ -81,9 +97,11 @@ public class TimeOptionsTests
 
 		var system = Build(new TimeOptions { Animation = animation });
 
-		Assert.Same(animation, system.AnimationTime);
-		Assert.Same(TimeProvider.System, system.MouseTime);
-		Assert.Same(TimeProvider.System, system.ScheduleRepaintTime);
+		var now = DateTimeOffset.UtcNow;
+
+		Assert.Equal(At(3), Reads(system.AnimationTime));
+		Assert.True((Reads(system.MouseTime) - now).Duration() < TimeSpan.FromSeconds(1));
+		Assert.True((Reads(system.ScheduleRepaintTime) - now).Duration() < TimeSpan.FromSeconds(1));
 	}
 
 	[Fact]

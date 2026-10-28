@@ -244,6 +244,7 @@ internal sealed class DiagnosticsServer : IDisposable
 			"set" => Ok(Set(req)),
 			"frame" => Ok(new JsonObject { ["frame"] = _system.ConsoleDriver.FrameNumber }),
 			"settled" => Ok(Settled()),
+			"clock" => Ok(Clock(req)),
 			"invalidations" => Ok(Invalidations()),
 			"reachable" => Ok(Reachable()),
 			"desktop" => Ok(DiagnosticsSerializer.DesktopInfo(_system)),
@@ -671,11 +672,87 @@ internal sealed class DiagnosticsServer : IDisposable
 		};
 	}
 
+	/// <summary>
+	/// Reads the clocks, or points one at a frozen clock and steps it.
+	/// </summary>
+	/// <remarks>
+	/// Without a target it reports all three, which is what a reader wants first:
+	/// a clock that is frozen when you did not freeze it explains a great deal.
+	/// </remarks>
+	private JsonObject Clock(JsonObject req)
+	{
+		string? target = Text(req, "target");
+
+		if (target == null)
+			return AllClocks();
+
+		Core.SwappableTimeProvider clock;
+
+		try
+		{
+			clock = _system.ClockFor(target);
+		}
+		catch (ArgumentException ex)
+		{
+			return ErrorBody(ex.Message);
+		}
+
+		// Freeze: take over with a clock that only moves when told.
+		if (req["fake"]?.GetValue<bool>() == true)
+		{
+			clock.Swap(new Core.ManualTimeProvider(clock.GetUtcNow(), clock.LocalTimeZone));
+			return OneClock(target, clock);
+		}
+
+		// Hand it back to the real one.
+		if (req["system"]?.GetValue<bool>() == true)
+		{
+			clock.Swap(TimeProvider.System);
+			return OneClock(target, clock);
+		}
+
+		if (req["advance"] is { } advance)
+		{
+			if (clock.Inner is not Core.ManualTimeProvider manual)
+			{
+				return ErrorBody(
+					$"'{target}' is on the real clock and cannot be advanced; " +
+					$"freeze it first with \u0060clock --target {target} --fake\u0060");
+			}
+
+			double ms = advance.GetValue<double>();
+
+			if (ms < 0) return ErrorBody("a clock may not run backwards");
+
+			manual.Advance(TimeSpan.FromMilliseconds(ms));
+		}
+
+		return OneClock(target, clock);
+	}
+
+	private JsonObject AllClocks()
+	{
+		var clocks = new JsonObject();
+
+		foreach (string name in ConsoleWindowSystem.ClockNames)
+			clocks[name] = OneClock(name, _system.ClockFor(name));
+
+		return new JsonObject { ["clocks"] = clocks };
+	}
+
+	private static JsonObject OneClock(string name, Core.SwappableTimeProvider clock) =>
+		new()
+		{
+			["clock"] = name,
+			["kind"] = clock.IsSystem ? "system" : "fake",
+			["now"] = clock.GetUtcNow().UtcDateTime.ToString("O"),
+		};
+
 	private static readonly string[] KnownCommands =
 	{
 		"snapshot", "image", "tree", "focus", "windows", "metrics", "set",
 		"logs", "key", "mouse", "size", "focusctl", "invoke",
-		"theme", "window", "frame", "settled",
+		"theme", "window", "frame", "settled", "clock",
 			"invalidations",
 			"reachable",
 			"desktop",

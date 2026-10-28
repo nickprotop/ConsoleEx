@@ -77,6 +77,7 @@ internal static class Output
 			case "control": return ControlReply(body, colour);
 			case "focus": return FocusReply(body, colour);
 			case "settled": return SettledReply(body, colour);
+			case "clock": return ClockReply(body, colour);
 
 			// Grouped, because these replies answer several questions at once
 			// and a flat column cannot say which number belongs to which.
@@ -652,6 +653,52 @@ internal static class Output
 	/// act on; "working" with "2 window(s) with work pending" says whether to keep
 	/// waiting or to go and find out why a window never paints.
 	/// </remarks>
+	/// <summary>The clocks, or the one that was just changed.</summary>
+	/// <remarks>
+	/// A frozen clock is the interesting state, so it is the one that gets a colour:
+	/// a reader scanning three lines should see at a glance which is not moving.
+	/// </remarks>
+	private static string ClockReply(JsonObject body, bool colour)
+	{
+		var sb = new StringBuilder();
+
+		if (body["clocks"] is JsonObject all)
+		{
+			foreach (var (_, entry) in all)
+			{
+				if (entry is JsonObject one) sb.AppendLine(ClockLine(one));
+			}
+		}
+		else
+		{
+			sb.AppendLine(ClockLine(body));
+		}
+
+		// Trailing newline kept: every other reply ends a line, and without it two
+		// clock calls in a row run together on one.
+		string text = sb.ToString().TrimEnd() + "\n";
+
+		return colour
+			? Surface.Render(new Spectre.Console.Markup(text), true)
+			: Plain(text);
+	}
+
+	private static string ClockLine(JsonObject clock)
+	{
+		string name = clock["clock"]?.GetValue<string>() ?? "?";
+		string kind = clock["kind"]?.GetValue<string>() ?? "?";
+		string now = clock["now"]?.GetValue<string>() ?? "";
+
+		// The time without the date: a clock is read here for its movement, not
+		// for what day it thinks it is.
+		int t = now.IndexOf('T');
+		string shown = t >= 0 && now.Length > t + 13 ? now.Substring(t + 1, 12) : now;
+
+		return $"[cyan]{Escaped(name),-10}[/] "
+			+ (kind == "system" ? "[grey]system[/]" : "[yellow]frozen[/]")
+			+ $"  [white]{Escaped(shown)}[/]";
+	}
+
 	private static string SettledReply(JsonObject body, bool colour)
 	{
 		bool settled = body["settled"]?.GetValue<bool>() ?? false;

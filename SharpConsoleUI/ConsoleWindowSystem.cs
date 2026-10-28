@@ -67,13 +67,30 @@ namespace SharpConsoleUI
 		// Piped-stdin capture. Null when stdin is a TTY, capture is disabled, or stdin is unreadable.
 
 		/// <summary>The clock the multi-click window is measured on.</summary>
-		public TimeProvider MouseTime { get; }
+		public TimeProvider MouseTime => _mouseTime;
+
+		private readonly Core.SwappableTimeProvider _mouseTime;
+
+		/// <summary>The clocks this system runs on, by the name the socket uses.</summary>
+		internal Core.SwappableTimeProvider ClockFor(string target) => target switch
+		{
+			"mouse" => _mouseTime,
+			"repaint" => _scheduleRepaintTime,
+			"animation" => _animationTime,
+			_ => throw new ArgumentException(
+				$"unknown clock '{target}'; known: mouse, repaint, animation", nameof(target)),
+		};
+
+		/// <summary>The names <see cref="ClockFor"/> accepts.</summary>
+		internal static IReadOnlyList<string> ClockNames { get; } = ["mouse", "repaint", "animation"];
 
 		/// <summary>
 		/// The clock controls that repaint on a cadence are scheduled against - a
 		/// panel clock, an FPS readout, an indeterminate progress bar.
 		/// </summary>
-		public TimeProvider ScheduleRepaintTime { get; }
+		public TimeProvider ScheduleRepaintTime => _scheduleRepaintTime;
+
+		private readonly Core.SwappableTimeProvider _scheduleRepaintTime;
 
 		/// <summary>
 		/// The clock the per-frame animation delta is measured on: every tween, and
@@ -83,7 +100,9 @@ namespace SharpConsoleUI
 		/// Not the same as frame PACING, which stays on the machine clock -
 		/// see <see cref="Configuration.TimeOptions"/>.
 		/// </remarks>
-		public TimeProvider AnimationTime { get; }
+		public TimeProvider AnimationTime => _animationTime;
+
+		private readonly Core.SwappableTimeProvider _animationTime;
 
 		/// <summary>
 		/// Whether this system captures piped standard input.
@@ -633,9 +652,13 @@ namespace SharpConsoleUI
 			var timeOptions = (options ?? ConsoleWindowSystemOptions.Create()).Time
 				?? new Configuration.TimeOptions();
 
-			MouseTime = timeOptions.Resolve(timeOptions.Mouse);
-			ScheduleRepaintTime = timeOptions.Resolve(timeOptions.ScheduleRepaint);
-			AnimationTime = timeOptions.Resolve(timeOptions.Animation);
+			// Wrapped, so the diagnostics socket can point one at a frozen clock
+			// while the application runs. Consumers capture the provider they are
+			// given - the gesture recognizer holds a closure over it - so the swap
+			// has to happen behind them rather than by replacing a property.
+			_mouseTime = new Core.SwappableTimeProvider(timeOptions.Resolve(timeOptions.Mouse));
+			_scheduleRepaintTime = new Core.SwappableTimeProvider(timeOptions.Resolve(timeOptions.ScheduleRepaint));
+			_animationTime = new Core.SwappableTimeProvider(timeOptions.Resolve(timeOptions.Animation));
 
 			// Seeded from the CONFIGURED clock, not the field initialiser's
 			// DateTime.UtcNow: a fake clock usually starts at some fixed instant, and

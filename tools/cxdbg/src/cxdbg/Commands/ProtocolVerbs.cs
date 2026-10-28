@@ -136,6 +136,15 @@ internal static class ProtocolVerbs
 		("settled", "Whether the app has finished reacting, and what is holding it",
 			[], ["settled"]),
 
+		("clock", "Read the clocks, or freeze one and step it by hand",
+			[
+				new("target", "mouse|repaint|animation", "Which clock. All of them when omitted"),
+				new("fake", "", "Freeze it where it stands"),
+				new("system", "", "Hand it back to the real clock"),
+				new("advance", "ms", "Move a frozen clock forward"),
+			],
+			["clock", "--target", "mouse", "--fake"]),
+
 		("set", "Read the runtime switches, or change one",
 			[
 				new("diagnostics", "true|false", "Render recording and the input tape"),

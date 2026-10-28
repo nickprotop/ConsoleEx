@@ -80,7 +80,9 @@ public class GestureClockTests
 				Time = new TimeOptions { All = time }
 			});
 
-		Assert.Same(time, system.MouseTime);
+		// The system wraps it so the socket can swap it, so identity no longer
+		// holds - what matters is that the reading comes from the supplied clock.
+		Assert.Equal(time.GetUtcNow(), system.MouseTime.GetUtcNow());
 	}
 
 	[Fact]

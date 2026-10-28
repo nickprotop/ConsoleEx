@@ -28,6 +28,37 @@ public class OutputTests
 		Output.Pretty(verb, JsonNode.Parse(json)!);
 
 	[Fact]
+	public void AFrozenClockIsCalledFrozen()
+	{
+		// "kind": "fake" is how the wire says it; a reader wants the state, and
+		// wants to spot it among three lines without reading carefully.
+		string text = Render(
+			"""{"ok":true,"clock":"mouse","kind":"fake","now":"2026-01-01T12:00:00.0000000Z"}""",
+			"clock");
+
+		Assert.Contains("mouse", text);
+		Assert.Contains("frozen", text);
+		Assert.Contains("12:00:00", text);
+	}
+
+	[Fact]
+	public void AllThreeClocksReadAsThreeLines()
+	{
+		string text = Render(
+			"""
+			{"ok":true,"clocks":{
+			  "mouse":{"clock":"mouse","kind":"fake","now":"2026-01-01T12:00:00.0000000Z"},
+			  "repaint":{"clock":"repaint","kind":"system","now":"2026-01-01T12:00:01.0000000Z"},
+			  "animation":{"clock":"animation","kind":"system","now":"2026-01-01T12:00:02.0000000Z"}}}
+			""",
+			"clock");
+
+		Assert.Equal(3, text.TrimEnd().Split('\n').Length);
+		Assert.Contains("frozen", text);
+		Assert.Contains("system", text);
+	}
+
+	[Fact]
 	public void SettledReadsAsAWordNotABoolean()
 	{
 		// "settled: True" makes a reader translate. The word is the answer.

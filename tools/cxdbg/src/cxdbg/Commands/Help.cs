@@ -165,6 +165,7 @@ internal static class Help
 					("color <role>", "How a colour was resolved"),
 					("frame", "Which control asked for the last frames"),
 					("settled", "Has it finished reacting, and if not what is pending"),
+					("clock", "Read the clocks, or freeze one and step it"),
 					("input", "What the application was told"));
 				return 0;
 

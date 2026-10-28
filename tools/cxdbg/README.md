@@ -265,6 +265,30 @@ working  frame 1204  2 window(s) with work pending
 `cxdbg frame` is still there when the counter itself is what you want; a
 counter that never moves means the render loop has stopped.
 
+## Moving time by hand
+
+Telling one double click from two slow ones is a question about timing, and
+waiting out a real multi-click window to test it is a poor way to spend a
+second. `cxdbg clock` freezes a running application's clock and steps it:
+
+```
+cxdbg clock                                  # all three, and which are frozen
+cxdbg clock --target mouse --fake            # freeze where it stands
+cxdbg mouse --x 10 --y 5 --action click
+cxdbg clock --target mouse --advance 600     # past the multi-click window
+cxdbg mouse --x 10 --y 5 --action click      # two clicks, not a double
+cxdbg clock --target mouse --system          # hand it back
+```
+
+Three clocks, because the parts measure different things: `mouse` is the
+multi-click window, `repaint` the cadence of controls that redraw themselves,
+`animation` the per-frame delta. Freezing one leaves the others running, so
+the application keeps drawing while the thing under test holds still.
+
+Frame pacing is not among them. Redrawing no more than sixty times a second is
+a fact about the terminal, so it stays on the machine clock - a frozen clock
+would otherwise render nothing at all.
+
 ## One syntax
 
 ```

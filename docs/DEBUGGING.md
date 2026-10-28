@@ -241,6 +241,7 @@ comes back without one.
 | `set` | Reads, and optionally changes, runtime switches |
 | `frame` | How many frames have been presented |
 | `settled` | Whether the application has finished reacting, and what is holding it |
+| `clock` | Read the clocks, or freeze one and step it by hand |
 | `ping` | Liveness |
 | `commands` | Lists the verbs |
 
@@ -439,6 +440,10 @@ is where a terminal puts them.
 ```json
 {"cmd":"frame"}     →  {"ok":true,"frame":1204}
 {"cmd":"settled"}   →  {"ok":true,"settled":true,"frame":1204,"blockers":null}
+{"cmd":"clock"}     →  {"ok":true,"clocks":{"mouse":{"clock":"mouse","kind":"system",...
+{"cmd":"clock","target":"mouse","fake":true}       // freeze where it stands
+{"cmd":"clock","target":"mouse","advance":600}     // step it 600ms
+{"cmd":"clock","target":"mouse","system":true}     // hand it back
                     →  {"ok":true,"settled":false,"frame":1204,
                         "blockers":"2 window(s) with work pending"}
 ```
