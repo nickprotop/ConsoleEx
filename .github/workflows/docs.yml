@@ -56,6 +56,19 @@ jobs:
       # a day behind helps nobody. A broken link is BLOCKING, because that page
       # 404s for whoever clicks it. The script exits 1 for the first and 2 for
       # the second; this step forgives 1 and fails on 2.
+      - name: Install DocFX
+        run: dotnet tool install -g docfx
+
+      # BEFORE the link check, not after. docs/docfx/_site is gitignored, so it
+      # exists on a developer's machine and never on a fresh runner - and the
+      # site build copies it to _site/api/ when it is there, skips it when it is
+      # not. Checking links first therefore checked a site with no API reference
+      # in it and failed every page's "API" nav link: 111 pages, 111 links, all
+      # of them fine in the deployed site. Build the API first and the checker
+      # sees what a visitor sees.
+      - name: Build DocFX Documentation
+        run: docfx docs/docfx/docfx.json
+
       - name: Screenshots and links
         run: |
           set +e
@@ -73,12 +86,6 @@ jobs:
           fi
 
           exit 0
-
-      - name: Install DocFX
-        run: dotnet tool install -g docfx
-
-      - name: Build DocFX Documentation
-        run: docfx docs/docfx/docfx.json
 
       # Renders docs/*.md into the site's shell and copies the DocFX output to
       # _site/api/, so the API reference keeps its URL.

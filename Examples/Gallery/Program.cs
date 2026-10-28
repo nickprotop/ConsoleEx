@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Globalization;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -29,6 +30,17 @@ using SharpConsoleUI.Drivers;
 // to normal startup and takes "--pty-shim" for an output directory, which is
 // exactly how a folder of that name once appeared in the repo root.
 if (SharpConsoleUI.PtyShim.RunIfShim(args)) return 127;
+
+// Pin the culture before any control is built. TimePicker and DatePicker read
+// CultureInfo.CurrentCulture - the time picker decides 12h vs 24h from the
+// locale's ShortTimePattern - so the same code photographs differently on a
+// machine set to el_GR than on a CI runner set to en_US: different text,
+// different widths, a different picture. Invariant is 24-hour, so the shot is
+// the same everywhere and a byte comparison means what it claims to.
+CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
+CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
 
 const string Theme = "Slate";
 
