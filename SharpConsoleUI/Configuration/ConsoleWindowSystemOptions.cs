@@ -178,9 +178,52 @@ public record ConsoleWindowSystemOptions(
 	private const string PerfMetricsEnvVar = "SHARPCONSOLEUI_PERF_METRICS";
 
 	/// <summary>
-	/// Gets the minimum time between frames in milliseconds based on TargetFPS.
+	/// The highest number of frames a second the system will render.
 	/// </summary>
-	public int MinFrameTime => TargetFPS > 0 ? 1000 / TargetFPS : 16;
+	/// <value>
+	/// Clamped to <see cref="MaxTargetFPS"/>. Zero or less means no cap at all.
+	/// </value>
+	/// <remarks>
+	/// <para>
+	/// The cap is a bandwidth control before it is a smoothness one. A terminal UI
+	/// writes bytes to a pipe, and over a remote connection an uncapped redraw is
+	/// the difference between a usable session and a saturated link.
+	/// </para>
+	/// <para>
+	/// Clamped rather than accepted, because the interval is derived from it: at
+	/// 1001 the old integer arithmetic produced a zero-millisecond interval, which
+	/// silently removed the cap of someone who had asked for a very high one.
+	/// </para>
+	/// </remarks>
+	public int TargetFPS
+	{
+		get => _targetFps;
+		init => _targetFps = value > MaxTargetFPS ? MaxTargetFPS : value;
+	}
+
+	// Initialised FROM the positional parameter, which is the one place it is in
+	// scope. A plain `= 60` here compiles with only a warning (CS8907, parameter
+	// unread) and makes every positional caller silently render at 60 whatever
+	// they asked for - the clamp was never the only thing at stake.
+	private readonly int _targetFps = TargetFPS > MaxTargetFPS ? MaxTargetFPS : TargetFPS;
+
+	/// <summary>The highest rate <see cref="TargetFPS"/> accepts.</summary>
+	/// <remarks>
+	/// A thousand frames a second is already far past what a terminal can show or
+	/// a link can carry; the limit exists so the interval stays a usable number.
+	/// </remarks>
+	public const int MaxTargetFPS = 1000;
+
+	/// <summary>
+	/// The minimum time between frames in milliseconds, from <see cref="TargetFPS"/>.
+	/// </summary>
+	/// <value>Zero when there is no cap.</value>
+	/// <remarks>
+	/// A double, not an int. Integer division made 144 fps ask for 6 ms, which is
+	/// 166 fps - the rate nobody configured. Zero or less means no cap, rather than
+	/// the 16 ms a fallback used to produce, so asking for no limit IS no limit.
+	/// </remarks>
+	public double MinFrameTime => _targetFps > 0 ? 1000.0 / _targetFps : 0.0;
 
 	/// <summary>
 	/// Gets the default configuration with frame rate limiting enabled at 60 FPS.

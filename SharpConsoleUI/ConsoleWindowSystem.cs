@@ -1643,7 +1643,12 @@ namespace SharpConsoleUI
 					_currentPhase = Core.MainLoopPhase.Render;
 					Render.UpdateDisplay();
 					_lastRenderTime = machineNow;
-					_idleTime = (int)Performance.MinFrameTime;
+
+					// Rounded up, not truncated: sleeping 16 ms for a 16.667 ms
+					// interval wakes early every frame and the cap drifts high. And
+					// floored at one, since MinFrameTime is zero when there is no cap
+					// and a zero sleep is a spin.
+					_idleTime = Math.Max(1, (int)Math.Ceiling(Performance.MinFrameTime));
 				}
 				else
 				{
