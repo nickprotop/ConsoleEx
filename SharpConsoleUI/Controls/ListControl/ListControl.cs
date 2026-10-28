@@ -133,6 +133,8 @@ namespace SharpConsoleUI.Controls
 		private bool _truncationFade;
 		private int _mouseWheelScrollSpeed = ControlDefaults.DefaultScrollWheelLines;
 		private bool _doubleClickActivates = true;
+		private bool _activateOnSingleClick;
+		private bool _swallowNextClick;
 		private int _doubleClickThresholdMs = ControlDefaults.DefaultDoubleClickThresholdMs;
 
 		// Performance: Cache for expensive text measurement operations

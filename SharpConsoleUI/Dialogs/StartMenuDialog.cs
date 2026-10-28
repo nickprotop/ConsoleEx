@@ -317,6 +317,15 @@ public static class StartMenuDialog
 
 	#region Content Builders
 
+
+	/// <summary>A list that behaves like a menu: one click activates.</summary>
+	/// <remarks>
+	/// A ListControl activates on a DOUBLE click, which is right for a file list
+	/// and wrong here - nobody double clicks a start menu. Every list in this
+	/// dialog is a menu, so they all go through this.
+	/// </remarks>
+	private static ListControl MenuList() => new() { ActivateOnSingleClick = true };
+
 	private static void BuildAllContent(
 		ScrollablePanelControl panel, ConsoleWindowSystem windowSystem, StartMenuElement element)
 	{
@@ -326,7 +335,7 @@ public static class StartMenuDialog
 		// Quick actions (system)
 		if (menuOpts.ShowSystemCategory)
 		{
-			var quickActions = new ListControl();
+			var quickActions = MenuList();
 			quickActions.AddItem(new ListItem("Change Theme..."));
 			quickActions.AddItem(new ListItem("Settings..."));
 			quickActions.AddItem(new ListItem("About..."));
@@ -358,7 +367,7 @@ public static class StartMenuDialog
 			var pluginsRule = new RuleControl { Title = "Plugins", BorderStyle = BorderStyle.Single };
 			panel.AddControl(pluginsRule);
 
-			var pluginList = new ListControl();
+			var pluginList = MenuList();
 			AddPluginItems(pluginList, windowSystem, element);
 			StyleListControl(pluginList, _dropBg, _dropFg, _dropHiBg, _dropHiFg);
 			panel.AddControl(pluginList);
@@ -377,7 +386,7 @@ public static class StartMenuDialog
 				var windowsRule = new RuleControl { Title = "Windows", BorderStyle = BorderStyle.Single };
 				panel.AddControl(windowsRule);
 
-				var windowList = new ListControl();
+				var windowList = MenuList();
 				windowList.MaxVisibleItems = ControlDefaults.StartMenuMaxVisibleWindows;
 				PopulateWindowList(windowSystem, windowList);
 				windowList.ItemActivated += (_, item) =>
@@ -403,7 +412,7 @@ public static class StartMenuDialog
 			var userRule = new RuleControl { Title = "User Actions", BorderStyle = BorderStyle.Single };
 			panel.AddControl(userRule);
 
-			var userList = new ListControl();
+			var userList = MenuList();
 			foreach (var action in userActions.OrderBy(a => a.Order))
 			{
 				var callback = action.Callback;
@@ -431,7 +440,7 @@ public static class StartMenuDialog
 	private static void BuildWindowsContent(
 		ScrollablePanelControl panel, ConsoleWindowSystem windowSystem, StartMenuElement element)
 	{
-		var windowList = new ListControl();
+		var windowList = MenuList();
 		windowList.MaxVisibleItems = ControlDefaults.StartMenuMaxVisibleWindows;
 		PopulateWindowList(windowSystem, windowList);
 
@@ -456,7 +465,7 @@ public static class StartMenuDialog
 		var allLists = new List<ListControl>();
 
 		// Quick actions
-		var actionsList = new ListControl();
+		var actionsList = MenuList();
 		actionsList.AddItem(new ListItem("Change Theme..."));
 		actionsList.AddItem(new ListItem("Settings..."));
 		actionsList.ItemActivated += (_, item) =>
@@ -480,7 +489,7 @@ public static class StartMenuDialog
 		var perfRule = new RuleControl { Title = "Performance", BorderStyle = BorderStyle.Single };
 		panel.AddControl(perfRule);
 
-		var perfList = new ListControl();
+		var perfList = MenuList();
 		var metricsEnabled = windowSystem.Performance.IsPerformanceMetricsEnabled;
 		var frameLimitingEnabled = windowSystem.Performance.IsFrameRateLimitingEnabled;
 
@@ -511,7 +520,7 @@ public static class StartMenuDialog
 		var infoRule = new RuleControl { Title = "Info", BorderStyle = BorderStyle.Single };
 		panel.AddControl(infoRule);
 
-		var infoList = new ListControl();
+		var infoList = MenuList();
 		infoList.AddItem(new ListItem("About..."));
 		infoList.ItemActivated += (_, _) =>
 		{
@@ -530,7 +539,7 @@ public static class StartMenuDialog
 	private static void BuildPluginsContent(
 		ScrollablePanelControl panel, ConsoleWindowSystem windowSystem, StartMenuElement element)
 	{
-		var pluginList = new ListControl();
+		var pluginList = MenuList();
 		AddPluginItems(pluginList, windowSystem, element);
 		StyleListControl(pluginList, _dropBg, _dropFg, _dropHiBg, _dropHiFg);
 		panel.AddControl(pluginList);
@@ -540,7 +549,7 @@ public static class StartMenuDialog
 		ScrollablePanelControl panel, ConsoleWindowSystem windowSystem, StartMenuElement element)
 	{
 		var userActions = element.GetActions();
-		var actionList = new ListControl();
+		var actionList = MenuList();
 		foreach (var action in userActions.OrderBy(a => a.Order))
 		{
 			var callback = action.Callback;

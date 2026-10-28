@@ -20,6 +20,8 @@ ListControl displays a scrollable list of items with selection support. Users ca
 | `SelectedItem` | `ListItem?` | `null` | Currently selected item |
 | `MaxVisibleItems` | `int` | `10` | Number of visible items |
 | `MouseWheelScrollSpeed` | `int` | `ControlDefaults.DefaultScrollWheelLines` (1) | Items scrolled per mouse wheel notch; values below 1 clamp to 1 |
+| `ActivateOnSingleClick` | `bool` | `false` | One click activates as well as selects, for a list used as a menu |
+| `DoubleClickActivates` | `bool` | `true` | Whether a double click activates. Gates the double-click path only - turning it off does not make single clicks activate |
 | `IsEnabled` | `bool` | `true` | Enable/disable list |
 | `BackgroundColor` | `Color?` | `null` | Background color (uses theme if null) |
 | `ForegroundColor` | `Color?` | `null` | Text color (uses theme if null) |
@@ -116,9 +118,28 @@ window.AddControl(list);
 
 | Action | Result |
 |--------|--------|
-| **Left Click** | Select item and give focus |
-| **Double Click** | Activate item (fire ItemActivated) |
+| **Left Click** | Select item and give focus. Also activates when `ActivateOnSingleClick` is set |
+| **Double Click** | Activate item (fire `ItemActivated`), unless `ActivateOnSingleClick` is set - then the first click of the pair already did it |
 | **Scroll Wheel** | Scroll list up/down by `MouseWheelScrollSpeed` items |
+
+### Lists used as menus
+
+A list activates on a double click, which is right for a file list and wrong for a
+menu — nobody double clicks a start menu. Set `ActivateOnSingleClick` and one click
+both selects and activates:
+
+```csharp
+var menu = new ListControl { ActivateOnSingleClick = true };
+menu.ItemActivated += (_, item) => Run(item);
+```
+
+The two properties are independent, and the pairing is worth knowing:
+
+| `ActivateOnSingleClick` | `DoubleClickActivates` | Result |
+|---|---|---|
+| `false` | `true` (default) | Double click activates. A single click only selects |
+| `true` | either | One click activates. A double click still activates **once** |
+| `false` | `false` | Nothing activates by mouse; keyboard `Enter` still does |
 
 ## ListItem
 

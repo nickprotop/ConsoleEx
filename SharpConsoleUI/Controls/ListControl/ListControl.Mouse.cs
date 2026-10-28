@@ -75,6 +75,29 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// Gets or sets whether a single click activates an item.
+		/// Default: false.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// A list activates on a double click, which is right for a file list and
+		/// wrong for a menu - nobody double clicks a start menu. Turn this on and one
+		/// click both selects and activates.
+		/// </para>
+		/// <para>
+		/// Independent of <see cref="DoubleClickActivates"/>: that one gates the
+		/// double-click path, so turning it off does not make single clicks activate,
+		/// it makes nothing activate. With both on, a double click still activates
+		/// once - the second click lands on an item already activated by the first.
+		/// </para>
+		/// </remarks>
+		public bool ActivateOnSingleClick
+		{
+			get => _activateOnSingleClick;
+			set { _activateOnSingleClick = value; OnPropertyChanged(); }
+		}
+
+		/// <summary>
 		/// Gets or sets the double-click threshold in milliseconds.
 		/// </summary>
 		/// <remarks>
@@ -238,7 +261,21 @@ namespace SharpConsoleUI.Controls
 			}
 
 			// Handle double-click event from driver (preferred method)
-			if (!mouseOnScrollbar && args.HasFlag(MouseFlags.Button1DoubleClicked) && _doubleClickActivates)
+			// Not when a single click already activates: the recognizer reports the
+			// click on the release and the double on the next press, so both branches
+			// would fire and one double click would activate twice. Most specific
+			// gesture first is the rule; here the specific one has nothing to add,
+			// because the first click of the pair already did the work.
+			// A real double click delivers Button1Clicked TWICE - once on each
+			// release - with Button1DoubleClicked on the second press between them.
+			// In single-click mode the first release already activated, so the
+			// second must not. Remembered rather than timed: the recognizer owns
+			// the timing, and a clock here would be the second opinion that
+			// issue #92 was about.
+			if (args.HasFlag(MouseFlags.Button1DoubleClicked)) _swallowNextClick = true;
+
+			if (!mouseOnScrollbar && args.HasFlag(MouseFlags.Button1DoubleClicked)
+				&& _doubleClickActivates && !_activateOnSingleClick)
 			{
 				int clickedIndex = GetItemIndexAtRelativeY(relativeY);
 				if (clickedIndex >= 0)
@@ -291,13 +328,22 @@ namespace SharpConsoleUI.Controls
 							}
 						}
 
-						// A click selects, and only that. Activation belongs to the
-						// Button1DoubleClicked branch above: the recognizer is the one
-						// place that decides what a double click is, and a second
-						// clock here agreed with it only by accident - two double
-						// clicks in a row activated three times.
+						// A click selects. It activates too only when the list was
+						// asked to behave like a menu - and note there is still no
+						// clock here: the recognizer is the one place that decides
+						// what a double click is, and a second one agreed with it
+						// only by accident, which is how two double clicks in a row
+						// once activated three times.
 						SelectedIndex = clickedIndex;
 						MouseClick?.Invoke(this, args);
+
+						if (_activateOnSingleClick && _items[clickedIndex].IsEnabled
+							&& !_swallowNextClick)
+						{
+							ItemActivated?.Invoke(this, _items[clickedIndex]);
+						}
+
+						_swallowNextClick = false;
 
 						Invalidate(Invalidation.Relayout);
 					}
