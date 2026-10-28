@@ -59,6 +59,8 @@ public sealed class AnimationManager
 	/// </summary>
 	public void Update(TimeSpan deltaTime)
 	{
+		if (!_isEnabled) return;
+
 		var capped = deltaTime.TotalMilliseconds > AnimationDefaults.MaxFrameDeltaMs
 			? TimeSpan.FromMilliseconds(AnimationDefaults.MaxFrameDeltaMs)
 			: deltaTime;
@@ -148,10 +150,17 @@ public sealed class AnimationManager
 	/// <summary>
 	/// Adds a pre-built animation to the manager.
 	/// </summary>
+	/// <remarks>
+	/// Ignored while <see cref="IsEnabled"/> is false. Setting that false cancels
+	/// what is running, so accepting new ones would mean animations reappeared
+	/// after a user turned them off - which is not what turning them off means.
+	/// </remarks>
 	public void Add(IAnimation animation)
 	{
 		lock (_lock)
 		{
+			if (!_isEnabled) return;
+
 			if (_animations.Count >= AnimationDefaults.MaxConcurrentAnimations)
 				return;
 			_animations.Add(animation);

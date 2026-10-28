@@ -19,7 +19,7 @@ public class PerformanceElement : PanelElement, IDisposable
 {
 	private const int EstimatedWidth = 15;
 	private const int DefaultUpdateIntervalMs = 250;
-	private Timer? _timer;
+	private IDisposable? _schedule;
 	private bool _disposed;
 	private int _updateIntervalMs = DefaultUpdateIntervalMs;
 
@@ -30,7 +30,6 @@ public class PerformanceElement : PanelElement, IDisposable
 	public PerformanceElement(string? name = null)
 		: base(name ?? "performance")
 	{
-		StartTimer();
 	}
 
 	/// <summary>
@@ -97,20 +96,31 @@ public class PerformanceElement : PanelElement, IDisposable
 	{
 		if (!_disposed)
 		{
-			_timer?.Dispose();
-			_timer = null;
+			_schedule?.Dispose();
+			_schedule = null;
 			_disposed = true;
 		}
 	}
 
+	/// <inheritdoc/>
+	protected override void OnOwnerChanged()
+	{
+		RestartTimer();
+	}
+
 	private void StartTimer()
 	{
-		_timer = new Timer(_ => Invalidate(), null, _updateIntervalMs, _updateIntervalMs);
+		// Serviced by the frame, on the UI thread, rather than by a timer of this
+		// element's own on a pool thread. The old one kept ticking while the
+		// application was idle and read the machine clock rather than the system's.
+		_schedule = WindowSystem?.ScheduleRepaint(
+			TimeSpan.FromMilliseconds(_updateIntervalMs), Invalidate);
 	}
 
 	private void RestartTimer()
 	{
-		_timer?.Dispose();
+		_schedule?.Dispose();
+		_schedule = null;
 		if (!_disposed)
 		{
 			StartTimer();

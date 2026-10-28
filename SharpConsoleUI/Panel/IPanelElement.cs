@@ -79,6 +79,16 @@ public interface IPanelElement
 	void OnAttached(Panel panel);
 
 	/// <summary>
+	/// Called once the owning panel knows its window system.
+	/// </summary>
+	/// <remarks>
+	/// A panel is built before it is given a system, so <see cref="OnAttached"/> runs
+	/// while there is still nothing to reach. An element that needs the system - to
+	/// schedule a periodic repaint, say - acts here rather than there.
+	/// </remarks>
+	void OnOwnerReady();
+
+	/// <summary>
 	/// Called when this element is removed from a panel.
 	/// </summary>
 	void OnDetached();

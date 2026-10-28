@@ -27,7 +27,6 @@ public class DesktopBackgroundService : IDisposable
 	private int _width;
 	private int _height;
 	private DesktopBackgroundConfig? _config;
-	private System.Timers.Timer? _animationTimer;
 	private DateTime _animationStart;
 	private bool _disposed;
 	private readonly Func<ITheme> _getTheme;
@@ -71,10 +70,55 @@ public class DesktopBackgroundService : IDisposable
 	/// </summary>
 	/// <param name="getTheme">Accessor to get the current theme.</param>
 	/// <param name="onDesktopDirty">Callback to signal that the desktop needs a redraw.</param>
-	public DesktopBackgroundService(Func<ITheme> getTheme, Action onDesktopDirty)
+	/// <param name="animations">
+	/// Advances the background. Supplied rather than reached for through a system,
+	/// because this service deliberately holds no system reference.
+	/// </param>
+	public DesktopBackgroundService(
+		Func<ITheme> getTheme,
+		Action onDesktopDirty,
+		Animation.AnimationManager? animations = null)
 	{
 		_getTheme = getTheme ?? throw new ArgumentNullException(nameof(getTheme));
 		_onDesktopDirty = onDesktopDirty ?? throw new ArgumentNullException(nameof(onDesktopDirty));
+		_animations = animations;
+	}
+
+	private readonly Animation.AnimationManager? _animations;
+	private DesktopAnimation? _animation;
+
+	/// <summary>How far the background animation has advanced.</summary>
+	/// <remarks>
+	/// Animation time, not wall-clock: it accumulates the CAPPED deltas
+	/// <see cref="Animation.AnimationManager"/> hands out, so a busy loop cannot
+	/// run it fast and a stalled one cannot make it jump. Dragging a window
+	/// renders at full rate, and a background that redrew per frame visibly sped
+	/// up while the mouse moved.
+	/// </remarks>
+	public TimeSpan LastAnimationElapsed => _animation?.Elapsed ?? TimeSpan.Zero;
+
+	/// <summary>The desktop background, as something the animator can advance.</summary>
+	/// <remarks>
+	/// Never completes: a background runs for as long as it is configured, and is
+	/// removed by cancelling it rather than by finishing.
+	/// </remarks>
+	private sealed class DesktopAnimation : Animation.IAnimation
+	{
+		private readonly Action _onTick;
+
+		internal DesktopAnimation(Action onTick) => _onTick = onTick;
+
+		internal TimeSpan Elapsed { get; private set; }
+
+		public bool IsComplete { get; private set; }
+
+		public void Update(TimeSpan deltaTime)
+		{
+			Elapsed += deltaTime;
+			_onTick();
+		}
+
+		public void Cancel() => IsComplete = true;
 	}
 
 	/// <summary>
@@ -116,7 +160,7 @@ public class DesktopBackgroundService : IDisposable
 		// If PaintCallback is set, it takes full control
 		if (_config?.PaintCallback != null)
 		{
-			var elapsed = DateTime.UtcNow - _animationStart;
+			var elapsed = _animation?.Elapsed ?? TimeSpan.Zero;
 			_config.PaintCallback(_buffer, width, height, elapsed);
 			return;
 		}
@@ -228,11 +272,10 @@ public class DesktopBackgroundService : IDisposable
 		if (_config?.PaintCallback == null)
 			return;
 
-		_animationStart = DateTime.UtcNow;
-		_animationTimer = new System.Timers.Timer(_config.AnimationIntervalMs);
-		_animationTimer.Elapsed += OnAnimationTick;
-		_animationTimer.AutoReset = true;
-		_animationTimer.Start();
+		if (_animations == null) return;
+
+		_animation = new DesktopAnimation(MarkDesktopDirty);
+		_animations.Add(_animation);
 	}
 
 	/// <summary>
@@ -240,12 +283,10 @@ public class DesktopBackgroundService : IDisposable
 	/// </summary>
 	private void StopAnimationTimer()
 	{
-		if (_animationTimer != null)
+		if (_animation != null)
 		{
-			_animationTimer.Stop();
-			_animationTimer.Elapsed -= OnAnimationTick;
-			_animationTimer.Dispose();
-			_animationTimer = null;
+			_animations?.Cancel(_animation);
+			_animation = null;
 		}
 	}
 
@@ -255,7 +296,7 @@ public class DesktopBackgroundService : IDisposable
 	/// thread races with the render thread reading the buffer, causing tearing.
 	/// The render coordinator calls Render() synchronously before blitting.
 	/// </summary>
-	private void OnAnimationTick(object? sender, ElapsedEventArgs e)
+	private void MarkDesktopDirty()
 	{
 		if (_disposed || _width <= 0 || _height <= 0)
 			return;

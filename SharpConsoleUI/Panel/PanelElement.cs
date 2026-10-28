@@ -64,12 +64,30 @@ public abstract class PanelElement : IPanelElement
 	public void OnAttached(Panel panel)
 	{
 		Owner = panel;
+		OnOwnerChanged();
 	}
 
 	/// <inheritdoc/>
 	public void OnDetached()
 	{
 		Owner = null;
+		OnOwnerChanged();
+	}
+
+	/// <inheritdoc/>
+	public void OnOwnerReady() => OnOwnerChanged();
+
+	/// <summary>
+	/// Called when this element gains or loses its panel, or its panel gains a system.
+	/// </summary>
+	/// <remarks>
+	/// An element that repaints periodically starts its schedule here, not in its
+	/// constructor: <see cref="WindowSystem"/> is reached through the panel, so at
+	/// construction there is nothing to schedule against and the request is silently
+	/// dropped.
+	/// </remarks>
+	protected virtual void OnOwnerChanged()
+	{
 	}
 
 	/// <summary>

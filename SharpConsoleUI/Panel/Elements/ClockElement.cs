@@ -18,7 +18,7 @@ public class ClockElement : PanelElement, IDisposable
 {
 	private const int DefaultUpdateIntervalMs = 1000;
 	private string _format = "HH:mm";
-	private Timer? _timer;
+	private IDisposable? _schedule;
 	private int _updateIntervalMs = DefaultUpdateIntervalMs;
 	private bool _disposed;
 
@@ -29,7 +29,6 @@ public class ClockElement : PanelElement, IDisposable
 	public ClockElement(string? name = null)
 		: base(name ?? "clock")
 	{
-		StartTimer();
 	}
 
 	/// <summary>
@@ -95,20 +94,31 @@ public class ClockElement : PanelElement, IDisposable
 	{
 		if (!_disposed)
 		{
-			_timer?.Dispose();
-			_timer = null;
+			_schedule?.Dispose();
+			_schedule = null;
 			_disposed = true;
 		}
 	}
 
+	/// <inheritdoc/>
+	protected override void OnOwnerChanged()
+	{
+		RestartTimer();
+	}
+
 	private void StartTimer()
 	{
-		_timer = new Timer(_ => Invalidate(), null, _updateIntervalMs, _updateIntervalMs);
+		// Serviced by the frame, on the UI thread, rather than by a timer of this
+		// element's own on a pool thread. The old one kept ticking while the
+		// application was idle and read the machine clock rather than the system's.
+		_schedule = WindowSystem?.ScheduleRepaint(
+			TimeSpan.FromMilliseconds(_updateIntervalMs), Invalidate);
 	}
 
 	private void RestartTimer()
 	{
-		_timer?.Dispose();
+		_schedule?.Dispose();
+		_schedule = null;
 		if (!_disposed)
 		{
 			StartTimer();

@@ -100,6 +100,117 @@ namespace SharpConsoleUI
 		/// </remarks>
 		public bool PipedInputEnabled => _pipedInputOptions.Enabled;
 
+		#region Periodic repainting
+
+		/// <summary>A scheduled repaint, cancelled by disposing it.</summary>
+		private sealed class RepaintSchedule : IDisposable
+		{
+			internal TimeSpan Interval;
+			internal DateTime Due;
+			internal Action Callback = null!;
+			internal ConsoleWindowSystem? Owner;
+
+			public void Dispose()
+			{
+				var owner = Interlocked.Exchange(ref Owner, null);
+				owner?.RemoveRepaintSchedule(this);
+			}
+		}
+
+		private readonly List<RepaintSchedule> _repaintSchedules = new();
+		private readonly object _repaintLock = new();
+
+		/// <summary>
+		/// Asks to be called back roughly every <paramref name="interval"/>, on the UI
+		/// thread, so something can repaint itself periodically.
+		/// </summary>
+		/// <param name="interval">How often, at best. A frame is the finest resolution.</param>
+		/// <param name="callback">What to run. It is already on the UI thread.</param>
+		/// <returns>A handle; dispose it to stop.</returns>
+		/// <remarks>
+		/// <para>
+		/// This replaces a private <see cref="System.Threading.Timer"/> per widget. A
+		/// clock in a panel, an FPS readout, an indeterminate progress bar and an
+		/// animated desktop each had one, and each was a clock the system could not
+		/// see: it kept ticking when the application was idle, it read the machine
+		/// clock rather than <see cref="Time"/>, and it fired on a pool thread, so the
+		/// widget had to publish its state with <c>Interlocked</c> for the renderer to
+		/// read it safely.
+		/// </para>
+		/// <para>
+		/// The callback runs on the UI thread, between input and paint, so it may touch
+		/// control state directly. It is NOT a precise timer: a frame is the finest
+		/// resolution, and an application idle for a minute gets ONE catch-up call
+		/// rather than a minute's worth.
+		/// </para>
+		/// </remarks>
+		public IDisposable ScheduleRepaint(TimeSpan interval, Action callback)
+		{
+			ArgumentNullException.ThrowIfNull(callback);
+
+			if (interval <= TimeSpan.Zero)
+				throw new ArgumentOutOfRangeException(nameof(interval), "interval must be positive");
+
+			var schedule = new RepaintSchedule
+			{
+				Interval = interval,
+				Due = Time.GetUtcNow().UtcDateTime + interval,
+				Callback = callback,
+				Owner = this,
+			};
+
+			lock (_repaintLock) { _repaintSchedules.Add(schedule); }
+
+			return schedule;
+		}
+
+		private void RemoveRepaintSchedule(RepaintSchedule schedule)
+		{
+			lock (_repaintLock) { _repaintSchedules.Remove(schedule); }
+		}
+
+		/// <summary>
+		/// Runs whichever schedules are due. Called once per frame.
+		/// </summary>
+		/// <returns>True when at least one ran, so the caller knows to render.</returns>
+		/// <remarks>
+		/// A schedule that has fallen behind is moved to one interval from NOW rather
+		/// than caught up tick by tick: sixty missed seconds of a one-second clock is
+		/// one repaint, not sixty.
+		/// </remarks>
+		public bool ServiceRepaintSchedules()
+		{
+			RepaintSchedule[] due;
+			DateTime now = Time.GetUtcNow().UtcDateTime;
+
+			lock (_repaintLock)
+			{
+				if (_repaintSchedules.Count == 0) return false;
+
+				due = _repaintSchedules.Where(s => s.Due <= now).ToArray();
+
+				foreach (var schedule in due) schedule.Due = now + schedule.Interval;
+			}
+
+			foreach (var schedule in due)
+			{
+				try
+				{
+					schedule.Callback();
+				}
+				catch (Exception ex)
+				{
+					// One widget's bad repaint must not stop the loop or the others.
+					LogService?.LogError(
+						$"A scheduled repaint threw: {ex.Message}", ex, "Render");
+				}
+			}
+
+			return due.Length > 0;
+		}
+
+		#endregion
+
 		#region Settling
 
 		/// <summary>
@@ -560,9 +671,14 @@ namespace SharpConsoleUI
 			_desktopPortalService = new Core.DesktopPortalService(_logService, this);
 
 			// Initialize desktop background service
+			// Advanced by the animator, which hands out CAPPED deltas - so dragging a
+			// window, which renders at full rate, cannot make the background run
+			// fast, and a stalled loop cannot make it lurch. A plain per-frame
+			// repaint did exactly the first of those.
 			_desktopBackgroundService = new Core.DesktopBackgroundService(
 				() => Theme,
-				() => Render.DesktopNeedsRender = true);
+				() => Render.DesktopNeedsRender = true,
+				Animations);
 
 			if (options?.DesktopBackground != null)
 				_desktopBackgroundService.Config = options.DesktopBackground;
@@ -1409,6 +1525,11 @@ namespace SharpConsoleUI
 			_currentPhase = Core.MainLoopPhase.Drain;
 			DrainUIActionQueue();
 
+			// Periodic repaints, on the UI thread, between the queue and the paint.
+			// A widget that wants to redraw itself every N ms asks for this rather
+			// than running a timer of its own on a pool thread.
+			bool repaintDue = ServiceRepaintSchedules();
+
 			var now = DateTime.UtcNow;
 			var elapsed = (now - _lastRenderTime).TotalMilliseconds;
 
@@ -1447,7 +1568,7 @@ namespace SharpConsoleUI
 			Parsing.MarkupSpinnerClock.Tick(Animations.IsEnabled);
 
 			// Frame pacing: render if windows are dirty OR metrics need update OR desktop needs render OR animations active
-			bool shouldRender = AnyWindowDirty() || metricsNeedUpdate || Render.DesktopNeedsRender || Animations.HasActiveAnimations || Parsing.MarkupSpinnerClock.ShouldKeepRendering(Animations.IsEnabled) || Render.IsStatusBarDirty() || _desktopPortalService.AnyPortalDirty() || DragAutoScrollActive;
+			bool shouldRender = repaintDue || AnyWindowDirty() || metricsNeedUpdate || Render.DesktopNeedsRender || Animations.HasActiveAnimations || Parsing.MarkupSpinnerClock.ShouldKeepRendering(Animations.IsEnabled) || Render.IsStatusBarDirty() || _desktopPortalService.AnyPortalDirty() || DragAutoScrollActive;
 
 			// Calculate recommended sleep duration once (used in both branches)
 			var recommendedSleep = _inputStateService.GetRecommendedSleepDuration(

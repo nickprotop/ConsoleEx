@@ -11,7 +11,6 @@ using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Themes;
 using Size = System.Drawing.Size;
-using Timer = System.Timers.Timer;
 
 namespace SharpConsoleUI.Controls
 {
@@ -54,7 +53,7 @@ namespace SharpConsoleUI.Controls
 		private const char BAR_CHAR = '━'; // U+2501 - Box Drawings Heavy Horizontal
 
 		// Animation
-		private Timer? _animationTimer;
+		private IDisposable? _animationSchedule;
 		private int _animationInterval = 100;
 		private int _pulsePosition;
 		private int _pulseWidth = 5;
@@ -143,10 +142,10 @@ namespace SharpConsoleUI.Controls
 			{
 				_animationInterval = Math.Max(10, value);
 				OnPropertyChanged();
-				if (_animationTimer != null)
-				{
-					_animationTimer.Interval = _animationInterval;
-				}
+
+				// A schedule carries its interval, so changing it means asking for a
+				// new one rather than mutating a live timer.
+				if (_animationSchedule != null) StartAnimation();
 			}
 		}
 
@@ -265,6 +264,13 @@ namespace SharpConsoleUI.Controls
 					StopAnimation();
 
 				base.Container = value;
+
+				// And START it here rather than in IsIndeterminate's setter: a control
+				// is usually configured before it is added to a window, and until then
+				// there is no system to schedule the pulse against.
+				if (value != null && _isIndeterminate)
+					StartAnimation();
+
 				OnPropertyChanged();
 				Invalidate(Invalidation.Relayout);
 			}
@@ -472,8 +478,9 @@ namespace SharpConsoleUI.Controls
 		private void PaintIndeterminateBar(CharacterBuffer buffer, LayoutRect clipRect, LayoutRect bounds,
 			int startX, int y, int barWidth, Color filledColor, Color unfilledColor, Color bgColor)
 		{
-			// Read on the render thread; paired with Interlocked.Increment on the timer thread.
-			int pulseStart = Volatile.Read(ref _pulsePosition) % barWidth;
+			// Written and read on the same thread now that the pulse is advanced by a
+			// scheduled repaint rather than a pool timer, so no publication is needed.
+			int pulseStart = _pulsePosition % barWidth;
 
 			for (int i = 0; i < barWidth; i++)
 			{
@@ -522,37 +529,29 @@ namespace SharpConsoleUI.Controls
 
 		private void StartAnimation()
 		{
-			StopAnimation(); // Ensure no duplicate timers
+			// Not StopAnimation: that resets the pulse to the left edge, which would
+			// make a change of AnimationInterval visibly restart the animation.
+			_animationSchedule?.Dispose();
+			_animationSchedule = null;
 
-			_animationTimer = new Timer(_animationInterval);
-			_animationTimer.Elapsed += OnAnimationTick;
-			_animationTimer.AutoReset = true;
-			_animationTimer.Start();
+			// Serviced by the frame, on the UI thread, rather than by a timer of this
+			// control's own on a pool thread. _pulsePosition is therefore written and
+			// read by the same thread, which is why the Interlocked/Volatile pairing
+			// this used to need is gone.
+			_animationSchedule = Container?.GetConsoleWindowSystem?.ScheduleRepaint(
+				TimeSpan.FromMilliseconds(_animationInterval),
+				() =>
+				{
+					_pulsePosition++;
+					Invalidate(Invalidation.Repaint);
+				});
 		}
 
 		private void StopAnimation()
 		{
-			if (_animationTimer != null)
-			{
-				_animationTimer.Stop();
-				_animationTimer.Elapsed -= OnAnimationTick;
-				_animationTimer.Dispose();
-				_animationTimer = null;
-			}
+			_animationSchedule?.Dispose();
+			_animationSchedule = null;
 			_pulsePosition = 0;
-		}
-
-		private void OnAnimationTick(object? sender, ElapsedEventArgs e)
-		{
-			// Guard: don't update if disposed or no container
-			if (_animationTimer == null || Container == null) return;
-
-			// Runs on the System.Timers.Timer thread while the render thread reads _pulsePosition
-			// in PaintIndeterminateBar. Use Interlocked so the increment is atomic and publishes to
-			// the reader (which uses Volatile.Read) — plain ++ is an unsynchronized read/write race
-			// (CLAUDE.md rule #13). Only Invalidate is safe to call directly from a background thread.
-			Interlocked.Increment(ref _pulsePosition);
-			Invalidate(Invalidation.Repaint);
 		}
 
 		#endregion

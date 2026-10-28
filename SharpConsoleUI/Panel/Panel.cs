@@ -59,7 +59,31 @@ public class Panel
 	/// Gets or sets the console window system this panel belongs to.
 	/// Set by ConsoleWindowSystem when the panel is configured.
 	/// </summary>
-	internal ConsoleWindowSystem? WindowSystem { get; set; }
+	internal ConsoleWindowSystem? WindowSystem
+	{
+		get => _windowSystem;
+		set
+		{
+			if (ReferenceEquals(_windowSystem, value)) return;
+
+			_windowSystem = value;
+
+			// A panel is BUILT before it is given a system, so its elements were
+			// attached while there was nothing to reach. An element that repaints
+			// periodically needs telling now, or its schedule is never made.
+			foreach (var element in AllElements()) element.OnOwnerReady();
+		}
+	}
+
+	private ConsoleWindowSystem? _windowSystem;
+
+	/// <summary>Every element in this panel, in no particular order.</summary>
+	private IEnumerable<IPanelElement> AllElements()
+	{
+		foreach (var e in _left) yield return e;
+		foreach (var e in _center) yield return e;
+		foreach (var e in _right) yield return e;
+	}
 
 	/// <summary>
 	/// Gets the height of this panel (1 if visible, 0 if hidden).
