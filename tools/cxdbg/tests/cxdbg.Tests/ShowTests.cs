@@ -19,6 +19,7 @@ namespace Cxdbg.Tests;
 /// that pins whitespace breaks on every cosmetic change and teaches nothing
 /// about whether the output is right.
 /// </remarks>
+[Trait("Kind", "LiveApp")]
 public class ShowTests
 {
 	[Fact]
@@ -86,6 +87,7 @@ public class ShowTests
 /// raw and one formatted.
 /// </para>
 /// </remarks>
+[Trait("Kind", "LiveApp")]
 public class VerbTests
 {
 	[Fact]

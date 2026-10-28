@@ -18,6 +18,7 @@ namespace Cxdbg.Tests;
 /// Each test asserts the APPLICATION changed, not that cxdbg exited zero. A
 /// key that is accepted and goes nowhere exits zero too.
 /// </remarks>
+[Trait("Kind", "LiveApp")]
 public class SendTests
 {
 	private static string? FocusedControl(LiveAppFixture app)

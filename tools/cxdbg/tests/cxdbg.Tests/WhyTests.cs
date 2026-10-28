@@ -14,6 +14,7 @@ namespace Cxdbg.Tests;
 /// <summary>
 /// `why` — the cascades, against a real application.
 /// </summary>
+[Trait("Kind", "LiveApp")]
 public class WhyTests
 {
 	/// <summary>An id from the live tree, for an unnamed control of a given type.</summary>

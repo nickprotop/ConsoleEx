@@ -18,6 +18,7 @@ namespace Cxdbg.Tests;
 /// Runs the built binary rather than calling a command class. The deliverable
 /// is a tool that runs; a test that calls a class proves the class.
 /// </remarks>
+[Trait("Kind", "LiveApp")]
 public class PingTests
 {
 	[Fact]

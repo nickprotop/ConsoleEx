@@ -19,6 +19,7 @@ namespace Cxdbg.Tests;
 /// socket, attach - four steps a person should not have to do by hand every
 /// time. `run` does them.
 /// </remarks>
+[Trait("Kind", "LiveApp")]
 public class RunTests : IDisposable
 {
 	private readonly List<string> _sockets = new();

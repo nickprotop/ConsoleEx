@@ -14,6 +14,7 @@ namespace Cxdbg.Tests;
 /// <summary>
 /// Talking to a real application over its real socket.
 /// </summary>
+[Trait("Kind", "LiveApp")]
 public class DiagnosticsClientTests
 {
 	[Fact]

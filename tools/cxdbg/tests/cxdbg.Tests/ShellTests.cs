@@ -14,6 +14,7 @@ namespace Cxdbg.Tests;
 /// <summary>
 /// The prompt: a cxdbg&gt; on the socket, until you leave.
 /// </summary>
+[Trait("Kind", "LiveApp")]
 public class ShellTests
 {
 	/// <summary>Types these lines at the prompt and returns what it said.</summary>
