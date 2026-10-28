@@ -153,4 +153,49 @@ public class CompletionTests
 		Assert.Equal(expected, editor.CompleteForTest(typed));
 	}
 
+	[Fact]
+	public void WatchIsOfferedAsAFirstWord()
+	{
+		// It is cxdbg's own loop rather than a protocol verb, so nothing in the
+		// verb list would put it here.
+		Assert.Contains("watch", At("wat"));
+	}
+
+	[Fact]
+	public void AfterWatchComesAVerbToWatch()
+	{
+		var found = At("watch per");
+
+		Assert.Equal(["performance"], found);
+	}
+
+	[Fact]
+	public void AfterWatchAndItsVerbComeThatVerbsFields()
+	{
+		// `watch performance --` must offer performance's own fields, not
+		// watch's alone: completion has to look one word further along than
+		// usual, because the verb is in the second position here.
+		var found = At("watch performance --");
+
+		Assert.Contains("--reset", found);
+	}
+
+	[Fact]
+	public void WatchsOwnFieldsComeTooWhateverIsWatched()
+	{
+		var found = At("watch frame --");
+
+		Assert.Contains("--interval", found);
+		Assert.Contains("--count", found);
+	}
+
+	[Fact]
+	public void AVerbWithNoFieldsStillOffersWatchsOwn()
+	{
+		// `metrics` declares none. Offering nothing at all there would read as
+		// "watch takes no options", which is wrong.
+		var found = At("watch metrics --");
+
+		Assert.Contains("--interval", found);
+	}
 }

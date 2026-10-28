@@ -42,14 +42,40 @@ internal static class Completion
 
 		if (position <= 0) return Match(First(), word);
 
+		// `watch` takes a verb and then that verb's fields, so completion has to
+		// look one word further along: after `watch` comes a verb, and after
+		// `watch performance` come performance's fields plus watch's own.
+		if (string.Equals(words[0], "watch", StringComparison.OrdinalIgnoreCase))
+		{
+			if (position == 1) return Match(Watchable(), word);
+
+			return Match(Fields(words[1]).Concat(WatchFields), word);
+		}
+
 		return Match(Fields(words[0]), word);
+	}
+
+	/// <summary>`watch`'s own fields, which any watched verb also accepts.</summary>
+	private static readonly string[] WatchFields = ["--interval", "--count"];
+
+	/// <summary>The verbs worth watching: the ones that answer with a reading.</summary>
+	/// <remarks>
+	/// Every verb is offered - watching any of them is legal, and a verb this
+	/// build has never heard of still works - but the ones whose answer changes
+	/// on its own are what someone reaches for, so they come first.
+	/// </remarks>
+	private static IEnumerable<string> Watchable()
+	{
+		string[] live = ["performance", "metrics", "frame", "invalidations", "windows", "focus"];
+
+		return live.Concat(ProtocolVerbs.All.Select(v => v.Verb).Where(v => !live.Contains(v)));
 	}
 
 	/// <summary>Verbs, cxdbg's own commands, and the words that leave.</summary>
 	private static IEnumerable<string> First() =>
 		ProtocolVerbs.All.Select(v => v.Verb)
 			.Concat(Dots)
-			.Concat(["connect", "exit"]);
+			.Concat(["connect", "watch", "exit"]);
 
 	/// <summary>The fields a verb is known to take.</summary>
 	/// <remarks>

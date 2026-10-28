@@ -64,6 +64,7 @@ internal static class ShellCommand
 
 		try
 		{
+			ClearForSession();
 			Connected(client, socket);
 
 			while (true)
@@ -137,6 +138,18 @@ internal static class ShellCommand
 				// send, show, why - are a layer above it that lives in the CLI,
 				// so typing one here would otherwise reach the application as
 				// an unknown verb and get a list that does not explain why.
+				// Watching is cxdbg's own loop, not a protocol verb, but unlike
+				// send/show/why it makes sense at the prompt - more sense than on
+				// the command line, since the connection is already open. It
+				// borrows that connection rather than opening a second one, which
+				// the application would refuse.
+				if (words[0] == "watch")
+				{
+					WatchCommand.RunOn(client, words);
+					Console.WriteLine();
+					continue;
+				}
+
 				if (words[0] is "send" or "show" or "why")
 				{
 					AnsiConsole.MarkupLine(
@@ -150,6 +163,9 @@ internal static class ShellCommand
 				try
 				{
 					var typed = CommandLineParser.Parse(words);
+
+					Output.WarnAboutLikelyTypos(typed.Verb, typed.Fields.Keys);
+
 					var reply = client.Send(typed.Verb, typed.Fields);
 
 					// Kept whatever happens next: printed, held back, or
@@ -249,6 +265,29 @@ internal static class ShellCommand
 	}
 
 	/// <summary>Says which application the prompt is now talking to.</summary>
+	/// <summary>
+	/// Clears the screen as the prompt opens, so a session starts on a clean page.
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// A debugger is usually launched after a run of build output, and the first
+	/// thing wanted is the application's state, not the last compiler warning.
+	/// </para>
+	/// <para>
+	/// Scrollback is kept, not discarded: the screen is cleared and the cursor
+	/// homed, but what scrolled past is still there to scroll back to. Skipped
+	/// when the output is a pipe or a file, where a clear is a handful of escape
+	/// bytes at the top of a transcript and nothing else.
+	/// </para>
+	/// </remarks>
+	private static void ClearForSession()
+	{
+		if (Console.IsOutputRedirected) return;
+
+		try { AnsiConsole.Write("\u001b[H\u001b[2J"); }
+		catch (IOException) { /* a terminal that will not clear is not worth failing over */ }
+	}
+
 	private static void Connected(DiagnosticsClient client, string socket) =>
 		AnsiConsole.MarkupLine(
 			$"[green]connected[/] to pid {client.Pid} [dim]({Path.GetFileName(socket).EscapeMarkup()})[/]. "

@@ -79,6 +79,7 @@ internal static class Dispatch
 				"show" => ShowCommand.Execute(line),
 				"why" => WhyCommand.Execute(line),
 				"send" => SendCommand.Execute(line),
+				"watch" => WatchCommand.Execute(line),
 				_ => VerbCommand.Execute(line),
 			};
 		}
