@@ -33,6 +33,28 @@ namespace Cxdbg.Commands;
 /// </remarks>
 internal static class Output
 {
+	/// <summary>
+	/// Warns about a field that looks like a misspelling of one the verb takes.
+	/// </summary>
+	/// <remarks>
+	/// A warning, never a refusal. Unknown fields are passed through on purpose -
+	/// an application newer than its debugger reads fields this build has never
+	/// heard of - but that same tolerance means `--compose` for `--composed` is
+	/// accepted in silence and answers a different question, which is worse than
+	/// either refusing it or saying so.
+	/// </remarks>
+	internal static void WarnAboutLikelyTypos(string verb, IEnumerable<string> fields)
+	{
+		foreach (string typed in fields)
+		{
+			if (Commands.ProtocolVerbs.NearestField(verb, typed) is not { } meant) continue;
+
+			Spectre.Console.AnsiConsole.MarkupLine(
+				$"[yellow]'--{typed}' is not a field of '{verb}'; did you mean "
+				+ $"[blue]--{meant}[/]?[/] Sending it anyway.");
+		}
+	}
+
 	/// <summary>Renders a reply for a caller that said how it wants it.</summary>
 	/// <param name="verb">The verb that was sent.</param>
 	/// <param name="reply">What came back.</param>
@@ -87,6 +109,18 @@ internal static class Output
 						"cursorMovements", "dirtyCellsMarked", "cellsRendered"]),
 					("cost", ["layoutMs", "ansiMs", "outputMs"]),
 					("frame", ["frame", "efficiency", "staticFrame"]));
+
+			// The configured rate, what was achieved, where the time went, and what
+			// went on the wire - four questions, and a flat column of twenty
+			// numbers cannot say which answer belongs to which.
+			case "performance":
+				return Grouped(body, colour,
+					("rate", ["achievedFps", "targetFps", "minFrameMs", "bound", "frameRateLimiting"]),
+					("frame time", ["minMs", "meanMs", "p95Ms", "maxMs"]),
+					("cost per frame", ["layoutMs", "ansiMs", "outputMs", "compareMs", "busyPercent"]),
+					("wire", ["bytesPerSecond", "bytesWritten", "cellsRendered", "cellsMarked", "efficiency"]),
+					("window", ["frames", "totalFrames", "windowMs",
+						"clocksFrozen", "costNote", "note"]));
 
 			case "set":
 				return Grouped(body, colour,
@@ -474,6 +508,9 @@ internal static class Output
 		// One width for the whole reply, measured before anything is printed.
 		int width = scalars.Count > 0 ? scalars.Max(p => p.Key.Length) : 0;
 
+		// And one number column, for the same reason.
+		var column = Widths(scalars);
+
 		foreach (var (title, fields) in groups)
 		{
 			var mine = scalars.Where(p => fields.Contains(p.Key)).ToList();
@@ -483,7 +520,7 @@ internal static class Output
 			first = false;
 
 			sb.AppendLine(Rule(title, width));
-			sb.Append(Fields(mine, width));
+			sb.Append(Fields(mine, width, column));
 
 			foreach (var (name, _) in mine) shown.Add(name);
 		}
@@ -493,7 +530,7 @@ internal static class Output
 		if (rest.Count > 0)
 		{
 			if (!first) { sb.AppendLine(); sb.AppendLine(Rule("other", width)); }
-			sb.Append(Fields(rest, width));
+			sb.Append(Fields(rest, width, column));
 		}
 
 		sb.Append(Nested(body));
@@ -617,6 +654,63 @@ internal static class Output
 	/// A window title or a control's name is the APPLICATION's, and this
 	/// formatter uses the same bracket syntax for its own colours.
 	/// </remarks>
+	/// <summary>How wide the whole and fractional parts of a column need to be.</summary>
+	/// <remarks>
+	/// Non-numeric values are ignored rather than counted: "ModernGray" in a
+	/// column of frame times would set a width no number needs, and a theme name
+	/// does not line up on a decimal point anyway.
+	/// </remarks>
+	private static (int Whole, int Fraction) Widths(
+		List<KeyValuePair<string, JsonNode?>> scalars)
+	{
+		int whole = 0, fraction = 0;
+
+		foreach (var (name, value) in scalars)
+		{
+			string text = Number(name, value);
+
+			int mark = text.IndexOf(Deltas.Marker);
+			if (mark >= 0) text = text[..mark];
+
+			if (!double.TryParse(text,
+				System.Globalization.NumberStyles.Float,
+				System.Globalization.CultureInfo.InvariantCulture, out _)) continue;
+
+			int dot = text.IndexOf('.');
+
+			whole = Math.Max(whole, dot < 0 ? text.Length : dot);
+			fraction = Math.Max(fraction, dot < 0 ? 0 : text.Length - dot - 1);
+		}
+
+		return (whole, fraction);
+	}
+
+	/// <summary>A number padded so its decimal point sits in the column's place.</summary>
+	/// <remarks>
+	/// Anything that is not a number is returned untouched: padding a word to a
+	/// numeric column would indent it for no reason a reader could explain.
+	/// </remarks>
+	private static string Aligned(string text, (int Whole, int Fraction) column)
+	{
+		if (column.Whole == 0) return text;
+
+		if (!double.TryParse(text,
+			System.Globalization.NumberStyles.Float,
+			System.Globalization.CultureInfo.InvariantCulture, out _)) return text;
+
+		int dot = text.IndexOf('.');
+		int whole = dot < 0 ? text.Length : dot;
+
+		string lead = new(' ', Math.Max(0, column.Whole - whole));
+
+		// A whole number is padded on the right to where the fractions end, so
+		// the next column does not step left and right down the page.
+		if (dot < 0 && column.Fraction > 0)
+			return lead + text + new string(' ', column.Fraction + 1);
+
+		return lead + text;
+	}
+
 	private static string Escaped(string text) =>
 		text.Replace("[", "[[").Replace("]", "]]");
 
@@ -807,18 +901,51 @@ internal static class Output
 	/// output passes the width of EVERY group, so the value column does not step
 	/// left and right as the reader moves down past each rule.
 	/// </param>
-	private static string Fields(List<KeyValuePair<string, JsonNode?>> scalars, int width)
+	private static string Fields(List<KeyValuePair<string, JsonNode?>> scalars, int width,
+		(int Whole, int Fraction)? column = null)
 	{
 		if (scalars.Count == 0) return "ok\n";
 
 		if (width <= 0) width = scalars.Max(p => p.Key.Length);
 
+		// Numbers line up on the decimal point, so a column of them can be read
+		// down rather than one at a time. Grouped output passes the measurement
+		// for the WHOLE reply, exactly as it does the name width - measuring per
+		// group would make each group agree with itself and with nothing else.
+		var values = column ?? Widths(scalars);
+
 		var sb = new StringBuilder();
 
 		foreach (var (name, value) in scalars)
 		{
-			sb.Append($"[grey]{name.PadRight(width + 2)}[/]")
-			  .AppendLine($"[silver]{Escaped(Number(name, value))}[/]");
+			string text = Number(name, value);
+
+			// A watch marks "value<marker>change". The value keeps the colour
+			// every other value has and the change is dimmed beside it, so a
+			// column of numbers still scans as numbers rather than parentheses.
+			// Deliberately not green-up/red-down: faster is better, more bytes
+			// is not, and nothing here knows which way is good.
+			int mark = text.IndexOf(Deltas.Marker);
+
+			sb.Append($"[grey]{name.PadRight(width + 2)}[/]");
+
+			if (mark < 0)
+			{
+				sb.AppendLine($"[silver]{Escaped(Aligned(text, values))}[/]");
+				continue;
+			}
+
+			string number = text[..mark];
+			string change = text[(mark + 1)..];
+
+			// Nothing after the marker means it was asked and did not move. Dimmed
+			// to the colour of the labels, so a watch reads as a quiet page with
+			// the few numbers that changed standing out of it.
+			sb.Append(change.Length == 0
+				? $"[grey42]{Escaped(Aligned(number, values))}[/]"
+				: $"[silver]{Escaped(Aligned(number, values))}[/]");
+
+			sb.AppendLine(change.Length == 0 ? "" : $" [grey42]({Escaped(change)})[/]");
 		}
 
 		return sb.ToString();
