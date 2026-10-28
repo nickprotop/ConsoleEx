@@ -94,6 +94,28 @@ internal static class KeySpec
 		return new List<ConsoleKeyInfo> { new(named.KeyChar, named.Key, shift, alt, ctrl) };
 	}
 
+	/// <summary>
+	/// The name this table knows a key by, for writing a spec back out.
+	/// </summary>
+	/// <param name="key">The key.</param>
+	/// <returns>Its canonical name, or null when it has none here.</returns>
+	/// <remarks>
+	/// Read from the same table that parses a spec, so what the event tape
+	/// shows can be sent back to the <c>key</c> verb verbatim. A second list
+	/// of names would be a second thing to keep in step, and would drift the
+	/// first time one gained an alias.
+	/// </remarks>
+	internal static string? NameOf(ConsoleKey key)
+	{
+		foreach (var (name, pair) in Named)
+		{
+			// The first spelling wins: Escape before its alias Esc.
+			if (pair.Key == key) return name;
+		}
+
+		return null;
+	}
+
 	private static ConsoleKeyInfo Literal(char ch)
 	{
 		var key = char.IsLetter(ch) ? (ConsoleKey)char.ToUpperInvariant(ch)

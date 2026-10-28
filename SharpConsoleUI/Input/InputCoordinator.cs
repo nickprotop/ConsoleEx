@@ -86,6 +86,13 @@ namespace SharpConsoleUI.Input
 			{
 				var keyInfo = key.Value;
 
+				// Taped here, where a key enters the dispatch, for the same
+				// reason a pointing event is taped after the recognizer: this
+				// is the thing the controls actually see. Without it `events`
+				// answered half the question - a control that never received a
+				// key and one that mishandled it look identical from outside.
+				RecordKey(keyInfo);
+
 				// A CAPTURING desktop portal takes the keyboard while open: its content gets the key first
 				// (nav / type-ahead / Enter), a key it does NOT consume falls through to global shortcuts
 				// so app-level shortcuts still work, and Escape closes it. The portal then consumes the
@@ -213,10 +220,14 @@ namespace SharpConsoleUI.Input
 		}
 
 		/// <summary>One dispatched input event, as the controls saw it.</summary>
-		/// <param name="Flags">The flags after the recognizer added its gestures.</param>
-		/// <param name="X">Screen column.</param>
-		/// <param name="Y">Screen row.</param>
-		public readonly record struct TapeEntry(string Flags, int X, int Y);
+		/// <param name="Flags">
+		/// For a pointing event, the flags after the recognizer added its
+		/// gestures. For a key, the key as a person would write it.
+		/// </param>
+		/// <param name="X">Screen column, or -1 for a key.</param>
+		/// <param name="Y">Screen row, or -1 for a key.</param>
+		/// <param name="Kind">"key" or "mouse", so a reader need not guess.</param>
+		public readonly record struct TapeEntry(string Flags, int X, int Y, string Kind = "mouse");
 
 		/// <summary>How many events the tape keeps before dropping the oldest.</summary>
 		/// <remarks>
@@ -239,6 +250,41 @@ namespace SharpConsoleUI.Input
 		/// handler reads, and a tape of what the terminal said would hide the
 		/// thing that actually reaches them.
 		/// </remarks>
+		private void RecordKey(ConsoleKeyInfo key)
+		{
+			if (!RecordEvents) return;
+
+			lock (_tapeLock)
+			{
+				if (_tape.Count >= TapeLimit) _tape.Dequeue();
+				_tape.Enqueue(new TapeEntry(Spell(key), -1, -1, "key"));
+			}
+		}
+
+		/// <summary>A key as a person would write it, in tmux notation.</summary>
+		/// <remarks>
+		/// The same spelling the <c>key</c> verb accepts, so what the tape
+		/// shows can be sent back verbatim to reproduce it.
+		/// </remarks>
+		private static string Spell(ConsoleKeyInfo key)
+		{
+			// From the table that PARSES a spec, so the two cannot disagree:
+			// the tape used to say "DownArrow", which the key verb does not
+			// take, and the promise that a taped key can be replayed was only
+			// true for the ones that happened to match.
+			string name = Diagnostics.Socket.KeySpec.NameOf(key.Key)
+				?? (key.KeyChar >= ' ' && !char.IsControl(key.KeyChar)
+					? key.KeyChar.ToString()
+					: key.Key.ToString());
+
+			if ((key.Modifiers & ConsoleModifiers.Control) != 0) name = "C-" + name;
+			if ((key.Modifiers & ConsoleModifiers.Alt) != 0) name = "M-" + name;
+			if ((key.Modifiers & ConsoleModifiers.Shift) != 0
+				&& name.Length > 1) name = "S-" + name;
+
+			return name;
+		}
+
 		private void RecordEvent(List<MouseFlags> flags, Point point)
 		{
 			if (!RecordEvents) return;
@@ -794,6 +840,36 @@ namespace SharpConsoleUI.Input
 		private Window? GetWindowAtPoint(Point point)
 		{
 			return _context.GetWindowAtPoint(point);
+		}
+
+		/// <summary>
+		/// What a point belongs to, as a click would decide it.
+		/// </summary>
+		/// <param name="point">A screen point.</param>
+		/// <returns>The window there, if any, and which part of it.</returns>
+		/// <remarks>
+		/// Answered from the same three methods a press uses -
+		/// <see cref="GetWindowAtPoint"/>, <see cref="GetResizeDirection"/> and
+		/// <see cref="IsInTitleBar"/> - and in the order a press asks them, so
+		/// the answer IS the click's answer. A second implementation walking
+		/// the layout tree would report what should be under the point rather
+		/// than what a click will find there, and the gap between those two is
+		/// the bug this is meant to expose.
+		/// </remarks>
+		internal (Window? Window, string Region, ResizeDirection Resize) ClassifyPoint(Point point)
+		{
+			var window = GetWindowAtPoint(point);
+			if (window == null) return (null, "desktop", ResizeDirection.None);
+
+			// Resize first, then title, then the rest is client - the order the
+			// press handler tries them, which is what decides a corner that is
+			// also title bar.
+			var resize = GetResizeDirection(window, point);
+			if (resize != ResizeDirection.None) return (window, "resize", resize);
+
+			if (IsInTitleBar(window, point)) return (window, "title", ResizeDirection.None);
+
+			return (window, "client", ResizeDirection.None);
 		}
 
 		#endregion

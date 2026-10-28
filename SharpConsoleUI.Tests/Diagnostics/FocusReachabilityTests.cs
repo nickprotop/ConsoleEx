@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Diagnostics.Socket;
 using SharpConsoleUI.Drivers;
 using Xunit;
 
@@ -137,6 +138,56 @@ namespace SharpConsoleUI.Tests.FocusReach
 
 			Assert.Contains("outer", reachable);
 			Assert.Contains("inner", reachable);
+		}
+
+		[Fact]
+		public void EachStopCarriesTheIdThatCanBeHandedBack()
+		{
+			// A Tab stop you cannot name is a Tab stop you cannot act on. The
+			// reply carried Name ?? TypeName, so an UNNAMED control - which is
+			// most of them - came back as a bare type, and `focusctl` cannot
+			// find a type once an application has two of them.
+			var (system, window) = Build();
+
+			window.AddControl(new ButtonControl { Text = "One" });
+			window.AddControl(new ButtonControl { Text = "Two" });
+			window.RenderAndGetVisibleContent();
+
+			var stops = DiagnosticsServer.ReachableForTest(window)["stops"]!.AsArray();
+
+			Assert.Equal(2, stops.Count);
+
+			// Two controls of one type, told apart.
+			string first = stops[0]!["id"]!.GetValue<string>();
+			string second = stops[1]!["id"]!.GetValue<string>();
+
+			Assert.NotEqual(first, second);
+
+			// And each finds its own control.
+			Assert.NotNull(DiagnosticsServer.FindControlForTest(window, first));
+			Assert.NotNull(DiagnosticsServer.FindControlForTest(window, second));
+		}
+
+		[Fact]
+		public void FocusNamesControlsTheWayOtherVerbsAcceptThem()
+		{
+			// `focus` said which control has the keyboard, in a spelling no
+			// other verb could take: an unnamed control came back as a bare
+			// type, and a named one as Type#name, which `control` does not
+			// find either. Knowing what has focus is only useful if you can
+			// then ask about it.
+			var (system, window) = Build();
+
+			window.AddControl(new ButtonControl { Text = "One" });
+			window.AddControl(new ButtonControl { Text = "Two" });
+			window.RenderAndGetVisibleContent();
+
+			window.FocusManager.MoveFocus(backward: false);
+
+			string? focused = DiagnosticsSerializer.Focus(system)["focused"]?.GetValue<string>();
+
+			Assert.NotNull(focused);
+			Assert.NotNull(DiagnosticsServer.FindControlForTest(window, focused!));
 		}
 	}
 }

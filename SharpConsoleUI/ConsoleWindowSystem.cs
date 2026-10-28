@@ -479,14 +479,20 @@ namespace SharpConsoleUI
 				Render,
 				() => this);
 
-			// Initialize diagnostics BEFORE driver.Initialize() so driver can connect them
-			if (_options.EnableDiagnostics)
-			{
-				_renderingDiagnostics = new Diagnostics.RenderingDiagnostics(_options);
+			// Initialize diagnostics BEFORE driver.Initialize() so driver can connect them.
+			//
+			// The recorder always exists; the option decides whether it starts
+			// ENABLED (its constructor reads EnableDiagnostics). The cost that
+			// made diagnostics opt-in is per frame, not per object - every
+			// capture path returns immediately when IsEnabled is false - so an
+			// app that never asks pays for one small object and nothing else,
+			// while an app that IS misbehaving can be switched on over the
+			// socket instead of being restarted, which is the one thing that
+			// loses the state you wanted to look at.
+			_renderingDiagnostics = new Diagnostics.RenderingDiagnostics(_options);
 
-				// The input tape, for the same reason: off unless asked for.
-				Input.RecordEvents = true;
-			}
+			// The input tape, for the same reason: off unless asked for.
+			Input.RecordEvents = _options.EnableDiagnostics;
 
 			// NOW initialize driver with 'this' reference (after services and diagnostics exist)
 			_consoleDriver.Initialize(this);

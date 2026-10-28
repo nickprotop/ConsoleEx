@@ -127,6 +127,217 @@ internal static class DiagnosticsSerializer
 		};
 	}
 
+	/// <summary>
+	/// What is under a point on the screen.
+	/// </summary>
+	/// <param name="system">The window system.</param>
+	/// <param name="x">Screen column.</param>
+	/// <param name="y">Screen row.</param>
+	/// <returns>Everything that point belongs to, outermost first.</returns>
+	/// <remarks>
+	/// <para>
+	/// The inspector: you are looking at a screenshot, something is wrong
+	/// THERE, and you have coordinates rather than a name. <c>control</c>
+	/// answers "tell me about X"; this answers "what is X".
+	/// </para>
+	/// <para>
+	/// Layered on purpose. The interesting answer is often not the topmost
+	/// thing - "the click does nothing" is usually "you are hitting the window
+	/// border, not the button", which only shows when the reply names both. A
+	/// point with no control is a real answer, not an error.
+	/// </para>
+	/// <para>
+	/// The window and the region come from the input coordinator, which is the
+	/// code a press runs. Walking the layout tree here instead would report
+	/// what SHOULD be under the point rather than what a click will find, and
+	/// the gap between those is exactly what this verb exists to show.
+	/// </para>
+	/// </remarks>
+	internal static JsonObject Inspect(ConsoleWindowSystem system, int x, int y)
+	{
+		var point = new System.Drawing.Point(x, y);
+
+		var o = new JsonObject
+		{
+			["x"] = x,
+			["y"] = y,
+		};
+
+		// What the SCREEN says is there, beside what layout says. When the two
+		// disagree, the disagreement is the bug.
+		if (ComposedCell(system, x, y) is { } cell) o["cell"] = cell;
+
+		var (window, region, resize) = system.Input.ClassifyPoint(point);
+
+		o["region"] = region;
+		if (resize != ResizeDirection.None) o["resize"] = resize.ToString();
+
+		if (window == null)
+		{
+			// Bare desktop, or a panel row above or below it.
+			o["region"] = Chrome(system, y) ?? region;
+			o["window"] = null;
+			o["control"] = null;
+			return o;
+		}
+
+		o["window"] = new JsonObject
+		{
+			["title"] = window.Title,
+			["id"] = window.Guid,
+			["bounds"] = Rect(window.Left, window.Top, window.Width, window.Height),
+			["active"] = window == system.WindowStateService.ActiveWindow,
+			["movable"] = window.IsMovable,
+			["resizable"] = window.IsResizable,
+		};
+
+		// The control a click would reach, through the window's own dispatch.
+		var control = window.GetContentFromDesktopCoordinates(point);
+
+		o["control"] = control == null
+			? null
+			: Control(window, ControlId(control));
+
+		// Windows under this point that lost. A modal eating clicks, or a
+		// window hidden behind another, is invisible without this.
+		var covered = new JsonArray();
+		foreach (var other in system.WindowStateService.GetWindowsByZOrder())
+		{
+			if (other == window) continue;
+			if (!Covers(other, system, x, y)) continue;
+
+			covered.Add((JsonNode?)new JsonObject
+			{
+				["title"] = other.Title,
+				["modal"] = system.ModalStateService.IsModal(other),
+			});
+		}
+
+		o["covered"] = covered;
+
+		return o;
+	}
+
+	/// <summary>Whether a window's rectangle contains a screen point.</summary>
+	private static bool Covers(Window window, ConsoleWindowSystem system, int x, int y)
+	{
+		int top = window.Top + system.DesktopUpperLeft.Y;
+
+		return x >= window.Left && x < window.Left + window.Width
+			&& y >= top && y < top + window.Height;
+	}
+
+	/// <summary>The desktop's own chrome at a row, when the row is chrome.</summary>
+	private static string? Chrome(ConsoleWindowSystem system, int y)
+	{
+		if (y < system.DesktopUpperLeft.Y) return "topPanel";
+
+		var size = system.ConsoleDriver.ScreenSize;
+		int bottom = system.Render.GetBottomStatusHeight();
+
+		return bottom > 0 && y >= size.Height - bottom ? "bottomPanel" : null;
+	}
+
+	/// <summary>One cell of the composed desktop, when there is one to read.</summary>
+	private static JsonObject? ComposedCell(ConsoleWindowSystem system, int x, int y)
+	{
+		var surface = system.ComposedSurface();
+		if (surface == null) return null;
+
+		if (y < 0 || y >= surface.Height || x < 0 || x >= surface.Width) return null;
+
+		var cell = surface[x, y];
+
+		return new JsonObject
+		{
+			["ch"] = cell.IsWideContinuation ? null : cell.Character.ToString(),
+			["cont"] = cell.IsWideContinuation ? true : null,
+			["fg"] = Rgb(cell.Foreground),
+			["bg"] = Rgb(cell.Background),
+		};
+	}
+
+	/// <summary>
+	/// One control: what it is, where it sits, and what contains it.
+	/// </summary>
+	/// <param name="window">The window to look in.</param>
+	/// <param name="nameOrId">Its name, or the id <c>tree</c> reports.</param>
+	/// <returns>The control, or null when the window has no such thing.</returns>
+	/// <remarks>
+	/// <para>
+	/// The same shape <c>tree</c> gives a node, so there is no second
+	/// description of a control to keep in step - plus the chain of containers
+	/// above it, which is the part a node alone cannot carry and the reason
+	/// the whole tree was being fetched to answer one question.
+	/// </para>
+	/// <para>
+	/// No children: this answers about ONE control. A caller wanting the
+	/// subtree asks <c>tree</c>, which is the verb for that.
+	/// </para>
+	/// </remarks>
+	internal static JsonObject? Control(Window window, string nameOrId)
+	{
+		var root = window.Renderer?.RootLayoutNode;
+		if (root == null) return null;
+
+		var found = Find(root, nameOrId, new List<LayoutNode>());
+		if (found == null) return null;
+
+		var (node, parents) = found.Value;
+
+		// Depth 0, so Node returns the control without walking into it.
+		var o = Node(node, 0, 0, includeProps: true);
+
+		// Node says how many children it stopped at, which is for a reader of
+		// `tree` deciding whether to ask deeper. This verb answers about one
+		// control on purpose, so the count is an answer to a question nobody
+		// asked here.
+		o.Remove("childrenElided");
+
+		var chain = new JsonArray();
+		foreach (var parent in parents)
+		{
+			chain.Add((JsonNode?)new JsonObject
+			{
+				["control"] = parent.Control?.GetType().Name ?? "(root)",
+				["id"] = parent.Control is { } c ? ControlId(c) : null,
+				["layout"] = parent.Layout?.GetType().Name,
+				["bounds"] = Rect(parent.Bounds),
+			});
+		}
+
+		// Outermost first, the way a cascade reads: following it down is
+		// following the offer as it narrows.
+		o["parents"] = chain;
+		o["window"] = window.Title;
+
+		return o;
+	}
+
+	/// <summary>The node for a control, and every node above it.</summary>
+	private static (LayoutNode Node, List<LayoutNode> Parents)? Find(
+		LayoutNode node, string nameOrId, List<LayoutNode> above)
+	{
+		// Name, id, or bare type. The type is what `tree` shows and what a
+		// reader types first, and `measure` already accepts it - a verb that
+		// took one spelling and not the others would be the odd one out.
+		if (node.Control is { } c
+			&& (string.Equals(c.Name, nameOrId, StringComparison.Ordinal)
+				|| string.Equals(ControlId(c), nameOrId, StringComparison.Ordinal)
+				|| string.Equals(c.GetType().Name, nameOrId, StringComparison.Ordinal)))
+		{
+			return (node, above);
+		}
+
+		foreach (var child in node.Children)
+		{
+			var hit = Find(child, nameOrId, [.. above, node]);
+			if (hit != null) return hit;
+		}
+
+		return null;
+	}
+
 	private static JsonObject Node(LayoutNode node, int depth, int maxDepth, bool includeProps)
 	{
 		var o = new JsonObject
@@ -209,26 +420,53 @@ internal static class DiagnosticsSerializer
 
 		return new JsonObject
 		{
-			["desktop"] = new JsonObject
-			{
-				["width"] = size.Width,
-				["height"] = size.Height,
-
-				// The offset that makes a window's y differ from its screen row. Taken
-				// from DesktopUpperLeft rather than counted from the panels, because
-				// that is the value the hit-testing itself uses.
-				["originX"] = system.DesktopUpperLeft.X,
-				["originY"] = system.DesktopUpperLeft.Y,
-				["topPanelRows"] = topRows,
-				["bottomPanelRows"] = bottomRows,
-				["desktopBottom"] = size.Height - bottomRows - 1,
-
-				["theme"] = system.Theme?.GetType().Name,
-				["windows"] = system.WindowStateService.GetWindowsByZOrder().Count,
-				["modals"] = system.ModalStateService.HasModals,
-				["portals"] = system.DesktopPortalService.HasPortals,
-			},
+			["desktop"] = DesktopInfo(system),
 			["windows"] = windows,
+		};
+	}
+
+	/// <summary>
+	/// The desktop itself: its size, where it starts, and what is on it.
+	/// </summary>
+	/// <param name="system">The window system.</param>
+	/// <remarks>
+	/// <para>
+	/// One definition, used by the <c>desktop</c> verb and by the block inside
+	/// a <c>tree</c> reply, so the two cannot drift.
+	/// </para>
+	/// <para>
+	/// A verb of its own because the questions are first-class: is a modal up,
+	/// is a portal eating my clicks, where does the desktop start. They lived
+	/// inside <c>tree</c>, which nothing advertised and whose formatter dropped
+	/// them - so there was no way to ask that worked.
+	/// </para>
+	/// </remarks>
+	internal static JsonObject DesktopInfo(ConsoleWindowSystem system)
+	{
+		var size = system.ConsoleDriver.ScreenSize;
+
+		int topRows = system.PanelStateService.ShowTopPanel ? 1 : 0;
+		int bottomRows = system.PanelStateService.ShowBottomPanel ? 1 : 0;
+
+		return new JsonObject
+		{
+			["width"] = size.Width,
+			["height"] = size.Height,
+
+			// The offset that makes a window's y differ from its screen row. Taken
+			// from DesktopUpperLeft rather than counted from the panels, because
+			// that is the value the hit-testing itself uses.
+			["originX"] = system.DesktopUpperLeft.X,
+			["originY"] = system.DesktopUpperLeft.Y,
+			["topPanelRows"] = topRows,
+			["bottomPanelRows"] = bottomRows,
+			["desktopBottom"] = size.Height - bottomRows - 1,
+
+			["theme"] = ThemeName(system),
+			["windows"] = system.WindowStateService.GetWindowsByZOrder().Count,
+			["modals"] = system.ModalStateService.HasModals,
+			["portals"] = system.DesktopPortalService.HasPortals,
+			["driver"] = system.ConsoleDriver.GetType().Name,
 		};
 	}
 
@@ -283,12 +521,15 @@ internal static class DiagnosticsSerializer
 		var fm = window.FocusManager;
 		var chain = new JsonArray { (JsonNode)$"Window:{window.Title}" };
 		foreach (var c in fm.FocusPath)
-			chain.Add((JsonNode)Describe(c));
+			chain.Add((JsonNode)ControlId(c));
 
 		return new JsonObject
 		{
 			["window"] = window.Title,
-			["focused"] = fm.FocusedControl is IWindowControl f ? Describe(f) : null,
+			// ControlId, not a description: knowing what has focus is only
+			// useful if you can then ask about it, and this is the spelling
+			// every other verb accepts.
+			["focused"] = fm.FocusedControl is IWindowControl f ? ControlId(f) : null,
 			["chain"] = chain,
 		};
 	}
@@ -325,8 +566,6 @@ internal static class DiagnosticsSerializer
 			? $"{c.GetType().Name}#{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(c):x}"
 			: c.Name!;
 
-	private static string Describe(IWindowControl c) =>
-		string.IsNullOrEmpty(c.Name) ? c.GetType().Name : $"{c.GetType().Name}#{c.Name}";
 
 	#endregion
 
@@ -413,9 +652,6 @@ internal static class DiagnosticsSerializer
 	internal static JsonObject Themes(ConsoleWindowSystem system)
 	{
 		var themes = new JsonArray();
-		string? current = null;
-
-		string typeName = system.Theme.GetType().Name;
 
 		foreach (var info in system.ThemeRegistryService.GetAvailableThemes())
 		{
@@ -424,23 +660,54 @@ internal static class DiagnosticsSerializer
 				["name"] = info.Name,
 				["description"] = info.Description,
 			});
-
-			// The registry's name, not the type's: the registry calls it
-			// "ModernGray" and the class is ModernGrayTheme, so reporting the
-			// type leaves a picker unable to match the current theme against
-			// the list it was given.
-			if (typeName.Equals(info.Name, StringComparison.Ordinal)
-				|| typeName.Equals(info.Name + "Theme", StringComparison.Ordinal))
-			{
-				current = info.Name;
-			}
 		}
 
 		return new JsonObject
 		{
-			["theme"] = current ?? typeName,
+			["theme"] = ThemeName(system),
 			["themes"] = themes,
 		};
+	}
+
+	/// <summary>What to call the theme an application is wearing.</summary>
+	/// <param name="system">The window system.</param>
+	/// <returns>The registry's name for it, or the type's when it has none.</returns>
+	/// <remarks>
+	/// The registry's name, not the type's: the registry calls it "ModernGray"
+	/// and the class is ModernGrayTheme. Every verb that mentions a theme calls
+	/// this, because reporting the type in one and the registry name in another
+	/// leaves a caller unable to tell whether the theme changed - and a picker
+	/// unable to match the current theme against the list it was given.
+	/// </remarks>
+	internal static string ThemeName(ConsoleWindowSystem system)
+	{
+		// The theme's own name first. The registry stamps the registered name
+		// onto what it builds, precisely so a switched theme can be recognised
+		// - and a theme built from a palette is a MutableTheme whose TYPE says
+		// nothing, which is what `theme --name Ocean` then reported back.
+		string? named = system.Theme.Name;
+
+		foreach (var info in system.ThemeRegistryService.GetAvailableThemes())
+		{
+			if (string.Equals(named, info.Name, StringComparison.Ordinal)) return info.Name;
+		}
+
+		// Otherwise the type, mapped back to a registry name where it matches:
+		// a theme class registered as "ModernGray" is ModernGrayTheme.
+		string typeName = system.Theme.GetType().Name;
+
+		foreach (var info in system.ThemeRegistryService.GetAvailableThemes())
+		{
+			if (typeName.Equals(info.Name, StringComparison.Ordinal)
+				|| typeName.Equals(info.Name + "Theme", StringComparison.Ordinal))
+			{
+				return info.Name;
+			}
+		}
+
+		// A theme nobody registered: its own name beats the class it happens
+		// to be an instance of.
+		return string.IsNullOrEmpty(named) || named == "Custom" ? typeName : named;
 	}
 
 	/// <summary>A window's painted buffer as cells.</summary>
@@ -659,10 +926,10 @@ internal static class DiagnosticsSerializer
 			return new JsonObject
 			{
 				["code"] = DiagnosticsServer.ErrorCode.DiagnosticsDisabled,
-				["error"] = "no metrics: this app runs with EnableDiagnostics off, so the "
-					+ "renderer records nothing. Start it with "
-					+ "ConsoleWindowSystemOptions.EnableDiagnostics: true, or use "
-					+ "{\"cmd\":\"set\",\"diagnostics\":true} if the recorder exists but is paused.",
+				["error"] = "no metrics yet: the renderer records them only while "
+					+ "diagnostics are enabled. Turn them on with "
+					+ "{\"cmd\":\"set\",\"diagnostics\":true} and ask again after the "
+					+ "next frame.",
 			};
 
 		return new JsonObject

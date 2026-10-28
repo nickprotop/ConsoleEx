@@ -163,5 +163,83 @@ namespace SharpConsoleUI.Tests.EventTaping
 
 			Assert.Empty(system.Input.ConsumeEventTape());
 		}
+
+		[Fact]
+		public void TheTapeRecordsKeysToo()
+		{
+			// `events` answers "what was the application told", and a keyboard
+			// application is told mostly keys. The tape recorded only pointing
+			// events, so the verb could answer half the question - and a
+			// control that never received a key looked exactly like one that
+			// mishandled it.
+			var (system, _) = Build();
+
+			system.Input.ConsumeEventTape();
+
+			system.InputStateService.EnqueueKey(
+				new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false));
+			system.Input.ProcessInput();
+
+			var tape = system.Input.ConsumeEventTape();
+
+			Assert.Single(tape);
+			Assert.Equal("key", tape[0].Kind);
+			Assert.Equal("Tab", tape[0].Flags);
+		}
+
+		[Theory]
+		[InlineData(ConsoleKey.DownArrow, "Down")]
+		[InlineData(ConsoleKey.Escape, "Escape")]
+		[InlineData(ConsoleKey.PageUp, "PageUp")]
+		[InlineData(ConsoleKey.F5, "F5")]
+		public void ATapedKeyIsSpelledTheWayTheKeyVerbTakesIt(ConsoleKey key, string spelled)
+		{
+			// The tape said "DownArrow", which `key --spec DownArrow` refuses.
+			// Replaying what the tape shows is the point of taping it, so the
+			// spelling comes from the table that parses a spec.
+			var (system, _) = Build();
+
+			system.Input.ConsumeEventTape();
+			system.InputStateService.EnqueueKey(new ConsoleKeyInfo('\0', key, false, false, false));
+			system.Input.ProcessInput();
+
+			Assert.Equal(spelled, system.Input.ConsumeEventTape()[0].Flags);
+
+			// And it round-trips: what was written can be parsed back.
+			var back = SharpConsoleUI.Diagnostics.Socket.KeySpec.Parse(spelled, out _);
+			Assert.NotNull(back);
+			Assert.Equal(key, back![0].Key);
+		}
+
+		[Fact]
+		public void AKeyIsTapedTheWayItCanBeSentBack()
+		{
+			// tmux notation, the same spelling the `key` verb takes, so what
+			// the tape shows can be replayed verbatim.
+			var (system, _) = Build();
+
+			system.Input.ConsumeEventTape();
+
+			system.InputStateService.EnqueueKey(
+				new ConsoleKeyInfo('\u0003', ConsoleKey.C, false, false, control: true));
+			system.Input.ProcessInput();
+
+			Assert.Equal("C-C", system.Input.ConsumeEventTape()[0].Flags);
+		}
+
+		[Fact]
+		public void AKeyHasNoPointAndDoesNotPretendTo()
+		{
+			// 0,0 would read as the top-left corner of the screen.
+			var (system, _) = Build();
+
+			system.Input.ConsumeEventTape();
+
+			system.InputStateService.EnqueueKey(
+				new ConsoleKeyInfo('a', ConsoleKey.A, false, false, false));
+			system.Input.ProcessInput();
+
+			Assert.Equal(-1, system.Input.ConsumeEventTape()[0].X);
+		}
 	}
 }

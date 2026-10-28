@@ -89,8 +89,14 @@ public class DiagnosticsInfrastructureTests
 		// Act
 		window.RenderAndGetVisibleContent();
 
-		// Assert
-		Assert.Null(system.RenderingDiagnostics);
+		// Assert - nothing was captured. The recorder itself always EXISTS, so
+		// that a misbehaving app can be switched on over the diagnostics socket
+		// instead of being restarted; what "disabled" means is that it is off
+		// and records nothing, which is what this asserts.
+		Assert.NotNull(system.RenderingDiagnostics);
+		Assert.False(system.RenderingDiagnostics!.IsEnabled);
+		Assert.Null(system.RenderingDiagnostics.LastAnsiSnapshot);
+		Assert.Null(system.RenderingDiagnostics.LastMetrics);
 	}
 
 	[Fact]

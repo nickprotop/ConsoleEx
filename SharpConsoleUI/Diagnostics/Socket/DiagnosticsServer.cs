@@ -215,7 +215,7 @@ internal sealed class DiagnosticsServer : IDisposable
 
 	private JsonObject DispatchVerb(JsonObject req)
 	{
-		string cmd = req["cmd"]?.GetValue<string>() ?? "";
+		string cmd = Text(req, "cmd") ?? "";
 
 		return cmd switch
 		{
@@ -245,6 +245,9 @@ internal sealed class DiagnosticsServer : IDisposable
 			"frame" => Ok(new JsonObject { ["frame"] = _system.ConsoleDriver.FrameNumber }),
 			"invalidations" => Ok(Invalidations()),
 			"reachable" => Ok(Reachable()),
+			"desktop" => Ok(DiagnosticsSerializer.DesktopInfo(_system)),
+			"control" => Ok(Control(req)),
+			"inspect" => Ok(Inspect(req)),
 			"measure" => Ok(Measure(req)),
 			"color" => Ok(ColorCascade(req)),
 			"events" => Ok(Events()),
@@ -266,8 +269,9 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// setter fires in a loop looks exactly like one repainting because its data
 	/// changed.
 	/// <para>
-	/// Empty unless the app was started with <c>EnableDiagnostics</c>, since
-	/// recording sits on a lock-free hot path.
+	/// Empty unless diagnostics are enabled, since recording sits on a
+	/// lock-free hot path. They can be turned on over the socket with
+	/// <c>{"cmd":"set","diagnostics":true}</c>.
 	/// </para>
 	/// </remarks>
 	private JsonObject Invalidations()
@@ -345,10 +349,17 @@ internal sealed class DiagnosticsServer : IDisposable
 		{
 			foreach (var control in window.FocusManager.ReachableControls())
 			{
+				// The id, not just a name that may not exist. A Tab stop you
+				// cannot name is one you cannot hand to focusctl, and most
+				// controls are unnamed - which made every stop of a repeated
+				// type indistinguishable from its siblings.
 				stops.Add((JsonNode?)new JsonObject
 				{
 					["control"] = (control as IWindowControl)?.Name
 						?? control.GetType().Name,
+					["id"] = control is IWindowControl c
+						? DiagnosticsSerializer.ControlId(c)
+						: null,
 					["type"] = control.GetType().Name,
 				});
 			}
@@ -377,9 +388,63 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// leaf in the window.
 	/// </para>
 	/// </remarks>
+	/// <summary>
+	/// What one control is, where it sits, and what contains it.
+	/// </summary>
+	/// <param name="req">The request, carrying <c>control</c> and optionally <c>window</c>.</param>
+	/// <remarks>
+	/// Four verbs took a control before this one and all four acted on it or
+	/// explained one axis of it. Reading what a control IS meant asking for the
+	/// whole tree with props and walking it client-side - a reply that grows
+	/// with the application, to answer one question about one control.
+	/// </remarks>
+	private JsonObject Control(JsonNode? req)
+	{
+		string? name = Text(req, "control");
+		if (string.IsNullOrEmpty(name))
+			return ErrorBody("control needs a name or the id `tree` reports, as \"control\".");
+
+		// The same resolution every window-scoped verb uses: a named window, or
+		// the active one.
+		var window = ResolveWindow(req?.AsObject() ?? new JsonObject(), out string? err);
+		if (window == null) return ErrorBody(err!);
+
+		var found = DiagnosticsSerializer.Control(window, name);
+
+		// Named rather than silently empty: a typo and a control that is really
+		// not there read the same otherwise, and the first is likelier.
+		return found ?? ErrorBody(
+			$"no control '{name}' in '{window.Title}'. `tree` lists what is there.");
+	}
+
+	/// <summary>
+	/// What is under a point on the screen.
+	/// </summary>
+	/// <param name="req">The request, carrying <c>x</c> and <c>y</c>.</param>
+	/// <remarks>
+	/// The inspector's question. <c>control</c> needs a name; this needs only
+	/// coordinates, which is what you have when you are looking at a
+	/// screenshot and something is wrong there.
+	/// </remarks>
+	private JsonObject Inspect(JsonNode? req)
+	{
+		int? x = req?["x"]?.GetValue<int>();
+		int? y = req?["y"]?.GetValue<int>();
+
+		if (x == null || y == null)
+			return ErrorBody("inspect needs a point: \"x\" and \"y\".");
+
+		// Marshalled: hit-testing reads window bounds and the layout tree, and
+		// the render thread writes both.
+		JsonObject? answer = null;
+		Marshal(() => answer = DiagnosticsSerializer.Inspect(_system, x.Value, y.Value));
+
+		return answer ?? ErrorBody("could not read that point.");
+	}
+
 	private JsonObject Measure(JsonNode? req)
 	{
-		string? only = req?["control"]?.GetValue<string>();
+		string? only = Text(req, "control");
 
 		var window = _system.WindowStateService.ActiveWindow;
 		if (window == null)
@@ -429,6 +494,7 @@ internal sealed class DiagnosticsServer : IDisposable
 				{
 					["layout"] = link.Layout,
 					["control"] = link.Control,
+					["id"] = link.Id,
 					["offeredWidth"] = link.MaxWidth,
 					["offeredHeight"] = link.MaxHeight,
 					["setsWidth"] = i == entry.DecidedBy.Width,
@@ -439,6 +505,7 @@ internal sealed class DiagnosticsServer : IDisposable
 			controls.Add((JsonNode?)new JsonObject
 			{
 				["control"] = entry.Control,
+				["id"] = entry.Id,
 				["offeredWidth"] = entry.MaxWidth,
 				["offeredHeight"] = entry.MaxHeight,
 				["desiredWidth"] = entry.DesiredWidth,
@@ -470,11 +537,11 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// </remarks>
 	private JsonObject ColorCascade(JsonNode? req)
 	{
-		string roleName = req?["role"]?.GetValue<string>() ?? nameof(ColorRole.Primary);
+		string roleName = Text(req, "role") ?? nameof(ColorRole.Primary);
 		if (!Enum.TryParse<ColorRole>(roleName, ignoreCase: true, out var role))
 			return Error($"unknown role '{roleName}'", null);
 
-		string stateName = req?["state"]?.GetValue<string>() ?? nameof(ColorRoleState.Normal);
+		string stateName = Text(req, "state") ?? nameof(ColorRoleState.Normal);
 		if (!Enum.TryParse<ColorRoleState>(stateName, ignoreCase: true, out var state))
 			return Error($"unknown state '{stateName}'", null);
 
@@ -523,8 +590,8 @@ internal sealed class DiagnosticsServer : IDisposable
 	private JsonObject Events()
 	{
 		// An empty tape and a tape that was never running look the same, and the
-		// second is the likelier one: a probe asking an app that was started
-		// without EnableDiagnostics would otherwise read "no input happened".
+		// second is the likelier one: a probe asking an app whose recording is
+		// off would otherwise read "no input happened".
 		if (!_system.Input.RecordEvents)
 		{
 			return new JsonObject
@@ -532,7 +599,7 @@ internal sealed class DiagnosticsServer : IDisposable
 				["recording"] = false,
 				["count"] = 0,
 				["events"] = new JsonArray(),
-				["hint"] = "start the app with EnableDiagnostics to record input",
+				["hint"] = "turn recording on with {\"cmd\":\"set\",\"diagnostics\":true}",
 			};
 		}
 
@@ -540,12 +607,20 @@ internal sealed class DiagnosticsServer : IDisposable
 
 		foreach (var entry in _system.Input.ConsumeEventTape())
 		{
-			events.Add((JsonNode?)new JsonObject
+			var taped = new JsonObject
 			{
+				["kind"] = entry.Kind,
 				["flags"] = entry.Flags,
-				["x"] = entry.X,
-				["y"] = entry.Y,
-			});
+			};
+
+			// A key has no point, and 0,0 would read as the top-left corner.
+			if (entry.X >= 0)
+			{
+				taped["x"] = entry.X;
+				taped["y"] = entry.Y;
+			}
+
+			events.Add((JsonNode?)taped);
 		}
 
 		return new JsonObject
@@ -581,6 +656,9 @@ internal sealed class DiagnosticsServer : IDisposable
 		"theme", "window", "frame",
 			"invalidations",
 			"reachable",
+			"desktop",
+			"control",
+			"inspect",
 			"measure",
 			"color",
 			"events", "ping", "commands",
@@ -598,7 +676,7 @@ internal sealed class DiagnosticsServer : IDisposable
 		// column, rather than what the row says. Text cannot carry it - both writers
 		// drop continuation cells and fold combining marks into the character before
 		// them - so a caller whose columns do not add up has to ask for cells.
-		string? format = req["format"]?.GetValue<string>();
+		string? format = Text(req, "format");
 
 		bool cells = string.Equals(format, "cells", StringComparison.OrdinalIgnoreCase);
 
@@ -716,7 +794,7 @@ internal sealed class DiagnosticsServer : IDisposable
 	{
 		// "format": "png" (default) | "tga" | "jpeg"
 		Surfaces.ImageFormat format;
-		string name = req["format"]?.GetValue<string>()?.ToLowerInvariant() ?? "png";
+		string name = Text(req, "format")?.ToLowerInvariant() ?? "png";
 		switch (name)
 		{
 			case "png": format = Surfaces.ImageFormat.Png; break;
@@ -740,9 +818,9 @@ internal sealed class DiagnosticsServer : IDisposable
 
 		int ch = req["cellHeight"]?.GetValue<int>() ?? 16;
 		int cw = req["cellWidth"]?.GetValue<int>() ?? 0;   // 0 = take the font's advance
-		string? path = req["path"]?.GetValue<string>();
+		string? path = Text(req, "path");
 		bool wantGlyphs = req["glyphs"]?.GetValue<bool>() ?? true;
-		string? fontPath = req["font"]?.GetValue<string>();
+		string? fontPath = Text(req, "font");
 
 		// Load the font FIRST: a monospace advance decides the cell width, so the image
 		// geometry depends on it. Without glyphs, fall back to a plain 8-wide cell.
@@ -751,7 +829,7 @@ internal sealed class DiagnosticsServer : IDisposable
 		if (wantGlyphs)
 		{
 			// "fontSource": "automatic" (default) | "embedded" | "strict" | "file"
-			var fontSource = req["fontSource"]?.GetValue<string>()?.ToLowerInvariant() switch
+			var fontSource = Text(req, "fontSource")?.ToLowerInvariant() switch
 			{
 				"embedded" => Surfaces.FontSource.Embedded,
 				"strict" => Surfaces.FontSource.Strict,
@@ -883,24 +961,23 @@ internal sealed class DiagnosticsServer : IDisposable
 		var changed = new JsonArray();
 
 		// Render diagnostics: the per-frame deep copy that composed snapshots and metrics
-		// need. Costly, so it stays opt-in - but once the object exists it can be paused
-		// and resumed, which is exactly what a debugging session wants.
+		// need. Costly per frame, so it starts off unless the app asked for it - but the
+		// recorder always exists, so it can be resumed and paused mid-session, which is
+		// exactly what a debugging session wants and what a misbehaving app can no longer
+		// refuse.
 		var diag = _system.RenderingDiagnostics;
-		if (req["diagnostics"]?.GetValue<bool>() is { } wantDiag)
+		if (diag != null && req["diagnostics"]?.GetValue<bool>() is { } wantDiag
+			&& diag.IsEnabled != wantDiag)
 		{
-			if (diag == null)
-			{
-				return ErrorBody(
-					"this app was built with EnableDiagnostics: false, so no diagnostics " +
-					"recorder exists to switch on. It is fixed at construction. Per-window " +
-					"snapshot and png need no diagnostics and work regardless.");
-			}
+			diag.IsEnabled = wantDiag;
 
-			if (diag.IsEnabled != wantDiag)
-			{
-				diag.IsEnabled = wantDiag;
-				changed.Add((JsonNode?)JsonValue.Create("diagnostics"));
-			}
+			// The input tape goes with it. "Diagnostics" is one switch to the
+			// person flipping it, and a render recorder that came on while the
+			// tape stayed off left `events` answering "not recording" and
+			// pointing at the command that had just been run.
+			_system.Input.RecordEvents = wantDiag;
+
+			changed.Add((JsonNode?)JsonValue.Create("diagnostics"));
 		}
 
 		// Log capture, and its level floor. Raising the floor mid-run is the cheapest way
@@ -912,7 +989,7 @@ internal sealed class DiagnosticsServer : IDisposable
 			changed.Add((JsonNode?)JsonValue.Create("logging"));
 		}
 
-		if (req["logLevel"]?.GetValue<string>() is { } levelName)
+		if (Text(req, "logLevel") is { } levelName)
 		{
 			if (!Enum.TryParse<Logging.LogLevel>(levelName, true, out var level))
 			{
@@ -939,12 +1016,13 @@ internal sealed class DiagnosticsServer : IDisposable
 		var body = new JsonObject
 		{
 			["diagnostics"] = diag?.IsEnabled,
+			["recordingInput"] = _system.Input.RecordEvents,
 			["diagnosticsAvailable"] = diag != null,
 			["layers"] = diag?.EnabledLayers.ToString(),
 			["logging"] = _system.LogService is Logging.LogService l3 ? l3.IsEnabled : null,
 			["logLevel"] = _system.LogService is Logging.LogService l4 ? l4.MinimumLevel.ToString() : null,
 			["logCount"] = _system.LogService is Logging.LogService l5 ? l5.Count : null,
-			["theme"] = _system.Theme.GetType().Name,
+			["theme"] = DiagnosticsSerializer.ThemeName(_system),
 			["changed"] = changed,
 		};
 
@@ -960,7 +1038,7 @@ internal sealed class DiagnosticsServer : IDisposable
 		// window names it; nothing is guessed on their behalf, because a tree that
 		// silently picks one of several windows looks authoritative and may be the
 		// wrong one.
-		string? id = req["window"]?.GetValue<string>();
+		string? id = Text(req, "window");
 		if (string.IsNullOrEmpty(id))
 			return DiagnosticsSerializer.Desktop(_system, depth, props);
 
@@ -976,9 +1054,9 @@ internal sealed class DiagnosticsServer : IDisposable
 	private JsonObject Logs(JsonObject req) => DiagnosticsSerializer.Logs(
 		_system,
 		req["count"]?.GetValue<int>() ?? 50,
-		req["level"]?.GetValue<string>(),
-		req["category"]?.GetValue<string>(),
-		req["contains"]?.GetValue<string>());
+		Text(req, "level"),
+		Text(req, "category"),
+		Text(req, "contains"));
 
 	#endregion
 
@@ -999,7 +1077,7 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// </remarks>
 	private JsonObject Key(JsonObject req)
 	{
-		string spec = req["spec"]?.GetValue<string>() ?? "";
+		string spec = Text(req, "spec") ?? "";
 		if (spec.Length == 0) return ErrorBody("key requires 'spec', e.g. \"Down\", \"C-c\", \"abc\"");
 
 		var keys = KeySpec.Parse(spec, out string? parseError);
@@ -1031,8 +1109,8 @@ internal sealed class DiagnosticsServer : IDisposable
 		int? y = req["y"]?.GetValue<int>();
 		if (x == null || y == null) return ErrorBody("mouse requires 'x' and 'y'");
 
-		string button = req["button"]?.GetValue<string>() ?? "left";
-		string action = req["action"]?.GetValue<string>() ?? "click";
+		string button = Text(req, "button") ?? "left";
+		string action = Text(req, "action") ?? "click";
 
 		var flags = MouseFlagsFor(button, action, out string? flagError);
 		if (flags == null) return ErrorBody(flagError!);
@@ -1166,7 +1244,7 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// </summary>
 	private JsonObject FocusControl(JsonObject req)
 	{
-		string name = req["name"]?.GetValue<string>() ?? "";
+		string name = Text(req, "name") ?? "";
 		if (name.Length == 0) return ErrorBody("focusctl requires 'name'");
 
 		var window = ResolveWindow(req, out string? err);
@@ -1192,7 +1270,7 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// </remarks>
 	private JsonObject Invoke(JsonObject req)
 	{
-		string name = req["name"]?.GetValue<string>() ?? "";
+		string name = Text(req, "name") ?? "";
 		if (name.Length == 0) return ErrorBody("invoke requires 'name'");
 
 		var window = ResolveWindow(req, out string? err);
@@ -1211,7 +1289,7 @@ internal sealed class DiagnosticsServer : IDisposable
 
 	private JsonObject Theme(JsonObject req)
 	{
-		string name = req["name"]?.GetValue<string>() ?? "";
+		string name = Text(req, "name") ?? "";
 
 		// With no name it is a question rather than an instruction, which is
 		// how a caller finds out what it may ask for.
@@ -1278,7 +1356,7 @@ internal sealed class DiagnosticsServer : IDisposable
 	private Window? ResolveWindow(JsonObject req, out string? error)
 	{
 		error = null;
-		string? id = req["window"]?.GetValue<string>();
+		string? id = Text(req, "window");
 
 		if (string.IsNullOrEmpty(id))
 		{
@@ -1407,7 +1485,28 @@ internal sealed class DiagnosticsServer : IDisposable
 		=> ResolveMeasureKey(window, nameOrId);
 
 
+	/// <summary>Exposes the reachable walk for tests, without a server.</summary>
+	internal static JsonObject ReachableForTest(Window window)
+	{
+		var stops = new JsonArray();
+
+		foreach (var control in window.FocusManager.ReachableControls())
+		{
+			stops.Add((JsonNode?)new JsonObject
+			{
+				["control"] = (control as IWindowControl)?.Name ?? control.GetType().Name,
+				["id"] = control is IWindowControl c ? DiagnosticsSerializer.ControlId(c) : null,
+				["type"] = control.GetType().Name,
+			});
+		}
+
+		return new JsonObject { ["stops"] = stops };
+	}
+
 	/// <summary>Exposes <see cref="FindByName"/> for tests.</summary>
+	/// <summary>Reads one request field as text, for a test.</summary>
+	internal static string? TextForTest(JsonNode? req, string field) => Text(req, field);
+
 	internal static IWindowControl? FindControlForTest(Window window, string nameOrId)
 		=> FindByName(window, nameOrId);
 
@@ -1481,6 +1580,35 @@ internal sealed class DiagnosticsServer : IDisposable
 		/// here, so a client should disable the feature rather than retry.
 		/// </summary>
 		internal const string DiagnosticsDisabled = "diagnostics_disabled";
+	}
+
+	/// <summary>One field of a request, as text, whatever JSON type it arrived as.</summary>
+	/// <param name="req">The request.</param>
+	/// <param name="field">Which field.</param>
+	/// <returns>The value as text, or null when the field is absent or empty.</returns>
+	/// <remarks>
+	/// <para>
+	/// GetValue&lt;string&gt; THROWS on a JSON value that is not a string, and the
+	/// handler's catch turns that into the reply - so `measure --control` with the
+	/// value left off answered "InvalidOperationException: An element of type 'True'
+	/// cannot be converted to a 'System.String'", which tells a person nothing about
+	/// the request they got wrong.
+	/// </para>
+	/// <para>
+	/// A field is read for what it says, not for how it was typed. A bare flag that
+	/// should have carried a value arrives as true and now reads as "true", which
+	/// matches no control and produces the verb's own "no control matched" - the
+	/// right answer, from the right place.
+	/// </para>
+	/// </remarks>
+	private static string? Text(JsonNode? req, string field)
+	{
+		var value = req?[field];
+		if (value is not JsonValue v) return null;
+
+		string? text = v.TryGetValue(out string? s) ? s : v.ToJsonString().Trim('"');
+
+		return string.IsNullOrEmpty(text) ? null : text;
 	}
 
 	private static JsonObject ErrorBody(string message, string? code = null)
