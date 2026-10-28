@@ -176,7 +176,8 @@ public class ComposedSurfaceTests
 		public void FillCells(int x, int y, int width, char character, Color fg, Color bg) { }
 
 		public void WriteBufferRegion(int destX, int destY, SharpConsoleUI.Layout.CharacterBuffer source,
-			int srcX, int srcY, int width, Color fallbackBg) { }
+			int srcX, int srcY, int width, Color fallbackBg)
+		{ }
 
 		public int GetDirtyCharacterCount() => 0;
 

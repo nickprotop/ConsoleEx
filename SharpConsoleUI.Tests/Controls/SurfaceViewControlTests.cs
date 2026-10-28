@@ -8,8 +8,8 @@
 
 using System.Collections.Generic;
 using SharpConsoleUI.Controls;
-using SharpConsoleUI.Layout;
 using SharpConsoleUI.Helpers;
+using SharpConsoleUI.Layout;
 using SharpConsoleUI.Parsing;
 using Spectre.Console;
 using Xunit;
@@ -151,6 +151,37 @@ namespace SharpConsoleUI.Tests.Controls
 
 			Assert.Equal(6, view.SurfaceWidth);
 			Assert.Equal(2, view.SurfaceHeight);
+		}
+
+		[Fact]
+		public void AnExplicitSizeOutranksTheSurface()
+		{
+			// Without this a view's desired size is whatever it was last handed,
+			// so a pane showing a surface that changes size is relaid out every
+			// time the surface does - which is a flicker, not a resize. A pane
+			// that knows how big it wants the view says so once.
+			var view = new SurfaceViewControl { Width = 20, Height = 5 };
+			view.SetSurface(Rows("ABCDEF", "GHI"));
+
+			var size = view.MeasureDOM(new LayoutConstraints(0, 100, 0, 100));
+
+			Assert.Equal(20, size.Width);
+			Assert.Equal(5, size.Height);
+		}
+
+		[Fact]
+		public void AnExplicitSizeSurvivesTheSurfaceChanging()
+		{
+			// The point of setting it: a new surface of a different size must not
+			// move the view.
+			var view = new SurfaceViewControl { Width = 20, Height = 5 };
+			view.SetSurface(Rows("ABCDEF", "GHI"));
+			view.SetSurface(Rows("A", "B", "C", "D", "E", "F", "G"));
+
+			var size = view.MeasureDOM(new LayoutConstraints(0, 100, 0, 100));
+
+			Assert.Equal(20, size.Width);
+			Assert.Equal(5, size.Height);
 		}
 	}
 }

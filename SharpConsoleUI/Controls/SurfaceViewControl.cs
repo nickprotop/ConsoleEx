@@ -187,16 +187,23 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public override LayoutSize MeasureDOM(LayoutConstraints constraints)
 		{
-			// The surface's own size is the natural size, so a view in a
-			// scrolling parent asks for the whole thing and a stretched one
-			// takes what it is offered.
-			int contentW = HorizontalAlignment == Layout.HorizontalAlignment.Stretch
-				? constraints.MaxWidth - Margin.Left - Margin.Right
-				: SurfaceWidth;
+			// An explicit size wins, as everywhere else in the library: the
+			// surface's size is someone else's screen and changes whenever it
+			// does, so a caller that wants the view to hold still says so and
+			// is obeyed.
+			//
+			// Failing that, the surface's own size is the natural size, so a
+			// view in a scrolling parent asks for the whole thing and a
+			// stretched one takes what it is offered.
+			int contentW = Width
+				?? (HorizontalAlignment == Layout.HorizontalAlignment.Stretch
+					? constraints.MaxWidth - Margin.Left - Margin.Right
+					: SurfaceWidth);
 
-			int contentH = VerticalAlignment == Layout.VerticalAlignment.Fill
-				? constraints.MaxHeight - Margin.Top - Margin.Bottom
-				: SurfaceHeight;
+			int contentH = Height
+				?? (VerticalAlignment == Layout.VerticalAlignment.Fill
+					? constraints.MaxHeight - Margin.Top - Margin.Bottom
+					: SurfaceHeight);
 
 			return new LayoutSize(
 				Math.Clamp(contentW + Margin.Left + Margin.Right,

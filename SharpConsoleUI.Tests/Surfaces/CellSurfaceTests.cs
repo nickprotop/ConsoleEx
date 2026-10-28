@@ -302,7 +302,10 @@ public class CellSurfaceTests
 		var surface = new TestSurface(MakeBuffer("hi", Fg, Bg, width: 4, height: 2));
 		byte[] tga = surface.ToImage(new ExportOptions
 		{
-			Format = ImageFormat.Tga, CellHeight = 8, CellWidth = 4, Glyphs = false,
+			Format = ImageFormat.Tga,
+			CellHeight = 8,
+			CellWidth = 4,
+			Glyphs = false,
 		});
 
 		// TGA header: width and height are little-endian 16-bit at offsets 12 and 14.
@@ -317,7 +320,10 @@ public class CellSurfaceTests
 		var surface = new TestSurface(MakeBuffer("hi", Fg, Bg, width: 4, height: 2));
 		byte[] jpg = surface.ToImage(new ExportOptions
 		{
-			Format = ImageFormat.Jpeg, CellHeight = 8, CellWidth = 4, Glyphs = false,
+			Format = ImageFormat.Jpeg,
+			CellHeight = 8,
+			CellWidth = 4,
+			Glyphs = false,
 		});
 
 		Assert.True(jpg.Length > 0);
@@ -375,7 +381,10 @@ public class CellSurfaceTests
 		var surface = new TestSurface(MakeBuffer("quality matters here", Fg, Bg, width: 24, height: 6));
 		var options = new ExportOptions
 		{
-			Format = ImageFormat.Jpeg, CellHeight = 16, CellWidth = 8, Glyphs = false,
+			Format = ImageFormat.Jpeg,
+			CellHeight = 16,
+			CellWidth = 8,
+			Glyphs = false,
 		};
 
 		Assert.True(

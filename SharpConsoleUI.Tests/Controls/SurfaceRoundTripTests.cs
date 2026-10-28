@@ -12,9 +12,9 @@ using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Parsing;
 using SharpConsoleUI.Surfaces;
-using Cell = SharpConsoleUI.Layout.Cell;
 using Spectre.Console;
 using Xunit;
+using Cell = SharpConsoleUI.Layout.Cell;
 
 namespace SharpConsoleUI.Tests.Controls
 {
