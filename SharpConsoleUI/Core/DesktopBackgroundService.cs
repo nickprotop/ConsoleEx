@@ -27,7 +27,6 @@ public class DesktopBackgroundService : IDisposable
 	private int _width;
 	private int _height;
 	private DesktopBackgroundConfig? _config;
-	private DateTime _animationStart;
 	private bool _disposed;
 	private readonly Func<ITheme> _getTheme;
 	private readonly Action _onDesktopDirty;
