@@ -330,6 +330,14 @@ namespace SharpConsoleUI
 		// Frame rate limiting (configured via ConsoleWindowSystemOptions)
 		private DateTime _lastRenderTime = DateTime.UtcNow;
 
+		/// <summary>When animations were last advanced.</summary>
+		/// <remarks>
+		/// Separate from <see cref="_lastRenderTime"/> because animations advance on
+		/// every tick and rendering does not: sharing one timestamp made a tick that
+		/// skipped rendering count its elapsed span twice.
+		/// </remarks>
+		private DateTime _lastAnimationTime = DateTime.UtcNow;
+
 		// Performance metrics tracking - delegated to PerformanceTracker
 		private ConsoleWindowSystemOptions _options;
 
@@ -671,10 +679,13 @@ namespace SharpConsoleUI
 			_desktopPortalService = new Core.DesktopPortalService(_logService, this);
 
 			// Initialize desktop background service
-			// Advanced by the animator, which hands out CAPPED deltas - so dragging a
-			// window, which renders at full rate, cannot make the background run
-			// fast, and a stalled loop cannot make it lurch. A plain per-frame
-			// repaint did exactly the first of those.
+			// Advanced by the animator, which hands out capped deltas and keeps the
+			// loop rendering while something is moving - so a background stays
+			// smooth under heavy UI work rather than waiting on a timer that does
+			// not know how busy the frame is. The elapsed time a PaintCallback
+			// receives is animation time: a callback that reads it runs at the
+			// same speed whatever the frame rate does, and one that ignores it and
+			// steps per call will not.
 			_desktopBackgroundService = new Core.DesktopBackgroundService(
 				() => Theme,
 				() => Render.DesktopNeedsRender = true,
@@ -1549,11 +1560,20 @@ namespace SharpConsoleUI
 				);
 			}
 
-			// Advance animations before rendering
+			// Advance animations before rendering.
+			//
+			// NOT `elapsed`: that is measured from the last RENDER, while this runs
+			// on every TICK. A tick that does not render leaves _lastRenderTime
+			// alone, so the next tick counts the same span again - and a window
+			// being dragged produces many such ticks, which is how an animated
+			// desktop background came to run visibly fast while the mouse moved.
+			// Animations need time since the last time ANIMATIONS were advanced.
 			if (Animations.HasActiveAnimations)
 			{
-				Animations.Update(TimeSpan.FromMilliseconds(elapsed));
+				Animations.Update(now - _lastAnimationTime);
 			}
+
+			_lastAnimationTime = now;
 
 			// Advance drag-select autoscroll (independent of EnableAnimations).
 			if (DragAutoScrollActive)
