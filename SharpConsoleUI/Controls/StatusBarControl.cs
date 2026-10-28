@@ -60,7 +60,17 @@ public class StatusBarItem
 	public string? Shortcut
 	{
 		get => _shortcut;
-		set { _shortcut = value; Owner?.OnItemChanged(); }
+		set
+		{
+			// A bar carrying a live value is written on every tick, and most
+			// ticks write what is already there. Without this guard that
+			// invalidates the bar several times a second, which reads as the
+			// whole screen flickering.
+			if (string.Equals(_shortcut, value, StringComparison.Ordinal)) return;
+
+			_shortcut = value;
+			Owner?.OnItemChanged();
+		}
 	}
 
 	/// <summary>
@@ -70,7 +80,13 @@ public class StatusBarItem
 	public string Label
 	{
 		get => _label;
-		set { _label = value; Owner?.OnItemChanged(); }
+		set
+		{
+			if (string.Equals(_label, value, StringComparison.Ordinal)) return;
+
+			_label = value;
+			Owner?.OnItemChanged();
+		}
 	}
 
 	/// <inheritdoc cref="IWindowControl.Visible"/>

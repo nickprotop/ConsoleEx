@@ -331,12 +331,34 @@ namespace SharpConsoleUI.Controls
 		{
 			lock (_contentLock)
 			{
+				// Content a control already has is not a change. A live view
+				// refills its panes several times a second, almost always with
+				// what they already say, and relayouting for that is what a
+				// reader sees as flicker.
+				if (SameContent(lines)) return;
+
 				_content = lines;
 				BumpContentVersion();
 			}
 			InvalidateLinkCount();
 			OnPropertyChanged(nameof(Text));
 			Invalidate(Invalidation.Relayout);
+		}
+
+		/// <summary>Whether these lines are the ones already held.</summary>
+		/// <remarks>Called inside <c>_contentLock</c>.</remarks>
+		private bool SameContent(List<string>? lines)
+		{
+			if (lines == null) return _content.Count == 0;
+			if (lines.Count != _content.Count) return false;
+
+			for (int i = 0; i < lines.Count; i++)
+			{
+				if (!string.Equals(lines[i], _content[i], StringComparison.Ordinal))
+					return false;
+			}
+
+			return true;
 		}
 
 		/// <summary>
