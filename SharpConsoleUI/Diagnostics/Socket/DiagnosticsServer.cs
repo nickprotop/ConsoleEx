@@ -1309,22 +1309,57 @@ internal sealed class DiagnosticsServer : IDisposable
 
 	private JsonObject WindowCmd(JsonObject req)
 	{
-		var window = ResolveWindow(req, out string? err);
+		// The action field may NAME the window - {"activate":"Settings"} - which
+		// is how this verb is documented and the only spelling that reads well
+		// on a command line. It may also be a bare flag beside a 'window'
+		// field. Both work; the named one wins, since it is more specific.
+		string? action = Action(req, "activate") ?? Action(req, "close");
+
+		var window = action != null
+			? ResolveWindow(new JsonObject { ["window"] = action }, out string? err)
+			: ResolveWindow(req, out err);
+
 		if (window == null) return ErrorBody(err!);
 
-		if (req["activate"]?.GetValue<bool>() == true)
+		if (Asked(req, "activate"))
 		{
 			Marshal(() => _system.WindowStateService.SetActiveWindow(window));
 			return new JsonObject { ["activated"] = window.Title };
 		}
 
-		if (req["close"]?.GetValue<bool>() == true)
+		if (Asked(req, "close"))
 		{
 			Marshal(() => window.Close());
 			return new JsonObject { ["closed"] = window.Title };
 		}
 
 		return ErrorBody("window requires 'activate' or 'close'");
+	}
+
+	/// <summary>The window a field names, or null when it is a bare flag.</summary>
+	private static string? Action(JsonObject req, string field)
+	{
+		string? text = Text(req, field);
+
+		// "true"/"false" is the flag spelling arriving as text, not a window
+		// anyone named. A window actually called "true" is not worth the
+		// ambiguity.
+		return bool.TryParse(text, out _) ? null : text;
+	}
+
+	/// <summary>Whether a field asks for its action at all.</summary>
+	/// <remarks>
+	/// True for a bare flag and for a field naming a window, false for an
+	/// explicit false. GetValue&lt;bool&gt; THREW on the documented
+	/// {"activate":"Settings"} spelling, and the handler's catch turned that
+	/// into the reply - so the documented form answered with a .NET exception.
+	/// </remarks>
+	private static bool Asked(JsonObject req, string field)
+	{
+		string? text = Text(req, field);
+		if (text == null) return false;
+
+		return !bool.TryParse(text, out bool flag) || flag;
 	}
 
 	#endregion
@@ -1506,6 +1541,12 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// <summary>Exposes <see cref="FindByName"/> for tests.</summary>
 	/// <summary>Reads one request field as text, for a test.</summary>
 	internal static string? TextForTest(JsonNode? req, string field) => Text(req, field);
+
+	/// <summary>Whether an action field asks for its action, for a test.</summary>
+	internal static bool AskedForTest(JsonObject req, string field) => Asked(req, field);
+
+	/// <summary>The window an action field names, for a test.</summary>
+	internal static string? ActionForTest(JsonObject req, string field) => Action(req, field);
 
 	internal static IWindowControl? FindControlForTest(Window window, string nameOrId)
 		=> FindByName(window, nameOrId);

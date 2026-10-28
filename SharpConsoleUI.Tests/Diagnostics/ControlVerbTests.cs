@@ -182,5 +182,49 @@ namespace SharpConsoleUI.Tests.ControlLookup
 
 			Assert.Equal("okButton", DiagnosticsServer.TextForTest(req, "control"));
 		}
+
+		[Fact]
+		public void AnActionFieldMayNameTheWindowItActsOn()
+		{
+			// {"activate":"Settings"} is how the verb is documented and the only
+			// spelling that reads on a command line. The handler read the field with
+			// GetValue<bool>, which THREW on a string, and the catch turned that
+			// into the reply - so the documented form answered
+			// "InvalidOperationException: An element of type 'String' cannot be
+			// converted to a 'System.Boolean'".
+			var req = new JsonObject { ["cmd"] = "window", ["activate"] = "Settings" };
+
+			Assert.True(DiagnosticsServer.AskedForTest(req, "activate"));
+			Assert.Equal("Settings", DiagnosticsServer.ActionForTest(req, "activate"));
+		}
+
+		[Fact]
+		public void ABareFlagStillAsksForTheAction()
+		{
+			// The other spelling: {"window":"Settings","activate":true}.
+			var req = new JsonObject { ["cmd"] = "window", ["activate"] = true };
+
+			Assert.True(DiagnosticsServer.AskedForTest(req, "activate"));
+
+			// A flag names no window, so the 'window' field decides which one.
+			Assert.Null(DiagnosticsServer.ActionForTest(req, "activate"));
+		}
+
+		[Fact]
+		public void AnExplicitFalseDoesNotAskForTheAction()
+		{
+			var req = new JsonObject { ["cmd"] = "window", ["activate"] = false };
+
+			Assert.False(DiagnosticsServer.AskedForTest(req, "activate"));
+		}
+
+		[Fact]
+		public void AnAbsentActionFieldAsksForNothing()
+		{
+			var req = new JsonObject { ["cmd"] = "window" };
+
+			Assert.False(DiagnosticsServer.AskedForTest(req, "activate"));
+			Assert.Null(DiagnosticsServer.ActionForTest(req, "activate"));
+		}
 	}
 }

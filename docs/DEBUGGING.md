@@ -806,6 +806,266 @@ that is genuinely absent otherwise read the same.
 
 ---
 
+## measure
+
+Why a control is the size it is.
+
+```json
+{"cmd":"measure","control":"ScrollablePanelControl#165f26b"}
+```
+
+The layout tree says a control wanted one size and got another. It does not say what the
+control was *allowed* to want, and that is usually the answer: a chart measuring itself at
+`int.MaxValue` rows is obvious the moment you see it was handed an unbounded height, and
+invisible until then.
+
+The reply gives the offer the control received, what it asked for, and the **cascade** —
+every container between the root and the control, outermost first, with the offer each one
+passed down. `setsWidth` and `setsHeight` name the link that bounded the result.
+
+```json
+{"ok":true,"window":"Demo","controls":[
+  {"control":"ScrollablePanelControl","id":"ScrollablePanelControl#165f26b",
+   "offeredWidth":30,"offeredHeight":25,"desiredWidth":30,"desiredHeight":25,
+   "cascade":[
+     {"layout":"DockRootLayout","control":null,"id":null,
+      "offeredWidth":88,"offeredHeight":28,"setsWidth":false,"setsHeight":false},
+     {"layout":"VerticalStackLayout","control":"ColumnContainer","id":"ColumnContainer#29e8405",
+      "offeredWidth":30,"offeredHeight":28,"setsWidth":true,"setsHeight":true}]}]}
+```
+
+Offers never widen going inwards, so the cascade is non-increasing — if it is not, the
+chain is being read in the wrong order.
+
+The deciding link is the **narrowest ancestor**, not one whose offer happens to equal the
+result exactly. A container that subtracts its own padding leaves no link matching the
+final number, and an exact-match rule named nothing at all.
+
+`control` accepts a name, an id from `tree`, or a bare type when only one of that type
+exists.
+
+---
+
+## color
+
+Why a role is the colour it is.
+
+```json
+{"cmd":"color","role":"Danger"}
+{"cmd":"color","role":"Danger","state":"Disabled"}
+{"cmd":"color","role":"Primary","outline":true}
+```
+
+A role resolves through the theme, then through contrast adjustment, then through how it is
+painted. Each step can move the colour, and the reply shows all of them in order.
+
+```json
+{"ok":true,"theme":"ModernGray","role":"Danger","state":"Normal","outline":false,
+ "background":"Color(128, 0, 0)","text":"Color(185, 114, 114)",
+ "cascade":[
+   {"source":"theme DangerColor","color":"Color(128, 0, 0)"},
+   {"source":"moved for contrast against the surface (text and border only)",
+    "color":"Color(185, 114, 114)"},
+   {"source":"painted as fill","color":"Color(128, 0, 0)"}]}
+```
+
+`state` is `Normal`, `Focused` or `Disabled`; `outline` resolves the role as an outline
+rather than a fill. Both change the answer, which is the point of asking.
+
+---
+
+## focus
+
+Where keyboard input will go, and the path that reaches it.
+
+```json
+{"cmd":"focus"}
+```
+
+```json
+{"ok":true,"window":"Demo","focused":"DropdownControl#1ac495c",
+ "chain":["Window:Demo","NavigationView#201d787","ToolbarControl#19fd5c7",
+          "DropdownControl#1ac495c"]}
+```
+
+The chain is the answer more often than `focused` is: focus lands somewhere unexpected
+because of a container in the middle, and the chain is the only thing that names it.
+
+---
+
+## reachable
+
+Which controls Tab can reach, in Tab order.
+
+```json
+{"cmd":"reachable"}
+```
+
+```json
+{"ok":true,"window":"Demo","count":3,"stops":[
+  {"control":"ScrollablePanelControl","id":"ScrollablePanelControl#165f26b",
+   "type":"ScrollablePanelControl"},
+  {"control":"ButtonControl","id":"ButtonControl#2ec5d9c","type":"ButtonControl"}]}
+```
+
+`control` is the control's `Name` when it has one and its type otherwise; `id` is always
+addressable by another verb. A control that is on screen and missing from this list cannot
+be reached by keyboard, which is the accessibility question this verb exists to answer.
+
+---
+
+## windows
+
+The windows, their bounds and their state, in z-order.
+
+```json
+{"cmd":"windows"}
+```
+
+```json
+{"ok":true,"windows":[
+  {"id":"77195774-76f4-4200-8fcf-e2788c02c7a0","title":"Demo",
+   "bounds":{"x":0,"y":0,"w":90,"h":30},"absolute":{"x":0,"y":1,"w":90,"h":30},
+   "modal":false,"state":"Normal","root":"DockRootLayout","active":true}]}
+```
+
+`bounds` is desktop-relative; `absolute` is where it actually sits on screen, which is what
+`mouse` and `inspect` take. `state` is `Normal`, `Minimized` or `Maximized`.
+
+---
+
+## metrics
+
+What the last frame cost. Needs `{"cmd":"set","diagnostics":true}`.
+
+```json
+{"cmd":"metrics"}
+```
+
+```json
+{"ok":true,"frame":39,"bytesWritten":0,"charactersChanged":0,"ansiSequences":0,
+ "cursorMovements":0,"dirtyCellsMarked":0,"cellsRendered":0,"efficiency":1,
+ "staticFrame":true,"layoutMs":0,"ansiMs":0,"outputMs":0}
+```
+
+`staticFrame` true with zero bytes written means the diff engine decided nothing changed —
+which is the correct answer for an idle app, and the wrong one if you just changed
+something.
+
+---
+
+## invalidations
+
+Which control asked for the frame. Needs diagnostics on.
+
+```json
+{"cmd":"invalidations"}
+```
+
+```json
+{"ok":true,"windows":[
+  {"window":"Demo","total":16,"callers":[
+    {"control":"NavigationView#201d787","repaints":0,"relayouts":13},
+    {"control":"(window)","repaints":0,"relayouts":3}]}]}
+```
+
+The verb for "why is this app repainting constantly". A control with hundreds of relayouts
+on an idle screen is a setter firing on every tick with a value that has not changed.
+
+**The buffer drains on read.** Two calls in a row give the second one nothing.
+
+---
+
+## events
+
+What input the application was told about. Needs diagnostics on.
+
+```json
+{"cmd":"events"}
+```
+
+```json
+{"ok":true,"recording":true,"count":2,"events":[
+  {"kind":"key","flags":"Tab"},{"kind":"key","flags":"Down"}]}
+```
+
+The tape is what the app *received*, which is the half of an input problem a terminal
+cannot show you: a key that never arrives and a key that arrives and is ignored look
+identical on screen. Also drains on read.
+
+---
+
+## theme
+
+Read the themes, or switch to one.
+
+```json
+{"cmd":"theme"}
+{"cmd":"theme","name":"Ocean"}
+```
+
+```json
+{"ok":true,"theme":"ModernGray","themes":[
+  {"name":"Amber","description":"Warm amber accent, dark"},
+  {"name":"Ocean","description":"Teal accent on a deep dark surface"}]}
+```
+
+Switching answers `{"ok":true,"theme":"Ocean"}`. An unknown name is refused with the list
+of known ones, because a typo and a theme that does not exist otherwise read the same.
+
+---
+
+## window
+
+Act on a window.
+
+```json
+{"cmd":"window","activate":"Settings"}
+{"cmd":"window","close":"Settings"}
+{"cmd":"window","window":"Settings","activate":true}
+```
+
+The action field may name the window, or be a bare flag beside a `window` field. Both work;
+the named form is the one that reads on a command line.
+
+```json
+{"ok":true,"activated":"Settings"}
+{"ok":true,"closed":"Settings"}
+```
+
+---
+
+## focusctl and invoke
+
+Move focus to a control, or activate it the way a user would.
+
+```json
+{"cmd":"focusctl","name":"okButton"}
+{"cmd":"invoke","name":"okButton"}
+```
+
+```json
+{"ok":true,"focused":"ButtonControl#2ec5d9c"}
+{"ok":true,"invoked":"ButtonControl#2ec5d9c"}
+```
+
+`invoke` focuses first and then activates, so it is what a click would have done without
+needing the control's coordinates. Both take a name or an id, and an optional `window`.
+
+---
+
+## ping and commands
+
+```json
+{"cmd":"ping"}       →  {"ok":true,"pong":true}
+{"cmd":"commands"}   →  {"ok":true,"known":["snapshot","image","tree", …]}
+```
+
+`commands` is the authority on what an application supports — this document describes the
+protocol, but the app in front of you may be older or newer than it.
+
+---
+
 ## tree
 
 What the layout engine believes, as opposed to what the screen shows. The whole stack —
