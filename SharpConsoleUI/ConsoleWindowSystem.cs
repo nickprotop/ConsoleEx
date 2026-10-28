@@ -69,11 +69,24 @@ namespace SharpConsoleUI
 		/// The clock this system reads.
 		/// </summary>
 		/// <remarks>
+		/// <para>
 		/// <see cref="TimeProvider.System"/> unless an application supplied one through
 		/// <see cref="Configuration.ConsoleWindowSystemOptions.TimeProvider"/>. A test
-		/// passes a fake so it can move time rather than wait it out - the multi-click
-		/// window is the common case, where telling one double click from two slow
-		/// clicks otherwise costs a real delay per assertion.
+		/// passes a fake so it can move time rather than wait it out.
+		/// </para>
+		/// <para>
+		/// <b>It reaches one decision today:</b> the mouse multi-click window, where
+		/// telling a double click from two slow clicks otherwise costs a real delay per
+		/// assertion. The watchdog's thresholds, the animation clock and the control
+		/// timers still read the machine clock directly, so a fake here does not stop
+		/// them.
+		/// </para>
+		/// <para>
+		/// The name describes the clock, not its only consumer. Scoping it to the mouse
+		/// would make the next thing that moves onto it read oddly, and would invite a
+		/// second clock per subsystem - which is what removing
+		/// <c>NetConsoleDriver</c>'s own click timing was undoing.
+		/// </para>
 		/// </remarks>
 		public TimeProvider Time { get; }
 

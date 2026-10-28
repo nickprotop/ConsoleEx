@@ -78,6 +78,7 @@ rather than assignment.
 | `Watchdog` | `WatchdogOptions?` | `null` | Main-loop watchdog settings. `null` uses `new WatchdogOptions()` |
 | `InstallSynchronizationContext` | `bool` | `false` | Install a UI `SynchronizationContext` for the duration of `Run()`. See the caveat below |
 | `PipedInput` | `PipedInputOptions?` | `null` | Piped-stdin capture settings. `null` uses `new PipedInputOptions()` |
+| `TimeProvider` | `TimeProvider?` | `null` | The clock the system reads. `null` uses the real one. Reaches the mouse multi-click window only; the watchdog, animations and control timers still read the machine clock |
 
 #### Diagnostics and testing
 

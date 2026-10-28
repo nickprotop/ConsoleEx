@@ -8,6 +8,7 @@
 
 using System;
 using System.Drawing;
+using System.Linq;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Input;
 using Xunit;
@@ -93,6 +94,49 @@ public class GestureClockTests
 		var release = recognizer.Recognize([MouseFlags.Button1Released], point);
 
 		Assert.Contains(MouseFlags.Button1Clicked, release);
+	}
+
+	[Fact]
+	public void The_systems_clock_decides_what_the_real_input_path_calls_a_double_click()
+	{
+		// Not the recognizer in isolation: a driver event going through
+		// InputCoordinator, which is the path a real terminal takes. The only
+		// thing that varies between the two halves is the clock.
+		var time = new TestTimeProvider();
+		var driver = new HeadlessConsoleDriver(40, 10);
+
+		var system = new ConsoleWindowSystem(driver,
+			SharpConsoleUI.Configuration.ConsoleWindowSystemOptions.Create() with
+			{
+				PipedInput = new SharpConsoleUI.Configuration.PipedInputOptions(Enabled: false),
+				TimeProvider = time
+			});
+
+		// The tape records the flags AFTER the recognizer has had them, which is
+		// what the controls see. Same thing cxdbg's `events` verb reports.
+		// Handlers are registered inside Run(); a test that never runs must do it
+		// itself, or SimulateClick fires into nothing.
+		EventHandler<ConsoleKeyInfo> keys = (_, k) => system.InputStateService.EnqueueKey(k);
+		system.Input.RegisterEventHandlers(keys);
+		system.Input.RecordEvents = true;
+
+		var point = new Point(5, 5);
+
+		driver.SimulateClick(point);
+		time.Advance(TimeSpan.FromMilliseconds(80));     // inside the window
+		driver.SimulateClick(point);
+
+		string near = string.Join(" | ", system.Input.ConsumeEventTape().Select(e => e.Flags));
+		// Derived on the SECOND PRESS and carried alongside it, which is why a
+		// control must test for the double before the press.
+		Assert.Contains("Button1Pressed|Button1DoubleClicked", near);
+
+		driver.SimulateClick(point);
+		time.Advance(TimeSpan.FromSeconds(5));           // far outside it
+		driver.SimulateClick(point);
+
+		string far = string.Join(" | ", system.Input.ConsumeEventTape().Select(e => e.Flags));
+		Assert.DoesNotContain("DoubleClicked", far);
 	}
 
 	/// <summary>A clock that only moves when the test says so.</summary>
