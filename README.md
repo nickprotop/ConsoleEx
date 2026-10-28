@@ -64,10 +64,20 @@ desktop backgrounds, a PTY-backed terminal emulator, video playback with Kitty
 graphics + cell-based fallbacks, and compositor hooks for blur, fade, and custom
 effects.
 
+Everything it draws ends at a [**console driver**](docs/DRIVERS.md): the layer that turns
+cells into bytes and terminal bytes back into keys and mouse events. One drives a real
+terminal; one drives nothing at all. That second one is not a stub — `HeadlessConsoleDriver`
+runs the full system with no terminal and no pty, which is what makes an app
+scriptable in CI, and what lets [**WebHost**](Examples/WebHost/README.md) run the demo
+unmodified in a browser: every frame rendered to PNG, every click and keystroke coming back
+as real input. The interface is public, so a third driver is yours to write.
+
 A running application can also be **inspected and driven from outside**, over a local
-socket: read the screen as text or as a PNG, read what the layout engine believes, then send
-real keys and clicks. The same application runs **headless**, with no terminal at all.
-See [Debugging](docs/DEBUGGING.md).
+socket: read the screen as text or as a PNG, read what the layout engine believes, ask why a
+control is the size it is, then send real keys and clicks. [**cxdbg**](tools/cxdbg/README.md)
+is the debugger that speaks it — `dotnet tool install -g cxdbg` — and the wire protocol
+underneath it is documented in [Debugging](docs/DEBUGGING.md), so a script or an agent can
+talk to an app directly.
 
 It's also [NativeAOT-compatible](docs/AOT.md) — the full control set runs as a
 self-contained native binary, verified on every push by a publish-and-run CI gate.
