@@ -1,0 +1,7 @@
+Taken by hand; the gallery must not overwrite it.
+
+Images only render on the LoadUrlAsync path. SetContent(html), which is what
+the gallery can drive headlessly, still shows every <img> as its alt text, so
+a generated shot would misrepresent the control.
+
+To replace it: point an HtmlControl at a real URL and capture the window.

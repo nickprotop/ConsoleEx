@@ -1,0 +1,7 @@
+Taken by hand; the gallery must not overwrite it.
+
+TerminalControl needs a real PTY with a live shell in it. The gallery runs
+headless precisely so it needs no terminal, so it cannot photograph this one.
+
+To replace it: run an app with a TerminalControl in a real terminal, and
+capture the window yourself.
