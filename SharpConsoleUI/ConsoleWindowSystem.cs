@@ -147,7 +147,7 @@ namespace SharpConsoleUI
 		/// clock in a panel, an FPS readout, an indeterminate progress bar and an
 		/// animated desktop each had one, and each was a clock the system could not
 		/// see: it kept ticking when the application was idle, it read the machine
-		/// clock rather than <see cref="Time"/>, and it fired on a pool thread, so the
+		/// clock rather than a clock the application chose, and it fired on a pool thread, so the
 		/// widget had to publish its state with <c>Interlocked</c> for the renderer to
 		/// read it safely.
 		/// </para>
@@ -1642,6 +1642,7 @@ namespace SharpConsoleUI
 				{
 					_currentPhase = Core.MainLoopPhase.Render;
 					Render.UpdateDisplay();
+					SampleRenderedFrame(elapsed);
 					_lastRenderTime = machineNow;
 
 					// Rounded up, not truncated: sleeping 16 ms for a 16.667 ms
@@ -1663,6 +1664,7 @@ namespace SharpConsoleUI
 				{
 					_currentPhase = Core.MainLoopPhase.Render;
 					Render.UpdateDisplay();
+					SampleRenderedFrame(elapsed);
 					_lastRenderTime = machineNow;
 					_idleTime = Configuration.SystemDefaults.FastLoopIdleMs; // Fast loop when dirty, no frame rate cap
 				}
@@ -1692,6 +1694,37 @@ namespace SharpConsoleUI
 			}
 
 			return _running;
+		}
+
+		/// <summary>Files the frame just rendered into the performance window.</summary>
+		/// <param name="intervalMs">Since the previous rendered frame.</param>
+		/// <remarks>
+		/// <para>
+		/// Called from the render branches only, so what it measures is the rate the
+		/// screen actually changes at. The loop iterates far more often than it
+		/// renders - it wakes for input and for idle bookkeeping - so sampling per
+		/// iteration would report a rate nobody is seeing.
+		/// </para>
+		/// <para>
+		/// The per-stage costs come from the renderer's own metrics, which it records
+		/// only while diagnostics are on. Without them the frame is still filed, with
+		/// its interval and zero costs: the achieved rate is the thing most worth
+		/// having and it must not need a flag.
+		/// </para>
+		/// </remarks>
+		private void SampleRenderedFrame(double intervalMs)
+		{
+			var m = RenderingDiagnostics?.LastMetrics;
+
+			Performance.Frames.Add(new Performance.FrameSampleRing.Sample(
+				IntervalMs: intervalMs,
+				LayoutMs: m?.DomLayoutTimeMs ?? 0,
+				AnsiMs: m?.AnsiGenerationTimeMs ?? 0,
+				OutputMs: m?.ConsoleOutputTimeMs ?? 0,
+				CompareMs: m?.BufferComparisonTimeMs ?? 0,
+				BytesWritten: m?.BytesWritten ?? 0,
+				CellsRendered: m?.CellsActuallyRendered ?? 0,
+				CellsMarked: m?.DirtyCellsMarked ?? 0));
 		}
 
 		/// <summary>The teardown shared by <see cref="Run"/> and <see cref="HostedSession.Dispose"/>.</summary>

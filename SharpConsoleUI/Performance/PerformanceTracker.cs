@@ -68,6 +68,16 @@ namespace SharpConsoleUI.Performance
 		/// </summary>
 		public double CurrentFrameTimeMs => _currentFrameTimeMs;
 
+		/// <summary>The last few hundred rendered frames, for rates and percentiles.</summary>
+		/// <remarks>
+		/// Always on, unlike the per-frame diagnostics dictionaries: it is a fixed
+		/// array of small structs, so there is nothing to switch off. Fed from the
+		/// render branch of the main loop rather than from <see cref="BeginFrame"/>,
+		/// which runs on every loop iteration including the ones that render
+		/// nothing - sampling there would report a rate far above the real one.
+		/// </remarks>
+		public FrameSampleRing Frames { get; } = new();
+
 		/// <summary>
 		/// Gets the current frames per second (FPS).
 		/// </summary>
