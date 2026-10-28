@@ -9,8 +9,8 @@
 using System.Drawing;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Core;
-using SharpConsoleUI.Themes;
 using SharpConsoleUI.Tests.Infrastructure;
+using SharpConsoleUI.Themes;
 using SharpConsoleUI.Windows;
 using Xunit;
 

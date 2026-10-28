@@ -7,10 +7,10 @@
 // -----------------------------------------------------------------------
 
 using System.Diagnostics;
+using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Highlighting;
 using SharpConsoleUI.Highlighting.TextMate;
-using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Themes;
 using Xunit;
 

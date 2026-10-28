@@ -7,8 +7,8 @@
 // -----------------------------------------------------------------------
 
 using System.Diagnostics;
-using SharpConsoleUI.Controls.Terminal;
 using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Controls.Terminal;
 using SharpConsoleUI.Drivers;
 using Xunit;
 

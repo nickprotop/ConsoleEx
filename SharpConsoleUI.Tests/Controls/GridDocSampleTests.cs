@@ -7,11 +7,11 @@
 // -----------------------------------------------------------------------
 
 using System.Text.RegularExpressions;
-using Build = SharpConsoleUI.Builders.Controls;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
 using Xunit;
+using Build = SharpConsoleUI.Builders.Controls;
 
 namespace SharpConsoleUI.Tests.Controls;
 

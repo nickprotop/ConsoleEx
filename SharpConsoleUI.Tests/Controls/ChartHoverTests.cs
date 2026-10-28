@@ -202,7 +202,7 @@ namespace SharpConsoleUI.Tests.Controls
 			Draw(system);
 			var (x, y) = APlottedCell(chart);
 
-            Assert.True(((IMouseAwareControl)chart).WantsMouseEvents,
+			Assert.True(((IMouseAwareControl)chart).WantsMouseEvents,
 				"zoom should make the chart want the mouse");
 
 			Move(chart, x, y);

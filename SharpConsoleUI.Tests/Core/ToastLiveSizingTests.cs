@@ -1,8 +1,8 @@
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Core;
 using SharpConsoleUI.Tests.Infrastructure;
-using Rectangle = System.Drawing.Rectangle;
 using Xunit;
+using Rectangle = System.Drawing.Rectangle;
 
 namespace SharpConsoleUI.Tests.Core;
 

@@ -190,7 +190,7 @@ namespace SharpConsoleUI.Tests.Controls
 			var (system, chart) = Build();
 			chart.YAxis.Min = 0;
 			chart.YAxis.Max = 100;
-            var s = chart.AddSeries("g", Color.White);
+			var s = chart.AddSeries("g", Color.White);
 			s.Gradient = ColorGradient.FromColors(Color.Blue, Color.Red);
 			s.GradientAxis = ChartGradientAxis.X;
 			s.SetValues(new[] { 50d, 50, 50, 50, 50 });

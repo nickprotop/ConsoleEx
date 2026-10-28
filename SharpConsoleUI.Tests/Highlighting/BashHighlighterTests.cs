@@ -8,6 +8,7 @@ namespace SharpConsoleUI.Tests.Highlighting
 {
 	public class BashHighlighterTests
 	{
+		[Obsolete]
 		private static (IReadOnlyList<SyntaxToken>, SyntaxLineState) Tok(string line)
 			=> new BashSyntaxHighlighter().Tokenize(line, 0, SyntaxLineState.Initial);
 

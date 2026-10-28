@@ -9,8 +9,8 @@
 using System.Collections.Specialized;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
-using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Drawing;
+using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
 using Xunit;
 

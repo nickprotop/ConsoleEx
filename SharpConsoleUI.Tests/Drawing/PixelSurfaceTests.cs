@@ -428,7 +428,9 @@ public class PixelSurfaceTests
 		// Opt-in: a canvas that only draws text must not pay for a pixel grid.
 		var canvas = new SharpConsoleUI.Controls.CanvasControl
 		{
-			AutoSize = false, CanvasWidth = 20, CanvasHeight = 10,
+			AutoSize = false,
+			CanvasWidth = 20,
+			CanvasHeight = 10,
 		};
 
 		Assert.False(canvas.HasPixelSurface);
@@ -439,7 +441,9 @@ public class PixelSurfaceTests
 	{
 		var canvas = new SharpConsoleUI.Controls.CanvasControl
 		{
-			AutoSize = false, CanvasWidth = 20, CanvasHeight = 10,
+			AutoSize = false,
+			CanvasWidth = 20,
+			CanvasHeight = 10,
 		};
 
 		var px = canvas.Pixels;
@@ -455,7 +459,9 @@ public class PixelSurfaceTests
 		// The step easiest to forget by hand, and the reason this property exists.
 		var canvas = new SharpConsoleUI.Controls.CanvasControl
 		{
-			AutoSize = false, CanvasWidth = 20, CanvasHeight = 10,
+			AutoSize = false,
+			CanvasWidth = 20,
+			CanvasHeight = 10,
 		};
 		_ = canvas.Pixels;
 
@@ -471,7 +477,9 @@ public class PixelSurfaceTests
 	{
 		var canvas = new SharpConsoleUI.Controls.CanvasControl
 		{
-			AutoSize = false, CanvasWidth = 8, CanvasHeight = 4,
+			AutoSize = false,
+			CanvasWidth = 8,
+			CanvasHeight = 4,
 		};
 
 		Assert.Same(canvas.Pixels, canvas.Pixels);
@@ -482,7 +490,9 @@ public class PixelSurfaceTests
 	{
 		var canvas = new SharpConsoleUI.Controls.CanvasControl
 		{
-			AutoSize = false, CanvasWidth = 6, CanvasHeight = 3,
+			AutoSize = false,
+			CanvasWidth = 6,
+			CanvasHeight = 3,
 		};
 
 		canvas.Pixels.Fill(Color.Red);
@@ -505,7 +515,9 @@ public class PixelSurfaceTests
 		// Must not allocate one just to present an empty grid over the canvas.
 		var canvas = new SharpConsoleUI.Controls.CanvasControl
 		{
-			AutoSize = false, CanvasWidth = 6, CanvasHeight = 3,
+			AutoSize = false,
+			CanvasWidth = 6,
+			CanvasHeight = 3,
 		};
 
 		canvas.PresentPixels(Color.Black);
@@ -520,7 +532,9 @@ public class PixelSurfaceTests
 		// own, and one presents with a shake offset.
 		var canvas = new SharpConsoleUI.Controls.CanvasControl
 		{
-			AutoSize = false, CanvasWidth = 6, CanvasHeight = 3,
+			AutoSize = false,
+			CanvasWidth = 6,
+			CanvasHeight = 3,
 		};
 
 		var mine = new PixelSurface();
