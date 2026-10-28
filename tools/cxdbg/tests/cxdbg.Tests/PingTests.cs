@@ -120,18 +120,6 @@ internal static class Cxdbg
 	internal static void NoTerminals(ProcessStartInfo psi) =>
 		psi.Environment["CXDBG_TERMINAL"] = "none";
 
-	private static string BinaryPath()
-	{
-		var dir = new DirectoryInfo(AppContext.BaseDirectory);
-		while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "Examples")))
-			dir = dir.Parent;
-
-		string path = Path.Combine(dir!.FullName,
-			"tools", "cxdbg", "src", "cxdbg", "bin", "Debug", "net10.0", "cxdbg");
-
-		if (!File.Exists(path))
-			throw new InvalidOperationException($"cxdbg is not built at {path}");
-
-		return path;
-	}
+	private static string BinaryPath() =>
+		LiveAppFixture.BuiltBinary("cxdbg", "tools", "cxdbg", "src", "cxdbg", "cxdbg");
 }

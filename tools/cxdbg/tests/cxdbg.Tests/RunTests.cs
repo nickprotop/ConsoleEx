@@ -23,15 +23,8 @@ public class RunTests : IDisposable
 {
 	private readonly List<string> _sockets = new();
 
-	private static string DemoApp()
-	{
-		var dir = new DirectoryInfo(AppContext.BaseDirectory);
-		while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "Examples")))
-			dir = dir.Parent;
-
-		return Path.Combine(dir!.FullName,
-			"Examples", "DemoApp", "bin", "Debug", "net10.0", "DemoApp");
-	}
+	private static string DemoApp() =>
+		LiveAppFixture.BuiltBinary("DemoApp", "Examples", "DemoApp", "DemoApp");
 
 	/// <summary>
 	/// Starts an app and records its socket for cleanup, before asserting anything.

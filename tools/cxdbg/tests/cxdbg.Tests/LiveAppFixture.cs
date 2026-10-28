@@ -153,6 +153,52 @@ public sealed class LiveAppFixture : IDisposable
 		throw new TimeoutException($"no socket at {SocketPath} after 20s.\n{Output}");
 	}
 
+	/// <summary>The repo root, found by walking up from the test assembly.</summary>
+	internal static DirectoryInfo RepoRoot()
+	{
+		var dir = new DirectoryInfo(AppContext.BaseDirectory);
+		while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "Examples")))
+			dir = dir.Parent;
+
+		return dir ?? throw new InvalidOperationException(
+			"could not find the repo root from " + AppContext.BaseDirectory);
+	}
+
+	/// <summary>
+	/// A built binary, in whichever configuration exists.
+	/// </summary>
+	/// <param name="what">What to say it is when nothing is found.</param>
+	/// <param name="parts">Path to it under the repo root, with the configuration left out.</param>
+	/// <remarks>
+	/// Shared, because this was written three times - twice for the demo app
+	/// and once for cxdbg - and fixing the hardcoded "Debug" in one of them
+	/// left the others failing on CI exactly as before. Rule 1: if it appears
+	/// in two files, it belongs in a helper.
+	/// </remarks>
+	internal static string BuiltBinary(string what, params string[] parts)
+	{
+		var root = RepoRoot();
+		var tried = new List<string>();
+
+		foreach (string cfg in Configurations())
+		{
+			var segments = new List<string> { root.FullName };
+			segments.AddRange(parts[..^1]);
+			segments.Add("bin");
+			segments.Add(cfg);
+			segments.Add("net10.0");
+			segments.Add(parts[^1]);
+
+			string candidate = Path.Combine([.. segments]);
+			if (File.Exists(candidate)) return candidate;
+
+			tried.Add(candidate);
+		}
+
+		throw new InvalidOperationException(
+			$"{what} is not built at any of: {string.Join(", ", tried)}");
+	}
+
 	/// <summary>Build configurations to look in, this assembly's first.</summary>
 	private static IEnumerable<string> Configurations()
 	{
@@ -171,37 +217,8 @@ public sealed class LiveAppFixture : IDisposable
 	}
 
 	/// <summary>Where the built DemoApp is, relative to the test assembly.</summary>
-	private static string DemoAppPath()
-	{
-		// tools/cxdbg/tests/cxdbg.Tests/bin/<cfg>/<tfm>/ -> repo root
-		var dir = new DirectoryInfo(AppContext.BaseDirectory);
-		while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "Examples")))
-			dir = dir.Parent;
-
-		if (dir == null)
-			throw new InvalidOperationException("could not find the repo root from " + AppContext.BaseDirectory);
-
-		// The configuration these tests were built in comes first, because CI
-		// builds Release and this hardcoded "Debug" - so every test needing a
-		// live app failed there while passing on every developer's machine.
-		// The other configuration is still accepted: a developer with only a
-		// Debug build should not have to rebuild to run one test.
-		var tried = new List<string>();
-
-		foreach (string cfg in Configurations())
-		{
-			string candidate = Path.Combine(
-				dir.FullName, "Examples", "DemoApp", "bin", cfg, "net10.0", "DemoApp");
-
-			if (File.Exists(candidate)) return candidate;
-
-			tried.Add(candidate);
-		}
-
-		throw new InvalidOperationException(
-			$"DemoApp is not built at any of: {string.Join(", ", tried)}; "
-			+ "run dotnet build Examples/DemoApp");
-	}
+	private static string DemoAppPath() =>
+		BuiltBinary("DemoApp", "Examples", "DemoApp", "DemoApp");
 
 	/// <summary>Stops the application, for tests about it going away.</summary>
 	public void Kill()

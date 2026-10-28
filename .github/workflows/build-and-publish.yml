@@ -117,6 +117,16 @@ jobs:
     - name: Test
       run: dotnet test SharpConsoleUI.Tests/SharpConsoleUI.Tests.csproj --configuration Release --verbosity normal --blame-hang --blame-hang-timeout 120s --blame-hang-dump-type none
 
+    # The cxdbg tests DRIVE real binaries - they start the demo app and run the
+    # tool against it over a socket - so both have to exist before the tests
+    # run. Nothing else in this workflow builds them, and without this the
+    # tests fail with "not built at ...", which reads like a broken test
+    # rather than a missing build.
+    - name: Build what the tool tests drive
+      run: |
+        dotnet build Examples/DemoApp/DemoApp.csproj --configuration Release
+        dotnet build tools/cxdbg/src/cxdbg/cxdbg.csproj --configuration Release
+
     # The tools are packed and published below, so their tests belong in the
     # same gate. CXDBG_TERMINAL=none because a test must never try to open a
     # window: there is no desktop here, and an emulator asked for one would
