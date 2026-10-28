@@ -43,7 +43,7 @@ Give it a goal in plain language and it reads your files, works out what to chan
 - A transcript of collapsible tool-call rows (`expand…`) beside a sticky live status panel
 - Modal permission prompts with `Allow once` / `Always allow` / `Deny` buttons over the running transcript
 - Markdown rendered inline in the transcript — headings, bullet lists, tables and syntax-coloured code
-- `FigletControl` banner, horizontal bar charts, and a status bar carrying live context percentage
+- `FigleControl` banner, horizontal bar charts, and a status bar carrying live context percentage
 
 | Permission prompt | Diff view | Usage stats |
 |-------------------|-----------|-------------|
@@ -129,7 +129,7 @@ Live gauges and Braille sparkline history for utilization, memory, temperature, 
 ---
 
 ### cxtop
-ntop/btop-inspired system monitor for the terminal.
+htop/btop-inspired system monitor for the terminal.
 
 ![cxtop](images/examples/cxtop-screenshot.png)
 
@@ -199,7 +199,7 @@ Terminal-based control panel for Linux servers and homelabs with 14 bundled widg
 **SharpConsoleUI features on show:**
 - `SparklineControl` and `LineGraphControl` history across the monitoring widgets
 - A widget grid that reflows with terminal width, each widget its own composed panel
-- Modal dialogs throughout (`AsModal` in 12 files) for widget config, actions and confirmations
+- Modal dialogs throughout, for widget config, actions and confirmations
 - `PromptControl` and `DropdownControl` inputs in the widget browser's search and filters
 - Live metric polling on an async window thread, with toast notifications for threshold alerts
 

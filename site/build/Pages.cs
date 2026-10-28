@@ -44,7 +44,7 @@ internal static class Pages
 		sb.AppendLine("<h1>A terminal GUI framework<br>for .NET.</h1>");
 		sb.AppendLine("<p class=\"hero-sub\">Overlapping windows with per-cell alpha blending, a "
 			+ "Measure&rarr;Arrange&rarr;Paint layout pipeline, and a compositor that only redraws "
-			+ "what changed. Each window runs on its own async thread.</p>");
+			+ "what changed. Each window runs its own async loop.</p>");
 		sb.AppendLine("<div class=\"hero-actions\">");
 		sb.AppendLine("<a class=\"btn btn-primary\" href=\"docs/tutorials/README.html\">Get started</a>");
 		sb.AppendLine("<a class=\"btn btn-ghost\" href=\"controls.html\">Browse controls</a>");
@@ -86,7 +86,7 @@ internal static class Pages
 			"Twenty-nine controls parse inline styling: colour, weight, slant, gradients across a "
 			+ "run of text, and links that open. Not a separate rich-text widget.",
 			"docs/MARKUP_SYNTAX.html", "Markup syntax"));
-		sb.AppendLine(Pillar("A thread per window",
+		sb.AppendLine(Pillar("An async loop per window",
 			"Each window runs its own async loop, with marshalling back to the UI thread handled "
 			+ "for you. A slow window does not freeze the others.",
 			"docs/THREADING_AND_ASYNC.html", "Threading"));
@@ -133,7 +133,7 @@ internal static class Pages
 			+ "not - picked automatically.</p>");
 		sb.AppendLine("<p><strong>A real terminal.</strong> <code>TerminalControl</code> hosts another "
 			+ "terminal application inside a window, each with its own pty and full ANSI. A TUI "
-			+ "running inside a TUI.</p>");
+			+ "running inside a TUI - on Linux, and on Windows 10 1809 or newer.</p>");
 		sb.AppendLine("<p><a href=\"controls.html\">All forty-seven controls &rarr;</a></p>");
 		sb.AppendLine("</div>");
 		sb.AppendLine("</section>");
@@ -147,7 +147,7 @@ internal static class Pages
 		sb.AppendLine("<div class=\"mini-grid\">");
 
 		foreach (var app in Examples.Read(root, "Real-World Applications").Where(a => a.Hero != null).Take(4))
-			sb.AppendLine($"<a class=\"mini\" href=\"showcase.html\">"
+			sb.AppendLine($"<a class=\"mini\" href=\"showcase.html#{Slug(app.Name)}\">"
 				+ $"<img src=\"{app.Hero}\" alt=\"{Shell.Esc(app.Name)}\" loading=\"lazy\">"
 				+ $"<div class=\"mini-text\"><h3>{Shell.Esc(app.Name)}</h3>"
 				+ $"<p>{Shell.Esc(app.Tagline)}</p></div></a>");
@@ -232,7 +232,7 @@ internal static class Pages
 		sb.AppendLine("<div class=\"page-head\"><span class=\"eyebrow\">Controls</span>"
 			+ $"<h1>{(total > 0 ? total : 47)} controls</h1>"
 			+ "<p>From a button to an embedded terminal emulator. Every one is themeable, "
-			+ "every one understands markup, and every one has a page of its own.</p></div>");
+			+ "every one has a page of its own, and twenty-nine of them parse inline markup.</p></div>");
 
 		// No thumbnails here. The shots have no common shape - a progress bar is
 		// fifty columns by one, a tree is fifty by ten - so a uniform grid pads
@@ -366,7 +366,7 @@ internal static class Pages
 			return sb.ToString();
 		}
 
-		sb.AppendLine("<section class=\"show-row reveal\">");
+		sb.AppendLine($"<section id=\"{Slug(e.Name)}\" class=\"show-row reveal\">");
 
 		sb.AppendLine("<div class=\"show-media\">");
 
@@ -563,9 +563,54 @@ internal static class Pages
 			t = System.Text.RegularExpressions.Regex.Replace(t, @"\[([^\]]+)\]\([^)]+\)", "$1");
 			t = t.Replace("`", "").Replace("**", "").Replace("*", "");
 
-			return t.Length > 120 ? t[..117] + "..." : t;
+			return Blurb(t);
 		}
 
 		return "";
+	}
+
+	/// <summary>An id for an application, so a card can link straight to its row.</summary>
+	private static string Slug(string name)
+	{
+		var sb = new System.Text.StringBuilder(name.Length);
+
+		foreach (char c in name)
+		{
+			if (char.IsLetterOrDigit(c)) sb.Append(char.ToLowerInvariant(c));
+			else if (sb.Length > 0 && sb[^1] != '-') sb.Append('-');
+		}
+
+		return sb.ToString().Trim('-');
+	}
+
+	/// <summary>Shortens a blurb at a sentence or word boundary, never mid-word.</summary>
+	/// <remarks>
+	/// A hard cut at a character count produces "No pri..." and "windows on a",
+	/// which reads as a bug rather than a summary. A lead-in like
+	/// "What you'll build:" is a label for what follows, not a description, so
+	/// the text after it is the blurb.
+	/// </remarks>
+	private static string Blurb(string text)
+	{
+		const int Max = 160;
+
+		string t = text.Trim();
+
+		// "What you'll build: a window with a button" -> the part worth showing.
+		int lead = t.IndexOf(':');
+		if (lead > 0 && lead < 32 && lead + 1 < t.Length)
+		{
+			string after = t[(lead + 1)..].Trim();
+			if (after.Length > 0) t = char.ToUpperInvariant(after[0]) + after[1..];
+		}
+
+		if (t.Length <= Max) return t;
+
+		// A whole sentence if one ends in range, otherwise the last whole word.
+		int stop = t.LastIndexOfAny(['.', '!', '?'], Math.Min(Max, t.Length) - 1);
+		if (stop > Max / 3) return t[..(stop + 1)];
+
+		int space = t.LastIndexOf(' ', Math.Min(Max, t.Length) - 1);
+		return (space > 0 ? t[..space] : t[..Max]).TrimEnd(',', ';', ':', '-') + "...";
 	}
 }

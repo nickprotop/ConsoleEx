@@ -88,7 +88,7 @@ Controls for displaying formatted content.
 | **[ChatTranscriptControl](controls/ChatTranscriptControl.md)** | Agent/chat transcript | Role-tagged messages (User/Assistant/System/Tool/Error), token-by-token streaming, collapsible tool messages, thinking indicator, gradient headers, alpha bubbles |
 | **[LogViewerControl](controls/LogViewerControl.md)** | Log message viewer | Auto-scroll, filtering, severity colors |
 | **[SpectreRenderableControl](controls/SpectreRenderableControl.md)** | Wrapper for Spectre widgets | Display Tables, Trees, Panels, Charts, etc. |
-| **[PanelControl](controls/PanelControl.md)** | Bordered container panel | Hosts child controls (a non-collapsible CollapsiblePanel); headers, border styles, padding, mouse. For bordered *text*, use [MarkupControl](controls/MarkupControl.md) with `.WithBorder()`. |
+| **[PanelControl](controls/PanelControl.md)** | Bordered container panel | Hosts child controls; headers, border styles, padding, mouse. For bordered *text*, use [MarkupControl](controls/MarkupControl.md) with `.WithBorder()`. |
 | **[RuleControl](controls/RuleControl.md)** | Horizontal rule/separator | Optional title with alignment, colors, border styles; doubles as an inline progress bar (`SetProgress`/`SetIndeterminate`). Backs both `Controls.Rule(title)` and `Controls.Separator()` |
 | **[SparklineControl](controls/SparklineControl.md)** | Time-series sparkline graph | Block, braille, or bidirectional modes; borders; titles |
 | **[ChartControl](controls/ChartControl.md)** | Full chart: line, area, bar, scatter | Real axes with nice-number ticks, gridlines, legend, split view, gradients by X or value, hover readout, selection, zoom |
@@ -123,7 +123,7 @@ see [WINDOW_LAYOUT.md](WINDOW_LAYOUT.md) and [DOCKING.md](DOCKING.md).
 | **[HorizontalGridControl](controls/HorizontalGridControl.md)** | Multi-column layout | Variable-width columns, alignment, splitters |
 | **[GridControl](controls/GridControl.md)** | WinUI-style 2D grid | Fixed/Auto/Star rows & columns, row/col spans, gaps, per-cell styling, any control per cell, [docked edges](controls/GridControl.md#docking) outside the tracks |
 | **[FlowControl](controls/FlowControl.md)** | Renders a flow inline in a region | Embeds `Flow.Run`/`Flow.Wizard` in a pane (vs. a modal); idle/done placeholder; normal focus scope |
-| **[WizardControl](controls/WizardControl.md)** | Runs a multi-step wizard inline | A `FlowControl` named/presetted for wizards (the discoverable door); `wizard.Run(Flow.Wizard<T>()...)`; inline, not modal |
+| **[WizardControl](controls/WizardControl.md)** | Runs a multi-step wizard inline | A `FlowControl` preconfigured for wizards, so the feature is findable by name; `wizard.Run(Flow.Wizard<T>()...)`; inline, not modal |
 | **[HorizontalSplitterControl](controls/HorizontalSplitterControl.md)** | Draggable horizontal divider | Resizes the control above against the one below; mouse drag + Up/Down (Shift for 5-row jumps), min-height floors, `SplitterMoved` |
 | **SplitterControl** | Vertical column divider | Internal to [HorizontalGridControl](controls/HorizontalGridControl.md) — created by `AddSplitter`/`AddSplitterBefore`. For grid splitters use [GridControl](controls/GridControl.md#splitters) |
 | **[TabControl](controls/TabControl.md)** | Multi-page tab container | Tab headers, keyboard/mouse switching, state preservation |

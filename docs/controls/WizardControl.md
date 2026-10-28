@@ -19,7 +19,7 @@ if (result.Completed)   Use(result.Value!);
 else if (result.Cancelled) { /* user backed out */ }
 ```
 
-**It IS a `FlowControl`.** `WizardControl` subclasses [`FlowControl`](FlowControl.md) the same way `PanelControl` subclasses `CollapsiblePanel` — a presetted, honestly-named specialization, **not** a wrapper or facade. It inherits the entire inline-flow surface unchanged (rendering, focus and child hosting, `AsHost()`, the idle/running/done lifecycle, and the `Run<TState>(FlowWizardBuilder<TState>)` entry point). It adds only a wizard-flavoured identity:
+**It IS a `FlowControl`.** `WizardControl` subclasses [`FlowControl`](FlowControl.md) the same way `PanelControl` subclasses `CollapsiblePanel` — a preconfigured, honestly-named specialization, **not** a wrapper or facade. It inherits the entire inline-flow surface unchanged (rendering, focus and child hosting, `AsHost()`, the idle/running/done lifecycle, and the `Run<TState>(FlowWizardBuilder<TState>)` entry point). It adds only a wizard-flavoured identity:
 
 - a discoverable type name (`WizardControl` / `Controls.Wizard()`), and
 - a wizard-friendly default `Placeholder` (`[dim]No wizard running.[/]`), which you can override.

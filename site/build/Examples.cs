@@ -108,6 +108,7 @@ internal static partial class Examples
 		}
 
 		string? tagline = inlineTag;
+		bool joinTagline = false;
 		string? hero = null;
 		string? project = null;
 		var body = new List<string>();
@@ -185,8 +186,15 @@ internal static partial class Examples
 			string text = Plain(t);
 			if (text.Length == 0) continue;
 
+			// Markdown treats consecutive lines as ONE paragraph; this reader was
+			// treating each physical line as a unit, so a hard-wrapped tagline
+			// ended at the author's line break - "...dashboard windows on a".
+			// Join continuation lines into the sentence they belong to.
 			if (tagline == null) tagline = text;
+			else if (joinTagline) tagline += " " + text;
 			else body.Add(text);
+
+			joinTagline = tagline != null && body.Count == 0 && !EndsSentence(tagline);
 		}
 
 		if (tagline == null) return null;
@@ -202,6 +210,10 @@ internal static partial class Examples
 			: src.TrimStart('.', '/');
 
 	/// <summary>Markdown's emphasis and links, as the text they carry.</summary>
+	/// <summary>Whether a line already reads as a finished sentence.</summary>
+	private static bool EndsSentence(string t) =>
+		t.Length > 0 && (t[^1] is '.' or '!' or '?' or ':' or ';');
+
 	private static string Plain(string md)
 	{
 		string t = Link().Replace(md, "$1");

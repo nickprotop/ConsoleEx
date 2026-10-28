@@ -28,11 +28,16 @@ The `ConsoleWindowSystem` owns all windows; `NetConsoleDriver` abstracts termina
 
 ```csharp
 using SharpConsoleUI;
+using SharpConsoleUI.Builders;
+using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 
 var driver = new NetConsoleDriver(RenderMode.Buffer);
 var windowSystem = new ConsoleWindowSystem(driver);
 ```
+
+All four `using` directives go in now, because C# requires them before any
+other statement - adding one later, after the code below, will not compile.
 
 Nothing visible yet — the system is set up but no windows have been added.
 
@@ -41,8 +46,6 @@ Nothing visible yet — the system is set up but no windows have been added.
 `WindowBuilder` gives you a fluent API for configuring a window before it's added to the system.
 
 ```csharp
-using SharpConsoleUI.Builders;
-
 var window = new WindowBuilder(windowSystem)
     .WithTitle("Hello World")
     .WithSize(50, 12)
@@ -57,8 +60,6 @@ Run `dotnet run` after adding `windowSystem.AddWindow(window); windowSystem.Run(
 `MarkupControl` displays styled text using the `[tag]text[/]` markup syntax — controls stack vertically inside the window by default.
 
 ```csharp
-using SharpConsoleUI.Controls;
-
 window.AddControl(Controls.Markup()
     .AddLine("[bold cyan]Hello, SharpConsoleUI![/]")
     .Build());

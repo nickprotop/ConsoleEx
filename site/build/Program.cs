@@ -197,8 +197,36 @@ static string Summary(string md, string fallback)
 		t = Regex.Replace(t, @"\[([^\]]+)\]\([^)]+\)", "$1");
 		t = t.Replace("`", "").Replace("**", "").Replace("*", "");
 
-		return t.Length > 180 ? t[..177] + "..." : t;
+		return Trim(t);
 	}
 
 	return fallback + " — SharpConsoleUI documentation.";
+}
+
+/// <summary>Cuts a meta description at a sentence or word boundary.</summary>
+/// <remarks>
+/// A hard cut at a character count ends a shared link mid-word ("No pri..."),
+/// and a lead-in like "What you'll build:" labels what follows rather than
+/// describing the page, so the text after it is the description.
+/// </remarks>
+static string Trim(string text)
+{
+	const int Max = 180;
+
+	string t = text.Trim();
+
+	int lead = t.IndexOf(':');
+	if (lead > 0 && lead < 32 && lead + 1 < t.Length)
+	{
+		string after = t[(lead + 1)..].Trim();
+		if (after.Length > 0) t = char.ToUpperInvariant(after[0]) + after[1..];
+	}
+
+	if (t.Length <= Max) return t;
+
+	int stop = t.LastIndexOfAny(['.', '!', '?'], Math.Min(Max, t.Length) - 1);
+	if (stop > Max / 3) return t[..(stop + 1)];
+
+	int space = t.LastIndexOf(' ', Math.Min(Max, t.Length) - 1);
+	return (space > 0 ? t[..space] : t[..Max]).TrimEnd(',', ';', ':', '-') + "...";
 }

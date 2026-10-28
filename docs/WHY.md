@@ -134,8 +134,8 @@ images, a terminal emulator hosting another terminal application, video. The
 compositor is what makes these possible: a control that draws pixels is just a
 control that fills cells.
 
-**Applications that stay responsive.** Each window has its own thread and its
-own render loop, with marshalling back to the UI thread handled for you. A
+**Applications that stay responsive.** Each window can run its own async loop,
+with marshalling back to the UI thread handled for you. A
 panel waiting on a slow query does not freeze the panel next to it.
 
 ## What the code looks like

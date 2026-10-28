@@ -29,7 +29,7 @@ Build complete applications with overlapping windows, a real compositor, and rea
 component UI, rendered efficiently to any modern terminal. (The runtime ships as the
 `SharpConsoleUI` NuGet package.)
 
-Each window runs on its own async thread, with built-in marshalling back to the UI
+Each window runs its own async loop, with built-in marshalling back to the UI
 thread. A DOM-based layout engine measures, arranges, and paints a tree of controls,
 including responsive panes and flexible grids with fixed, auto-sized, and proportional
 tracks, spans, and splitters. The compositor merges per-window buffers with per-cell
@@ -54,7 +54,7 @@ NativeAOT-ready.
 
 SharpConsoleUI gives each window its own `CharacterBuffer`. A compositor merges
 them — with occlusion culling, per-cell Porter-Duff alpha blending, and a
-Measure→Arrange→Paint layout pipeline. Each window runs on its own async thread.
+Measure→Arrange→Paint layout pipeline. Each window runs its own async loop.
 Gradient backgrounds propagate through every transparent control automatically.
 
 Because rendering goes through a diff-based cell buffer rather than writing
@@ -164,7 +164,7 @@ windowSystem.AddWindow(window);
 windowSystem.Run();
 ```
 
-Each window can run with its own async thread:
+Each window can run its own async loop:
 
 ```csharp
 var clockWindow = new WindowBuilder(windowSystem)
@@ -241,7 +241,7 @@ Multi-account IMAP/SMTP, conversation threading, HTML rendering, attachments, of
 
 ![cxtop](docs/images/examples/cxtop-screenshot.png)
 
-ntop/btop-inspired. Hardware identity dashboard, sparkline graphs, process management. Cross-platform.
+htop/btop-inspired. Hardware identity dashboard, sparkline graphs, process management. Cross-platform.
 [github.com/nickprotop/cxtop](https://github.com/nickprotop/cxtop)
 
 ### cxnet — network throughput monitor
@@ -330,7 +330,7 @@ Keyboard-driven .NET 10 console for taking HuggingFace models onto a Qualcomm Sn
 **Input:** Button, Checkbox, Prompt, MultilineEdit (syntax highlighting, ~64 languages),
 Slider, RangeSlider, DatePicker, TimePicker, Dropdown, Menu, Toolbar
 
-**Display:** MarkupControl (Spectre-compatible markup everywhere), FigletControl,
+**Display:** MarkupControl (Spectre-compatible markup everywhere), FigleControl,
 LogViewer, SpectreRenderableControl, Chart, LineGraph, SparklineControl, BarGraph
 
 **Layout:** NavigationView (WinUI-inspired, responsive), TabControl,
