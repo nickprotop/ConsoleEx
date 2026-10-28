@@ -153,6 +153,23 @@ public sealed class LiveAppFixture : IDisposable
 		throw new TimeoutException($"no socket at {SocketPath} after 20s.\n{Output}");
 	}
 
+	/// <summary>Build configurations to look in, this assembly's first.</summary>
+	private static IEnumerable<string> Configurations()
+	{
+		// Taken from where this assembly was built rather than from a compile
+		// symbol, so it stays right if the test project is ever built in a
+		// configuration nobody anticipated.
+		string here = AppContext.BaseDirectory;
+
+		if (here.Contains($"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}",
+				StringComparison.Ordinal))
+		{
+			return ["Release", "Debug"];
+		}
+
+		return ["Debug", "Release"];
+	}
+
 	/// <summary>Where the built DemoApp is, relative to the test assembly.</summary>
 	private static string DemoAppPath()
 	{
@@ -164,11 +181,26 @@ public sealed class LiveAppFixture : IDisposable
 		if (dir == null)
 			throw new InvalidOperationException("could not find the repo root from " + AppContext.BaseDirectory);
 
-		string path = Path.Combine(dir.FullName, "Examples", "DemoApp", "bin", "Debug", "net10.0", "DemoApp");
-		if (!File.Exists(path))
-			throw new InvalidOperationException($"DemoApp is not built at {path}; run dotnet build Examples/DemoApp");
+		// The configuration these tests were built in comes first, because CI
+		// builds Release and this hardcoded "Debug" - so every test needing a
+		// live app failed there while passing on every developer's machine.
+		// The other configuration is still accepted: a developer with only a
+		// Debug build should not have to rebuild to run one test.
+		var tried = new List<string>();
 
-		return path;
+		foreach (string cfg in Configurations())
+		{
+			string candidate = Path.Combine(
+				dir.FullName, "Examples", "DemoApp", "bin", cfg, "net10.0", "DemoApp");
+
+			if (File.Exists(candidate)) return candidate;
+
+			tried.Add(candidate);
+		}
+
+		throw new InvalidOperationException(
+			$"DemoApp is not built at any of: {string.Join(", ", tried)}; "
+			+ "run dotnet build Examples/DemoApp");
 	}
 
 	/// <summary>Stops the application, for tests about it going away.</summary>
