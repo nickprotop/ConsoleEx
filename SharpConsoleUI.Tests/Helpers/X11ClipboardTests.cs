@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using SharpConsoleUI.Helpers;
 using Xunit;
 
@@ -176,16 +175,19 @@ public class X11ClipboardTests
 			// The first paste gives up: the owner is slower than it waits.
 			Assert.Null(reader.GetText(150));
 
-			// The second, with the owner STILL slow, must land when that one answer arrives — the remainder of
-			// the 700ms, not another 700 on top. Queueing instead of joining blew well past this bound.
-			var clock = Stopwatch.StartNew();
-			var text = reader.GetText(900);
-			clock.Stop();
+			// The second, with the owner STILL slow, must land on the answer the
+			// abandoned read is already waiting for rather than asking again.
+			int before = owner.ConversionsAsked;
+
+			var text = reader.GetText(4000);
 			owner.DelayAnswersForTest(0);
 
 			Assert.Equal("from a slow owner", text);
-			Assert.True(clock.ElapsedMilliseconds < 700,
-				$"took {clock.ElapsedMilliseconds}ms, so it waited for a second conversion instead of joining the first");
+
+			// Counted, not timed. Joining IS "no second conversion was asked
+			// for", and the stopwatch this replaces measured the machine as much
+			// as the clipboard - which is why this class flaked under load.
+			Assert.Equal(0, owner.ConversionsAsked - before);
 		}
 	}
 
@@ -201,20 +203,22 @@ public class X11ClipboardTests
 			owner.SetText("shared answer");
 			owner.DelayAnswersForTest(600);
 
+			int before = owner.ConversionsAsked;
+
 			var readers = new Task<string?>[4];
 			for (int i = 0; i < readers.Length; i++)
-				readers[i] = Task.Run(() => reader.GetText(2000));
+				readers[i] = Task.Run(() => reader.GetText(4000));
 
-			var clock = Stopwatch.StartNew();
 			Task.WaitAll(readers);
-			clock.Stop();
 			owner.DelayAnswersForTest(0);
 
 			Assert.All(readers, r => Assert.Equal("shared answer", r.Result));
 
-			// Four separate conversions at 600ms each would be about 2.4s; one shared is about 600ms.
-			Assert.True(clock.ElapsedMilliseconds < 1400,
-				$"four pastes took {clock.ElapsedMilliseconds}ms, so they did not share one round trip");
+			// Counted, not timed. Sharing IS "the owner was asked once", and a
+			// stopwatch could only infer that from how long four waits took -
+			// which a loaded machine makes a measure of the machine. Four asks
+			// would mean they queued.
+			Assert.Equal(1, owner.ConversionsAsked - before);
 		}
 	}
 

@@ -153,6 +153,19 @@ namespace SharpConsoleUI.Helpers
 		/// <summary>Test-only: makes this owner take <paramref name="ms"/> to answer a conversion request.</summary>
 		internal void DelayAnswersForTest(int ms) => _answerDelayMs = ms;
 
+		/// <summary>
+		/// How many conversions this owner has been asked for.
+		/// </summary>
+		/// <remarks>
+		/// For tests, and it is the thing itself rather than a sign of it: that
+		/// several waiting pastes share one round trip is a statement about how
+		/// many times the owner is asked, which a stopwatch can only infer. One
+		/// request answers all of them; four would mean they queued.
+		/// </remarks>
+		internal int ConversionsAsked => Volatile.Read(ref _conversionsAsked);
+
+		private int _conversionsAsked;
+
 		private int _incrementalSends;
 
 		/// <summary>Whether the connection has failed; a broken clipboard does nothing and reads nothing.</summary>
@@ -361,6 +374,8 @@ namespace SharpConsoleUI.Helpers
 			switch (ev->Type)
 			{
 				case SelectionRequest:
+					Interlocked.Increment(ref _conversionsAsked);
+
 					// A SLOW OWNER, ON PURPOSE (tests only): a real browser or editor can take longer to answer a
 					// conversion than a paste is willing to wait, and that is the case the abandoned-read handling
 					// exists for. Zero in every normal run, so nothing is delayed in production.

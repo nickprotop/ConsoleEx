@@ -23,6 +23,11 @@ public class InlineSpinnerIntegrationTests
 	[Fact]
 	public void MarkupControlAnimatesInlineSpinnerAcrossFrames()
 	{
+		// Cleaning up afterwards only works if every test does. The clock's cadence state
+		// is static and its minimum interval only ever decreases, so a test that ran
+		// first can leave a slot this one's Tick reads as already delivered. Reset on
+		// the way IN, so each test depends on nothing before it.
+		MarkupSpinnerClock.ResetForTests();
 		MarkupSpinnerClock.SetTimeProviderForTests(() => 0); // frame 0
 		try
 		{
@@ -38,6 +43,11 @@ public class InlineSpinnerIntegrationTests
 			// Advance the clock by one interval -> next frame. The inline [spinner circle]
 			// animates at Circle's per-style default interval, so advance by exactly that.
 			int circleInterval = SpinnerControl.DefaultIntervalMs(SpinnerStyle.Circle);
+			// Cleaning up afterwards only works if every test does. The clock's cadence state
+			// is static and its minimum interval only ever decreases, so a test that ran
+			// first can leave a slot this one's Tick reads as already delivered. Reset on
+			// the way IN, so each test depends on nothing before it.
+			MarkupSpinnerClock.ResetForTests();
 			MarkupSpinnerClock.SetTimeProviderForTests(() => circleInterval);
 			var buf1 = new CharacterBuffer(40, 5);
 			label.PaintDOM(buf1, bounds, bounds, Color.White, Color.Black);
@@ -69,6 +79,11 @@ public class InlineSpinnerIntegrationTests
 	{
 		int interval = SpinnerControl.DefaultIntervalMs(SpinnerStyle.Circle);
 		long now = 0;
+		// Cleaning up afterwards only works if every test does. The clock's cadence state
+		// is static and its minimum interval only ever decreases, so a test that ran
+		// first can leave a slot this one's Tick reads as already delivered. Reset on
+		// the way IN, so each test depends on nothing before it.
+		MarkupSpinnerClock.ResetForTests();
 		MarkupSpinnerClock.SetTimeProviderForTests(() => now);
 		try
 		{
@@ -106,6 +121,11 @@ public class InlineSpinnerIntegrationTests
 	{
 		int interval = SpinnerControl.DefaultIntervalMs(SpinnerStyle.Circle);
 		long now = 0;
+		// Cleaning up afterwards only works if every test does. The clock's cadence state
+		// is static and its minimum interval only ever decreases, so a test that ran
+		// first can leave a slot this one's Tick reads as already delivered. Reset on
+		// the way IN, so each test depends on nothing before it.
+		MarkupSpinnerClock.ResetForTests();
 		MarkupSpinnerClock.SetTimeProviderForTests(() => now);
 		try
 		{
@@ -145,6 +165,11 @@ public class InlineSpinnerIntegrationTests
 	{
 		int interval = SpinnerControl.DefaultIntervalMs(SpinnerStyle.Circle);
 		long now = 0;
+		// Cleaning up afterwards only works if every test does. The clock's cadence state
+		// is static and its minimum interval only ever decreases, so a test that ran
+		// first can leave a slot this one's Tick reads as already delivered. Reset on
+		// the way IN, so each test depends on nothing before it.
+		MarkupSpinnerClock.ResetForTests();
 		MarkupSpinnerClock.SetTimeProviderForTests(() => now);
 		try
 		{
