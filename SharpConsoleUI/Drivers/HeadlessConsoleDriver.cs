@@ -278,7 +278,7 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 	/// a handler is actually executing - which is exactly the window in which
 	/// "nothing is queued" would otherwise read as nothing left to do.
 	/// </remarks>
-	internal bool IsDispatchingMouse => _mouseDispatch.IsDispatching;
+	public bool IsDispatchingMouse => _mouseDispatch.IsDispatching;
 
 	/// <summary>
 	/// Simulates a full click: the press and the release a terminal sends.

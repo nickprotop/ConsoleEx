@@ -217,6 +217,22 @@ namespace SharpConsoleUI.Drivers
 		long FrameNumber => 0;
 
 		/// <summary>
+		/// Whether a mouse handler is executing right now, on any thread.
+		/// </summary>
+		/// <remarks>
+		/// A mouse event is dispatched synchronously, on whichever thread raised it,
+		/// rather than being queued the way a key is. So a control can be halfway
+		/// through handling a click while another thread asks whether the system has
+		/// finished reacting - and every "is anything queued" question answers no,
+		/// because nothing ever was.
+		/// <para>This is the fifth settling condition for that reason: it is the only
+		/// one that can see work which never passes through a queue.</para>
+		/// <para>Defaulted so a driver that does not count is unaffected: it says
+		/// false, and settling then rests on the queue-based conditions alone.</para>
+		/// </remarks>
+		bool IsDispatchingMouse => false;
+
+		/// <summary>
 		/// Copies a horizontal strip of cells from a <see cref="CharacterBuffer"/> directly
 		/// to the console output buffer, bypassing ANSI string serialization and parsing.
 		/// </summary>

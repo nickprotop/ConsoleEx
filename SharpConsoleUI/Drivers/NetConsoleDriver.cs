@@ -1090,7 +1090,7 @@ namespace SharpConsoleUI.Drivers
 		private readonly Input.MouseDispatchCount _mouseDispatch = new();
 
 		/// <summary>Whether a mouse handler is running on any thread.</summary>
-		internal bool IsDispatchingMouse => _mouseDispatch.IsDispatching;
+		public bool IsDispatchingMouse => _mouseDispatch.IsDispatching;
 
 		/// <summary>
 		/// Raises <see cref="MouseEvent"/>, counting the dispatch while it runs.

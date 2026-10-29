@@ -137,4 +137,102 @@ public class SettledTests
 		system.Render.UpdateDisplay();
 		Assert.True(system.IsSettled);
 	}
+
+	[Fact]
+	public async Task Waiting_after_a_mouse_event_waits_for_the_frame_it_caused()
+	{
+		// Reported from a real test suite: input sent, WaitUntilSettledAsync
+		// awaited, and the effect not there yet, about eight runs in thirty.
+		//
+		// A mouse event is dispatched on the CALLING thread - it never enters
+		// the input queue - so none of IsSettled's queue-based conditions was ever
+		// false, and the wait returned without a single frame having been
+		// composed. The while loop could not run even once.
+		var driver = new HeadlessConsoleDriver(60, 20);
+		var system = new ConsoleWindowSystem(driver);
+
+		int clicks = 0;
+		var button = new ButtonControl { Text = "Go" };
+		button.Click += (_, _) => clicks++;
+
+		new WindowBuilder(system).WithTitle("W").Maximized().AddControl(button).BuildAndShow();
+
+		using var session = system.RunInBackground();
+		await system.WaitUntilSettledAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+		long before = driver.FrameNumber;
+
+		// Straight through the driver, the way an input test drives one.
+		driver.SimulateClick(new System.Drawing.Point(2, 2));
+
+		await system.WaitUntilSettledAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+		// The wait has to outlast the input: a frame composed after the event
+		// is what proves the system saw it, and is the only thing a caller can
+		// hang an assertion on.
+		Assert.True(driver.FrameNumber > before,
+			$"no frame was composed after the input: before={before} after={driver.FrameNumber}");
+	}
+
+	[Fact]
+	public void A_system_is_not_settled_while_a_mouse_handler_is_running()
+	{
+		// The concurrent half of the same report. A mouse event is dispatched
+		// synchronously on the thread that raised it and never enters a queue,
+		// so without the mouse condition every "is anything queued" question
+		// answers no while a handler is still running.
+		//
+		// Subscribed straight to the driver's own event: this is about the
+		// dispatch window, not about hit-testing, and routing it through a
+		// control would make a layout detail decide whether the test runs.
+		var driver = new HeadlessConsoleDriver(60, 20);
+		var system = new ConsoleWindowSystem(driver);
+
+		new WindowBuilder(system).WithTitle("W").Maximized().BuildAndShow();
+		system.Render.UpdateDisplay();
+
+		int runs = 0;
+		bool settledDuringHandler = true;
+
+		driver.MouseEvent += (_, _, _) =>
+		{
+			runs++;
+			settledDuringHandler = system.IsSettled;
+		};
+
+		driver.SimulateClick(new System.Drawing.Point(5, 5));
+
+		Assert.True(runs > 0, "the mouse handler never ran, so nothing was measured");
+		Assert.False(settledDuringHandler,
+			"the system read as settled while a mouse handler was still running");
+	}
+
+	[Fact]
+	public async Task Waiting_returns_on_a_system_with_nothing_to_do()
+	{
+		// The trap a frame floor must not fall into. Waiting for the UI to "go
+		// quiet" costs the full timeout on anything with a moving part - a clock,
+		// a spinner, a background simulation - because it is never quiet. The
+		// floor is keepable instead: the counter advances on every composed frame,
+		// changed or not, so an idle system satisfies it on the next frame.
+		var driver = new HeadlessConsoleDriver(40, 10);
+		var system = new ConsoleWindowSystem(driver);
+
+		new WindowBuilder(system).WithTitle("W").Maximized().BuildAndShow();
+
+		using var session = system.RunInBackground();
+
+		// Settle once so nothing is outstanding, then wait again on a system that
+		// has nothing whatever to do. The second wait is the one at risk of hanging.
+		await system.WaitUntilSettledAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+		long before = driver.FrameNumber;
+
+		await system.WaitUntilSettledAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+		// It returned, and it did wait for a frame rather than returning on the
+		// spot - which is the whole of the guarantee.
+		Assert.True(driver.FrameNumber > before,
+			$"the wait returned without a frame: before={before} after={driver.FrameNumber}");
+	}
 }

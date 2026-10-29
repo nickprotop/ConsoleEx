@@ -232,10 +232,16 @@ namespace SharpConsoleUI
 		/// </summary>
 		/// <remarks>
 		/// <para>
-		/// Four conditions, all of them: no input waiting to be processed, nothing
-		/// queued for the UI thread, no window with painting still to do, and no
-		/// animation in flight. Any one of them false means another frame will
-		/// change something.
+		/// Five conditions, all of them: no input waiting to be processed, nothing
+		/// queued for the UI thread, no window with painting still to do, no
+		/// animation in flight, and no mouse handler running. Any one of them false
+		/// means another frame will change something.
+		/// </para>
+		/// <para>
+		/// The mouse is the odd one. A mouse event is dispatched synchronously on
+		/// whichever thread raised it, so it never enters a queue - which is why a
+		/// queue-based condition cannot see it, and why a handler running on
+		/// another thread needs a condition of its own.
 		/// </para>
 		/// <para>
 		/// Distinct from <see cref="IsIdle"/>, which is a wall-clock timeout - "no
@@ -246,6 +252,7 @@ namespace SharpConsoleUI
 		/// </remarks>
 		public bool IsSettled =>
 			!_inputStateService.HasPendingInput
+			&& !_consoleDriver.IsDispatchingMouse
 			&& _uiActionQueue.IsEmpty
 			&& !Animations.HasActiveAnimations
 			&& !Windows.Values.Any(w => w.PendingWork != FrameWork.None);
@@ -262,9 +269,10 @@ namespace SharpConsoleUI
 		/// </remarks>
 		public string SettleBlockers()
 		{
-			var parts = new List<string>(4);
+			var parts = new List<string>(5);
 
 			if (_inputStateService.HasPendingInput) parts.Add("input pending");
+			if (_consoleDriver.IsDispatchingMouse) parts.Add("a mouse handler is running");
 			if (!_uiActionQueue.IsEmpty) parts.Add($"{_uiActionQueue.Count} queued action(s)");
 			if (Animations.HasActiveAnimations) parts.Add("animations running");
 
@@ -302,17 +310,38 @@ namespace SharpConsoleUI
 		}
 
 		/// <summary>
-		/// Completes once <see cref="IsSettled"/> is true.
+		/// Completes once <see cref="IsSettled"/> is true AND a frame has been
+		/// composed since the call.
 		/// </summary>
 		/// <param name="cancellationToken">Cancels the wait.</param>
 		/// <remarks>
+		/// <para>
 		/// Replaces polling for a window to have a height and then polling again for
 		/// the effect of an input. Pumps the UI queue and renders when the system is
 		/// not running its own loop, so a test need not interleave the two by hand.
+		/// </para>
+		/// <para>
+		/// The frame is a floor, not a formality, and it is why this is not simply
+		/// <c>while (!IsSettled)</c>. Every settling condition asks whether work is
+		/// still OUTSTANDING, and work already done synchronously is not
+		/// outstanding - so after an input dispatched inline, such as a mouse
+		/// event, all of them read true with the frame that input caused not yet
+		/// composed. The frame is what turns "nothing is pending" into "you may
+		/// look now".
+		/// </para>
+		/// <para>
+		/// It cannot stall on an idle UI: the counter advances on every composed
+		/// frame, changed or not, so the floor is always reachable.
+		/// </para>
 		/// </remarks>
 		public async Task WaitUntilSettledAsync(CancellationToken cancellationToken = default)
 		{
-			while (!IsSettled)
+			// Read BEFORE the first check, so a frame composed while this method
+			// runs counts. Taken after it, a frame could land in between and be
+			// waited for twice.
+			long floor = ConsoleDriver.FrameNumber;
+
+			while (!IsSettled || ConsoleDriver.FrameNumber <= floor)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 
