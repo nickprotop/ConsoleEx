@@ -35,9 +35,13 @@ internal static partial class Links
 	/// <param name="html">The rendered markdown.</param>
 	/// <param name="sourceRel">The source file's path under <c>docs/</c>.</param>
 	/// <param name="depth">How deep the OUTPUT page sits, for <c>../</c> counting.</param>
-	internal static string Rewrite(string html, string sourceRel, int depth)
+	internal static string Rewrite(string html, string sourceRel, int depth, string? sourceDir = null)
 	{
-		string dir = Path.GetDirectoryName(sourceRel)?.Replace('\\', '/') ?? "";
+		// Where the markdown LIVES, which is what its relative links were
+		// written against. For a page under docs/ that is the page's own
+		// directory; for a tool's README rendered into the site it is the
+		// tool's folder, two levels above docs/ rather than inside it.
+		string dir = sourceDir ?? (Path.GetDirectoryName(sourceRel)?.Replace('\\', '/') ?? "");
 
 		return Attr().Replace(html, m =>
 		{
@@ -60,6 +64,15 @@ internal static partial class Links
 			// Resolve against the SOURCE file's directory, so a link written
 			// from docs/controls/X.md to ../THEMES.md lands in the right place.
 			string resolved = Normalize(dir.Length == 0 ? path : dir + "/" + path);
+
+			// A link from outside docs/ back INTO it names a site page. A
+			// tool's README reaches the guides with ../../docs/X.md, which
+			// normalises to ../docs/X.md: outside this rewriter's space, which
+			// is rooted at docs/, but the page it names is right here. Folded
+			// back in before the rule below, which would otherwise send it to
+			// GitHub for having left.
+			if (resolved.StartsWith("../docs/", StringComparison.Ordinal))
+				resolved = resolved["../docs/".Length..];
 
 			// A path that walked above docs/ is not on the site at all - it is
 			// a file in the repository - so it goes to GitHub whatever its
@@ -107,7 +120,7 @@ internal static partial class Links
 	private static string Up(int depth) => depth == 0 ? "" : string.Concat(Enumerable.Repeat("../", depth));
 
 	/// <summary>Collapses <c>.</c> and <c>..</c> without touching the filesystem.</summary>
-	private static string Normalize(string path)
+	internal static string Normalize(string path)
 	{
 		var parts = new List<string>();
 

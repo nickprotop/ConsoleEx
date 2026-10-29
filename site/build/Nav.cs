@@ -9,10 +9,17 @@
 namespace SharpConsoleUI.SiteBuild;
 
 /// <summary>One documentation page in the navigation.</summary>
-/// <param name="File">Its markdown file, relative to <c>docs/</c>.</param>
+/// <param name="File">Where the page goes under <c>docs/</c>, and what its links resolve against.</param>
 /// <param name="Title">What to call it in the navigation.</param>
 /// <param name="Blurb">One line saying what it covers, for the docs index.</param>
-internal sealed record Page(string File, string Title, string Blurb);
+/// <param name="Source">
+/// Where to read the markdown from, relative to the repository, when that is
+/// not <c>docs/{File}</c>. A tool's README stays in the tool's folder - it is
+/// what the repository shows and what the package carries - and is rendered
+/// into the site from there, rather than copied into <c>docs/</c> where the
+/// copy would drift from the original.
+/// </param>
+internal sealed record Page(string File, string Title, string Blurb, string? Source = null);
 
 /// <summary>A named group of pages.</summary>
 /// <param name="Name">The group's heading.</param>
@@ -78,7 +85,7 @@ internal static class Nav
 			"Colour, compositing, and everything that reaches a cell.",
 			[
 				new("THEMES.md", "Theming", "Themes, palettes, and control roles."),
-				new("MARKUP_SYNTAX.md", "Markup syntax", "Inline styling, understood by twenty-nine controls."),
+				new("MARKUP_SYNTAX.md", "Markup syntax", "Inline styling, understood by most controls."),
 				new("GRADIENTS.md", "Gradients", "Along a plot, by value, or both."),
 				new("ALPHA_BLENDING.md", "Alpha blending", "Per-cell Porter-Duff compositing."),
 				new("COMPOSITOR_EFFECTS.md", "Compositor effects", "Blur, fade, and hooks of your own."),
@@ -93,7 +100,9 @@ internal static class Nav
 		new("Tooling & debugging",
 			"A terminal application is the one program you cannot printf-debug.",
 			[
-				new("DEBUGGING.md", "Debugging & the socket protocol", "The wire: twenty-eight verbs, what each answers."),
+				new("CXDBG.md", "cxdbg", "The debugger: attach to a running application, ask it questions, drive it.",
+					Source: "tools/cxdbg/README.md"),
+				new("DEBUGGING.md", "Debugging & the socket protocol", "The wire the debugger speaks, and what each verb answers."),
 				new("DRIVERS.md", "Drivers & render modes", "Real terminal, headless, or one of your own."),
 				new("SHELL_SCRIPTING.md", "Shell scripting", "Driving an application from a script."),
 				new("SCHOST.md", "schost", "Packaging an application as a desktop app."),

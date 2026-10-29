@@ -22,7 +22,8 @@ Everything here is the wire protocol: one JSON object per line, over a Unix sock
 worth knowing, because it is what a script or an agent talks to, and it is the authority
 when a reply surprises you.
 
-For working by hand there is **cxdbg**, a dotnet tool that speaks it for you:
+For working by hand there is **[cxdbg](CXDBG.md)**, a dotnet tool that speaks it
+for you:
 
 ```bash
 dotnet tool install -g cxdbg
@@ -32,6 +33,11 @@ cxdbg show tree -s /tmp/myapp.sock
 cxdbg why size ChartControl#b679e5
 cxdbg watch snapshot --composed   # the screen, live, even headless
 ```
+
+`--attach` opens a prompt on the application, where the verbs below are typed
+without repeating `cxdbg` or the socket, replies can be redirected to a file
+with `>`, and `.help` lists what else is there. It is the way in for working by
+hand; everything else on this page is what a script or an agent sends.
 
 `watch` asks one verb over and over and redraws it in place. It is cxdbg's, not the
 protocol's - any verb works, the verb's own fields are passed through, and esc or q stops
@@ -50,8 +56,8 @@ cxdbg snapshot --format cells --y 7 --h 1
 ```
 
 So nothing here has to be learned twice, and a verb this document has not caught up with
-still works - cxdbg declares no list of its own. See
-[Readme](../tools/cxdbg/README.md) for the tool.
+still works - cxdbg declares no list of its own. **[cxdbg](CXDBG.md)** is the tool's own
+page: installing it, the prompt, and every command it has.
 
 **This document is the protocol's.** It describes the wire, which is the library's feature
 and the thing an agent, a script or a future client talks to. cxdbg is one client of it and
@@ -1380,7 +1386,7 @@ through `JsonValue.Create` in the serializer are not noise -- they pick the safe
 
 ## See also
 
-- [Readme](../tools/cxdbg/README.md) -- the dotnet tool that speaks this
+- [cxdbg](CXDBG.md) -- the debugger that speaks this protocol, and its prompt
   protocol, for working by hand
 - [Drivers](DRIVERS.md) -- drivers, render modes, and running headless
 - [Screen export](EXPORT.md) -- the same captures as a public API, for use inside your own app

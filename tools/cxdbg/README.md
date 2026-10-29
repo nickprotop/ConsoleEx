@@ -9,7 +9,7 @@ read. cxdbg is the way in - it asks over a socket and prints the answers
 somewhere else.
 
 A protocol verb answers in JSON, so anything here pipes into `jq` and a script
-can do by itself what this README does by hand. The readable layer - `show`,
+can do by itself what this page does by hand. The readable layer - `show`,
 `why` - formats instead, and takes `--json` when you want the reply raw.
 
 ```bash
@@ -464,7 +464,7 @@ unknown verb with the list it knows. A field that merely looks like a
 misspelling of a known one is passed through too, with a warning.
 
 The wire itself, and what each reply carries, is in
-[DEBUGGING.md](../../docs/DEBUGGING.md).
+[the socket protocol](../../docs/DEBUGGING.md).
 
 ## Exit codes
 

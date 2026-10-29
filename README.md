@@ -80,7 +80,7 @@ as real input. The interface is public, so a third driver is yours to write.
 
 A running application can also be **inspected and driven from outside**, over a local
 socket: read the screen as text or as a PNG, read what the layout engine believes, ask why a
-control is the size it is, then send real keys and clicks. [**cxdbg**](tools/cxdbg/README.md)
+control is the size it is, then send real keys and clicks. [**cxdbg**](docs/CXDBG.md)
 is the debugger that speaks it — `dotnet tool install -g cxdbg` — and the wire protocol
 underneath it is documented in [Debugging](docs/DEBUGGING.md), so a script or an agent can
 talk to an app directly.

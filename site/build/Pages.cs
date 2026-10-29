@@ -256,7 +256,7 @@ internal static class Pages
 		sb.AppendLine("<div class=\"page-head\"><span class=\"eyebrow\">Controls</span>"
 			+ $"<h1>{(total > 0 ? total : 47)} controls</h1>"
 			+ "<p>From a button to an embedded terminal emulator. Every one is themeable, "
-			+ "every one has a page of its own, and twenty-nine of them parse inline markup.</p></div>");
+			+ "every one has a page of its own, and most of them parse inline markup.</p></div>");
 
 		// One screenshot per group, not per control. A shot of a control is a
 		// grid of glyphs, and glyphs have a legibility floor: a status bar is

@@ -66,7 +66,7 @@ foreach (var group in Nav.Groups)
 {
 	foreach (var page in group.Pages)
 	{
-		RenderDoc(page.File, page.Title);
+		RenderDoc(page.File, page.Title, page.Source);
 		rendered.Add(page.File);
 	}
 }
@@ -127,10 +127,19 @@ return 0;
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
-void RenderDoc(string rel, string title)
+/// <summary>Renders one markdown file as a documentation page.</summary>
+/// <param name="rel">Where the page goes under docs/, and what links resolve against.</param>
+/// <param name="title">Its title.</param>
+/// <param name="from">
+/// Where to read it, relative to the repository, when that is not
+/// <c>docs/{rel}</c>. A tool's README stays in the tool's folder - it is what
+/// the repository shows and what NuGet packs - and is rendered here so the
+/// site has it too, rather than being copied into docs/ and left to drift.
+/// </param>
+void RenderDoc(string rel, string title, string? from = null)
 {
-	string src = Path.Combine(root, "docs", rel);
-	if (!File.Exists(src)) { Console.Error.WriteLine($"  missing: docs/{rel}"); return; }
+	string src = from != null ? Path.Combine(root, from) : Path.Combine(root, "docs", rel);
+	if (!File.Exists(src)) { Console.Error.WriteLine($"  missing: {from ?? "docs/" + rel}"); return; }
 
 	string md = File.ReadAllText(src);
 	string html = Markdown.ToHtml(md, pipeline);
@@ -139,7 +148,14 @@ void RenderDoc(string rel, string title)
 	string outRel = "docs/" + Path.ChangeExtension(rel, ".html");
 	int depth = outRel.Count(c => c == '/');
 
-	html = Links.Rewrite(html, rel, depth);
+	// Relative links in a README were written against the tool's folder, so
+	// they resolve against it: expressed relative to docs/, which is the space
+	// the rewriter works in, that is "../tools/cxdbg" for tools/cxdbg.
+	string? sourceDir = from == null
+		? null
+		: Links.Normalize("../" + (Path.GetDirectoryName(from)?.Replace('\\', '/') ?? ""));
+
+	html = Links.Rewrite(html, rel, depth, sourceDir);
 
 	html = Callouts.Apply(html);
 
