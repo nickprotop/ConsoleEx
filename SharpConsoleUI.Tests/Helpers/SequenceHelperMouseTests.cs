@@ -24,12 +24,24 @@ public class SequenceHelperMouseTests
 {
 	// GetMouse still keeps a little press state, for the continuous-press loop that
 	// repeats a held button. Reset it between tests rather than relying on timing.
-	public SequenceHelperMouseTests()
+	//
+	// Through Reset() rather than by reaching into private fields: the fields the
+	// old version set by reflection are gone, replaced by one object that owns
+	// the same state, and a test that knows the shape of another class's
+	// internals breaks every time they change.
+	public SequenceHelperMouseTests() => SequenceHelper.Reset();
+
+	/// <summary>Every flag the decoder reported, folded together.</summary>
+	/// <remarks>
+	/// The decoder emits one flag per entry, as the terminal's own facts. These
+	/// tests used to read flags[0] and expect it to carry all of them, which held
+	/// only while a single OR'd value was being produced.
+	/// </remarks>
+	private static MouseFlags All(List<MouseFlags> flags)
 	{
-		Type type = typeof(SequenceHelper);
-		type.GetField("_isButtonPressed", BindingFlags.NonPublic | BindingFlags.Static)!.SetValue(null, false);
-		type.GetField("_lastMouseButtonPressed", BindingFlags.NonPublic | BindingFlags.Static)!.SetValue(null, null);
-		type.GetField("_point", BindingFlags.NonPublic | BindingFlags.Static)!.SetValue(null, null);
+		MouseFlags all = 0;
+		foreach (var f in flags) all |= f;
+		return all;
 	}
 
 	// Builds the ConsoleKeyInfo[] GetMouse expects from the raw SGR body (e.g. "<32;3;5M").
@@ -52,7 +64,7 @@ public class SequenceHelperMouseTests
 	{
 		SequenceHelper.GetMouse(Cki("<0;3;1M"), out List<MouseFlags> flags, out var pos, NoOp);
 
-		Assert.True(flags[0].HasFlag(MouseFlags.Button1Pressed), $"flags were {flags[0]}");
+		Assert.True(All(flags).HasFlag(MouseFlags.Button1Pressed), $"flags were {All(flags)}");
 		Assert.Equal(2, pos.X);   // 1-based 3 -> 0-based 2
 		Assert.Equal(0, pos.Y);
 	}
@@ -63,7 +75,7 @@ public class SequenceHelperMouseTests
 		// A fresh press (code 0, no motion bit) is not a drag.
 		SequenceHelper.GetMouse(Cki("<0;3;1M"), out List<MouseFlags> flags, out _, NoOp);
 
-		Assert.False(flags[0].HasFlag(MouseFlags.Button1Dragged), $"flags were {flags[0]}");
+		Assert.False(All(flags).HasFlag(MouseFlags.Button1Dragged), $"flags were {All(flags)}");
 	}
 
 	[Fact]
@@ -75,8 +87,8 @@ public class SequenceHelperMouseTests
 		SequenceHelper.GetMouse(Cki("<0;3;1M"), out _, out _, NoOp);
 		SequenceHelper.GetMouse(Cki("<32;3;5M"), out List<MouseFlags> flags, out var pos, NoOp);
 
-		Assert.True(flags[0].HasFlag(MouseFlags.Button1Dragged), $"flags were {flags[0]}");
-		Assert.True(flags[0].HasFlag(MouseFlags.ReportMousePosition), $"flags were {flags[0]}");
+		Assert.True(All(flags).HasFlag(MouseFlags.Button1Dragged), $"flags were {All(flags)}");
+		Assert.True(All(flags).HasFlag(MouseFlags.ReportMousePosition), $"flags were {All(flags)}");
 		Assert.Equal(2, pos.X);
 		Assert.Equal(4, pos.Y);
 	}

@@ -581,6 +581,164 @@ namespace SharpConsoleUI.Drivers.Input
 			}
 		}
 
+		/// <summary>One parser per thread, reused across calls.</summary>
+		/// <remarks>
+		/// <para>
+		/// A parser per mouse event is three allocations on a path that fires on
+		/// every motion report while a button is held. It is reused instead -
+		/// but a parser carries state between calls BY DESIGN, since a sequence
+		/// can span two reads, and a truncated one leaves it mid-sequence. The
+		/// next decode on a poisoned instance returns nothing at all, which is
+		/// an intermittent fault depending on what arrived before it.
+		/// </para>
+		/// <para>
+		/// <see cref="Flush"/> after every decode is what makes reuse safe: it
+		/// drains any partial sequence and returns the parser to Ground. The
+		/// cost is one call against three allocations.
+		/// </para>
+		/// <para>
+		/// Thread-static because the Windows input loop and anything else that
+		/// decodes a sequence are not guaranteed to be the same thread, and a
+		/// shared mutable parser across threads would interleave two sequences
+		/// into one.
+		/// </para>
+		/// </remarks>
+		[ThreadStatic]
+		private static AnsiInputParser? _decoder;
+
+		/// <summary>The byte buffer the decode writes into, reused with the parser.</summary>
+		/// <remarks>
+		/// An SGR report is short - a button code, two coordinates and a
+		/// terminator - so a fixed buffer covers every well-formed one, and
+		/// anything longer is not a mouse report worth decoding.
+		/// </remarks>
+		[ThreadStatic]
+		private static byte[]? _decodeBuffer;
+
+		/// <summary>How long an SGR mouse report can be and still be one.</summary>
+		/// <remarks>
+		/// <c>ESC [ &lt; 255 ; 65535 ; 65535 M</c> is 22 characters; 64 leaves
+		/// room for a terminal that pads its numbers.
+		/// </remarks>
+		private const int MaxSgrMouseBytes = 64;
+
+		/// <summary>
+		/// Decodes one legacy X10 mouse report, for a caller holding it as characters.
+		/// </summary>
+		/// <param name="button">The button byte, as the terminal sent it.</param>
+		/// <param name="x">The column byte.</param>
+		/// <param name="y">The row byte.</param>
+		/// <returns>The flags and the position, or an empty list if it is not one.</returns>
+		/// <remarks>
+		/// X10 is what a terminal falls back to when it does not understand SGR
+		/// (1006). The Windows input loop reassembles it from Console.ReadKey as
+		/// three characters after <c>ESC [ M</c>, so it cannot use the byte loop
+		/// - but it can use the same decoder, which is the point.
+		/// </remarks>
+		internal static (List<MouseFlags> Flags, Point Position) DecodeX10Mouse(char button, char x, char y)
+		{
+			// The three payload bytes are written into the parser behind the
+			// introducer it expects, so the decode is the one the byte loop runs.
+			var parser = _decoder ??= new AnsiInputParser();
+			var buffer = _decodeBuffer ??= new byte[MaxSgrMouseBytes];
+
+			// X10 payload bytes are a value plus 32 and CAN exceed ASCII; the
+			// parser reads them as raw bytes, so they are written as such.
+			if (button > 0xff || x > 0xff || y > 0xff)
+				return (new List<MouseFlags>(), Point.Empty);
+
+			buffer[0] = 0x1b;
+			buffer[1] = (byte)'[';
+			buffer[2] = (byte)'M';
+			buffer[3] = (byte)button;
+			buffer[4] = (byte)x;
+			buffer[5] = (byte)y;
+
+			try
+			{
+				var mouse = parser.Parse(buffer.AsSpan(0, 6), 6)
+					.OfType<MouseInputEvent>()
+					.FirstOrDefault();
+
+				return mouse != null
+					? (mouse.Flags, mouse.Position)
+					: (new List<MouseFlags>(), Point.Empty);
+			}
+			finally
+			{
+				parser.Flush();
+			}
+		}
+
+		/// <summary>
+		/// Decodes one SGR mouse report, for a caller holding it as characters.
+		/// </summary>
+		/// <param name="sequence">
+		/// The sequence without its CSI introducer, as the Windows input loop
+		/// collects it: <c>&lt;0;10;5M</c>.
+		/// </param>
+		/// <returns>The flags and the position, or an empty list if it is not one.</returns>
+		/// <remarks>
+		/// <para>
+		/// Exists so the protocol is decoded ONCE. The Windows path reads through
+		/// <c>Console.ReadKey</c> and assembles an escape sequence a character at a
+		/// time, so it cannot use the byte-level loop above - but the sequence it
+		/// ends up holding is pure ASCII, so the bytes are one encode away and the
+		/// decoder can be shared.
+		/// </para>
+		/// <para>
+		/// Static and allocating its own parser: an SGR report is self-contained,
+		/// so there is no state to carry between calls, and a caller decoding one
+		/// report should not have to own a parser to do it.
+		/// </para>
+		/// </remarks>
+		internal static (List<MouseFlags> Flags, Point Position) DecodeSgrMouse(char[] sequence)
+		{
+			var parser = _decoder ??= new AnsiInputParser();
+			var buffer = _decodeBuffer ??= new byte[MaxSgrMouseBytes];
+
+			int length = 0;
+
+			// The introducer, which the caller may or may not have kept.
+			if (sequence.Length == 0 || sequence[0] != '\u001b')
+			{
+				buffer[length++] = 0x1b;
+				buffer[length++] = (byte)'[';
+			}
+
+			foreach (char c in sequence)
+			{
+				// The caller's '[' when it kept one, since the introducer above
+				// already wrote it.
+				if (length == 2 && c == '[' && buffer[1] == (byte)'[') continue;
+
+				if (length >= buffer.Length) return (new List<MouseFlags>(), Point.Empty);
+
+				// SGR is ASCII. Anything outside it is not part of a mouse report,
+				// and encoding it would change the bytes the parser sees.
+				if (c > 0x7f) return (new List<MouseFlags>(), Point.Empty);
+
+				buffer[length++] = (byte)c;
+			}
+
+			try
+			{
+				var mouse = parser.Parse(buffer.AsSpan(0, length), length)
+					.OfType<MouseInputEvent>()
+					.FirstOrDefault();
+
+				return mouse != null
+					? (mouse.Flags, mouse.Position)
+					: (new List<MouseFlags>(), Point.Empty);
+			}
+			finally
+			{
+				// Always, including after an exception: a parser left mid-sequence
+				// silently swallows whatever is decoded next on this thread.
+				parser.Flush();
+			}
+		}
+
 		private void ParseSgrMouse(string paramStr, bool isPress, List<InputEvent> events)
 		{
 			// SGR format: ESC [ < buttonCode ; x ; y M/m
@@ -631,15 +789,41 @@ namespace SharpConsoleUI.Drivers.Input
 					case 2: flags.Add(MouseFlags.WheeledLeft); break;
 					case 3: flags.Add(MouseFlags.WheeledRight); break;
 				}
+
+				// A modifier on a vertical wheel is NOT rewritten as a horizontal
+				// tilt. The old Windows decoder did that, from a hardcoded table,
+				// and porting it here for parity broke the platform that was
+				// right: TableControl reads ButtonShift for horizontal scroll, and
+				// WheeledLeft carries ButtonCtrl by definition, so shift+wheel
+				// arrived as ctrl+wheel with the shift gone.
+				//
+				// Real horizontal tilt is reported by the terminal as button 2
+				// or 3 with the wheel bit, which the switch above handles.
 			}
+
 			else if (motion)
 			{
 				flags.Add(MouseFlags.ReportMousePosition);
+
+				// The terminator still says whether the button is down. SGR only
+				// ever ends a motion report with M, so a motion report saying
+				// release is malformed either way - but reading it as a press
+				// leaves a control believing a button is held that is not, which
+				// is the worse of the two ways to be wrong.
 				switch (baseButton)
 				{
-					case 0: flags.Add(MouseFlags.Button1Pressed); flags.Add(MouseFlags.Button1Dragged); break;
-					case 1: flags.Add(MouseFlags.Button2Pressed); flags.Add(MouseFlags.Button2Dragged); break;
-					case 2: flags.Add(MouseFlags.Button3Pressed); flags.Add(MouseFlags.Button3Dragged); break;
+					case 0:
+						flags.Add(isPress ? MouseFlags.Button1Pressed : MouseFlags.Button1Released);
+						flags.Add(MouseFlags.Button1Dragged);
+						break;
+					case 1:
+						flags.Add(isPress ? MouseFlags.Button2Pressed : MouseFlags.Button2Released);
+						flags.Add(MouseFlags.Button2Dragged);
+						break;
+					case 2:
+						flags.Add(isPress ? MouseFlags.Button3Pressed : MouseFlags.Button3Released);
+						flags.Add(MouseFlags.Button3Dragged);
+						break;
 						// baseButton 3 = motion with no button
 				}
 			}

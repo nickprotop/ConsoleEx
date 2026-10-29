@@ -54,23 +54,23 @@ namespace SharpConsoleUI.Helpers
 		// QUESTION: What's the difference between isButtonClicked and isButtonPressed?
 		// Some clarity or comments would be handy, here.
 		// It also seems like some enforcement of valid states might be a good idea.
-		private static bool _isButtonPressed;
-
-
-		private static MouseFlags? _lastMouseButtonPressed;
-		private static Point? _point;
-
-		// Owns the in-flight continuous-press loop so it can be stopped deterministically.
-		//
-		// The loop used to be a bare `while (_isButtonPressed)` poll started by an unawaited
-		// Task.Run, which left three ways to leak it: a driver shutting down mid-press never
-		// cleared the flag, so the loop span forever invoking a disposed driver's callback; a
-		// missed release let the next press stack a second loop on top of the first; and this
-		// state is static, so a new driver in the same process inherited a live loop from the
-		// previous one. Cancelling the previous token before each new press, and on Reset(),
-		// closes all three.
-		private static CancellationTokenSource? _continuousPressCts;
-		private static readonly object _continuousPressLock = new();
+		/// <summary>The auto-repeat for a held button.</summary>
+		/// <remarks>
+		/// <para>
+		/// Still static, because <see cref="GetMouse"/> and <see cref="Reset"/> are
+		/// public static and cannot become instance members without breaking every
+		/// caller. What changed is that one object owns the state rather than five
+		/// loose fields: a press, a release and a reset are now three calls on it,
+		/// and the cancellation discipline is the same code the Unix reader uses.
+		/// </para>
+		/// <para>
+		/// The hazard the old comment described - a new driver in the same process
+		/// inheriting a live loop from the previous one - is answered by
+		/// <see cref="Reset"/> disposing this and starting a fresh one, which the
+		/// driver already calls on shutdown.
+		/// </para>
+		/// </remarks>
+		private static Drivers.Input.ContinuousPress _press = new();
 
 		/// <summary>
 		/// Gets the C1 control character name for the specified character.
@@ -204,146 +204,41 @@ namespace SharpConsoleUI.Helpers
 		/// <param name="continuousButtonPressedHandler">Handler to invoke for continuous button press events.</param>
 		public static void GetMouse(ConsoleKeyInfo[] cki, out List<MouseFlags> mouseFlags, out Point pos, Action<MouseFlags, Point> continuousButtonPressedHandler)
 		{
+			// Decoded by the one parser rather than a second implementation of the
+			// same protocol. This used to carry its own SGR state machine, and the
+			// two drifted: the Windows path emitted no drag flag at all until #45,
+			// and the modifier-mask bug had to be found and fixed once per decoder.
+			//
+			// The bridge is cheap because SGR is pure ASCII. The Windows input loop
+			// collects an escape sequence as ConsoleKeyInfo, and those characters
+			// ARE the bytes the parser wants.
+			//
+			// What stays here is the continuous-press lifecycle below: that is not
+			// decoding, it is the terminal's missing auto-repeat, and only the code
+			// holding the input knows a button is still physically down.
+			var decoded = Drivers.Input.AnsiInputParser.DecodeSgrMouse(GetKeyCharArray(cki));
+
+			pos = decoded.Position;
+
+			// One flag per entry, as the parser produced them, rather than OR'd into
+			// a single value. The recogniser strips modifiers and compares for
+			// EQUALITY, so a drag collapsed into one value - Pressed, Dragged and
+			// ReportMousePosition together - matched no button constant and read as
+			// no button held, on Windows only.
+			mouseFlags = decoded.Flags;
+
+			if (mouseFlags.Count == 0)
+			{
+				// Not an SGR mouse report. An empty answer rather than an
+				// exception, as before: the caller tests the flags.
+				return;
+			}
+
+			// The lifecycle below reasons about one value, so the flags are folded
+			// together for it alone. What goes OUT is the list above.
 			MouseFlags buttonState = 0;
-			pos = Point.Empty;
-			var buttonCode = 0;
-			var foundButtonCode = false;
-			var foundPoint = 0;
-			string value = string.Empty;
-			char[] kChar = GetKeyCharArray(cki);
+			foreach (var flag in mouseFlags) buttonState |= flag;
 
-			// PERF: This loop could benefit from use of Spans and other strategies to avoid copies.
-			for (var i = 0; i < kChar.Length; i++)
-			{
-				// PERF: Copy
-				char c = kChar[i];
-
-				if (c == '<')
-				{
-					foundButtonCode = true;
-				}
-				else if (foundButtonCode && c != ';')
-				{
-					// PERF: Ouch
-					value += c.ToString();
-				}
-				else if (c == ';')
-				{
-					if (foundButtonCode)
-					{
-						foundButtonCode = false;
-						buttonCode = int.Parse(value);
-					}
-
-					if (foundPoint == 1)
-					{
-						pos.X = int.Parse(value) - 1;
-					}
-
-					value = string.Empty;
-					foundPoint++;
-				}
-				else if (foundPoint > 0 && c != 'm' && c != 'M')
-				{
-					value += c.ToString();
-				}
-				else if (c == 'm' || c == 'M')
-				{
-					//pos.Y = int.Parse (value) + Console.WindowTop - 1;
-					pos.Y = int.Parse(value) - 1;
-
-					// The SGR decoding below was rewritten from a hand-enumerated case table to
-					// bitmask decoding by @joezearing in PR #74. The old table listed only specific
-					// button+modifier combinations and omitted code 4 (bare Shift+Click), so any
-					// unlisted combination left buttonState at 0 and the click was never recognised.
-					if ((buttonCode & 0x40) != 0)
-					{
-						// Wheel codes: xterm maps a modifier held during a vertical wheel tick to a
-						// synthetic horizontal tilt (WheeledLeft/Right) rather than a plain modifier bit,
-						// so this table is deliberately kept as its own hardcoded lookup.
-						switch (buttonCode)
-						{
-							case 64:
-								buttonState = MouseFlags.WheeledUp;
-								break;
-
-							case 65:
-								buttonState = MouseFlags.WheeledDown;
-								break;
-
-							case 68:
-							case 72:
-							case 80:
-								buttonState = MouseFlags.WheeledLeft; // Shift/Alt/Ctrl+WheeledUp
-
-								break;
-
-							case 69:
-							case 73:
-							case 81:
-								buttonState = MouseFlags.WheeledRight; // Shift/Alt/Ctrl+WheeledDown
-
-								break;
-						}
-					}
-					else
-					{
-						// Base button + modifiers computed from the SGR bit layout (bits 0-1 = button,
-						// 0x04/0x08/0x10 = Shift/Alt/Ctrl, 0x20 = motion) instead of a hand-enumerated
-						// case table: the old table only listed specific button+modifier combinations
-						// and silently dropped any code it didn't recognize (e.g. a bare Shift+Click was
-						// code 4, present in neither switch), leaving buttonState at its default 0 and
-						// the click never recognized at all.
-						switch (buttonCode & 0x03)
-						{
-							case 0:
-								buttonState = c == 'M' ? MouseFlags.Button1Pressed : MouseFlags.Button1Released;
-								break;
-
-							case 1:
-								buttonState = c == 'M' ? MouseFlags.Button2Pressed : MouseFlags.Button2Released;
-								break;
-
-							case 2:
-								buttonState = c == 'M' ? MouseFlags.Button3Pressed : MouseFlags.Button3Released;
-								break;
-
-							case 3:
-								if ((buttonCode & 0x20) != 0)
-									buttonState = MouseFlags.ReportMousePosition;
-								break;
-						}
-
-						if ((buttonCode & 0x20) != 0) buttonState |= MouseFlags.ReportMousePosition;
-						if ((buttonCode & 0x04) != 0) buttonState |= MouseFlags.ButtonShift;
-						if ((buttonCode & 0x08) != 0) buttonState |= MouseFlags.ButtonAlt;
-						if ((buttonCode & 0x10) != 0) buttonState |= MouseFlags.ButtonCtrl;
-					}
-				}
-			}
-
-			// Consistency with the Unix AnsiInputParser path: an SGR motion-while-button-held report
-			// (motion bit 0x20 set, a real button 0/1/2 in the low 2 bits, not a wheel 0x40) must also
-			// surface ButtonNDragged. Without this the Windows ReadKey path emits only
-			// ButtonNPressed|ReportMousePosition, so drag-aware controls (selection autoscroll,
-			// splitters) never see Button1Dragged and behave differently than on Unix (#45).
-			if ((buttonCode & 0x20) != 0 && (buttonCode & 0x40) == 0)
-			{
-				switch (buttonCode & 0x03)
-				{
-					case 0: buttonState |= MouseFlags.Button1Dragged; break;
-					case 1: buttonState |= MouseFlags.Button2Dragged; break;
-					case 2: buttonState |= MouseFlags.Button3Dragged; break;
-				}
-			}
-
-			mouseFlags = [MouseFlags.AllEvents];
-
-			// buttonState mixes the button/wheel action with Shift/Alt/Ctrl (OR'd in by the modifier switch
-			// above), so every `buttonState == Button1Pressed`-style check below fails whenever a modifier
-			// is held — same class of bug ExtractButtonState fixed on the Unix path (UnixStdinReader.cs).
-			// SetControlKeyStates() re-applies the modifier bits onto the final output further down, so
-			// only the state-machine's recognition needs the stripped value.
 			const MouseFlags modifierMask = MouseFlags.ButtonShift | MouseFlags.ButtonAlt | MouseFlags.ButtonCtrl;
 			var actionState = buttonState & ~modifierMask;
 
@@ -362,58 +257,39 @@ namespace SharpConsoleUI.Helpers
 			// The continuous-press loop stays: it is not a gesture, it is the
 			// terminal's missing auto-repeat, and only the code reading input knows a
 			// button is still physically down.
-			mouseFlags[0] = buttonState;
+			//
+			// Nothing is written back into mouseFlags here. It holds the parser's
+			// own entries, one flag each, and overwriting the first with the
+			// folded value left a list whose head carried every bit and whose
+			// tail repeated them - so a caller testing Contains for one flag
+			// could not find it.
 
 			if (actionState == MouseFlags.Button1Pressed
 				|| actionState == MouseFlags.Button2Pressed
 				|| actionState == MouseFlags.Button3Pressed
 				|| actionState == MouseFlags.Button4Pressed)
 			{
-				bool alreadyDown = _isButtonPressed;
-				_lastMouseButtonPressed = buttonState;
-				_isButtonPressed = true;
-				_point = pos;
-
-				// A repeat of a button already held is the terminal restating a drag;
-				// one loop is enough.
-				if (!alreadyDown)
-				{
-					CancellationToken token;
-					lock (_continuousPressLock)
-					{
-						_continuousPressCts?.Cancel();
-						_continuousPressCts?.Dispose();
-						_continuousPressCts = new CancellationTokenSource();
-						token = _continuousPressCts.Token;
-					}
-
-					_ = Task.Run(
-						async () => await ProcessContinuousButtonPressedAsync(
-							buttonState, continuousButtonPressedHandler, token));
-				}
+				// Begin replaces any repeat already running, so a press of a button
+				// already held - the terminal restating a drag - cannot stack a
+				// second loop on the first.
+				_press.Begin(buttonState, pos, continuousButtonPressedHandler);
 			}
 			else if (actionState == MouseFlags.Button1Released
 				|| actionState == MouseFlags.Button2Released
 				|| actionState == MouseFlags.Button3Released
 				|| actionState == MouseFlags.Button4Released)
 			{
-				_isButtonPressed = false;
-				_lastMouseButtonPressed = null;
-				_point = pos;
-
-				lock (_continuousPressLock)
-				{
-					_continuousPressCts?.Cancel();
-				}
+				_press.End(Drivers.Input.ContinuousPress.PressFor(actionState));
 			}
 			else if (buttonState.HasFlag(MouseFlags.ReportMousePosition))
 			{
-				_point = pos;
+				// So a held button repeats where the pointer is now.
+				_press.Moved(pos);
 			}
 
-			mouseFlags[0] = SetControlKeyStates(buttonState, mouseFlags[0]);
-
-			//buttonState = mouseFlags;
+			// The modifier bits are already in the parser's entries, so there is
+			// nothing to re-apply: SetControlKeyStates existed to put them back
+			// onto a value the old state machine had stripped them from.
 
 			//foreach (var mf in mouseFlags) {
 			//}
@@ -424,40 +300,6 @@ namespace SharpConsoleUI.Helpers
 
 
 
-		private static async Task ProcessContinuousButtonPressedAsync(MouseFlags mouseFlag,
-			Action<MouseFlags, Point> continuousButtonPressedHandler, CancellationToken token)
-		{
-			// Repeats the press while the button is held, so a held mouse button keeps scrolling.
-			//
-			// Exits on the token as well as the flag: the flag alone is cleared only by a release
-			// event, so a driver that shuts down mid-press (or never sees the release) would leave
-			// this running forever against a dead handler. Reset() and the next press both cancel.
-			try
-			{
-				// PERF: still a poll rather than event dispatch. Replacing the delay with a
-				// signal primitive would improve responsiveness — see the "instant input
-				// response" roadmap item — but cancellation is what makes it safe to leave.
-				while (_isButtonPressed && !token.IsCancellationRequested)
-				{
-					await Task.Delay(Configuration.ControlDefaults.ContinuousPressIntervalMs, token);
-
-					if (_isButtonPressed && !token.IsCancellationRequested
-						&& _lastMouseButtonPressed is { } && (mouseFlag & MouseFlags.ReportMousePosition) == 0)
-					{
-						continuousButtonPressedHandler(mouseFlag, _point ?? Point.Empty);
-					}
-				}
-			}
-			catch (OperationCanceledException)
-			{
-				// Expected: the press ended, or the owner reset.
-			}
-			catch (Exception)
-			{
-				// The handler threw. This task is not awaited, so an escaping exception would be
-				// unobserved — swallow it rather than faulting a task nobody is watching.
-			}
-		}
 
 		/// <summary>
 		/// Clears the mouse click/press state machine and stops any continuous-press loop.
@@ -469,36 +311,18 @@ namespace SharpConsoleUI.Helpers
 		/// </remarks>
 		public static void Reset()
 		{
-			lock (_continuousPressLock)
-			{
-				_continuousPressCts?.Cancel();
-				_continuousPressCts?.Dispose();
-				_continuousPressCts = null;
-			}
+			// Swapped atomically, then disposed. GetMouse reads this field on the
+			// input thread, and Reset runs on whichever thread is stopping the
+			// driver - which does not wait for the reader - so a plain
+			// dispose-then-assign leaves a window where the input thread can call
+			// Begin on an instance that has just been disposed.
+			//
+			// Disposed and replaced rather than cleared, so a fresh owner cannot
+			// inherit a running loop from the one before it.
+			var previous = Interlocked.Exchange(ref _press, new Drivers.Input.ContinuousPress());
 
-			_isButtonPressed = false;
-			_lastMouseButtonPressed = null;
-			_point = null;
+			previous.Dispose();
 		}
 
-		private static MouseFlags SetControlKeyStates(MouseFlags buttonState, MouseFlags mouseFlag)
-		{
-			if ((buttonState & MouseFlags.ButtonCtrl) != 0 && (mouseFlag & MouseFlags.ButtonCtrl) == 0)
-			{
-				mouseFlag |= MouseFlags.ButtonCtrl;
-			}
-
-			if ((buttonState & MouseFlags.ButtonShift) != 0 && (mouseFlag & MouseFlags.ButtonShift) == 0)
-			{
-				mouseFlag |= MouseFlags.ButtonShift;
-			}
-
-			if ((buttonState & MouseFlags.ButtonAlt) != 0 && (mouseFlag & MouseFlags.ButtonAlt) == 0)
-			{
-				mouseFlag |= MouseFlags.ButtonAlt;
-			}
-
-			return mouseFlag;
-		}
 	}
 }
