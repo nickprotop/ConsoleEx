@@ -15,18 +15,19 @@ namespace SharpConsoleUI.Drivers.Input
 	/// Replaces Console.ReadKey-based InputLoop on Unix platforms to eliminate
 	/// the echo leak caused by .NET's per-keystroke tcsetattr toggling.
 	/// </summary>
-	internal class UnixStdinReader
+	internal class UnixStdinReader : IDisposable
 	{
 		private const int ReadBufferSize = 256;
 		private const int EscTimeoutMs = 50; // vim/tmux convention for ESC vs ESC-prefix
-		private const int ContinuousPressIntervalMs = 100;
 
 		private readonly Stream _stdin;
 		private readonly AnsiInputParser _parser;
 
 		// Mouse state. Only what is needed to repeat a held button; clicks and
 		// double-clicks are derived once, upstream, by MouseGestureRecognizer.
-		private volatile bool _isButtonPressed;
+
+		/// <summary>The auto-repeat for a held button, shared with the Windows path.</summary>
+		private readonly ContinuousPress _continuousPress = new();
 		private readonly object _mouseStateLock = new();
 		private MouseFlags _lastMouseButtonPressed;
 		private Point _lastMousePoint;
@@ -211,7 +212,6 @@ namespace SharpConsoleUI.Drivers.Input
 				// itself mid-drag; one repeat loop is enough.
 				if (!alreadyDown)
 				{
-					_isButtonPressed = true;
 					StartContinuousPress(buttonState, continuousButtonPressedHandler);
 				}
 
@@ -222,7 +222,7 @@ namespace SharpConsoleUI.Drivers.Input
 				buttonState == MouseFlags.Button2Released ||
 				buttonState == MouseFlags.Button3Released)
 			{
-				_isButtonPressed = false;        // stops the continuous loop
+				_continuousPress.End(ContinuousPress.PressFor(buttonState));
 				lock (_mouseStateLock) _lastMouseButtonPressed = 0;
 				return new List<MouseFlags>(rawFlags);
 			}
@@ -232,6 +232,9 @@ namespace SharpConsoleUI.Drivers.Input
 			if (rawFlags.Contains(MouseFlags.ReportMousePosition))
 			{
 				lock (_mouseStateLock) _lastMousePoint = position;
+
+				// So a held button repeats where the pointer is now.
+				_continuousPress.Moved(position);
 			}
 
 			return new List<MouseFlags>(rawFlags);
@@ -240,27 +243,29 @@ namespace SharpConsoleUI.Drivers.Input
 		/// <summary>
 		/// Repeats a held button so it keeps scrolling, which a terminal never does.
 		/// </summary>
+		/// <summary>Stops the auto-repeat when the reader is finished with.</summary>
+		/// <remarks>
+		/// The repeat outlives a single event by design, so something has to end
+		/// it when the reader does. Without this a loop started by the last press
+		/// before shutdown would go on calling a handler whose driver is gone.
+		/// </remarks>
+		public void Dispose() => _continuousPress.Dispose();
+
+		/// <summary>Starts the auto-repeat for a held button.</summary>
+		/// <remarks>
+		/// The loop itself lives in <see cref="ContinuousPress"/>, shared with the
+		/// Windows path. This copy used to be a bare unawaited <c>Task.Run</c>
+		/// with no cancellation, which leaked three ways: a driver shutting down
+		/// mid-press spun forever against a dead handler, a missed release stacked
+		/// a second loop on the first, and nothing could stop either.
+		/// </remarks>
 		private void StartContinuousPress(
 			MouseFlags button, Action<MouseFlags, Point> continuousButtonPressedHandler)
 		{
-			_ = Task.Run(async () =>
-			{
-				while (_isButtonPressed)
-				{
-					await Task.Delay(ContinuousPressIntervalMs);
+			Point at;
+			lock (_mouseStateLock) at = _lastMousePoint;
 
-					Point point;
-					MouseFlags held;
-					lock (_mouseStateLock)
-					{
-						point = _lastMousePoint;
-						held = _lastMouseButtonPressed;
-					}
-
-					if (_isButtonPressed && held != 0)
-						continuousButtonPressedHandler(button, point);
-				}
-			});
+			_continuousPress.Begin(button, at, continuousButtonPressedHandler);
 		}
 
 		/// <summary>
@@ -276,34 +281,11 @@ namespace SharpConsoleUI.Drivers.Input
 			return (MouseFlags)0;
 		}
 
-		/// <summary>Returns just the modifier flags (Shift/Alt/Ctrl) present in a raw SGR flag set.</summary>
-		private static List<MouseFlags> ExtractModifiers(List<MouseFlags> rawFlags)
-		{
-			List<MouseFlags>? mods = null;
-			for (int i = 0; i < rawFlags.Count; i++)
-			{
-				if (IsModifier(rawFlags[i]))
-					(mods ??= new List<MouseFlags>()).Add(rawFlags[i]);
-			}
-			return mods ?? EmptyModifiers;
-		}
 
-		private static readonly List<MouseFlags> EmptyModifiers = new();
 
 		private static bool IsModifier(MouseFlags flag) =>
 			flag == MouseFlags.ButtonShift || flag == MouseFlags.ButtonAlt || flag == MouseFlags.ButtonCtrl;
 
-		/// <summary>
-		/// Builds the dispatch list: the modifiers that came in with the event, followed by the
-		/// synthesized button/click flags. Keeps Shift/Ctrl visible to controls that key off them.
-		/// </summary>
-		private static List<MouseFlags> WithModifiers(List<MouseFlags> modifiers, params MouseFlags[] flags)
-		{
-			var result = new List<MouseFlags>(modifiers.Count + flags.Length);
-			result.AddRange(modifiers);
-			result.AddRange(flags);
-			return result;
-		}
 
 
 
