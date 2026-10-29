@@ -1,0 +1,533 @@
+[
+  {
+    "name": "sgr_press_button1",
+    "why": "low two bits select the button; 0 means button1",
+    "send": "\\e[<0;12;7M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "button": 1,
+        "action": "press",
+        "mods": [],
+        "x": 11,
+        "y": 6
+      }
+    ]
+  },
+  {
+    "name": "sgr_press_button2",
+    "why": "low two bits select the button; 1 means button2",
+    "send": "\\e[<1;12;7M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "button": 2,
+        "action": "press",
+        "mods": [],
+        "x": 11,
+        "y": 6
+      }
+    ]
+  },
+  {
+    "name": "sgr_press_button3",
+    "why": "low two bits select the button; 2 means button3",
+    "send": "\\e[<2;12;7M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "button": 3,
+        "action": "press",
+        "mods": [],
+        "x": 11,
+        "y": 6
+      }
+    ]
+  },
+  {
+    "name": "sgr_release_button1",
+    "why": "a final lowercase m is a release regardless of the button bits",
+    "send": "\\e[<0;12;7m",
+    "expect": [
+      {
+        "kind": "mouse",
+        "button": 1,
+        "action": "release",
+        "mods": [],
+        "x": 11,
+        "y": 6
+      }
+    ]
+  },
+  {
+    "name": "sgr_release_no_button",
+    "why": "button bits 3 names no button, but a release must still end a drag and MouseFlags has no button-agnostic release, so button 1 is chosen deliberately here (see README, stated assumptions)",
+    "send": "\\e[<3;12;7m",
+    "expect": [
+      {
+        "kind": "mouse",
+        "button": 1,
+        "action": "release",
+        "mods": [],
+        "x": 11,
+        "y": 6
+      }
+    ]
+  },
+  {
+    "name": "sgr_press_shift",
+    "why": "bit 2 shift, bit 3 alt, bit 4 ctrl; 4 sets shift",
+    "send": "\\e[<4;5;5M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "button": 1,
+        "action": "press",
+        "mods": [
+          "shift"
+        ],
+        "x": 4,
+        "y": 4
+      }
+    ]
+  },
+  {
+    "name": "sgr_press_alt",
+    "why": "bit 2 shift, bit 3 alt, bit 4 ctrl; 8 sets alt",
+    "send": "\\e[<8;5;5M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "button": 1,
+        "action": "press",
+        "mods": [
+          "alt"
+        ],
+        "x": 4,
+        "y": 4
+      }
+    ]
+  },
+  {
+    "name": "sgr_press_ctrl",
+    "why": "bit 2 shift, bit 3 alt, bit 4 ctrl; 16 sets ctrl",
+    "send": "\\e[<16;5;5M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "button": 1,
+        "action": "press",
+        "mods": [
+          "ctrl"
+        ],
+        "x": 4,
+        "y": 4
+      }
+    ]
+  },
+  {
+    "name": "sgr_press_shift_ctrl",
+    "why": "bit 2 shift, bit 3 alt, bit 4 ctrl; 20 sets shift_ctrl",
+    "send": "\\e[<20;5;5M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "button": 1,
+        "action": "press",
+        "mods": [
+          "ctrl",
+          "shift"
+        ],
+        "x": 4,
+        "y": 4
+      }
+    ]
+  },
+  {
+    "name": "sgr_press_all_three",
+    "why": "bit 2 shift, bit 3 alt, bit 4 ctrl; 28 sets all_three",
+    "send": "\\e[<28;5;5M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "button": 1,
+        "action": "press",
+        "mods": [
+          "alt",
+          "ctrl",
+          "shift"
+        ],
+        "x": 4,
+        "y": 4
+      }
+    ]
+  },
+  {
+    "name": "sgr_motion_button1_held",
+    "why": "bit 5 is motion; with a button in the low bits it is a drag",
+    "send": "\\e[<32;20;9M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "button": 1,
+        "action": "motion",
+        "mods": [],
+        "x": 19,
+        "y": 8
+      }
+    ]
+  },
+  {
+    "name": "sgr_motion_no_button",
+    "why": "bit 5 set and button bits 3: motion with nothing held",
+    "send": "\\e[<35;20;9M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "button": null,
+        "action": "motion",
+        "mods": [],
+        "x": 19,
+        "y": 8
+      }
+    ]
+  },
+  {
+    "name": "sgr_wheel_up",
+    "why": "bit 6 is the wheel; low bits then select the direction, 64 is up",
+    "send": "\\e[<64;8;8M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "action": "wheel",
+        "direction": "up",
+        "mods": [],
+        "x": 7,
+        "y": 7
+      }
+    ]
+  },
+  {
+    "name": "sgr_wheel_down",
+    "why": "bit 6 is the wheel; low bits then select the direction, 65 is down",
+    "send": "\\e[<65;8;8M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "action": "wheel",
+        "direction": "down",
+        "mods": [],
+        "x": 7,
+        "y": 7
+      }
+    ]
+  },
+  {
+    "name": "sgr_wheel_left",
+    "why": "bit 6 is the wheel; low bits then select the direction, 66 is left",
+    "send": "\\e[<66;8;8M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "action": "wheel",
+        "direction": "left",
+        "mods": [],
+        "x": 7,
+        "y": 7
+      }
+    ]
+  },
+  {
+    "name": "sgr_wheel_right",
+    "why": "bit 6 is the wheel; low bits then select the direction, 67 is right",
+    "send": "\\e[<67;8;8M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "action": "wheel",
+        "direction": "right",
+        "mods": [],
+        "x": 7,
+        "y": 7
+      }
+    ]
+  },
+  {
+    "name": "sgr_wheel_up_ctrl",
+    "why": "the wheel carries modifiers in the same bits as a button does",
+    "send": "\\e[<80;8;8M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "action": "wheel",
+        "direction": "up",
+        "mods": [
+          "ctrl"
+        ],
+        "x": 7,
+        "y": 7
+      }
+    ]
+  },
+  {
+    "name": "sgr_origin",
+    "why": "the wire is 1-based, so the smallest legal coordinate is 1;1",
+    "send": "\\e[<0;1;1M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "button": 1,
+        "action": "press",
+        "mods": [],
+        "x": 0,
+        "y": 0
+      }
+    ]
+  },
+  {
+    "name": "sgr_past_x10_limit",
+    "why": "SGR has no 223 ceiling; a coordinate X10 cannot express must still decode",
+    "send": "\\e[<0;300;250M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "button": 1,
+        "action": "press",
+        "mods": [],
+        "x": 299,
+        "y": 249
+      }
+    ]
+  },
+  {
+    "name": "x10_press_button1",
+    "why": "every byte carries value+32, so button 0 at 9;5 is 0x20 0x29 0x25",
+    "send": "\\e[M\\x20\\x29\\x25",
+    "expect": [
+      {
+        "kind": "mouse",
+        "x": 8,
+        "y": 4,
+        "action": "press",
+        "button": 1,
+        "mods": []
+      }
+    ]
+  },
+  {
+    "name": "x10_press_button3",
+    "why": "the same low two bits as SGR select the button",
+    "send": "\\e[M\\x22\\x29\\x25",
+    "expect": [
+      {
+        "kind": "mouse",
+        "x": 8,
+        "y": 4,
+        "action": "press",
+        "button": 3,
+        "mods": []
+      }
+    ]
+  },
+  {
+    "name": "x10_release",
+    "why": "X10 cannot say which button a release was for, so button 1 is chosen, the same deliberate choice as the SGR release",
+    "send": "\\e[M\\x23\\x29\\x25",
+    "expect": [
+      {
+        "kind": "mouse",
+        "button": 1,
+        "action": "release",
+        "mods": [],
+        "x": 8,
+        "y": 4
+      }
+    ]
+  },
+  {
+    "name": "x10_press_shift",
+    "why": "modifiers sit in the same bits as SGR, not in the button number",
+    "send": "\\e[M\\x24\\x29\\x25",
+    "expect": [
+      {
+        "kind": "mouse",
+        "x": 8,
+        "y": 4,
+        "action": "press",
+        "button": 1,
+        "mods": [
+          "shift"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "x10_wheel_up",
+    "why": "bit 6 is the wheel here too",
+    "send": "\\e[M\\x60\\x29\\x25",
+    "expect": [
+      {
+        "kind": "mouse",
+        "x": 8,
+        "y": 4,
+        "action": "wheel",
+        "direction": "up",
+        "mods": []
+      }
+    ]
+  },
+  {
+    "name": "paste_plain",
+    "why": "ESC[200~ opens and ESC[201~ closes; what lies between is text, not keys",
+    "send": "\\e[200~hi\\e[201~",
+    "expect": [
+      {
+        "kind": "paste",
+        "text": "hi"
+      }
+    ]
+  },
+  {
+    "name": "paste_containing_escape",
+    "why": "inside a paste an escape is DATA; decoding it as a key is the classic bug",
+    "send": "\\e[200~a\\e[Bb\\e[201~",
+    "expect": [
+      {
+        "kind": "paste",
+        "text": "a\u001b[Bb"
+      }
+    ]
+  },
+  {
+    "name": "paste_empty",
+    "why": "an open immediately followed by a close is a paste of nothing",
+    "send": "\\e[200~\\e[201~",
+    "expect": [
+      {
+        "kind": "paste",
+        "text": ""
+      }
+    ]
+  },
+  {
+    "name": "key_uparrow",
+    "why": "CSI A is cursor up",
+    "send": "\\e[A",
+    "expect": [
+      {
+        "kind": "key",
+        "key": "UpArrow",
+        "mods": []
+      }
+    ]
+  },
+  {
+    "name": "key_downarrow",
+    "why": "CSI B is cursor down",
+    "send": "\\e[B",
+    "expect": [
+      {
+        "kind": "key",
+        "key": "DownArrow",
+        "mods": []
+      }
+    ]
+  },
+  {
+    "name": "key_rightarrow",
+    "why": "CSI C is cursor right",
+    "send": "\\e[C",
+    "expect": [
+      {
+        "kind": "key",
+        "key": "RightArrow",
+        "mods": []
+      }
+    ]
+  },
+  {
+    "name": "key_leftarrow",
+    "why": "CSI D is cursor left",
+    "send": "\\e[D",
+    "expect": [
+      {
+        "kind": "key",
+        "key": "LeftArrow",
+        "mods": []
+      }
+    ]
+  },
+  {
+    "name": "key_home",
+    "why": "CSI H is home",
+    "send": "\\e[H",
+    "expect": [
+      {
+        "kind": "key",
+        "key": "Home",
+        "mods": []
+      }
+    ]
+  },
+  {
+    "name": "key_end",
+    "why": "CSI F is end",
+    "send": "\\e[F",
+    "expect": [
+      {
+        "kind": "key",
+        "key": "End",
+        "mods": []
+      }
+    ]
+  },
+  {
+    "name": "key_shift_tab",
+    "why": "CSI Z is back-tab, which is shift+tab",
+    "send": "\\e[Z",
+    "expect": [
+      {
+        "kind": "key",
+        "key": "Tab",
+        "mods": [
+          "shift"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sgr_truncated",
+    "why": "a report cut off mid-parameter cannot be decoded; it must not be guessed at",
+    "send": "\\e[<0;10",
+    "expect": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "name": "sgr_missing_final",
+    "why": "no M or m means no terminator, so the sequence is incomplete",
+    "send": "\\e[<0;10;5",
+    "expect": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "name": "sgr_press_no_button",
+    "why": "button bits 3 names no button, and a press of no button holds nothing down: no button flag, and the position is all there is left to report (see README, stated assumptions)",
+    "send": "\\e[<3;12;7M",
+    "expect": [
+      {
+        "kind": "mouse",
+        "button": null,
+        "action": "motion",
+        "mods": [],
+        "x": 11,
+        "y": 6
+      }
+    ]
+  }
+]
