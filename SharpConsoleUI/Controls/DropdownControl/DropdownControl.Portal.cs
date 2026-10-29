@@ -205,7 +205,8 @@ namespace SharpConsoleUI.Controls
 
 					string itemText = _itemFormatter != null
 						? _itemFormatter(items[itemIndex], itemIndex == selectedIdx, HasFocus)
-						: items[itemIndex].Text;
+						// One row per item here too, so the same first line.
+						: Helpers.TextTruncationHelper.FirstLine(items[itemIndex].Text);
 
 					if (Parsing.MarkupParser.StripLength(itemText) > dropdownWidth - 4)
 						itemText = Helpers.TextTruncationHelper.Truncate(itemText, dropdownWidth - 4);

@@ -23,6 +23,32 @@ public static class TextTruncationHelper
 	public const int MinContentCharsBeforeEllipsis = 3;
 
 	/// <summary>
+	/// The first line of a value, for a control with one row to draw it in.
+	/// </summary>
+	/// <param name="text">The text, which may carry newlines.</param>
+	/// <returns>Everything before the first line break, or the text unchanged.</returns>
+	/// <remarks>
+	/// <para>
+	/// A newline reaches <see cref="Parsing.MarkupParser.Parse"/> as a control
+	/// character and is sanitised to U+FFFD, so a single-row control paints a
+	/// replacement glyph where the break was. Splitting into rows is the answer
+	/// where a control has rows; where it has one - a dropdown's closed field, an
+	/// item in a list of items - the first line is what a single-line field shows.
+	/// </para>
+	/// <para>
+	/// Both line endings, since a value can arrive from either platform, and the
+	/// carriage return would itself be sanitised.
+	/// </para>
+	/// </remarks>
+	public static string FirstLine(string text)
+	{
+		if (string.IsNullOrEmpty(text)) return text;
+
+		int cut = text.IndexOfAny(['\n', '\r']);
+		return cut < 0 ? text : text[..cut];
+	}
+
+	/// <summary>
 	/// Truncates text to fit within maxWidth, adding ellipsis if truncated.
 	/// Handles Spectre.Console markup correctly (e.g., "[red]text[/]").
 	/// </summary>

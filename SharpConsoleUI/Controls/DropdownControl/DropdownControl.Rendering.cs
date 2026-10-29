@@ -101,7 +101,12 @@ namespace SharpConsoleUI.Controls
 			int dropdownScroll = CurrentDropdownScrollOffset;
 
 			// Render header: arrow flush-right, padding between text and arrow
-			string selectedText = selectedIdx >= 0 && selectedIdx < paintSnapshot.Count ? paintSnapshot[selectedIdx].Text : "(None)";
+			// The closed field is one row by design, so a value carrying a newline
+			// shows its first line. Handed on whole it reaches the parser as a
+			// control character and paints U+FFFD instead of a break.
+			string selectedText = selectedIdx >= 0 && selectedIdx < paintSnapshot.Count
+				? TextTruncationHelper.FirstLine(paintSnapshot[selectedIdx].Text)
+				: "(None)";
 			string arrow = _isDropdownOpen && _opensUpward ? ControlDefaults.DropdownOpenArrow : ControlDefaults.DropdownClosedArrow;
 			int arrowDisplayWidth = Parsing.MarkupParser.StripLength(arrow);
 			// Reserve: space + arrow
