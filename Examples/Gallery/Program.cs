@@ -85,6 +85,40 @@ try
 
 	foreach (var shot in Shots.All)
 	{
+		// A loop that has stopped fails every remaining shot the same way - no
+		// frames arrive - and each one reports that its screen never settled,
+		// which describes the symptom and hides the cause. Asked before the
+		// shot, so the first thing printed is the reason rather than the
+		// thirty-seventh repetition of its effect.
+		if (session.Fault is { } fault)
+		{
+			Console.Error.WriteLine($"  the render loop faulted: {fault.Message}");
+			failed++;
+			break;
+		}
+
+		if (!session.IsRunning)
+		{
+			// No exception, so the loop was stopped rather than broken - the
+			// watchdog forcing an exit is what does that, and it says so in the
+			// log buffer a headless application has no way to print. Read it
+			// out here, or the reason stays where nobody looks.
+			// Critical only. A client connecting is logged at Warning and is
+			// routine here - the gallery opens one per shot - so anything less
+			// than Critical buries the one line that says what went wrong.
+			string why = string.Join("; ", system.LogService
+				.GetRecentLogs(50)
+				.Where(l => l.Level >= SharpConsoleUI.Logging.LogLevel.Critical)
+				.Select(l => l.Message)
+				.Distinct());
+
+			Console.Error.WriteLine("  the render loop stopped"
+				+ (why.Length > 0 ? $": {why}" : ", with nothing in the log to say why"));
+
+			failed++;
+			break;
+		}
+
 		try
 		{
 			Capture(system, socket, shot, outDir);
