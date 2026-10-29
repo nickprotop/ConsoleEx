@@ -83,6 +83,7 @@ internal static class DotCommands
 		console.MarkupLine("[yellow]At this prompt[/]");
 		Console.WriteLine("  <verb> [--field value]   ask the application; names are the protocol's");
 		Console.WriteLine("  <verb> > <file>          write the reply to a file instead");
+		Console.WriteLine("  seq < <file>             send the bytes in a file");
 		Console.WriteLine("  .<command>               cxdbg's own, below");
 		console.WriteLine();
 

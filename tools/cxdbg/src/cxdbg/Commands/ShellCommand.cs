@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Text.Json.Nodes;
 using Cxdbg.Protocol;
 using Spectre.Console;
 
@@ -104,6 +105,17 @@ internal static class ShellCommand
 				string? into = null;
 				bool append = false;
 
+				// `seq < capture.txt` reads the bytes from a file, the mirror of
+				// the redirect below. Split first, so a path is never read as a
+				// protocol field.
+				words = SeqInput.SplitRedirect(words, out string? readFrom);
+
+				if (words.Length == 0)
+				{
+					AnsiConsole.MarkupLine("[red]< needs a verb before it.[/]");
+					continue;
+				}
+
 				int arrow = Array.FindIndex(words, w => w is ">" or ">>");
 				if (arrow >= 0)
 				{
@@ -163,6 +175,13 @@ internal static class ShellCommand
 				try
 				{
 					var typed = CommandLineParser.Parse(words);
+
+					if (readFrom != null
+						&& SeqInput.Load(readFrom, (Dictionary<string, JsonNode?>)typed.Fields) is { } loadError)
+					{
+						AnsiConsole.MarkupLine($"[red]{loadError.EscapeMarkup()}[/]");
+						continue;
+					}
 
 					Output.WarnAboutLikelyTypos(typed.Verb, typed.Fields.Keys);
 

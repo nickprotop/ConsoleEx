@@ -37,8 +37,9 @@ internal static class Completion
 		int position = head.EndsWith(' ') ? words.Length : words.Length - 1;
 
 		// After a redirect, a path - which the shell completes against the
-		// filesystem, not against anything cxdbg knows.
-		if (position > 0 && words[position - 1] is ">" or ">>") return Paths(word);
+		// filesystem, not against anything cxdbg knows. "<" reads a capture
+		// into `seq`, the mirror of ">" writing a reply out.
+		if (position > 0 && words[position - 1] is ">" or ">>" or "<") return Paths(word);
 
 		if (position <= 0) return Match(First(), word);
 
@@ -51,6 +52,11 @@ internal static class Completion
 
 			return Match(Fields(words[1]).Concat(WatchFields), word);
 		}
+
+		// seq reads a capture from a file, so the redirect is worth offering
+		// where it applies rather than only to someone who knows it exists.
+		if (string.Equals(words[0], "seq", StringComparison.OrdinalIgnoreCase))
+			return Match(Fields("seq").Concat(["<"]), word);
 
 		return Match(Fields(words[0]), word);
 	}

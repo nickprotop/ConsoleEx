@@ -206,6 +206,113 @@ namespace SharpConsoleUI.Input
 		internal void InjectMouseEvent(List<MouseFlags> flags, Point point)
 			=> HandleMouseEvent(this, flags, point);
 
+		/// <summary>The parser used to decode injected bytes.</summary>
+		/// <remarks>
+		/// Owned here rather than borrowed from a driver, because not every
+		/// driver has one: a headless system takes already-decoded input, since
+		/// there is no terminal to send bytes. The parser belongs to whatever is
+		/// READING, and this is the first place every configuration converges.
+		/// </remarks>
+		private Drivers.Input.AnsiInputParser? _injectionParser;
+
+		/// <summary>
+		/// Decodes raw terminal bytes and delivers whatever they turn out to be.
+		/// </summary>
+		/// <param name="bytes">The bytes, as a terminal would send them.</param>
+		/// <returns>One line per event, describing what was decoded.</returns>
+		/// <remarks>
+		/// <para>
+		/// The one way into the decoder from outside. Everything else a probe can
+		/// send - a key, a click - enters ABOVE it, already decoded, so this is
+		/// the only way to drive the decoding itself: X10 mouse reports,
+		/// bracketed paste, cursor-position replies and anything malformed, which
+		/// is where a parser goes wrong.
+		/// </para>
+		/// <para>
+		/// Each kind of event goes where the drivers send it, including the
+		/// asymmetry: keys and paste are QUEUED, mouse is dispatched inline on
+		/// the calling thread. Routing them uniformly would make this behave
+		/// unlike the input it imitates.
+		/// </para>
+		/// <para>
+		/// This decodes bytes the way the library decodes bytes. It does not
+		/// pretend a terminal sent them: the byte-reading loops, their partial
+		/// reads and their escape timeout are not exercised.
+		/// </para>
+		/// </remarks>
+		internal List<string> InjectBytes(ReadOnlySpan<byte> bytes)
+		{
+			var parser = _injectionParser ??= new Drivers.Input.AnsiInputParser();
+			var described = new List<string>();
+
+			List<Drivers.Input.InputEvent> events;
+
+			try
+			{
+				events = parser.Parse(bytes, bytes.Length);
+			}
+			finally
+			{
+				// A sequence that ends mid-way leaves the parser expecting more,
+				// and the next injection would be swallowed completing it. Each
+				// call stands alone, so anything partial is flushed here.
+				foreach (var leftover in parser.Flush()) Deliver(leftover, described);
+			}
+
+			foreach (var decoded in events) Deliver(decoded, described);
+
+			return described;
+		}
+
+		/// <summary>Sends one decoded event where its driver would send it.</summary>
+		private void Deliver(Drivers.Input.InputEvent decoded, List<string> described)
+		{
+			switch (decoded)
+			{
+				case Drivers.Input.KeyInputEvent key:
+					described.Add($"key {Describe(key.KeyInfo)}");
+					_inputStateService.EnqueueKey(key.KeyInfo);
+					break;
+
+				case Drivers.Input.MouseInputEvent mouse:
+					described.Add(
+						$"mouse {string.Join("|", mouse.Flags)} @{mouse.Position.X},{mouse.Position.Y}");
+					HandleMouseEvent(this, mouse.Flags, mouse.Position);
+					break;
+
+				case Drivers.Input.PasteInputEvent paste:
+					described.Add($"paste {paste.Text.Length} char(s)");
+					_inputStateService.EnqueuePaste(paste.Text);
+					break;
+
+				case Drivers.Input.UnknownSequenceEvent unknown:
+					// Reported but NOT delivered. The parser could not say what it
+					// was, and guessing would be worse than saying so.
+					described.Add($"unknown {unknown.Data.Length} byte(s)");
+					break;
+			}
+		}
+
+		/// <summary>A key as a person would write it.</summary>
+		private static string Describe(ConsoleKeyInfo key)
+		{
+			var parts = new List<string>();
+
+			if ((key.Modifiers & ConsoleModifiers.Control) != 0) parts.Add("C");
+			if ((key.Modifiers & ConsoleModifiers.Alt) != 0) parts.Add("M");
+			if ((key.Modifiers & ConsoleModifiers.Shift) != 0) parts.Add("S");
+
+			string name = key.Key != ConsoleKey.None
+				? key.Key.ToString()
+				: key.KeyChar switch
+				{
+					'\0' => "NUL",
+					_ => key.KeyChar.ToString(),
+				};
+
+			return parts.Count > 0 ? string.Join("-", parts) + "-" + name : name;
+		}
+
 		/// <summary>
 		/// Derives clicks and drags from the presses and releases the driver reports.
 		/// </summary>

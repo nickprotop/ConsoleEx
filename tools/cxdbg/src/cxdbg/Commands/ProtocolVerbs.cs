@@ -227,6 +227,13 @@ internal static class ProtocolVerbs
 			[new("spec", "key", "Tab, Down, C-c, S-Tab, or literal text")],
 			["key", "--spec", "Tab"]),
 
+		("seq", "Feed raw terminal bytes through the decoder",
+			[
+				new("text", "bytes", "With escapes: \\e \\n \\r \\t \\0 \\\\ \\xNN"),
+				new("raw", "hex", "The same bytes as hex, for replaying a capture"),
+			],
+			["seq", "--text", "\\e[<0;5;5M"]),
+
 		("mouse", "Send a mouse event",
 			[
 				new("x", "n", "Screen column"),

@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Text.Json.Nodes;
 using Cxdbg.Protocol;
 using Spectre.Console;
 
@@ -59,15 +60,43 @@ internal static class Dispatch
 		// field and sent - which answers a question nobody asked.
 		if (args.Contains("--help") || args.Contains("-h")) return Help.Print(args[0]);
 
+		// `seq < capture.txt` reads the bytes from a file. Split before parsing,
+		// so a path is never mistaken for a protocol field.
+		var words = SeqInput.SplitRedirect(args, out string? readFrom);
+
 		CommandLine line;
 		try
 		{
-			line = CommandLineParser.Parse(args);
+			line = CommandLineParser.Parse(words);
 		}
 		catch (CxdbgException ex)
 		{
 			AnsiConsole.MarkupLine($"[red]{ex.Message.EscapeMarkup()}[/]");
 			return 3;
+		}
+
+		if (readFrom != null)
+		{
+			if (SeqInput.Load(readFrom, (Dictionary<string, JsonNode?>)line.Fields) is { } error)
+			{
+				AnsiConsole.MarkupLine($"[red]{error.EscapeMarkup()}[/]");
+				return 3;
+			}
+		}
+		else if (line.Verb == "seq"
+			&& !line.Fields.ContainsKey("text")
+			&& !line.Fields.ContainsKey("raw")
+			&& Console.IsInputRedirected)
+		{
+			// A shell eats `< capture.txt` before cxdbg is started, so the file
+			// arrives as stdin. Only when nothing else said what to send, and
+			// only when something really is piped in - reading an interactive
+			// terminal here would hang waiting for a sequence nobody is typing.
+			if (SeqInput.LoadStdin((Dictionary<string, JsonNode?>)line.Fields) is { } error)
+			{
+				AnsiConsole.MarkupLine($"[red]{error.EscapeMarkup()}[/]");
+				return 3;
+			}
 		}
 
 		try

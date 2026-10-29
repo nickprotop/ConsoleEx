@@ -293,9 +293,9 @@ cxdbg set --logLevel Trace    # bare `cxdbg set` reads them all
 
 Input is asynchronous: the app has the keystroke when the command returns, not
 necessarily the result. Ask `cxdbg settled` whether it has finished reacting —
-it answers the four questions that matter (input pending, work queued, windows
-still to paint, animations running) and names whichever is holding it, so a
-script that gives up waiting can say why:
+it answers the five questions that matter (input pending, a mouse handler
+running, work queued, windows still to paint, animations running) and names
+whichever is holding it, so a script that gives up waiting can say why:
 
 ```
 settled  frame 1204
@@ -304,6 +304,47 @@ working  frame 1204  2 window(s) with work pending
 
 `cxdbg frame` is still there when the counter itself is what you want; a
 counter that never moves means the render loop has stopped.
+
+### Below the keystroke
+
+`send key` and `send click` send input that is already decoded. `seq` goes a
+layer below and feeds raw bytes through the decoder itself - the only way to
+drive what the decoder alone handles, which is where a parser actually goes
+wrong:
+
+```bash
+cxdbg seq --text '\e[M \x29\x25'       # legacy X10 mouse
+cxdbg seq --text '\e[200~hi\e[201~'    # bracketed paste
+cxdbg seq --text '\e[<32;10;5M'        # an SGR drag report
+cxdbg seq --raw 1b5b41                 # the same bytes as hex
+cxdbg seq < capture.txt                # what somebody's terminal sent
+```
+
+The reply says what each sequence decoded to, so the decode and its effect
+arrive together:
+
+```
+bytes 10
+events
+  mouse Button1Pressed @11,6
+```
+
+`--text` takes `\e` `\n` `\r` `\t` `\0` `\\` and `\xNN`; anything else is sent as
+UTF-8. An unknown escape is an error rather than two literal characters, for
+the same reason an unknown key name is. `--raw` takes hex, ignoring spaces,
+commas and a leading `0x`, so a dump pasted from anywhere replays verbatim.
+
+A capture file is read either way round: the shell's own `< capture.txt`
+arrives as standard input, and at the prompt - where there is no shell - `seq
+< capture.txt` does the same thing. Both cap at 64KB, because a terminal
+sequence is not longer than that and a pipe from the wrong command is a
+mistake, not input.
+
+It decodes bytes the way the library decodes bytes; it does not pretend a
+terminal sent them. The byte-reading loop, its partial reads and its escape
+timeout need a real terminal - tmux, or the app under a pty. Everything from
+the decoder up is what this covers, on all three driver configurations
+including headless.
 
 ## Moving time by hand
 
@@ -411,6 +452,7 @@ application.
 | `size` | Read the screen size, or set it on a headless app | `--w` `--h` |
 | `key` | Send a key, in tmux notation | `--spec` |
 | `mouse` | Send a mouse event | `--x` `--y` `--action` `--button` |
+| `seq` | Feed raw terminal bytes through the decoder | `--text` `--raw` |
 | `focusctl` | Move focus to a control | `--name` `--window` |
 | `invoke` | Activate a control the way a user would | `--name` `--window` |
 | `ping` | Check that an application is listening | — |

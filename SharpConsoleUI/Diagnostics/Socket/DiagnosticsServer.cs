@@ -235,6 +235,7 @@ internal sealed class DiagnosticsServer : IDisposable
 			// --- Tier 4: interactivity -----------------------------------------------
 			"key" => Ok(Key(req)),
 			"mouse" => Ok(Mouse(req)),
+			"seq" => Ok(Seq(req)),
 			"size" => Ok(Size(req)),
 			"focusctl" => Ok(FocusControl(req)),
 			"invoke" => Ok(Invoke(req)),
@@ -656,7 +657,7 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// Whether the application has finished reacting, and what is holding it.
 	/// </summary>
 	/// <remarks>
-	/// The same four conditions <see cref="ConsoleWindowSystem.IsSettled"/> checks,
+	/// The same five conditions <see cref="ConsoleWindowSystem.IsSettled"/> checks,
 	/// so a script polling this and a test calling WaitUntilSettledAsync agree. The
 	/// blockers are reported because a bare false gives a script nothing to say when
 	/// it gives up waiting.
@@ -777,6 +778,7 @@ internal sealed class DiagnosticsServer : IDisposable
 		"snapshot", "image", "tree", "focus", "windows", "metrics", "set",
 		"logs", "key", "mouse", "size", "focusctl", "invoke",
 		"theme", "window", "frame", "settled", "clock",
+			"seq",
 			"performance",
 			"invalidations",
 			"reachable",
@@ -1227,6 +1229,150 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// they would for a real click - a probe that reached past dispatch could report hits a
 	/// user could never produce.
 	/// </remarks>
+	/// <summary>Feeds raw terminal bytes through the decoder.</summary>
+	/// <remarks>
+	/// <para>
+	/// The only way in below <c>key</c> and <c>mouse</c>, which both send
+	/// already-decoded input. Without it the decoder cannot be driven at all,
+	/// and the things it alone handles - X10 mouse reports, bracketed paste,
+	/// cursor-position replies, anything malformed - are unreachable. Those are
+	/// where a parser goes wrong.
+	/// </para>
+	/// <para>
+	/// Takes either <c>text</c>, with backslash escapes, or <c>raw</c>, as hex -
+	/// so a byte dump captured from somebody's broken terminal replays verbatim.
+	/// </para>
+	/// </remarks>
+	private JsonObject Seq(JsonObject req)
+	{
+		byte[] bytes;
+
+		if (Text(req, "raw") is { } hex)
+		{
+			if (!TryHex(hex, out bytes, out string? hexError)) return ErrorBody(hexError!);
+		}
+		else if (Text(req, "text") is { } text)
+		{
+			if (!TryEscapes(text, out bytes, out string? escapeError)) return ErrorBody(escapeError!);
+		}
+		else
+		{
+			return ErrorBody("seq requires 'text' (with \\e escapes) or 'raw' (hex)");
+		}
+
+		if (bytes.Length == 0) return ErrorBody("seq was given no bytes");
+
+		List<string> decoded = [];
+
+		// On the UI thread, because a mouse event dispatches inline and would
+		// otherwise run a control's handler on the socket's thread.
+		Marshal(() => decoded = _system.Input.InjectBytes(bytes));
+
+		var events = new JsonArray();
+		foreach (string line in decoded) events.Add((JsonNode?)JsonValue.Create(line));
+
+		return new JsonObject
+		{
+			["bytes"] = bytes.Length,
+			["events"] = events,
+		};
+	}
+
+	/// <summary>Turns a hex dump into bytes.</summary>
+	/// <remarks>
+	/// Spaces and a leading 0x are ignored, so a dump pasted from anywhere
+	/// works. An odd number of digits is refused rather than padded: the
+	/// missing nibble could belong at either end.
+	/// </remarks>
+	private static bool TryHex(string hex, out byte[] bytes, out string? error)
+	{
+		bytes = [];
+		error = null;
+
+		string clean = hex.Replace(" ", "").Replace("0x", "").Replace(",", "");
+
+		if (clean.Length % 2 != 0)
+		{
+			error = $"'raw' has {clean.Length} hex digits, which is not a whole number of bytes";
+			return false;
+		}
+
+		var parsed = new byte[clean.Length / 2];
+
+		for (int i = 0; i < parsed.Length; i++)
+		{
+			if (!byte.TryParse(clean.AsSpan(i * 2, 2),
+				System.Globalization.NumberStyles.HexNumber, null, out parsed[i]))
+			{
+				error = $"'{clean.Substring(i * 2, 2)}' is not a hex byte";
+				return false;
+			}
+		}
+
+		bytes = parsed;
+		return true;
+	}
+
+	/// <summary>Turns backslash escapes into bytes.</summary>
+	/// <remarks>
+	/// An unknown escape is an ERROR, not a literal backslash. Typing one by
+	/// mistake and having it silently sent as two characters is how a session
+	/// is spent debugging the debugger.
+	/// </remarks>
+	private static bool TryEscapes(string text, out byte[] bytes, out string? error)
+	{
+		bytes = [];
+		error = null;
+
+		var buffer = new List<byte>(text.Length);
+
+		for (int i = 0; i < text.Length; i++)
+		{
+			if (text[i] != '\\')
+			{
+				// Non-ASCII is sent as UTF-8, the way a terminal sends it.
+				buffer.AddRange(System.Text.Encoding.UTF8.GetBytes(text[i].ToString()));
+				continue;
+			}
+
+			if (++i >= text.Length)
+			{
+				error = "the sequence ends with a lone backslash";
+				return false;
+			}
+
+			switch (text[i])
+			{
+				case 'e': buffer.Add(0x1b); break;
+				case 'n': buffer.Add((byte)'\n'); break;
+				case 'r': buffer.Add((byte)'\r'); break;
+				case 't': buffer.Add((byte)'\t'); break;
+				case '0': buffer.Add(0); break;
+				case '\\': buffer.Add((byte)'\\'); break;
+
+				case 'x':
+					if (i + 2 >= text.Length
+						|| !byte.TryParse(text.AsSpan(i + 1, 2),
+							System.Globalization.NumberStyles.HexNumber, null, out byte hexByte))
+					{
+						error = $"\\x at position {i - 1} needs two hex digits";
+						return false;
+					}
+
+					buffer.Add(hexByte);
+					i += 2;
+					break;
+
+				default:
+					error = $"unknown escape '\\{text[i]}'; known: \\e \\n \\r \\t \\0 \\\\ \\xNN";
+					return false;
+			}
+		}
+
+		bytes = buffer.ToArray();
+		return true;
+	}
+
 	private JsonObject Mouse(JsonObject req)
 	{
 		int? x = req["x"]?.GetValue<int>();

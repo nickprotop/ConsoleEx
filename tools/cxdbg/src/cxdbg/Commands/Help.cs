@@ -124,6 +124,10 @@ internal static class Help
 			// mentions. They still reach it.
 			Console.WriteLine("  Fields not listed here still reach the application.");
 
+			// A verb whose fields alone do not explain it gets its own words,
+			// after the generated part rather than instead of it.
+			if (string.Equals(topic, "seq", StringComparison.OrdinalIgnoreCase)) SeqDetail();
+
 			return 0;
 		}
 
@@ -225,6 +229,35 @@ internal static class Help
 	}
 
 	/// <summary>A command, what it does, and its own options.</summary>
+	/// <summary>What `seq` is for, which its fields do not say on their own.</summary>
+	private static void SeqDetail()
+	{
+		Console.WriteLine();
+		Console.WriteLine("  Everything else a probe can send - a key, a click - arrives already");
+		Console.WriteLine("  decoded. This is the only way in below that, and the things the");
+		Console.WriteLine("  decoder alone handles have no other way to be driven:");
+		Console.WriteLine();
+		Console.WriteLine("    cxdbg seq --text '\\e[M \\x29\\x25'       legacy X10 mouse");
+		Console.WriteLine("    cxdbg seq --text '\\e[200~hi\\e[201~'    bracketed paste");
+		Console.WriteLine("    cxdbg seq --text '\\e[<32;10;5M'        an SGR drag report");
+		Console.WriteLine("    cxdbg seq --text '\\e[<0;10'            something truncated");
+		Console.WriteLine("    cxdbg seq < capture.txt               what a terminal sent");
+		Console.WriteLine();
+		Console.WriteLine("  The reply says what each sequence DECODED to, so the decode and its");
+		Console.WriteLine("  effect arrive in one round trip. An unknown escape is an error");
+		Console.WriteLine("  rather than two literal characters, for the reason an unknown key");
+		Console.WriteLine("  name is.");
+		Console.WriteLine();
+		Console.WriteLine("  A capture is read either way round: the shell's own redirect");
+		Console.WriteLine("  arrives as standard input, and at the prompt - where there is no");
+		Console.WriteLine("  shell - `seq < capture.txt` does the same thing. Both cap at 64KB.");
+		Console.WriteLine();
+		Console.WriteLine("  It decodes bytes the way the library decodes bytes. It does NOT");
+		Console.WriteLine("  pretend a terminal sent them: the byte-reading loop, its partial");
+		Console.WriteLine("  reads and its escape timeout need a real terminal - tmux, or an app");
+		Console.WriteLine("  under a pty.");
+	}
+
 	private static void Section(string usage, string what, params (string Name, string What)[] options)
 	{
 		var console = AnsiConsole.Console;

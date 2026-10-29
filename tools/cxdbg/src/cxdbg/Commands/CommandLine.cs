@@ -141,8 +141,24 @@ internal static class CommandLineParser
 	/// is meant to be - the protocol does. A server reading "depth" as a number
 	/// gets a number; one reading "window" as a title gets the title.
 	/// </remarks>
-	private static JsonNode? Value(string word) =>
-		long.TryParse(word, out long n) ? n
-		: bool.TryParse(word, out bool b) ? b
-		: word;
+	private static JsonNode? Value(string word)
+	{
+		// A value the user quoted arrives with its quotes still on, because the
+		// prompt splits a line on spaces and does not know about them. Left in
+		// place they become part of the value: `seq --text "\e[200~hi\e[201~"`
+		// sent a stray quote character at each end, which the decoder duly
+		// turned into two keystrokes around the paste.
+		//
+		// Only a MATCHED pair, and only when the value is not just a quote, so
+		// a value that genuinely contains one keeps it.
+		if (word.Length > 1
+			&& ((word[0] == '"' && word[^1] == '"') || (word[0] == '\'' && word[^1] == '\'')))
+		{
+			word = word[1..^1];
+		}
+
+		return long.TryParse(word, out long n) ? n
+			: bool.TryParse(word, out bool b) ? b
+			: word;
+	}
 }

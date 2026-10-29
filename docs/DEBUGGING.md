@@ -236,6 +236,7 @@ comes back without one.
 |------|--------------|
 | `key` | Sends keystrokes |
 | `mouse` | Clicks, moves, scrolls |
+| `seq` | Feeds raw terminal bytes through the decoder |
 | `focusctl` | Moves focus to a named control |
 | `invoke` | Focuses a named control and activates it |
 | `window` | Activates or closes a window |
@@ -557,6 +558,76 @@ idempotent with the recogniser: a flag already present is not added twice.
 
 ---
 
+## seq
+
+`key` and `mouse` send input that is already decoded. `seq` goes one layer below them and
+feeds raw bytes through the decoder itself, which is the only way to drive the things the
+decoder alone handles: legacy X10 mouse reports, bracketed paste, cursor-position replies,
+and anything malformed.
+
+```json
+{"cmd":"seq","text":"\\e[<0;12;7M"}
+{"cmd":"seq","text":"\\e[200~hi\\e[201~"}
+{"cmd":"seq","raw":"1b5b41"}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `text` | The bytes with backslash escapes: `\e` `\n` `\r` `\t` `\0` `\\` `\xNN`. Anything else is sent as UTF-8, the way a terminal sends it. |
+| `raw` | The bytes as hex. Spaces, commas and a leading `0x` are ignored, so a dump pasted from anywhere works. |
+
+One or the other, not both. `raw` is what replays a byte dump captured from somebody's
+broken terminal verbatim, with no escaping to get wrong on the way.
+
+The reply says how many bytes were read and what each one **decoded to**, so the decode
+and its effect arrive in one round trip:
+
+```json
+{"ok":true,"bytes":10,"events":["mouse Button1Pressed @11,6"]}
+{"ok":true,"bytes":14,"events":["paste 2 char(s)"]}
+{"ok":true,"bytes":6,"events":["mouse Button1Pressed @8,4"]}
+{"ok":true,"bytes":3,"events":["key UpArrow"]}
+```
+
+Each decoded event is then delivered where its own driver would deliver it: a key is
+queued, a paste is queued, a mouse event dispatches inline through the same hit-test
+path `mouse` uses. An event the parser could not identify is **reported but not
+delivered** - it says what it saw and stops, because guessing would be worse:
+
+```json
+{"cmd":"seq","text":"\\e[<0;10"}
+{"ok":true,"bytes":7,"events":["unknown 7 byte(s)"]}
+```
+
+Each call stands alone. A sequence that ends mid-way leaves the parser expecting more, so
+anything partial is flushed at the end of the call rather than swallowing the next
+injection to complete itself.
+
+A malformed request is an **error**, not a guess, for the same reason an unknown key name
+is:
+
+```json
+{"cmd":"seq","text":"\\q"}
+{"ok":false,"error":"unknown escape '\\q'; known: \\e \\n \\r \\t \\0 \\\\ \\xNN"}
+
+{"cmd":"seq","raw":"1b5b4"}
+{"ok":false,"error":"'raw' has 5 hex digits, which is not a whole number of bytes"}
+```
+
+An odd digit count is refused rather than padded, because the missing nibble could belong
+at either end.
+
+**It decodes bytes the way the library decodes bytes. It does not pretend a terminal sent
+them.** The byte-reading loop, its partial reads and its escape timeout all need a real
+terminal - use tmux, or run the app under a pty, to exercise those. What `seq` covers is
+everything from the decoder upward, which is where a parser actually goes wrong.
+
+Because it is the decoder and not the driver, it works the same on all three
+configurations: a real terminal, a terminal without raw mode, and `HeadlessConsoleDriver`
+with no terminal at all.
+
+---
+
 ## logs
 
 The log buffer, which a TUI can never print to its own screen.
@@ -704,16 +775,14 @@ ask '{"cmd":"snapshot"}'
 ```
 
 **The client owns this policy deliberately, because only the client knows what it is waiting
-for.** An earlier `settle` verb tried to wait for the UI to "go quiet", and that guarantee
-cannot be made for any application with a moving part - a clock, a spinner, a progress bar,
-a background simulation. On those it waits the full timeout every time and then reports
-failure, which is worse than not offering it: in the WebHost example it turned every click
-into a flat two-second stall while the application itself was rendering happily.
+for.** Waiting for the UI to "go quiet" is not a guarantee the protocol can make: any
+application with a moving part - a clock, a spinner, a progress bar, a background
+simulation - is never quiet, so such a wait costs the full timeout and then reports failure.
 
-Waiting for *one more frame* is a promise the framework can actually keep. Wait for several
-if a single frame is not enough, poll until the content you expect appears, or do not wait
-at all if you are already polling - all of which are three lines of client code, and none of
-which the server can choose correctly on your behalf.
+Waiting for *one more frame* is a promise the framework can keep. Wait for several if a
+single frame is not enough, poll until the content you expect appears, or do not wait at all
+if you are already polling - all of which are three lines of client code, and none of which
+the server can choose correctly on your behalf.
 
 A counter that never advances means the render loop is not running - a host that owns its
 own loop has stopped calling `Tick()`. Nothing read after that reflects a live screen, so a
