@@ -21,7 +21,7 @@ internal sealed record Page(string File, string Title, string Blurb);
 internal sealed record Group(string Name, string Summary, Page[] Pages);
 
 /// <summary>
-/// The documentation, in six groups.
+/// The documentation, grouped and in reading order.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -43,12 +43,14 @@ internal static class Nav
 		new("Getting started",
 			"Install it, open a window, and learn the shape of the API.",
 			[
+				// First, because it is the question a reader arrives with. The
+				// rest of this group answers how; this one answers whether.
+				new("WHY.md", "Why SharpConsoleUI?", "What it is, what it is not, and the three shapes an application can take."),
 				new("tutorials/README.md", "Tutorials", "Step by step, from an empty project to a running application."),
 				new("BUILDERS.md", "Builder API", "The fluent API: windows, controls, and how they compose."),
 				new("CONFIGURATION.md", "Configuration", "ConsoleWindowSystemOptions and what each switch changes."),
 				new("EXAMPLES.md", "Examples", "The example applications in this repository, and what each one shows."),
 				new("PATTERNS.md", "Patterns", "Shapes that recur: dialogs, long work, live data."),
-				new("WHY.md", "Why SharpConsoleUI?", "What it is, what it is not, and the three shapes an application can take."),
 			]),
 
 		new("Controls",

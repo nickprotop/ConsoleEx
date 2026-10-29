@@ -110,10 +110,17 @@ Write("showcase.html", Shell.Render(
 	"Real applications built with SharpConsoleUI: IDEs, dashboards, system monitors.",
 	Pages.Showcase(root), active: "showcase", depth: 0));
 
+// The index gets the same sidebar as the pages it lists. Without it, the one
+// page whose whole job is to show the shape of the documentation was also the
+// one page that did not show it, and arriving here lost the map.
 Write("docs/index.html", Shell.Render(
 	"Documentation",
-	"Guides, references and tutorials for SharpConsoleUI, in six groups.",
-	Pages.DocsIndex(root, placed, rendered), active: "docs", depth: 1));
+	"Guides, references and tutorials for SharpConsoleUI.",
+	"<div class=\"container page\"><div class=\"doc-layout\">"
+	+ Pages.Sidebar("index.md", 1, root)
+	+ "<article class=\"prose\">" + Pages.DocsIndex(root, placed, rendered) + "</article>"
+	+ "</div></div>",
+	active: "docs", depth: 1));
 
 Console.WriteLine($"built {pages} pages into {outDir}");
 return 0;

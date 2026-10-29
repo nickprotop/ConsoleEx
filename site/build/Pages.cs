@@ -224,6 +224,28 @@ internal static class Pages
 
 	// ── Controls ─────────────────────────────────────────────────────────
 
+	/// <summary>The control whose screenshot stands for a whole group.</summary>
+	/// <remarks>
+	/// Chosen rather than derived: "which control shows best what this kind of
+	/// control is" is a judgement, and the alternatives are alphabetical (a
+	/// BarGraph standing for everything that displays) or largest-file, which
+	/// picks whichever shot happens to be biggest.
+	/// <para>A group with no entry here, or an entry whose screenshot is not
+	/// generated, simply shows no picture.</para>
+	/// </remarks>
+	private static string? Hero(string group) => group switch
+	{
+		// The catalogue drops the trailing "Controls" from a group's heading, so
+		// these are the names as it reports them, not as CONTROLS.md writes them.
+		"Basic Input" => "MultilineEditControl",
+		"Selection" => "TableControl",
+		"Display" => "ChartControl",
+		"Drawing" => "CanvasControl",
+		"Layout" => "GridControl",
+		"Utility" => "TerminalControl",
+		_ => null,
+	};
+
 	internal static string Controls(string root)
 	{
 		var sb = new StringBuilder();
@@ -236,12 +258,19 @@ internal static class Pages
 			+ "<p>From a button to an embedded terminal emulator. Every one is themeable, "
 			+ "every one has a page of its own, and twenty-nine of them parse inline markup.</p></div>");
 
-		// No thumbnails here. The shots have no common shape - a progress bar is
-		// fifty columns by one, a tree is fifty by ten - so a uniform grid pads
-		// the wide ones and shrinks the tall ones, and at card size none of
-		// them is readable anyway. Each screenshot lives on its own control's
-		// page, full size, where someone reading about that control will
-		// actually look at it.
+		// One screenshot per group, not per control. A shot of a control is a
+		// grid of glyphs, and glyphs have a legibility floor: a status bar is
+		// thirty-three columns wide, so in a card-sized thumbnail each
+		// character gets about three pixels and the picture is grey noise. The
+		// shots also range from 0.9:1 to 6.6:1, so a row of them is either
+		// distorted or ragged.
+		//
+		// At full width one is readable, and one per group is what a reader
+		// needs: what this KIND of control looks like. The rest are on their
+		// own pages, full size, where someone reading about one will look.
+		sb.AppendLine("<p class=\"group-summary\">Each control has a page of its own. "
+			+ "For how controls work - common properties, the interfaces, and writing "
+			+ "your own - see the <a href=\"docs/CONTROLS.html\">controls reference</a>.</p>");
 
 		// Grouped the way CONTROLS.md groups them, rather than alphabetically:
 		// "what kind of control is this" is the question someone browsing has,
@@ -256,7 +285,17 @@ internal static class Pages
 				if (group.Summary.Length > 0)
 					sb.AppendLine($"<p class=\"group-summary\">{Shell.Esc(group.Summary)}</p>");
 
-				sb.AppendLine("<div class=\"doc-list\">");
+				if (Hero(group.Name) is { } hero
+					&& File.Exists(Path.Combine(root, "docs", "images", "controls", hero + ".png")))
+				{
+					// Lazy: six screenshots is real weight, and five of them are
+					// below the fold.
+					sb.AppendLine($"<a class=\"group-shot\" href=\"docs/controls/{hero}.html\">"
+						+ $"<img src=\"images/controls/{hero}.png\" alt=\"{hero}\" loading=\"lazy\">"
+						+ $"<span>{Shell.Esc(hero)}</span></a>");
+				}
+
+				sb.AppendLine("<div class=\"doc-list tight\">");
 
 				foreach (var row in group.Rows)
 				{
@@ -449,10 +488,11 @@ internal static class Pages
 	{
 		var sb = new StringBuilder();
 
-		sb.AppendLine("<div class=\"container page\">");
+		// No wrapping container: the caller supplies the doc layout this sits in,
+		// and a second one nested inside it indents the page against itself.
 		sb.AppendLine("<div class=\"page-head\"><span class=\"eyebrow\">Documentation</span>"
-			+ "<h1>Everything, in six groups</h1>"
-			+ "<p>Start with the tutorials. Come back for the reference.</p></div>");
+			+ "<h1>Guides and reference</h1>"
+			+ "<p>Start with why, then the tutorials. Come back for the reference.</p></div>");
 
 		foreach (var group in Nav.Groups)
 		{
@@ -476,8 +516,6 @@ internal static class Pages
 		// and putting it on the page makes the page about itself. Nav.cs is
 		// where a new guide gets placed; until it is, it is reachable by link
 		// and by search, just not listed here.
-
-		sb.AppendLine("</div>");
 
 		return sb.ToString();
 	}
@@ -511,9 +549,11 @@ internal static class Pages
 			{
 				bool here = string.Equals(page.File, current, StringComparison.OrdinalIgnoreCase);
 
+				bool catalogue = string.Equals(page.File, "CONTROLS.md",
+					StringComparison.OrdinalIgnoreCase);
+
 				// The catalogue stands in for whichever control is being read.
-				bool stands = inControls
-					&& string.Equals(page.File, "CONTROLS.md", StringComparison.OrdinalIgnoreCase);
+				bool stands = inControls && catalogue;
 
 				string href = up + "docs/" + Path.ChangeExtension(page.File, ".html");
 
@@ -521,8 +561,11 @@ internal static class Pages
 					+ $"{Shell.Esc(page.Title)}</a>");
 
 				// Every control, directly under the catalogue it belongs to, so
-				// a reader can move between them without going back up.
-				if (!stands || root == null) continue;
+				// a reader can move between them without going back up. Listed on
+				// the catalogue page as well, not only on a control's own page:
+				// the list is how a reader gets from the catalogue to a control,
+				// and it was the one place that showed them no way in.
+				if ((!stands && !(here && catalogue)) || root == null) continue;
 
 				string dir = Path.Combine(root, "docs", "controls");
 				if (!Directory.Exists(dir)) continue;

@@ -289,6 +289,59 @@ a.card:hover {
 .doc-list .t { font-weight: 500; display: block; margin-bottom: 2px; }
 .doc-list .b { color: var(--text-2); font-size: 0.86rem; line-height: 1.45; }
 
+/* Tighter columns, for a catalogue read by scanning rather than by reading:
+   forty-seven controls in about a screen instead of three. The blurb is
+   clamped to two lines so a long one cannot make its row twice the height of
+   its neighbours. */
+.doc-list.tight { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+
+/* The line that introduces the page, not the group that follows it: without
+   the gap it reads as the first group's summary. */
+.page-head + .group-summary { margin: 0 0 34px; }
+.doc-list.tight a { padding: 9px 12px; }
+.doc-list.tight .b {
+    font-size: 0.82rem;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* One screenshot per group, at a width where its glyphs are legible. Capped
+   in height as well: a tall shot (a dropdown is taller than it is wide) would
+   otherwise push the list it introduces off the screen. */
+.group-shot {
+    display: block;
+    margin: 0 0 18px;
+    border: 1px solid var(--term-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--term-bar);
+    text-decoration: none;
+    color: inherit;
+    max-width: 640px;
+}
+
+.group-shot img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 340px;
+    object-fit: contain;
+    object-position: left top;
+}
+
+.group-shot span {
+    display: block;
+    padding: 7px 11px;
+    font-size: 0.8rem;
+    color: var(--text-2);
+    border-top: 1px solid var(--term-border);
+}
+
+.group-shot:hover span { color: var(--text); }
+
 /* ── Terminal frame around a screenshot ──────────────────────────────── */
 
 .term {
