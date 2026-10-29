@@ -280,10 +280,22 @@ internal static class TableRowPainter
 
 			int cellLogicalStart = logicalPos;
 
+			// Only what this column can show is worth parsing. A cell can hold a
+			// whole file - a database column often does - and Parse builds one
+			// Cell per character, so the full value was turned into cells and all
+			// but colW of them thrown away, on every repaint of every visible row.
+			//
+			// Cut to colW + 1 rather than colW: the extra column is what tells the
+			// code below that something was cut, which is what draws the
+			// truncation fade. Not cached anywhere - colW comes from this frame's
+			// widths, so a resized column shows more of the value on the next
+			// paint rather than keeping an old cut.
+			string visibleText = MarkupParser.Truncate(cellText, Math.Max(0, colW) + 1);
+
 			if (isEditCell)
 			{
 				// Render edit buffer as plain text with cursor using Unicode-aware width
-				var editCells = MarkupParser.Parse(cellText, cellFg, cellBg);
+				var editCells = MarkupParser.Parse(visibleText, cellFg, cellBg);
 				int visLen = editCells.Count;
 				int cursorPos = editCursorPos;
 
@@ -325,7 +337,7 @@ internal static class TableRowPainter
 			}
 			else
 			{
-				var cellCells = MarkupParser.Parse(cellText, cellFg, cellBg);
+				var cellCells = MarkupParser.Parse(visibleText, cellFg, cellBg);
 				int visLen = cellCells.Count;
 				bool wasTruncated = visLen > colW;
 
@@ -381,11 +393,19 @@ internal static class TableRowPainter
 					highlightIndices = new HashSet<int>();
 					foreach (var match in filterMatches)
 					{
-						if (match.Column == c)
-						{
-							for (int hi = match.Start; hi < match.Start + match.Length; hi++)
-								highlightIndices.Add(hi);
-						}
+						if (match.Column != c) continue;
+
+						// The match was found in the RAW value, so its start counts
+						// markup tags and UTF-16 units. The loop below counts drawn
+						// CELLS, where a tag takes none and a wide character takes
+						// two. Translating between the two is what keeps a highlight
+						// under the word it matched instead of to the left of it.
+						int start = MarkupParser.StripLength(cellText[..Math.Min(match.Start, cellText.Length)]);
+						int end = MarkupParser.StripLength(
+							cellText[..Math.Min(match.Start + match.Length, cellText.Length)]);
+
+						for (int hi = start; hi < end; hi++)
+							highlightIndices.Add(hi);
 					}
 					if (highlightIndices.Count == 0) highlightIndices = null;
 				}
