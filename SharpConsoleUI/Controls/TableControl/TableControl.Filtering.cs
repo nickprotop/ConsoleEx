@@ -1147,6 +1147,24 @@ public partial class TableControl
 		return true;
 	}
 
+	/// <summary>The cell's text as stored, with its markup still in it.</summary>
+	/// <remarks>
+	/// Split out of <see cref="GetRawCellValue"/> so a caller that only needs
+	/// the first part of a value can strip that part rather than all of it.
+	/// </remarks>
+	private string RawCellText(int dataIndex, int colIndex)
+	{
+		if (_dataSource != null)
+			return _dataSource.GetCellValue(dataIndex, colIndex);
+
+		lock (_tableLock)
+		{
+			if (dataIndex < 0 || dataIndex >= _rows.Count) return string.Empty;
+			if (colIndex < 0 || colIndex >= _rows[dataIndex].Cells.Count) return string.Empty;
+			return _rows[dataIndex].Cells[colIndex];
+		}
+	}
+
 	/// <summary>
 	/// Gets the raw (markup-stripped) cell value for a data row index.
 	/// </summary>
@@ -1280,7 +1298,19 @@ public partial class TableControl
 	{
 		if (op != FilterOperator.Contains) return;
 
-		string cellValue = GetRawCellValue(dataIndex, colIndex);
+		// These positions exist to COLOUR what is drawn, so a match past the
+		// right-hand edge of the table can never be used. Bounded by the whole
+		// control's width, which no single column can exceed - the per-column
+		// width is not known here, and the difference between the two is a few
+		// hundred characters against a cell that may hold a file.
+		//
+		// The bound matters because GetRawCellValue strips markup, and stripping
+		// allocates a second copy of whatever it is given: on thirty 200KB rows
+		// that was 26ms a frame, and the highlight now runs on every keystroke.
+		int drawn = Math.Max(1, ActualWidth);
+
+		string cellValue = MarkupParser.Remove(RawCellText(dataIndex, colIndex), drawn);
+
 		int idx = 0;
 		while (idx < cellValue.Length)
 		{

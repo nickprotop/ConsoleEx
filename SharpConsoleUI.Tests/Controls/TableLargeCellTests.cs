@@ -329,4 +329,65 @@ public class TableLargeCellTests
 		Assert.True(lit != buffer.GetCell(at, row).Background,
 			"nothing was highlighted while the filter was being typed");
 	}
+
+	[Fact]
+	public void A_match_beyond_the_visible_width_still_keeps_the_row()
+	{
+		// The highlight only needs what is drawn, but deciding WHETHER a row
+		// matches must still see the whole value: a word a thousand characters
+		// into a cell is a reason to keep the row, even though nothing will
+		// colour it.
+		var table = new TableControl { BorderStyle = BorderStyle.None, Height = 6, FilteringEnabled = true, ReadOnly = false };
+		table.AddColumn("A");
+		table.AddRow("head " + new string('x', 5_000) + " NEEDLE");
+		table.AddRow("nothing here");
+		table.SetColumnWidth(0, 20);
+
+		table.ApplyFilter("NEEDLE");
+
+		Assert.Equal(1, table.RowCount);
+	}
+
+	[Fact]
+	public void Highlighting_a_filter_costs_the_same_on_a_huge_cell()
+	{
+		// The positions exist to colour what is drawn, so a cell holding a file
+		// must not make a frame cost more than one holding a word. Stripping the
+		// markup off the whole value to find matches nobody can see was 60x the
+		// cost of the frame, on every keystroke once highlighting went live.
+		var table = new TableControl { BorderStyle = BorderStyle.None, Height = 14, FilteringEnabled = true, ReadOnly = false };
+		table.AddColumn("A");
+		for (int i = 0; i < 30; i++)
+			table.AddRow("HEAD" + i + " " + new string('x', 200_000) + " MATCH");
+		table.SetColumnWidth(0, 40);
+
+		var system = ChromeGeometry.CreateSystem(60, 20);
+		var window = new WindowBuilder(system).Frameless().Maximized().Build();
+		window.AddControl(table);
+		system.WindowStateService.AddWindow(window);
+		window.FocusManager.SetFocus(table, FocusReason.Programmatic);
+
+		var buffer = new CharacterBuffer(60, 20);
+		var bounds = new LayoutRect(0, 0, 60, 20);
+
+		table.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+		var sw = System.Diagnostics.Stopwatch.StartNew();
+		for (int i = 0; i < 5; i++) table.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+		var plain = sw.Elapsed;
+
+		table.EnterFilterMode();
+		foreach (char ch in "MATCH")
+			table.ProcessKey(new ConsoleKeyInfo(ch, ConsoleKey.A, false, false, false));
+
+		table.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+		sw.Restart();
+		for (int i = 0; i < 5; i++) table.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+		var filtered = sw.Elapsed;
+
+		// Generous, so this is not a flaky timing test: it failed by sixty times
+		// before, and passes at about parity now.
+		Assert.True(filtered < plain * 5 + TimeSpan.FromMilliseconds(50),
+			$"filtered frames took {filtered.TotalMilliseconds:F1}ms against "
+			+ $"{plain.TotalMilliseconds:F1}ms unfiltered");
+	}
 }

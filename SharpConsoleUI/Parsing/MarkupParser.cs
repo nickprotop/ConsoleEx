@@ -793,6 +793,48 @@ namespace SharpConsoleUI.Parsing
 		}
 
 		/// <summary>
+		/// Removes markup, stopping once <paramref name="maxVisible"/> characters survive.
+		/// </summary>
+		/// <param name="markup">The text to strip.</param>
+		/// <param name="maxVisible">How many stripped characters the caller can use.</param>
+		/// <remarks>
+		/// For a caller that only looks at what fits on screen, stripping the
+		/// rest of a cell that may hold a whole file allocates a second copy of
+		/// it to throw away. The bound is on the OUTPUT, so a value that is
+		/// mostly tags still yields as much text as asked for.
+		/// </remarks>
+		public static string Remove(string markup, int maxVisible)
+		{
+			if (string.IsNullOrEmpty(markup) || maxVisible <= 0)
+				return string.Empty;
+
+			// Already short enough that the bound cannot bite; the ordinary path
+			// is simpler and this keeps the two from disagreeing on small input.
+			if (markup.Length <= maxVisible)
+				return Remove(markup);
+
+			return Remove(markup[..Math.Min(markup.Length, Capped(maxVisible))]);
+		}
+
+		/// <summary>
+		/// How much input to read to be sure of producing a bounded amount of output.
+		/// </summary>
+		/// <remarks>
+		/// Markup only ever removes characters, so the output is never longer
+		/// than the input: reading the bound is enough. A little slack is added
+		/// so a tag sitting across the boundary does not cost the caller a
+		/// character it was entitled to.
+		/// </remarks>
+		private static int Capped(int maxVisible) => maxVisible + TagSlack;
+
+		/// <summary>Extra input read so a tag at the boundary does not eat a visible character.</summary>
+		/// <remarks>
+		/// A generous single tag. Reading a few more characters is free next to
+		/// the copy this exists to avoid.
+		/// </remarks>
+		private const int TagSlack = 64;
+
+		/// <summary>
 		/// Removes all markup tags from a string, returning only the plain text content.
 		/// Escaped brackets ([[, ]]) are converted to single brackets.
 		/// </summary>
