@@ -576,9 +576,15 @@ public partial class TableControl
 					rowCells.Add(_editBuffer);
 			}
 
-			// Compute filter match positions for highlighting
+			// Compute filter match positions for highlighting.
+			//
+			// While typing counts too. ApplyFilterLive already narrows the rows
+			// on every keystroke and sets _activeFilter, so the matches are known
+			// and the only thing the Confirmed check bought was showing the rows
+			// a filter kept without showing WHY it kept them - the answer arrived
+			// a keystroke late, on Enter, once the question had been settled.
 			List<(int Column, int Start, int Length)>? filterMatches = null;
-			if (_filterMode == FilterMode.Confirmed && _activeFilter != null)
+			if (_filterMode != FilterMode.None && _activeFilter != null)
 				filterMatches = FindMatchPositions(dataR, _activeFilter);
 
 			// Prepend checkbox cell and offset indices for silent column

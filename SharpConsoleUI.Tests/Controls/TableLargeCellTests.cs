@@ -11,6 +11,8 @@ using System.Diagnostics;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Builders;
+using SharpConsoleUI.Tests.Infrastructure;
 using SharpConsoleUI.Rendering;
 using Xunit;
 
@@ -176,5 +178,155 @@ public class TableLargeCellTests
 			.Any(x => buffer.GetCell(x, row).Foreground != red);
 
 		Assert.True(endsSomewhere, "the colour ran to the end of the line");
+	}
+
+	[Fact]
+	public void A_filter_match_highlights_the_word_it_matched()
+	{
+		// The painter indexes the drawn cells by the offsets the filter reports.
+		// Those agree only because the filter searches the value with its markup
+		// already removed - converting them a second time, as if they counted
+		// raw characters, moves the highlight left by the length of every tag
+		// before the match.
+		var table = new TableControl { BorderStyle = BorderStyle.None, Height = 6 };
+		table.AddColumn("A");
+		table.AddRow("[green]xx[/]MATCH");
+		table.SetColumnWidth(0, 20);
+		table.ApplyFilter("MATCH");
+
+		var matches = table.FindMatchPositions(0, table._activeFilter!);
+
+		// Offsets into the drawn text: "xxMATCH", so the match starts at 2.
+		var one = Assert.Single(matches);
+
+		Assert.Equal(0, one.Column);
+		Assert.Equal(2, one.Start);
+		Assert.Equal(5, one.Length);
+	}
+
+	[Fact]
+	public void A_match_after_a_wide_character_still_points_at_the_word()
+	{
+		// A wide glyph is one character of the value and two drawn cells. The
+		// offsets are character counts, so this is the case that would need
+		// converting if anything ever did - it is pinned here so a later change
+		// to either side has to notice.
+		var table = new TableControl { BorderStyle = BorderStyle.None, Height = 6 };
+		table.AddColumn("A");
+		table.AddRow("\u4f60\u597dMATCH");
+		table.SetColumnWidth(0, 20);
+		table.ApplyFilter("MATCH");
+
+		var one = Assert.Single(table.FindMatchPositions(0, table._activeFilter!));
+
+		Assert.Equal(2, one.Start);
+	}
+
+	[Fact]
+	public void A_painted_filter_match_sits_under_the_word_it_matched()
+	{
+		// The one that exercises the painter rather than the filter. The match
+		// offsets already count drawn cells, because the filter searches the
+		// value with its markup removed; converting them again puts the
+		// highlight on the characters before the word.
+		var table = new TableControl { BorderStyle = BorderStyle.None, Height = 6 };
+		table.AddColumn("A");
+		table.AddRow("[green]xx[/]MATCH");
+		table.SetColumnWidth(0, 20);
+		table.ApplyFilter("MATCH");
+
+		// Left selected on purpose: that is the row a filter is most often read
+		// on, and the one that used to show no highlight at all.
+
+		var buffer = new CharacterBuffer(30, 6);
+		var bounds = new LayoutRect(0, 0, 30, 6);
+		table.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+
+		int row = -1, at = -1;
+		for (int y = 0; y < 6 && row < 0; y++)
+		{
+			for (int x = 0; x + 6 < 30; x++)
+			{
+				string seven = string.Concat(Enumerable.Range(0, 7)
+					.Select(i => buffer.GetCell(x + i, y).Character.ToString()));
+
+				if (seven == "xxMATCH") { row = y; at = x; break; }
+			}
+		}
+
+		Assert.True(row >= 0, "the value was not painted");
+
+		// The five characters of MATCH carry the highlight; the two x before
+		// them do not.
+		var lit = buffer.GetCell(at + 2, row).Background;
+
+		// The highlight must actually differ from the plain background, or every
+		// comparison below passes by saying nothing.
+		Assert.True(lit != buffer.GetCell(at, row).Background,
+			$"no highlight was drawn at all: cell0={buffer.GetCell(at, row).Background} lit={lit}");
+
+		for (int i = 2; i < 7; i++)
+		{
+			Assert.True(buffer.GetCell(at + i, row).Background == lit,
+				$"cell {i} of \"xxMATCH\" was not highlighted with the rest of the word");
+		}
+
+		for (int i = 0; i < 2; i++)
+		{
+			Assert.True(buffer.GetCell(at + i, row).Background != lit,
+				$"cell {i} is before the match and must not be highlighted");
+		}
+	}
+
+	[Fact]
+	public void A_filter_highlights_while_it_is_being_typed()
+	{
+		// The rows are already narrowed on every keystroke - ApplyFilterLive
+		// does that and sets the active filter - so the matches are known before
+		// Enter. Waiting for Enter to colour them meant the table showed which
+		// rows a filter kept without showing why, until after the question had
+		// been answered.
+		var table = new TableControl { BorderStyle = BorderStyle.None, Height = 6, FilteringEnabled = true, ReadOnly = false };
+		table.AddColumn("A");
+		table.AddRow("xxMATCH");
+		table.SetColumnWidth(0, 20);
+
+		// ProcessKey ignores a control without focus, and focus is computed from
+		// the container, so the table needs a real window to sit in.
+		var system = ChromeGeometry.CreateSystem(40, 12);
+		var window = new WindowBuilder(system).Frameless().Maximized().Build();
+		window.AddControl(table);
+		system.WindowStateService.AddWindow(window);
+		window.FocusManager.SetFocus(table, FocusReason.Programmatic);
+
+		// The real path: open the filter bar and type, without pressing Enter.
+		table.EnterFilterMode();
+		foreach (char ch in "MATCH")
+			table.ProcessKey(new ConsoleKeyInfo(ch, ConsoleKey.A, false, false, false));
+
+		Assert.Equal(FilterMode.Typing, table.CurrentFilterMode);
+
+		var buffer = new CharacterBuffer(30, 6);
+		var bounds = new LayoutRect(0, 0, 30, 6);
+		table.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+
+		int row = -1, at = -1;
+		for (int y = 0; y < 6 && row < 0; y++)
+		{
+			for (int x = 0; x + 6 < 30; x++)
+			{
+				string seven = string.Concat(Enumerable.Range(0, 7)
+					.Select(i => buffer.GetCell(x + i, y).Character.ToString()));
+
+				if (seven == "xxMATCH") { row = y; at = x; break; }
+			}
+		}
+
+		Assert.True(row >= 0, "the value was not painted while typing");
+
+		var lit = buffer.GetCell(at + 2, row).Background;
+
+		Assert.True(lit != buffer.GetCell(at, row).Background,
+			"nothing was highlighted while the filter was being typed");
 	}
 }
