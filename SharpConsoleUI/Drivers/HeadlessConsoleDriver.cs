@@ -265,8 +265,20 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 	/// </summary>
 	public void SimulateMouseEvent(List<MouseFlags> flags, Point point)
 	{
-		MouseEvent?.Invoke(this, flags, point);
+		// Counted the same way the real driver counts it, so a test driving this
+		// one gets the same answer from IsDispatchingMouse.
+		_mouseDispatch.While(() => MouseEvent?.Invoke(this, flags, point));
 	}
+
+	private readonly Input.MouseDispatchCount _mouseDispatch = new();
+
+	/// <summary>Whether a mouse handler is running on any thread.</summary>
+	/// <remarks>
+	/// Dispatch is synchronous on the calling thread, so this is true only while
+	/// a handler is actually executing - which is exactly the window in which
+	/// "nothing is queued" would otherwise read as nothing left to do.
+	/// </remarks>
+	internal bool IsDispatchingMouse => _mouseDispatch.IsDispatching;
 
 	/// <summary>
 	/// Simulates a full click: the press and the release a terminal sends.

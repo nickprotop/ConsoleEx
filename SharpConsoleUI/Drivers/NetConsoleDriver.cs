@@ -140,6 +140,9 @@ namespace SharpConsoleUI.Drivers
 		private ConsoleWindowSystem? _consoleWindowSystem;
 		private object _consoleLock = new object(); // Shared lock for thread-safe Console I/O (initialized to prevent race conditions)
 		private bool _useDirectAnsi; // True on Unix when raw mode active — bypasses ConsolePal
+
+		/// <summary>The raw tty reader, so Stop can end its auto-repeat.</summary>
+		private Input.UnixStdinReader? _unixReader;
 		private CancellationTokenSource? _rawInputCts;
 		private readonly nint _errorHandle;
 		private readonly nint _inputHandle;
@@ -158,7 +161,6 @@ namespace SharpConsoleUI.Drivers
 		private readonly bool _outputModeCaptured;
 		private readonly bool _errorModeCaptured;
 		private ConsoleBuffer? _consoleBuffer;
-		private MouseFlags _lastButton;
 		private int _lastConsoleHeight;
 		private int _lastConsoleWidth;
 		private bool _running = false;
@@ -508,16 +510,28 @@ namespace SharpConsoleUI.Drivers
 					var parser = new AnsiInputParser();
 					var reader = new UnixStdinReader(ttyStream, parser);
 					var cts = _rawInputCts;
-					var inputTask = Task.Run(() => reader.ReadLoop(
+
+					// Held so Stop can end the auto-repeat without waiting for the
+					// read loop to notice. Cancelling the token does NOT unblock a
+					// synchronous read on the tty, so a button held across shutdown
+					// would otherwise keep raising events on a stopped driver until
+					// the next byte happened to arrive.
+					_unixReader = reader;
+
+					// Disposed when the loop ends, so the auto-repeat cannot outlive
+					// the reader that started it.
+					var inputTask = Task.Run(() =>
+					{
+						using (reader) reader.ReadLoop(
 						cts.Token,
 						onKey: key => KeyPressed?.Invoke(this, key),
-						onMouse: (flags, pos) => MouseEvent?.Invoke(this, flags, pos),
+						onMouse: RaiseMouse,
 						onPaste: text => Paste?.Invoke(this, text),
 						continuousButtonPressedHandler: (flag, pos) =>
 						{
-							var continuousFlags = new List<MouseFlags> { flag };
-							MouseEvent?.Invoke(this, continuousFlags, pos);
-						}));
+							RaiseMouse(new List<MouseFlags> { flag }, pos);
+						});
+					});
 				}
 			}
 			else
@@ -548,6 +562,11 @@ namespace SharpConsoleUI.Drivers
 			// continuous-press loop still running against this driver's callback, and prevents a
 			// driver created later in the same process from inheriting a half-finished click.
 			try { Helpers.SequenceHelper.Reset(); } catch { }
+
+			// The Unix side's equivalent. SequenceHelper.Reset only reaches the
+			// Windows adapter's repeat; this one belongs to the raw reader.
+			try { _unixReader?.Dispose(); } catch { }
+			_unixReader = null;
 
 			bool wasDirectAnsi = _useDirectAnsi;
 
@@ -1060,6 +1079,34 @@ namespace SharpConsoleUI.Drivers
 		/// or Console.Out.Write as fallback. Raw write completely bypasses .NET's
 		/// Console/StreamWriter/SyncTextWriter infrastructure.
 		/// </summary>
+		/// <summary>Counts mouse events being dispatched right now.</summary>
+		/// <remarks>
+		/// Dispatch is synchronous and happens on whichever thread raised the
+		/// event, so a handler can be running while another thread asks whether
+		/// the system has finished reacting. Without this, "no input is queued"
+		/// reads as settled at a moment when a control is halfway through
+		/// handling a click.
+		/// </remarks>
+		private readonly Input.MouseDispatchCount _mouseDispatch = new();
+
+		/// <summary>Whether a mouse handler is running on any thread.</summary>
+		internal bool IsDispatchingMouse => _mouseDispatch.IsDispatching;
+
+		/// <summary>
+		/// Raises <see cref="MouseEvent"/>, counting the dispatch while it runs.
+		/// </summary>
+		/// <param name="flags">What the terminal reported.</param>
+		/// <param name="position">Where, in cells.</param>
+		/// <remarks>
+		/// One place rather than the seven the invoke used to be spread across.
+		/// A counter in seven places is seven chances to miss one; here it is a
+		/// property of raising the event at all.
+		/// </remarks>
+		private void RaiseMouse(List<MouseFlags> flags, Point position)
+		{
+			_mouseDispatch.While(() => MouseEvent?.Invoke(this, flags, position));
+		}
+
 		private void WriteOutput(string text)
 		{
 			if (_useDirectAnsi)
@@ -1349,12 +1396,11 @@ namespace SharpConsoleUI.Drivers
 											(flags, position) =>
 											{
 												// Handle continuous mouse events (drag operations)
-												var continuousFlags = new List<MouseFlags> { flags };
-												MouseEvent?.Invoke(this, continuousFlags, position);
+												RaiseMouse(new List<MouseFlags> { flags }, position);
 											});
 										if (mouseFlags.Count > 0)
 										{
-											MouseEvent?.Invoke(this, mouseFlags, pos);
+											RaiseMouse(mouseFlags, pos);
 											continue;
 										}
 										else
@@ -1606,7 +1652,7 @@ namespace SharpConsoleUI.Drivers
 
 								if (ParseMouseSequence(consoleKeyInfoSequence.ToArray(), out List<MouseFlags> mouseFlags, out Point pos))
 								{
-									MouseEvent?.Invoke(this, mouseFlags, pos);
+									RaiseMouse(mouseFlags, pos);
 								}
 							}
 						}
@@ -1617,131 +1663,41 @@ namespace SharpConsoleUI.Drivers
 			return (null, false);
 		}
 
-		private bool ParseMouseSequence(ConsoleKeyInfo[] sequence, out List<MouseFlags> mouseFlags, out Point position)
+		/// <summary>Decodes a legacy X10 mouse report and reports it.</summary>
+		/// <param name="sequence">The bytes collected after <c>ESC [ M</c>.</param>
+		/// <param name="mouseFlags">What the terminal said.</param>
+		/// <param name="position">Where, in cells.</param>
+		/// <returns>Whether it was a mouse report at all.</returns>
+		/// <remarks>
+		/// This was a third decoder of the same protocol, beside the two for SGR,
+		/// and it disagreed with the one in <see cref="Input.AnsiInputParser"/>
+		/// three ways: it read the MODIFIER bits as the button number
+		/// (<c>(buttonCode &gt;&gt; 2) &amp; 3</c>), it had the wheel direction
+		/// inverted, and its motion branch raised the event itself before
+		/// returning true to a caller that raised it again - so every X10 drag
+		/// was dispatched twice.
+		///
+		/// It now decodes with the same code every other path uses, and only
+		/// returns: raising is the caller's job, once.
+		/// </remarks>
+		private static bool ParseMouseSequence(
+			ConsoleKeyInfo[] sequence, out List<MouseFlags> mouseFlags, out Point position)
 		{
 			mouseFlags = new List<MouseFlags>();
-			position = new Point(0, 0);
+			position = Point.Empty;
 
-			// We need at least 6 bytes (ESC [ M <button> <x> <y>)
-			if (sequence.Length < 6)
-				return false;
+			// ESC [ M then the button, column and row.
+			if (sequence.Length < 6) return false;
 
-			try
-			{
-				// The button info is in the 4th byte (index 3)
-				// Subtract 32 as per ANSI mouse protocol
-				int buttonCode = sequence[3].KeyChar - 32;
+			var decoded = Input.AnsiInputParser.DecodeX10Mouse(
+				sequence[3].KeyChar, sequence[4].KeyChar, sequence[5].KeyChar);
 
-				// Extract coordinates (subtract 32 from the raw values as per ANSI mouse protocol)
-				// NOTE: This X10 format is limited to coordinates 0-222 (255-32-1)
-				// For coordinates beyond this range, SGR mode should be used instead
-				position.X = Math.Max(0, sequence[4].KeyChar - 33); // Convert to 0-based (32 + 1)
-				position.Y = Math.Max(0, sequence[5].KeyChar - 33); // Convert to 0-based (32 + 1)
+			if (decoded.Flags.Count == 0) return false;
 
-				// Set modifier flags first
-				if ((buttonCode & 0x04) != 0) mouseFlags.Add(MouseFlags.ButtonShift);
-				if ((buttonCode & 0x08) != 0) mouseFlags.Add(MouseFlags.ButtonAlt);
-				if ((buttonCode & 0x10) != 0) mouseFlags.Add(MouseFlags.ButtonCtrl);
+			mouseFlags = decoded.Flags;
+			position = decoded.Position;
 
-				// Check for mouse motion
-				bool motion = (buttonCode & 0x20) != 0;
-				if (motion)
-				{
-					mouseFlags.Add(MouseFlags.ReportMousePosition);
-					// For motion events, the bottom 2 bits indicate which button is being dragged (if any)
-					int dragButton = buttonCode & 0x03;
-					switch (dragButton)
-					{
-						case 0: mouseFlags.Add(MouseFlags.Button1Pressed); mouseFlags.Add(MouseFlags.Button1Dragged); break;
-						case 1: mouseFlags.Add(MouseFlags.Button2Pressed); mouseFlags.Add(MouseFlags.Button2Dragged); break;
-						case 2: mouseFlags.Add(MouseFlags.Button3Pressed); mouseFlags.Add(MouseFlags.Button3Dragged); break;
-					}
-					MouseEvent?.Invoke(this, mouseFlags, position); // Raise the MouseEvent
-					return true;
-				}
-
-				// Check for button release events
-				bool isRelease = (buttonCode & 0x03) == 3;
-				int buttonNumber = (buttonCode >> 2) & 0x03;
-
-				// Handle button events
-				switch (buttonNumber)
-				{
-					case 0: // Button 1 (Left button)
-						if (!isRelease)
-						{
-							mouseFlags.Add(MouseFlags.Button1Pressed);
-							_lastButton = MouseFlags.Button1Pressed;
-						}
-						else if (_lastButton == MouseFlags.Button1Pressed)
-						{
-							// The RELEASE, and only the release. Clicked, DoubleClicked
-							// and TripleClicked used to be worked out here, with this
-							// driver's own clock and its own threshold - a second
-							// opinion on a question MouseGestureRecognizer already
-							// answers for every platform, from one implementation with
-							// an injectable clock. A duplicate release is handled there
-							// too: a release whose press it never saw is discarded.
-							mouseFlags.Add(MouseFlags.Button1Released);
-						}
-						break;
-
-					case 1: // Button 2 (Middle button)
-						if (!isRelease)
-						{
-							mouseFlags.Add(MouseFlags.Button2Pressed);
-							_lastButton = MouseFlags.Button2Pressed;
-						}
-						else if (_lastButton == MouseFlags.Button2Pressed)
-						{
-							mouseFlags.Add(MouseFlags.Button2Released);
-						}
-						break;
-
-					case 2: // Button 3 (Right button)
-						if (!isRelease)
-						{
-							mouseFlags.Add(MouseFlags.Button3Pressed);
-							_lastButton = MouseFlags.Button3Pressed;
-						}
-						else if (_lastButton == MouseFlags.Button3Pressed)
-						{
-							mouseFlags.Add(MouseFlags.Button3Released);
-						}
-						break;
-
-					case 3: // Special cases - includes wheel events
-						if ((buttonCode & 0x40) != 0) // This bit indicates wheel event
-						{
-							if ((buttonCode & 0x01) != 0)
-							{
-								mouseFlags.Add(MouseFlags.WheeledUp);
-								if ((buttonCode & 0x10) != 0) // Ctrl is pressed
-									mouseFlags.Add(MouseFlags.WheeledLeft);
-							}
-							else
-							{
-								mouseFlags.Add(MouseFlags.WheeledDown);
-								if ((buttonCode & 0x10) != 0) // Ctrl is pressed
-									mouseFlags.Add(MouseFlags.WheeledRight);
-							}
-						}
-						break;
-				}
-
-				return true;
-			}
-			catch (Exception ex)
-			{
-				// A MALFORMED SEQUENCE IS EXPECTED; A BUG IN HERE IS NOT. This catch spans the whole
-				// parse, so it swallowed real defects — an index slip, a bad cast — exactly as quietly
-				// as it swallowed a truncated escape sequence from the terminal, and the symptom was
-				// only ever "the mouse does nothing". Returning false is still right, because the
-				// caller falls back to treating the bytes as keys, but say so where it can be read.
-				_consoleWindowSystem?.LogService?.LogError(
-					$"Failed to parse mouse sequence of {sequence.Length} bytes", ex, "Input");
-				return false;
-			}
+			return true;
 		}
 
 		private void ResizeLoop()

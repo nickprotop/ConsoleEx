@@ -8,12 +8,12 @@
 
 using System.Collections.Specialized;
 using System.Diagnostics;
+using SharpConsoleUI.Builders;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Layout;
-using SharpConsoleUI.Builders;
-using SharpConsoleUI.Tests.Infrastructure;
 using SharpConsoleUI.Rendering;
+using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Controls;
