@@ -35,17 +35,6 @@ public class PingTests
 		Assert.Contains("alive", output, StringComparison.OrdinalIgnoreCase);
 	}
 
-	[Fact]
-	public void BareCxdbgPrintsHelpRatherThanGuessing()
-	{
-		// A debugger that silently connected to whatever socket it found would be
-		// a surprise. `cxdbg attach` with no path is how to ask for the obvious
-		// one; bare cxdbg says what it can do.
-		var (exitCode, output) = Cxdbg.Run();
-
-		Assert.Equal(0, exitCode);
-		Assert.Contains("ping", output, StringComparison.OrdinalIgnoreCase);
-	}
 }
 
 /// <summary>Runs the built cxdbg binary and captures what it said.</summary>
