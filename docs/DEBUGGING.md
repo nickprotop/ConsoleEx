@@ -79,6 +79,20 @@ echo '{"cmd":"key","spec":"Down"}' | socat - UNIX-CONNECT:/tmp/myapp.sock
 echo '{"cmd":"image","path":"/tmp/shot.png"}' | socat - UNIX-CONNECT:/tmp/myapp.sock
 ```
 
+Writing that line out every time gets tiring, so the rest of this document uses a
+one-line shell function. Define it once and `ask` stands for the whole pipeline:
+
+```bash
+S=/tmp/myapp.sock
+ask() { echo "$1" | socat - UNIX-CONNECT:$S | tail -1; }
+
+ask '{"cmd":"snapshot"}'
+ask '{"cmd":"key","spec":"Down"}'
+```
+
+`tail -1` is there because the server greets a new connection with a hello line before
+answering: the reply is the last line, not the first.
+
 `SHARPCONSOLEUI_DIAGNOSTICS_SOCKET=1` picks a path for you, under `$XDG_RUNTIME_DIR` with
 the pid in the name. Without `$XDG_RUNTIME_DIR` it creates an owner-only directory inside
 the temp directory rather than dropping the socket in the open: the socket file is
@@ -1238,7 +1252,7 @@ That is the whole setup. The app is now reachable on the socket, with no termina
 no screen-scraping — and the full verb set works, including the ones that drive.
 
 ```bash
-S=/tmp/headless.sock
+S=/tmp/headless.sock          # ask() as defined in Quick start, on this socket
 ask() { echo "$1" | socat - UNIX-CONNECT:$S | tail -1; }
 
 ask '{"cmd":"invoke","name":"btn1"}'
@@ -1339,7 +1353,7 @@ ask '{"cmd":"set"}'        # every runtime switch and its current value
 ## Worked example: find why a button does nothing
 
 ```bash
-S=/tmp/myapp.sock
+S=/tmp/myapp.sock             # ask() as defined in Quick start
 ask() { echo "$1" | socat - UNIX-CONNECT:$S | tail -1; }
 
 ask '{"cmd":"windows"}'                                  # which window is active?
