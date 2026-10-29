@@ -36,8 +36,10 @@ namespace SharpConsoleUI.Input;
 /// state, which made their behaviour untestable except by waiting.
 /// </para>
 /// <para>
-/// Not thread-safe by itself: it is driven from the single input path that owns the
-/// driver's mouse event.
+/// Locked, because it is NOT driven from a single thread. The terminal's own
+/// reports arrive on the input thread, and the auto-repeat for a held button
+/// arrives on a pool thread - both reaching the same run state. The lock is
+/// held for the length of one recognition, which is a handful of comparisons.
 /// </para>
 /// </remarks>
 internal sealed class MouseGestureRecognizer
@@ -87,10 +89,10 @@ internal sealed class MouseGestureRecognizer
 	}
 
 	/// <summary>True while a button is down, so the caller can treat motion as a drag.</summary>
-	public bool IsButtonDown => _pressedButton != 0;
+	public bool IsButtonDown { get { lock (_gate) return _pressedButton != 0; } }
 
 	/// <summary>The button currently held, or 0.</summary>
-	public MouseFlags HeldButton => _pressedButton;
+	public MouseFlags HeldButton { get { lock (_gate) return _pressedButton; } }
 
 	/// <summary>
 	/// Takes what the driver reported and returns it with any derived gestures added.
@@ -103,9 +105,30 @@ internal sealed class MouseGestureRecognizer
 	/// </returns>
 	public List<MouseFlags> Recognize(IReadOnlyList<MouseFlags> flags, Point position)
 	{
+		lock (_gate) return RecognizeCore(flags, position);
+	}
+
+	/// <summary>Guards the run state, which two threads reach.</summary>
+	private readonly object _gate = new();
+
+	private List<MouseFlags> RecognizeCore(IReadOnlyList<MouseFlags> flags, Point position)
+	{
 		var result = new List<MouseFlags>(flags);
 
-		var pressed = PressedButton(flags);
+		// A press is only a press the FIRST time. Two things restate one that is
+		// already down: a motion report carries the held button beside
+		// ReportMousePosition, and the auto-repeat for a held button raises a
+		// bare press every hundred milliseconds. Taking either as new would move
+		// the remembered press position to wherever the pointer is now, and the
+		// release would then land "near" that and read as a click - so dragging
+		// across a control would click whatever it stopped over.
+		//
+		// Checking the button is already held covers both, and needs nothing
+		// from the caller: the repeat is indistinguishable from a press on the
+		// wire, and should be.
+		bool restated = flags.Contains(MouseFlags.ReportMousePosition) || _pressedButton != 0;
+
+		var pressed = restated ? 0 : PressedButton(flags);
 		if (pressed != 0)
 		{
 			OnPress(pressed, position, result);
@@ -196,6 +219,11 @@ internal sealed class MouseGestureRecognizer
 
 	/// <summary>Forgets any run in progress, for a driver restart or a focus loss.</summary>
 	public void Reset()
+	{
+		lock (_gate) ResetCore();
+	}
+
+	private void ResetCore()
 	{
 		_pressedButton = 0;
 		_clickRun = 0;
