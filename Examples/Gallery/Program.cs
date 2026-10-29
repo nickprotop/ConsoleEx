@@ -240,6 +240,12 @@ static void WaitForSettled(string socket, int budgetMs)
 
 		Thread.Sleep(100);
 	}
+
+	// Same reason as above: the budget running out means the screen still says
+	// it is loading, or has almost nothing on it. Photographing that produces a
+	// picture of a control mid-fetch.
+	throw new TimeoutException(
+		$"the screen was still busy or near-empty after {budgetMs}ms");
 }
 
 /// <summary>Waits until the application has painted n more frames.</summary>
@@ -252,14 +258,30 @@ static void WaitForFrames(string socket, int count)
 {
 	long From() => Ask(socket, new JsonObject { ["cmd"] = "frame" })["frame"]!.GetValue<long>();
 
-	long target = From() + count;
-	var until = DateTime.UtcNow.AddSeconds(5);
+	const int budgetMs = 5000;
+
+	long start = From();
+	long target = start + count;
+	var until = DateTime.UtcNow.AddMilliseconds(budgetMs);
 
 	while (DateTime.UtcNow < until)
 	{
 		if (From() >= target) return;
 		Thread.Sleep(30);
 	}
+
+	// Loudly. Returning here photographs a screen that never finished painting
+	// and commits it as the control's picture, which is a wrong picture that
+	// looks like a right one. The budget is generous for a frame, so running
+	// out of it means something is wrong rather than merely slow.
+	//
+	// The count is read once at the end rather than reported as a running
+	// total: it can have moved past the target between the last check and
+	// here, and "6 of 4 arrived" reads as a bug in the message.
+	long arrived = Math.Min(From() - start, count);
+
+	throw new TimeoutException(
+		$"only {arrived} of {count} frame(s) arrived in {budgetMs}ms; the screen never settled");
 }
 
 /// <summary>Waits for the application to start serving.</summary>
