@@ -16,32 +16,29 @@ using Xunit;
 namespace SharpConsoleUI.Tests.Drivers;
 
 /// <summary>
-/// The two SGR decoders, held to the same answers.
+/// Both ways into the SGR decoder, held to the same answers.
 /// </summary>
 /// <remarks>
 /// <para>
-/// A terminal's mouse reports are decoded twice in this library. Unix reads
-/// <c>/dev/tty</c> raw and parses bytes with <see cref="AnsiInputParser"/>;
-/// Windows reads through <c>Console.ReadKey</c>, reassembles the escape
-/// sequence a character at a time, and decodes it with
-/// <see cref="SequenceHelper.GetMouse"/>. The same protocol, two
-/// implementations, chosen by <c>_useDirectAnsi</c> - which is also false on
-/// Unix when raw mode cannot be entered, so neither path is one platform's
-/// alone.
+/// A terminal's mouse reports reach the decoder by two routes, chosen by
+/// <c>_useDirectAnsi</c> - which is false on Windows and also on Unix when raw
+/// mode cannot be entered, so neither route is one platform's alone. One reads
+/// <c>/dev/tty</c> raw and hands <see cref="AnsiInputParser"/> the bytes; the
+/// other reads through <c>Console.ReadKey</c>, reassembles the escape sequence
+/// a character at a time, and hands the same parser those characters through
+/// <see cref="SequenceHelper.GetMouse"/>.
 /// </para>
 /// <para>
-/// They have already drifted apart twice, and both fixes are recorded in the
-/// code that carries them: the Windows path once emitted no drag flag at all
-/// (#45), and the modifier-mask bug was found and fixed once per decoder. This
-/// corpus is what makes the next drift a failing test rather than a report from
-/// somebody's Windows machine.
+/// One decoder, two ways of feeding it, so what these tests hold is the
+/// bridge: that a sequence reassembled from <c>ConsoleKeyInfo</c> decodes to
+/// what the same sequence read as bytes does. Both answer with one flag per
+/// entry, since both are the parser's own answer.
 /// </para>
 /// <para>
-/// What is pinned here is the DECODED MEANING - which buttons, which
-/// modifiers, where - not the representation. The two differ in shape on
-/// purpose for now: Unix yields one flag per entry, Windows a single value with
-/// the bits OR'd together. <see cref="Both_decoders_agree_on_what_a_press_is"/>
-/// covers what that shape difference costs.
+/// Parity alone is not enough and must not be all this asserts. Two routes to
+/// one decoder agree by construction, including when that decoder is wrong, so
+/// <see cref="The_decoded_meaning_is_what_the_protocol_says"/> pins absolute
+/// values: which buttons, which modifiers, where.
 /// </para>
 /// </remarks>
 public class MouseDecoderParityTests
@@ -233,6 +230,72 @@ public class MouseDecoderParityTests
 	{
 		Assert.Equal(expected, Bits(Unix(sequence).Flags));
 		Assert.Equal(expected, Bits(Windows(sequence).Flags));
+	}
+
+	/// <summary>
+	/// A press that names no button holds no button down.
+	/// </summary>
+	/// <remarks>
+	/// Button bits 3 is "no button". X10 reuses it to mean a release, having no
+	/// terminator to say so with; SGR has one, so there the bits mean what they
+	/// say. Reading the X10 rule on a press reports a button the terminal never
+	/// named AND a release where the terminator says press, which leaves a
+	/// control believing a button is held that is not.
+	/// <para>The motion branch of the same decode treats these bits as no button
+	/// already. A RELEASE is the deliberate exception, covered below.</para>
+	/// </remarks>
+	[Fact]
+	public void A_press_that_names_no_button_holds_none()
+	{
+		var flags = Bits(Unix("<3;10;5M").Flags);
+
+		foreach (var invented in new[]
+		{
+			MouseFlags.Button1Pressed, MouseFlags.Button1Released,
+			MouseFlags.Button2Pressed, MouseFlags.Button2Released,
+			MouseFlags.Button3Pressed, MouseFlags.Button3Released,
+		})
+		{
+			Assert.False(flags.HasFlag(invented),
+				$"the report named no button, and {invented} says one: {flags}");
+		}
+	}
+
+	/// <summary>
+	/// A release that names no button still ends what a button started.
+	/// </summary>
+	/// <remarks>
+	/// The deliberate asymmetry with the press above, and not a decode of the
+	/// bits: there is no button-agnostic release in <see cref="MouseFlags"/>, and
+	/// ending a drag, releasing a window capture and deriving a click are all
+	/// keyed on <see cref="MouseFlags.Button1Released"/>. A release naming nothing
+	/// would end none of them, which is a stuck drag rather than a tidy decode.
+	/// A press has no such obligation, so it names nothing.
+	/// </remarks>
+	[Fact]
+	public void A_release_that_names_no_button_still_releases()
+	{
+		var flags = Bits(Unix("<3;10;5m").Flags);
+
+		Assert.True(flags.HasFlag(MouseFlags.Button1Released),
+			$"nothing here would end a drag: {flags}");
+	}
+
+	/// <summary>
+	/// A capital M is a press whatever the button bits say.
+	/// </summary>
+	/// <remarks>
+	/// The terminator is the only thing in an SGR report that distinguishes a
+	/// press from a release, so a decode that answers the same for both has
+	/// stopped reading it.
+	/// </remarks>
+	[Fact]
+	public void The_terminator_still_decides_when_no_button_is_named()
+	{
+		var press = Bits(Unix("<3;10;5M").Flags);
+		var release = Bits(Unix("<3;10;5m").Flags);
+
+		Assert.NotEqual(press, release);
 	}
 
 	[Fact]

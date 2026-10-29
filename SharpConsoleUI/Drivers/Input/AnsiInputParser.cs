@@ -842,8 +842,24 @@ namespace SharpConsoleUI.Drivers.Input
 						flags.Add(isPress ? MouseFlags.Button3Pressed : MouseFlags.Button3Released);
 						break;
 					case 3:
-						// Button release (X10 compat — button 3 release means "released")
-						flags.Add(MouseFlags.Button1Released);
+						// No button named. The terminator still says which this is,
+						// and it is the only thing that does: answering the same for
+						// M and m reads neither.
+						//
+						// A release keeps naming button 1 even though the report does
+						// not. Ending a drag, releasing a window capture and deriving
+						// a click are all keyed on Button1Released, and there is no
+						// button-agnostic release to key them on instead, so a
+						// release that named nothing would end nothing - the hang
+						// this case exists to avoid. The guess is confined to the
+						// release, where something must be chosen.
+						//
+						// A press names no button, because nothing has to be chosen:
+						// a press of no button starts nothing, and inventing one
+						// leaves a control believing a button is held that is not.
+						flags.Add(isPress
+							? MouseFlags.ReportMousePosition
+							: MouseFlags.Button1Released);
 						break;
 				}
 			}
