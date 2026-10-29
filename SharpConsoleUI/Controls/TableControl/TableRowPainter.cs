@@ -388,23 +388,24 @@ internal static class TableRowPainter
 
 				// Cell content - build match ranges for this column
 				HashSet<int>? highlightIndices = null;
-				if (filterMatches != null && !isSelected)
+				// Computed for a selected row too. The loop below lays the
+				// selection colour down first and the highlight over it, so the
+				// two compose - skipping the whole calculation meant the row you
+				// were standing on was the one row that did not show what it
+				// matched, which is the row most likely to be looked at.
+				if (filterMatches != null)
 				{
 					highlightIndices = new HashSet<int>();
 					foreach (var match in filterMatches)
 					{
 						if (match.Column != c) continue;
 
-						// The match was found in the RAW value, so its start counts
-						// markup tags and UTF-16 units. The loop below counts drawn
-						// CELLS, where a tag takes none and a wide character takes
-						// two. Translating between the two is what keeps a highlight
-						// under the word it matched instead of to the left of it.
-						int start = MarkupParser.StripLength(cellText[..Math.Min(match.Start, cellText.Length)]);
-						int end = MarkupParser.StripLength(
-							cellText[..Math.Min(match.Start + match.Length, cellText.Length)]);
-
-						for (int hi = start; hi < end; hi++)
+						// The offsets are already in drawn cells, not raw
+						// characters: the filter searches the value with its
+						// markup removed, so a tag before the match has already
+						// been discounted. Converting them again would shift the
+						// highlight left by the length of those tags.
+						for (int hi = match.Start; hi < match.Start + match.Length; hi++)
 							highlightIndices.Add(hi);
 					}
 					if (highlightIndices.Count == 0) highlightIndices = null;
