@@ -229,8 +229,10 @@ def run(path, corpus, verbose):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("socket", help="the running application's diagnostics socket")
-    ap.add_argument("--corpus", default="corpus.json")
-    ap.add_argument("--verbose", "-v", action="store_true")
+    ap.add_argument("--corpus", default="corpus.json",
+                    help="the cases to send (default: corpus.json)")
+    ap.add_argument("--verbose", "-v", action="store_true",
+                    help="name every case, not only the failures")
     args = ap.parse_args()
 
     with open(args.corpus, encoding="utf-8") as handle:

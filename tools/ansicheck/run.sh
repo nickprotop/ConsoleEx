@@ -10,7 +10,19 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$here"
 
 socket="${ANSICHECK_SOCKET:-/tmp/ansicheck-$$.sock}"
-app="$here/bin/Debug/net9.0/ansicheck"
+# Read from the project rather than written out again here: a second copy of
+# the framework is a second thing to forget when it moves.
+tfm="$(sed -n 's/.*<TargetFramework>\(.*\)<\/TargetFramework>.*/\1/p' ansicheck.csproj)"
+app="$here/bin/Debug/$tfm/ansicheck"
+
+# Asked for help, not for a run: answer it before building an application and
+# starting it, neither of which the question needs.
+for arg in "$@"; do
+    if [ "$arg" = "--help" ] || [ "$arg" = "-h" ]; then
+        python3 -I check.py --help
+        exit 0
+    fi
+done
 
 echo "building"
 dotnet build -v q --nologo || exit 1
