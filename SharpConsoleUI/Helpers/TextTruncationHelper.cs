@@ -29,7 +29,7 @@ public static class TextTruncationHelper
 	/// <returns>Everything before the first line break, or the text unchanged.</returns>
 	/// <remarks>
 	/// <para>
-	/// A newline reaches <see cref="Parsing.MarkupParser.Parse"/> as a control
+	/// A newline reaches <see cref="Parsing.MarkupParser"/> as a control
 	/// character and is sanitised to U+FFFD, so a single-row control paints a
 	/// replacement glyph where the break was. Splitting into rows is the answer
 	/// where a control has rows; where it has one - a dropdown's closed field, an
