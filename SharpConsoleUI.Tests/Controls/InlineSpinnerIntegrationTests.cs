@@ -27,8 +27,14 @@ public class InlineSpinnerIntegrationTests
 		// is static and its minimum interval only ever decreases, so a test that ran
 		// first can leave a slot this one's Tick reads as already delivered. Reset on
 		// the way IN, so each test depends on nothing before it.
-		MarkupSpinnerClock.ResetForTests();
+		//
+		// The provider goes in FIRST and the reset second. IsActive subtracts the
+		// keep-alive stamp from _now(), so a stamp taken under one clock and read
+		// under another is a difference between unrelated numbers: a stamp left at a
+		// small fake value, read against Environment.TickCount64, is millions of
+		// milliseconds old and the spinner reads as inactive.
 		MarkupSpinnerClock.SetTimeProviderForTests(() => 0); // frame 0
+		MarkupSpinnerClock.ResetForTests();
 		try
 		{
 			var system = TestWindowSystemBuilder.CreateTestSystem();
@@ -83,8 +89,14 @@ public class InlineSpinnerIntegrationTests
 		// is static and its minimum interval only ever decreases, so a test that ran
 		// first can leave a slot this one's Tick reads as already delivered. Reset on
 		// the way IN, so each test depends on nothing before it.
-		MarkupSpinnerClock.ResetForTests();
+		//
+		// The provider goes in FIRST and the reset second. IsActive subtracts the
+		// keep-alive stamp from _now(), so a stamp taken under one clock and read
+		// under another is a difference between unrelated numbers: a stamp left at a
+		// small fake value, read against Environment.TickCount64, is millions of
+		// milliseconds old and the spinner reads as inactive.
 		MarkupSpinnerClock.SetTimeProviderForTests(() => now);
+		MarkupSpinnerClock.ResetForTests();
 		try
 		{
 			var system = TestWindowSystemBuilder.CreateTestSystem(60, 12);
@@ -125,8 +137,14 @@ public class InlineSpinnerIntegrationTests
 		// is static and its minimum interval only ever decreases, so a test that ran
 		// first can leave a slot this one's Tick reads as already delivered. Reset on
 		// the way IN, so each test depends on nothing before it.
-		MarkupSpinnerClock.ResetForTests();
+		//
+		// The provider goes in FIRST and the reset second. IsActive subtracts the
+		// keep-alive stamp from _now(), so a stamp taken under one clock and read
+		// under another is a difference between unrelated numbers: a stamp left at a
+		// small fake value, read against Environment.TickCount64, is millions of
+		// milliseconds old and the spinner reads as inactive.
 		MarkupSpinnerClock.SetTimeProviderForTests(() => now);
+		MarkupSpinnerClock.ResetForTests();
 		try
 		{
 			var system = TestWindowSystemBuilder.CreateTestSystem(60, 12);
@@ -169,8 +187,14 @@ public class InlineSpinnerIntegrationTests
 		// is static and its minimum interval only ever decreases, so a test that ran
 		// first can leave a slot this one's Tick reads as already delivered. Reset on
 		// the way IN, so each test depends on nothing before it.
-		MarkupSpinnerClock.ResetForTests();
+		//
+		// The provider goes in FIRST and the reset second. IsActive subtracts the
+		// keep-alive stamp from _now(), so a stamp taken under one clock and read
+		// under another is a difference between unrelated numbers: a stamp left at a
+		// small fake value, read against Environment.TickCount64, is millions of
+		// milliseconds old and the spinner reads as inactive.
 		MarkupSpinnerClock.SetTimeProviderForTests(() => now);
+		MarkupSpinnerClock.ResetForTests();
 		try
 		{
 			var system = TestWindowSystemBuilder.CreateTestSystem(60, 12);

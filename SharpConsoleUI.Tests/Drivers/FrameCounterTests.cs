@@ -38,17 +38,41 @@ public class FrameCounterTests
 		return (system, driver, system.BeginHosted());
 	}
 
+	/// <summary>Ticks until <paramref name="count"/> more frames have been composed.</summary>
+	/// <remarks>
+	/// A tick is not a frame. Rendering is rate limited against the machine clock,
+	/// so a loop of ticks that finishes inside one frame interval - which ten of
+	/// them do on any fast machine - composes nothing, and a test that counted
+	/// ticks and asserted frames failed whenever the machine was quick enough.
+	/// <para>Ticks until the counter actually moves, with a ceiling so a stalled
+	/// loop fails the test rather than hanging it.</para>
+	/// </remarks>
+	private static void TickUntilFrames(HostedSession session, HeadlessConsoleDriver driver, int count)
+	{
+		long target = driver.FrameNumber + count;
+		var until = DateTime.UtcNow.AddSeconds(5);
+
+		while (driver.FrameNumber < target)
+		{
+			Assert.True(DateTime.UtcNow < until,
+				$"only {driver.FrameNumber - (target - count)} of {count} frame(s) composed in 5s");
+
+			session.Tick();
+			Thread.Sleep(1);
+		}
+	}
+
 	[Fact]
 	public void Advances_AsFramesAreRendered()
 	{
 		var (_, driver, session) = Build();
 		using (session)
 		{
-			for (int i = 0; i < 10; i++) session.Tick();
+			TickUntilFrames(session, driver, 1);
 			long first = driver.FrameNumber;
 			Assert.True(first > 0, "no frame was counted");
 
-			for (int i = 0; i < 5; i++) session.Tick();
+			TickUntilFrames(session, driver, 1);
 			Assert.True(driver.FrameNumber > first);
 		}
 	}
@@ -61,7 +85,7 @@ public class FrameCounterTests
 		var (_, driver, session) = Build(enableDiagnostics: false);
 		using (session)
 		{
-			for (int i = 0; i < 10; i++) session.Tick();
+			TickUntilFrames(session, driver, 1);
 			Assert.True(driver.FrameNumber > 0);
 		}
 	}
@@ -75,7 +99,7 @@ public class FrameCounterTests
 		var (_, driver, session) = Build();
 		using (session)
 		{
-			for (int i = 0; i < 12; i++) session.Tick();
+			TickUntilFrames(session, driver, 1);
 			long before = driver.FrameNumber;
 
 			driver.SimulateScreenResize(70, 18);
