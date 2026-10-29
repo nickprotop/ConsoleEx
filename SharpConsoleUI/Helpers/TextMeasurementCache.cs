@@ -51,6 +51,50 @@ public class TextMeasurementCache
 	}
 
 	/// <summary>
+	/// Measures a string, stopping once it is known to be at least <paramref name="cap"/> wide.
+	/// </summary>
+	/// <param name="text">The text to measure.</param>
+	/// <param name="cap">The widest answer the caller can use.</param>
+	/// <returns>The width, or <paramref name="cap"/> when the text is at least that wide.</returns>
+	/// <remarks>
+	/// <para>
+	/// For a caller choosing a column width, anything past the width the column
+	/// could possibly be given cannot change the answer. A cell holding a whole
+	/// file would otherwise be walked and hashed in full, and then KEPT by the
+	/// cache, to learn that it is wider than the screen.
+	/// </para>
+	/// <para>
+	/// Not cached, deliberately. The cache is keyed by the whole string, so
+	/// storing a megabyte to remember one small number is the cost this avoids.
+	/// A short string goes to the ordinary cached path instead, where it belongs.
+	/// </para>
+	/// </remarks>
+	public int GetCappedLength(string text, int cap)
+	{
+		if (string.IsNullOrEmpty(text) || cap <= 0)
+			return 0;
+
+		// Short enough that measuring it in full is cheap, and worth caching
+		// since it will be asked for again on the next frame. The bound is on
+		// CHARACTERS, which is only ever an over-estimate of columns, so a string
+		// that passes it genuinely cannot reach the cap.
+		if (text.Length <= cap)
+			return GetCachedLength(text);
+
+		// Measured on a prefix rather than the whole string. A column's width is
+		// counted in columns, and a character is never less than zero columns
+		// wide, so a prefix of cap+1 CHARACTERS either already reaches the cap or
+		// proves the rest cannot be needed. Markup makes this an over-measure of
+		// the prefix only, never an under-measure of the answer.
+		//
+		// Substring rather than a span because the measure takes a string; it is
+		// cap+1 characters long whatever the cell holds, so it stays small.
+		int length = _measurementFunc(text[..(cap + 1)]);
+
+		return length > cap ? cap : length;
+	}
+
+	/// <summary>
 	/// Gets the total cached length of multiple text strings.
 	/// Useful for measuring composite strings like "prefix + content + suffix".
 	/// </summary>

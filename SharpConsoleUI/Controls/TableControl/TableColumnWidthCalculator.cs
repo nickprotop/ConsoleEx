@@ -87,14 +87,19 @@ internal sealed class TableColumnWidthCalculator
 			else
 			{
 				// Sample-based measurement: header + visible rows + buffer
-				int maxW = _measurementCache.GetCachedLength(source.GetHeader(c));
+				// Capped at the width a column could actually be given. A cell
+				// wider than the whole content area cannot make the column wider
+				// than the content area, so measuring the rest of it answers a
+				// question nobody asked - and measuring it in full meant walking
+				// and hashing a value that may hold a whole file.
+				int maxW = _measurementCache.GetCappedLength(source.GetHeader(c), contentWidth);
 
 				for (int r = sampleStart; r < sampleEnd; r++)
 				{
 					if (source.GetCell(r, c) is string cell)
 					{
 						// A prefix drawn in front of the value is part of the cell's width.
-						int cellW = _measurementCache.GetCachedLength(cell);
+						int cellW = _measurementCache.GetCappedLength(cell, contentWidth);
 						if (source.GetCellPrefix(r, c) is string prefix)
 							cellW += _measurementCache.GetCachedLength(prefix);
 						if (cellW > maxW) maxW = cellW;
