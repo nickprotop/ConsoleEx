@@ -15,7 +15,7 @@
   <ItemGroup>
     <!-- The same renderer the library uses for its markdown control, so the
          site and the application agree about what markdown means. -->
-    <PackageReference Include="Markdig" Version="0.41.3" />
+    <PackageReference Include="Markdig" Version="1.5.1" />
   </ItemGroup>
 
 </Project>
