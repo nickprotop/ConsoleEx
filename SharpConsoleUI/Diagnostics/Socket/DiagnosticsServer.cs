@@ -98,7 +98,9 @@ internal sealed class DiagnosticsServer : IDisposable
 		// Warning, not Information: the default minimum level is Warning, and a
 		// record nobody sees by default is not a record. Someone attaching to a
 		// live application is worth one line at the level that shows.
-		_system.LogService.LogWarning("Diagnostics client connected", "Diagnostics");
+		// Debug, not Warning. A client connects on every single call, so at
+		// Warning the log fills with this and buries whatever went wrong.
+		_system.LogService.LogDebug("Diagnostics client connected", "Diagnostics");
 		try
 		{
 			using var stream = new NetworkStream(client, ownsSocket: false);

@@ -100,6 +100,7 @@ internal static class Output
 			case "focus": return FocusReply(body, colour);
 			case "settled": return SettledReply(body, colour);
 			case "clock": return ClockReply(body, colour);
+			case "seq": return SeqReply(body, colour);
 
 			// Grouped, because these replies answer several questions at once
 			// and a flat column cannot say which number belongs to which.
@@ -793,6 +794,36 @@ internal static class Output
 			+ $"  [white]{Escaped(shown)}[/]";
 	}
 
+	/// <summary>What a sequence decoded to, counted rather than listed.</summary>
+	/// <remarks>
+	/// A typed sentence decodes to one event per character, and printing them
+	/// all buries whatever the sequence was sent to find out. The listing is
+	/// what you want while debugging the decoder itself, which is the rarer
+	/// case now that there is one decoder: <c>--json</c> has it, as it has
+	/// every field of every reply.
+	/// </remarks>
+	private static string SeqReply(JsonObject body, bool colour)
+	{
+		long bytes = body["bytes"]?.GetValue<long>() ?? 0;
+		var events = body["events"] as JsonArray;
+		int count = events?.Count ?? 0;
+
+		var sb = new StringBuilder();
+
+		sb.Append("[grey]bytes[/] [white]").Append(bytes).Append("[/]")
+		  .Append("  [grey]events[/] [white]").Append(count).Append("[/]");
+
+		// A sequence that decoded to nothing is worth saying out loud: it is
+		// the answer when something was malformed and silently dropped.
+		if (count == 0) sb.Append("  [yellow]nothing decoded[/]");
+
+		string text = sb.ToString();
+
+		return (colour
+			? Surface.Render(new Spectre.Console.Markup(text), true)
+			: Plain(text)) + "\n";
+	}
+
 	private static string SettledReply(JsonObject body, bool colour)
 	{
 		bool settled = body["settled"]?.GetValue<bool>() ?? false;
@@ -811,9 +842,11 @@ internal static class Output
 		// the caller is a pipe. Returning the string raw prints the tags.
 		string text = sb.ToString();
 
-		return colour
+		// Ending in a newline, as every other verb's reply does. Without it the
+		// next command's output starts on the same line as this one's.
+		return (colour
 			? Surface.Render(new Spectre.Console.Markup(text), true)
-			: Plain(text);
+			: Plain(text)) + "\n";
 	}
 
 	private static string Image(JsonObject body)

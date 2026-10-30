@@ -376,7 +376,11 @@ internal static class Shots
 		new("DatePickerControl", 48, 24, () =>
 		{
 			var panel = Controls.Panel().Build();
-			var when = new DateTime(2026, 10, 28);
+
+			// A date in the past, and not this month. The calendar colours
+			// today's cell, so a date in the month being shown makes this
+			// screenshot change on its own every day the month rolls over.
+			var when = new DateTime(2026, 3, 14);
 
 			panel.AddControl(Controls.DatePicker("ISO:  ").WithFormat("yyyy-MM-dd").WithSelectedDate(when).Build());
 			panel.AddControl(Controls.DatePicker("US:   ").WithFormat("MM/dd/yyyy").WithSelectedDate(when).Build());
