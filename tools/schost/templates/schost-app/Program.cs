@@ -81,7 +81,7 @@ internal class Program
             {
                 if (e.KeyInfo.Key == ConsoleKey.Escape)
                 {
-                    ws.Stop();
+                    ws.Shutdown();
                     e.Handled = true;
                 }
             })
@@ -91,59 +91,56 @@ internal class Program
 
     private static void BuildHomePage(ScrollablePanelControl panel)
     {
-        panel.AddControl(new MarkupControl(
+        panel.AddControl(new MarkupControl([
             "[bold rgb(100,180,255)]Welcome to PROJECT_TITLE[/]\n\n" +
             "This is your new SharpConsoleUI application.\n" +
             "Use the navigation panel to explore different sections.\n\n" +
-            "[dim]Press Esc to quit.[/]"));
+            "[dim]Press Esc to quit.[/]"]));
 
-        panel.AddControl(new MarkupControl("\n[bold]Progress[/]"));
+        panel.AddControl(new MarkupControl(["\n[bold]Progress[/]"]));
 
         var progress1 = Controls.ProgressBar()
-            .WithLabel("Setup")
+            .WithHeader("Setup")
             .WithPercentage(100)
-            .WithBarColor(new Color(100, 180, 255))
+            .WithFilledColor(new Color(100, 180, 255))
             .Build();
         panel.AddControl(progress1);
 
         var progress2 = Controls.ProgressBar()
-            .WithLabel("Configuration")
+            .WithHeader("Configuration")
             .WithPercentage(60)
-            .WithBarColor(new Color(120, 220, 160))
+            .WithFilledColor(new Color(120, 220, 160))
             .Build();
         panel.AddControl(progress2);
 
         var progress3 = Controls.ProgressBar()
-            .WithLabel("Customization")
+            .WithHeader("Customization")
             .WithPercentage(25)
-            .WithBarColor(new Color(220, 160, 100))
+            .WithFilledColor(new Color(220, 160, 100))
             .Build();
         panel.AddControl(progress3);
     }
 
     private static void BuildSettingsPage(ScrollablePanelControl panel)
     {
-        panel.AddControl(new MarkupControl(
-            "[bold rgb(100,180,255)]Settings[/]\n"));
+        panel.AddControl(new MarkupControl([
+            "[bold rgb(100,180,255)]Settings[/]\n"]));
 
-        var darkMode = Controls.Checkbox()
-            .WithLabel("Dark mode")
-            .WithChecked(true)
+        var darkMode = Controls.Checkbox("Dark mode")
+            .Checked(true)
             .Build();
         panel.AddControl(darkMode);
 
-        var notifications = Controls.Checkbox()
-            .WithLabel("Enable notifications")
-            .WithChecked(true)
+        var notifications = Controls.Checkbox("Enable notifications")
+            .Checked(true)
             .Build();
         panel.AddControl(notifications);
 
-        var autoSave = Controls.Checkbox()
-            .WithLabel("Auto-save on exit")
+        var autoSave = Controls.Checkbox("Auto-save on exit")
             .Build();
         panel.AddControl(autoSave);
 
-        panel.AddControl(new MarkupControl("\n[dim]Toggle options with Space or Enter.[/]"));
+        panel.AddControl(new MarkupControl(["\n[dim]Toggle options with Space or Enter.[/]"]));
     }
 
     private static void BuildAboutPage(ScrollablePanelControl panel)
@@ -151,11 +148,11 @@ internal class Program
         var runtime = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription;
         var os = System.Runtime.InteropServices.RuntimeInformation.OSDescription;
 
-        panel.AddControl(new MarkupControl(
+        panel.AddControl(new MarkupControl([
             $"[bold rgb(180,140,220)]About PROJECT_TITLE[/]\n\n" +
             $"[bold]Version:[/] 1.0.0\n" +
             $"[bold]Runtime:[/] {runtime}\n" +
             $"[bold]OS:[/] {os}\n\n" +
-            $"Built with [bold rgb(100,180,255)]SharpConsoleUI[/]"));
+            $"Built with [bold rgb(100,180,255)]SharpConsoleUI[/]"]));
     }
 }
