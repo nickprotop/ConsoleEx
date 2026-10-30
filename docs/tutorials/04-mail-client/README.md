@@ -12,12 +12,6 @@ dotnet run
 
 Keys: `↑↓` navigate · `c` compose · `s` settings · `q` quit.
 
-## Test
-
-```bash
-dotnet test TerminalMail.Tests/TerminalMail.Tests.csproj
-```
-
 ## Layout
 
 | Path | Responsibility |
@@ -27,7 +21,6 @@ dotnet test TerminalMail.Tests/TerminalMail.Tests.csproj
 | `TerminalMail/ViewModels/` | MVVM: `ViewModelBase`, `RelayCommand`, and the mailbox/message/compose view models |
 | `TerminalMail/UI/` | `MailWindow` (three-pane layout), `MessageTableDataSource`, `ColorScheme`, `Dialogs` (compose), `SettingsView` (NavigationView) |
 | `TerminalMail/Data/SampleInbox.cs` | In-memory seed data (no real IMAP/SMTP) |
-| `TerminalMail.Tests/` | xUnit tests for the view models and data source |
 
 The project targets `net10.0` and references the in-repo `SharpConsoleUI` library
 (with a `SharpConsoleUI` NuGet fallback, so it still builds if you copy this folder

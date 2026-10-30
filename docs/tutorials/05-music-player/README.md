@@ -14,12 +14,6 @@ dotnet run
 
 Keys: `↑↓` pick track · `Enter`/click plays · `space` play/pause · `⏮ ⏯ ⏭` transport · `q` quit.
 
-## Test
-
-```bash
-dotnet test TermTunes.Tests/TermTunes.Tests.csproj
-```
-
 ## Regenerate cover art
 
 ```bash
@@ -39,7 +33,6 @@ python3 TermTunes/assets/gen_covers.py   # needs Pillow
 | `TermTunes/UI/ColorScheme.cs` | Palette + per-accent gradient ramp |
 | `TermTunes/Data/SamplePlaylist.cs` | In-memory playlist |
 | `TermTunes/assets/` | Cover generator + generated PNGs |
-| `TermTunes.Tests/` | xUnit tests for the player view model |
 
 Targets `net10.0`, references the in-repo `SharpConsoleUI` (with a NuGet fallback so it still builds
 if you copy this folder out of the repository).

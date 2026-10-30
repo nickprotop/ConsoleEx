@@ -10,13 +10,14 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <!-- Keeps its own SharpConsoleUI version. publish.sh rewrites it on every
-         release, and this project is copied out of the repository, where the
-         central list does not exist. -->
+    <!-- Not centrally managed. In the repository this builds against the
+         project below and the version is unused; copied out, it is the only
+         thing that resolves, and no central list exists there. publish.sh
+         rewrites it on every release. -->
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
-<ItemGroup Condition="Exists('../../../../SharpConsoleUI/SharpConsoleUI.csproj')">
+  <ItemGroup Condition="Exists('../../../../SharpConsoleUI/SharpConsoleUI.csproj')">
     <ProjectReference Include="../../../../SharpConsoleUI/SharpConsoleUI.csproj" />
   </ItemGroup>
   <ItemGroup Condition="!Exists('../../../../SharpConsoleUI/SharpConsoleUI.csproj')">
