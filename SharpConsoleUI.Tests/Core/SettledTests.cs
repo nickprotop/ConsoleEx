@@ -235,4 +235,49 @@ public class SettledTests
 		Assert.True(driver.FrameNumber > before,
 			$"the wait returned without a frame: before={before} after={driver.FrameNumber}");
 	}
+
+	[Fact]
+	public void A_system_is_not_settled_while_a_queued_action_is_running()
+	{
+		// Reported against 2.10.3: input sent, the wait returned, and the effect
+		// landed just after. A queued action is taken OUT of the queue before it
+		// runs, so between TryDequeue and the call the queue answers empty - and
+		// the action, which is the work, is nowhere the check can see it.
+		var driver = new HeadlessConsoleDriver(40, 10);
+		var system = new ConsoleWindowSystem(driver);
+
+		new WindowBuilder(system).WithTitle("W").Maximized().BuildAndShow();
+		system.Render.UpdateDisplay();
+
+		using var inside = new ManualResetEventSlim(false);
+		using var release = new ManualResetEventSlim(false);
+		bool settledWhileRunning = true;
+
+		bool countedInside = false;
+		// The REAL loop drains it. The test-only drain is a four line helper that
+		// counts nothing, so driving through it would prove nothing about the
+		// path that actually runs. Started BEFORE the action is queued, or the
+		// action runs during startup and is finished before anything can ask.
+		using var session = system.RunInBackground();
+
+		system.EnqueueOnUIThread(() =>
+		{
+			countedInside = system.IsRunningUiAction;
+			inside.Set();
+			release.Wait(TimeSpan.FromSeconds(5));
+		});
+
+		Assert.True(inside.Wait(TimeSpan.FromSeconds(5)), "the action never started");
+		// Read a few times: the action is blocked in release.Wait, so if the
+		// counter is up at all it is up for this whole window.
+		settledWhileRunning = system.IsSettled;
+		release.Set();
+
+		// Read from inside the action as well: it proves the count is around THIS
+		// call, not merely up for some other reason.
+		Assert.True(countedInside, "the action was not counted while it ran");
+
+		Assert.False(settledWhileRunning,
+			$"settled while a queued action ran. blockers said '{system.SettleBlockers()}'");
+	}
 }

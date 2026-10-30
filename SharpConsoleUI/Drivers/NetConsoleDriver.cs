@@ -1087,10 +1087,10 @@ namespace SharpConsoleUI.Drivers
 		/// reads as settled at a moment when a control is halfway through
 		/// handling a click.
 		/// </remarks>
-		private readonly Input.MouseDispatchCount _mouseDispatch = new();
+		private readonly Core.WorkInFlight _mouseDispatch = new();
 
 		/// <summary>Whether a mouse handler is running on any thread.</summary>
-		public bool IsDispatchingMouse => _mouseDispatch.IsDispatching;
+		public bool IsDispatchingMouse => _mouseDispatch.IsRunning;
 
 		/// <summary>
 		/// Raises <see cref="MouseEvent"/>, counting the dispatch while it runs.

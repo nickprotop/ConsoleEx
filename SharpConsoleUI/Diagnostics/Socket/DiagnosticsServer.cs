@@ -659,7 +659,7 @@ internal sealed class DiagnosticsServer : IDisposable
 	/// Whether the application has finished reacting, and what is holding it.
 	/// </summary>
 	/// <remarks>
-	/// The same five conditions <see cref="ConsoleWindowSystem.IsSettled"/> checks,
+	/// The same conditions <see cref="ConsoleWindowSystem.IsSettled"/> checks,
 	/// so a script polling this and a test calling WaitUntilSettledAsync agree. The
 	/// blockers are reported because a bare false gives a script nothing to say when
 	/// it gives up waiting.

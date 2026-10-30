@@ -524,9 +524,10 @@ holding it if not.
                         "blockers":"a mouse handler is running, 2 window(s) with work pending"}
 ```
 
-Five conditions, all of them: no input waiting, no mouse handler running, nothing queued
-for the UI thread, no animation in flight, and no window with painting still to do.
-`blockers` names whichever are false, so a script that gives up waiting can say why.
+Every condition has to be clear: no input waiting, no mouse handler running, nothing
+queued for the UI thread, no queued action still running, no animation in flight, and no
+window with painting still to do. `blockers` names whichever are not, so a script that
+gives up waiting can say why.
 
 The mouse is the odd one. A mouse event is dispatched on whichever thread raised it and
 never enters a queue, which is what keeps it responsive while the UI is busy. Nothing that

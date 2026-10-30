@@ -52,6 +52,15 @@ namespace SharpConsoleUI
 		// UI thread action queue - allows background threads to schedule work on the main thread.
 		// Each item carries an optional best-effort label for the watchdog breadcrumb.
 		private readonly ConcurrentQueue<(Action Action, string? Label)> _uiActionQueue = new();
+
+		/// <summary>The queued actions that are RUNNING, which the queue cannot report.</summary>
+		private readonly Core.WorkInFlight _uiActionsRunning = new();
+
+		/// <summary>What is outstanding, and what that leaves unsettled.</summary>
+		private readonly Core.WorkingState _workingState;
+
+		/// <summary>Test seam: whether a dequeued UI action is executing.</summary>
+		internal bool IsRunningUiAction => _uiActionsRunning.IsRunning;
 		private volatile bool _uiActionsPending;
 
 		// Managed thread id of the main-loop (UI) thread; set at Run() start. -1 until then.
@@ -232,16 +241,16 @@ namespace SharpConsoleUI
 		/// </summary>
 		/// <remarks>
 		/// <para>
-		/// Five conditions, all of them: no input waiting to be processed, nothing
-		/// queued for the UI thread, no window with painting still to do, no
-		/// animation in flight, and no mouse handler running. Any one of them false
-		/// means another frame will change something.
+		/// Every condition has to be clear, and <see cref="Core.WorkingState"/>
+		/// holds the list of them. Any one outstanding means another frame will
+		/// change something.
 		/// </para>
 		/// <para>
-		/// The mouse is the odd one. A mouse event is dispatched synchronously on
-		/// whichever thread raised it, so it never enters a queue - which is why a
-		/// queue-based condition cannot see it, and why a handler running on
-		/// another thread needs a condition of its own.
+		/// Two of them are about work a queue cannot report. A mouse event is
+		/// dispatched synchronously on whichever thread raised it and never enters
+		/// a queue at all; a queued UI action is taken OUT of its queue before it
+		/// runs, so between those two moments the queue answers empty - truthfully -
+		/// while the work it held is half done. Both are counted while they run.
 		/// </para>
 		/// <para>
 		/// Distinct from <see cref="IsIdle"/>, which is a wall-clock timeout - "no
@@ -250,12 +259,7 @@ namespace SharpConsoleUI
 		/// safe to look at the screen yet.
 		/// </para>
 		/// </remarks>
-		public bool IsSettled =>
-			!_inputStateService.HasPendingInput
-			&& !_consoleDriver.IsDispatchingMouse
-			&& _uiActionQueue.IsEmpty
-			&& !Animations.HasActiveAnimations
-			&& !Windows.Values.Any(w => w.PendingWork != FrameWork.None);
+		public bool IsSettled => _workingState.IsSettled;
 
 		/// <summary>
 		/// Why the system is not settled, for a caller that has to report it.
@@ -267,20 +271,7 @@ namespace SharpConsoleUI
 		/// A bare false is not actionable. A test that times out wants to know whether
 		/// it was an animation that never finished or a window that never painted.
 		/// </remarks>
-		public string SettleBlockers()
-		{
-			var parts = new List<string>(5);
-
-			if (_inputStateService.HasPendingInput) parts.Add("input pending");
-			if (_consoleDriver.IsDispatchingMouse) parts.Add("a mouse handler is running");
-			if (!_uiActionQueue.IsEmpty) parts.Add($"{_uiActionQueue.Count} queued action(s)");
-			if (Animations.HasActiveAnimations) parts.Add("animations running");
-
-			int dirty = Windows.Values.Count(w => w.PendingWork != FrameWork.None);
-			if (dirty > 0) parts.Add($"{dirty} window(s) with work pending");
-
-			return string.Join(", ", parts);
-		}
+		public string SettleBlockers() => _workingState.Blockers;
 
 		/// <summary>
 		/// Completes once another frame has been composed.
@@ -731,6 +722,17 @@ namespace SharpConsoleUI
 			_themeRegistryStateService = new Core.ThemeRegistryStateService();
 			_themeStateService = new ThemeStateService(_theme, _logService);
 			_inputStateService = new InputStateService();
+
+			// Built here, once, with what it reads. The driver goes in as a
+			// function because ConsoleDriver has a setter: a captured instance
+			// would answer for a driver that had been replaced.
+			_workingState = new Core.WorkingState(
+				_inputStateService,
+				_uiActionQueue,
+				_uiActionsRunning,
+				() => _consoleDriver,
+				() => Animations.HasActiveAnimations,
+				() => Windows.Values);
 			_inputStateService.WakeCallback = () => _wakeSignal.Set();
 			_panelStateService = new PanelStateService(_logService, () => this);
 			_desktopPortalService = new Core.DesktopPortalService(_logService, this);
@@ -2239,17 +2241,29 @@ namespace SharpConsoleUI
 			while (_uiActionQueue.TryDequeue(out var item))
 			{
 				anyDrained = true;
-				using (new Core.UiCallbackScope(this, item.Label ?? "UIAction"))
+
+				// Counted for as long as it runs. TryDequeue takes the action OUT
+				// of the queue before it executes, so between those two moments
+				// the work exists nowhere the system can see: the queue answers
+				// empty, truthfully, while the action it held is halfway done,
+				// and a caller asking whether the system has settled is told yes.
+				//
+				// Outside the catch below, which is per action: the count has to
+				// come back down even when the action throws.
+				_uiActionsRunning.While(() =>
 				{
-					try
+					using (new Core.UiCallbackScope(this, item.Label ?? "UIAction"))
 					{
-						item.Action();
+						try
+						{
+							item.Action();
+						}
+						catch (Exception ex)
+						{
+							LogService?.LogError($"Error in EnqueueOnUIThread action: {ex.Message}", ex, "System");
+						}
 					}
-					catch (Exception ex)
-					{
-						LogService?.LogError($"Error in EnqueueOnUIThread action: {ex.Message}", ex, "System");
-					}
-				}
+				});
 
 				long nowTick = Environment.TickCount64;
 				if (nowTick - lastPulse >= _uiDrainHeartbeatIntervalMs)

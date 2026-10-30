@@ -270,7 +270,7 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 		_mouseDispatch.While(() => MouseEvent?.Invoke(this, flags, point));
 	}
 
-	private readonly Input.MouseDispatchCount _mouseDispatch = new();
+	private readonly Core.WorkInFlight _mouseDispatch = new();
 
 	/// <summary>Whether a mouse handler is running on any thread.</summary>
 	/// <remarks>
@@ -278,7 +278,7 @@ public class HeadlessConsoleDriver : IConsoleDriver, IDisposable
 	/// a handler is actually executing - which is exactly the window in which
 	/// "nothing is queued" would otherwise read as nothing left to do.
 	/// </remarks>
-	public bool IsDispatchingMouse => _mouseDispatch.IsDispatching;
+	public bool IsDispatchingMouse => _mouseDispatch.IsRunning;
 
 	/// <summary>
 	/// Simulates a full click: the press and the release a terminal sends.
