@@ -56,7 +56,13 @@ public class X11ClipboardTests
 	private static string? ReadUntil(X11Clipboard reader, string expected)
 	{
 		string? seen = null;
-		var deadline = DateTime.UtcNow.AddSeconds(5);
+
+		// Generous, because this bounds RETRIES rather than the read: GetText
+		// carries its own two-second timeout. The large-copy test moves three
+		// hundred thousand characters through X11 in pieces, which takes about
+		// a second idle and considerably longer when the machine is busy, so a
+		// tight bound here measures the machine rather than the clipboard.
+		var deadline = DateTime.UtcNow.AddSeconds(30);
 		while (DateTime.UtcNow < deadline)
 		{
 			seen = reader.GetText(2000);
