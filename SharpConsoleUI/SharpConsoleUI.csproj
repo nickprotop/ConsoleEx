@@ -56,17 +56,17 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="AngleSharp" Version="1.8.6" />
-		<PackageReference Include="AngleSharp.Css" Version="1.2.2" />
-		<PackageReference Include="Markdig" Version="1.5.1" />
-		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.403" PrivateAssets="all" />
-		<PackageReference Include="StbImageSharp" Version="2.30.16" />
-		<PackageReference Include="StbImageWriteSharp" Version="1.16.7" />
-		<PackageReference Include="StbTrueTypeSharp" Version="1.26.13" />
-		<PackageReference Include="Spectre.Console" Version="0.55.0" />
-		<PackageReference Include="TextMateSharp" Version="2.0.4" />
-		<PackageReference Include="TextMateSharp.Grammars" Version="2.0.4" />
-		<PackageReference Include="Wcwidth.Sources" Version="4.0.1" />
+		<PackageReference Include="AngleSharp" />
+		<PackageReference Include="AngleSharp.Css" />
+		<PackageReference Include="Markdig" />
+		<PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" />
+		<PackageReference Include="StbImageSharp" />
+		<PackageReference Include="StbImageWriteSharp" />
+		<PackageReference Include="StbTrueTypeSharp" />
+		<PackageReference Include="Spectre.Console" />
+		<PackageReference Include="TextMateSharp" />
+		<PackageReference Include="TextMateSharp.Grammars" />
+		<PackageReference Include="Wcwidth.Sources" />
 	</ItemGroup>
 
 	<ItemGroup>

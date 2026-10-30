@@ -1,0 +1,58 @@
+<Project>
+
+  <!-- Central Package Management: one version per package, for the whole
+       repository. A project asks for a package by name and gets the version
+       named here.
+
+       Why: versions kept per project drifted. Four test projects sat a year
+       behind the main suite on the test SDK and the xunit runner, and nobody
+       decided that; it accumulated. Worse, the test project pinned its own
+       AngleSharp, which silently DOWNGRADED the library's until a bump turned
+       it into an NU1605 build failure. Neither can happen with one list.
+
+       A project that still carries its own Version= is an error (NU1008), and
+       a package with no entry here is an error (NU1010), so nothing drifts
+       quietly.
+
+       NOT managed here: the template and tutorial projects, which reference
+       SharpConsoleUI from NuGet rather than by project. publish.sh rewrites
+       that version on every release, and `dotnet new` copies those projects
+       out of the repository, where nothing above them exists. They opt out
+       with ManagePackageVersionsCentrally=false and keep their own pin. -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="Library dependencies">
+    <PackageVersion Include="AngleSharp" Version="1.8.6" />
+    <PackageVersion Include="AngleSharp.Css" Version="1.2.2" />
+    <PackageVersion Include="Markdig" Version="1.5.1" />
+    <PackageVersion Include="StbImageSharp" Version="2.30.16" />
+    <PackageVersion Include="StbImageWriteSharp" Version="1.16.7" />
+    <PackageVersion Include="StbTrueTypeSharp" Version="1.26.13" />
+    <PackageVersion Include="TextMateSharp" Version="2.0.4" />
+    <PackageVersion Include="TextMateSharp.Grammars" Version="2.0.4" />
+    <PackageVersion Include="Wcwidth.Sources" Version="4.0.1" />
+  </ItemGroup>
+
+  <ItemGroup Label="Public API surface">
+    <!-- Deliberately behind its latest. SpectreRenderableControl takes an
+         IRenderable and the builders take a Spectre Color, so this version is
+         part of what an adopter has to absorb. Moving it is their decision to
+         schedule, not ours to make for them. -->
+    <PackageVersion Include="Spectre.Console" Version="0.55.2" />
+    <PackageVersion Include="Spectre.Console.Cli" Version="0.55.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Build and test">
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+    <PackageVersion Include="coverlet.collector" Version="10.1.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.403" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
+  </ItemGroup>
+
+</Project>

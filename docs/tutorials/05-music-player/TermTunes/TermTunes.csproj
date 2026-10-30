@@ -9,11 +9,18 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
-  <ItemGroup Condition="Exists('../../../../SharpConsoleUI/SharpConsoleUI.csproj')">
+  <PropertyGroup>
+    <!-- Keeps its own SharpConsoleUI version. publish.sh rewrites it on every
+         release, and this project is copied out of the repository, where the
+         central list does not exist. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+<ItemGroup Condition="Exists('../../../../SharpConsoleUI/SharpConsoleUI.csproj')">
     <ProjectReference Include="../../../../SharpConsoleUI/SharpConsoleUI.csproj" />
   </ItemGroup>
   <ItemGroup Condition="!Exists('../../../../SharpConsoleUI/SharpConsoleUI.csproj')">
-    <PackageReference Include="SharpConsoleUI" Version="2.5.12" />
+    <PackageReference Include="SharpConsoleUI" Version="2.10.3" />
   </ItemGroup>
 
   <ItemGroup>
