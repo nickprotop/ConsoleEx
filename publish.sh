@@ -287,8 +287,13 @@ if [ "$IS_RC" = true ]; then
     echo -e "${BLUE}ℹ${NC} RC build — leaving template dependencies on the last stable version."
 fi
 
-# 1. csproj-based templates (dotnet-new templates, schost templates)
-for TEMPLATE_CSPROJ in templates/content/*/*.csproj tools/schost/templates/*/*.csproj; do
+# 1. csproj-based templates (dotnet-new templates, schost templates), and the
+#    tutorial projects, which are the same thing by another name: a reader
+#    copies one out and builds it against the published package, so a stale
+#    version there teaches the wrong library. They sat on 2.5.12 through ten
+#    releases because nothing moved them.
+for TEMPLATE_CSPROJ in templates/content/*/*.csproj tools/schost/templates/*/*.csproj \
+                       docs/tutorials/*/*/*.csproj; do
     [ "$IS_RC" = true ] && break
     if [ -f "$TEMPLATE_CSPROJ" ]; then
         sed -i "s|<PackageReference Include=\"SharpConsoleUI\" Version=\"[^\"]*\"|<PackageReference Include=\"SharpConsoleUI\" Version=\"${NEW_VERSION}\"|" "$TEMPLATE_CSPROJ"
@@ -305,8 +310,8 @@ for TEMPLATE_CS in docs/scripting/templates/*.cs; do
     fi
 done
 
-if [ "$TEMPLATES_UPDATED" = true ] && ! git diff --quiet templates/ tools/schost/templates/ docs/scripting/templates/; then
-    git add templates/ tools/schost/templates/ docs/scripting/templates/
+if [ "$TEMPLATES_UPDATED" = true ] && ! git diff --quiet templates/ tools/schost/templates/ docs/scripting/templates/ docs/tutorials/; then
+    git add templates/ tools/schost/templates/ docs/scripting/templates/ docs/tutorials/
     git commit -m "Update template SharpConsoleUI dependency to ${NEW_VERSION}"
     git push origin "$(git branch --show-current)"
     echo -e "${GREEN}✓ Updated template dependencies to ${NEW_VERSION}${NC}"
