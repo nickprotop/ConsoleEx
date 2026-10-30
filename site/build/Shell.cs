@@ -279,6 +279,13 @@ internal static class Shell
 		sb.AppendLine("})();");
 		sb.AppendLine("</script>");
 
+		// Counted here, in the one place every page passes through. It used to
+		// be written into the hand-made landing page, and when the builder
+		// replaced that page the count went with it: only the API reference,
+		// whose footer DocFX injects from its own config, kept counting.
+		sb.AppendLine("<script data-goatcounter=\"https://sharpconsoleui.goatcounter.com/count\"");
+		sb.AppendLine("        async src=\"//gc.zgo.at/count.js\"></script>");
+
 		sb.AppendLine("</body>");
 		sb.AppendLine("</html>");
 
