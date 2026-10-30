@@ -14,6 +14,18 @@ $ echo '{"cmd":"windows"}' | socat - UNIX-CONNECT:/tmp/myapp.sock
 {"ok":true,"windows":[{"title":"Settings","bounds":{"x":10,"y":4,"w":60,"h":20},"active":true}]}
 ```
 
+> **Looking for the debugger, not the protocol?**
+>
+> ```bash
+> dotnet tool install -g cxdbg
+> cxdbg run ./MyApp --attach
+> ```
+>
+> **[cxdbg](CXDBG.md)** speaks all of this for you, and its
+> **[first five minutes](CXDBG.md#the-first-five-minutes)** is one screen rather
+> than this page. Come back here for what a verb answers and what each field of a
+> reply means.
+
 ---
 
 ## cxdbg, or raw JSON
@@ -498,6 +510,86 @@ Every `image` reply carries `frame`, so a client tracks it without a second call
 buffer underneath. It is a 64-bit value, because a 32-bit one at 60fps wraps in about
 thirteen months and a counter that went backwards would strand a client waiting for a
 number it had already passed.
+
+---
+
+## settled
+
+Whether the application has finished reacting to what it has been given, and what is
+holding it if not.
+
+```json
+{"cmd":"settled"}   →  {"ok":true,"settled":true,"frame":518,"blockers":null}
+                    →  {"ok":true,"settled":false,"frame":518,
+                        "blockers":"a mouse handler is running, 2 window(s) with work pending"}
+```
+
+Five conditions, all of them: no input waiting, no mouse handler running, nothing queued
+for the UI thread, no animation in flight, and no window with painting still to do.
+`blockers` names whichever are false, so a script that gives up waiting can say why.
+
+The mouse is the odd one. A mouse event is dispatched on whichever thread raised it and
+never enters a queue, which is what keeps it responsive while the UI is busy. Nothing that
+asks "is anything queued" can see it, so it is a condition of its own.
+
+**This is a read, not a wait.** It answers for the moment it was asked, and each condition
+belongs to a subsystem running on its own thread, so clearing all five does not promise
+that nothing is about to arrive. For waiting, use the frame counter above: in-process,
+`WaitUntilSettledAsync()` requires both the conditions and a frame composed since the call.
+
+**It is UI-level.** It says nothing about work the application itself is doing on its own
+threads.
+
+---
+
+## performance
+
+The rate the screen actually changes at, over the last few hundred frames.
+
+```json
+{"cmd":"performance"}
+  →  {"ok":true,"achievedFps":0.97,"targetFps":60,"minFrameMs":16.67,
+      "frameRateLimiting":true,"frames":300,"totalFrames":518,
+      "minMs":1017.69,"meanMs":1026.84,"p95Ms":1033.12,"maxMs":1085,
+      "bound":"work"}
+```
+
+`achievedFps` is what happened, `targetFps` what was asked for. An idle application sits
+far below its target and that is correct: nothing asked it to paint. `bound` says which
+side the limit came from, the work or the cap.
+
+`--reset` starts a fresh window, for measuring one thing rather than the session so far.
+
+Stage timings and byte counts need `{"cmd":"set","diagnostics":true}`; the reply says so
+rather than reporting zeros as though they were measurements.
+
+---
+
+## clock
+
+Reads the clocks, or points one at a frozen clock and steps it by hand.
+
+```json
+{"cmd":"clock"}
+  →  {"ok":true,"clocks":{"mouse":{"clock":"mouse","kind":"system","now":"..."},
+                          "repaint":{...},"animation":{...}}}
+
+{"cmd":"clock","target":"mouse","fake":true}       // freeze where it stands
+{"cmd":"clock","target":"mouse","advance":600}     // step it 600ms
+{"cmd":"clock","target":"mouse","system":true}     // hand it back
+```
+
+Three clocks, because the parts measure different things: `mouse` is the multi-click
+window, `repaint` the cadence of controls that redraw themselves, `animation` the per-frame
+delta. Freezing one leaves the others running, so the application keeps drawing while the
+thing under test holds still.
+
+Telling one double click from two slow ones is a question about timing, and waiting out a
+real multi-click window to test it is a poor way to spend a second.
+
+Frame pacing is not among them. Redrawing no more than `targetFps` times a second is a fact
+about the terminal, so it stays on the machine clock: a frozen clock there would render
+nothing at all.
 
 ---
 

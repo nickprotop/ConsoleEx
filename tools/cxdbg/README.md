@@ -21,6 +21,42 @@ dotnet tool install -g cxdbg
 Three questions about a live app: what the layout tree holds, which container
 decided a control's size, and what Tab can reach.
 
+## The first five minutes
+
+```bash
+cxdbg run ./MyApp --attach      # starts it, opens a prompt on it
+```
+
+The application asks permission on its own console before it paints. Answer `y`:
+it is about to let another program read its screen and press its keys.
+
+At the prompt, the socket and the `cxdbg` in front of every command are implied:
+
+```
+focus                           # where will Enter go?
+tree --depth 2                  # what does layout believe
+snapshot                        # the screen, as text
+image --path /tmp/now.png       # the screen, as a picture
+```
+
+Then drive it and look again:
+
+```
+key Down
+settled                         # has it finished reacting
+snapshot
+```
+
+`.help` lists what else the prompt takes. `exit` leaves the application running.
+
+Already have one running? `cxdbg shell -s /tmp/myapp.sock`, or leave off `-s` when
+only one application is listening.
+
+**The one thing worth knowing early:** `snapshot` says what the screen SHOWS and
+`tree` says what layout BELIEVES. When those two disagree, the disagreement is
+the bug. A control with a zero-width arranged rect is in the tree, reachable by
+Tab, and invisible on screen.
+
 ## Starting an app under it
 
 ```bash
@@ -427,36 +463,36 @@ application.
 
 | Verb | Answers | Fields |
 |---|---|---|
-| `snapshot` | What the screen shows: text, cells or markup | `--format` `--window` `--composed` `--ansi` `--x` `--y` `--w` `--h` |
-| `image` | What the screen looks like, as a PNG, TGA or JPEG | `--path` `--format` `--quality` `--window` `--composed` `--glyphs` `--font` `--fontSource` `--cellWidth` `--cellHeight` `--x` `--y` `--w` `--h` `--sinceFrame` |
-| `tree` | What layout believes: desired against arranged, per control | `--depth` `--props` `--window` |
-| `desktop` | The screen itself: size, where it starts, what is on it | — |
-| `control` | What one control is: its size, state, and what contains it | `--control` `--window` |
-| `inspect` | What is under a point: window, region, control, cell | `--x` `--y` |
-| `focus` | What currently has focus, and the chain to it | — |
-| `reachable` | Which controls Tab can reach, in Tab order | — |
-| `windows` | The windows, their bounds and their state | — |
-| `metrics` | Render metrics. Needs `set --diagnostics true` | — |
-| `performance` | The rate the screen actually changes at, over the last few hundred frames | `--reset` |
-| `measure` | Why a control is the size it is | `--control` |
-| `color` | Why a role is the colour it is | `--role` `--state` `--outline` |
-| `invalidations` | Which control asked for the frame. Needs diagnostics on | — |
-| `events` | What input the application was told about. Needs diagnostics on | — |
-| `logs` | The log buffer the application cannot print itself | `--level` `--count` `--category` `--contains` |
-| `frame` | The frame counter - if it stops, so has the app | — |
-| `settled` | Whether the app has finished reacting, and what is holding it | — |
-| `clock` | Read the clocks, or freeze one and step it by hand | `--target` `--fake` `--system` `--advance` |
-| `set` | Read the runtime switches, or change one | `--diagnostics` `--logging` `--logLevel` `--clearLogs` |
-| `theme` | Read the themes, or switch to one | `--name` |
-| `window` | Act on a window: activate, close | `--activate` `--close` `--window` |
-| `size` | Read the screen size, or set it on a headless app | `--w` `--h` |
-| `key` | Send a key, in tmux notation | `--spec` |
-| `mouse` | Send a mouse event | `--x` `--y` `--action` `--button` |
-| `seq` | Feed raw terminal bytes through the decoder | `--text` `--raw` |
-| `focusctl` | Move focus to a control | `--name` `--window` |
-| `invoke` | Activate a control the way a user would | `--name` `--window` |
-| `ping` | Check that an application is listening | — |
-| `commands` | Ask the application which verbs it knows | — |
+| [`snapshot`](../../docs/DEBUGGING.md#snapshot) | What the screen shows: text, cells or markup | `--format` `--window` `--composed` `--ansi` `--x` `--y` `--w` `--h` |
+| [`image`](../../docs/DEBUGGING.md#image) | What the screen looks like, as a PNG, TGA or JPEG | `--path` `--format` `--quality` `--window` `--composed` `--glyphs` `--font` `--fontSource` `--cellWidth` `--cellHeight` `--x` `--y` `--w` `--h` `--sinceFrame` |
+| [`tree`](../../docs/DEBUGGING.md#tree) | What layout believes: desired against arranged, per control | `--depth` `--props` `--window` |
+| [`desktop`](../../docs/DEBUGGING.md#desktop) | The screen itself: size, where it starts, what is on it | — |
+| [`control`](../../docs/DEBUGGING.md#control) | What one control is: its size, state, and what contains it | `--control` `--window` |
+| [`inspect`](../../docs/DEBUGGING.md#inspect) | What is under a point: window, region, control, cell | `--x` `--y` |
+| [`focus`](../../docs/DEBUGGING.md#focus) | What currently has focus, and the chain to it | — |
+| [`reachable`](../../docs/DEBUGGING.md#reachable) | Which controls Tab can reach, in Tab order | — |
+| [`windows`](../../docs/DEBUGGING.md#windows) | The windows, their bounds and their state | — |
+| [`metrics`](../../docs/DEBUGGING.md#metrics) | Render metrics. Needs `set --diagnostics true` | — |
+| [`performance`](../../docs/DEBUGGING.md#performance) | The rate the screen actually changes at, over the last few hundred frames | `--reset` |
+| [`measure`](../../docs/DEBUGGING.md#measure) | Why a control is the size it is | `--control` |
+| [`color`](../../docs/DEBUGGING.md#color) | Why a role is the colour it is | `--role` `--state` `--outline` |
+| [`invalidations`](../../docs/DEBUGGING.md#invalidations) | Which control asked for the frame. Needs diagnostics on | — |
+| [`events`](../../docs/DEBUGGING.md#events) | What input the application was told about. Needs diagnostics on | — |
+| [`logs`](../../docs/DEBUGGING.md#logs) | The log buffer the application cannot print itself | `--level` `--count` `--category` `--contains` |
+| [`frame`](../../docs/DEBUGGING.md#frame-and-streaming-the-screen) | The frame counter - if it stops, so has the app | — |
+| [`settled`](../../docs/DEBUGGING.md#settled) | Whether the app has finished reacting, and what is holding it | — |
+| [`clock`](../../docs/DEBUGGING.md#clock) | Read the clocks, or freeze one and step it by hand | `--target` `--fake` `--system` `--advance` |
+| [`set`](../../docs/DEBUGGING.md#set) | Read the runtime switches, or change one | `--diagnostics` `--logging` `--logLevel` `--clearLogs` |
+| [`theme`](../../docs/DEBUGGING.md#theme) | Read the themes, or switch to one | `--name` |
+| [`window`](../../docs/DEBUGGING.md#window) | Act on a window: activate, close | `--activate` `--close` `--window` |
+| [`size`](../../docs/DEBUGGING.md#size) | Read the screen size, or set it on a headless app | `--w` `--h` |
+| [`key`](../../docs/DEBUGGING.md#key) | Send a key, in tmux notation | `--spec` |
+| [`mouse`](../../docs/DEBUGGING.md#mouse) | Send a mouse event | `--x` `--y` `--action` `--button` |
+| [`seq`](../../docs/DEBUGGING.md#seq) | Feed raw terminal bytes through the decoder | `--text` `--raw` |
+| [`focusctl`](../../docs/DEBUGGING.md#focusctl-and-invoke) | Move focus to a control | `--name` `--window` |
+| [`invoke`](../../docs/DEBUGGING.md#focusctl-and-invoke) | Activate a control the way a user would | `--name` `--window` |
+| [`ping`](../../docs/DEBUGGING.md#ping-and-commands) | Check that an application is listening | — |
+| [`commands`](../../docs/DEBUGGING.md#ping-and-commands) | Ask the application which verbs it knows | — |
 
 Fields this build has never heard of still reach the application - the protocol
 decides what exists, and an application newer than its debugger answers an
