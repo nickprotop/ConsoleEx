@@ -46,47 +46,19 @@ Reaching `AOT SMOKE OK` without an exception proves these paths run under Native
 
 **Subprocess-backed controls are actually started**, not just constructed: `TerminalControl` opens a PTY and spawns a shell (`/bin/sh` on Linux), and `VideoControl.Play()` is invoked (starting its background decode loop). The goal is to prove the native binary can *invoke* those code paths without an AOT/reflection failure — not that a PTY or FFmpeg is present. Each is wrapped in a try/catch that classifies the exception: an AOT/reflection/trim signal fails the gate, while a missing environment (no PTY, FFmpeg absent) is logged as an `environment-skipped` note and the run continues. Whatever is started is stopped/disposed so no subprocess or read thread is orphaned.
 
-## HtmlControl caveat
+## HtmlControl
 
-`HtmlControl` **works** under NativeAOT (the smoke test renders HTML with CSS `calc()` and it runs correctly), but it is the one path that needs a build-time workaround.
+`HtmlControl` works under NativeAOT with nothing to add to your build. The smoke test
+renders HTML with CSS `calc()` in a published native binary and runs correctly.
 
-**Why:** `AngleSharp.Css` evaluates CSS `calc()` expressions with `Activator.CreateInstance(value.GetType(), …)`. The trimmer can't statically prove the runtime `Type` keeps its constructors, so it emits **4 `IL2072` warnings** from inside `AngleSharp.Css` (not from SharpConsoleUI). At runtime the relevant expression types survive trimming, so it works — the warnings are an analysis limitation, not a failure.
+It did need a workaround until `AngleSharp.Css` 1.2.2. That version evaluates CSS `calc()`
+without the `Activator.CreateInstance(value.GetType(), ...)` call that trim analysis
+reported as four `IL2072` warnings from inside the dependency, so the scoped MSBuild
+targets that collapsed them are gone from the smoke fixture and are not needed in your
+project either.
 
-This applies to **both** runtime-specific publish modes that trim: NativeAOT *and* plain `PublishTrimmed` (a self-contained, trimmed publish without AOT). Both run ILLink over the same assemblies, so both need the AngleSharp.Css scoping below. The smoke fixture's MSBuild targets handle both: the `TrimmerSingleWarn` collapse fires for either mode, and the resulting `IL2104`/`IL2072` is cleared via the ILC args (AOT) or `NoWarn`/`WarningsNotAsErrors` (plain trim). The smoke binary publishes and runs correctly in both modes.
-
-**Upstream status:** `AngleSharp.Css` has no stable 1.x release (the entire `1.0.0` line is beta; the last stable is the old `0.17.0` series), and no recent version has addressed the reflection/trim issue. So there is no "just upgrade" fix today.
-
-**If you AOT-publish an app that uses `HtmlControl`** and your build treats trim warnings as errors, collapse that one dependency's warnings with two scoped MSBuild targets in your `.csproj`. This leaves full `IL2072`-as-error analysis intact for your own code and every other assembly:
-
-```xml
-<!-- Collapse AngleSharp.Css's CSS calc() trim warnings (verified to run correctly under
-     NativeAOT) into a single per-assembly note, then stop that note failing the publish.
-     Scoped to AngleSharp.Css alone. -->
-<Target Name="_ScopeAngleSharpCssTrimWarnings"
-        AfterTargets="_ComputeManagedAssemblyForILLink"
-        Condition="'$(NativeCompilationDuringPublish)' == 'true'">
-  <ItemGroup>
-    <ManagedAssemblyToLink Condition="'%(Filename)' == 'AngleSharp.Css'">
-      <TrimmerSingleWarn>true</TrimmerSingleWarn>
-    </ManagedAssemblyToLink>
-  </ItemGroup>
-</Target>
-
-<Target Name="_SuppressAngleSharpCssSingleWarn"
-        BeforeTargets="WriteIlcRspFileForCompilation"
-        Condition="'$(NativeCompilationDuringPublish)' == 'true'">
-  <ItemGroup>
-    <IlcArg Include="--nowarnaserr:IL2104" />
-    <IlcArg Include="--nowarn:IL2104" />
-  </ItemGroup>
-</Target>
-```
-
-This is exactly what the library's own AOT smoke test uses — see `SharpConsoleUI.Tests/aot.test/AotSmoke.csproj`.
-
-**If you don't use `HtmlControl`,** none of this applies — the rest of the library is analyzer-clean with no action needed.
-
-> A C# `[UnconditionalSuppressMessage("Trimming", "IL2072")]` attribute does **not** help here: it only suppresses warnings attributed to the annotated member, and these are attributed to AngleSharp's own methods. Cross-assembly suppression (attribute `Scope`/`Target`, or an `ILLink.LinkAttributes.xml` targeting another assembly) is not honored by the current ILC, which is why the fix is the MSBuild/ILC-arg approach above.
+If you are pinned to an older `AngleSharp.Css` and your build treats trim warnings as
+errors, upgrading is the fix.
 
 ## Tips for AOT-publishing your own app
 

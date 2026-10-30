@@ -1035,7 +1035,7 @@ Console.Error.WriteLine(
 	$"AOT SMOKE OK: {controlCount} controls exercised (incl. NavigationView, TerminalControl + VideoControl actually started); " +
 	$"data binding (Bind/BindTwoWay via Expression interpreter) + [gradient=...] markup (typeof(Color).GetProperty) exercised; " +
 	$"markdown+highlighters+spectre+image AOT-clean; " +
-	$"HtmlControl exercised (AngleSharp + CSS calc(); IL2072 cleared via scoped suppression); " +
+	$"HtmlControl exercised (AngleSharp + CSS calc(), no trim suppression needed); " +
 	$"ChatTranscriptControl (thinking/streaming/gradient/alpha) exercised; " +
 	$"FormControl (builder, AddRadio<T>, GetValues, Submit) exercised; " +
 	$"FormXml (XDocument parse + runtime Regex validator) exercised; " +

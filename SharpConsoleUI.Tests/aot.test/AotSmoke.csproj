@@ -21,64 +21,15 @@
     <ProjectReference Include="..\..\SharpConsoleUI\SharpConsoleUI.csproj" />
   </ItemGroup>
 
-  <!-- ===========================================================================
-       Scoped NativeAOT trim-warning suppression for the AngleSharp.Css calc() path.
+  <!-- No trim-warning suppression here any more. AngleSharp.Css used to call
+       Activator.CreateInstance on a runtime Type in its four CssCalc*Expression
+       Compute methods, which trim analysis reported as IL2072 and which had to be
+       collapsed through ILC's singlewarnassembly option, since the warnings were
+       attributed to AngleSharp's own methods rather than to any call site here.
 
-       Exercising HtmlControl pulls AngleSharp.Css's CSS value pipeline into the
-       reachable call graph. Its four CssCalc*Expression types implement
-       ICssValue.Compute(ICssComputeContext) as explicit interface implementations that
-       call Activator.CreateInstance(value.GetType(), ...). The runtime Type from
-       object.GetType() lacks DynamicallyAccessedMemberTypes.PublicConstructors, so trim
-       analysis emits IL2072 — attributed by ILC to those AngleSharp methods themselves,
-       NOT to SharpConsoleUI's call sites.
-
-       RUNTIME-VERIFIED SAFE: a NativeAOT binary rendering HTML with CSS calc() runs
-       correctly (exit 0, content rendered) — the concrete expression types survive
-       trimming. The IL2072 is a trim-analysis warning, not a runtime crash.
-
-       Why this is done here, in MSBuild, and not as a C# [UnconditionalSuppressMessage]:
-       a C# attribute only suppresses warnings attributed to the annotated member, and
-       these are attributed to AngleSharp's own methods. ILC (this version) honors neither
-       cross-assembly Scope/Target [UnconditionalSuppressMessage] attributes nor an
-       embedded ILLink.LinkAttributes.xml that targets another assembly (verified by
-       experiment). The intended, genuinely-scoped ILC primitive is the
-       'singlewarnassembly' option, which collapses one specific dependency's trim warnings
-       into a single IL2104 note; we then stop IL2104 being treated as an error. This is
-       scoped to AngleSharp.Css ALONE: SharpConsoleUI's own code (and every other assembly)
-       still gets full IL2072-as-error analysis. It is NOT a project-wide NoWarn of IL2072.
-       =========================================================================== -->
-  <!-- Fires for BOTH trim modes: NativeAOT (NativeCompilationDuringPublish) and plain
-       PublishTrimmed (a self-contained, trimmed publish without AOT). Both run ILLink over the
-       same ManagedAssemblyToLink items, so the single-warn collapse below works for either. -->
-  <Target Name="_ScopeAngleSharpCssTrimWarnings"
-          AfterTargets="_ComputeManagedAssemblyForILLink"
-          Condition="'$(NativeCompilationDuringPublish)' == 'true' or '$(PublishTrimmed)' == 'true'">
-    <ItemGroup>
-      <!-- Collapse AngleSharp.Css's trim warnings (the 4 IL2072) into one IL2104 note. -->
-      <ManagedAssemblyToLink Condition="'%(Filename)' == 'AngleSharp.Css'">
-        <TrimmerSingleWarn>true</TrimmerSingleWarn>
-      </ManagedAssemblyToLink>
-    </ItemGroup>
-  </Target>
-
-  <!-- NativeAOT path: hand ILC the extra args so the collapsed IL2104 note is neither an error
-       nor emitted. IL2104 only fires for the single-warn collapse scoped to AngleSharp.Css above;
-       it does not affect IL2072 analysis of any other assembly. -->
-  <Target Name="_SuppressAngleSharpCssSingleWarn"
-          BeforeTargets="WriteIlcRspFileForCompilation"
-          Condition="'$(NativeCompilationDuringPublish)' == 'true'">
-    <ItemGroup>
-      <IlcArg Include="--nowarnaserr:IL2104" />
-      <IlcArg Include="--nowarn:IL2104" />
-    </ItemGroup>
-  </Target>
-
-  <!-- Plain PublishTrimmed path: the ILLink equivalent of the IlcArg suppression above. Stop the
-       collapsed IL2104 (and the underlying IL2072) from failing the trimmed publish. Scoped to
-       this fixture; SharpConsoleUI's own code keeps full IL2072-as-error analysis. -->
-  <PropertyGroup Condition="'$(NativeCompilationDuringPublish)' != 'true' and '$(PublishTrimmed)' == 'true'">
-    <NoWarn>$(NoWarn);IL2104;IL2072</NoWarn>
-    <WarningsNotAsErrors>$(WarningsNotAsErrors);IL2104;IL2072</WarningsNotAsErrors>
-  </PropertyGroup>
+       1.2.2 does not produce them. Verified by publishing this fixture for
+       NativeAOT with the suppression removed: no IL2072, no IL2104, and the
+       binary still renders HTML with CSS calc(). SharpConsoleUI's own code has
+       always had full IL2072-as-error analysis and still does. -->
 
 </Project>
