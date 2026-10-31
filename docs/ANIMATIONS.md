@@ -32,7 +32,8 @@ ConsoleWindowSystem.Run() loop:
            │
 ┌──────────▼──────────────────┐
 │ Animations.Update(delta)    │  ◄── Advances all active tweens
-│  - Caps delta to 33ms       │      Removes completed ones
+│  - Caps delta to 33ms,      │      Removes completed ones
+│    per animation            │
 │  - Fires onUpdate callbacks │
 │  - Fires onComplete         │
 └──────────┬──────────────────┘
@@ -43,6 +44,8 @@ ConsoleWindowSystem.Run() loop:
 ```
 
 Delta time is capped to `MaxFrameDeltaMs` (33ms) to prevent animations completing instantly after idle periods (e.g., when the terminal was backgrounded).
+
+The cap is decided per animation, not once per frame. An animation that returns `true` from `WantsUncappedDelta` receives the real elapsed time instead, and both kinds can be running at once. See [Uncapped Delta](#uncapped-delta).
 
 ## AnimationManager
 
@@ -277,6 +280,78 @@ public class PulseAnimation : IAnimation
 ws.Animations.Add(new PulseAnimation());
 ```
 
+`Add` returns nothing and drops the animation when the manager is full or
+animations are disabled, which costs a decorative tween a frame nobody
+notices. When the animation carries real work and a silent refusal would be
+a bug, use `TryAdd`:
+
+```csharp
+if (!ws.Animations.TryAdd(new SimulationLoop()))
+{
+    // Refused: animations are disabled, or MaxConcurrentAnimations is reached.
+    // The animation will never run, so say so rather than starting silently.
+}
+```
+
+### Uncapped Delta
+
+`AnimationManager.Update` caps every delta at `MaxFrameDeltaMs` so a tween
+does not jump to its final value after the application sat idle and drew no
+frames. That is the right failure for appearance over time: a transition
+would rather take an extra frame than skip to the end.
+
+Simulation over time wants the opposite. A fixed-step loop would rather drop
+steps than have its own clock stretched, because stretching makes it run in
+slow motion whenever frames are slow. Such an animation overrides
+`WantsUncappedDelta` and clamps the delta itself:
+
+```csharp
+public class SimulationLoop : IAnimation
+{
+    private const double MaxCatchUpSeconds = 0.25;
+    private const double StepSeconds = 1.0 / 120;
+
+    private double _accumulator;
+    private bool _cancelled;
+
+    public bool IsComplete => _cancelled;
+
+    // Give me the real elapsed time; I will bound my own catch-up.
+    public bool WantsUncappedDelta => true;
+
+    public void Update(TimeSpan deltaTime)
+    {
+        _accumulator += Math.Min(MaxCatchUpSeconds, deltaTime.TotalSeconds);
+
+        while (_accumulator >= StepSeconds)
+        {
+            Step((float)StepSeconds);
+            _accumulator -= StepSeconds;
+        }
+    }
+
+    public void Cancel() => _cancelled = true;
+}
+```
+
+`WantsUncappedDelta` is a defaulted interface member returning `false`, so
+existing implementations are unaffected and keep receiving the capped delta.
+
+It also decides what happens when the animation clock is frozen. The
+diagnostics socket can replace that clock and advance it by hand, and an
+advance reaches an uncapped animation at its full length rather than as one
+capped frame:
+
+```bash
+cxdbg clock --target animation --fake            # freeze it
+cxdbg clock --target animation --advance 1000    # one second, exactly
+```
+
+At a 1/120 step that advance is exactly 120 steps. The render loop keeps
+composing frames throughout, driven by its own clock, so the UI stays
+responsive while the simulation stands still. `Examples/Breakout` is a
+worked example; see [Debugging](DEBUGGING.md) for the socket.
+
 ## Interpolators
 
 Built-in interpolators handle type-specific blending:
@@ -319,7 +394,7 @@ Animation defaults are in `AnimationDefaults`:
 | `DefaultFadeDurationMs` | 300 | Default fade in/out duration |
 | `DefaultSlideDurationMs` | 400 | Default slide in/out duration |
 | `MaxConcurrentAnimations` | 50 | Maximum simultaneous animations |
-| `MaxFrameDeltaMs` | 33.0 | Delta time cap per frame (~30fps) |
+| `MaxFrameDeltaMs` | 33.0 | Delta time cap per frame (~30fps), unless the animation sets `WantsUncappedDelta` |
 
 Animations can be disabled system-wide via `ConsoleWindowSystemOptions.EnableAnimations`.
 

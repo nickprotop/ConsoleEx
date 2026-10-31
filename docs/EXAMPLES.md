@@ -512,7 +512,8 @@ dotnet run --project Examples/SpaceInvaders
 
 **SharpConsoleUI features on show:**
 - `CanvasControl` subclass (`AutoSize`, `BeginPaint`/`EndPaint`) that re-implements `IMouseAwareControl` to catch `Button1Pressed`
-- Game loop on `WithWindowThreadOnUI`: game state, key handlers and bindings share the UI thread with no locks, and every await wakes the render loop
+- Game loop registered with `ConsoleWindowSystem.Animations` as an `IAnimation`: the render loop advances it once per composed frame, on the UI thread, so game state, key handlers and bindings share that thread with no locks and the game keeps no clock of its own
+- Because it runs on the animation clock, the diagnostics socket can freeze the game and step it by hand while the UI keeps rendering (see [Animations](ANIMATIONS.md#uncapped-delta))
 - `PreviewKeyPressed` key capture, `TargetFPS: 120` frame cap, `Frameless()` maximised window with a gradient background
 - FIGlet fonts (`FigletFont`/`FigletRenderer`) rasterised into gradient pixel lettering; `EasingFunctions.Bounce` fly-ins
 - `PostBufferPaint` compositor hook for the damage flash (`ColorBlendHelper.ApplyColorOverlay`) and an optional CRT scanline filter
@@ -554,7 +555,8 @@ dotnet run --project Examples/SnakeGame -- --headless --socket --width 120 --hei
 
 **SharpConsoleUI features on show:**
 - `CanvasControl` subclass (`AutoSize`, `BeginPaint`/`EndPaint`) that re-implements `IMouseAwareControl` to catch `Button1Pressed`
-- Game loop on `WithWindowThreadOnUI`: game state, key handlers and bindings share the UI thread with no locks, and every await wakes the render loop
+- Game loop registered with `ConsoleWindowSystem.Animations` as an `IAnimation`: the render loop advances it once per composed frame, on the UI thread, so game state, key handlers and bindings share that thread with no locks and the game keeps no clock of its own
+- Because it runs on the animation clock, the diagnostics socket can freeze the game and step it by hand while the UI keeps rendering (see [Animations](ANIMATIONS.md#uncapped-delta))
 - `PreviewKeyPressed` key capture, `TargetFPS: 120` frame cap, `Frameless()` maximised window with a gradient background
 - `EasingFunctions.Elastic` fruit pop-in; `ColorGradient` particle palettes
 - `PostBufferPaint` compositor hook for the eat flash (`ColorBlendHelper.ApplyColorOverlay`) and an optional CRT scanline filter
@@ -563,6 +565,62 @@ dotnet run --project Examples/SnakeGame -- --headless --socket --width 120 --hei
 - `--socket` / `--headless`: the diagnostics socket and `HeadlessConsoleDriver`, so the game can be played and screenshotted by another process with no terminal involved
 
 **Controls:** Arrows or WASD to turn, mouse to steer, P/Space to pause, T for walls, C for CRT, R to restart, Q/Esc to quit
+
+---
+
+### Breakout
+The third arcade game, and the one written to show a game loop that is not a loop: it runs on the window system's animation manager.
+
+![Breakout](images/examples/breakout.png)
+
+| Title screen | CRT filter on | Pause overlay |
+|--------------|---------------|---------------|
+| ![Title](images/examples/breakout-title.png) | ![CRT](images/examples/breakout-crt.png) | ![Pause](images/examples/breakout-pause.png) |
+
+SnakeGame and SpaceInvaders used to pace themselves: a loop on the window thread, `Task.Delay`
+to a frame deadline, and a `Stopwatch` nothing else could see. All three now register an
+`IAnimation` with `ConsoleWindowSystem.Animations` instead, so the render loop advances them
+once per composed frame and no game owns a clock of its own.
+
+```bash
+dotnet run --project Examples/Breakout
+
+# Drive it from outside: open a diagnostics socket, or run with no terminal at all
+dotnet run --project Examples/Breakout -- --socket
+dotnet run --project Examples/Breakout -- --headless --socket --width 120 --height 36
+```
+
+Because the game runs on the animation clock, that clock can be frozen and advanced by hand:
+
+```bash
+cxdbg clock --target animation --fake            # the simulation stops
+cxdbg clock --target animation --advance 1000    # exactly 120 steps at a 1/120 step
+cxdbg image --path shot.png                      # the UI rendered throughout
+```
+
+The render loop keeps composing frames while the simulation stands still, so the window stays
+responsive rather than looking hung. The HUD's LOOP panel reports the frames and steps as they
+diverge.
+
+**Key Features:**
+- Ball physics with a sub-step sweep, so a fast ball cannot tunnel through a brick between frames
+- The paddle steers by where the ball lands on it: edges angle it away, the middle sends it straight back
+- Four power-ups that fall from broken bricks (wide paddle, slow ball, multi-ball, extra life), armoured two-hit bricks from level 3, and a combo multiplier
+- An attract mode that plays itself rather than showing a static title
+- Particle debris coloured from the brick that broke, score pop-ups, screen shake and a floor that glows red as the ball nears it
+- High score saved between runs
+
+**SharpConsoleUI features on show:**
+- Game loop as an `IAnimation` with `WantsUncappedDelta`, registered through `TryAdd` so a refused registration is an error rather than a game that silently never starts (see [Animations](ANIMATIONS.md#uncapped-delta))
+- `CanvasControl` with half-block pixel rendering and `BeginPaint`/`EndPaint`
+- `PreviewKeyPressed` key capture, `Frameless()` maximised window with a gradient background
+- FIGlet lettering rasterised into pixels for the title and game-over banners
+- `PostBufferPaint` compositor hook for the damage flash and an optional CRT scanline filter
+- HUD made of `FigletControl`, `ProgressBarControl`, `BarGraphControl` and `SparklineControl`, all updated through `.Bind()` from an `INotifyPropertyChanged` model
+- `ToastService` announcements, `WindowAnimations.FadeIn`, clickable `StatusBarControl` items
+- `--socket` / `--headless`: the diagnostics socket and `HeadlessConsoleDriver`
+
+**Controls:** ←/→ or A/D to move, mouse to steer, Space to serve, P/Esc to pause, C for CRT, R to restart, Q to quit
 
 ---
 
@@ -766,8 +824,9 @@ These examples demonstrate specific features without full screenshots.
 | HighFreqDemo | ✅ | | ✅ | | | |
 | CompositorEffectsExample | ✅ | ✅ | | ✅ | | |
 | AgentStudio | ✅ | | ✅ | | | |
-| SpaceInvaders | ✅ | ✅ | ✅ | | | ✅ |
-| SnakeGame | ✅ | ✅ | ✅ | | | ✅ |
+| SpaceInvaders | | ✅ | ✅ | | | ✅ |
+| SnakeGame | | ✅ | ✅ | | | ✅ |
+| Breakout | | ✅ | ✅ | | | ✅ |
 | TextEditorExample | | | | | | |
 | MultiDashboard | ✅ | | | | | |
 | FigletShowcaseExample | | | | | | |
@@ -796,9 +855,9 @@ These examples demonstrate specific features without full screenshots.
 | `MenuControl` | MenuDemo, HighFreqDemo |
 | `TableControl` | DemoApp, TableDemo |
 | `PanelControl` | StartMenuDemo, PanelDemo, HighFreqDemo |
-| `SparklineControl` | HighFreqDemo, NavigationViewDemo, SpaceInvaders |
+| `SparklineControl` | HighFreqDemo, NavigationViewDemo, SpaceInvaders, Breakout |
 | `LineGraphControl` | DemoApp |
-| `BarGraphControl` | HighFreqDemo, NavigationViewDemo, SpaceInvaders |
+| `BarGraphControl` | HighFreqDemo, NavigationViewDemo, SpaceInvaders, Breakout |
 | `NavigationView` | DemoApp, NavigationViewDemo |
 | `ProgressBarControl` | DemoApp, NavigationViewDemo |
 | `PromptControl` | DemoApp (Command Window) |
@@ -806,7 +865,7 @@ These examples demonstrate specific features without full screenshots.
 | `LogViewerControl` | DemoApp |
 | `TabControl` | TabControlDemo |
 | `ImageControl` | DemoApp (Image Rendering, Image Viewer) |
-| `CanvasControl` | CanvasDemo, DemoApp, SpaceInvaders |
+| `CanvasControl` | CanvasDemo, DemoApp, SpaceInvaders, Breakout |
 | `HorizontalGridControl` | Most examples |
 | `SliderControl` | DemoApp, Alpha Blending Demo |
 | `RangeSliderControl` | DemoApp |
