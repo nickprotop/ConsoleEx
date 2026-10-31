@@ -10,6 +10,7 @@
 // Purely visual state (stars, vignette mask) lives here, not in the Game.
 // -----------------------------------------------------------------------
 
+using Games.Common;
 using SharpConsoleUI;
 using SharpConsoleUI.Animation;
 using SharpConsoleUI.Drawing;
@@ -246,7 +247,7 @@ internal sealed class Renderer
 			for (int sx = 0; sx < s.Width; sx++)
 			{
 				if (!s[sx, sy]) continue;
-				var c = Effects.Rainbow.Interpolate(((t * 0.6 + sx / (double)s.Width) % 1 + 1) % 1);
+				var c = Palettes.Rainbow.Interpolate(((t * 0.6 + sx / (double)s.Width) % 1 + 1) % 1);
 				_px.Set(x + sx, Ufo.Y + sy, c);
 				_px.Add(x + sx, Ufo.Y + sy + 1, c, 0.15);
 			}
@@ -397,7 +398,7 @@ internal sealed class Renderer
 		// Score table with the real sprites, revealed one line at a time.
 		var entries = new (PixelMask PixelMask, Color Color, string Label)[]
 		{
-			(Sprites.Ufo, Effects.Rainbow.Interpolate((now * 0.3) % 1), "= ? MYSTERY"),
+			(Sprites.Ufo, Palettes.Rainbow.Interpolate((now * 0.3) % 1), "= ? MYSTERY"),
 			(Sprites.Squid[(int)(now * 2) % 2], RowGradient.Interpolate(0), "= 30 POINTS"),
 			(Sprites.Crab[(int)(now * 2) % 2], RowGradient.Interpolate(0.4), "= 20 POINTS"),
 			(Sprites.Octopus[(int)(now * 2) % 2], RowGradient.Interpolate(0.9), "= 10 POINTS"),
@@ -460,7 +461,7 @@ internal sealed class Renderer
 			_px.TextCentered(row + 1, $"WAVE {game.Wave}  ·  ACCURACY {game.Accuracy:P0}", HintColor);
 			if (game.BeatHighScore)
 			{
-				var c = Effects.Rainbow.Interpolate((now * 0.5) % 1);
+				var c = Palettes.Rainbow.Interpolate((now * 0.5) % 1);
 				_px.TextCentered(row + 3, "★  NEW HIGH SCORE  ★", c);
 			}
 			if ((int)(now * 2.2) % 3 != 0)

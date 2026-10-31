@@ -12,6 +12,7 @@
 // a 1970s one.
 // -----------------------------------------------------------------------
 
+using Games.Common;
 using SharpConsoleUI;
 using SharpConsoleUI.Drawing;
 using SharpConsoleUI.Animation;
@@ -383,7 +384,7 @@ internal sealed class Renderer
 		for (int i = 0; i < title.Length; i++)
 		{
 			double phase = (now * 0.35 + i * 0.045) % 1.0;
-			var color = Effects.Rainbow.Interpolate(phase);
+			var color = Palettes.Rainbow.Interpolate(phase);
 			_surface.Text(start + i, midRow - 1, title[i].ToString(), color);
 		}
 

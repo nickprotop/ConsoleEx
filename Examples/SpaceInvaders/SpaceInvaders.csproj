@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\SharpConsoleUI\SharpConsoleUI.csproj" />
+    <ProjectReference Include="..\Games.Common\Games.Common.csproj" />
   </ItemGroup>
 
 </Project>

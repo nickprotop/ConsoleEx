@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Games.Common</RootNamespace>
+    <!-- Shared by the example games only. Never packed: it is not library
+         surface, so it stays free to change without a compatibility story. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\SharpConsoleUI\SharpConsoleUI.csproj" />
+  </ItemGroup>
+
+</Project>

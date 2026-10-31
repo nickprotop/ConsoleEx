@@ -17,6 +17,7 @@
 // that forgives exactly one fatal mistake per run.
 // -----------------------------------------------------------------------
 
+using Games.Common;
 using SharpConsoleUI;
 
 namespace SnakeGame;
@@ -125,6 +126,14 @@ internal sealed class Game
 	private int _fruitEatenTotal;
 	private double _lastEatTime = double.NegativeInfinity;
 
+	/// <summary>
+	/// The game's own elapsed time, as the loop last reported it. Read instead
+	/// of a wall clock so that anything derived from it agrees with the
+	/// simulation: _lastEatTime is recorded from this, and comparing the two
+	/// against different clocks drifts the moment one of them is frozen.
+	/// </summary>
+	private double _now;
+
 	public Game(int highScore)
 	{
 		HiScore = highScore;
@@ -200,7 +209,7 @@ internal sealed class Game
 		get
 		{
 			if (Combo <= 1 || double.IsNegativeInfinity(_lastEatTime)) return 0;
-			double left = ComboWindowSeconds - (GameClock.Now - _lastEatTime);
+			double left = ComboWindowSeconds - (_now - _lastEatTime);
 			return Math.Clamp(left / ComboWindowSeconds, 0, 1);
 		}
 	}
@@ -368,6 +377,7 @@ internal sealed class Game
 	/// <summary>Advances the world by one fixed step.</summary>
 	public void Update(float dt, double now)
 	{
+		_now = now;
 		float worldDt = dt * Fx.TimeScale;
 		Fx.Update(worldDt, dt);
 
@@ -491,7 +501,7 @@ internal sealed class Game
 
 		if (fruit.Bonus)
 		{
-			Fx.Explode(px, py, 90, Effects.Spark, 55f, life: 0.9f, gravity: 10f);
+			Fx.Explode(px, py, 90, Palettes.Spark, 55f, life: 0.9f, gravity: 10f);
 			Fx.AddShake(2.4f);
 			Fx.Flash(new Color(120, 200, 255), 0.42f);
 			Fx.SlowMotion(0.16f, 0.35f);
@@ -499,7 +509,7 @@ internal sealed class Game
 		}
 		else
 		{
-			Fx.Explode(px, py, 34, Effects.Juice, 34f, life: 0.6f, gravity: 30f);
+			Fx.Explode(px, py, 34, Palettes.Juice, 34f, life: 0.6f, gravity: 30f);
 			Fx.AddShake(0.9f);
 		}
 
@@ -559,7 +569,7 @@ internal sealed class Game
 				Fx.SlowMotion(0.35f, 0.3f);
 
 				var (hx, hy) = CellCenter(_body[0]);
-				Fx.Explode(hx, hy, 70, Effects.Spark, 45f, life: 0.8f, gravity: 0f);
+				Fx.Explode(hx, hy, 70, Palettes.Spark, 45f, life: 0.8f, gravity: 0f);
 				Fx.AddPopup("SHIELD", hx, hy, new Color(140, 220, 255), 1.4f);
 
 				Notify?.Invoke(GameEvent.ShieldUsed,
@@ -581,7 +591,7 @@ internal sealed class Game
 		foreach (var segment in _body)
 		{
 			var (sx, sy) = CellCenter(segment);
-			Fx.Explode(sx, sy, 6, Effects.Scale, 26f, life: 1.1f, gravity: 42f);
+			Fx.Explode(sx, sy, 6, Palettes.Scale, 26f, life: 1.1f, gravity: 42f);
 		}
 
 		if (Score >= HiScore && Score > 0) BeatHighScore = true;
@@ -636,7 +646,7 @@ internal sealed class Game
 		if (Bonus.Life > 0) return;
 
 		var (px, py) = CellCenter(Bonus.At);
-		Fx.Explode(px, py, 18, Effects.Spark, 16f, life: 0.5f, gravity: -8f, glow: false);
+		Fx.Explode(px, py, 18, Palettes.Spark, 16f, life: 0.5f, gravity: -8f, glow: false);
 		Bonus = null;
 		Notify?.Invoke(GameEvent.BonusMissed, "Bonus fruit got away.");
 	}

@@ -3,21 +3,26 @@
 //
 // A full-screen frameless window holds a HorizontalGrid: a GameCanvas
 // (CanvasControl) play field and a data-bound HUD sidebar, with a clickable
-// StatusBar along the bottom. The game runs on the window's own UI-thread
-// loop (WithWindowThreadOnUI): every await resumes on the UI thread and
-// wakes the render loop promptly, so game state, key handlers and HUD
-// bindings all share one thread with no locks.
+// StatusBar along the bottom.
+//
+// The game has no loop of its own. Games.Common.GameLoop is an IAnimation
+// registered with ConsoleWindowSystem.Animations, so the render loop
+// advances it once per composed frame, on the UI thread, from the animation
+// clock. Game state, key handlers and HUD bindings all share that thread
+// with no locks, and the diagnostics socket can freeze that clock and step
+// the game by hand. See Games.Common.GameLoop.
 //
 // Features on show: half-block pixel rendering into a CanvasControl with
 // interpolated motion between grid ticks, library easing functions, a
 // PostBufferPaint compositor hook (damage flash via ColorBlendHelper and an
 // optional CRT scanline filter), WindowAnimations.FadeIn, ToastService,
-// INotifyPropertyChanged data binding, Figlet/ProgressBar/BarGraph/Sparkline
-// HUD controls, and the 120 fps frame-rate cap.
+// INotifyPropertyChanged data binding, and Figlet/ProgressBar/BarGraph/
+// Sparkline HUD controls.
 //
 // Run:  dotnet run --project Examples/SnakeGame
 // -----------------------------------------------------------------------
 
+using Games.Common;
 using SharpConsoleUI;
 using SharpConsoleUI.Animation;
 using SharpConsoleUI.Builders;
@@ -33,7 +38,6 @@ namespace SnakeGame;
 
 internal static class Program
 {
-	private const double FrameSeconds = 1.0 / 60;
 	private const double StepSeconds = 1.0 / 120;
 
 	private static int Main(string[] args)
@@ -55,8 +59,10 @@ internal static class Program
 			var ws = new ConsoleWindowSystem(
 				driver,
 				options: new ConsoleWindowSystemOptions(
-					// The game paces itself at 60 fps; a higher cap keeps the
-					// system's frame gate from ever dropping one of its frames.
+					// The render loop IS the game loop now, so this cap is the
+					// game's frame rate. The fixed simulation step is finer than
+					// it (1/120 against 120 fps), so the simulation is identical
+					// whatever rate the renderer actually achieves.
 					TargetFPS: 120,
 					ShowTopPanel: false,
 					ShowBottomPanel: false,
@@ -109,8 +115,10 @@ internal static class Program
 		private readonly MouseInput _mouse = new();
 		private readonly CanvasControl _canvas;
 		private readonly int _startingHighScore;
+		private GameLoop _loop = null!;
 		private bool _crt;
-		private double _fps;
+		private bool _clockFrozen;
+		private DateTimeOffset _lastClockReading = DateTimeOffset.MinValue;
 
 		public GameSession(ConsoleWindowSystem ws)
 		{
@@ -172,7 +180,6 @@ internal static class Program
 					GradientDirection.Vertical)
 				.AddControl(layout)
 				.AddControl(statusBar)
-				.WithWindowThreadOnUI(RunLoopAsync)
 				.Build();
 
 			window.PreviewKeyPressed += OnPreviewKey;
@@ -180,73 +187,65 @@ internal static class Program
 
 			_ws.ToastService.DefaultPosition = ToastPosition.BottomRight;
 			_ws.AddWindow(window);
+
+			// The loop IS an animation: the render loop advances it once per
+			// composed frame. See Games.Common.GameLoop for why this beats a
+			// Task.Delay loop with a Stopwatch of its own.
+			_loop = new GameLoop(StepSeconds, Step, AfterSteps, () => _clockFrozen);
+			if (!_ws.Animations.TryAdd(_loop))
+			{
+				throw new InvalidOperationException(
+					"The animation manager refused the game loop, so the game would " +
+					"never advance. Animations are disabled, or the manager is full.");
+			}
 			WindowAnimations.FadeIn(window, TimeSpan.FromMilliseconds(600), new Color(0, 0, 0), EasingFunctions.EaseInOut);
 		}
 
-		/// <summary>
-		/// The game loop. Runs on the UI thread: each await resumes through the
-		/// window system's synchronization context, which also wakes its render loop.
-		/// </summary>
-		private async Task RunLoopAsync(Window window, CancellationToken ct)
+		/// <summary>One fixed simulation step.</summary>
+		/// <remarks>
+		/// Called by GameLoop, which the animation manager advances once per
+		/// composed frame on the UI thread. The game keeps no clock of its own.
+		/// </remarks>
+		private void Step(float dt, double now)
 		{
-			double last = GameClock.Now;
-			double nextFrame = last;
-			double accumulator = 0;
-			int frames = 0;
-			double fpsWindowStart = last;
+			_game.Update(dt, now);
+		}
 
-			while (!ct.IsCancellationRequested)
+		/// <summary>Once per frame, after the steps: input, paint and HUD.</summary>
+		private void AfterSteps(double now)
+		{
+			NoteClockState();
+
+			_game.Resize(_canvas.CanvasWidth, _canvas.CanvasHeight * 2);
+			var (mouseX, mouseY, mouseMoved, clicks) = _mouse.Consume();
+			_game.ApplyMouse(
+				mouseX / Game.CellSize,
+				mouseY * 2 / Game.CellSize,
+				mouseMoved, clicks, now);
+
+			var g = _canvas.BeginPaint();
+			try
 			{
-				double now = GameClock.Now;
-				accumulator += Math.Min(0.1, now - last);
-				last = now;
-
-				_game.Resize(_canvas.CanvasWidth, _canvas.CanvasHeight * 2);
-				var (mouseX, mouseY, mouseMoved, clicks) = _mouse.Consume();
-				_game.ApplyMouse(
-					mouseX / Game.CellSize,
-					mouseY * 2 / Game.CellSize,
-					mouseMoved, clicks, now);
-
-				// Fixed-step simulation: identical game speed at any frame rate.
-				while (accumulator >= StepSeconds)
-				{
-					_game.Update((float)StepSeconds, now);
-					accumulator -= StepSeconds;
-				}
-
-				var g = _canvas.BeginPaint();
-				try
-				{
-					_renderer.Render(g, _game, now);
-				}
-				finally
-				{
-					_canvas.EndPaint();
-				}
-
-				_hud.Sync(_game, now, _crt, _fps);
-
-				frames++;
-				if (now - fpsWindowStart >= 1)
-				{
-					_fps = frames / (now - fpsWindowStart);
-					frames = 0;
-					fpsWindowStart = now;
-				}
-
-				// Pace to absolute frame deadlines so Task.Delay jitter doesn't accumulate.
-				nextFrame = Math.Max(nextFrame + FrameSeconds, GameClock.Now - FrameSeconds);
-				int delayMs = (int)Math.Max(1, (nextFrame - GameClock.Now) * 1000);
-				try
-				{
-					await Task.Delay(delayMs, ct);
-				}
-				catch (OperationCanceledException)
-				{
-					break;
-				}
+				_renderer.Render(g, _game, now);
 			}
+			finally
+			{
+				_canvas.EndPaint();
+			}
+
+			_hud.Sync(_game, now, _crt, _loop.Fps);
+		}
+
+		/// <summary>
+		/// Notices whether the animation clock is frozen, by watching whether it
+		/// moves. A frozen clock returns the same instant on every read until
+		/// someone advances it, and the socket can swap one in at any moment.
+		/// </summary>
+		private void NoteClockState()
+		{
+			var now = _ws.AnimationTime.GetUtcNow();
+			_clockFrozen = now == _lastClockReading;
+			_lastClockReading = now;
 		}
 
 		private void OnPreviewKey(object? sender, KeyPressedEventArgs e)

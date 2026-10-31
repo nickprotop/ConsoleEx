@@ -10,6 +10,7 @@
 // UFO crosses the top, and a combo multiplier rewards unbroken accuracy.
 // -----------------------------------------------------------------------
 
+using Games.Common;
 using SharpConsoleUI;
 using SharpConsoleUI.Helpers;
 
@@ -515,7 +516,7 @@ internal sealed class Game
 		ShotsFired++;
 		_waveShots++;
 		_fireCooldown = FireCooldown;
-		Fx.Jet(x, PlayerY - 1, 6, Effects.Plasma, -40f, 18f);
+		Fx.Jet(x, PlayerY - 1, 6, Palettes.Plasma, -40f, 18f);
 	}
 
 	private float StepInterval()
@@ -646,7 +647,7 @@ internal sealed class Game
 
 			if (tip >= Height - 2)
 			{
-				Fx.Jet(b.X, Height - 3, 5, Effects.Fire, -22f, 30f);
+				Fx.Jet(b.X, Height - 3, 5, Palettes.Fire, -22f, 30f);
 				Bombs.RemoveAt(i);
 			}
 		}
@@ -761,7 +762,7 @@ internal sealed class Game
 				if (Math.Abs((int)bomb.X - sx) <= 1 && y >= (int)bomb.Y - 1 && y <= (int)bomb.Y + 3)
 				{
 					Bombs.RemoveAt(b);
-					Fx.Explode(sx, y, 10, Effects.Plasma, 30f, 0.4f, 0f);
+					Fx.Explode(sx, y, 10, Palettes.Plasma, 30f, 0.4f, 0f);
 					AddScore(5, sx, y, quiet: true);
 					return true;
 				}
@@ -786,7 +787,7 @@ internal sealed class Game
 
 		var palette = InvaderPalette(inv.Kind);
 		Fx.Shatter(inv.Frames[AnimFrame], x, y, palette, 26f);
-		Fx.Explode(x + 3, y + 2, 8, Effects.Fire, 34f, 0.5f);
+		Fx.Explode(x + 3, y + 2, 8, Palettes.Fire, 34f, 0.5f);
 		Fx.AddShake(0.9f);
 
 		if (InvadersAlive == 0)
@@ -805,8 +806,8 @@ internal sealed class Game
 		_waveHits++;
 		Streak++;
 		AddScore(Ufo.Points, x + 5, y + 4, quiet: false);
-		Fx.Shatter(Sprites.Ufo, x, y, Effects.Rainbow, 40f);
-		Fx.Explode(x + 5, y + 2, 40, Effects.Fire, 55f, 0.9f);
+		Fx.Shatter(Sprites.Ufo, x, y, Palettes.Rainbow, 40f);
+		Fx.Explode(x + 5, y + 2, 40, Palettes.Fire, 55f, 0.9f);
 		Fx.AddShake(2.5f);
 		Fx.Flash(new Color(255, 80, 200), 0.25f);
 	}
@@ -816,8 +817,8 @@ internal sealed class Game
 		Lives--;
 		Streak = 0;
 		int px = (int)PlayerX, py = PlayerY;
-		Fx.Shatter(Sprites.Player, px, py, Effects.Plasma, 45f);
-		Fx.Explode(px + 4, py + 2, 70, Effects.Fire, 65f, 1.2f);
+		Fx.Shatter(Sprites.Player, px, py, Palettes.Plasma, 45f);
+		Fx.Explode(px + 4, py + 2, 70, Palettes.Fire, 65f, 1.2f);
 		Fx.AddShake(5f);
 		Fx.Flash(new Color(255, 30, 30), 0.55f);
 		Fx.SlowMotion(0.6f, 0.3f);
@@ -830,8 +831,8 @@ internal sealed class Game
 		_invaded = true;
 		Lives = 0;
 		int px = (int)PlayerX, py = PlayerY;
-		Fx.Shatter(Sprites.Player, px, py, Effects.Plasma, 45f);
-		Fx.Explode(px + 4, py + 2, 90, Effects.Fire, 70f, 1.4f);
+		Fx.Shatter(Sprites.Player, px, py, Palettes.Plasma, 45f);
+		Fx.Explode(px + 4, py + 2, 90, Palettes.Fire, 70f, 1.4f);
 		Fx.AddShake(6f);
 		Fx.Flash(new Color(255, 30, 30), 0.7f);
 		EndGame();
@@ -916,7 +917,7 @@ internal sealed class Game
 					shield.Mask[lx, ly] = false;
 			}
 
-		Fx.Explode(px, py, 7, Effects.Toxic, 22f, 0.45f, downward ? 30f : -10f, glow: false);
+		Fx.Explode(px, py, 7, Palettes.Toxic, 22f, 0.45f, downward ? 30f : -10f, glow: false);
 	}
 
 	private void UpdateThreat()
