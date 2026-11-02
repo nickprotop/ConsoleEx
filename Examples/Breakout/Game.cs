@@ -96,6 +96,20 @@ internal sealed class Game
 	private float _phaseTime;
 	private float _paddleTarget;
 	private int _paddleInput;
+
+	/// <summary>
+	/// Seconds since the last left/right press. The terminal reports no key release, so a held
+	/// key is recognised by its auto-repeat still arriving: once the presses stop for longer
+	/// than a repeat interval, the key is treated as let go and the paddle halts.
+	/// </summary>
+	private float _sinceSteerPress = float.PositiveInfinity;
+
+	/// <summary>
+	/// How long after a press the paddle keeps going. Comfortably longer than any OS
+	/// auto-repeat interval, so a genuine hold never stutters, and short enough that letting
+	/// go stops the paddle within a frame or two rather than letting it drift on.
+	/// </summary>
+	private const float SteerHeldSeconds = 0.14f;
 	private float _wideTimer;
 	private float _slowTimer;
 	private bool _mouseControl;
@@ -183,6 +197,7 @@ internal sealed class Game
 	public void Steer(int direction)
 	{
 		_paddleInput = Math.Sign(direction);
+		_sinceSteerPress = 0;
 		if (_paddleInput != 0) _mouseControl = false;
 	}
 
@@ -301,7 +316,12 @@ internal sealed class Game
 		}
 		else if (_paddleInput != 0)
 		{
-			PaddleX += _paddleInput * PaddleSpeed * dt;
+			// Let go of a direction whose auto-repeat has stopped arriving. Without this a
+			// single tap latches the paddle and it slides on until the opposite key is
+			// pressed, which reads as a stuck control rather than a deliberate one.
+			_sinceSteerPress += dt;
+			if (_sinceSteerPress > SteerHeldSeconds) _paddleInput = 0;
+			else PaddleX += _paddleInput * PaddleSpeed * dt;
 		}
 
 		PaddleX = Math.Clamp(PaddleX, half, Width - half);

@@ -6,10 +6,11 @@
 // the OS auto-repeat rate, because a ship that stops dead mid-dodge is
 // fatal there.
 //
-// Breakout does not need any of it. The paddle latches: a left or right key
-// sets a direction and it keeps going until the opposite key, a stop key, or
-// the mouse takes over. One press is enough to express the whole intent, so
-// the auto-repeat pause nobody can avoid is simply never in the way.
+// Breakout does not need any of it. A left or right key sets a direction and
+// the paddle keeps going while that key's auto-repeat keeps arriving; once the
+// presses stop for longer than a repeat interval the key is treated as let go
+// and the paddle halts. So a hold slides smoothly and a tap nudges once, with
+// no release event and no learned repeat rate - just a short grace period.
 //
 // Mouse events arrive on the driver's input thread while keys arrive on the
 // UI thread, so MouseInput is the only lock-guarded state here.
