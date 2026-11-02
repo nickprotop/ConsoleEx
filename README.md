@@ -66,10 +66,11 @@ not by a full-screen repaint.
 
 This architecture makes things possible that other .NET terminal libraries
 don't do: transparent windows that blend with whatever is under them, animated
-desktop backgrounds, a PTY-backed terminal emulator hosting a real shell, a
-browser that renders real web pages with images, video playback with Kitty
-graphics + cell-based fallbacks, and compositor hooks for blur, fade, and custom
-effects.
+desktop backgrounds, and compositor hooks for blur, fade, and custom effects.
+It is also what the exotic controls are built on — a canvas with a half-block
+pixel surface you draw into in memory, an HTML control that renders real web
+pages with images, video playback with Kitty graphics and cell-based fallbacks,
+and a terminal control with a real shell running inside it.
 
 Everything it draws ends at a [**console driver**](docs/DRIVERS.md): the layer that turns
 cells into bytes and terminal bytes back into keys and mouse events. One drives a real
