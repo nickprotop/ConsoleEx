@@ -65,8 +65,9 @@ SSH connection — latency and flicker are determined by what actually changed,
 not by a full-screen repaint.
 
 This architecture makes things possible that other .NET terminal libraries
-don't do: overlapping windows with drag/resize/minimize/maximize, animated
-desktop backgrounds, a PTY-backed terminal emulator, video playback with Kitty
+don't do: transparent windows that blend with whatever is under them, animated
+desktop backgrounds, a PTY-backed terminal emulator hosting a real shell, a
+browser that renders real web pages with images, video playback with Kitty
 graphics + cell-based fallbacks, and compositor hooks for blur, fade, and custom
 effects.
 
