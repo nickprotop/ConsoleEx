@@ -624,6 +624,55 @@ diverge.
 
 ---
 
+### Tetris
+The fourth arcade game, and the one that had to fit a fixed-proportion board into whatever
+terminal it was given.
+
+![Tetris](images/examples/tetris.png)
+
+| Title screen | Pause overlay |
+|--------------|---------------|
+| ![Title](images/examples/tetris-title.png) | ![Pause](images/examples/tetris-pause.png) |
+
+Guideline rules: SRS rotation with wall kicks, a seven-bag randomiser, hold, a ghost piece,
+lock delay with a reset cap, and back-to-back scoring. Like the other three it registers an
+`IAnimation` with `ConsoleWindowSystem.Animations` rather than running a loop of its own.
+
+```bash
+dotnet run --project Examples/Tetris
+
+# Drive it from outside: open a diagnostics socket, or run with no terminal at all
+dotnet run --project Examples/Tetris -- --socket
+dotnet run --project Examples/Tetris -- --headless --socket --width 130 --height 38
+```
+
+A pixel on the half-block surface is a whole column wide and half a row tall, so a square
+board cell needs twice as many pixels across as down. The well scales that 4x2 pair down as a
+unit when the terminal is too short or too narrow for it, which keeps the board square instead
+of squashing it, and reserves the HUD's columns so the sidebar never overlaps the playfield.
+
+**Key Features:**
+- SRS rotation with wall kicks, so a piece rotating against a wall or the stack shifts into the gap rather than refusing
+- A seven-bag randomiser: every piece appears once before any repeats, which removes the droughts pure random produces
+- Lock delay with a reset cap: a piece resting on the stack can still be moved, but not indefinitely
+- Ghost piece, hold slot, soft and hard drop, back-to-back and combo scoring
+- Delayed auto shift: holding a direction slides the piece smoothly from the first cell, and a tap always moves exactly one cell
+- Particle debris coloured from the cleared row, screen shake, a white flash on a tetris, and score pop-ups
+- High score saved between runs
+
+**SharpConsoleUI features on show:**
+- Game loop as an `IAnimation` with `WantsUncappedDelta`, registered through `TryAdd` (see [Animations](ANIMATIONS.md#uncapped-delta))
+- `CanvasControl` with half-block pixel rendering through `PixelSurface`, and `BeginPaint`/`EndPaint`
+- Pixel-font lettering rasterised for the title banner, glow-masked over the well
+- `PreviewKeyPressed` key capture, `Frameless()` maximised window
+- HUD made of `ProgressBarControl` and `SparklineControl`, updated through `.Bind()` from an `INotifyPropertyChanged` model
+- `ToastService` announcements and clickable `StatusBarControl` items
+- `--socket` / `--headless`: the diagnostics socket and `HeadlessConsoleDriver`, so the game can be played and screenshotted by another process with no terminal involved
+
+**Controls:** ←/→ to move, ↑/X to rotate, Z to rotate counter-clockwise, ↓ to soft drop, Space to hard drop, C to hold, P to pause, R to restart, Q to quit
+
+---
+
 ### TextEditorExample
 Multiline text editor with syntax highlighting and file browser.
 
