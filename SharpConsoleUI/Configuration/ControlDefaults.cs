@@ -1286,6 +1286,25 @@ namespace SharpConsoleUI.Configuration
 		/// <summary>Cells the checkbox column takes in a TableControl's checkbox mode, room for <c>"[x] "</c> (default: 4).</summary>
 		public const int TableCheckboxColumnWidth = 4;
 
+		/// <summary>The checkbox cell for a checked row. Exactly TableCheckboxColumnWidth wide.</summary>
+		public const string TableCheckboxChecked = "[x] ";
+
+		/// <summary>The checkbox cell for an unchecked row. Exactly TableCheckboxColumnWidth wide.</summary>
+		public const string TableCheckboxUnchecked = "[ ] ";
+
+		/// <summary>
+		/// The checkbox cell for a row whose descendants disagree. Exactly
+		/// TableCheckboxColumnWidth wide.
+		/// </summary>
+		public const string TableCheckboxIndeterminate = "[-] ";
+
+		/// <summary>
+		/// The checkbox cell for a row that draws no checkbox. Blank, but still exactly
+		/// TableCheckboxColumnWidth wide: the column is a fixed width, so an empty string here
+		/// would shift every column after it.
+		/// </summary>
+		public const string TableCheckboxHidden = "    ";
+
 		/// <summary>Narrowest a TableControl column can be dragged to while resizing it (default: 3).</summary>
 		public const int TableMinResizeColumnWidth = 3;
 

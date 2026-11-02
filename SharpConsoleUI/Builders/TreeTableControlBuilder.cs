@@ -23,6 +23,9 @@ namespace SharpConsoleUI.Builders;
 /// </remarks>
 public sealed class TreeTableControlBuilder : TableControlBuilderBase<TreeTableControlBuilder>, IControlBuilder<TreeTableControl>
 {
+	private bool _cascadeChecks;
+	private bool _showParentCheckboxes = true;
+
 	private TreeGuide _guide = TreeGuide.Line;
 	private string _indent = ControlDefaults.DefaultTreeIndent;
 	private int _treeColumnIndex;
@@ -95,6 +98,28 @@ public sealed class TreeTableControlBuilder : TableControlBuilderBase<TreeTableC
 	}
 
 	/// <summary>
+	/// Makes a row's checkbox carry the rows nested under it: checking a row checks its whole
+	/// subtree, and a row shows the state its children agree on, or indeterminate when they do
+	/// not. Off by default, which leaves every checkbox independent.
+	/// </summary>
+	public TreeTableControlBuilder WithCascadingChecks()
+	{
+		_cascadeChecks = true;
+		return this;
+	}
+
+	/// <summary>
+	/// Hides the checkbox on rows that have children, so the hierarchy reads as structure and only
+	/// the leaves are targets. The rows stay fully visible; only the checkbox cell is blank, and a
+	/// hidden checkbox can still be set from code.
+	/// </summary>
+	public TreeTableControlBuilder WithoutParentCheckboxes()
+	{
+		_showParentCheckboxes = false;
+		return this;
+	}
+
+	/// <summary>
 	/// Makes a filter show every row under a match, matching or not.
 	/// </summary>
 	/// <returns>The builder for chaining</returns>
@@ -141,6 +166,8 @@ public sealed class TreeTableControlBuilder : TableControlBuilderBase<TreeTableC
 			Indent = _indent,
 			TreeColumnIndex = _treeColumnIndex,
 			FilterIncludesDescendants = _filterIncludesDescendants,
+			CascadeChecks = _cascadeChecks,
+			ShowParentCheckboxes = _showParentCheckboxes,
 		};
 
 		if (_onRowExpansionChanging != null)

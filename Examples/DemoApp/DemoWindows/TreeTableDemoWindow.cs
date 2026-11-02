@@ -32,6 +32,7 @@ public static class TreeTableDemoWindow
 		var tabs = Controls.TabControl()
 			.AddTab("Backlog", BuildBacklogTab(ws))
 			.AddTab("Bound to view models", BuildBoundTab())
+			.AddTab("Checkboxes", BuildCheckboxTab())
 			.Fill()
 			.Build();
 
@@ -347,6 +348,12 @@ public static class TreeTableDemoWindow
 
 	#endregion
 
+	/// <summary>Rows shown in each checkbox tree before it scrolls.</summary>
+	private const int CheckboxTreeHeight = 12;
+
+	/// <summary>The two checkbox panes together, including their borders and header.</summary>
+	private const int CheckboxPaneHeight = CheckboxTreeHeight + 3;
+
 	private const string New = "[cyan]New[/]";
 	private const string Active = "[yellow]Active[/]";
 	private const string Done = "[green]Done[/]";
@@ -358,4 +365,111 @@ public static class TreeTableDemoWindow
 		(int.TryParse(x, out int a) ? a : int.MaxValue).CompareTo(int.TryParse(y, out int b) ? b : int.MaxValue));
 
 	private static string TitleOf(TableRow row) => MarkupParser.Escape(row.Cells[0]);
+
+	#region Checkboxes
+
+	/// <summary>
+	/// Two trees over the same packing list, differing only in whether a row with children draws
+	/// a checkbox. Side by side because the two halves of the feature are easiest to understand
+	/// against each other: on the left the groups are targets, on the right they are structure.
+	/// </summary>
+	private static IWindowControl BuildCheckboxTab()
+	{
+		var readout = Controls.Markup("").Build();
+
+		var shown = BuildCheckboxTree(showParentCheckboxes: true);
+		var hidden = BuildCheckboxTree(showParentCheckboxes: false);
+
+		// Both trees report into one line, so the difference between the two queries is visible
+		// rather than described: checking a group moves "rows" on the left and not on the right,
+		// while "leaves" moves on both.
+		void Report()
+		{
+			string Line(string label, TreeTableControl t) =>
+				$"[bold]{label}[/]  rows [yellow]{t.GetCheckedRows().Count}[/]  " +
+				$"leaves [yellow]{t.GetCheckedLeaves().Count}[/]";
+
+			readout.SetContent(new List<string>
+			{
+				$"{Line("parents shown ", shown)}      {Line("parents hidden", hidden)}",
+			});
+		}
+
+		shown.CheckChanged += (_, _) => Report();
+		hidden.CheckChanged += (_, _) => Report();
+		Report();
+
+		var header = Controls.Markup()
+			.AddLine("A packing list whose rows nest, with checkboxes that know about the nesting.")
+			.AddLine("[yellow]Space[/] checks the row and carries its whole subtree; [yellow]Right[/]/[yellow]Left[/] still open and close.")
+			.AddLine("A row whose children disagree shows [yellow][-][/]. Click a checkbox directly to toggle just that row.")
+			.AddLine("[dim]Left: every row is a target. Right: the groups are structure, so only the leaves can be checked.[/]")
+			.Build();
+
+		// A fixed height, not Fill: this sits in a ScrollablePanel, which has no bounded height
+		// of its own, so Fill resolves to int.MaxValue and lays the trees out off-screen.
+		var grid = Controls.HorizontalGrid()
+			.WithAlignment(HorizontalAlignment.Stretch)
+			.Column(c => c.Flex(1).Add(CheckboxPane(" parents shown ", shown)))
+			.Column(c => c.Flex(1).Add(CheckboxPane(" parents hidden ", hidden)))
+			.Build();
+		grid.Height = CheckboxPaneHeight;
+
+		var panel = new ScrollablePanelControl
+		{
+			HorizontalAlignment = HorizontalAlignment.Stretch,
+			VerticalAlignment = VerticalAlignment.Fill,
+		};
+		panel.AddControl(header);
+		panel.AddControl(grid);
+		panel.AddControl(readout);
+		return panel;
+	}
+
+	private static IWindowControl CheckboxPane(string header, TreeTableControl table) =>
+		Controls.Panel()
+			.WithHeader(header)
+			.HeaderCenter()
+			.Rounded()
+			.AddControl(table)
+			.StretchHorizontal()
+			.Build();
+
+	/// <summary>One packing-list tree. Cascading either way; only the parent checkbox differs.</summary>
+	private static TreeTableControl BuildCheckboxTree(bool showParentCheckboxes)
+	{
+		var builder = Controls.TreeTable()
+			.AddColumn("Item")
+			.AddColumn("Packed", TextJustification.Center, StateColumnWidth)
+			.Interactive()
+			.WithCheckboxMode()
+			.WithCascadingChecks()
+			.Rounded()
+			.WithHeaderColors(Color.White, Color.DarkMagenta)
+			.WithHeight(CheckboxTreeHeight)
+			.WithHorizontalAlignment(HorizontalAlignment.Stretch);
+
+		if (!showParentCheckboxes) builder = builder.WithoutParentCheckboxes();
+
+		var table = builder.Build();
+
+		var kitchen = table.AddRootRow("Kitchen box", Unpacked);
+		kitchen.AddChild("Mugs", Packed);
+		kitchen.AddChild("Plates", Unpacked);
+		kitchen.AddChild("Kettle", Unpacked);
+
+		var books = table.AddRootRow("Books box", Unpacked);
+		var fiction = books.AddChild("Fiction", Unpacked);
+		fiction.AddChild("Paperbacks", Unpacked);
+		fiction.AddChild("Hardbacks", Unpacked);
+		books.AddChild("Reference", Unpacked);
+
+		// A plain TableRow: a root with no children of its own. It is a leaf, so it always draws
+		// a checkbox, whichever way the parent setting goes.
+		table.AddRow(new TableRow("Spare key", Unpacked));
+
+		return table;
+	}
+
+	#endregion
 }

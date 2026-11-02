@@ -86,7 +86,11 @@ public class TableRow
 	/// <summary>
 	/// Gets or sets whether this row is checked (for multi-select checkbox mode).
 	/// </summary>
-	public bool IsChecked
+	/// <remarks>
+	/// Virtual so a table whose rows nest can hold the state itself: a tree keeps check state on
+	/// the control, keyed by row, because a row's state there depends on the rows under it.
+	/// </remarks>
+	public virtual bool IsChecked
 	{
 		get => _isChecked;
 		set { if (_isChecked == value) return; _isChecked = value; Owner?.OnRowDisplayChanged(this, false, Invalidation.Repaint); }

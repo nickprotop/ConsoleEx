@@ -122,6 +122,39 @@ public class TreeTableRow : TableRow
 		}
 	}
 
+	/// <inheritdoc/>
+	/// <remarks>
+	/// Reads and writes the control's check map rather than the base field, so that a row's state
+	/// and the states computed from the rows under it stay the same thing. Falls back to the base
+	/// while the row is detached and there is no control to ask.
+	/// </remarks>
+	public override bool IsChecked
+	{
+		get => Table is { } table ? table.GetCheckState(this) == TableCheckState.Checked : base.IsChecked;
+		set
+		{
+			if (Table is { } table) table.SetCheckState(this, value);
+			else base.IsChecked = value;
+		}
+	}
+
+	/// <summary>
+	/// Whether this row draws a checkbox, overriding the control. Null, the default, follows
+	/// <see cref="TreeTableControl.ShowParentCheckboxes"/>.
+	/// </summary>
+	public bool? ShowCheckbox
+	{
+		get => _showCheckbox;
+		set
+		{
+			if (_showCheckbox == value) return;
+			_showCheckbox = value;
+			Table?.OnRowDisplayChanged(this, false, Invalidation.Repaint);
+		}
+	}
+
+	private bool? _showCheckbox;
+
 	/// <summary>The table this row is in, or null while detached.</summary>
 	internal TreeTableControl? Table { get; set; }
 

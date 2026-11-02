@@ -73,6 +73,18 @@ public partial class TreeTableControl
 				SelectedRowIndex = GetDisplayRowIndex(parent);
 				return true;
 
+			// Space checks. One key, one meaning, at every depth: a Space that expanded a parent
+			// and checked a leaf would change meaning as the cursor moved. Expanding stays on the
+			// arrows, which already do it.
+			//
+			// Handled before the table's own Space case, which would otherwise multi-select:
+			// CheckboxMode forces MultiSelectEnabled, so the guard below can never fire in
+			// checkbox mode and expand-on-Space is unreachable there to begin with.
+			case ConsoleKey.Spacebar when CheckboxMode:
+				if (!IsCheckboxVisible(row)) return true;
+				SetCheckState(row, GetCheckState(row) != TableCheckState.Checked);
+				return true;
+
 			case ConsoleKey.Spacebar when !MultiSelectEnabled:
 				if (!expandable) return false;
 				Toggle(row);
@@ -114,7 +126,24 @@ public partial class TreeTableControl
 	protected override bool TryHandleClick(TableHitTestResult hit, int clickCount, MouseEventArgs args)
 	{
 		if (base.TryHandleClick(hit, clickCount, args)) return true;
-		if (DataSource != null || hit.Zone != TableHitZone.Cell || hit.ColumnIndex != _treeColumnIndex)
+		if (DataSource != null) return false;
+
+		// The checkbox column is its own hit zone, so there is no coordinate maths to redo here.
+		// Taken even when the row draws no checkbox, so the click does not fall through to the
+		// table and clear the selection out from under a row the user cannot check.
+		if (hit.Zone == TableHitZone.Checkbox)
+		{
+			if (hit.DataRowIndex < 0 || !TryGetView(hit.DataRowIndex, out var checkView)
+				|| checkView.Shape.Rows[hit.DataRowIndex] is not { } clicked)
+				return false;
+
+			if (IsCheckboxVisible(clicked))
+				SetCheckState(clicked, GetCheckState(clicked) != TableCheckState.Checked);
+
+			return true;
+		}
+
+		if (hit.Zone != TableHitZone.Cell || hit.ColumnIndex != _treeColumnIndex)
 			return false;
 
 		int dataIndex = hit.DataRowIndex;

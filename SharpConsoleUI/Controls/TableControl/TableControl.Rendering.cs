@@ -51,6 +51,22 @@ public partial class TableControl
 	/// </remarks>
 	protected virtual string? GetCellPrefixMarkup(int dataRowIndex, int columnIndex) => null;
 
+	/// <summary>The checkbox cell's text for one row.</summary>
+	/// <param name="row">The row being painted, or null over a data source.</param>
+	/// <param name="isChecked">Whether the row reads as checked.</param>
+	/// <returns>
+	/// Text exactly <see cref="Configuration.ControlDefaults.TableCheckboxColumnWidth"/> wide. The
+	/// checkbox column is a fixed width, so anything else shifts every column after it.
+	/// </returns>
+	/// <remarks>
+	/// Called on the paint path, which reads a row snapshot so another thread can paint a
+	/// consistent frame. An override must only read.
+	/// </remarks>
+	protected virtual string GetCheckboxMarkup(TableRow? row, bool isChecked) =>
+		isChecked
+			? Configuration.ControlDefaults.TableCheckboxChecked
+			: Configuration.ControlDefaults.TableCheckboxUnchecked;
+
 	/// <summary>
 	/// The prefixes of one row's cells, indexed as the painter indexes columns (the checkbox column
 	/// first, in checkbox mode), or null when the row has none.
@@ -487,6 +503,10 @@ public partial class TableControl
 			bool isEnabled = true;
 			bool isChecked = false;
 
+			// Hoisted out of the branches below so the checkbox cell can ask about the row
+			// itself: null over a data source, which has rows but no TableRow objects.
+			TableRow? row = null;
+
 			if (_dataSource != null)
 			{
 				rowCells = new List<string>();
@@ -500,7 +520,7 @@ public partial class TableControl
 			}
 			else
 			{
-				var row = rowSnapshot![dataR];
+				row = rowSnapshot![dataR];
 				rowCells = row.Cells;
 				rowBg = row.BackgroundColor ?? bgColor;
 				rowFg = row.ForegroundColor ?? fgColor;
@@ -590,7 +610,7 @@ public partial class TableControl
 			// Prepend checkbox cell and offset indices for silent column
 			if (_checkboxMode)
 			{
-				string checkText = isChecked ? "[x] " : "[ ] ";
+				string checkText = GetCheckboxMarkup(row, isChecked);
 				rowCells = new List<string>(rowCells);
 				rowCells.Insert(0, checkText);
 				if (selectedCell >= 0) selectedCell++;

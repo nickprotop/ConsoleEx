@@ -394,11 +394,22 @@ public partial class TableControl
 	}
 
 	/// <summary>
+	/// Whether checking a row is the same thing as multi-selecting it. True here, because the flat
+	/// table's checkbox is a view of its selection.
+	/// </summary>
+	/// <remarks>
+	/// A table whose rows nest overrides this to false: there, checking answers "which rows do I
+	/// act on" and selection answers "where is the cursor", and the two have to move
+	/// independently. While this is false the selection APIs leave check state alone.
+	/// </remarks>
+	protected virtual bool ChecksFollowSelection => true;
+
+	/// <summary>
 	/// Clears all selection (multi-select mode).
 	/// </summary>
 	public void ClearSelection()
 	{
-		if (_checkboxMode && _dataSource == null)
+		if (_checkboxMode && _dataSource == null && ChecksFollowSelection)
 		{
 			lock (_tableLock)
 			{
@@ -512,7 +523,7 @@ public partial class TableControl
 	/// </summary>
 	private void SyncCheckboxState(int displayIndex)
 	{
-		if (_dataSource != null) return;
+		if (_dataSource != null || !ChecksFollowSelection) return;
 		lock (_tableLock)
 		{
 			int dataIdx = MapDisplayToData(displayIndex);

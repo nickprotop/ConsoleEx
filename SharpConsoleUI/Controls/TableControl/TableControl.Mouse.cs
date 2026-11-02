@@ -492,7 +492,7 @@ public partial class TableControl
 				if (_multiSelectEnabled)
 				{
 					// Clear checkboxes when clicking outside checkbox column
-					if (_checkboxMode && _dataSource == null)
+					if (_checkboxMode && _dataSource == null && ChecksFollowSelection)
 					{
 						lock (_tableLock)
 						{

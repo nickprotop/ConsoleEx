@@ -99,6 +99,10 @@ public partial class TreeTableControl
 		if (newParent != null && newParent.IsSelfOrNestedUnder(row))
 			throw new InvalidOperationException("A row cannot be moved under itself or one of its own descendants.");
 
+		// Captured before Unlink clears it: both sides of a move see their children change, and
+		// afterwards there is no way back to the one the row left.
+		var formerParent = (row as TreeTableRow)?.Parent;
+
 		ChangeStructure(() =>
 		{
 			Unlink(row);
@@ -107,6 +111,9 @@ public partial class TreeTableControl
 			else
 				newParent.AttachChild(Math.Clamp(index, 0, newParent.ChildList.Count), (TreeTableRow)row);
 		});
+
+		SettleAncestorsAfterStructureChange(formerParent);
+		SettleAncestorsAfterStructureChange(newParent);
 	}
 
 	/// <summary>
@@ -235,6 +242,17 @@ public partial class TreeTableControl
 	protected override void RemoveRowsCore(int index, int count)
 	{
 		var doomed = _shape.Rows.Skip(index).Take(count).ToList();
+
+		// Captured before Unlink clears them. This is the flat RemoveRow/ClearRows path, which
+		// reaches the same structural change as TreeTableRow.RemoveChild: a parent left holding
+		// a state its remaining children contradict is the same bug either way.
+		var bereaved = doomed
+			.OfType<TreeTableRow>()
+			.Select(row => row.Parent)
+			.Where(parent => parent is not null && !doomed.Contains(parent))
+			.Distinct()
+			.ToList();
+
 		ChangeStructure(() =>
 		{
 			foreach (var row in doomed)
@@ -247,6 +265,9 @@ public partial class TreeTableControl
 				}
 			}
 		});
+
+		foreach (var parent in bereaved)
+			SettleAncestorsAfterStructureChange(parent);
 	}
 
 	/// <summary>Replaces the roots with <paramref name="rows"/>, each bringing the rows nested under it.</summary>
@@ -295,17 +316,30 @@ public partial class TreeTableControl
 			parent.AttachChild(Math.Clamp(index, 0, parent.ChildList.Count), child);
 			Attach(child);
 		});
+
+		// A new child changes what its parent's children say: an unchecked row arriving under a
+		// checked parent leaves that parent claiming a state its own children contradict.
+		SettleAncestorsAfterStructureChange(parent);
 	}
 
 	/// <summary>Removes a row in this table, with the rows nested under it.</summary>
 	internal void RemoveTreeRow(TableRow row)
 	{
 		ThrowIfDataSource();
+
+		// Captured before Unlink clears it: afterwards there is no way back to the parent whose
+		// children just changed.
+		var parent = (row as TreeTableRow)?.Parent;
+
 		ChangeStructure(() =>
 		{
 			Unlink(row);
 			Detach(row);
 		});
+
+		// Removing the one row that disagreed settles the parent; leaving it alone would keep it
+		// indeterminate about a row that is gone.
+		SettleAncestorsAfterStructureChange(parent);
 	}
 
 	/// <summary>Removes every child of a row in this table.</summary>
@@ -318,6 +352,10 @@ public partial class TreeTableControl
 				Detach(child);
 			parent.DetachChildren();
 		});
+
+		// Losing every child leaves the parent a leaf: it must not keep reporting a state it
+		// derived from rows that are gone.
+		SettleAncestorsAfterStructureChange(parent);
 	}
 
 	/// <summary>
@@ -461,6 +499,10 @@ public partial class TreeTableControl
 	/// <summary>Marks a row and the rows nested under it as no longer in this table.</summary>
 	private void Detach(TableRow row)
 	{
+		// A row leaving the tree takes its check state with it: the map keys on row identity, so
+		// an entry left behind is a leak that also resurrects if the row is ever re-added.
+		ForgetCheckState(row);
+
 		if (row is TreeTableRow treeRow)
 		{
 			treeRow.Table = null;

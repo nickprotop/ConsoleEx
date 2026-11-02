@@ -11,7 +11,7 @@ A table whose rows nest: rows hold rows of their own, shown indented under them 
 
 TreeTableControl is a [TableControl](TableControl.md) whose rows form a hierarchy: features with their stories and tasks, folders with their files, accounts with their sub-accounts. Each row is a `TreeTableRow`, which has cells like any `TableRow` plus a parent, children and an expansion state. The tree column draws, in front of each value, the guide lines to the row's parent and an expander, `[-]` or `[+]`, in the same guide styles as [TreeControl](TreeControl.md).
 
-Because it is a `TableControl`, everything a table does it does too: columns and their widths, selection, multi-select, checkboxes, cell navigation, inline editing, scrollbars, colors, the builder settings. Sorting and filtering follow the hierarchy: a sort orders each row's children among themselves, and a filter shows each match together with the rows above it.
+Because it is a `TableControl`, everything a table does it does too: columns and their widths, selection, multi-select, cell navigation, inline editing, scrollbars, colors, the builder settings. Sorting and filtering follow the hierarchy: a sort orders each row's children among themselves, and a filter shows each match together with the rows above it. [Checkboxes](#checkboxes) know about the hierarchy as well, and are the one place the tree does not simply inherit the table's behaviour: checking is separate from selection here, and a checked row can carry the rows under it.
 
 ```
 ┌──────────────────────┬─────┐
@@ -192,24 +192,91 @@ The selection stays on its rows across every change: a sort, a filter cleared, r
 
 When the selected row is removed, the cursor goes to its next sibling still displayed, else the previous one, else the nearest row above it, rather than to whatever row followed the removed subtree. Siblings are taken in the order they were displayed, so in a sorted view the cursor goes to the row shown below.
 
+## Checkboxes
+
+With `WithCheckboxMode()` the tree draws a checkbox on each row. Checking is separate from
+selection here, unlike a flat table where the two are the same thing: checking answers "which rows
+do I act on", selection answers "where is the cursor", and a batch operation needs the first
+without disturbing the second.
+
+```csharp
+var table = Controls.TreeTable()
+    .AddColumn("Item")
+    .WithCheckboxMode()
+    .WithCascadingChecks()        // a parent carries its subtree
+    .WithoutParentCheckboxes()    // groups are structure, leaves are the targets
+    .Build();
+
+foreach (var row in table.GetCheckedLeaves())
+    Install(row.Tag);
+```
+
+`GetCheckState` returns a `TableCheckState`, which is `Unchecked`, `Checked`, or `Indeterminate`
+for a row whose descendants disagree. `TableRow.IsChecked` stays a `bool` and reads as
+`state == Checked`, so code that only cares whether a row is checked needs no change.
+
+**Cascading.** Off by default, which leaves every checkbox independent. On, checking a row checks
+every row under it, and each row above shows what its own children say: checked when they all are,
+unchecked when none are, and `[-]` when they disagree. That third state is only ever computed, so
+there is no way to assign it, and a row with no children can never hold it.
+
+**Hiding a parent's checkbox.** `ShowParentCheckboxes = false` blanks the checkbox on rows that
+have children; the rows keep every column, and only that cell is empty. `TreeTableRow.ShowCheckbox`
+overrides it for one row, with `null` meaning follow the control.
+
+Hidden means not drawn and not clickable. It does not mean unsettable: `IsChecked` still works from
+code, the row still appears in `GetCheckedRows()` when checked, and it still takes part in the
+cascade. That combination is useful on its own - cascade on with parent checkboxes hidden lets the
+user check leaves while the application reads the parents to ask "is this whole group selected?".
+
+**Knowing when it changes.** `CheckChanged` is raised once for each row whose state actually
+changed, a cascade included. The selection events say nothing about checking here, since the two
+are separate, so this is what keeps a count or a toolbar in step without walking the tree.
+
+**When the hierarchy changes.** Under cascade, a row's state is derived from the rows under it, so
+adding, removing, moving or clearing rows settles the parents involved rather than leaving one
+reporting a state its own children contradict. Removing the one unchecked child of an
+otherwise-checked parent makes that parent checked; adding an unchecked child to a checked parent
+makes it `[-]`; a moved subtree settles both the parent it left and the one it joined. The same
+holds whichever API makes the change: the tree's own `AddChild` and `RemoveChild`, or the table's
+`RemoveRow`, `ClearRows` and `MoveRow`.
+
+A row that loses every child becomes a leaf, and a leaf cannot be `[-]`, so one left in that state
+settles to unchecked - nothing under it was ever confirmed. Turning `CascadeChecks` on settles
+every parent at that moment, since nothing was deriving them while it was off.
+
+**Reading what is checked.** `GetCheckedRows()` reports every checked row, parents included.
+`GetCheckedLeaves()` reports only the rows with nothing under them, which is what a batch caller
+wants: group rows usually carry no record of their own, and a caller filtering them out by tag type
+gets silence when a user checks a group.
+
+Both include rows that are collapsed or filtered out of view. A check is an instruction, not a view
+state: a user who checks a group and then collapses it still means those rows. Show a count from
+these methods rather than from the visible rows, so the number does not change when the user folds
+something away.
+
 ## Keyboard Support
 
 | Key | Action |
 |-----|--------|
 | **Right Arrow** | Expand the selected row, or move to its first child once it is open |
 | **Left Arrow** | Collapse the selected row, or move to its parent once it is closed |
-| **Space** | Toggle the selected row |
+| **Space** | Check the selected row in checkbox mode, otherwise toggle it open or closed |
 | **+** | Expand the selected row (main keyboard or numeric pad) |
 | **-** | Collapse the selected row |
 | **\*** | Expand the selected row and every row under it |
 
 Every other key is the table's, see [TableControl](TableControl.md#keyboard-support). The table keeps the keys it already gives a meaning to: with `CellNavigationEnabled`, Left and Right move between cells; with `MultiSelectEnabled`, Space selects rows. Keys held with Ctrl or Alt are left to the application.
 
+In checkbox mode Space checks at every depth rather than opening a row, so the key does not change
+meaning as the cursor moves between a parent and a leaf. Right and Left still open and close.
+
 ## Mouse Support
 
 | Action | Result |
 |--------|--------|
 | **Left Click (expander)** | Select and toggle the row |
+| **Left Click (checkbox)** | Check or uncheck the row, without moving the selection |
 | **Left Click (elsewhere)** | Select the row, as in a table |
 | **Double Click (value)** | Activate the row (`RowActivated`), as in a table |
 
@@ -224,6 +291,8 @@ Two quick clicks on an expander toggle the row twice rather than activating it. 
 | `Indent` | `string` | `"  "` | What follows each ancestor level's guide line, drawn as text |
 | `TreeColumnIndex` | `int` | `0` | The column the guides and expanders are drawn in |
 | `FilterIncludesDescendants` | `bool` | `false` | Whether a filter shows every row under a match |
+| `CascadeChecks` | `bool` | `false` | Whether checking a row carries the rows under it, and parents show what their children say |
+| `ShowParentCheckboxes` | `bool` | `true` | Whether rows that have children draw a checkbox |
 
 Every `TableControl` property applies as well.
 
@@ -236,6 +305,8 @@ Every `TableControl` property applies as well.
 | `Depth` | `int` | How many rows this one is nested under: 0 for a root |
 | `IsExpanded` | `bool` | The row's own expansion state; default `true` |
 | `HasUnrealizedChildren` | `bool` | Shows an expander before children are loaded; default `false` |
+| `ShowCheckbox` | `bool?` | Whether this row draws a checkbox, overriding the control; `null` follows `ShowParentCheckboxes` |
+| `IsChecked` | `bool` | The row's check state; reads and writes the control's, so it works on any row the tree holds |
 | `AddChild(params string[])`, `AddChild(TreeTableRow)` | `TreeTableRow` | Adds a last child and returns it |
 | `InsertChild(int, TreeTableRow)` | `TreeTableRow` | Inserts a child and returns it |
 | `RemoveChild(TreeTableRow)` | `bool` | Removes a child with its subtree |
@@ -260,6 +331,10 @@ Every `TableControl` property applies as well.
 | `GetParentRow(TableRow)` | The row a row is nested under |
 | `GetDepth(TableRow)` | 0 for a root, -1 for a row not in the table |
 | `FindRowByTag(object)` | The first row, depth-first, with a matching `Tag` |
+| `GetCheckState(TableRow)` | A row's `TableCheckState`: `Unchecked`, `Checked` or `Indeterminate` |
+| `SetCheckState(TableRow, bool)` | Checks or unchecks a row, cascading when `CascadeChecks` is on |
+| `GetCheckedLeaves()` | The checked rows with nothing under them, collapsed and filtered ones included |
+| `IsCheckboxVisible(TableRow)` | Whether a row draws a checkbox the user can click |
 
 ## Events
 
@@ -268,6 +343,7 @@ Every `TableControl` property applies as well.
 | `RowExpansionChanging` | `EventHandler<TreeTableRowExpansionChangingEventArgs>` | Before a row is expanded or collapsed; set `Cancel` to keep it as it is |
 | `RowExpansionChanged` | `EventHandler<TreeTableRowExpansionEventArgs>` | After a row was expanded or collapsed, once the rows displayed show it |
 | `RowExpansionChangedAsync` | `AsyncEventHandler<TreeTableRowExpansionEventArgs>` | Async counterpart of `RowExpansionChanged` |
+| `CheckChanged` | `EventHandler<TableRow>` | After a row's check state changed, once per row a cascade touched |
 
 The arguments name the `Row`, whether it `IsExpanded` after the change, and whether the change `IsFilteredView`: made while filtered, to the filtered view only. Every way of opening and closing a row raises them: the methods, setting `IsExpanded`, the keys and the expander. A bulk change raises them for each row and leaves a cancelled row out; in a `BatchUpdate`, `RowExpansionChanged` waits for the batch to end. `RowExpansionChanged` follows the selection events the change caused.
 
@@ -284,6 +360,8 @@ Create a builder with `Controls.TreeTable()` or `TreeTableControl.Create()`. Eve
 .WithIndent("  ")                          // Text after each ancestor level's guide
 .WithTreeColumn(1)                         // Column the hierarchy is drawn in
 .WithFilterIncludingDescendants()          // Show every row under a filter match
+.WithCascadingChecks()                     // A checked row carries the rows under it
+.WithoutParentCheckboxes()                 // Rows with children draw no checkbox
 .OnRowExpansionChanging((sender, e) => { ... })
 .OnRowExpansionChanged((sender, e) => { ... })
 ```
@@ -339,6 +417,8 @@ class FileTable : TreeTableControl
 ## Threading
 
 Change the hierarchy on the UI thread, as with any control; from a background thread, marshal through `windowSystem.EnqueueOnUIThread`. The display is computed from a snapshot of the hierarchy taken when it was last handed to the table, so painting never shows a batch half done, and the events are raised outside the table's lock, so a handler can change the table.
+
+`CheckChanged` is raised outside the lock too, so a handler may read or change check state without deadlocking; a handler that checks another row during a cascade settles rather than corrupting it, since the cascade applies states rather than toggling them. `GetCheckedRows()` and `GetCheckedLeaves()` take the table's lock, so they answer safely from any thread.
 
 ## See Also
 
