@@ -20,23 +20,29 @@ namespace Tetris;
 internal sealed class Renderer
 {
 	/// <summary>
-	/// Pixels per board cell, horizontally and vertically, at the largest size. A pixel here is
-	/// a whole terminal column wide and half a row tall, so a square cell needs twice as many
-	/// pixels across as down: 4x2 is four columns by one row. Equal numbers would draw the
-	/// board squashed to half its height.
+	/// The shape of one board cell, in surface pixels. A pixel here is a whole terminal column
+	/// wide and half a row tall, so a square cell needs twice as many pixels across as down:
+	/// this 2:1 pair is the unit the board is scaled in, and scaling it as a unit is what keeps
+	/// cells square. Equal numbers would draw the board squashed to half its height.
 	/// </summary>
-	private const int MaxCellW = 4;
-	private const int MaxCellH = 2;
+	private const int CellUnitW = 2;
+	private const int CellUnitH = 1;
 
 	/// <summary>
-	/// The smallest the pair may shrink to before the board stops reading as a grid. Kept in
-	/// the same 2:1 ratio, so a cramped terminal gets a smaller board rather than a squashed one.
+	/// How many units a cell may grow to. Four is 8x4 pixels, an eight-column cell, which is
+	/// as large as the board reads well at; beyond that it is a wall of colour.
 	/// </summary>
-	private const int MinCellW = 2;
-	private const int MinCellH = 1;
+	private const int MaxCellScale = 4;
 
-	/// <summary>Columns held back for the HUD, so the sidebar never overlaps the well.</summary>
-	private const int HudColumns = 34;
+	/// <summary>
+	/// Pixels the well's own frame needs beyond the playfield itself: the wall runs one pixel
+	/// above the first row, the floor is two pixels thick below the last, and a little air is
+	/// left above and below so neither sits flush against the window edge.
+	/// </summary>
+	private const int WellFramePixels = 8;
+
+	/// <summary>Columns the side walls take, two on each side of the playfield.</summary>
+	private const int WellFrameColumns = 4;
 
 	private readonly PixelSurface _surface = new();
 
@@ -69,28 +75,34 @@ internal sealed class Renderer
 			shakeY = (int)Math.Round(Math.Cos(phase * 1.3) * fx.Shake * 0.6);
 		}
 
-		// Twenty rows of a 2-pixel-tall cell need forty pixels, and a 39-row terminal gives
-		// seventy-eight, so the full size usually fits. It does not always: a short terminal
-		// would run the board off the bottom, and a narrow one would run it under the HUD.
-		// So the cell is scaled down by whichever axis runs out first, keeping the 2:1 ratio
-		// that makes it square - shrinking one axis alone would squash the well.
-		int steps = Math.Min(
-			(_surface.Height - 4) / (Game.Rows * MaxCellH),
-			(_surface.Width - HudColumns) / (Game.Columns * MaxCellW));
+		// Grow the cell to fill the terminal rather than drawing a fixed small board in the
+		// middle of it: the 2:1 unit is multiplied by whatever both axes can afford, so a tall
+		// window gets a tall well instead of the same postage stamp with empty space under it.
+		// Whichever axis runs out first decides, and the pair scales together so cells stay
+		// square - growing or shrinking one alone would squash the board.
+		// The canvas is its own column in the layout grid, with the HUD in the next one, so the
+		// width here is already the well's to use: subtracting the HUD again would reserve it
+		// twice and squeeze the board into a corner.
+		int scale = Math.Min(
+			(_surface.Height - WellFramePixels) / (Game.Rows * CellUnitH),
+			(_surface.Width - WellFrameColumns) / (Game.Columns * CellUnitW));
 
-		int cellW = steps >= 1 ? MaxCellW : MinCellW;
-		int cellH = steps >= 1 ? MaxCellH : MinCellH;
+		scale = Math.Clamp(scale, 1, MaxCellScale);
+
+		int cellW = CellUnitW * scale;
+		int cellH = CellUnitH * scale;
 
 		game.CellWidth = cellW;
 		game.CellHeight = cellH;
 		int wellWidth = Game.Columns * cellW;
 		int wellHeight = Game.Rows * cellH;
-		// Centre the well in the space it actually owns, not the whole surface: the HUD takes
-		// the right-hand columns, so centring across the full width would push the board under
-		// it on a wide terminal and leave the left margin oversized.
-		int playWidth = Math.Max(wellWidth, _surface.Width - HudColumns);
-		int originX = Math.Max(2, (playWidth - wellWidth) / 2);
-		int originY = Math.Max(1, (_surface.Height - wellHeight) / 2);
+		// The frame sits outside the playfield, so centre the framed box and then step in by
+		// the wall's own width: centring the playfield alone leaves the left wall clipped
+		// against the window edge.
+		int framedWidth = wellWidth + WellFrameColumns;
+		int originX = Math.Max(WellFrameColumns / 2,
+			(_surface.Width - framedWidth) / 2 + WellFrameColumns / 2);
+		int originY = Math.Max(2, (_surface.Height - wellHeight) / 2);
 
 		// Overlays belong over the board, not over the whole surface: the HUD owns the right
 		// columns, so centring a title on the surface would hang it off the well's edge.

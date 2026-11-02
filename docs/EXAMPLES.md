@@ -647,9 +647,10 @@ dotnet run --project Examples/Tetris -- --headless --socket --width 130 --height
 ```
 
 A pixel on the half-block surface is a whole column wide and half a row tall, so a square
-board cell needs twice as many pixels across as down. The well scales that 4x2 pair down as a
-unit when the terminal is too short or too narrow for it, which keeps the board square instead
-of squashing it, and reserves the HUD's columns so the sidebar never overlaps the playfield.
+board cell needs twice as many pixels across as down. The well scales that 2:1 unit up or down
+by whatever both axes can afford, so a tall window gets a tall board rather than a fixed small
+one adrift in empty space, and the pair always scales together, which is what keeps the cells
+square instead of squashing one axis.
 
 **Key Features:**
 - SRS rotation with wall kicks, so a piece rotating against a wall or the stack shifts into the gap rather than refusing
