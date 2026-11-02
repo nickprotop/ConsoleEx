@@ -192,14 +192,14 @@ The ones worth knowing about:
 | **TreeTableControl** | Every table feature, tree-aware |
 | **ChartControl** | Two axes, several series, gradients by value, heatmaps |
 | **MultilineEditControl** | TextMate grammars for ~64 languages, pluggable gutters, find/replace, undo/redo |
-| **HtmlControl** | AngleSharp parses real pages; images render as half-block pixels |
+| **HtmlControl** | AngleSharp parses real pages; images render as real pixels on terminals with the Kitty graphics protocol, half-blocks everywhere else |
 | **TerminalControl** | A PTY, with a real shell in it, inside a window |
 | **VideoControl** | FFmpeg decode, Kitty graphics where supported, cell fallbacks where not |
 | **NavigationView** | A WinUI-style nav pane that collapses responsively |
 | **GridControl** | The 2D grid described above |
-| **CanvasControl** | Free-form drawing in cells, with a half-block pixel surface on top at double vertical resolution - and text composes into the same surface |
+| **CanvasControl** | Free-form drawing in cells, with a half-block pixel surface on top at double vertical resolution, and text composes into the same surface |
 
-Plus the ordinary ones — buttons, checkboxes, radios, sliders, dropdowns, date
+Plus the ordinary ones: buttons, checkboxes, radios, sliders, dropdowns, date
 and time pickers, prompts, menus, toolbars, status bars, forms, panels, tabs,
 splitters, progress bars, spinners, sparklines. Each has
 [a page of its own](CONTROLS.md).
