@@ -56,13 +56,24 @@ namespace SharpConsoleUI.Controls
 		private readonly object _childrenLock = new();
 		private int _verticalScrollOffset = 0;
 
+		/// <summary>
+		/// Raised after the vertical scroll offset changes. Subscribers are called on the UI thread and
+		/// may use the notification to maintain a virtualized transcript window.
+		/// </summary>
+		public event EventHandler<ScrollOffsetChangedEventArgs>? VerticalScrollOffsetChanged;
+
 		/// <summary>Single write choke-point for <see cref="_verticalScrollOffset"/>. Keeping every offset
 		/// mutation funneled through one setter makes the scroll paths easy to reason about (and to
 		/// instrument when diagnosing scroll bugs). The <paramref name="reason"/> documents the caller.</summary>
 		private void SetVerticalScrollOffset(int value, string reason)
 		{
 			_ = reason;
+			if (_verticalScrollOffset == value)
+				return;
+
+			int previous = _verticalScrollOffset;
 			_verticalScrollOffset = value;
+			VerticalScrollOffsetChanged?.Invoke(this, new ScrollOffsetChangedEventArgs(previous, value));
 		}
 		private int _horizontalScrollOffset = 0;
 		private int _contentHeight = 0;
