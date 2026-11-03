@@ -276,6 +276,10 @@ jobs:
 
     - name: Publish to NuGet
       if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || github.event_name == 'workflow_dispatch'
+      # One push only. Pushing *.nupkg ALREADY uploads the matching .snupkg beside each
+      # package, so a second pass over *.snupkg re-sends what is now on the feed and gets a
+      # Conflict. --skip-duplicate does not cover symbol packages, so that conflict failed the
+      # step after every package had uploaded: a release that had in fact succeeded reported
+      # "Build FAILED" with zero compiler errors.
       run: |
         dotnet nuget push ./nupkgs/*.nupkg --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
-        dotnet nuget push ./nupkgs/*.snupkg --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
