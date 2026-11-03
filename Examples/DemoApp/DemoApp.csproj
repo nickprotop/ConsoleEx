@@ -5,7 +5,29 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AssemblyName>cxdemo</AssemblyName>
+
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>cxdemo</ToolCommandName>
+    <PackageId>cxdemo</PackageId>
+    <Version>2.10.6</Version>
+    <Description>The SharpConsoleUI showcase, as a command you can run. Opens a launcher: overlapping translucent windows over a gradient, a data grid with in-cell editing and a filter grammar, an HTML control rendering a real page with images, a terminal emulator with a shell in it, video, and the arcade games. For seeing what the framework does without cloning anything.</Description>
+
+    <Authors>Nikolaos Protopapas</Authors>
+    <Copyright>Copyright © 2025-2026 Nikolaos Protopapas</Copyright>
+    <PackageProjectUrl>https://nickprotop.github.io/ConsoleEx/</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/nickprotop/ConsoleEx</RepositoryUrl>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <PackageTags>tui terminal-ui console-ui demo showcase dotnet-tool cli sharpconsoleui</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The folder's own README is the package's front page, so a reader on NuGet and a
+         reader in the repository cannot be told two different things. -->
+    <None Include="README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\SharpConsoleUI\SharpConsoleUI.csproj" />
@@ -14,7 +36,9 @@
   <ItemGroup>
     <Content Include="sample.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="sample.mp4" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="sample_bunny.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Kept in the repository for trying larger clips by hand, but no demo loads it, and
+         it is 3.9 MB of a 20 MB download. Not packed. -->
+    <Content Include="sample_bunny.mp4" CopyToOutputDirectory="PreserveNewest" Pack="false" />
   </ItemGroup>
 
 </Project>

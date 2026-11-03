@@ -168,6 +168,12 @@ jobs:
     - name: Pack cxdbg Tool
       run: dotnet pack tools/cxdbg/src/cxdbg/cxdbg.csproj --configuration Release --output ./nupkgs /p:Version=${{ steps.version.outputs.version }}
 
+    # The showcase, installable rather than cloneable: a screenshot cannot show a compositor.
+    # Packed from the example itself, so what someone installs is the demo this repository
+    # builds rather than a second copy that can drift from it.
+    - name: Pack cxdemo Tool
+      run: dotnet pack Examples/DemoApp/DemoApp.csproj --configuration Release --output ./nupkgs /p:Version=${{ steps.version.outputs.version }}
+
     - name: Generate Release Notes
       if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
       id: release_notes

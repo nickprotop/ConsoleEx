@@ -53,6 +53,18 @@ NativeAOT-ready.
 
 ## What it is
 
+See it before reading about it:
+
+```bash
+dotnet tool install -g cxdemo
+cxdemo
+```
+
+That is the showcase running, not a recording of it: overlapping translucent
+windows compositing over a gradient, a data grid with in-cell editing, an HTML
+control rendering a real page with images, a terminal emulator with a shell in
+it, video, and the arcade games.
+
 SharpConsoleUI gives each window its own `CharacterBuffer`. A compositor merges
 them — with occlusion culling, per-cell Porter-Duff alpha blending, and a
 Measure→Arrange→Paint layout pipeline. A single UI thread owns rendering and
