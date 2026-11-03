@@ -1,8 +1,8 @@
 // -----------------------------------------------------------------------
 // ConsoleEx - A simple console window system for .NET Core
 //
-// Author: Nikolaos Protopapas
-// Email: nikolaos.protopapas@gmail.com
+// Author: Ozerov Maxim
+// Email: ozerov.maxim.vl@ya.ru
 // License: MIT
 // -----------------------------------------------------------------------
 
