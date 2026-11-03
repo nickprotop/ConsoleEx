@@ -27,9 +27,9 @@ single string in both modes, so code that binds to `Input` does not care which m
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `Prompt` | `string?` | `"> "` | Label text displayed before the input area (supports markup) |
-| `Input` | `string` | `""` | Current input text |
+| `Input` | `string` | `""` | Current input text, with each token replaced by its value. See [Tokens](#tokens) |
 | `Placeholder` | `string?` | `null` | Hint shown while the value is empty; never part of `Input` |
-| `MaxLength` | `int?` | `null` | Maximum value length in characters; `null` is unlimited |
+| `MaxLength` | `int?` | `null` | Maximum value length in characters; `null` is unlimited. A token counts as its label, which is what occupies the box |
 | `ReadOnly` | `bool` | `false` | Value cannot be edited, but is still focusable, navigable and copyable |
 | `Multiline` | `bool` | `false` | Allow newlines, wrap the text, and grow the box |
 | `MinRows` | `int` | `1` | Minimum measured rows when `Multiline` (ignored otherwise) |
@@ -37,6 +37,11 @@ single string in both modes, so code that binds to `Input` does not care which m
 | `EnterBehavior` | `EnterBehavior` | `Submit` | Whether Enter submits or inserts a newline |
 | `MaskCharacter` | `char?` | `null` | Display character for password fields |
 | `InputWidth` | `int?` | `null` | Input field width (auto-computed from available space if null) |
+| `InputLabelText` | `string` | `""` | The content as the box shows it, with each token as its label |
+| `InputSegments` | `IReadOnlyList<PromptSegment>` | empty | The runs of text and the tokens, in order. A snapshot |
+| `PasteFilter` | `Func<string, PromptToken?>?` | `null` | Decides whether a paste becomes a token. Null pastes as text |
+| `TokenForegroundColor` | `Color?` | `null` | Colour of a token's label, so it reads as a chip |
+| `TokenBackgroundColor` | `Color?` | `null` | Background behind a token's label |
 | `UnfocusOnEnter` | `bool` | `true` | Whether focus leaves the control on Enter |
 | `HistoryEnabled` | `bool` | `false` | Enable Up/Down arrow command recall |
 | `MaxHistoryEntries` | `int` | `500` | History cap; oldest entries are dropped past it |
@@ -220,6 +225,61 @@ When Tab is pressed:
 - **Single match**: auto-completes the input
 - **Multiple matches**: inserts the longest common prefix
 - **No matches**: Tab passes through to focus traversal (no trap)
+
+## Tokens
+
+A token is a piece of the input that shows a short label, stands for a longer value, and is edited
+as one unit. A chat composer uses one so an eighteen-line paste appears as a chip rather than
+filling the box, while what gets sent is still the full text.
+
+Set a `PasteFilter` to decide what becomes one. Return a token to insert it instead of the pasted
+text, or null to paste as ordinary text:
+
+```csharp
+int pasteCount = 0;
+
+var prompt = Controls.Prompt("> ")
+    .WithMultiline()
+    .WithPasteFilter(text =>
+    {
+        int lines = text.Count(c => c == '\n') + 1;
+        if (lines <= 3) return null;              // short pastes stay ordinary text
+
+        pasteCount++;
+        return new PromptToken($"[Pasted text #{pasteCount} +{lines} lines]", text, tag: "paste");
+    })
+    .Build();
+```
+
+The control owns none of the policy: the rule for what becomes a token, how they are numbered, and
+what is sent are all the host's.
+
+### Reading the content
+
+Three views, because a host needs different things at different moments:
+
+| Member | Returns |
+|--------|---------|
+| `Input` | each token replaced by its **value**. What you send. |
+| `InputLabelText` | each token replaced by its **label**. What the box shows. |
+| `InputSegments` | the runs of text and the tokens, in order. The structure. |
+
+`Input` returns the value so that an existing caller which reads it to send a message keeps working
+once tokens arrive. Restore a message with `SetInputSegments`.
+
+### Behaviour
+
+- Arrow keys step over a whole token; the caret never rests inside one.
+- Backspace and Delete remove the whole token when the caret is beside it.
+- A selection that would end inside a token grows to cover it, so what is highlighted is what will
+  be copied or deleted.
+- Copying a selection that spans a token puts its **value** on the clipboard, not its label.
+- A label is never split across wrapped rows. One wider than the row is truncated with an ellipsis,
+  still as one unit.
+- `MaxLength` counts the label, since that is what occupies the box.
+
+`ExpandTokenAtCaret()` replaces a token with its value as ordinary text. `TokenActivated` fires when
+one is clicked, so the host decides whether a click means expand.
 
 ## Examples
 

@@ -43,6 +43,9 @@ public sealed class PromptBuilder : IControlBuilder<PromptControl>
 	private int? _inputWidth;
 	private bool _historyEnabled;
 	private Func<string, int, IEnumerable<string>?>? _tabCompleter;
+	private Func<string, PromptToken?>? _pasteFilter;
+	private Color? _tokenForegroundColor;
+	private Color? _tokenBackgroundColor;
 	private Color? _inputBackgroundColor;
 	private Color? _inputFocusedBackgroundColor;
 	private Color? _inputForegroundColor;
@@ -177,6 +180,29 @@ public sealed class PromptBuilder : IControlBuilder<PromptControl>
 	public PromptBuilder WithTabCompleter(Func<string, int, IEnumerable<string>?> completer)
 	{
 		_tabCompleter = completer;
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the filter that decides whether a paste becomes a token rather than ordinary text.
+	/// </summary>
+	/// <param name="filter">
+	/// Called with the pasted text. Return a <see cref="PromptToken"/> to insert that instead, or
+	/// null to paste as text. The rule is the host's: the control owns none of it.
+	/// </param>
+	public PromptBuilder WithPasteFilter(Func<string, PromptToken?> filter)
+	{
+		_pasteFilter = filter;
+		return this;
+	}
+
+	/// <summary>Sets the colours a token's label is drawn in, so it reads as a chip.</summary>
+	/// <param name="foreground">The label's foreground, or null to keep the derived default.</param>
+	/// <param name="background">The label's background, or null for none.</param>
+	public PromptBuilder WithTokenColors(Color? foreground, Color? background = null)
+	{
+		_tokenForegroundColor = foreground;
+		_tokenBackgroundColor = background;
 		return this;
 	}
 
@@ -418,6 +444,12 @@ public sealed class PromptBuilder : IControlBuilder<PromptControl>
 			prompt.HistoryEnabled = true;
 		if (_tabCompleter != null)
 			prompt.TabCompleter = _tabCompleter;
+		if (_pasteFilter != null)
+			prompt.PasteFilter = _pasteFilter;
+		if (_tokenForegroundColor != null)
+			prompt.TokenForegroundColor = _tokenForegroundColor;
+		if (_tokenBackgroundColor != null)
+			prompt.TokenBackgroundColor = _tokenBackgroundColor;
 		if (_inputBackgroundColor.HasValue)
 			prompt.InputBackgroundColor = _inputBackgroundColor.Value;
 		if (_inputFocusedBackgroundColor.HasValue)

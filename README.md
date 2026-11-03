@@ -53,6 +53,18 @@ NativeAOT-ready.
 
 ## What it is
 
+See it before reading about it:
+
+```bash
+dotnet tool install -g cxdemo
+cxdemo
+```
+
+That is the showcase running, not a recording of it: overlapping translucent
+windows compositing over a gradient, a data grid with in-cell editing, an HTML
+control rendering a real page with images, a terminal emulator with a shell in
+it, video, and the arcade games.
+
 SharpConsoleUI gives each window its own `CharacterBuffer`. A compositor merges
 them — with occlusion culling, per-cell Porter-Duff alpha blending, and a
 Measure→Arrange→Paint layout pipeline. A single UI thread owns rendering and
@@ -65,10 +77,12 @@ SSH connection — latency and flicker are determined by what actually changed,
 not by a full-screen repaint.
 
 This architecture makes things possible that other .NET terminal libraries
-don't do: overlapping windows with drag/resize/minimize/maximize, animated
-desktop backgrounds, a PTY-backed terminal emulator, video playback with Kitty
-graphics + cell-based fallbacks, and compositor hooks for blur, fade, and custom
-effects.
+don't do: transparent windows that blend with whatever is under them, animated
+desktop backgrounds, and compositor hooks for blur, fade, and custom effects.
+It is also what the exotic controls are built on: a canvas with a half-block
+pixel surface you draw into in memory, an HTML control that renders real web
+pages with images, video playback with Kitty graphics and cell-based fallbacks,
+and a terminal control with a real shell running inside it.
 
 Everything it draws ends at a [**console driver**](docs/DRIVERS.md): the layer that turns
 cells into bytes and terminal bytes back into keys and mouse events. One drives a real
@@ -110,11 +124,11 @@ self-contained native binary, verified on every push by a publish-and-run CI gat
 | Inspect and drive a running app from outside | Diagnostics socket — text, PNG, layout tree, real input | [Debugging](docs/DEBUGGING.md) |
 | Export a window, a region or the desktop | `ICellSurface` → PNG, TGA, JPEG, ANSI or markup | [Screen Export](docs/EXPORT.md) |
 
-Alpha blending is **not** a unique feature: XenoAtom.Terminal.UI also does RGBA blending, in
-linear colour space. What differs is where it happens — we blend *between per-window buffers*
-during compositing, which is what makes overlapping translucent windows and compositor effects
-possible. See [Why SharpConsoleUI](https://nickprotop.github.io/ConsoleEx/docs/WHY.html)
-for an honest side-by-side with Terminal.Gui, Spectre.Console and XenoAtom.Terminal.UI.
+What makes this work is *where* the blending happens: between per-window buffers, during
+compositing, rather than inside a single shared one. That is what overlapping translucent
+windows and compositor effects are built on, and it is the reason they cost nothing until a
+cell actually changes. [Why SharpConsoleUI](https://nickprotop.github.io/ConsoleEx/docs/WHY.html)
+explains the architecture, and is candid about what the framework is not.
 
 ---
 

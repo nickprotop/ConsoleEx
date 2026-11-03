@@ -6,8 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 
@@ -35,7 +33,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>How many more characters the value can accept, or int.MaxValue when unbounded.</summary>
 		private int RemainingCapacity
-			=> _maxLength.HasValue ? Math.Max(0, _maxLength.Value - _input.Length) : int.MaxValue;
+			=> _maxLength.HasValue ? Math.Max(0, _maxLength.Value - DisplayText.Length) : int.MaxValue;
 
 		/// <summary>
 		/// Sets the input text and positions the cursor at the end.
@@ -51,7 +49,7 @@ namespace SharpConsoleUI.Controls
 
 			int newCursorPos = input.Length;
 
-			_input = input;
+			SetDisplayText(input);
 
 			// Set cursor and scroll via services (single source of truth)
 			_cursorPosition = newCursorPos;
@@ -75,6 +73,15 @@ namespace SharpConsoleUI.Controls
 			if (string.IsNullOrEmpty(text)) return;
 			if (ReadOnly || !IsEnabled) return;
 
+			// The host decides whether this paste becomes a chip. Asked BEFORE newlines are
+			// flattened, so a filter counting lines sees the paste as it arrived rather than as a
+			// single-line box would have rewritten it.
+			if (PasteFilter is { } filter && filter(text) is { } token)
+			{
+				InsertToken(token);
+				return;
+			}
+
 			if (!_multiline)
 				text = FlattenNewlines(text);
 			else
@@ -86,7 +93,7 @@ namespace SharpConsoleUI.Controls
 			if (room <= 0) return;
 			if (text.Length > room) text = text.Substring(0, room);
 
-			_input = _input.Insert(_cursorPosition, text);
+			InsertDisplayText(_cursorPosition, text);
 			InvalidateWrapCache();
 			MoveCursorTo(_cursorPosition + text.Length);
 			RaiseInputChanged();
@@ -104,7 +111,7 @@ namespace SharpConsoleUI.Controls
 				return false;
 
 			int cursorPos = _cursorPosition;
-			_input = _input.Insert(cursorPos, c.ToString());
+			InsertDisplayText(cursorPos, c.ToString());
 			ClearSelection();
 			InvalidateWrapCache();
 			MoveCursorTo(cursorPos + 1);
@@ -126,6 +133,11 @@ namespace SharpConsoleUI.Controls
 		/// <summary>
 		/// Gets the selected text, or null if no selection.
 		/// </summary>
+		/// <remarks>
+		/// The text as the box SHOWS it: a covered token contributes its label. Existing public API,
+		/// so its meaning does not change. <see cref="SelectedValueText"/> is the projection a copy
+		/// uses, where a token contributes the value it stands for.
+		/// </remarks>
 		public string? SelectedText
 		{
 			get
@@ -134,7 +146,29 @@ namespace SharpConsoleUI.Controls
 				int start = Math.Min(_selectionAnchor, _cursorPosition);
 				int end = Math.Max(_selectionAnchor, _cursorPosition);
 				if (start == end) return null;
-				return _input.Substring(start, end - start);
+				return DisplayText.Substring(start, end - start);
+			}
+		}
+
+		/// <summary>
+		/// Gets the selected text with each covered token replaced by the value it stands for, or
+		/// null if there is no selection.
+		/// </summary>
+		/// <remarks>
+		/// What a copy or a cut puts on the clipboard. A label is a summary that means nothing
+		/// outside this control, so pasting one into another application would lose the content the
+		/// chip was standing in for. The selection can never cover part of a token, so a token is
+		/// always projected whole.
+		/// </remarks>
+		public string? SelectedValueText
+		{
+			get
+			{
+				if (_selectionAnchor < 0) return null;
+				int start = Math.Min(_selectionAnchor, _cursorPosition);
+				int end = Math.Max(_selectionAnchor, _cursorPosition);
+				if (start == end) return null;
+				return ProjectValueRange(start, end);
 			}
 		}
 
@@ -149,7 +183,7 @@ namespace SharpConsoleUI.Controls
 		/// callers must each re-validate.
 		/// </remarks>
 		public bool HasSelection =>
-			_selectionAnchor >= 0 && _selectionAnchor <= _input.Length && _selectionAnchor != _cursorPosition;
+			_selectionAnchor >= 0 && _selectionAnchor <= DisplayText.Length && _selectionAnchor != _cursorPosition;
 
 		/// <summary>
 		/// Clears the current selection.
@@ -171,15 +205,26 @@ namespace SharpConsoleUI.Controls
 			// a no-op here rather than an exception: DeleteSelection runs under ProcessKey, whose caller
 			// is the input loop in ConsoleWindowSystem.Run(), so throwing takes the whole application down
 			// over one keystroke. Clearing the stale anchor on the way out stops it recurring.
-			int start = Math.Clamp(Math.Min(_selectionAnchor, _cursorPosition), 0, _input.Length);
-			int end = Math.Clamp(Math.Max(_selectionAnchor, _cursorPosition), 0, _input.Length);
+			int start = Math.Clamp(Math.Min(_selectionAnchor, _cursorPosition), 0, DisplayText.Length);
+			int end = Math.Clamp(Math.Max(_selectionAnchor, _cursorPosition), 0, DisplayText.Length);
 			if (end <= start)
 			{
 				_selectionAnchor = -1;
 				return;
 			}
 
-			_input = _input.Remove(start, end - start);
+			// Widen to whole token labels, so the caret below lands on a token's leading edge rather
+			// than where a half-covered label used to begin.
+			//
+			// A DEFENSIVE floor, for the same reason as the clamp above: every path that moves either
+			// end of the selection goes through MoveCursorTo, which snaps as it moves, so the range
+			// arriving here is already on token edges and removing this line breaks no test. It is
+			// kept because the clamp directly above establishes that this method does not trust the
+			// range it is handed, and because RemoveDisplayText takes a touched token whole whatever
+			// the range says, which would leave the caret disagreeing with the content.
+			SnapRangeOutward(ref start, ref end);
+
+			RemoveDisplayText(start, end - start);
 			_selectionAnchor = -1;
 			InvalidateWrapCache();
 			MoveCursorTo(start);
@@ -201,6 +246,29 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Widens an active selection outward to whole token labels, so what is highlighted on screen
+		/// is always exactly what a copy or a delete will take.
+		/// </summary>
+		/// <remarks>
+		/// Applied as the selection MOVES rather than when it is used. The alternative, snapping only
+		/// on use, shows the user a half-highlighted chip and then does something different from what
+		/// the highlight showed.
+		/// <para>
+		/// Only the anchor is adjusted here: the caret has already been snapped out of any token by
+		/// <see cref="MoveCursorTo"/>, and moving it again would fight the direction of travel.
+		/// </para>
+		/// </remarks>
+		private void SnapSelectionOutward()
+		{
+			if (_selectionAnchor < 0 || _selectionAnchor > DisplayText.Length) return;
+			if (_selectionAnchor == _cursorPosition) return;
+
+			// Outward means away from the caret: an anchor behind the caret snaps back, one ahead
+			// snaps on.
+			_selectionAnchor = SnapCaret(_selectionAnchor, forward: _selectionAnchor > _cursorPosition);
+		}
+
 		#endregion
 
 		#region Cursor
@@ -210,20 +278,27 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void MoveCursorTo(int position)
 		{
-			position = Math.Clamp(position, 0, _input.Length);
+			position = Math.Clamp(position, 0, DisplayText.Length);
+
+			// A caret may never rest INSIDE a token: that is what makes "edited as one unit" true
+			// rather than a claim. Snapped in the direction of travel, so Right over a token lands past
+			// it and Left over the same token lands before it, each in one keystroke.
+			position = SnapCaret(position, forward: position >= _cursorPosition);
+
 			_cursorPosition = position;
+			SnapSelectionOutward();
 
 			if (!_multiline)
 			{
 				// Single line: keep the caret inside the visible column window, measured in DISPLAY
 				// columns so a field of wide characters scrolls by what it actually renders.
 				int effectiveWidth = _effectiveInputWidth > 0 ? _effectiveInputWidth : (_inputWidth ?? int.MaxValue);
-				int cursorColumn = UnicodeWidth.CharOffsetToColumn(_input, position);
-				int scrollColumn = UnicodeWidth.CharOffsetToColumn(_input, _horizontalScrollOffset);
+				int cursorColumn = UnicodeWidth.CharOffsetToColumn(DisplayText, position);
+				int scrollColumn = UnicodeWidth.CharOffsetToColumn(DisplayText, _horizontalScrollOffset);
 				if (cursorColumn < scrollColumn)
 					SetScrollOffset(position);
 				else if (effectiveWidth != int.MaxValue && cursorColumn >= scrollColumn + effectiveWidth)
-					SetScrollOffset(UnicodeWidth.ColumnToCharOffset(_input, Math.Max(0, cursorColumn - effectiveWidth + 1)));
+					SetScrollOffset(UnicodeWidth.ColumnToCharOffset(DisplayText, Math.Max(0, cursorColumn - effectiveWidth + 1)));
 			}
 			else
 			{
@@ -248,9 +323,9 @@ namespace SharpConsoleUI.Controls
 			if (pos <= 0) return 0;
 			int i = pos - 1;
 			// Skip whitespace
-			while (i > 0 && char.IsWhiteSpace(_input[i])) i--;
+			while (i > 0 && char.IsWhiteSpace(DisplayText[i])) i--;
 			// Skip word characters
-			while (i > 0 && !char.IsWhiteSpace(_input[i - 1])) i--;
+			while (i > 0 && !char.IsWhiteSpace(DisplayText[i - 1])) i--;
 			return i;
 		}
 
@@ -259,12 +334,12 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private int FindWordBoundaryRight(int pos)
 		{
-			if (pos >= _input.Length) return _input.Length;
+			if (pos >= DisplayText.Length) return DisplayText.Length;
 			int i = pos;
 			// Skip current word
-			while (i < _input.Length && !char.IsWhiteSpace(_input[i])) i++;
+			while (i < DisplayText.Length && !char.IsWhiteSpace(DisplayText[i])) i++;
 			// Skip whitespace
-			while (i < _input.Length && char.IsWhiteSpace(_input[i])) i++;
+			while (i < DisplayText.Length && char.IsWhiteSpace(DisplayText[i])) i++;
 			return i;
 		}
 
@@ -294,10 +369,18 @@ namespace SharpConsoleUI.Controls
 		/// the ↑/↓ index that walks it.</para>
 		/// <para>Exposed so history can outlive the control: an application that wants ↑ to reach
 		/// what was typed in a PREVIOUS session has to be able to read what was typed in this one.
-		/// <see cref="RecordHistory"/> is the other half — read them out at shutdown, feed them back
+		/// <see cref="RecordHistory(string)"/> is the other half: read them out at shutdown, feed them back
 		/// at startup.</para>
 		/// </remarks>
-		public IReadOnlyList<string> History => _history.ToArray();
+		public IReadOnlyList<string> History
+			=> _history.Select(entry => ProjectSegments(entry, label: false)).ToArray();
+
+		/// <summary>
+		/// The history entries with their tokens intact, newest last. A host restoring one through
+		/// <see cref="SetInputSegments"/> gets the tokens back rather than their labels as text.
+		/// </summary>
+		public IReadOnlyList<IReadOnlyList<PromptSegment>> HistorySegments
+			=> _history.Select(entry => (IReadOnlyList<PromptSegment>)entry.ToArray()).ToArray();
 
 		/// <summary>
 		/// Records a value in the history as though it had been submitted here.
@@ -312,14 +395,29 @@ namespace SharpConsoleUI.Controls
 		/// ignored, and the oldest entries drop past <see cref="MaxHistoryEntries"/>.</para>
 		/// </remarks>
 		/// <param name="value">The value to record.</param>
-		public void RecordHistory(string value) => AddHistory(value);
+		public void RecordHistory(string value)
+			=> AddHistory(value, value.Length == 0
+				? Array.Empty<PromptSegment>()
+				: new[] { PromptSegment.FromText(value) });
+
+		/// <summary>Records a submitted value with its tokens intact.</summary>
+		/// <param name="segments">The segments to bank.</param>
+		/// <remarks>
+		/// The segment form of <see cref="RecordHistory(string)"/>, for a host restoring a message
+		/// that carried tokens. Recalling it with Up brings each token back as a token.
+		/// </remarks>
+		public void RecordHistory(IEnumerable<PromptSegment> segments)
+		{
+			var banked = segments.ToArray();
+			AddHistory(ProjectSegments(banked, label: false), banked);
+		}
 
 		/// <summary>
 		/// Records a submitted value. Skips a repeat of the immediately previous entry, and drops the
 		/// oldest entries once the history exceeds <see cref="MaxHistoryEntries"/> — without which a
 		/// command line accumulates every line ever typed for the life of the process.
 		/// </summary>
-		private void AddHistory(string value)
+		private void AddHistory(string value, IReadOnlyList<PromptSegment> segments)
 		{
 			// Committing ends the browse: the pending draft was either sent or abandoned, so it must not
 			// survive to be restored by a later Down. Cleared before the empty/duplicate early-outs
@@ -327,12 +425,12 @@ namespace SharpConsoleUI.Controls
 			_draftStash = null;
 
 			if (string.IsNullOrEmpty(value)) return;
-			if (_history.Count > 0 && _history[^1] == value)
+			if (_history.Count > 0 && ProjectSegments(_history[^1], label: false) == value)
 			{
 				_historyIndex = _history.Count;
 				return;
 			}
-			_history.Add(value);
+			_history.Add(segments);
 			TrimHistory();
 			_historyIndex = _history.Count;
 		}

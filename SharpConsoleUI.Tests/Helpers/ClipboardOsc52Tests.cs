@@ -16,6 +16,33 @@ public class ClipboardOsc52Tests : IDisposable
 		TerminalCapabilities.SetOsc52Override(null);
 	}
 
+	/// <summary>
+	/// Pins TMUX off for the duration, and restores whatever was there.
+	/// </summary>
+	/// <remarks>
+	/// How many sequences the helper emits depends on tmux, so a test about anything else has to
+	/// say which world it is in rather than inherit the developer's terminal.
+	/// </remarks>
+	private static IDisposable OutsideTmux() => new TmuxScope(null);
+
+	private sealed class TmuxScope : IDisposable
+	{
+		private readonly string? _saved;
+
+		public TmuxScope(string? value)
+		{
+			_saved = Environment.GetEnvironmentVariable("TMUX");
+			Environment.SetEnvironmentVariable("TMUX", value);
+			TerminalCapabilities.DetectClipboardEnvironmentForTests();
+		}
+
+		public void Dispose()
+		{
+			Environment.SetEnvironmentVariable("TMUX", _saved);
+			TerminalCapabilities.DetectClipboardEnvironmentForTests();
+		}
+	}
+
 	public void Dispose()
 	{
 		ClipboardHelper.RegisterOsc52Emitter(null);
@@ -27,6 +54,11 @@ public class ClipboardOsc52Tests : IDisposable
 	[Fact]
 	public void Auto_WithOsc52Supported_EmitsAndSetsLocalBuffer()
 	{
+		// TMUX pinned off: under tmux the helper emits the plain sequence AND a passthrough-wrapped
+		// one, by design, so a test that inherits the ambient environment asserts one count in CI
+		// and a different one for anyone running the suite from a tmux pane.
+		using var _ = OutsideTmux();
+
 		TerminalCapabilities.SetOsc52Override(true);
 		ClipboardHelper.SetText("hello");
 		Assert.Single(_emitted);
@@ -46,6 +78,8 @@ public class ClipboardOsc52Tests : IDisposable
 	[Fact]
 	public void Enabled_OverridesUnsupported()
 	{
+		using var _ = OutsideTmux();
+
 		ClipboardHelper.Osc52Mode = Osc52Mode.Enabled;
 		TerminalCapabilities.SetOsc52Override(false);
 		ClipboardHelper.SetText("hi");

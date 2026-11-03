@@ -64,6 +64,25 @@ namespace SharpConsoleUI.Configuration
 		public const int TitleEllipsisWidth = 1;
 
 		/// <summary>
+		/// Single-character ellipsis marking a prompt token whose label is wider than the row it
+		/// has to fit in (U+2026). Reliably 1 cell wide, so the truncation costs one column rather
+		/// than the three that spelling it with dots would.
+		/// </summary>
+		public const char PromptTokenEllipsis = '…';
+
+		/// <summary>
+		/// Halves a channel when deriving the fallback token colour, so the red component drops and
+		/// the result reads as an accent rather than as ordinary text.
+		/// </summary>
+		public const int PromptTokenColorDampen = 2;
+
+		/// <summary>The maximum value of a colour channel, for the same derivation.</summary>
+		public const int PromptTokenColorChannelMax = 255;
+
+		/// <summary>Display columns <see cref="PromptTokenEllipsis"/> occupies.</summary>
+		public const int PromptTokenEllipsisWidth = 1;
+
+		/// <summary>
 		/// Minimum width for text fields (default: 3)
 		/// </summary>
 		public const int DefaultMinTextWidth = 3;

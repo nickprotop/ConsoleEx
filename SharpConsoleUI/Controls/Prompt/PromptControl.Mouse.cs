@@ -90,6 +90,23 @@ namespace SharpConsoleUI.Controls
 
 				int pos = PositionFromPoint(args.Position);
 
+				// A click that lands on a token tells the host and goes no further. The control does
+				// not decide what activation means: expanding, previewing or ignoring are all the
+				// host's to choose, so the token is left exactly as it was.
+				// The half-open span [start, end), not the caret-interior test: a click on the label's
+				// leftmost cell is a click on the chip, and a one-column label has no interior at
+				// all, so the interior test would make such a chip permanently unclickable.
+				if (TryGetTokenSpanCoveringIndex(pos, out int tokenStart, out int tokenLength, out PromptToken clicked))
+				{
+					RaiseTokenActivated(clicked);
+
+					// The caret still has to go somewhere legal, and it may never rest inside a
+					// label. The nearer edge is the one the user was reaching for.
+					pos = pos - tokenStart < tokenLength - (pos - tokenStart)
+						? tokenStart
+						: tokenStart + tokenLength;
+				}
+
 				// A press starts a fresh selection anchored where it landed; the drag above then
 				// extends it by moving the caret, which is what makes click-drag select.
 				_selectionAnchor = pos;
@@ -116,9 +133,9 @@ namespace SharpConsoleUI.Controls
 			if (!_multiline)
 			{
 				int clickColumn = point.X - Margin.Left - _lastAlignOffset - promptLength;
-				int scrollColumn = UnicodeWidth.CharOffsetToColumn(_input, _horizontalScrollOffset);
+				int scrollColumn = UnicodeWidth.CharOffsetToColumn(DisplayText, _horizontalScrollOffset);
 				int column = Math.Max(0, clickColumn + scrollColumn);
-				return UnicodeWidth.ColumnToCharOffset(_input, column);
+				return UnicodeWidth.ColumnToCharOffset(DisplayText, column);
 			}
 
 			var rows = GetWrappedRows(LastWrapWidth);
@@ -129,21 +146,21 @@ namespace SharpConsoleUI.Controls
 			// Every row carries the same hanging indent under the prompt, so the mapping is uniform.
 			int col = Math.Max(0, point.X - Margin.Left - _lastAlignOffset - promptLength);
 
-			string rowText = _input.Substring(row.Offset, row.Length);
+			string rowText = DisplayText.Substring(row.Offset, row.Length);
 			int within = UnicodeWidth.ColumnToCharOffset(rowText, col);
-			return Math.Clamp(row.Offset + within, 0, _input.Length);
+			return Math.Clamp(row.Offset + within, 0, DisplayText.Length);
 		}
 
 		/// <summary>Selects the word under <paramref name="pos"/>, or the whitespace run if that is what is there.</summary>
 		private void SelectWordAt(int pos)
 		{
-			if (_input.Length == 0) return;
-			pos = Math.Clamp(pos, 0, _input.Length - 1);
+			if (DisplayText.Length == 0) return;
+			pos = Math.Clamp(pos, 0, DisplayText.Length - 1);
 
-			bool inWhitespace = char.IsWhiteSpace(_input[pos]);
+			bool inWhitespace = char.IsWhiteSpace(DisplayText[pos]);
 			int start = pos, end = pos;
-			while (start > 0 && char.IsWhiteSpace(_input[start - 1]) == inWhitespace) start--;
-			while (end < _input.Length && char.IsWhiteSpace(_input[end]) == inWhitespace) end++;
+			while (start > 0 && char.IsWhiteSpace(DisplayText[start - 1]) == inWhitespace) start--;
+			while (end < DisplayText.Length && char.IsWhiteSpace(DisplayText[end]) == inWhitespace) end++;
 
 			_selectionAnchor = start;
 			MoveCursorTo(end);

@@ -563,6 +563,11 @@ a.card:hover {
 
 .hero-actions { display: flex; flex-wrap: wrap; gap: 11px; margin-bottom: 26px; }
 
+/* The secondary install line: present, but it must not compete with the primary one
+   directly above it or the hero ends up with two equal calls to action. */
+.hero-install-alt { margin-top: 10px; font-size: 0.88rem; color: var(--text-2); }
+.hero-install-alt code { font-size: 0.84rem; }
+
 .hero-install code {
     font-family: var(--font-mono);
     font-size: 0.9rem;
