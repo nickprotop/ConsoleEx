@@ -52,6 +52,10 @@ internal static class Pages
 		sb.AppendLine("<a class=\"btn btn-ghost\" href=\"docs/WHY.html\">Why this one?</a>");
 		sb.AppendLine("</div>");
 		sb.AppendLine("<p class=\"hero-install\"><code>dotnet add package SharpConsoleUI</code></p>");
+		// A second path for someone still deciding: the line above asks them to start a project,
+		// this one does not. A screenshot cannot show a compositor, so let them watch one.
+		sb.AppendLine("<p class=\"hero-install hero-install-alt\">Or see it running first: "
+			+ "<code>dotnet tool install -g cxdemo &amp;&amp; cxdemo</code></p>");
 		sb.AppendLine("</div>");
 
 		sb.AppendLine("<div class=\"hero-media reveal\">");
