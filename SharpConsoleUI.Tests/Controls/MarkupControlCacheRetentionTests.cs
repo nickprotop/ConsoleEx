@@ -11,6 +11,7 @@ using System.Text;
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Parsing;
 using SharpConsoleUI.Tests.Infrastructure;
 using Xunit;
 
@@ -62,7 +63,7 @@ public class MarkupControlCacheRetentionTests
 	public void UnchangedGroups_ReuseAllWidthsButReleaseOldWholeDocumentResults()
 	{
 		var control = new MarkupControl(["unchanged group", "old group"]);
-		var rows = new Dictionary<int, List<Cell>>();
+		var rows = new Dictionary<int, StyledRow>();
 		var obsolete = new List<WeakReference>();
 		foreach (int width in Widths)
 		{
@@ -77,10 +78,12 @@ public class MarkupControlCacheRetentionTests
 		foreach (int width in Widths)
 		{
 			var parsed = control.EnsureParsedForTest(width);
-			Assert.Same(rows[width], parsed.Rows[0]);
+			Assert.Same(rows[width].Source, parsed.Rows[0].Source);
+			Assert.Equal(rows[width].Start, parsed.Rows[0].Start);
+			Assert.Equal(rows[width].Count, parsed.Rows[0].Count);
 			Assert.Contains("new group", RenderedText(parsed));
 		}
-		Assert.Equal(Widths.Length, MarkupControl.TotalParseCount - before);
+		Assert.Equal(1, MarkupControl.TotalParseCount - before);
 
 		AssertCollected(obsolete);
 		GC.KeepAlive(control);
@@ -92,7 +95,7 @@ public class MarkupControlCacheRetentionTests
 	public void RemovingGroups_ReleasesRowsAtWidthsNotRequestedAgain(bool empty)
 	{
 		var control = new MarkupControl(["keep", "remove"]);
-		var obsolete = CaptureGroupRows(control, sourceIndex: 1, Widths);
+		var obsolete = CaptureGroupRows(control, sourceIndex: 1, Widths, captureRemovedText: true);
 		control.SetContent(empty ? [] : ["keep"]);
 		control.EnsureParsedForTest(40);
 
@@ -127,7 +130,7 @@ public class MarkupControlCacheRetentionTests
 			control.SetContent(["static", $"[gradient=red→blue]dynamic {update}[/]"]);
 			long before = MarkupControl.TotalParseCount;
 			foreach (int width in Widths)
-				Assert.Same(rows[width], control.EnsureParsedForTest(width).Rows[0]);
+				Assert.Same(rows[width].Source, control.EnsureParsedForTest(width).Rows[0].Source);
 			Assert.Equal(Widths.Length, MarkupControl.TotalParseCount - before);
 		}
 	}
@@ -200,25 +203,29 @@ public class MarkupControlCacheRetentionTests
 	}
 
 	[MethodImpl(MethodImplOptions.NoInlining)]
-	private static List<WeakReference> CaptureGroupRows(MarkupControl control, int sourceIndex, int[] widths)
+	private static List<WeakReference> CaptureGroupRows(MarkupControl control, int sourceIndex, int[] widths, bool captureRemovedText = false)
 	{
 		var references = new List<WeakReference>();
 		foreach (int width in widths)
 		{
 			var parsed = control.EnsureParsedForTest(width);
 			references.Add(new WeakReference(parsed));
+			references.Add(new WeakReference(parsed.Rows));
+			references.Add(new WeakReference(parsed.RowLinks));
+			// Row ranges are values; immutable text and empty link lists may be shared by newer
+			// snapshots. Check text ownership only when the entire source group was removed.
+			if (!captureRemovedText) continue;
 			for (int row = 0; row < parsed.Rows.Count; row++)
 			{
 				if (parsed.RowSourceLine[row] != sourceIndex) continue;
-				references.Add(new WeakReference(parsed.Rows[row]));
-				references.Add(new WeakReference(parsed.RowLinks[row]));
+				references.Add(new WeakReference(parsed.Rows[row].Source));
 			}
 		}
 		return references;
 	}
 
 	[MethodImpl(MethodImplOptions.NoInlining)]
-	private static (List<Cell> row, WeakReference document) CaptureUnchangedRow(MarkupControl control, int width)
+	private static (StyledRow row, WeakReference document) CaptureUnchangedRow(MarkupControl control, int width)
 	{
 		var parsed = control.EnsureParsedForTest(width);
 		return (parsed.Rows[0], new WeakReference(parsed));

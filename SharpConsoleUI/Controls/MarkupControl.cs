@@ -303,14 +303,25 @@ namespace SharpConsoleUI.Controls
 			// Reuse ContentWidth for width calculation (already includes border + padding chrome).
 			int width = ContentWidth ?? 0;
 
-			// Calculate total lines (including splits)
-			List<string> snapshot;
-			lock (_contentLock) { snapshot = _content.ToList(); }
+			// Count hard lines without allocating split strings or a content snapshot.
 			int totalLines = 0;
-			foreach (var line in snapshot)
+			lock (_contentLock)
 			{
-				var subLines = line.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);  // fix: handle windows newline char.
-				totalLines += subLines.Length;
+				foreach (var line in _content)
+				{
+					totalLines++; // Includes an empty line and the empty segment after a final newline.
+					for (int i = 0; i < line.Length; i++)
+					{
+						if (line[i] == '\r')
+						{
+							totalLines++;
+							if (i + 1 < line.Length && line[i + 1] == '\n')
+								i++;
+						}
+						else if (line[i] == '\n')
+							totalLines++;
+					}
+				}
 			}
 
 			// Include the optional border + inner padding in the logical height so a bordered markup
@@ -662,9 +673,7 @@ namespace SharpConsoleUI.Controls
 			int parseWidth = ComputeParseWidth(contentWidth);
 			var parsed = EnsureParsed(parseWidth, measureFg, measureBg, mdStyle, _wrap);
 
-			int maxContentWidth = 0;
-			for (int i = 0; i < parsed.Rows.Count; i++)
-				maxContentWidth = Math.Max(maxContentWidth, parsed.Rows[i].Count);
+			int maxContentWidth = parsed.MaxWidth;
 			int totalLines = parsed.TotalRows;
 
 			// Account for margins
@@ -716,7 +725,7 @@ namespace SharpConsoleUI.Controls
 			var mdStyle = ResolveMarkdownStyle();
 			var (effectiveFg, effectiveBg) = ResolveParseColors();
 
-			// Consume the parse cache instead of re-parsing. EnsureParsed returns one cell-row per display
+			// Consume the parse cache instead of re-parsing. EnsureParsed returns one text range per display
 			// row, its source (logical) line index, and the link spans per row — the same three lists the
 			// old per-line loop built. CountParse now lives inside EnsureParsed, so a repeated paint with an
 			// unchanged key performs zero new parses (the issue #42 fix).
@@ -724,14 +733,6 @@ namespace SharpConsoleUI.Controls
 			var parsed = EnsureParsed(parseWidth, effectiveFg, effectiveBg, mdStyle, _wrap);
 			var renderedCellLines = parsed.Rows;
 			var renderedLinkLines = parsed.RowLinks;
-			var rowSourceLineIndex = parsed.RowSourceLine;
-			var rowSoftWrapFlags = parsed.RowIsSoftWrapContinuation;
-
-			// Calculate content width for alignment (Center/Right). Derived from the parsed rows (already in
-			// display columns) so it stays consistent with what is painted.
-			int maxContentWidth = 0;
-			for (int i = 0; i < renderedCellLines.Count; i++)
-				maxContentWidth = Math.Max(maxContentWidth, renderedCellLines[i].Count);
 
 			// Paint with margins + border + padding inset
 			int startY = bounds.Y + topInset;
@@ -742,9 +743,13 @@ namespace SharpConsoleUI.Controls
 			// NOTE: mouse coordinates delivered to ProcessMouseEvent are CONTROL-RELATIVE
 			// (content top-left = (0,0)), so the cache stores origins relative to the control
 			// (Margin.Top / Margin.Left + alignOffset), NOT the absolute buffer bounds.
-			UpdateSelectionLayoutCache(renderedCellLines, rowSourceLineIndex, rowSoftWrapFlags, leftInset, topInset, targetWidth);
-			UpdateLinkLayoutCache(renderedLinkLines);
-			UpdateLinkVisibilityCache(renderedCellLines.Count, startY, clipRect.Y, clipRect.Bottom);
+			lock (_selectionLock)
+			{
+				_selectionContent = parsed;
+				UpdateSelectionLayoutCache(renderedCellLines, leftInset, topInset, targetWidth);
+				UpdateLinkLayoutCache(renderedLinkLines);
+				UpdateLinkVisibilityCache(startY, clipRect.Y, clipRect.Bottom);
+			}
 
 			// Resolve the focused link's rows once for this paint so the loop can invert its cells.
 			// A link whose text wraps covers several rows: FlattenLinks reports it as ONE stop (its
@@ -772,7 +777,7 @@ namespace SharpConsoleUI.Controls
 				?? effectiveFg;
 
 			// Paint content lines (leave room for the bottom border + bottom padding + bottom margin)
-			for (int i = 0; i < renderedCellLines.Count && startY + i < bounds.Bottom - bottomInset; i++)
+			for (int i = Math.Max(0, clipRect.Y - startY); i < renderedCellLines.Count && startY + i < Math.Min(clipRect.Bottom, bounds.Bottom - bottomInset); i++)
 			{
 				int y = startY + i;
 				if (y < clipRect.Y || y >= clipRect.Bottom)
@@ -808,20 +813,17 @@ namespace SharpConsoleUI.Controls
 					ControlRenderingHelpers.FillRect(buffer, new LayoutRect(startX, y, alignOffset, 1), fgColor, marginBg);
 				}
 
-				// Record this row's horizontal paint offset (control-relative) for mouse hit-testing.
-				// Uses the full inset (margin + border + padding) so a click inside a bordered markup
-				// maps to the correct cell.
-				SetRowPaintOffset(i, leftInset + alignOffset);
-
 				// Apply selection highlight (only when selection is enabled and this row is selected).
-				var paintLine = ApplySelectionHighlight(i, cellLine);
+				var paintLine = PreparePaintRow(i, cellLine);
 
 				// Apply focus highlight (keyboard nav): invert the focused link's cells on its row.
 				if (highlightFocus && focusedRowSpans!.TryGetValue(i, out var rowFocusSpan))
-					paintLine = ApplyFocusHighlight(paintLine, rowFocusSpan);
+					paintLine.SetFocus(rowFocusSpan.StartCol, rowFocusSpan.EndCol,
+						_focusedLinkForegroundColor ?? DefaultFocusedLinkForeground,
+						_focusedLinkBackgroundColor ?? DefaultFocusedLinkBackground);
 
 				// Paint the line content
-				buffer.WriteCellsClipped(startX + alignOffset, y, paintLine, clipRect);
+				buffer.WriteTextRowClipped(startX + alignOffset, y, paintLine, clipRect);
 
 				// Fill remaining space (right side) up to the right inset (leaves the right border /
 				// right padding / right margin columns untouched).

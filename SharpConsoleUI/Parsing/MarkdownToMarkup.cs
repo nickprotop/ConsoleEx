@@ -56,10 +56,24 @@ namespace SharpConsoleUI.Parsing
 				return string.Empty;
 
 			style ??= MarkdownStyle.Default;
-			var doc = Markdown.Parse(markdown, Pipeline);
-			var sb = new StringBuilder(markdown.Length);
+			return RenderDocument(ParseDocument(markdown), markdown.Length, style, availableWidth);
+		}
+
+		internal static MarkdownDocument ParseDocument(string markdown) => Markdown.Parse(markdown, Pipeline);
+
+		internal static string RenderDocument(MarkdownDocument doc, int sourceLength, MarkdownStyle style, int availableWidth)
+		{
+			var sb = new StringBuilder(sourceLength);
 			WriteBlocks(doc, sb, style, availableWidth);
 			return sb.ToString().TrimEnd('\n');
+		}
+
+		internal static string RenderFragment(IEnumerable<Block> document, MarkdownStyle style, int width, int prefix)
+		{
+			var sb = new StringBuilder();
+			if (prefix > 0) sb.Append('\n', prefix);
+			WriteBlocks(document, sb, style, width);
+			return sb.ToString(prefix, sb.Length - prefix);
 		}
 
 		private static void WriteBlocks(IEnumerable<Block> blocks, StringBuilder sb, MarkdownStyle style, int availableWidth)

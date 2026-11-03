@@ -149,7 +149,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>
 		/// Measures a single child at the given constraints and returns its desired height. Uses the
-		/// persistent layout node (when ScrollLayout has registered a resolver for the current pass)
+		/// persistent layout node from the current pass or the window's layout tree,
 		/// so the child's already-built subtree is reused instead of rebuilt from scratch via
 		/// <see cref="LayoutNodeFactory.CreateSubtree"/>. Falls back to building a throwaway subtree
 		/// when no persistent node is available (detached / unit-test direct calls), preserving the
@@ -158,18 +158,40 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private int MeasureChildHeight(IWindowControl child, LayoutConstraints constraints)
 		{
-			var persistent = _childNodeResolver?.Invoke(child);
-			if (persistent != null)
+			var node = _childNodeResolver?.Invoke(child);
+			if (node == null)
 			{
-				persistent.IsVisible = true;
-				persistent.Measure(constraints);
-				return persistent.DesiredSize.Height;
+				var arrangedNode = this.GetParentWindow()?.Renderer?.GetLayoutNode(child);
+				// Ignore bounds-only placeholders registered by self-painting containers. A real
+				// child subtree is attached to this panel; structural changes clear the renderer map.
+				if (arrangedNode != null && ReferenceEquals(arrangedNode.Parent?.Control, this))
+				{
+					node = arrangedNode;
+					// Scroll methods can run after property changes but before the next layout pass.
+					// Refresh the values a newly built subtree would have read from each control.
+					RefreshMeasureProperties(node);
+				}
 			}
 
-			var node = LayoutNodeFactory.CreateSubtree(child);
+			node ??= LayoutNodeFactory.CreateSubtree(child);
 			node.IsVisible = true;
 			node.Measure(constraints);
 			return node.DesiredSize.Height;
+		}
+
+		private static void RefreshMeasureProperties(LayoutNode node)
+		{
+			if (node.Control is { } control)
+			{
+				node.ExplicitWidth = control.Width;
+				node.ExplicitHeight = control.Height;
+				node.IsVisible = control.Visible;
+				node.VerticalAlignment = control.VerticalAlignment;
+				if (control is ColumnContainer column)
+					node.FlexFactor = column.FlexFactor;
+			}
+			for (int i = 0; i < node.Children.Count; i++)
+				RefreshMeasureProperties(node.Children[i]);
 		}
 
 

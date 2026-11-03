@@ -14,6 +14,7 @@ using SharpConsoleUI.Events;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Parsing;
 
 namespace SharpConsoleUI.Controls
 {
@@ -50,10 +51,11 @@ namespace SharpConsoleUI.Controls
 
 		// --- Cached layout from the last PaintDOM (for hit-testing) ---
 		private readonly object _selectionLock = new();
-		private List<List<Cell>> _cachedRows = new();
-		private List<int> _cachedRowSourceLine = new();
-		private List<bool> _cachedRowIsSoftWrapContinuation = new();
-		private int[] _cachedRowPaintX = System.Array.Empty<int>();
+		private List<StyledRow> _cachedRows = new();
+		private ParsedContent? _selectionContent;
+		private int _cachedOriginX;
+		private int _cachedContentWidth;
+		private HorizontalAlignment _cachedHorizontalAlignment;
 		private int _cachedOriginY = 0;
 
 		/// <summary>
@@ -152,19 +154,14 @@ namespace SharpConsoleUI.Controls
 				return string.Join("\n", snapshot);
 			}
 
-			int rowCount = System.Math.Max(_cachedRows.Count, _cached?.TotalRows ?? 0);
-			if (rowCount == 0)
+			ParsedContent? parsed;
+			lock (_selectionLock) { parsed = _selectionContent ?? _cached; }
+			if (parsed == null)
 			{
-				// Copy-all can be called before the control has ever painted (no cached rows). Parse the
-				// content on demand at a large width — one row per hard line, no soft-wrapping — so a
-				// rendered copy still works without a prior paint. EnsureParsed populates _cached, which
-				// RenderRowsToText/GetRowCellsForCopy then read.
 				var (fg, bg) = ResolveParseColors();
-				var parsed = EnsureParsed(int.MaxValue, fg, bg, ResolveMarkdownStyle(), _wrap);
-				rowCount = parsed.TotalRows;
-				if (rowCount == 0) return string.Empty;
+				parsed = EnsureParsed(int.MaxValue, fg, bg, ResolveMarkdownStyle(), _wrap);
 			}
-			return RenderRowsToText(0, 0, rowCount - 1, int.MaxValue);
+			return RenderRowsToText(parsed, 0, 0, parsed.TotalRows - 1, int.MaxValue);
 		}
 
 		/// <summary>
@@ -213,11 +210,12 @@ namespace SharpConsoleUI.Controls
 		{
 			lock (_selectionLock)
 			{
-				if (!_hasSelection || (_cachedRows.Count == 0 && (_cached?.TotalRows ?? 0) == 0))
+				var parsed = _selectionContent ?? _cached;
+				if (!_hasSelection || parsed == null || parsed.TotalRows == 0)
 					return string.Empty;
 
 				var (startRow, startCol, endRow, endCol) = GetOrderedSelectionBounds();
-				int rowCount = System.Math.Max(_cachedRows.Count, _cached?.TotalRows ?? 0);
+				int rowCount = parsed.TotalRows;
 				if (rowCount == 0) return string.Empty;
 				startRow = Math.Clamp(startRow, 0, rowCount - 1);
 				endRow = Math.Clamp(endRow, 0, rowCount - 1);
@@ -227,9 +225,9 @@ namespace SharpConsoleUI.Controls
 				// rather than the rendered glyphs. Selection is whole-line in source mode (slicing source
 				// markup by rendered columns is ill-defined).
 				if (_copyMode == MarkupCopyMode.Source)
-					return GetSelectedSourceText(startRow, endRow);
+					return GetSelectedSourceText(parsed, startRow, endRow);
 
-				return RenderRowsToText(startRow, startCol, endRow, endCol);
+				return RenderRowsToText(parsed, startRow, startCol, endRow, endCol);
 			}
 		}
 
@@ -239,19 +237,13 @@ namespace SharpConsoleUI.Controls
 		/// row→source-line index), in order and de-duplicated, joined by newlines. Returns the raw markup the
 		/// control was given, with its embedded line breaks, rather than the rendered glyphs.
 		/// </summary>
-		private string GetSelectedSourceText(int startRow, int endRow)
+		private string GetSelectedSourceText(ParsedContent parsed, int startRow, int endRow)
 		{
 			// Resolve each selected display row to its source (_content) index.
 			var sourceIndices = new List<int>();
 			for (int row = startRow; row <= endRow; row++)
 			{
-				int sourceLine;
-				if (row < _cachedRowSourceLine.Count)
-					sourceLine = _cachedRowSourceLine[row];
-				else if (_cached != null && row < _cached.RowSourceLine.Count)
-					sourceLine = _cached.RowSourceLine[row];
-				else
-					sourceLine = row;
+				int sourceLine = parsed.RowSourceLine[row];
 				if (sourceIndices.Count == 0 || sourceIndices[^1] != sourceLine)
 					sourceIndices.Add(sourceLine);
 			}
@@ -269,35 +261,6 @@ namespace SharpConsoleUI.Controls
 				first = false;
 			}
 			return sb.ToString();
-		}
-
-		/// <summary>True if display row <paramref name="row"/> is a word-wrap continuation of the previous
-		/// row (so copy must NOT put a newline before it). Reads the paint-time cache, then the parse cache;
-		/// defaults to false (treat as a hard-line start) when unknown.</summary>
-		private bool IsSoftWrapContinuation(int row)
-		{
-			if (row >= 0 && row < _cachedRowIsSoftWrapContinuation.Count)
-				return _cachedRowIsSoftWrapContinuation[row];
-			if (_cached != null && row >= 0 && row < _cached.RowIsSoftWrapContinuation.Count)
-				return _cached.RowIsSoftWrapContinuation[row];
-			return false;
-		}
-
-		/// <summary>
-		/// Returns the cell row for an ABSOLUTE display-row index. Uses the hit-test cache when the row is
-		/// present; otherwise reads it from the parse cache (which holds the full parsed row set). Returns an
-		/// empty list if the row cannot be resolved. This keeps off-screen copy correct and bounded — it never
-		/// re-parses the whole buffer. (Reserved seam for future viewport-only parsing.)
-		/// </summary>
-		private List<Cell> GetRowCellsForCopy(int row)
-		{
-			if (row >= 0 && row < _cachedRows.Count)
-				return _cachedRows[row];
-
-			var parsed = _cached;
-			if (parsed == null || row < 0 || row >= parsed.Rows.Count)
-				return new List<Cell>();
-			return parsed.Rows[row];
 		}
 
 		#region IDragAutoScrollTarget
@@ -413,15 +376,26 @@ namespace SharpConsoleUI.Controls
 		/// text (markup stripped), honoring column bounds on the first/last row. Emits '\n' before any row
 		/// after the first whose row is NOT a soft-wrap continuation (i.e. it starts a new hard line), so a
 		/// rendered markdown block keeps its line breaks while a word-wrapped paragraph stays one line.</summary>
-		private string RenderRowsToText(int startRow, int startCol, int endRow, int endCol)
+		private static string RenderRowsToText(ParsedContent parsed, int startRow, int startCol, int endRow, int endCol)
 		{
 			var sb = new StringBuilder();
 			for (int row = startRow; row <= endRow; row++)
 			{
-				if (row > startRow && !IsSoftWrapContinuation(row))
-					sb.Append('\n');
-
-				var cells = GetRowCellsForCopy(row);
+				var cells = parsed.Rows[row];
+				if (row > startRow)
+				{
+					if (!parsed.RowIsSoftWrapContinuation[row]) sb.Append('\n');
+					else
+					{
+						var previous = parsed.Rows[row - 1];
+						if (previous.Source == cells.Source && cells.Source != null)
+							for (int gap = previous.Start + previous.Count; gap < cells.Start; gap++)
+							{
+								var skipped = cells.Source[gap];
+								if (!skipped.IsWideContinuation) sb.Append(skipped.Character.ToString()).Append(skipped.Combiners);
+							}
+					}
+				}
 				int from = (row == startRow) ? startCol : 0;
 				int to = (row == endRow) ? endCol : cells.Count;
 				from = Math.Clamp(from, 0, cells.Count);
@@ -431,6 +405,7 @@ namespace SharpConsoleUI.Controls
 					var cell = cells[c];
 					if (cell.IsWideContinuation) continue;
 					sb.Append(cell.Character.ToString());
+					sb.Append(cell.Combiners);
 				}
 			}
 			return sb.ToString();
@@ -439,66 +414,44 @@ namespace SharpConsoleUI.Controls
 		#region Layout cache (populated by PaintDOM)
 
 		/// <summary>Stores the rendered grid + paint origin from PaintDOM so mouse events can hit-test.</summary>
-		private void UpdateSelectionLayoutCache(List<List<Cell>> rows, List<int> rowSourceLine, List<bool> rowSoftWrap, int originX, int originY, int contentWidth)
+		private void UpdateSelectionLayoutCache(List<StyledRow> rows, int originX, int originY, int contentWidth)
 		{
 			lock (_selectionLock)
 			{
 				_cachedRows = rows;
-				_cachedRowSourceLine = rowSourceLine;
-				_cachedRowIsSoftWrapContinuation = rowSoftWrap;
-				_cachedRowPaintX = new int[rows.Count];
-				for (int i = 0; i < rows.Count; i++)
-					_cachedRowPaintX[i] = originX; // refined per-row via SetRowPaintOffset (alignment)
+				_cachedOriginX = originX;
+				_cachedContentWidth = contentWidth;
+				_cachedHorizontalAlignment = HorizontalAlignment;
 				_cachedOriginY = originY;
 			}
 		}
 
-		/// <summary>Records the actual painted X offset for a row (accounts for alignment padding).</summary>
-		private void SetRowPaintOffset(int rowIndex, int paintX)
+		private int GetRowPaintX(int row)
+		{
+			int padding = Math.Max(0, _cachedContentWidth - _cachedRows[row].Count);
+			return _cachedOriginX + (_cachedHorizontalAlignment switch
+			{
+				HorizontalAlignment.Center => padding / 2,
+				HorizontalAlignment.Right => padding,
+				_ => 0
+			});
+		}
+
+		// Capture highlight bounds; the painter applies them without copying the row.
+		private PaintedTextRow PreparePaintRow(int rowIndex, StyledRow row)
 		{
 			lock (_selectionLock)
 			{
-				if (rowIndex >= 0 && rowIndex < _cachedRowPaintX.Length)
-					_cachedRowPaintX[rowIndex] = paintX;
+				var painted = new PaintedTextRow(row);
+				if (!_enableSelection || !_hasSelection) return painted;
+				var (startRow, startCol, endRow, endCol) = GetOrderedSelectionBounds();
+				if (rowIndex >= startRow && rowIndex <= endRow)
+					painted.SetSelection(rowIndex == startRow ? startCol : 0,
+						rowIndex == endRow ? endCol : row.Count,
+						_selectionForegroundColor ?? DefaultSelectionForeground,
+						_selectionBackgroundColor ?? DefaultSelectionBackground);
+				return painted;
 			}
-		}
-
-		/// <summary>
-		/// Returns a copy of <paramref name="cellLine"/> with selected cells recolored to the selection
-		/// colors, or the original list when nothing on this row is selected. Preserves cell flags.
-		/// </summary>
-		private List<Cell> ApplySelectionHighlight(int rowIndex, List<Cell> cellLine)
-		{
-			if (!_enableSelection || !_hasSelection)
-				return cellLine;
-
-			var (startRow, startCol, endRow, endCol) = GetOrderedSelectionBounds();
-			if (rowIndex < startRow || rowIndex > endRow)
-				return cellLine;
-
-			int from = (rowIndex == startRow) ? startCol : 0;
-			int to = (rowIndex == endRow) ? endCol : cellLine.Count;
-			from = Math.Clamp(from, 0, cellLine.Count);
-			to = Math.Clamp(to, 0, cellLine.Count);
-			if (to <= from)
-				return cellLine;
-
-			Color selFg = _selectionForegroundColor ?? DefaultSelectionForeground;
-			Color selBg = _selectionBackgroundColor ?? DefaultSelectionBackground;
-
-			var result = new List<Cell>(cellLine.Count);
-			for (int c = 0; c < cellLine.Count; c++)
-			{
-				var cell = cellLine[c];
-				if (c >= from && c < to)
-				{
-					// Preserve all flags (Rule A), swap only the colors.
-					cell.Foreground = selFg;
-					cell.Background = selBg;
-				}
-				result.Add(cell);
-			}
-			return result;
 		}
 
 		#endregion
@@ -640,7 +593,7 @@ namespace SharpConsoleUI.Controls
 				if (_cachedRows.Count == 0) return false;
 
 				row = Math.Clamp(mouseY - _cachedOriginY, 0, _cachedRows.Count - 1);
-				int originX = (row < _cachedRowPaintX.Length) ? _cachedRowPaintX[row] : 0;
+				int originX = GetRowPaintX(row);
 				int rowLen = _cachedRows[row].Count;
 				col = Math.Clamp(mouseX - originX, 0, rowLen);
 				return true;
@@ -672,8 +625,10 @@ namespace SharpConsoleUI.Controls
 				for (int c = 0; c < cells.Count; c++)
 				{
 					if (cells[c].IsWideContinuation) continue;
-					charToCell.Add(c);
-					sb.Append(cells[c].Character.ToString());
+					var glyph = cells[c];
+					string value = glyph.Character.ToString() + glyph.Combiners;
+					for (int u = 0; u < value.Length; u++) charToCell.Add(c);
+					sb.Append(value);
 				}
 				string text = sb.ToString();
 				if (text.Length == 0) { _hasSelection = false; return; }

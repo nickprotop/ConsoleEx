@@ -14,13 +14,45 @@ namespace SharpConsoleUI.Parsing
 	{
 		internal const string MarkdownTagOpen = "[markdown]";
 
+		// Owned by one control's source cache, never shared globally. The syntax tree survives
+		// width changes; tables and rules are still rendered at each requested width.
+		internal sealed class PreparedMarkup
+		{
+			private readonly string _markup;
+			private readonly Configuration.MarkdownStyle _style;
+			private readonly IncrementalMarkdown? _incremental;
+			private readonly Dictionary<int, Markdig.Syntax.MarkdownDocument>? _documents;
+
+			internal PreparedMarkup(string markup, Configuration.MarkdownStyle style, PreparedMarkup? previous = null)
+			{
+				_markup = markup;
+				_style = style;
+				if (markup.StartsWith(MarkdownTagOpen, StringComparison.OrdinalIgnoreCase)
+					&& markup.EndsWith("[/]", StringComparison.Ordinal)
+					&& markup.IndexOf("[/]", MarkdownTagOpen.Length, StringComparison.Ordinal) == markup.Length - 3)
+				{
+					_incremental = previous?._incremental ?? new IncrementalMarkdown();
+					_incremental.Update(markup.Substring(MarkdownTagOpen.Length, markup.Length - MarkdownTagOpen.Length - 3));
+				}
+				if (_incremental == null && markup.IndexOf(MarkdownTagOpen, StringComparison.OrdinalIgnoreCase) >= 0)
+					_documents = new();
+			}
+
+			internal List<string>? RenderChunks(int width) => _incremental?.RenderChunks(width, _style);
+
+			internal string Render(int width) => _incremental != null
+				? string.Concat(_incremental.RenderChunks(width, _style))
+				: PreProcessMarkdownTags(_markup, _style, width, _documents);
+		}
+
 		/// <summary>
 		/// Replaces each <c>[markdown]…[/]</c> region with its native-markup translation
 		/// (via <see cref="MarkdownToMarkup"/>, using <see cref="Configuration.MarkdownStyle.Default"/>).
 		/// Content without the tag is returned unchanged (fast path). An unclosed tag renders
 		/// everything after the opening tag as Markdown to end-of-string.
 		/// </summary>
-		private static string PreProcessMarkdownTags(string markup, Configuration.MarkdownStyle? style = null, int availableWidth = int.MaxValue)
+		private static string PreProcessMarkdownTags(string markup, Configuration.MarkdownStyle? style = null, int availableWidth = int.MaxValue,
+			Dictionary<int, Markdig.Syntax.MarkdownDocument>? documents = null)
 		{
 			// Null → the built-in default (preserves prior behavior for callers that don't pass a style).
 			style ??= Configuration.MarkdownStyle.Default;
@@ -57,17 +89,30 @@ namespace SharpConsoleUI.Parsing
 				if (closeIdx < 0)
 				{
 					// Unclosed [markdown]: treat everything after the tag as Markdown to end-of-string.
-					sb.Append(MarkdownToMarkup.Convert(markup.Substring(innerStart), style, availableWidth));
+					sb.Append(ConvertRegion(markup, innerStart, len - innerStart, style, availableWidth, documents));
 					break;
 				}
 
-				string inner = markup.Substring(innerStart, closeIdx - innerStart);
-				sb.Append(MarkdownToMarkup.Convert(inner, style, availableWidth));
+				sb.Append(ConvertRegion(markup, innerStart, closeIdx - innerStart, style, availableWidth, documents));
 
 				i = closeIdx + 3; // skip past the closing [/]
 			}
 
 			return sb.ToString();
+		}
+
+		private static string ConvertRegion(string markup, int start, int length, Configuration.MarkdownStyle style,
+			int width, Dictionary<int, Markdig.Syntax.MarkdownDocument>? documents)
+		{
+			if (length == 0) return string.Empty;
+			if (documents == null)
+				return MarkdownToMarkup.Convert(markup.Substring(start, length), style, width);
+			if (!documents.TryGetValue(start, out var document))
+			{
+				document = MarkdownToMarkup.ParseDocument(markup.Substring(start, length));
+				documents.Add(start, document);
+			}
+			return MarkdownToMarkup.RenderDocument(document, length, style, width);
 		}
 
 		/// <summary>
@@ -76,13 +121,13 @@ namespace SharpConsoleUI.Parsing
 		/// following content. Mirrors <see cref="PreProcessMarkdownTags"/>'s scan: <c>[[markdown]]</c> is an
 		/// escaped literal (not a tag) and the first <c>[/]</c> after an open closes it.
 		/// </summary>
-		internal static bool HasUnclosedMarkdownRegion(string text)
+		internal static bool HasUnclosedMarkdownRegion(string text, int scanStart = 0)
 		{
 			if (string.IsNullOrEmpty(text)
 				|| text.IndexOf(MarkdownTagOpen, StringComparison.OrdinalIgnoreCase) < 0)
 				return false;
 
-			int i = 0;
+			int i = scanStart;
 			int len = text.Length;
 			bool open = false; // whether we are currently inside an unclosed [markdown] region
 

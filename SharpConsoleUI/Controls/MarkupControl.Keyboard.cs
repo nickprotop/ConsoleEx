@@ -32,24 +32,7 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>Number of clickable links in the current content (cached; derived from content, not paint).</summary>
-		private int LinkCount
-		{
-			get
-			{
-				// Compute AND write the cache under _contentLock so a concurrent content mutation
-				// (which clears the cache under the same lock) can't be overwritten by a stale value.
-				// CountLinks is a pure static, safe to call while holding the lock.
-				lock (_contentLock)
-				{
-					if (_cachedLinkCount.HasValue) return _cachedLinkCount.Value;
-					int total = 0;
-					foreach (var line in _content)
-						total += Parsing.MarkupParser.CountLinks(line);
-					_cachedLinkCount = total;
-					return total;
-				}
-			}
-		}
+		private int LinkCount => MeasureSourceLinkCount();
 
 		/// <summary>Invalidates the cached link count after a content change.</summary>
 		private void InvalidateLinkCount()
@@ -101,15 +84,15 @@ namespace SharpConsoleUI.Controls
 
 			lock (_selectionLock)
 			{
-				// _lastClipRect / _cachedRowAbsoluteY are co-written in PaintDOM under _selectionLock.
+				// _lastClipRect / _cachedAbsoluteOriginY are co-written in PaintDOM under _selectionLock.
 				if (_lastClipRectValid)
 				{
 					for (int i = 0; i < links.Count; i++)
 					{
 						int row = links[i].row;
-						if (row >= 0 && row < _cachedRowAbsoluteY.Length)
+						if (row >= 0 && row < _cachedRows.Count)
 						{
-							int y = _cachedRowAbsoluteY[row];
+							int y = _cachedAbsoluteOriginY + row;
 							if (y >= _lastClipRectY && y < _lastClipRectBottom)
 								return i;
 						}
@@ -146,8 +129,9 @@ namespace SharpConsoleUI.Controls
 
 					bool continuesPreviousRow =
 						row == lastRow + 1 &&
-						row < _cachedRowIsSoftWrapContinuation.Count &&
-						_cachedRowIsSoftWrapContinuation[row];
+						_selectionContent != null &&
+						row < _selectionContent.RowIsSoftWrapContinuation.Count &&
+						_selectionContent.RowIsSoftWrapContinuation[row];
 
 					foreach (var span in spans)
 					{
@@ -185,7 +169,7 @@ namespace SharpConsoleUI.Controls
 			{
 				for (int row = stop.row + 1; row < _cachedRowLinks.Count; row++)
 				{
-					if (row >= _cachedRowIsSoftWrapContinuation.Count || !_cachedRowIsSoftWrapContinuation[row])
+					if (_selectionContent == null || row >= _selectionContent.RowIsSoftWrapContinuation.Count || !_selectionContent.RowIsSoftWrapContinuation[row])
 						break;
 
 					var spans = _cachedRowLinks[row];

@@ -654,19 +654,23 @@ namespace SharpConsoleUI.Controls
 		/// so the metrics are recomputed from the arranged bounds rather than served from a stale entry.
 		/// </remarks>
 		internal void SyncMetricsFromArrangedBounds()
+			=> TrySyncMetricsFromArrangedBounds();
+
+		private bool TrySyncMetricsFromArrangedBounds()
 		{
 			var node = this.GetParentWindow()?.Renderer?.GetLayoutNode(this);
 			if (node == null)
-				return;
+				return false;
 
 			var arranged = node.AbsoluteBounds;
 			if (arranged.Width <= 0 || arranged.Height <= 0)
-				return;
+				return false;
 
 			// Resolve from a position-independent outer box of the arranged size; ResolveContentMetrics
 			// only uses Width/Height (origins are relative), so X/Y are irrelevant here.
 			_metricsCacheValid = false;
 			ResolveContentMetrics(new LayoutRect(0, 0, arranged.Width, arranged.Height));
+			return _viewportWidth > 0 && _viewportHeight > 0;
 		}
 
 		/// <summary>

@@ -343,10 +343,23 @@ namespace SharpConsoleUI.Controls
 
 			(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
 			Invalidate(Invalidation.Relayout);
+			if (!value && _animationMode == CollapsibleAnimationMode.None)
+				ReleaseHiddenLayouts(this);
 
 			// INPC for IsExpanded so data binding sees toggles (property setter + Toggle/Expand/Collapse all route here).
 			OnPropertyChanged(nameof(IsExpanded));
 			ExpandedChanged?.Invoke(this, _isExpanded);
+		}
+
+		private static void ReleaseHiddenLayouts(IContainerControl container)
+		{
+			foreach (var child in container.GetChildren())
+			{
+				if (child is MarkupControl markup)
+					markup.ReleaseHiddenLayout();
+				if (child is IContainerControl nested)
+					ReleaseHiddenLayouts(nested);
+			}
 		}
 
 		// Animation hook. Implemented in Task 7 (Animations partial). No-op until then.
