@@ -45,7 +45,7 @@ Controls for user input and interaction.
 | **[ButtonControl](controls/ButtonControl.md)** | Clickable button with text | Click events, keyboard/mouse support |
 | **[CheckboxControl](controls/CheckboxControl.md)** | Toggle checkbox with label | Checked/unchecked state, change events |
 | **[DatePickerControl](controls/DatePickerControl.md)** | Locale-aware date picker | Segmented editing, calendar popup, min/max dates |
-| **[PromptControl](controls/PromptControl.md)** | Text input, single-line or wrapping | Enter key events, optional multiline with grow-to-fit, placeholder, max length, read-only, history, tab completion |
+| **[PromptControl](controls/PromptControl.md)** | Text input, single-line or wrapping | Enter key events, optional multiline with grow-to-fit, placeholder, max length, read-only, history, tab completion, atomic tokens |
 | **[TimePickerControl](controls/TimePickerControl.md)** | Locale-aware time picker | 12h/24h modes, seconds toggle, min/max times |
 | **[MultilineEditControl](controls/MultilineEditControl.md)** | Multi-line text editor | [Syntax highlighting](SYNTAX_HIGHLIGHTING.md) (~64 languages via TextMate grammars, `SyntaxHighlighters.For(...)`), pluggable gutter, find/replace, undo/redo, word wrap |
 | **[SliderControl](controls/SliderControl.md)** | Value slider with thumb | Horizontal/vertical, step/large-step, keyboard/mouse drag |

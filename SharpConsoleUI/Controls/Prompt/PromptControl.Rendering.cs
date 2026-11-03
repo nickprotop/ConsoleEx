@@ -6,7 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using System;
 using System.Drawing;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
@@ -31,6 +30,10 @@ namespace SharpConsoleUI.Controls
 		{
 			_wrapCache = null;
 			_wrapCacheWidth = -1;
+			// The display projection goes stale under exactly the same conditions as the wrapped rows,
+			// so the two are dropped together rather than leaving a second thing for a new mutating
+			// path to forget.
+			InvalidateDisplayCache();
 		}
 
 		/// <summary>
@@ -47,18 +50,28 @@ namespace SharpConsoleUI.Controls
 
 			var rows = new List<TextWrapping.Segment>();
 			var scratch = new List<TextWrapping.Segment>();
+			// Computed once per wrap rather than per line: a token-free control must not pay for the
+			// walk, and the span list is what tells the token path where it may not break.
+			var spans = HasTokens ? TokenSpans() : null;
 
 			int lineStart = 0;
 			while (true)
 			{
-				int nl = _multiline ? _input.IndexOf('\n', lineStart) : -1;
-				int lineEnd = nl < 0 ? _input.Length : nl;
-				string line = _input.Substring(lineStart, lineEnd - lineStart);
+				int nl = _multiline ? DisplayText.IndexOf('\n', lineStart) : -1;
+				int lineEnd = nl < 0 ? DisplayText.Length : nl;
 
-				scratch.Clear();
-				TextWrapping.WrapWords(scratch, line, safeWidth);
-				foreach (var seg in scratch)
-					rows.Add(new TextWrapping.Segment(lineStart + seg.Offset, seg.Length));
+				if (spans == null)
+				{
+					string line = DisplayText.Substring(lineStart, lineEnd - lineStart);
+					scratch.Clear();
+					TextWrapping.WrapWords(scratch, line, safeWidth);
+					foreach (var seg in scratch)
+						rows.Add(new TextWrapping.Segment(lineStart + seg.Offset, seg.Length));
+				}
+				else
+				{
+					WrapLineKeepingTokensWhole(rows, scratch, spans, lineStart, lineEnd, safeWidth);
+				}
 
 				if (nl < 0) break;
 				lineStart = nl + 1;
@@ -97,8 +110,8 @@ namespace SharpConsoleUI.Controls
 			{
 				// Measured in DISPLAY columns: a value of wide characters advances two cells each, so
 				// a character index would put the caret short of where the text actually renders.
-				int cursorColumn = UnicodeWidth.CharOffsetToColumn(_input, CurrentCursorPosition);
-				int scrollColumn = UnicodeWidth.CharOffsetToColumn(_input, CurrentScrollOffset);
+				int cursorColumn = UnicodeWidth.CharOffsetToColumn(DisplayText, CurrentCursorPosition);
+				int scrollColumn = UnicodeWidth.CharOffsetToColumn(DisplayText, CurrentScrollOffset);
 				int visualCursorX = Margin.Left + _lastAlignOffset + promptLength + (cursorColumn - scrollColumn);
 				return new Point(visualCursorX, Margin.Top);
 			}
@@ -106,7 +119,7 @@ namespace SharpConsoleUI.Controls
 			var rows = GetWrappedRows(LastWrapWidth);
 			int rowIndex = RowIndexFor(rows, CurrentCursorPosition);
 			var row = rows.Count > 0 ? rows[rowIndex] : new TextWrapping.Segment(0, 0);
-			string rowText = _input.Substring(row.Offset, row.Length);
+			string rowText = DisplayText.Substring(row.Offset, row.Length);
 			int within = Math.Clamp(CurrentCursorPosition - row.Offset, 0, rowText.Length);
 			int column = UnicodeWidth.CharOffsetToColumn(rowText, within);
 
@@ -122,7 +135,7 @@ namespace SharpConsoleUI.Controls
 
 			if (!_multiline)
 			{
-				string fullContent = (_prompt ?? string.Empty) + _input;
+				string fullContent = (_prompt ?? string.Empty) + DisplayText;
 				int singleWidth = Math.Max(Parsing.MarkupParser.StripLength(fullContent), Width ?? 0);
 				return new System.Drawing.Size(singleWidth, 1);
 			}
@@ -140,8 +153,8 @@ namespace SharpConsoleUI.Controls
 			if (!_multiline)
 			{
 				int column = Math.Max(0, position.X - promptLength);
-				int scrollColumn = UnicodeWidth.CharOffsetToColumn(_input, CurrentScrollOffset);
-				MoveCursorTo(UnicodeWidth.ColumnToCharOffset(_input, column + scrollColumn));
+				int scrollColumn = UnicodeWidth.CharOffsetToColumn(DisplayText, CurrentScrollOffset);
+				MoveCursorTo(UnicodeWidth.ColumnToCharOffset(DisplayText, column + scrollColumn));
 				Container?.Invalidate(Invalidation.Repaint, this);
 				return;
 			}
@@ -150,9 +163,9 @@ namespace SharpConsoleUI.Controls
 			if (rows.Count == 0) { MoveCursorTo(0); return; }
 			int rowIndex = Math.Clamp(position.Y + _verticalScrollOffset, 0, rows.Count - 1);
 			var row = rows[rowIndex];
-			string rowText = _input.Substring(row.Offset, row.Length);
+			string rowText = DisplayText.Substring(row.Offset, row.Length);
 			int within = UnicodeWidth.ColumnToCharOffset(rowText, Math.Max(0, position.X - promptLength));
-			MoveCursorTo(Math.Clamp(row.Offset + within, 0, _input.Length));
+			MoveCursorTo(Math.Clamp(row.Offset + within, 0, DisplayText.Length));
 			Container?.Invalidate(Invalidation.Repaint, this);
 		}
 
@@ -171,14 +184,14 @@ namespace SharpConsoleUI.Controls
 			if (targetRow < 0 || targetRow >= rows.Count) return false;
 
 			var current = rows[rowIndex];
-			string currentText = _input.Substring(current.Offset, current.Length);
+			string currentText = DisplayText.Substring(current.Offset, current.Length);
 			int column = UnicodeWidth.CharOffsetToColumn(currentText, Math.Clamp(_cursorPosition - current.Offset, 0, currentText.Length));
 
 			var target = rows[targetRow];
-			string targetText = _input.Substring(target.Offset, target.Length);
+			string targetText = DisplayText.Substring(target.Offset, target.Length);
 			int within = UnicodeWidth.ColumnToCharOffset(targetText, column);
 
-			MoveCursorTo(Math.Clamp(target.Offset + within, 0, _input.Length));
+			MoveCursorTo(Math.Clamp(target.Offset + within, 0, DisplayText.Length));
 			return true;
 		}
 
@@ -194,9 +207,9 @@ namespace SharpConsoleUI.Controls
 		private int VisualRowEnd(int pos)
 		{
 			var rows = GetWrappedRows(LastWrapWidth);
-			if (rows.Count == 0) return _input.Length;
+			if (rows.Count == 0) return DisplayText.Length;
 			var row = rows[RowIndexFor(rows, pos)];
-			return Math.Min(row.Offset + row.Length, _input.Length);
+			return Math.Min(row.Offset + row.Length, DisplayText.Length);
 		}
 
 		/// <summary>
@@ -229,14 +242,14 @@ namespace SharpConsoleUI.Controls
 			int promptLength = Parsing.MarkupParser.StripLength(_prompt ?? string.Empty);
 			// Cap measured input width to available space — the control scrolls when text overflows.
 			//
-			// THE PLACEHOLDER COUNTS. Measuring only _input means an EMPTY control measures the 10-cell
+			// THE PLACEHOLDER COUNTS. Measuring only DisplayText means an EMPTY control measures the 10-cell
 			// floor, so a placeholder longer than that is cut at 10 no matter how much room the parent
 			// offers — and a placeholder is only ever shown when the input is empty, which is exactly
 			// when this measured nothing. "What should I do?" rendered as "What shoul" in a 160-column
 			// pane. The wider of the two is what will actually be painted, so it is what to measure.
 			int displayedWidth = Math.Max(
-				UnicodeWidth.GetStringWidth(_input),
-				string.IsNullOrEmpty(_input) ? UnicodeWidth.GetStringWidth(_placeholder ?? string.Empty) : 0);
+				UnicodeWidth.GetStringWidth(DisplayText),
+				string.IsNullOrEmpty(DisplayText) ? UnicodeWidth.GetStringWidth(_placeholder ?? string.Empty) : 0);
 			int naturalInputWidth = Math.Max(displayedWidth, 10);
 
 			// STRETCH CLAIMS THE WIDTH OFFERED, as it does for ButtonControl and CheckboxControl —
@@ -380,24 +393,29 @@ namespace SharpConsoleUI.Controls
 
 			// Calculate visible input with scroll offset
 			int scrollOffset = CurrentScrollOffset;
-			string visibleInput = _input;
-			if (_inputWidth.HasValue && _input.Length > _inputWidth.Value)
+			// Where the visible slice begins in DisplayText coordinates, which is what the token
+			// spans are measured in: a slice taken mid-content has to colour the right characters.
+			int visibleStart = 0;
+			string visibleInput = DisplayText;
+			if (_inputWidth.HasValue && DisplayText.Length > _inputWidth.Value)
 			{
-				int maxLength = Math.Min(_inputWidth.Value, _input.Length - scrollOffset);
-				if (maxLength > 0 && scrollOffset < _input.Length)
+				int maxLength = Math.Min(_inputWidth.Value, DisplayText.Length - scrollOffset);
+				if (maxLength > 0 && scrollOffset < DisplayText.Length)
 				{
-					visibleInput = _input.Substring(scrollOffset, maxLength);
+					visibleInput = DisplayText.Substring(scrollOffset, maxLength);
+					visibleStart = scrollOffset;
 				}
 				else
 				{
 					visibleInput = string.Empty;
 				}
 			}
-			else if (scrollOffset > 0 && scrollOffset < _input.Length)
+			else if (scrollOffset > 0 && scrollOffset < DisplayText.Length)
 			{
-				visibleInput = _input.Substring(scrollOffset);
+				visibleInput = DisplayText.Substring(scrollOffset);
+				visibleStart = scrollOffset;
 			}
-			else if (scrollOffset >= _input.Length)
+			else if (scrollOffset >= DisplayText.Length)
 			{
 				visibleInput = string.Empty;
 			}
@@ -407,16 +425,29 @@ namespace SharpConsoleUI.Controls
 			int inputDisplayWidth = _inputWidth ?? Math.Max(remainingWidth, 0);
 			inputDisplayWidth = Math.Min(inputDisplayWidth, remainingWidth);
 
-			bool showPlaceholder = _input.Length == 0 && !string.IsNullOrEmpty(_placeholder);
+			bool showPlaceholder = DisplayText.Length == 0 && !string.IsNullOrEmpty(_placeholder);
 
 			// Write the visible input text using Unicode-aware rendering
 			// Escape markup in user input to prevent [ ] from being parsed as tags
-			string displayInput = showPlaceholder
-				? Parsing.MarkupParser.Escape(_placeholder!)
-				: _maskCharacter.HasValue
-					? new string(_maskCharacter.Value, UnicodeWidth.GetStringWidth(visibleInput))
-					: Parsing.MarkupParser.Escape(visibleInput);
-			var inputCells = Parsing.MarkupParser.Parse(displayInput, showPlaceholder ? PlaceholderColor(inputForegroundColor) : inputForegroundColor, inputBackgroundColor);
+			var tokenSpans = HasTokens ? TokenSpans() : null;
+
+			List<Cell> inputCells;
+			if (!showPlaceholder && tokenSpans != null)
+			{
+				// Token labels get their own colour, and are never masked. Only reached once the
+				// content holds a token; without one this is the historical path, untouched.
+				inputCells = BuildTokenRowCells(visibleStart, visibleInput.Length, tokenSpans,
+					inputForegroundColor, inputBackgroundColor, inputDisplayWidth);
+			}
+			else
+			{
+				string displayInput = showPlaceholder
+					? Parsing.MarkupParser.Escape(_placeholder!)
+					: _maskCharacter.HasValue
+						? new string(_maskCharacter.Value, UnicodeWidth.GetStringWidth(visibleInput))
+						: Parsing.MarkupParser.Escape(visibleInput);
+				inputCells = Parsing.MarkupParser.Parse(displayInput, showPlaceholder ? PlaceholderColor(inputForegroundColor) : inputForegroundColor, inputBackgroundColor);
+			}
 			int visibleDisplayWidth = inputCells.Count;
 
 			// Clamp to inputDisplayWidth and write cells
@@ -495,10 +526,14 @@ namespace SharpConsoleUI.Controls
 			EnsureCaretRowVisible();
 
 			int visibleRows = Math.Clamp(rows.Count, _minRows, _maxRows);
-			bool showPlaceholder = _input.Length == 0 && !string.IsNullOrEmpty(_placeholder);
+			bool showPlaceholder = DisplayText.Length == 0 && !string.IsNullOrEmpty(_placeholder);
 
 			int selStart = HasSelection ? Math.Min(_selectionAnchor, _cursorPosition) : -1;
 			int selEnd = HasSelection ? Math.Max(_selectionAnchor, _cursorPosition) : -1;
+
+			// Null when the content holds no token, which keeps every existing application on the
+			// historical single-colour path rather than through the token row builder.
+			var tokenSpans = HasTokens ? TokenSpans() : null;
 
 			for (int r = 0; r < visibleRows; r++)
 			{
@@ -539,7 +574,7 @@ namespace SharpConsoleUI.Controls
 				{
 					var seg = rows[rowIndex];
 					rowOffset = seg.Offset;
-					rowText = _input.Substring(seg.Offset, seg.Length);
+					rowText = DisplayText.Substring(seg.Offset, seg.Length);
 				}
 				else
 				{
@@ -547,16 +582,28 @@ namespace SharpConsoleUI.Controls
 					rowText = string.Empty;
 				}
 
-				string display = rowOffset >= 0 && _maskCharacter.HasValue
-					? new string(_maskCharacter.Value, UnicodeWidth.GetStringWidth(rowText))
-					: Parsing.MarkupParser.Escape(rowText);
-
-				var cells = Parsing.MarkupParser.Parse(
-					display,
-					rowOffset < 0 && showPlaceholder ? PlaceholderColor(inputForegroundColor) : inputForegroundColor,
-					inputBackgroundColor);
-
 				int fieldWidth = Math.Max(0, bounds.Right - currentX - Margin.Right);
+
+				List<Cell> cells;
+				if (rowOffset >= 0 && tokenSpans != null)
+				{
+					// Token labels get their own colour, and are never masked. Only this path differs
+					// from the historical one, and only when the content holds a token at all.
+					cells = BuildTokenRowCells(rowOffset, rowText.Length, tokenSpans,
+						inputForegroundColor, inputBackgroundColor, fieldWidth);
+				}
+				else
+				{
+					string display = rowOffset >= 0 && _maskCharacter.HasValue
+						? new string(_maskCharacter.Value, UnicodeWidth.GetStringWidth(rowText))
+						: Parsing.MarkupParser.Escape(rowText);
+
+					cells = Parsing.MarkupParser.Parse(
+						display,
+						rowOffset < 0 && showPlaceholder ? PlaceholderColor(inputForegroundColor) : inputForegroundColor,
+						inputBackgroundColor);
+				}
+
 				int cellsToWrite = Math.Min(cells.Count, fieldWidth);
 				for (int i = 0; i < cellsToWrite; i++)
 				{

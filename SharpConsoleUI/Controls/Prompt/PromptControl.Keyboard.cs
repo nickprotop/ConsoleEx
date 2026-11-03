@@ -6,8 +6,6 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
-using System;
-using System.Linq;
 using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
@@ -33,24 +31,26 @@ namespace SharpConsoleUI.Controls
 				{
 					case ConsoleKey.A: // Ctrl+A: select all
 						_selectionAnchor = 0;
-						MoveCursorTo(_input.Length);
+						MoveCursorTo(DisplayText.Length);
 						return true;
 
 					case ConsoleKey.E: // Ctrl+E: cursor to end
 						ClearSelection();
-						MoveCursorTo(_input.Length);
+						MoveCursorTo(DisplayText.Length);
 						return true;
 
 					case ConsoleKey.C: // Ctrl+C: copy selection
+									   // The VALUE projection: a chip pasted into another application has to carry
+									   // what it stands for, since its label means nothing outside this control.
 						if (HasSelection)
-							ClipboardHelper.SetText(SelectedText!);
+							ClipboardHelper.SetText(SelectedValueText!);
 						return true;
 
 					case ConsoleKey.X: // Ctrl+X: cut
 						if (ReadOnly) return true;
 						if (HasSelection)
 						{
-							ClipboardHelper.SetText(SelectedText!);
+							ClipboardHelper.SetText(SelectedValueText!);
 							DeleteSelection();
 							RaiseInputChanged();
 						}
@@ -62,7 +62,7 @@ namespace SharpConsoleUI.Controls
 							int lineEnd = LogicalLineEnd(cursorPos);
 							if (cursorPos < lineEnd)
 							{
-								_input = _input.Remove(cursorPos, lineEnd - cursorPos);
+								RemoveDisplayText(cursorPos, lineEnd - cursorPos);
 								InvalidateWrapCache();
 								Invalidate(Invalidation.Relayout);
 								RaiseInputChanged();
@@ -76,7 +76,7 @@ namespace SharpConsoleUI.Controls
 							int lineStart = LogicalLineStart(cursorPos);
 							if (cursorPos > lineStart)
 							{
-								_input = _input.Remove(lineStart, cursorPos - lineStart);
+								RemoveDisplayText(lineStart, cursorPos - lineStart);
 								InvalidateWrapCache();
 								MoveCursorTo(lineStart);
 								RaiseInputChanged();
@@ -89,7 +89,7 @@ namespace SharpConsoleUI.Controls
 						if (cursorPos > 0)
 						{
 							int wordStart = FindWordBoundaryLeft(cursorPos);
-							_input = _input.Remove(wordStart, cursorPos - wordStart);
+							RemoveDisplayText(wordStart, cursorPos - wordStart);
 							InvalidateWrapCache();
 							MoveCursorTo(wordStart);
 							RaiseInputChanged();
@@ -114,7 +114,7 @@ namespace SharpConsoleUI.Controls
 						return true;
 
 					case ConsoleKey.RightArrow: // Ctrl+Right: word right
-						if (cursorPos < _input.Length)
+						if (cursorPos < DisplayText.Length)
 						{
 							PrepareSelection(shift, cursorPos);
 							MoveCursorTo(FindWordBoundaryRight(cursorPos));
@@ -128,7 +128,7 @@ namespace SharpConsoleUI.Controls
 
 					case ConsoleKey.End: // Ctrl+End: end of value
 						PrepareSelection(shift, cursorPos);
-						MoveCursorTo(_input.Length);
+						MoveCursorTo(DisplayText.Length);
 						return true;
 				}
 			}
@@ -149,9 +149,25 @@ namespace SharpConsoleUI.Controls
 				}
 				if (cursorPos > 0)
 				{
-					_input = _input.Remove(cursorPos - 1, 1);
+					// A token behind the caret goes whole. TryGetTokenSpanAt is asked about the index
+					// one back, which is INSIDE the label of a token the caret sits just after, and so
+					// reports exactly the token Backspace should take.
+					//
+					// RemoveDisplayText would take that token whole either way, since its splice drops
+					// any token the range touches. What this lookup is actually for is the CARET: it
+					// gives MoveCursorTo the token's start, where the caret belongs, rather than
+					// cursorPos - 1, which is a label-length too far along once the label has gone.
+					int removeFrom = cursorPos - 1;
+					int removeLength = 1;
+					if (TryGetTokenSpanAt(cursorPos - 1, out int tokenStart, out int tokenLength, out _))
+					{
+						removeFrom = tokenStart;
+						removeLength = tokenLength;
+					}
+
+					RemoveDisplayText(removeFrom, removeLength);
 					InvalidateWrapCache();
-					MoveCursorTo(cursorPos - 1);
+					MoveCursorTo(removeFrom);
 					RaiseInputChanged();
 				}
 				return true;
@@ -165,9 +181,20 @@ namespace SharpConsoleUI.Controls
 					RaiseInputChanged();
 					return true;
 				}
-				if (cursorPos < _input.Length)
+				if (cursorPos < DisplayText.Length)
 				{
-					_input = _input.Remove(cursorPos, 1);
+					// Mirror of Backspace: the index one FORWARD is inside the label of a token the
+					// caret sits just before, so the whole token goes rather than its first character.
+					//
+					// Here the splice is sufficient on its own (the caret does not move, so there is
+					// no second thing to get right), and removing this lookup breaks no test. It is
+					// kept so the removal length says locally what Delete means, instead of leaning on
+					// a non-obvious overlap rule in another method.
+					int removeLength = 1;
+					if (TryGetTokenSpanAt(cursorPos + 1, out int tokenStart, out int tokenLength, out _) && tokenStart == cursorPos)
+						removeLength = tokenLength;
+
+					RemoveDisplayText(cursorPos, removeLength);
 					InvalidateWrapCache();
 					Invalidate(Invalidation.Relayout);
 					RaiseInputChanged();
@@ -185,7 +212,7 @@ namespace SharpConsoleUI.Controls
 			else if (key.Key == ConsoleKey.End)
 			{
 				PrepareSelection(shift, cursorPos);
-				MoveCursorTo(_multiline ? VisualRowEnd(cursorPos) : _input.Length);
+				MoveCursorTo(_multiline ? VisualRowEnd(cursorPos) : DisplayText.Length);
 				return true;
 			}
 			else if (key.Key == ConsoleKey.LeftArrow && cursorPos > 0)
@@ -194,7 +221,7 @@ namespace SharpConsoleUI.Controls
 				MoveCursorTo(cursorPos - 1);
 				return true;
 			}
-			else if (key.Key == ConsoleKey.RightArrow && cursorPos < _input.Length)
+			else if (key.Key == ConsoleKey.RightArrow && cursorPos < DisplayText.Length)
 			{
 				PrepareSelection(shift, cursorPos);
 				MoveCursorTo(cursorPos + 1);
@@ -299,9 +326,9 @@ namespace SharpConsoleUI.Controls
 		private void Submit()
 		{
 			if (_historyEnabled)
-				AddHistory(_input);
+				AddHistory(ValueText, _segments.ToArray());
 
-			Core.AsyncEvent.Raise(Entered, EnteredAsync, this, _input, Container?.GetConsoleWindowSystem?.LogService);
+			Core.AsyncEvent.Raise(Entered, EnteredAsync, this, ValueText, Container?.GetConsoleWindowSystem?.LogService);
 
 			if (UnfocusOnEnter)
 			{
@@ -312,12 +339,12 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>Swaps the value for a history entry and parks the caret at its end.</summary>
-		private void ReplaceFromHistory(string value)
+		private void ReplaceFromHistory(IReadOnlyList<PromptSegment> entry)
 		{
-			_input = ApplyMaxLength(value);
+			SetSegmentsClamped(entry);
 			ClearSelection();
 			InvalidateWrapCache();
-			MoveCursorTo(_input.Length);
+			MoveCursorTo(DisplayText.Length);
 			RaiseInputChanged();
 			// AFTER the notification: RaiseInputChanged marks the buffer a draft for every ordinary
 			// mutation, but this one MIRRORS a history entry rather than being the user's own text, so
@@ -335,7 +362,9 @@ namespace SharpConsoleUI.Controls
 			if (!_bufferIsDraft)
 				return;
 
-			_draftStash = _input;
+			// Segments, not display text: a token in an unsent draft has to come back as a token,
+			// or walking into history and back out would silently turn it into its own label.
+			_draftStash = _segments.ToArray();
 			_draftStashCursor = _cursorPosition;
 			// The edit has been banked; the buffer about to be loaded is a history entry again.
 			_bufferIsDraft = false;
@@ -348,10 +377,11 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private void RestoreDraft()
 		{
-			string value = _draftStash ?? string.Empty;
+			IReadOnlyList<PromptSegment> entry = _draftStash ?? Array.Empty<PromptSegment>();
 			int cursor = _draftStash != null ? _draftStashCursor : 0;
+			int length = ProjectSegments(entry, label: true).Length;
 
-			_input = ApplyMaxLength(value);
+			SetSegmentsClamped(entry);
 			_draftStash = null;
 			ClearSelection();
 			InvalidateWrapCache();
@@ -359,41 +389,41 @@ namespace SharpConsoleUI.Controls
 			RaiseInputChanged();
 			// AFTER the notification, for the same reason as ReplaceFromHistory. Restored text is the
 			// user's own again (so a subsequent Up re-stashes it), but an empty line is not a draft.
-			_bufferIsDraft = value.Length > 0;
+			_bufferIsDraft = length > 0;
 		}
 
 		private bool ProcessTabCompletion(int cursorPos)
 		{
 			if (ReadOnly) return false;
 
-			var completions = _tabCompleter!(_input, cursorPos)?.ToList();
+			var completions = _tabCompleter!(DisplayText, cursorPos)?.ToList();
 			if (completions == null || completions.Count == 0)
 				return false; // no matches — let focus leave
 
 			if (completions.Count == 1)
 			{
-				if (completions[0] == _input)
+				if (completions[0] == DisplayText)
 					return false; // already complete — let focus leave
-				_input = ApplyMaxLength(completions[0]);
+				SetDisplayText(ApplyMaxLength(completions[0]));
 				// Clear the selection, as the Input setter and ReplaceFromHistory already do when they
 				// replace the text wholesale: the anchor points into the string just discarded, and
 				// MoveCursorTo clamps only the CURSOR, so a stale anchor past the new length would drive
 				// the next DeleteSelection out of range.
 				ClearSelection();
 				InvalidateWrapCache();
-				MoveCursorTo(_input.Length);
+				MoveCursorTo(DisplayText.Length);
 				RaiseInputChanged();
 				return true;
 			}
 
 			// Multiple completions: find common prefix and insert it
 			var prefix = CommonPrefix(completions);
-			if (prefix.Length > _input.Length)
+			if (prefix.Length > DisplayText.Length)
 			{
-				_input = ApplyMaxLength(prefix);
+				SetDisplayText(ApplyMaxLength(prefix));
 				ClearSelection(); // same reason as the single-completion branch above
 				InvalidateWrapCache();
-				MoveCursorTo(_input.Length);
+				MoveCursorTo(DisplayText.Length);
 				RaiseInputChanged();
 				return true;
 			}
@@ -427,16 +457,16 @@ namespace SharpConsoleUI.Controls
 		private int LogicalLineStart(int pos)
 		{
 			if (!_multiline || pos <= 0) return 0;
-			int idx = _input.LastIndexOf('\n', Math.Min(pos - 1, _input.Length - 1));
+			int idx = DisplayText.LastIndexOf('\n', Math.Min(pos - 1, DisplayText.Length - 1));
 			return idx < 0 ? 0 : idx + 1;
 		}
 
 		/// <summary>End of the logical (newline-delimited) line containing <paramref name="pos"/>.</summary>
 		private int LogicalLineEnd(int pos)
 		{
-			if (!_multiline) return _input.Length;
-			int idx = _input.IndexOf('\n', Math.Clamp(pos, 0, _input.Length));
-			return idx < 0 ? _input.Length : idx;
+			if (!_multiline) return DisplayText.Length;
+			int idx = DisplayText.IndexOf('\n', Math.Clamp(pos, 0, DisplayText.Length));
+			return idx < 0 ? DisplayText.Length : idx;
 		}
 	}
 }

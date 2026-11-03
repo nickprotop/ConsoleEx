@@ -73,7 +73,7 @@ namespace SharpConsoleUI.Controls
 
 		/// <summary>Raises the <see cref="Entered"/> event for unit testing without simulating key input.</summary>
 		internal void PerformEnterForTest()
-			=> Core.AsyncEvent.Raise(Entered, EnteredAsync, this, _input, Container?.GetConsoleWindowSystem?.LogService);
+			=> Core.AsyncEvent.Raise(Entered, EnteredAsync, this, ValueText, Container?.GetConsoleWindowSystem?.LogService);
 
 		/// <summary>
 		/// Sets the input text and raises <see cref="InputChanged"/> for unit testing without
@@ -82,8 +82,9 @@ namespace SharpConsoleUI.Controls
 		/// <param name="text">The text to set as the current input value.</param>
 		internal void RaiseInputChangedForTest(string text)
 		{
-			_input = text ?? string.Empty;
-			_cursorPosition = _input.Length;
+			SetDisplayText(text ?? string.Empty);
+			InvalidateWrapCache();
+			_cursorPosition = DisplayText.Length;
 			RaiseInputChanged();
 		}
 
@@ -108,10 +109,11 @@ namespace SharpConsoleUI.Controls
 			// forget to, which would cost the user their draft.
 			_bufferIsDraft = true;
 			OnPropertyChanged(nameof(Input));
-			InputChanged?.Invoke(this, _input);
+			// The VALUE projection, matching what the Input getter returns: a handler is told what to
+			// send, never a token's label.
+			InputChanged?.Invoke(this, ValueText);
 		}
 
-		private string _input = string.Empty;
 		private Color? _inputBackgroundColor;
 		private Color? _inputFocusedBackgroundColor;
 		private Color? _inputFocusedForegroundColor;
@@ -132,7 +134,10 @@ namespace SharpConsoleUI.Controls
 
 		// History
 		private bool _historyEnabled;
-		private readonly List<string> _history = new();
+		// Segment lists, not strings: an entry has to bring its tokens back as tokens, or a recalled
+		// message would send a label where the user meant the pasted body. The public string
+		// History projects these to values.
+		private readonly List<IReadOnlyList<PromptSegment>> _history = new();
 		private int _historyIndex;
 
 		// The unsent draft, stashed while the user browses history. History is a committed list; the
@@ -141,7 +146,7 @@ namespace SharpConsoleUI.Controls
 		// a fragment nobody sent must not become a permanent entry, nor sit at the position the next
 		// Up would show. Null means "nothing stashed"; the cursor rides along so restoring a paragraph
 		// does not strand the caret at its end.
-		private string? _draftStash;
+		private IReadOnlyList<PromptSegment>? _draftStash;
 		private int _draftStashCursor;
 
 		// Whether the buffer is the user's own text rather than an untouched history entry. Set by
@@ -174,7 +179,7 @@ namespace SharpConsoleUI.Controls
 			get
 			{
 				int promptLength = Parsing.MarkupParser.StripLength(_prompt ?? string.Empty);
-				int inputLength = _inputWidth ?? UnicodeWidth.GetStringWidth(_input);
+				int inputLength = _inputWidth ?? UnicodeWidth.GetStringWidth(DisplayText);
 				return promptLength + inputLength + Margin.Left + Margin.Right;
 			}
 		}
@@ -250,7 +255,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		public string Input
 		{
-			get => _input;
+			get => ValueText;
 			set => SetInput(value);
 		}
 
@@ -323,10 +328,10 @@ namespace SharpConsoleUI.Controls
 				_multiline = value;
 				// Leaving multiline mode cannot leave newlines in a control that no longer renders
 				// them: flatten now rather than paint a value the layout has no rows for.
-				if (!_multiline && _input.Contains('\n'))
+				if (!_multiline && DisplayText.Contains('\n'))
 				{
-					_input = FlattenNewlines(_input);
-					_cursorPosition = Math.Clamp(_cursorPosition, 0, _input.Length);
+					SetDisplayText(FlattenNewlines(DisplayText));
+					_cursorPosition = Math.Clamp(_cursorPosition, 0, DisplayText.Length);
 					ClearSelection();
 					RaiseInputChanged();
 				}
