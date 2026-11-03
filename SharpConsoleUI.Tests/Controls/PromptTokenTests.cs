@@ -581,6 +581,43 @@ public class PromptTokenTests
 		GC.KeepAlive(system);
 	}
 
+	/// <summary>
+	/// The leftmost cell of a chip is part of the chip. The caret-interior test treats both edges as
+	/// outside, which is right for "may the caret rest here" and wrong for "did the user click it".
+	/// </summary>
+	[Fact]
+	public void Click_OnFirstColumnOfLabel_RaisesTokenActivated()
+	{
+		var (system, prompt) = HostWithToken("ab", string.Empty);
+		PromptToken? activated = null;
+		prompt.TokenActivated += (_, token) => activated = token;
+
+		// "ab" occupies columns 0 and 1, so the label's first column is 2.
+		prompt.ProcessMouseEvent(ClickAt(2));
+
+		Assert.NotNull(activated);
+		GC.KeepAlive(system);
+	}
+
+	/// <summary>
+	/// A one-column label has no interior at all, so a strict-interior test makes it permanently
+	/// unclickable: the whole feature would look broken to a host using short labels.
+	/// </summary>
+	[Fact]
+	public void Click_OnSingleColumnLabel_RaisesTokenActivated()
+	{
+		var (system, prompt) = HostWithToken("ab", string.Empty, new PromptToken("#", "a value"));
+		PromptToken? activated = null;
+		prompt.TokenActivated += (_, token) => activated = token;
+
+		prompt.ProcessMouseEvent(ClickAt(2));
+
+		Assert.NotNull(activated);
+		Assert.Equal("#", activated!.Label);
+		GC.KeepAlive(system);
+	}
+
+
 	private static MouseEventArgs ClickAt(int x)
 	{
 		var pos = new Point(x, 0);
@@ -1269,6 +1306,25 @@ public class PromptTokenTests
 		Assert.DoesNotContain(prompt.InputSegments, seg => seg.IsToken);
 	}
 
+	/// <summary>
+	/// Expanding puts the whole VALUE into the box, which can be far longer than the label it
+	/// replaces. A cap that would be blown is refused rather than clamped: half a pasted body is
+	/// not something the user asked for, and silently truncating it loses the rest with no event.
+	/// </summary>
+	[Fact]
+	public void ExpandTokenAtCaret_ExceedingMaxLength_IsRefused_AndChangesNothing()
+	{
+		var prompt = new PromptControl { MaxLength = 12 };
+		prompt.InsertToken(new PromptToken("[P1]", new string('v', 400)));
+		string before = prompt.Input;
+
+		Assert.False(prompt.ExpandTokenAtCaret());
+
+		Assert.Equal(before, prompt.Input);
+		Assert.Contains(prompt.InputSegments, seg => seg.IsToken);
+	}
+
+
 	[Fact]
 	public void ExpandTokenAtCaret_NotAtToken_ReturnsFalse_AndChangesNothing()
 	{
@@ -1383,6 +1439,126 @@ public class PromptTokenTests
 
 		Assert.Contains(prompt.InputSegments, seg => seg.IsToken);
 		Assert.Equal($"draft {TokenValue}", prompt.Input);
+	}
+
+	#endregion
+
+
+	#region Mode switching
+
+	/// <summary>
+	/// Turning multiline off flattens newlines, which must not cost the tokens their values. The
+	/// trigger is a newline anywhere in the content, not the token, so a composer holding a pasted
+	/// chip plus a typed newline would otherwise send the label where the user meant the paste.
+	/// </summary>
+	[Fact]
+	public void LeavingMultiline_KeepsTokensAndTheirValues()
+	{
+		var prompt = new PromptControl { Multiline = true };
+		prompt.SetInputSegments(new[]
+		{
+			PromptSegment.FromText("before\n"),
+			PromptSegment.FromToken(Token()),
+			PromptSegment.FromText("\nafter"),
+		});
+
+		prompt.Multiline = false;
+
+		Assert.Contains(prompt.InputSegments, seg => seg.IsToken);
+		Assert.Equal($"before {TokenValue} after", prompt.Input);
+	}
+
+	/// <summary>Flattening still happens: the newlines around the token become spaces.</summary>
+	[Fact]
+	public void LeavingMultiline_StillFlattensNewlinesAroundAToken()
+	{
+		var prompt = new PromptControl { Multiline = true };
+		prompt.SetInputSegments(new[]
+		{
+			PromptSegment.FromText("a\nb"),
+			PromptSegment.FromToken(Token()),
+		});
+
+		prompt.Multiline = false;
+
+		Assert.DoesNotContain("\n", prompt.InputLabelText);
+		Assert.Equal($"a b{TokenLabel}", prompt.InputLabelText);
+	}
+
+	#endregion
+
+
+	#region Adjacent tokens
+
+	/// <summary>
+	/// Two tokens with nothing between them: the caret between the pair touches both, and expanding
+	/// must take the one behind, which is the one the caret just stepped over.
+	/// </summary>
+	[Fact]
+	public void ExpandTokenAtCaret_BetweenTwoTokens_TakesTheOneBehind()
+	{
+		var first = new PromptToken("[A]", "alpha");
+		var second = new PromptToken("[B]", "beta");
+		var prompt = new PromptControl();
+		prompt.SetInputSegments(new[]
+		{
+			PromptSegment.FromToken(first),
+			PromptSegment.FromToken(second),
+		});
+
+		MoveCaretToStart(prompt);
+		Press(prompt, ConsoleKey.RightArrow);
+
+		Assert.True(prompt.ExpandTokenAtCaret());
+
+		Assert.Equal("alpha[B]", prompt.InputLabelText);
+		Assert.Equal("alphabeta", prompt.Input);
+	}
+
+	#endregion
+
+
+	#region Ctrl+W over-deletion
+
+	/// <summary>The reviewer's exact case: "a [Pasted text] b" with the caret at the end.</summary>
+	[Fact]
+	public void CtrlW_AtEnd_AfterTokenAndSpace_RemovesOnlyTheLastWord()
+	{
+		var prompt = new PromptControl();
+		prompt.SetInputSegments(new[]
+		{
+			PromptSegment.FromText("a "),
+			PromptSegment.FromToken(new PromptToken("[Pasted text]", "body")),
+			PromptSegment.FromText(" b"),
+		});
+
+		Press(prompt, ConsoleKey.W, ctrl: true);
+
+		Assert.Contains(prompt.InputSegments, seg => seg.IsToken);
+		Assert.Equal("a [Pasted text] ", prompt.InputLabelText);
+	}
+
+
+	/// <summary>
+	/// Ctrl+W kills ONE word. With a token before the caret it must take the word only, leaving the
+	/// token and the text before it alone. The existing Ctrl+W tests assert DoesNotContain, which
+	/// an empty buffer satisfies, so they cannot see over-deletion.
+	/// </summary>
+	[Fact]
+	public void CtrlW_WithTokenEarlier_RemovesOnlyTheWord()
+	{
+		var prompt = new PromptControl();
+		prompt.SetInputSegments(new[]
+		{
+			PromptSegment.FromText("a "),
+			PromptSegment.FromToken(new PromptToken("[Pasted text #1]", "body")),
+			PromptSegment.FromText(" word"),
+		});
+
+		Press(prompt, ConsoleKey.W, ctrl: true);
+
+		Assert.Contains(prompt.InputSegments, seg => seg.IsToken);
+		Assert.Equal("a [Pasted text #1] ", prompt.InputLabelText);
 	}
 
 	#endregion

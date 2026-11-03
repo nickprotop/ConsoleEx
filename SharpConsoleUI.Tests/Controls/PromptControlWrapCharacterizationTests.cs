@@ -108,7 +108,9 @@ public class PromptControlWrapCharacterizationTests
 
 		var size = prompt.MeasureDOM(new LayoutConstraints(0, 20, 0, 100));
 
-		Assert.True(size.Height >= 2, $"expected the long word to break across rows, measured {size.Height}");
+		// A row count alone holds for any break point. 18 columns of an unbreakable 30-character
+		// word is two rows: 18 then 12.
+		Assert.Equal(2, size.Height);
 	}
 
 	[Fact]
@@ -241,6 +243,8 @@ public class PromptControlWrapCharacterizationTests
 		Assert.NotNull(before);
 		Assert.NotNull(after);
 		Assert.True(after!.Value.Y < before!.Value.Y, "expected the caret to move up a row");
+		// The column is the half a cursor-model change breaks, and "moved up" holds without it.
+		Assert.Equal(before!.Value.X, after.Value.X);
 		GC.KeepAlive(system);
 	}
 

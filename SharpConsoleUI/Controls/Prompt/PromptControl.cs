@@ -302,8 +302,14 @@ namespace SharpConsoleUI.Controls
 		/// Gets or sets the maximum length of the value in characters, or null for unlimited.
 		/// Enforced on typing, on paste (the pasted text is truncated to fit rather than rejected),
 		/// and on <see cref="SetInput"/>. Counted the same way as
-		/// <see cref="MultilineEditControl.MaxLength"/> — in characters, not display columns.
+		/// <see cref="MultilineEditControl.MaxLength"/>: in characters, not display columns.
 		/// </summary>
+		/// <remarks>
+		/// A <see cref="PromptToken"/> counts as its LABEL, because the label is what occupies the
+		/// box; the value it stands for is not typed and may be far longer. A token whose label
+		/// would not fit is refused whole rather than shortened, and
+		/// <see cref="ExpandTokenAtCaret"/> refuses when the value would not fit.
+		/// </remarks>
 		public int? MaxLength
 		{
 			get => _maxLength;
@@ -330,7 +336,7 @@ namespace SharpConsoleUI.Controls
 				// them: flatten now rather than paint a value the layout has no rows for.
 				if (!_multiline && DisplayText.Contains('\n'))
 				{
-					SetDisplayText(FlattenNewlines(DisplayText));
+					FlattenNewlinesInSegments();
 					_cursorPosition = Math.Clamp(_cursorPosition, 0, DisplayText.Length);
 					ClearSelection();
 					RaiseInputChanged();

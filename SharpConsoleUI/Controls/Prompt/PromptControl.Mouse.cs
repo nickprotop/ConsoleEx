@@ -93,7 +93,10 @@ namespace SharpConsoleUI.Controls
 				// A click that lands on a token tells the host and goes no further. The control does
 				// not decide what activation means: expanding, previewing or ignoring are all the
 				// host's to choose, so the token is left exactly as it was.
-				if (TryGetTokenSpanAt(pos, out int tokenStart, out int tokenLength, out PromptToken clicked))
+				// The half-open span [start, end), not the caret-interior test: a click on the label's
+				// leftmost cell is a click on the chip, and a one-column label has no interior at
+				// all, so the interior test would make such a chip permanently unclickable.
+				if (TryGetTokenSpanCoveringIndex(pos, out int tokenStart, out int tokenLength, out PromptToken clicked))
 				{
 					RaiseTokenActivated(clicked);
 

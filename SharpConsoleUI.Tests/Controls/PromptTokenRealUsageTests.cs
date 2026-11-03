@@ -92,7 +92,13 @@ public class PromptTokenRealUsageTests
 		system.Input.ProcessInput();
 		system.Render.UpdateDisplay();
 
-		Assert.Equal($"{PastedBody} ok", prompt.Input);
+		// Content cannot change on an arrow key, so asserting Input here would hold wherever the
+		// caret went, including inside the label. The caret is the thing under test.
+		var caret = prompt.GetLogicalCursorPosition();
+		Assert.NotNull(caret);
+		int labelEnd = TokenLabel.Length + 2;   // the prompt "> " precedes it
+		Assert.True(caret!.Value.X >= labelEnd,
+			$"caret at column {caret.Value.X} is inside the label, which ends at {labelEnd}");
 
 		// Backspace over the token's trailing edge takes the whole token, not one label character.
 		for (int i = 0; i < 3; i++)

@@ -70,6 +70,15 @@ namespace SharpConsoleUI.Configuration
 		/// </summary>
 		public const char PromptTokenEllipsis = '…';
 
+		/// <summary>
+		/// Halves a channel when deriving the fallback token colour, so the red component drops and
+		/// the result reads as an accent rather than as ordinary text.
+		/// </summary>
+		public const int PromptTokenColorDampen = 2;
+
+		/// <summary>The maximum value of a colour channel, for the same derivation.</summary>
+		public const int PromptTokenColorChannelMax = 255;
+
 		/// <summary>Display columns <see cref="PromptTokenEllipsis"/> occupies.</summary>
 		public const int PromptTokenEllipsisWidth = 1;
 

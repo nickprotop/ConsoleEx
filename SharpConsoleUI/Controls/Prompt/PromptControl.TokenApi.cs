@@ -79,8 +79,9 @@ namespace SharpConsoleUI.Controls
 		/// Replaces the token at the caret with its value, as ordinary text.
 		/// </summary>
 		/// <returns>
-		/// True when a token was expanded. False when the caret is not beside one, or the control
-		/// is read-only or disabled, in which case nothing changes.
+		/// True when a token was expanded. False when the caret is not beside one, the control is
+		/// read-only or disabled, or the value would not fit within <see cref="MaxLength"/>. In
+		/// every false case nothing changes.
 		/// </returns>
 		/// <remarks>
 		/// The caret is left at the end of the inserted text, where it would be had the value been
@@ -93,6 +94,15 @@ namespace SharpConsoleUI.Controls
 
 			if (!TryGetTokenAtCaret(out int start, out int length, out PromptToken? token))
 				return false;
+
+			// The value replaces the label, and is usually far longer. A cap that would be blown is
+			// refused rather than clamped: half a pasted body is not what the user asked for, and
+			// truncating it would drop the rest with nothing saying so.
+			if (_maxLength.HasValue &&
+				DisplayText.Length - length + token!.Value.Length > _maxLength.Value)
+			{
+				return false;
+			}
 
 			SetSegments(SpliceSegments(start, length, PromptSegment.FromText(token!.Value)));
 			InvalidateWrapCache();
@@ -117,6 +127,8 @@ namespace SharpConsoleUI.Controls
 			int offset = 0;
 			int behindStart = -1, behindLength = 0;
 			PromptToken? behindToken = null;
+			int aheadStart = -1, aheadLength = 0;
+			PromptToken? aheadToken = null;
 
 			foreach (var segment in _segments)
 			{
@@ -132,12 +144,14 @@ namespace SharpConsoleUI.Controls
 						behindLength = segmentLength;
 						behindToken = segment.Token;
 					}
-					else if (offset == _cursorPosition)
+					else if (offset == _cursorPosition && aheadToken is null)
 					{
-						start = offset;
-						length = segmentLength;
-						token = segment.Token;
-						return true;
+						// Remembered rather than returned: a token may also END here, and that one
+						// wins. Returning on the first match made the token AHEAD win instead,
+						// which is the opposite of what this method promises.
+						aheadStart = offset;
+						aheadLength = segmentLength;
+						aheadToken = segment.Token;
 					}
 				}
 
@@ -149,6 +163,14 @@ namespace SharpConsoleUI.Controls
 				start = behindStart;
 				length = behindLength;
 				token = behindToken;
+				return true;
+			}
+
+			if (aheadToken is not null)
+			{
+				start = aheadStart;
+				length = aheadLength;
+				token = aheadToken;
 				return true;
 			}
 

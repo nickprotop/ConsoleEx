@@ -369,7 +369,7 @@ namespace SharpConsoleUI.Controls
 		/// the ↑/↓ index that walks it.</para>
 		/// <para>Exposed so history can outlive the control: an application that wants ↑ to reach
 		/// what was typed in a PREVIOUS session has to be able to read what was typed in this one.
-		/// <see cref="RecordHistory(string)"/> is the other half — read them out at shutdown, feed them back
+		/// <see cref="RecordHistory(string)"/> is the other half: read them out at shutdown, feed them back
 		/// at startup.</para>
 		/// </remarks>
 		public IReadOnlyList<string> History

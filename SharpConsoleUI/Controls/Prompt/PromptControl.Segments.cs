@@ -59,6 +59,65 @@ namespace SharpConsoleUI.Controls
 		private string Project(bool label) => ProjectSegments(_segments, label);
 
 		/// <summary>
+		/// The token whose label COVERS a display index, counting both edges as inside.
+		/// </summary>
+		/// <param name="displayIndex">An index into <see cref="DisplayText"/>.</param>
+		/// <param name="start">Where the label starts.</param>
+		/// <param name="length">The label's length.</param>
+		/// <param name="token">The token found.</param>
+		/// <returns>True when a label covers the index.</returns>
+		/// <remarks>
+		/// The question a POINTER asks, as opposed to <see cref="TryGetTokenSpanAt"/>, which tests
+		/// the strict interior because the edges are legal caret positions. A click on the leftmost
+		/// cell is a click on the chip, and a one-column label has no interior to hit.
+		/// </remarks>
+		private bool TryGetTokenSpanCoveringIndex(int displayIndex, out int start, out int length, out PromptToken token)
+		{
+			int offset = 0;
+			foreach (var segment in _segments)
+			{
+				int segmentLength = segment.IsToken ? segment.Token!.Label.Length : segment.Text!.Length;
+
+				if (segment.IsToken && displayIndex >= offset && displayIndex < offset + segmentLength)
+				{
+					start = offset;
+					length = segmentLength;
+					token = segment.Token!;
+					return true;
+				}
+
+				offset += segmentLength;
+			}
+
+			start = 0;
+			length = 0;
+			token = null!;
+			return false;
+		}
+
+		/// <summary>
+		/// Collapses every newline in the text runs to a space, leaving the tokens alone.
+		/// </summary>
+		/// <remarks>
+		/// For leaving multiline mode, where the content has to fit one row. Rebuilding from
+		/// <see cref="DisplayText"/> would be simpler and would silently destroy every token: that
+		/// projection carries each token's LABEL, so the content would come back as ordinary text
+		/// and the values would be gone, with nothing saying so.
+		/// </remarks>
+		private void FlattenNewlinesInSegments()
+		{
+			var flattened = new List<PromptSegment>(_segments.Count);
+			foreach (var segment in _segments)
+			{
+				flattened.Add(segment.IsToken
+					? segment
+					: PromptSegment.FromText(FlattenNewlines(segment.Text!)));
+			}
+
+			SetSegments(flattened);
+		}
+
+		/// <summary>
 		/// Replaces the content with a stored segment list, honouring <see cref="MaxLength"/>.
 		/// </summary>
 		/// <remarks>

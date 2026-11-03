@@ -79,9 +79,9 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private static Color DefaultTokenForeground(Color inputForeground)
 			=> new Color(
-				(byte)(inputForeground.R / 2),
-				(byte)((inputForeground.G + 255) / 2),
-				(byte)((inputForeground.B + 255) / 2));
+				(byte)(inputForeground.R / ControlDefaults.PromptTokenColorDampen),
+				(byte)((inputForeground.G + ControlDefaults.PromptTokenColorChannelMax) / ControlDefaults.PromptTokenColorDampen),
+				(byte)((inputForeground.B + ControlDefaults.PromptTokenColorChannelMax) / ControlDefaults.PromptTokenColorDampen));
 
 		#endregion
 
