@@ -57,15 +57,34 @@ namespace SharpConsoleUI.Imaging
 		}
 
 		/// <summary>
-		/// Creates a new PixelBuffer resized to the target dimensions using bilinear interpolation.
+		/// Creates a new PixelBuffer at exactly the size asked for.
 		/// </summary>
+		/// <param name="targetWidth">Width in pixels. Must be positive.</param>
+		/// <param name="targetHeight">Height in pixels. Must be positive.</param>
+		/// <remarks>
+		/// <para>
+		/// Shrinking averages the source area each target pixel covers, a box filter, because
+		/// bilinear sampling reads four source pixels per target pixel and therefore throws away
+		/// most of an image being reduced by more than half: a 4000-pixel photo brought down to
+		/// 1568 aliases into a shimmer of whichever four pixels happened to be sampled. Enlarging
+		/// stays bilinear, where there is nothing to average and interpolation is what is wanted.
+		/// </para>
+		/// <para>
+		/// NO SIZE CAP. This used to clamp each side to 500 independently, so an image asked to
+		/// become 1568x882 came back 500x500: the wrong size, and the aspect ratio destroyed, with
+		/// nothing reporting it. A cap belongs to whatever is displaying the result and knows what
+		/// it can show, not to the resize itself.
+		/// </para>
+		/// </remarks>
 		public PixelBuffer Resize(int targetWidth, int targetHeight)
 		{
 			if (targetWidth <= 0) throw new ArgumentOutOfRangeException(nameof(targetWidth));
 			if (targetHeight <= 0) throw new ArgumentOutOfRangeException(nameof(targetHeight));
 
-			targetWidth = Math.Min(targetWidth, ImagingDefaults.MaxImageDimension);
-			targetHeight = Math.Min(targetHeight, ImagingDefaults.MaxImageDimension);
+			// Shrinking on either axis takes the averaging path: a target pixel covering more than
+			// one source pixel has an area to average, and sampling four of them would not see it.
+			if (targetWidth < Width || targetHeight < Height)
+				return ResizeByArea(targetWidth, targetHeight);
 
 			var result = new PixelBuffer(targetWidth, targetHeight);
 
@@ -93,6 +112,54 @@ namespace SharpConsoleUI.Imaging
 					byte b = BilinearInterpolate(p00.B, p10.B, p01.B, p11.B, xFrac, yFrac);
 
 					result._pixels[tx, ty] = new ImagePixel(r, g, b);
+				}
+			}
+
+			return result;
+		}
+
+		/// <summary>
+		/// Resizes by averaging the source rectangle each target pixel covers.
+		/// </summary>
+		/// <remarks>
+		/// Every source pixel contributes to exactly one target pixel, so nothing is dropped. The
+		/// sums are long because a large source region times 255 overflows an int well before it
+		/// overflows a long, and the count is never zero: a target pixel always covers at least the
+		/// one source pixel its own position falls on.
+		/// </remarks>
+		private PixelBuffer ResizeByArea(int targetWidth, int targetHeight)
+		{
+			var result = new PixelBuffer(targetWidth, targetHeight);
+
+			for (int ty = 0; ty < targetHeight; ty++)
+			{
+				int sy0 = (int)((long)ty * Height / targetHeight);
+				int sy1 = (int)((long)(ty + 1) * Height / targetHeight);
+				if (sy1 <= sy0) sy1 = sy0 + 1;
+				if (sy1 > Height) sy1 = Height;
+
+				for (int tx = 0; tx < targetWidth; tx++)
+				{
+					int sx0 = (int)((long)tx * Width / targetWidth);
+					int sx1 = (int)((long)(tx + 1) * Width / targetWidth);
+					if (sx1 <= sx0) sx1 = sx0 + 1;
+					if (sx1 > Width) sx1 = Width;
+
+					long r = 0, g = 0, b = 0, count = 0;
+					for (int sy = sy0; sy < sy1; sy++)
+					{
+						for (int sx = sx0; sx < sx1; sx++)
+						{
+							var pixel = _pixels[sx, sy];
+							r += pixel.R;
+							g += pixel.G;
+							b += pixel.B;
+							count++;
+						}
+					}
+
+					result._pixels[tx, ty] = new ImagePixel(
+						(byte)(r / count), (byte)(g / count), (byte)(b / count));
 				}
 			}
 
