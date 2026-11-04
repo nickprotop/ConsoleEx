@@ -521,14 +521,31 @@ namespace SharpConsoleUI.Layout
 		/// </summary>
 		public void WriteCellsClipped(int x, int y, IEnumerable<Cell> cells, LayoutRect clipRect)
 		{
+			if (y < clipRect.Y || y >= clipRect.Bottom) return;
+			using var iterator = cells.GetEnumerator();
+			WriteCellsClippedCore(x, y, iterator, clipRect);
+		}
+
+		internal void WriteTextRowClipped(int x, int y, Parsing.PaintedTextRow row, LayoutRect clipRect)
+		{
+			int from = (int)Math.Clamp((long)Math.Max(0, clipRect.X) - x - 1, 0, row.Count);
+			int to = (int)Math.Clamp((long)Math.Min(Width, clipRect.Right) - x + 1, from, row.Count);
+			var iterator = row.GetEnumerator(from, to);
+			WriteCellsClippedCore(x + from, y, iterator, clipRect);
+		}
+
+		private void WriteCellsClippedCore<TEnumerator>(int x, int y, TEnumerator iterator, LayoutRect clipRect)
+			where TEnumerator : IEnumerator<Cell>
+		{
 			if (y < clipRect.Y || y >= clipRect.Bottom)
 				return;
 
 			int cx = x;
 			Cell? pendingWideChar = null;
 
-			foreach (var cell in cells)
+			while (iterator.MoveNext())
 			{
+				var cell = iterator.Current;
 				System.Diagnostics.Debug.Assert(
 					!Helpers.TextSanitizer.IsUnsafeRune(cell.Character),
 					$"Unsafe rune U+{cell.Character.Value:X4} in cell passed to WriteCellsClipped");

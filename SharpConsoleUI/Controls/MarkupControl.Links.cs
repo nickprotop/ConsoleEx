@@ -54,9 +54,9 @@ namespace SharpConsoleUI.Controls
 			set => SetProperty(ref _focusedLinkBackgroundColor, value);
 		}
 
-		// Absolute screen Y of each rendered row + the last clip rectangle, captured in PaintDOM under
+		// Absolute screen Y of the first row + the last clip rectangle, captured in PaintDOM under
 		// _selectionLock. Used to pick the first VISIBLE link on focus-gain (keyboard nav, R3).
-		private int[] _cachedRowAbsoluteY = System.Array.Empty<int>();
+		private int _cachedAbsoluteOriginY;
 		private int _lastClipRectY = 0;
 		private int _lastClipRectBottom = 0;
 		private bool _lastClipRectValid = false;
@@ -74,51 +74,18 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Records each rendered row's absolute screen Y and the active clip rectangle so focus-gain can pick
+		/// Records the row origin and active clip rectangle so focus-gain can pick
 		/// the first VISIBLE link (keyboard nav, R3). Call inside PaintDOM alongside the link/selection caches.
 		/// </summary>
-		private void UpdateLinkVisibilityCache(int rowCount, int startY, int clipTop, int clipBottom)
+		private void UpdateLinkVisibilityCache(int startY, int clipTop, int clipBottom)
 		{
 			lock (_selectionLock)
 			{
-				_cachedRowAbsoluteY = new int[rowCount];
-				for (int i = 0; i < rowCount; i++)
-					_cachedRowAbsoluteY[i] = startY + i;
+				_cachedAbsoluteOriginY = startY;
 				_lastClipRectY = clipTop;
 				_lastClipRectBottom = clipBottom;
 				_lastClipRectValid = true;
 			}
-		}
-
-		/// <summary>
-		/// Returns a copy of <paramref name="cellLine"/> with the focused link's cells recolored to the
-		/// definite focused-link highlight colors, preserving all other cell flags (Rule A / Rule 12 —
-		/// recolor only). Definite colors (not an fg/bg swap) guarantee a readable, non-transparent pair
-		/// even when the link cell's background is <see cref="Color.Transparent"/>. The span is in
-		/// display-column coordinates over the painted row.
-		/// </summary>
-		private List<Cell> ApplyFocusHighlight(List<Cell> cellLine, LinkSpan span)
-		{
-			int from = System.Math.Clamp(span.StartCol, 0, cellLine.Count);
-			int to = System.Math.Clamp(span.EndCol, 0, cellLine.Count);
-			if (to <= from) return cellLine;
-
-			Color focusFg = _focusedLinkForegroundColor ?? DefaultFocusedLinkForeground;
-			Color focusBg = _focusedLinkBackgroundColor ?? DefaultFocusedLinkBackground;
-
-			var result = new List<Cell>(cellLine.Count);
-			for (int c = 0; c < cellLine.Count; c++)
-			{
-				var cell = cellLine[c];
-				if (c >= from && c < to)
-				{
-					// Definite highlight colors, keep all flags (wide-continuation, combiners, decorations).
-					cell.Foreground = focusFg;
-					cell.Background = focusBg;
-				}
-				result.Add(cell);
-			}
-			return result;
 		}
 
 		/// <summary>Single raise path for <see cref="LinkClicked"/>, shared by the mouse and keyboard paths.</summary>
@@ -168,13 +135,13 @@ namespace SharpConsoleUI.Controls
 			int hitRow = -1;
 			lock (_selectionLock)
 			{
-				// _cachedRowLinks, _cachedRows, and _cachedRowPaintX are co-written in a single
+				// _cachedRowLinks, _cachedRows, and the paint origin are co-written in a single
 				// PaintDOM pass, so they are always equal-length. The bounds checks below are
 				// defensive (guarding against a hit-test before the first paint), not handling drift.
 				if (_cachedRowLinks.Count == 0) return false;
 				if (!TryHitTest(args.Position.X, args.Position.Y, out int row, out _)) return false;
 				if (row < 0 || row >= _cachedRowLinks.Count) return false;
-				int originX = (row < _cachedRowPaintX.Length) ? _cachedRowPaintX[row] : 0;
+				int originX = GetRowPaintX(row);
 				hit = LinkHitTester.FindAt(_cachedRowLinks[row], originX, args.Position.X);
 				hitRow = row;
 			}

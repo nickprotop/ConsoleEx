@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using SharpConsoleUI.Controls;
 using SharpConsoleUI.Layout;
+using SharpConsoleUI.Parsing;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Controls;
@@ -18,13 +19,13 @@ public class MarkupControlStreamingMarkdownTests
 {
 	private const int Width = 50;
 
-	private static string RowText(List<Cell> row)
+	private static string RowText(IEnumerable<Cell> row)
 		=> string.Concat(row.Where(c => c.Character.Value != 0).Select(c => c.Character.ToString()));
 
-	private static bool AnyRowHas(List<List<Cell>> rows, char ch)
+	private static bool AnyRowHas(IEnumerable<StyledRow> rows, char ch)
 		=> rows.Any(r => RowText(r).IndexOf(ch) >= 0);
 
-	private static bool AnyRowHasReplacement(List<List<Cell>> rows)
+	private static bool AnyRowHasReplacement(IEnumerable<StyledRow> rows)
 		=> rows.Any(r => r.Any(c => c.Character.Value == 0xFFFD));
 
 	// Streaming via AppendLine: one [markdown] block built across three calls renders as markdown.

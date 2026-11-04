@@ -296,10 +296,9 @@ namespace SharpConsoleUI.Controls
 		public void ScrollToBottom()
 		{
 			// Re-sync metrics from the arranged bounds so VisibleContentHeight reflects the real
-			// on-screen viewport (not a MEASURE-pass content-sized value). No-op when detached.
-			SyncMetricsFromArrangedBounds();
-
-			if (!RefreshContentHeightIfLaidOut())
+			// on-screen viewport. A successful sync already measured the current content height;
+			// only detached/unarranged panels need the fallback measurement.
+			if (!TrySyncMetricsFromArrangedBounds() && !RefreshContentHeightIfLaidOut())
 			{
 				// Viewport not laid out yet — defer to the first valid paint.
 				_pendingScrollToBottom = true;

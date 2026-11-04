@@ -56,13 +56,24 @@ namespace SharpConsoleUI.Controls
 		private readonly object _childrenLock = new();
 		private int _verticalScrollOffset = 0;
 
+		/// <summary>
+		/// Raised after the vertical scroll offset changes. Subscribers are called on the UI thread and
+		/// may use the notification to maintain a virtualized transcript window.
+		/// </summary>
+		public event EventHandler<ScrollOffsetChangedEventArgs>? VerticalScrollOffsetChanged;
+
 		/// <summary>Single write choke-point for <see cref="_verticalScrollOffset"/>. Keeping every offset
 		/// mutation funneled through one setter makes the scroll paths easy to reason about (and to
 		/// instrument when diagnosing scroll bugs). The <paramref name="reason"/> documents the caller.</summary>
 		private void SetVerticalScrollOffset(int value, string reason)
 		{
 			_ = reason;
+			if (_verticalScrollOffset == value)
+				return;
+
+			int previous = _verticalScrollOffset;
 			_verticalScrollOffset = value;
+			VerticalScrollOffsetChanged?.Invoke(this, new ScrollOffsetChangedEventArgs(previous, value));
 		}
 		private int _horizontalScrollOffset = 0;
 		private int _contentHeight = 0;
@@ -654,19 +665,23 @@ namespace SharpConsoleUI.Controls
 		/// so the metrics are recomputed from the arranged bounds rather than served from a stale entry.
 		/// </remarks>
 		internal void SyncMetricsFromArrangedBounds()
+			=> TrySyncMetricsFromArrangedBounds();
+
+		private bool TrySyncMetricsFromArrangedBounds()
 		{
 			var node = this.GetParentWindow()?.Renderer?.GetLayoutNode(this);
 			if (node == null)
-				return;
+				return false;
 
 			var arranged = node.AbsoluteBounds;
 			if (arranged.Width <= 0 || arranged.Height <= 0)
-				return;
+				return false;
 
 			// Resolve from a position-independent outer box of the arranged size; ResolveContentMetrics
 			// only uses Width/Height (origins are relative), so X/Y are irrelevant here.
 			_metricsCacheValid = false;
 			ResolveContentMetrics(new LayoutRect(0, 0, arranged.Width, arranged.Height));
+			return _viewportWidth > 0 && _viewportHeight > 0;
 		}
 
 		/// <summary>

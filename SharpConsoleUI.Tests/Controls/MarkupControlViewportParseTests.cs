@@ -86,14 +86,17 @@ public class MarkupControlViewportParseTests
 	}
 
 	[Fact]
-	public void EnsureParsed_MissOnWidthChange_Reparses()
+	public void EnsureParsed_WidthChange_ReusesTextAndRewraps()
 	{
-		var control = new MarkupControl(Lines(5)) { Wrap = true };
-		control.EnsureParsedForTest(width: 40);
+		var control = new MarkupControl(Lines(5, new string('x', 65))) { Wrap = true };
+		var wide = control.EnsureParsedForTest(width: 40);
 		long afterFirst = MarkupControl.GetParseCountForTest();
-		control.EnsureParsedForTest(width: 20);
+		var narrow = control.EnsureParsedForTest(width: 20);
 		long afterSecond = MarkupControl.GetParseCountForTest();
-		Assert.True(afterSecond > afterFirst, "width change must re-parse");
+		Assert.Equal(afterFirst, afterSecond);
+		Assert.Same(wide.Rows[0].Source, narrow.Rows[0].Source);
+		Assert.True(narrow.TotalRows > wide.TotalRows);
+		Assert.All(narrow.Rows, row => Assert.True(row.Count <= 20));
 	}
 
 	[Fact]
