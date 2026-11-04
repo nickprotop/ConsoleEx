@@ -27,6 +27,53 @@ string text = ClipboardHelper.GetText(); // read back (local tool / in-process b
 
 `SetText` never throws — clipboard operations are best-effort.
 
+```csharp
+byte[]? png = ClipboardHelper.GetImage();              // may block, like GetText
+byte[]? ui  = ClipboardHelper.GetImageWithTimeout();   // bounded; use this on the UI thread
+```
+
+## Reading images
+
+`GetImage` returns the clipboard image as **encoded file bytes**, or `null` when the clipboard holds
+no image or the backend cannot read one. The bytes decode with `PixelBuffer.FromStream`, so they are
+PNG, JPEG, BMP or GIF. PNG is asked for first wherever the clipboard offers it: it is lossless, every
+backend speaks it, and it is what a screenshot tool puts there.
+
+```csharp
+byte[]? bytes = ClipboardHelper.GetImageWithTimeout();
+if (bytes is not null)
+{
+    using var stream = new MemoryStream(bytes);
+    window.AddControl(Controls.Image(PixelBuffer.FromStream(stream)));
+}
+```
+
+Use `GetImageWithTimeout` from anything on the UI thread. It runs the read on a background thread and
+gives up when it does not finish, for the reason the text read does (issue #42): a stalled child
+process must never hold the render loop. **Unlike `GetTextWithTimeout` there is no fallback value.** A
+timeout returns `null` rather than the in-process buffer, because that buffer holds text and handing
+it back as an image would be a wrong answer rather than a degraded one.
+
+### What each backend can do
+
+| Backend | Image read | How |
+|---------|-----------|-----|
+| `WindowsClip` | yes | Win32, in-process. The registered `PNG` format first, else `CF_DIBV5`/`CF_DIB` with a reconstructed file header. Never spawns PowerShell. |
+| `WlClipboard` | yes | `wl-paste --list-types`, then `--type` the best image it names. |
+| `Xclip` | yes | `xclip -t TARGETS -o`, then `-t <type> -o`. |
+| `X11` | yes | `TARGETS` over the existing connection, then a conversion to `image/png`, reassembling INCR chunks as bytes. |
+| `Pbcopy` (macOS) | yes | AppleScript writes `«class PNGf»` to a temp file, which is read back and deleted. `pbpaste` itself is text only. |
+| **`Xsel`** | **no** | xsel cannot read a binary target at all. Returns `null`. |
+| `InternalFallback` | no | The in-process buffer holds text; there is no image in it. Returns `null`. |
+
+A clipboard DIB is headerless: it starts at `BITMAPINFOHEADER`, and a BMP file is that preceded by a
+14-byte `BITMAPFILEHEADER`. The pixel offset in that header is computed rather than copied, since it
+has to account for the DIB header's own size, a colour table when the depth has one, and the colour
+masks `BI_BITFIELDS` inserts. Getting it wrong does not fail; it decodes the palette as pixels.
+
+TIFF is never requested, even when a clipboard offers it, because no TIFF decoder is linked into the
+library. See [Image rendering](IMAGE_RENDERING.md).
+
 ## Opening URLs
 
 `SharpConsoleUI.Helpers.UrlLauncher` opens a URL in the platform's default browser — the natural

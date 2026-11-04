@@ -104,6 +104,19 @@ namespace SharpConsoleUI.Helpers
 
 			/// <summary>Callers that arrived while this read was in flight; they get the same answer.</summary>
 			public List<TaskCompletionSource<string?>>? Joined { get; set; }
+
+			/// <summary>
+			/// An image read rather than a text one: the property's bytes are the answer and must not
+			/// be decoded, since any text encoding replaces the invalid sequences that binary is full
+			/// of and the bytes that came back would not be the bytes that were sent.
+			/// </summary>
+			public bool Binary { get; init; }
+
+			/// <summary>Where a binary read's answer goes, since <see cref="Done"/> carries a string.</summary>
+			public TaskCompletionSource<byte[]?>? Bytes { get; init; }
+
+			/// <summary>A binary read never falls back to another target: it asked for one type.</summary>
+			public bool AllowTargetFallback => !Binary;
 		}
 
 		private X11Clipboard(string selection)
@@ -205,6 +218,112 @@ namespace SharpConsoleUI.Helpers
 			{
 				return null;
 			}
+		}
+
+		/// <summary>
+		/// Reads an image from the clipboard as encoded file bytes, or null when the owner offers none.
+		/// </summary>
+		/// <param name="timeoutMs">How long to wait for the owner to answer.</param>
+		/// <remarks>
+		/// Two round trips rather than one: TARGETS first to learn what the owner can give, then the
+		/// best image type it named. Asking blind would be a conversion that the owner refuses, and a
+		/// refusal costs the same wait as an answer while telling us nothing about what else it has.
+		/// </remarks>
+		public byte[]? GetImage(int timeoutMs)
+		{
+			if (_broken)
+				return null;
+
+			long deadline = Environment.TickCount64 + timeoutMs;
+
+			nint target = RequestImageTarget(timeoutMs);
+			if (target == None)
+				return null;
+
+			int left = (int)Math.Max(1, deadline - Environment.TickCount64);
+			var bytes = new TaskCompletionSource<byte[]?>(TaskCreationOptions.RunContinuationsAsynchronously);
+			if (!Post(() => BeginBinaryRead(bytes, target)))
+				return null;
+
+			try
+			{
+				return bytes.Task.Wait(left) ? bytes.Task.Result : null;
+			}
+			catch
+			{
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Asks the owner what it can convert to, and picks the best image type among the answers.
+		/// </summary>
+		/// <returns>The atom to convert to, or <c>None</c> when the owner offers no image we decode.</returns>
+		private nint RequestImageTarget(int timeoutMs)
+		{
+			var done = new TaskCompletionSource<byte[]?>(TaskCreationOptions.RunContinuationsAsynchronously);
+			if (!Post(() => BeginBinaryRead(done, _targets)))
+				return None;
+
+			byte[]? raw;
+			try
+			{
+				if (!done.Task.Wait(timeoutMs))
+					return None;
+				raw = done.Task.Result;
+			}
+			catch
+			{
+				return None;
+			}
+
+			if (raw == null || raw.Length == 0)
+				return None;
+
+			// TARGETS comes back as atoms, which are C longs in memory rather than four bytes each.
+			int stride = sizeof(nint);
+			var offered = new HashSet<nint>();
+			for (int i = 0; i + stride <= raw.Length; i += stride)
+				offered.Add((nint)BitConverter.ToInt64(raw, i));
+
+			foreach (string name in ImageTargetNames)
+			{
+				nint atom = Intern(name);
+				if (atom != None && offered.Contains(atom))
+					return atom;
+			}
+			return None;
+		}
+
+		/// <summary>Image targets to accept, best first. PNG leads: lossless, and what producers offer.</summary>
+		private static readonly string[] ImageTargetNames = { "image/png", "image/jpeg", "image/bmp" };
+
+		/// <summary>Starts a read whose answer is bytes rather than text.</summary>
+		private void BeginBinaryRead(TaskCompletionSource<byte[]?> done, nint target)
+		{
+			if (XGetSelectionOwner(_display, _clipboard) == None)
+			{
+				done.TrySetResult(null);
+				return;
+			}
+
+			// ONE CONVERSION AT A TIME, as the text read explains: they share the property they land
+			// in. A binary read cannot join a text one in flight, though - it wants a different
+			// target - so it is refused rather than given the wrong answer.
+			if (_read is not null)
+			{
+				done.TrySetResult(null);
+				return;
+			}
+
+			_read = new PendingRead
+			{
+				Done = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously),
+				Target = target,
+				Binary = true,
+				Bytes = done,
+			};
+			Convert(_read);
 		}
 
 		/// <summary>
@@ -610,8 +729,9 @@ namespace SharpConsoleUI.Helpers
 
 			if (ev->Property == None)
 			{
-				// UTF8_STRING REFUSED: an old owner may still give Latin-1 STRING.
-				if (read.Target == _utf8)
+				// UTF8_STRING REFUSED: an old owner may still give Latin-1 STRING. A binary read has
+				// no such second choice - it asked for one image type, and a refusal is the answer.
+				if (read.AllowTargetFallback && read.Target == _utf8)
 				{
 					read.Target = XaString;
 					Convert(read);
@@ -637,7 +757,7 @@ namespace SharpConsoleUI.Helpers
 				read.Deadline = Environment.TickCount64 + ReadDeadlineMs;
 				return;
 			}
-			FinishRead(Decode(read.Target, bytes));
+			Deliver(read, bytes);
 		}
 
 		private void PropertyChanged(XPropertyEvent* ev)
@@ -660,7 +780,7 @@ namespace SharpConsoleUI.Helpers
 			}
 			if (bytes.Length == 0)
 			{
-				FinishRead(Decode(read.Target, chunks.ToArray()));
+				Deliver(read, chunks.ToArray());
 				return;
 			}
 			chunks.Write(bytes);
@@ -699,10 +819,35 @@ namespace SharpConsoleUI.Helpers
 		private string Decode(nint target, byte[] bytes) =>
 			target == XaString ? Encoding.Latin1.GetString(bytes) : Encoding.UTF8.GetString(bytes);
 
+		/// <summary>Completes a binary read with the bytes the property held.</summary>
+		private void FinishReadBytes(byte[]? bytes)
+		{
+			var read = _read;
+			_read = null;
+			read?.Bytes?.TrySetResult(bytes);
+			read?.Done.TrySetResult(null);
+
+			if (read?.Joined is { } joinedBinary)
+			{
+				foreach (var waiter in joinedBinary)
+					waiter.TrySetResult(null);
+			}
+		}
+
+		/// <summary>Completes the read in flight, taking the bytes as text or as themselves.</summary>
+		private void Deliver(PendingRead read, byte[] bytes)
+		{
+			if (read.Binary) FinishReadBytes(bytes);
+			else FinishRead(Decode(read.Target, bytes));
+		}
+
 		private void FinishRead(string? text)
 		{
 			var read = _read;
 			_read = null;
+
+			// A binary read that ends here failed or timed out; its caller is waiting on Bytes.
+			read?.Bytes?.TrySetResult(null);
 			read?.Done.TrySetResult(text);
 
 			// EVERY CALLER THAT JOINED gets this same answer — including ones whose own wait has already run out,

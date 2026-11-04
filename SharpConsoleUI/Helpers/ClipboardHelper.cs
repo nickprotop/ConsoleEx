@@ -56,7 +56,7 @@ namespace SharpConsoleUI.Helpers
 	/// Falls back to an in-process buffer when no system clipboard is reachable.
 	/// Operations are best-effort and will not throw on failure.
 	/// </summary>
-	public static class ClipboardHelper
+	public static partial class ClipboardHelper
 	{
 		private const int ProcessTimeoutMs = 1000;
 
