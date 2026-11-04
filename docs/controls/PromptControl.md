@@ -278,6 +278,18 @@ once tokens arrive. Restore a message with `SetInputSegments`.
   still as one unit.
 - `MaxLength` counts the label, since that is what occupies the box.
 
+`TokenAtCaret` is the token the caret is touching, or null when it touches none: the same one
+`ExpandTokenAtCaret` would act on, found the same way, and reading it changes nothing. A composer
+whose tokens are not all alike uses it to decide what a key means before acting, since expanding a
+pasted block is right and expanding an attached image is not.
+
+```csharp
+if (prompt.TokenAtCaret is { Tag: "image" } image)
+    ShowPreview(image.Value);        // an image's value IS its label; never expand it
+else
+    prompt.ExpandTokenAtCaret();     // a pasted block becomes editable text
+```
+
 `ExpandTokenAtCaret()` replaces a token with its value as ordinary text. `TokenActivated` fires when
 one is clicked, so the host decides whether a click means expand.
 

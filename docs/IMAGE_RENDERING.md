@@ -43,7 +43,8 @@ pixels.SetPixel(0, 1, new ImagePixel(0, 0, 255));   // Blue
 // Get pixel
 ImagePixel pixel = pixels.GetPixel(0, 0);
 
-// Resize with bilinear interpolation
+// Resize to exactly the size asked for. Shrinking averages the source area each
+// target pixel covers; enlarging interpolates.
 PixelBuffer resized = pixels.Resize(50, 25);
 ```
 
@@ -355,7 +356,7 @@ Image defaults are in `ImagingDefaults`:
 | Constant | Default | Description |
 |----------|---------|-------------|
 | `DefaultScaleMode` | `Fit` | Default scale mode for ImageControl |
-| `MaxImageDimension` | 500 | Maximum image dimension (prevents overflow in unbounded layouts) |
+| `MaxImageDimension` | 500 | Cap used by `ImageControl` when layout constraints are unbounded. `PixelBuffer.Resize` does NOT apply it: it gives the size asked for |
 | `PixelsPerCell` | 2 | Vertical pixels per character cell |
 | `HalfBlockChar` | `'▀'` | The Unicode half-block character used for rendering |
 | `KittyChunkSize` | 4096 | Maximum bytes per Kitty graphics protocol chunk |

@@ -150,6 +150,40 @@ ChatRoleStyle GetRoleStyle(ChatRole role)              // Retrieve the current s
 
 Role styles take effect for messages added **after** the call. Already-added messages keep the style they were built with.
 
+## Message Attachments
+
+A message can carry a control shown below its body, for something it *carries* rather than says:
+an attached image shown where it was attached, instead of behind a button that opens it elsewhere.
+
+```csharp
+var id = chat.AddMessage(ChatRole.User, "have a look at this");
+chat.SetMessageAttachment(id, new ImageControl { Source = thumbnail });
+
+chat.GetMessageAttachment(id);          // the control, or null
+chat.SetMessageAttachment(id, null);    // clear it
+```
+
+Like the footer, the attachment is an honest composition: a real child control inserted as a
+sibling immediately after the message's `CollapsiblePanel`. It is laid out at the message's width,
+scrolls with it, and goes when the message is removed or the transcript is cleared.
+
+**It never takes focus or keys.** A transcript is read by scrolling, and a focusable thing in the
+middle of one is a stop the reader did not ask for. A message that needs a button uses a footer
+action, which is focusable and already exists.
+
+**Its height is its own.** A control laid out at the message's width reports the height it needs
+and the transcript scrolls. Capping here would be the transcript second-guessing a control about
+its own size; a host that wants a thumbnail builds a small one.
+
+**It hides when the message collapses**, which is where it differs from the footer. A collapsed
+message is a single summary line and an image hanging underneath would contradict that, whereas the
+footer's buttons are still worth reaching. The control instance is kept across the collapse, so a
+host's reference stays valid and an image is not decoded again when the message is reopened.
+
+> On terminals with the Kitty graphics protocol this is safe to hide and show: a placeholder cell
+> carries its own row and column with the image id in the foreground, so it is a self-describing
+> reference to an image the terminal still holds, and nothing is re-transmitted.
+
 ## Message Actions & Status
 
 Each message can carry a **footer** made of two optional rows: an **actions row** (a toolbar of buttons) and a **status row** (a single tinted status line). The footer is an *honest composition* — the two rows are real `ToolbarControl` / `StatusBarControl` children inserted into the transcript **as siblings of the message's `CollapsiblePanel`, not as children of it**. Because of that, **the footer survives collapsing the message body**: click to collapse a verbose tool message and its Copy / 👍 buttons and status line stay put.

@@ -93,16 +93,30 @@ library. See [Image rendering](IMAGE_RENDERING.md).
 
 ## Opening URLs
 
-`SharpConsoleUI.Helpers.UrlLauncher` opens a URL in the platform's default browser — the natural
+`SharpConsoleUI.Helpers.UrlLauncher` opens a URL in the platform's default browser. The natural
 companion to the clickable links you can embed in markup and markdown:
 
 ```csharp
 UrlLauncher.Open("https://example.com");
+
+// Or ask whether anything was launched, and offer something else when not:
+if (!UrlLauncher.TryOpen(path))
+    ShowMessage($"No desktop to open it with. The file is at {path}");
 ```
 
-Cross-platform (uses the OS shell, falling back to `xdg-open` / `open`), **best-effort, and never
-throws** — a `null`/whitespace URL is a safe no-op, and a failed launch is swallowed. Wire it into a
-link click or an "Open in browser" action.
+Cross-platform, **best-effort, and never throws**: a null or whitespace URL is a safe no-op, and a
+failed launch is swallowed. Wire it into a link click or an "Open in browser" action.
+
+**It will not write over your UI.** On Linux and macOS the launcher runs with its stdin, stdout and
+stderr redirected away, because otherwise it and whatever it starts inherit the terminal this
+application is drawing on: xdg-open's own warnings land in the middle of the screen, and a handler
+that turns out to be a text browser takes the screen over completely. Windows keeps
+`UseShellExecute`, which is how a scheme reaches its registered handler there.
+
+**With no desktop it does not launch at all.** On Linux with neither `DISPLAY` nor
+`WAYLAND_DISPLAY`, xdg-open falls back to a text browser, so over SSH or on a server there is
+nothing good to launch into. `TryOpen` returns false in that case, which is what lets a caller print
+a path instead of silently doing nothing.
 
 ## How copy works
 
