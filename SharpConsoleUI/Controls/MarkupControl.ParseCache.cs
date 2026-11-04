@@ -147,24 +147,24 @@ namespace SharpConsoleUI.Controls
 		internal void ReleaseHiddenLayout()
 		{
 			lock (_parseCacheLock)
-			lock (_selectionLock)
-			{
-				if (_hasSelection || _isDragging) return;
-				Array.Clear(_cacheKeys);
-				Array.Clear(_cacheEntries);
-				_cacheNextSlot = 0;
-				_cached = null;
-				_groupCache.Clear();
-				_groupCache.TrimExcess();
-				_sourceCache.Clear();
-				_sourceCache.TrimExcess();
-				_naturalWidthKey = null;
-				_cachedRows = new();
-				_cachedRowLinks = new();
-				_selectionContent = null;
-				_cachedAbsoluteOriginY = 0;
-				_lastClipRectValid = false;
-			}
+				lock (_selectionLock)
+				{
+					if (_hasSelection || _isDragging) return;
+					Array.Clear(_cacheKeys);
+					Array.Clear(_cacheEntries);
+					_cacheNextSlot = 0;
+					_cached = null;
+					_groupCache.Clear();
+					_groupCache.TrimExcess();
+					_sourceCache.Clear();
+					_sourceCache.TrimExcess();
+					_naturalWidthKey = null;
+					_cachedRows = new();
+					_cachedRowLinks = new();
+					_selectionContent = null;
+					_cachedAbsoluteOriginY = 0;
+					_lastClipRectValid = false;
+				}
 		}
 
 		// Whether the content holds dynamic markup, cached against the version that produced it. Without
