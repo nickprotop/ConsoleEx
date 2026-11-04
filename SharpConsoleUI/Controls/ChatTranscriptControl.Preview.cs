@@ -57,6 +57,10 @@ namespace SharpConsoleUI.Controls
 
 		private void OnMessageExpandedChanged(MessageEntry entry, bool expanded)
 		{
+			// The attachment first: it sits between the panel and the peek row, so putting it back
+			// before the peek exists keeps that order without either having to know about the other.
+			OnMessageExpandedChangedForAttachment(entry, expanded);
+
 			if (expanded)
 				RemovePeek(entry);
 			else

@@ -82,6 +82,16 @@ namespace SharpConsoleUI.Controls
 			/// </summary>
 			public MarkupControl? PeekRow { get; set; }
 
+			/// <summary>
+			/// A control shown inside the message, below its body, or null when it has none. Kept
+			/// across a collapse so the host's reference stays valid and an image is not decoded
+			/// again when the message is reopened.
+			/// </summary>
+			public IWindowControl? Attachment { get; set; }
+
+			/// <summary>Whether <see cref="Attachment"/> is currently in the transcript's children.</summary>
+			public bool AttachmentShown { get; set; }
+
 			/// <summary>The message's declared actions, in display order.</summary>
 			public List<ChatMessageAction> Actions { get; } = new();
 
@@ -863,6 +873,8 @@ namespace SharpConsoleUI.Controls
 				RemoveControl(entry.PeekRow);
 				entry.PeekRow = null;
 			}
+
+			DropAttachment(entry);
 
 			RemoveControl(entry.Panel);
 			_byId.Remove(id);
