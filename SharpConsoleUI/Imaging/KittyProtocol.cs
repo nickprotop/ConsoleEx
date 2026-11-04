@@ -145,7 +145,7 @@ namespace SharpConsoleUI.Imaging
 		{
 			if (imageId <= 0 || columns <= 0 || rows <= 0)
 				return new List<string>();
-			if (columns > 1000 || rows > 1000)
+			if (columns > ImagingDefaults.KittyMaxPlacementCells || rows > ImagingDefaults.KittyMaxPlacementCells)
 				return new List<string>();
 
 			var chunks = new List<string>();
@@ -197,9 +197,9 @@ namespace SharpConsoleUI.Imaging
 		{
 			if (imageId <= 0 || columns <= 0 || rows <= 0)
 				return new List<string>();
-			if (columns > 1000 || rows > 1000)
+			if (columns > ImagingDefaults.KittyMaxPlacementCells || rows > ImagingDefaults.KittyMaxPlacementCells)
 				return new List<string>();
-			if (pixelWidth <= 0 || pixelHeight <= 0 || pixelWidth > 10000 || pixelHeight > 10000)
+			if (pixelWidth <= 0 || pixelHeight <= 0 || pixelWidth > ImagingDefaults.KittyMaxRawPixelDimension || pixelHeight > ImagingDefaults.KittyMaxRawPixelDimension)
 				return new List<string>();
 
 			byte[] compressed = CompressZlib(rgbData);
@@ -248,7 +248,7 @@ namespace SharpConsoleUI.Imaging
 		{
 			if (imageId <= 0)
 				return new List<string>();
-			if (pixelWidth <= 0 || pixelHeight <= 0 || pixelWidth > 10000 || pixelHeight > 10000)
+			if (pixelWidth <= 0 || pixelHeight <= 0 || pixelWidth > ImagingDefaults.KittyMaxRawPixelDimension || pixelHeight > ImagingDefaults.KittyMaxRawPixelDimension)
 				return new List<string>();
 
 			byte[] compressed = CompressZlib(rgbData);

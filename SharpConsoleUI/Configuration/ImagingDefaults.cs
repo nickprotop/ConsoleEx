@@ -36,5 +36,20 @@ namespace SharpConsoleUI.Configuration
 
 		/// <summary>Maximum image dimension supported by Kitty protocol.</summary>
 		public const int KittyMaxImageDimension = 4096;
+
+		/// <summary>
+		/// The most terminal cells a Kitty placement may span, in either direction.
+		/// </summary>
+		/// <remarks>
+		/// A placement wider or taller than this is refused rather than transmitted. The limit guards
+		/// against a runaway layout asking the terminal to hold an absurd placement; it is far beyond
+		/// any real terminal, which is a few hundred cells across.
+		/// </remarks>
+		public const int KittyMaxPlacementCells = 1000;
+
+		/// <summary>
+		/// The most pixels a Kitty raw-RGB transmission may carry, in either direction.
+		/// </summary>
+		public const int KittyMaxRawPixelDimension = 10000;
 	}
 }
