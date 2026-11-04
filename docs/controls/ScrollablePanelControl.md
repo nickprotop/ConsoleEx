@@ -13,7 +13,7 @@ ScrollablePanelControl is a container control that stacks child controls vertica
 
 The panel manages its children's focus lifecycle as an opaque focus scope: Tab and Shift+Tab move focus between focusable children, Escape drops into "scroll mode" where the arrow keys, Page Up/Down, and Home/End scroll the viewport. When a child gains focus it is automatically scrolled into view. The panel also supports mouse-wheel scrolling, draggable scrollbars, an optional border with a header, and an `AutoScroll` mode that keeps the view pinned to the bottom as new content arrives (useful for live logs and chat-style output).
 
-The panel exposes rich state about its scroll position (`VerticalScrollOffset`, `CanScrollUp`/`CanScrollDown`, `TotalContentHeight`, `ViewportHeight`, etc.) and a `Scrolled` event so callers can react to scrolling. Children are added via `AddControl` (or the builder's `.AddControl()`), and the panel can be created with the `Controls.ScrollablePanel()` / `ScrollablePanelBuilder` fluent API.
+The panel exposes rich state about its scroll position (`VerticalScrollOffset`, `CanScrollUp`/`CanScrollDown`, `TotalContentHeight`, `ViewportHeight`, etc.) and events so callers can react to scrolling. Use `Scrolled` when you need the complete scroll state, or `VerticalScrollOffsetChanged` when a vertical virtualization layer only needs the old and new line offsets. Children are added via `AddControl` (or the builder's `.AddControl()`), and the panel can be created with the `Controls.ScrollablePanel()` / `ScrollablePanelBuilder` fluent API.
 
 See also: [TabControl](TabControl.md), [HorizontalGridControl](HorizontalGridControl.md)
 
@@ -142,6 +142,7 @@ Create a builder with `Controls.ScrollablePanel()` or `new ScrollablePanelBuilde
 | Event | Arguments | Description |
 |-------|-----------|-------------|
 | `Scrolled` | `ScrollEventArgs` | Raised when the panel is scrolled (carries `Direction`, `VerticalOffset`, `HorizontalOffset`) |
+| `VerticalScrollOffsetChanged` | `ScrollOffsetChangedEventArgs` | Raised on the UI thread after the vertical offset changes; carries `PreviousOffset` and `Offset`. Not raised when the clamped offset is unchanged. |
 | `GotFocus` | `EventArgs` | Raised when the panel gains focus |
 | `LostFocus` | `EventArgs` | Raised when the panel loses focus |
 | `MouseClick` | `MouseEventArgs` | Mouse click (interface requirement) |
@@ -150,6 +151,18 @@ Create a builder with `Controls.ScrollablePanel()` or `new ScrollablePanelBuilde
 | `MouseEnter` | `MouseEventArgs` | Mouse enters the control area (interface requirement) |
 | `MouseLeave` | `MouseEventArgs` | Mouse leaves the control area (interface requirement) |
 | `MouseMove` | `MouseEventArgs` | Mouse moves over the control (interface requirement) |
+
+For a virtualized transcript or log, subscribe to the offset-specific event and update only the visible range:
+
+```csharp
+panel.VerticalScrollOffsetChanged += (_, args) =>
+{
+    var firstVisibleLine = args.Offset;
+    virtualizedView.RefreshVisibleRange(firstVisibleLine);
+};
+```
+
+The event is raised only when the effective, clamped vertical offset changes. Subscribers are called on the UI thread, so background producers must marshal mutations through `EnqueueOnUIThread` or `InvokeAsync` before changing controls.
 
 ## Methods
 
