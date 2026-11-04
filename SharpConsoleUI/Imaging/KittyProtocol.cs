@@ -165,7 +165,10 @@ namespace SharpConsoleUI.Imaging
 				sb.Append("\x1b_G");
 
 				if (isFirst)
-					sb.Append($"a=T,f=100,i={imageId},U=1,c={columns},r={rows},");
+					// q=2 asks the terminal not to answer. Without it Kitty replies to every upload,
+					// and a reply the input reader did not recognise arrived as keystrokes. The
+					// raw-pixel path below has always sent it; this one did not.
+					sb.Append($"a=T,f=100,i={imageId},U=1,c={columns},r={rows},q=2,");
 				sb.Append(isLast ? "m=0" : "m=1");
 				sb.Append(';');
 				sb.Append(payload);

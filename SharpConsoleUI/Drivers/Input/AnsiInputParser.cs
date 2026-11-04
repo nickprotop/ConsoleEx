@@ -34,7 +34,8 @@ namespace SharpConsoleUI.Drivers.Input
 			Ss3,
 			Utf8,
 			X10Mouse, // Collecting 3 raw bytes after CSI M (legacy X10 format)
-			Paste // Accumulating bracketed-paste content between ESC[200~ and ESC[201~
+			Paste, // Accumulating bracketed-paste content between ESC[200~ and ESC[201~
+			Apc // Swallowing an APC reply (ESC _ ... ESC \\, or 0x9F ... 0x9C)
 		}
 
 		private State _state = State.Ground;
@@ -47,6 +48,7 @@ namespace SharpConsoleUI.Drivers.Input
 		private readonly byte[] _x10MouseBuffer = new byte[X10MouseByteCount];
 		private int _x10MouseIndex;
 		private readonly List<byte> _pasteBytes = new();
+		private bool _apcSawEscape; // the previous APC byte was ESC, so ESC \\ ends it
 		private static readonly byte[] PasteEnd = { 0x1b, (byte)'[', (byte)'2', (byte)'0', (byte)'1', (byte)'~' };
 
 		/// <summary>
@@ -89,6 +91,10 @@ namespace SharpConsoleUI.Drivers.Input
 
 					case State.Paste:
 						ProcessPaste(b, events);
+						break;
+
+					case State.Apc:
+						ProcessApc(b);
 						break;
 				}
 			}
@@ -179,6 +185,16 @@ namespace SharpConsoleUI.Drivers.Input
 				return;
 			}
 
+			// The 8-bit APC introducer, for a terminal that sends C1 controls directly rather than
+			// as ESC pairs. Same reply, same rule: it is not typing.
+			if (b == 0x9F)
+			{
+				_state = State.Apc;
+				_apcSawEscape = false;
+				_pending.Clear();
+				return;
+			}
+
 			// Ctrl+Letter: 0x01-0x1A (except Tab=0x09, Enter=0x0D)
 			if (b >= 0x01 && b <= 0x1A)
 			{
@@ -241,6 +257,59 @@ namespace SharpConsoleUI.Drivers.Input
 			events.Add(new UnknownSequenceEvent(new[] { b }));
 		}
 
+		/// <summary>
+		/// Swallows an APC sequence, raising nothing.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// APC carries a terminal's ANSWERS, not a user's input: a Kitty graphics reply, an error
+		/// report, whatever a future terminal adds. None of it is typing, and a reader that cannot
+		/// tell delivers it as keystrokes into whatever has the keyboard.
+		/// </para>
+		/// <para>
+		/// Suppressing the replies at the source is not enough on its own. A graphics command can be
+		/// answered even when it asked not to be, because an ERROR is reported regardless of the
+		/// quiet level, so the parser has to know the shape either way.
+		/// </para>
+		/// <para>
+		/// Ends at ST, in both spellings: ESC backslash, or the single byte 0x9C. No length cap: the
+		/// payload is the terminal's, a truncated swallow would resume mid-reply and deliver the
+		/// tail as keys, which is the bug this exists to stop.
+		/// </para>
+		/// </remarks>
+		private void ProcessApc(byte b)
+		{
+			if (_apcSawEscape)
+			{
+				// ESC \ is ST and ends it. ESC anything-else is a malformed reply; treat the ESC as
+				// the start of a fresh sequence rather than staying stuck here forever.
+				if (b == (byte)'\\')
+				{
+					_state = State.Ground;
+					_apcSawEscape = false;
+					return;
+				}
+
+				_apcSawEscape = false;
+				if (b != 0x1B)
+					return;   // still inside the APC payload
+			}
+
+			if (b == 0x1B)
+			{
+				_apcSawEscape = true;
+				return;
+			}
+
+			if (b == 0x9C)   // 8-bit ST
+			{
+				_state = State.Ground;
+				return;
+			}
+
+			// Everything else is payload, and is dropped.
+		}
+
 		private void ProcessEscape(byte b, List<InputEvent> events)
 		{
 			_pending.Add(b);
@@ -258,6 +327,19 @@ namespace SharpConsoleUI.Drivers.Input
 			{
 				// SS3 sequence start (F1-F4)
 				_state = State.Ss3;
+				return;
+			}
+
+			// APC: A REPLY, NOT TYPING. Kitty answers a graphics command with
+			// ESC _ G i=<id>;OK ESC \\, and '_' is printable, so without this the reply fell into
+			// the Alt+key rule below and was delivered as the keystrokes _ G i = 3 1 ; O K.
+			// Seen for real: the reply typed itself into a composer and was sent to a model, and a
+			// portal that closes on any key closed the moment its image finished uploading.
+			if (b == '_')
+			{
+				_state = State.Apc;
+				_apcSawEscape = false;
+				_pending.Clear();
 				return;
 			}
 

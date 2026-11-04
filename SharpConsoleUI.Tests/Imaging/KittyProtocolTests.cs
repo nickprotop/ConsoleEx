@@ -163,4 +163,51 @@ public class KittyProtocolTests
 	}
 
 	#endregion
+
+	#region Quiet uploads
+
+	/// <summary>
+	/// Every upload asks the terminal not to answer.
+	/// </summary>
+	/// <remarks>
+	/// Kitty replies to a graphics command with an APC sequence, and a reply is not typing: in a
+	/// real full-screen Kitty the reply to a PNG upload was read as keystrokes, typed itself into a
+	/// composer, and closed a portal that dismissed on any key. The raw-pixel path always sent
+	/// q=2; this one did not.
+	/// </remarks>
+	[Fact]
+	public void PngUpload_AsksForNoReply()
+	{
+		var chunks = KittyProtocol.BuildTransmitChunks(31, new byte[] { 1, 2, 3, 4 }, 4, 2);
+
+		Assert.NotEmpty(chunks);
+		Assert.Contains("q=2", chunks[0]);
+	}
+
+	/// <summary>
+	/// On the FIRST chunk, where the control keys live. A later chunk carries only m= and payload.
+	/// </summary>
+	[Fact]
+	public void PngUpload_CarriesTheControlKeysOnTheFirstChunkOnly()
+	{
+		var big = new byte[16 * 1024];
+		var chunks = KittyProtocol.BuildTransmitChunks(31, big, 4, 2);
+
+		Assert.True(chunks.Count > 1, "expected a payload large enough to be chunked");
+		Assert.Contains("q=2", chunks[0]);
+		Assert.Contains("a=T", chunks[0]);
+		Assert.DoesNotContain("q=2", chunks[1]);
+	}
+
+	/// <summary>The raw-pixel path keeps asking too; the two must not drift apart again.</summary>
+	[Fact]
+	public void RawPixelUpload_AlsoAsksForNoReply()
+	{
+		var chunks = KittyProtocol.BuildRawRgbTransmitChunks(31, new byte[] { 1, 2, 3 }, 1, 1, 1, 1);
+
+		Assert.NotEmpty(chunks);
+		Assert.Contains("q=2", chunks[0]);
+	}
+
+	#endregion
 }
