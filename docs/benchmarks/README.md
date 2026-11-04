@@ -34,30 +34,34 @@ tables here, updating the "Captured on" line.
 
 ## Baseline
 
-> **Captured on:** AMD Ryzen 7 8845HS (8 physical / 16 logical cores), Ubuntu 26.04, .NET
-> 10.0.9 (RyuJIT AVX-512), BenchmarkDotNet v0.14.0. **`--job short`** (3 warmup + 3 iterations)
-> — a fast pass, so the `Error` column is wide; treat these as order-of-magnitude baselines, not
-> precise figures. Re-run with the default job for tighter numbers before drawing fine
-> conclusions. Numbers are hardware-specific; only compare runs from the same machine.
+> **Captured on:** 2026-11-04, **SharpConsoleUI v2.10.8** (`684fd7a1`). AMD Ryzen 7 8845HS
+> (8 physical / 16 logical cores), Ubuntu 26.04, .NET 10.0.9 (RyuJIT x86-64-v4),
+> BenchmarkDotNet v0.15.8. **`--job short`** (3 warmup + 3 iterations) — a fast pass, so the
+> `Error` column is wide; treat these as order-of-magnitude baselines, not precise figures.
+> Re-run with the default job for tighter numbers before drawing fine conclusions. Numbers are
+> hardware-specific; only compare runs from the same machine.
+>
+> Pin the version when you refresh these tables. A figure with no version attached cannot be
+> read as a regression or an improvement later — it is just a number from an unknown tree.
 
 ### MarkupParsingBenchmarks (micro)
 
 `MarkupParser.Parse` / `StripLength` / `Truncate` over four input shapes.
 
-| Method      | Markup               | Mean       | Allocated |
+| Method      | Markup               | Mean (v2.10.8) | Allocated |
 |------------ |--------------------- |-----------:|----------:|
-| Parse       | heavy-nested [78]    | 1,746.5 ns |    2456 B |
-| StripLength | heavy-nested [78]    |   362.4 ns |       0 B |
-| Truncate    | heavy-nested [78]    |   617.4 ns |    1256 B |
-| Parse       | moderate [51]        | 2,047.9 ns |    2728 B |
-| StripLength | moderate [51]        |   684.1 ns |       0 B |
-| Truncate    | moderate [51]        |   422.7 ns |     464 B |
-| Parse       | wide-unicode [52]    | 2,829.2 ns |    4656 B |
-| StripLength | wide-unicode [52]    |   980.8 ns |       0 B |
-| Truncate    | wide-unicode [52]    |   385.9 ns |     416 B |
-| Parse       | plain text [58]      | 4,039.6 ns |    4248 B |
-| StripLength | plain text [58]      | 1,658.7 ns |       0 B |
-| Truncate    | plain text [58]      |   362.2 ns |     184 B |
+| Parse       | heavy-nested [78]    | 1,626.8 ns |    2456 B |
+| StripLength | heavy-nested [78]    |   350.6 ns |       0 B |
+| Truncate    | heavy-nested [78]    |   580.1 ns |    1256 B |
+| Parse       | moderate [51]        | 1,886.1 ns |    2728 B |
+| StripLength | moderate [51]        |   686.3 ns |       0 B |
+| Truncate    | moderate [51]        |   412.7 ns |     464 B |
+| Parse       | wide-unicode [52]    | 2,567.2 ns |    4656 B |
+| StripLength | wide-unicode [52]    |   965.9 ns |       0 B |
+| Truncate    | wide-unicode [52]    |   362.5 ns |     416 B |
+| Parse       | plain text [58]      | 3,858.0 ns |    4248 B |
+| StripLength | plain text [58]      | 1,608.8 ns |       0 B |
+| Truncate    | plain text [58]      |   342.6 ns |     184 B |
 
 *Notes:* `StripLength` is zero-allocation. Interestingly, the **plain-text** `Parse`/`StripLength`
 is the *slowest* of the four inputs — the parser has no fast path for untagged text, so a long
@@ -69,10 +73,10 @@ plain string costs more than shorter strings with markup. A candidate optimizati
 
 | Method         | Text                 | Mean       | Allocated |
 |--------------- |--------------------- |-----------:|----------:|
-| GetStringWidth | emoji+vs16 [25]      |   550.7 ns |       0 B |
-| GetStringWidth | combining marks [27] |   774.0 ns |       0 B |
-| GetStringWidth | ascii [54]           | 1,606.5 ns |       0 B |
-| GetStringWidth | cjk wide [27]        | 1,097.1 ns |       0 B |
+| GetStringWidth | emoji+vs16 [25]      |   506.5 ns |       0 B |
+| GetStringWidth | combining marks [27] |   742.3 ns |       0 B |
+| GetStringWidth | ascii [54]           | 1,479.0 ns |       0 B |
+| GetStringWidth | cjk wide [27]        | 1,017.5 ns |       0 B |
 
 *Notes:* Zero-allocation across the board. Cost tracks rune **count**, not display width — the
 54-rune ASCII string costs more than the 27-rune CJK string despite being half the columns.
@@ -86,8 +90,8 @@ measurement.)*
 
 | Method          | Mean     | Allocated | Alloc Ratio |
 |---------------- |---------:|----------:|------------:|
-| NoChange        | 29.19 μs |  12.83 KB |        1.00 |
-| ScatteredChange | 30.57 μs |  17.05 KB |        1.33 |
+| NoChange        | 22.13 μs |   7.99 KB |        1.00 |
+| ScatteredChange | 28.46 μs |  12.88 KB |        1.61 |
 
 *Notes:* Dirty tracking shows up in **allocations** (an unchanged frame allocates ~25% less) but
 not in wall-clock at this size — the harness's per-call layout + `List<string>` snapshot dominates
@@ -101,32 +105,37 @@ measured region** because the real renderer rebuilds layout subtrees per frame.
 
 | Method              | Depth | Breadth | Mean          | Allocated    |
 |-------------------- |------ |-------- |--------------:|-------------:|
-| Measure             | 2     | 2       |      24.79 μs |     14.91 KB |
-| MeasureArrange      | 2     | 2       |      23.59 μs |     14.91 KB |
-| MeasureArrangePaint | 2     | 2       |      69.10 μs |     38.60 KB |
-| Measure             | 2     | 3       |      48.15 μs |     32.04 KB |
-| MeasureArrangePaint | 2     | 3       |     142.33 μs |     83.57 KB |
-| Measure             | 4     | 2       |     367.23 μs |    240.54 KB |
-| MeasureArrangePaint | 4     | 2       |     520.30 μs |    301.13 KB |
-| Measure             | 4     | 3       |   1,731.05 μs |   1156.20 KB |
-| MeasureArrangePaint | 4     | 3       |   4,626.47 μs |   2877.90 KB |
-| Measure             | 6     | 2       |   6,107.64 μs |   3850.54 KB |
-| MeasureArrangePaint | 6     | 2       |   8,411.03 μs |   5133.80 KB |
-| Measure             | 6     | 3       |  65,580.55 μs |  41625.91 KB |
-| MeasureArrangePaint | 6     | 3       | 224,011.93 μs | 144024.77 KB |
+| Measure             | 2     | 2       |       6.60 μs |      4.16 KB |
+| MeasureArrange      | 2     | 2       |       7.17 μs |      5.92 KB |
+| MeasureArrangePaint | 2     | 2       |      35.52 μs |     18.70 KB |
+| Measure             | 2     | 3       |      12.33 μs |      6.73 KB |
+| MeasureArrangePaint | 2     | 3       |      72.09 μs |     32.66 KB |
+| Measure             | 3     | 2       |      28.46 μs |     18.48 KB |
+| MeasureArrangePaint | 3     | 2       |     200.29 μs |    113.73 KB |
+| Measure             | 3     | 3       |      84.94 μs |     42.22 KB |
+| MeasureArrangePaint | 3     | 3       |     604.13 μs |    277.63 KB |
+| Measure             | 4     | 2       |     228.08 μs |    136.85 KB |
+| MeasureArrangePaint | 4     | 2       |   1,586.82 μs |    860.87 KB |
+| Measure             | 4     | 3       |   1,040.39 μs |    469.37 KB |
+| MeasureArrangePaint | 4     | 3       |   5,998.06 μs |   2656.04 KB |
 
 *(Abridged — `MeasureArrange` tracks `Measure` closely; see the full report for every row.)*
 
-> ⚠️ **Finding — the layout engine scales super-linearly with node count.** From (depth 4,
-> breadth 3) to (depth 6, breadth 3) the node count grows ~9× but `Measure` time grows ~38×
-> (1.7 ms → 65 ms) and allocation grows ~36× (1.1 MB → 41 MB). The deepest measured tree
-> (depth 6, breadth 3 ≈ 729 leaves) takes **224 ms** and allocates **144 MB** for a single
-> measure+arrange+paint. This is the per-frame `CreateSubtree` rebuild plus the redundant layout
+> ⚠️ **Finding — the layout engine scales super-linearly with node count.** Leaves grow as
+> `Breadth^Depth`, and time grows faster. From (depth 3, breadth 3) to (depth 4, breadth 3) the
+> node count grows ~3× but `Measure` time grows ~12× (85 μs → 1,040 μs) and
+> `MeasureArrangePaint` ~10× (604 μs → 5,998 μs). Paint dominates throughout: it is 5-7× the
+> cost of measure alone at every size. This is the per-frame `CreateSubtree` rebuild plus the
+> redundant layout
 > traversals that the roadmapped **ScrollLayout refactor** targets — these numbers are the
 > before-baseline for that work. (Params are capped at depth 6 / breadth 3 for this reason; the
 > growth is exponential in node count and super-linear in time.)
 
-#### ScrollLayout refactor — before / after
+#### ScrollLayout refactor — before / after (historical)
+
+> The figures in this subsection are from the refactor itself and are **not** the current
+> numbers. They are kept because they record why the engine looks the way it does. The table
+> above is what master measures today.
 
 The table above is the **pre-refactor baseline** (SPC was a self-painting container; `CreateSubtree`
 stopped at each SPC, so nested SPCs were never recursed into). The ScrollLayout refactor made SPC a
@@ -147,17 +156,41 @@ all-SPC trees are a pathological synthetic case, not a real-UI shape. Real layou
 1–3 deep at most. Re-run `./run-benchmarks.sh --filter '*LayoutTreeBenchmarks*'` to refresh; numbers
 are hardware-specific.)
 
+### MarkupAppendBenchmarks (macro — the append-heavy shape)
+
+The cost of **one** line arriving in a `MarkupControl` that already holds a scrollback of N lines:
+the shape every append-heavy view has (chat transcript, log pane, terminal output). `NoOpRepaint`
+is the control — an unchanged frame is a pure cache hit. `AppendOneLine` is the same repaint with
+one line added first, so the gap between them is the re-parse. `ParsesPerAppend` reports that gap
+as a count via `MarkupControl.TotalParseCount`, which does not move with machine or noise.
+
+| Lines  | NoOpRepaint        | AppendOneLine        | Alloc ratio |
+|------- |-------------------:|---------------------:|------------:|
+| 1,000  |  681.9 μs / 26.58 KB |  2,698.1 μs /  260.47 KB |   9.8× |
+| 5,000  |  681.8 μs / 26.58 KB |  7,517.0 μs / 1599.39 KB |  60.2× |
+| 20,000 |  687.5 μs / 26.58 KB | 16,525.1 μs / 6202.86 KB | 233.4× |
+
+> ⚠️ **Finding — an append costs the whole buffer, not the line.** `NoOpRepaint` is flat in N
+> (26.58 KB at every size — the cache works), but one appended line into a 20,000-line control
+> costs **16.5 ms and 6.2 MB**, 233× the no-op. The parse cache is keyed on a content version
+> that every mutator bumps, so appending invalidates the parse of the entire buffer; the
+> multiplier is ~2N because the scroll-panel overflow probe measures children at two widths per
+> layout pass. This is the cost a long-running transcript pays on every token, and it is the
+> case `ScrollablePanelControl.VerticalScrollOffsetChanged` (2.10.8) exists to let a consumer
+> virtualize away.
+
 ### FullFrameRenderBenchmarks (macro — end-to-end)
 
 A representative 120×40 window (header + a 12-row stack in a `ScrollablePanelControl`) rendered
 via `Window.RenderAndGetVisibleContent()`.
 
-| Method       | Mean     | Allocated |
-|------------- |---------:|----------:|
-| NoOpReRender | 345.5 μs | 245.95 KB |
-| FullRebuild  | 374.2 μs | 245.95 KB |
+| Method       | Mean      | Allocated |
+|------------- |----------:|----------:|
+| NoOpReRender |  73.61 μs |  20.68 KB |
+| FullRebuild  |  76.15 μs |  22.55 KB |
 
-*Notes:* `NoOpReRender` and `FullRebuild` cost essentially the same here. `RenderAndGetVisibleContent()`
+*Notes:* `NoOpReRender` and `FullRebuild` cost nearly the same here (the rebuild adds ~3% time and
+~9% allocation). `RenderAndGetVisibleContent()`
 performs a full layout + paint + snapshot pass regardless of dirty state — i.e. this **test seam**
 does not exercise the dirty-tracking fast path. The live render loop (`ConsoleWindowSystem.Run()`)
 gates on `shouldRender` *before* calling render, so in production an idle frame does no work; this
