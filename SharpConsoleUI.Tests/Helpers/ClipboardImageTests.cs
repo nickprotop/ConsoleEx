@@ -225,4 +225,68 @@ public class ClipboardImageTests : IDisposable
 	}
 
 	#endregion
+
+	#region Telling a timeout from an empty clipboard
+
+	/// <summary>
+	/// A read that does not finish in time reports false. GetTextWithTimeout serves the in-process
+	/// buffer instead, so a caller choosing between formats reads a stalled owner as "there is
+	/// text" and never looks for the image that was actually on the clipboard.
+	/// </summary>
+	/// <remarks>
+	/// Zero milliseconds rather than a stalled tool, because a tool that is absent fails fast and
+	/// a tool that is present answers: neither stalls on a test machine. What is under test is the
+	/// deadline, and a deadline that has already passed is the honest way to reach it.
+	/// </remarks>
+	[Fact]
+	public void TryGetTextWithTimeout_WhenTheReadDoesNotFinishInTime_ReportsFalse()
+	{
+		ClipboardHelper.ForceBackendForTests(ClipboardBackend.Xclip);
+		ClipboardHelper.SetText("the buffer, which is not the clipboard");
+
+		bool answered = ClipboardHelper.TryGetTextWithTimeout(out string text, 0);
+
+		Assert.False(answered);
+		// The buffer is still handed back, so a caller ignoring the bool behaves as before.
+		Assert.Equal("the buffer, which is not the clipboard", text);
+	}
+
+	/// <summary>An in-process read cannot stall, so its answer is always the clipboard's.</summary>
+	[Fact]
+	public void TryGetTextWithTimeout_OnTheInternalBackend_ReportsTrue()
+	{
+		ClipboardHelper.ForceBackendForTests(ClipboardBackend.InternalFallback);
+		ClipboardHelper.SetText("copied here");
+
+		Assert.True(ClipboardHelper.TryGetTextWithTimeout(out string text));
+		Assert.Equal("copied here", text);
+	}
+
+	/// <summary>An empty clipboard is an answer, not a failure: there is simply no text.</summary>
+	[Fact]
+	public void TryGetTextWithTimeout_WithAnEmptyClipboard_ReportsTrueAndEmpty()
+	{
+		ClipboardHelper.ForceBackendForTests(ClipboardBackend.InternalFallback);
+		ClipboardHelper.SetText(string.Empty);
+
+		Assert.True(ClipboardHelper.TryGetTextWithTimeout(out string text));
+		Assert.Equal(string.Empty, text);
+	}
+
+	/// <summary>It gives up within the timeout, like the read it is based on.</summary>
+	[Fact]
+	public void TryGetTextWithTimeout_GivesUpWithinTheTimeout()
+	{
+		ClipboardHelper.ForceBackendForTests(ClipboardBackend.Xclip);
+
+		var clock = System.Diagnostics.Stopwatch.StartNew();
+		ClipboardHelper.TryGetTextWithTimeout(out _, 100);
+		clock.Stop();
+
+		Assert.True(clock.ElapsedMilliseconds < 2000,
+			$"took {clock.ElapsedMilliseconds}ms, which is the unbounded read rather than the timeout");
+	}
+
+	#endregion
+
 }

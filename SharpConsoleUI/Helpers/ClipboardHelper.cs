@@ -346,6 +346,63 @@ namespace SharpConsoleUI.Helpers
 			return GetInternalBuffer();
 		}
 
+		/// <summary>
+		/// Reads the clipboard text, reporting whether the read actually answered.
+		/// </summary>
+		/// <param name="text">The clipboard text, or the in-process buffer when this returns false.</param>
+		/// <param name="timeoutMs">How long to wait before giving up.</param>
+		/// <returns>False when the read timed out or failed, true when the answer is the clipboard's.</returns>
+		/// <remarks>
+		/// <para>
+		/// <see cref="GetTextWithTimeout"/> cannot tell a caller which happened: on a timeout it
+		/// serves the in-process buffer, which is whatever this application last copied, and an
+		/// empty clipboard and a slow owner come back looking the same.
+		/// </para>
+		/// <para>
+		/// That matters to anything choosing between formats. A composer that pastes text when the
+		/// clipboard holds text and an image otherwise reads a stalled owner as "there is text" and
+		/// never looks for the image. With this it can tell the difference and go and ask.
+		/// </para>
+		/// </remarks>
+		public static bool TryGetTextWithTimeout(out string text, int timeoutMs = 200)
+		{
+			EnsureDetected();
+
+			// In-process reads cannot stall on another application: whatever they say is the answer.
+			if (_backend is ClipboardBackend.WindowsClip or ClipboardBackend.InternalFallback)
+			{
+				text = GetText();
+				return true;
+			}
+
+			if (_backend == ClipboardBackend.X11)
+			{
+				string? x11 = _x11?.GetText(Math.Max(timeoutMs, X11PasteTimeoutMs));
+				text = x11 ?? GetInternalBuffer();
+				return x11 != null;
+			}
+
+			string? result = null;
+			var done = new ManualResetEventSlim(false);
+			ThreadPool.QueueUserWorkItem(_ =>
+			{
+				try { result = GetText(); }
+				catch { /* a failed read is not an answer */ }
+				finally { done.Set(); }
+			});
+
+			if (done.Wait(timeoutMs) && result != null)
+			{
+				text = result;
+				return true;
+			}
+
+			// The buffer is still handed back, so a caller that does not care can ignore the bool
+			// and behave exactly as GetTextWithTimeout does.
+			text = GetInternalBuffer();
+			return false;
+		}
+
 		private static string GetInternalBuffer()
 		{
 			lock (_lock) { return _internalBuffer; }

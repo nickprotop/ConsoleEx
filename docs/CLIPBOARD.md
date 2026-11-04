@@ -32,6 +32,23 @@ byte[]? png = ClipboardHelper.GetImage();              // may block, like GetTex
 byte[]? ui  = ClipboardHelper.GetImageWithTimeout();   // bounded; use this on the UI thread
 ```
 
+### Telling a timeout from an empty clipboard
+
+`GetTextWithTimeout` serves the in-process buffer when it gives up, so an empty clipboard and a
+slow owner come back looking identical. That is the right default for pasting, and wrong for
+anything choosing between formats.
+
+```csharp
+if (ClipboardHelper.TryGetTextWithTimeout(out string text) && text.Length > 0)
+    Paste(text);                                  // the clipboard really holds text
+else if (ClipboardHelper.GetImageWithTimeout() is { } bytes)
+    Attach(bytes);                                // no text, or the read never answered
+```
+
+False means the read did not finish in time. The text is still handed back, so a caller that
+ignores the bool behaves exactly as `GetTextWithTimeout` does. An empty clipboard returns true
+with an empty string: that is an answer, not a failure.
+
 ## Reading images
 
 `GetImage` returns the clipboard image as **encoded file bytes**, or `null` when the clipboard holds
