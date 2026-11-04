@@ -1563,6 +1563,111 @@ public class PromptTokenTests
 
 	#endregion
 
+
+	#region TokenAtCaret
+
+	/// <summary>
+	/// A host whose tokens are not all alike asks what it is touching before deciding what a key
+	/// means. The answer must be the one ExpandTokenAtCaret would act on, or the two disagree.
+	/// </summary>
+	[Fact]
+	public void TokenAtCaret_AfterAToken_IsThatToken()
+	{
+		var prompt = WithToken("x ", string.Empty);
+
+		Assert.NotNull(prompt.TokenAtCaret);
+		Assert.Equal(TokenLabel, prompt.TokenAtCaret!.Label);
+	}
+
+	[Fact]
+	public void TokenAtCaret_BeforeAToken_IsThatToken()
+	{
+		var prompt = WithToken("x ", " y");
+		MoveCaretToStart(prompt);
+		Press(prompt, ConsoleKey.RightArrow);
+		Press(prompt, ConsoleKey.RightArrow);
+
+		Assert.NotNull(prompt.TokenAtCaret);
+		Assert.Equal(TokenLabel, prompt.TokenAtCaret!.Label);
+	}
+
+	/// <summary>
+	/// Between two adjacent tokens the caret touches both, and the answer must be the one behind,
+	/// which is what ExpandTokenAtCaret takes.
+	/// </summary>
+	[Fact]
+	public void TokenAtCaret_BetweenTwoTokens_IsTheOneBehind()
+	{
+		var prompt = new PromptControl();
+		prompt.SetInputSegments(new[]
+		{
+			PromptSegment.FromToken(new PromptToken("[A]", "alpha")),
+			PromptSegment.FromToken(new PromptToken("[B]", "beta")),
+		});
+		MoveCaretToStart(prompt);
+		Press(prompt, ConsoleKey.RightArrow);
+
+		Assert.Equal("[A]", prompt.TokenAtCaret!.Label);
+	}
+
+	[Fact]
+	public void TokenAtCaret_InPlainText_IsNull()
+	{
+		var prompt = new PromptControl();
+		prompt.SetInput("just text");
+
+		Assert.Null(prompt.TokenAtCaret);
+	}
+
+	[Fact]
+	public void TokenAtCaret_InAnEmptyComposer_IsNull()
+	{
+		Assert.Null(new PromptControl().TokenAtCaret);
+	}
+
+	/// <summary>
+	/// Reading it must change nothing. The workaround it replaces expanded the token to find out
+	/// what it was, which moved the caret and rewrote the line.
+	/// </summary>
+	[Fact]
+	public void TokenAtCaret_ChangesNothing()
+	{
+		var prompt = WithToken("x ", " y");
+		string inputBefore = prompt.Input;
+		string labelBefore = prompt.InputLabelText;
+		int segmentsBefore = prompt.InputSegments.Count;
+
+		_ = prompt.TokenAtCaret;
+		_ = prompt.TokenAtCaret;
+
+		Assert.Equal(inputBefore, prompt.Input);
+		Assert.Equal(labelBefore, prompt.InputLabelText);
+		Assert.Equal(segmentsBefore, prompt.InputSegments.Count);
+	}
+
+	/// <summary>It agrees with what ExpandTokenAtCaret actually expands.</summary>
+	[Fact]
+	public void TokenAtCaret_AgreesWithWhatExpandTakes()
+	{
+		var prompt = new PromptControl();
+		prompt.SetInputSegments(new[]
+		{
+			PromptSegment.FromToken(new PromptToken("[A]", "alpha")),
+			PromptSegment.FromToken(new PromptToken("[B]", "beta")),
+		});
+		MoveCaretToStart(prompt);
+		Press(prompt, ConsoleKey.RightArrow);
+
+		var reported = prompt.TokenAtCaret;
+		Assert.True(prompt.ExpandTokenAtCaret());
+
+		// The expanded one is gone and its value is in the text; the other token remains.
+		Assert.Contains(reported!.Value, prompt.Input);
+		Assert.Contains(prompt.InputSegments, seg => seg.IsToken);
+	}
+
+	#endregion
+
 }
 
 /// <summary>

@@ -76,6 +76,24 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
+		/// The token the caret is touching, or null when it touches none.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// The same token <see cref="ExpandTokenAtCaret"/> would act on, found the same way: the one
+		/// behind the caret first, then the one ahead. Reading it changes nothing.
+		/// </para>
+		/// <para>
+		/// For a host whose tokens are not all alike. A composer holding both pasted text and an
+		/// attached image wants one key to expand the first and preview the second, and the kind is
+		/// the token's own <see cref="PromptToken.Tag"/>. Without this it has to expand the token to
+		/// find out what it was, and put the line back when the answer is wrong.
+		/// </para>
+		/// </remarks>
+		public PromptToken? TokenAtCaret
+			=> TryGetTokenAtCaret(out _, out _, out PromptToken? token) ? token : null;
+
+		/// <summary>
 		/// Replaces the token at the caret with its value, as ordinary text.
 		/// </summary>
 		/// <returns>
