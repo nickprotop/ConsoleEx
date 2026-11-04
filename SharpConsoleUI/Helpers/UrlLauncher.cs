@@ -8,6 +8,7 @@
 
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 
 namespace SharpConsoleUI.Helpers
@@ -35,19 +36,74 @@ namespace SharpConsoleUI.Helpers
 		/// machine, and behind the terminal window on an attended one. Found on a real desktop, where it
 		/// froze a whole test run ~180 tests from the end.</para>
 		/// </remarks>
-		public static void Open(string url)
+		public static void Open(string url) => TryOpen(url);
+
+		/// <summary>
+		/// Opens <paramref name="url"/> and reports whether anything was launched.
+		/// </summary>
+		/// <param name="url">The URL to open. Null or whitespace is ignored.</param>
+		/// <returns>
+		/// False when the url is empty, its scheme is not launchable, or there is no desktop to
+		/// launch into. True when the launch was handed off, which is not a promise that it opened:
+		/// it runs on the thread pool and the desktop shell decides the rest.
+		/// </returns>
+		/// <remarks>
+		/// For a caller with something else to offer. A terminal application that cannot open an
+		/// image in a viewer can print the path instead, but only if it knows the viewer never
+		/// started. <see cref="Open"/> cannot say, so every caller that cared had to repeat the
+		/// desktop check itself.
+		/// </remarks>
+		public static bool TryOpen(string url)
 		{
 			if (string.IsNullOrWhiteSpace(url))
-				return;
+				return false;
 
 			if (!IsLaunchableScheme(url))
-				return;
+				return false;
+
+			// NO DESKTOP, NO LAUNCH. With neither DISPLAY nor WAYLAND_DISPLAY, xdg-open falls back
+			// to a text browser - w3m, lynx - which takes over the terminal this application is
+			// drawing in. The user is left looking at a browser they did not ask for, over a UI
+			// that is still rendering underneath it.
+			if (!CanReachADesktop())
+				return false;
 
 			// Off the calling thread: both ShellExecuteEx and xdg-open hand off to the desktop shell,
 			// which can stall on a slow or missing handler. Same rule ClipboardHelper.SetText follows
 			// for process-backed I/O — never block the UI thread on something the desktop controls.
 			ThreadPool.QueueUserWorkItem(_ => LaunchBestEffort(url));
+			return true;
 		}
+
+		/// <summary>Whether a desktop exists to hand a url to.</summary>
+		/// <remarks>
+		/// Linux only. Windows and macOS always have one. The Wayland test matches the clipboard's:
+		/// libwayland connects to the default socket when the variable is unset, so a shell that
+		/// lost it (sudo -E, an old tmux server) still has a desktop.
+		/// </remarks>
+		internal static bool CanReachADesktop()
+		{
+			if (!OperatingSystem.IsLinux())
+				return true;
+
+			if (DesktopProbeForTests is { } probe)
+				return probe();
+
+			if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY")))
+				return true;
+
+			if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY")))
+				return true;
+
+			string? runtime = Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR");
+			return !string.IsNullOrEmpty(runtime) && File.Exists(Path.Combine(runtime, "wayland-0"));
+		}
+
+		/// <summary>Replaces the desktop check. For tests, which cannot have a display either way.</summary>
+		internal static Func<bool>? DesktopProbeForTests { get; set; }
+
+		/// <summary>Replaces the process start, so a test can see what would have been launched.</summary>
+		internal static Action<ProcessStartInfo>? StartProbeForTests { get; set; }
 
 		/// <summary>
 		/// URI schemes <see cref="Open"/> will launch, beyond the always-allowed
@@ -109,25 +165,57 @@ namespace SharpConsoleUI.Helpers
 		/// <summary>Hands the url to the platform launcher, swallowing every failure.</summary>
 		private static void LaunchBestEffort(string url)
 		{
+			// WINDOWS KEEPS UseShellExecute: it is how a scheme reaches its registered handler, and
+			// a Windows console is not the surface a launched program writes over.
+			if (OperatingSystem.IsWindows())
+			{
+				try { Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+				catch { /* a convenience; nothing to recover */ }
+				return;
+			}
+
+			// EVERYWHERE ELSE THE STREAMS ARE TAKEN. The launcher and whatever it starts inherit
+			// this process's terminal otherwise, and that terminal is the screen the UI is drawing
+			// on: xdg-open's own warnings land in the middle of it, and a handler that turns out to
+			// be a text browser takes it over completely.
+			string launcher = OperatingSystem.IsMacOS() ? "open" : "xdg-open";
+			var info = new ProcessStartInfo(launcher)
+			{
+				UseShellExecute = false,
+				RedirectStandardInput = true,
+				RedirectStandardOutput = true,
+				RedirectStandardError = true,
+				CreateNoWindow = true,
+			};
+			info.ArgumentList.Add(url);
+
 			try
 			{
-				Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+				var process = Start(info);
+				if (process == null)
+					return;
+
+				// Closed rather than read: nothing here wants the output, and a pipe nobody drains
+				// fills and blocks the child once it has printed enough.
+				process.StandardInput.Close();
+				process.BeginOutputReadLine();
+				process.BeginErrorReadLine();
 			}
 			catch
 			{
-				try
-				{
-					if (OperatingSystem.IsMacOS())
-						Process.Start("open", url);
-					else if (OperatingSystem.IsLinux())
-						Process.Start("xdg-open", url);
-					// Windows: UseShellExecute already covers it; nothing more to try.
-				}
-				catch
-				{
-					// Opening a browser is a convenience; there is nothing to recover if it fails.
-				}
+				// Opening a browser is a convenience; there is nothing to recover if it fails.
 			}
+		}
+
+		/// <summary>Starts a process, or hands it to the test probe instead.</summary>
+		private static Process? Start(ProcessStartInfo info)
+		{
+			if (StartProbeForTests is { } probe)
+			{
+				probe(info);
+				return null;
+			}
+			return Process.Start(info);
 		}
 	}
 }
