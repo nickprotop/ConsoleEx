@@ -218,7 +218,7 @@ public sealed class LiveAppFixture : IDisposable
 
 	/// <summary>Where the built DemoApp is, relative to the test assembly.</summary>
 	private static string DemoAppPath() =>
-		BuiltBinary("DemoApp", "Examples", "DemoApp", "DemoApp");
+		BuiltBinary("DemoApp", "Examples", "DemoApp", "cxdemo");
 
 	/// <summary>Stops the application, for tests about it going away.</summary>
 	public void Kill()

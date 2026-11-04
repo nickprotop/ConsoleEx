@@ -25,7 +25,7 @@ public class RunTests : IDisposable
 	private readonly List<string> _sockets = new();
 
 	private static string DemoApp() =>
-		LiveAppFixture.BuiltBinary("DemoApp", "Examples", "DemoApp", "DemoApp");
+		LiveAppFixture.BuiltBinary("DemoApp", "Examples", "DemoApp", "cxdemo");
 
 	/// <summary>
 	/// Starts an app and records its socket for cleanup, before asserting anything.
