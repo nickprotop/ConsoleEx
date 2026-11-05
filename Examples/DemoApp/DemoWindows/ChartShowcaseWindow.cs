@@ -39,11 +39,13 @@ internal static class ChartShowcaseWindow
 				.AddItem("Line & Area", subtitle: "The two curve types", content: LinePage())
 				.AddItem("Bar & Scatter", subtitle: "Grouped bars, unconnected marks", content: BarPage())
 				.AddItem("Gauges", subtitle: "Inline readouts, one row each", content: GaugePage())
-				.AddItem("Combo", subtitle: "Per-series plot types on one frame", content: ComboPage()))
+				.AddItem("Combo", subtitle: "Per-series plot types on one frame", content: ComboPage())
+				.AddItem("Horizontal", subtitle: "Bars running across", content: HorizontalPage()))
 			.AddHeader("Rendering", Color.Magenta1, h => h
 				.AddItem("Render Modes", subtitle: "Pixel, braille and ascii", content: RenderModesPage())
 				.AddItem("Gradients", subtitle: "By position, by value, blended", content: GradientPage())
-				.AddItem("Thresholds", subtitle: "Colour that changes at a limit", content: ThresholdPage()))
+				.AddItem("Thresholds", subtitle: "Colour that changes at a limit", content: ThresholdPage())
+				.AddItem("Resampling", subtitle: "More history than columns", content: ResamplingPage()))
 			.AddHeader("Heatmaps", Color.Red, h => h
 				.AddItem("Heatmap", subtitle: "Colour as the value channel", content: HeatmapPage())
 				.AddItem("Sparse Grid", subtitle: "Holes are not zeroes", content: SparseHeatmapPage())
@@ -56,6 +58,8 @@ internal static class ChartShowcaseWindow
 				.AddItem("Stacked", subtitle: "Parts of a total", content: StackedPage())
 				.AddItem("Split View", subtitle: "Two opposed directions", content: SplitPage())
 				.AddItem("Annotations", subtitle: "Limits, markers, peaks", content: AnnotationPage())
+				.AddItem("Events", subtitle: "A line down the time axis", content: EventPage())
+				.AddItem("Legend Placement", subtitle: "Four sides, one chart", content: LegendPage())
 				.AddItem("Chrome", subtitle: "Titles, borders, empty state", content: ChromePage())
 				.AddItem("States", subtitle: "Waiting against broken", content: StatesPage())
 				.AddItem("Tick Density", subtitle: "Asking a short axis for more", content: TickDensityPage()))
@@ -101,6 +105,7 @@ internal static class ChartShowcaseWindow
 		Controls.Chart()
 			.WithTitle("Scatter")
 			.WithPlotType(ChartPlotType.Scatter)
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(PlotHeight)
 			.WithYRange(0, 100)
 			.AddSeries("samples", Color.Yellow, Scatter(26))
@@ -133,6 +138,56 @@ internal static class ChartShowcaseWindow
 			.AddSeries("volume", Color.Blue, new[] { 30d, 45, 38, 62, 50, 71, 48, 66 })
 			.AddSeries("trend", Color.Yellow, new[] { 35d, 42, 46, 54, 56, 63, 60, 64 },
 				plotType: ChartPlotType.Line)
+			.Build());
+
+	private static IWindowControl HorizontalPage() => Page(
+		"Bars can run across instead of up. The win is the labels: a category "
+			+ "name sits on its own row with the whole width to spell itself, "
+			+ "where a vertical bar gets one column and truncates. Long names, "
+			+ "or more of them than fit across, is the case this is for.",
+		Controls.Chart()
+			.WithTitle("Time in each stage")
+			.WithSubtitle("seconds, last build")
+			.WithPlotType(ChartPlotType.Bar)
+			.Horizontal()
+			.WithPlotHeight(PlotHeight)
+			.WithYRange(0, 240)
+			.WithCategories("restore", "compile", "analyzers", "test", "pack", "publish")
+			.AddSeries("duration", Color.Cyan1, new[] { 38d, 142, 96, 205, 24, 61 })
+			.Build(),
+		Controls.Chart()
+			.WithTitle("The same data standing up")
+			.WithSubtitle("six names, six columns to print them in")
+			.WithPlotType(ChartPlotType.Bar)
+			.WithPlotHeight(PlotHeight)
+			.WithYRange(0, 240)
+			.WithCategories("restore", "compile", "analyzers", "test", "pack", "publish")
+			.AddSeries("duration", Color.Cyan1, new[] { 38d, 142, 96, 205, 24, 61 })
+			.Build());
+
+	private static IWindowControl ResamplingPage() => Page(
+		"A history longer than the plot is wide has to lose something. Left "
+			+ "alone the chart draws what fits and the rest runs off the side. "
+			+ "Resampling maps the whole series onto the columns there are, so "
+			+ "the shape of all of it survives even though no single sample does.",
+		Controls.Chart()
+			.WithTitle("Eight hundred samples, as many columns as the window gives")
+			.WithSubtitle("without resampling")
+			.WithPlotType(ChartPlotType.Line)
+			.WithRenderMode(ChartRenderMode.Braille)
+			.WithPlotHeight(PlotHeight)
+			.WithYRange(0, 100)
+			.AddSeries("load", Color.Yellow, Wave(800, 50, 38))
+			.Build(),
+		Controls.Chart()
+			.WithTitle("The same eight hundred")
+			.WithSubtitle("resampled to the width")
+			.WithPlotType(ChartPlotType.Line)
+			.WithRenderMode(ChartRenderMode.Braille)
+			.WithResampling()
+			.WithPlotHeight(PlotHeight)
+			.WithYRange(0, 100)
+			.AddSeries("load", Color.Green, Wave(800, 50, 38))
 			.Build());
 
 	// ---- rendering ---------------------------------------------------------
@@ -171,6 +226,7 @@ internal static class ChartShowcaseWindow
 		Controls.Chart()
 			.WithTitle(title)
 			.WithPlotType(ChartPlotType.Area)
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(7)
 			.WithYRange(0, 100)
 			.AddSeries("v", Color.White, Wave(34, 45, 40),
@@ -182,6 +238,7 @@ internal static class ChartShowcaseWindow
 			+ "warning instead of the reader checking it against a line.",
 		Controls.Chart()
 			.WithTitle("CPU")
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(PlotHeight)
 			.WithYRange(0, 100)
 			.WithGridlines()
@@ -206,6 +263,7 @@ internal static class ChartShowcaseWindow
 			+ "for - see the Time chart below.",
 		Controls.Chart()
 			.WithTitle("Numeric")
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(14)
 			.WithYRange(0, 137)
 			.WithAxisTitles("samples", "value")
@@ -214,6 +272,7 @@ internal static class ChartShowcaseWindow
 			.Build(),
 		Controls.Chart()
 			.WithTitle("Time")
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(8)
 			.ConfigureXAxis(a => { a.Kind = ChartAxisKind.Time; a.LabelFormat = "HH:mm"; })
 			.AddSeries("v", Color.Green, Array.Empty<double>())
@@ -227,6 +286,7 @@ internal static class ChartShowcaseWindow
 		Controls.Chart()
 			.WithTitle("Rolling history")
 			.WithPlotType(ChartPlotType.Area)
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(PlotHeight)
 			.WithYRange(0, 100)
 			.ConfigureYAxis(a => a.ShowLabels = false)
@@ -254,6 +314,7 @@ internal static class ChartShowcaseWindow
 			+ "when something uses it.",
 		Controls.Chart()
 			.WithTitle("Rate against latency")
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(PlotHeight)
 			.WithLegend()
 			.WithYRange(0, 1000)
@@ -274,6 +335,7 @@ internal static class ChartShowcaseWindow
 			.WithTitle("Service load")
 			.WithSubtitle("stacked by tier")
 			.WithPlotType(ChartPlotType.Area)
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(PlotHeight)
 			.Stacked()
 			.WithLegend()
@@ -293,6 +355,9 @@ internal static class ChartShowcaseWindow
 		Controls.Chart()
 			.WithTitle("Network throughput")
 			.WithPlotType(ChartPlotType.Area)
+			// Braille costs a colour only where two series share a cell, and a
+			// split view gives each its own half - so the fine trace is free here.
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(PlotHeight + 2)
 			.WithSplitView()
 			.WithCentreAxis(" B/s ", showValue: true)
@@ -311,6 +376,7 @@ internal static class ChartShowcaseWindow
 			+ "name specific points.",
 		Controls.Chart()
 			.WithTitle("Annotated")
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(PlotHeight)
 			.WithYRange(0, 100)
 			.WithGridlines()
@@ -318,6 +384,55 @@ internal static class ChartShowcaseWindow
 			.WithReferenceLine(75, Color.Red, "SLA")
 			.AddSeries("latency", Color.Cyan1, new[] { 30d, 95, 40, 12, 60, 48, 82, 35 })
 			.Build());
+
+	private static IWindowControl EventPage() => Page(
+		"A reference line measured against X runs DOWN the plot instead of "
+			+ "across it, which is how a chart says \"this happened here\" rather "
+			+ "than \"stay under this\". A value marker points at a reading on the "
+			+ "vertical axis and names it. Together they turn a trace into a "
+			+ "record: the deploy went out at sample 14, and the ceiling it "
+			+ "pushed memory to was 88.",
+		Controls.Chart()
+			.WithTitle("Memory across a deploy")
+			.WithSubtitle("vertical lines mark events, the marker names a level")
+			.WithRenderMode(ChartRenderMode.Braille)
+			.WithPlotHeight(PlotHeight + 2)
+			.WithYRange(0, 100)
+			.WithGridlines(horizontal: true, vertical: true)
+			.WithReferenceLine(14, Color.Magenta1, "deploy", ChartReferenceAxis.X)
+			.WithReferenceLine(22, Color.Grey62, "rollback", ChartReferenceAxis.X)
+			.WithValueMarker(88, "peak after deploy", Color.Yellow)
+			.AddSeries("heap MB", Color.Cyan1, new[]
+			{
+				42d, 44, 41, 45, 43, 46, 44, 42, 45, 43, 44, 46, 45, 47,
+				62, 74, 83, 88, 86, 84, 85, 83,
+				58, 49, 45, 44, 43, 45, 42, 44,
+			})
+			.Build());
+
+	private static IWindowControl LegendPage() => Page(
+		"A legend can sit on any of the four sides. Top and bottom cost a ROW "
+			+ "and leave the plot its full width, listing the series along a line. "
+			+ "Left and right cost COLUMNS and stack one series per row, which "
+			+ "reads as a key beside the data - and sizes itself to the longest "
+			+ "name, up to a share of the width, so one verbose series cannot eat "
+			+ "the plot it labels. Which one is right depends on what the chart is "
+			+ "short of, and on a narrow terminal that is almost always width.",
+		LegendChart("Bottom - the default", ChartLegendPosition.Bottom),
+		LegendChart("Top", ChartLegendPosition.Top),
+		LegendChart("Right", ChartLegendPosition.Right),
+		LegendChart("Left", ChartLegendPosition.Left));
+
+	private static ChartControl LegendChart(string title, ChartLegendPosition position) =>
+		Controls.Chart()
+			.WithTitle(title)
+			.WithRenderMode(ChartRenderMode.Braille)
+			.WithPlotHeight(7)
+			.WithYRange(0, 100)
+			.WithLegend(position)
+			.AddSeries("requests", Color.Green, Wave(26, 55, 35))
+			.AddSeries("errors", Color.Red, Wave(26, 20, 14, phase: 1.3))
+			.Build();
 
 	private static IWindowControl ChromePage() => Page(
 		"Title, subtitle, border and axis titles. A chart with nothing to plot "
@@ -327,6 +442,7 @@ internal static class ChartShowcaseWindow
 			.WithSubtitle("title, subtitle, border, axis titles")
 			.WithTitleAlignment(ChartTitleAlignment.Center)
 			.WithBorder()
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(9)
 			.WithAxisTitles("minutes", "req/s")
 			.WithGridlines()
@@ -350,6 +466,7 @@ internal static class ChartShowcaseWindow
 			+ "Escape to reset.",
 		Controls.Chart()
 			.WithTitle("Try it")
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(PlotHeight + 2)
 			.WithYRange(0, 100)
 			.WithGridlines()
@@ -409,6 +526,7 @@ internal static class ChartShowcaseWindow
 			.WithTitle("Swatch legend")
 			.WithSubtitle("one colour stands in for twenty")
 			.WithPlotType(ChartPlotType.Area)
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(8)
 			.WithYRange(0, 100)
 			.WithLegend()
@@ -419,6 +537,7 @@ internal static class ChartShowcaseWindow
 			.WithTitle("Colour scale")
 			.WithSubtitle("the same chart, with a legend that tells the truth")
 			.WithPlotType(ChartPlotType.Area)
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(8)
 			.WithYRange(0, 100)
 			.WithColorBarLegend()
@@ -450,6 +569,7 @@ internal static class ChartShowcaseWindow
 			.WithTitle("Broken, with data already in hand")
 			.WithSubtitle("the error outranks the trace")
 			.WithBorder()
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(5)
 			.WithYRange(0, 100)
 			.WithErrorText("feed stopped responding")
@@ -465,6 +585,7 @@ internal static class ChartShowcaseWindow
 		Controls.Chart()
 			.WithTitle("Default density")
 			.WithSubtitle("a short axis shows its ends")
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(8)
 			.WithYRange(0, 100)
 			.WithGridlines()
@@ -473,6 +594,7 @@ internal static class ChartShowcaseWindow
 		Controls.Chart()
 			.WithTitle("MinTicks = 5")
 			.WithSubtitle("the same height, asked for more")
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(8)
 			.WithYRange(0, 100)
 			.WithGridlines()
@@ -486,6 +608,7 @@ internal static class ChartShowcaseWindow
 		Controls.Chart()
 			.WithTitle(title)
 			.WithPlotType(type)
+			.WithRenderMode(ChartRenderMode.Braille)
 			.WithPlotHeight(PlotHeight - 2)
 			.WithYRange(0, 100)
 			.AddSeries("v", Color.Cyan1, data)
@@ -564,12 +687,24 @@ internal static class ChartShowcaseWindow
 		private System.Threading.Timer? _timer;
 		private double _level = 45;
 
+		/// <summary>
+		/// Samples taken since the feed started, which is the X of the next one.
+		/// </summary>
+		/// <remarks>
+		/// NOT Points.Count. TrimTo drops from the FRONT, so once the window is
+		/// full that count stops climbing and every later sample is handed the
+		/// same X - the trace piles up in one column and the chart looks frozen
+		/// at the right edge. A monotonic counter keeps the window sliding.
+		/// </remarks>
+		private int _taken;
+
 		public IWindowControl Page()
 		{
 			_chart = Controls.Chart()
 				.WithTitle("Streaming")
 				.WithSubtitle("a fixed step per sample, so the trace marches rightward")
 				.WithPlotType(ChartPlotType.Area)
+				.WithRenderMode(ChartRenderMode.Braille)
 				.WithPlotHeight(PlotHeight + 2)
 				.WithFixedStep(2)
 				.WithYRange(0, 100)
@@ -601,7 +736,7 @@ internal static class ChartShowcaseWindow
 					if (_chart == null || _chart.Series.Count == 0) return;
 
 					var series = _chart.Series[0];
-					series.AddPoint(new ChartPoint(series.Points.Count, value));
+					series.AddPoint(new ChartPoint(_taken++, value));
 					series.TrimTo(LiveWindowSize);
 					_chart.Invalidate(Invalidation.Repaint);
 				});
