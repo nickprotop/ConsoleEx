@@ -285,11 +285,17 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 
-			var rows = new List<StyledRow>();
+			// Sized up front. Every content change rebuilds this whole-control snapshot, and a
+			// transcript streaming a reply rebuilds it on every token. Grown from empty, each of these
+			// four lists reallocates and copies ~log2(N) times per rebuild. One row per line is the
+			// floor, not the truth (a wrapped line yields several), so they still grow when content
+			// wraps; this only removes the repeated doubling from nothing up to the common case.
+			int expectedRows = snapshot.Count;
+			var rows = new List<StyledRow>(expectedRows);
 			int maxWidth = 0;
-			var rowSource = new List<int>();
-			var rowSoftWrap = new List<bool>();
-			var rowLinks = new List<List<Parsing.LinkSpan>>();
+			var rowSource = new List<int>(expectedRows);
+			var rowSoftWrap = new List<bool>(expectedRows);
+			var rowLinks = new List<List<Parsing.LinkSpan>>(expectedRows);
 			var lineRowCounts = new int[snapshot.Count];
 
 			// Coalesce consecutive entries that form ONE open [markdown] region into a single parse

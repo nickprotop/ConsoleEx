@@ -235,7 +235,9 @@ namespace SharpConsoleUI.Controls
 
 		private static List<(string text, int sourceIndex)> BuildParseGroups(List<string> snapshot)
 		{
-			var groups = new List<(string text, int sourceIndex)>();
+			// One group per entry is the common case (a group only spans several entries when an open
+			// [markdown] region does), so size for that and let the rare coalescing case shrink it.
+			var groups = new List<(string text, int sourceIndex)>(snapshot.Count);
 			for (int g = 0; g < snapshot.Count;)
 			{
 				int start = g;
