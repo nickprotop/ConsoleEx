@@ -640,11 +640,16 @@ namespace SharpConsoleUI.Controls
 		// SPC/empty pages — so each page type gets the right host without disturbing the header.
 		private void ApplyDirectOrPanelContent(NavigationItem item)
 		{
+			// DETACH, never RemoveContent. This view does not own what it swaps out: every direct
+			// content control stays in _directContent for the lifetime of the view and the same
+			// instance is re-added when the user navigates back. RemoveContent disposes, and a page
+			// rooted in a ScrollablePanelControl CLEARS its children on dispose, so swapping away
+			// used to destroy the page: it came back with its header intact and its body blank.
 			if (_directContent.TryGetValue(item, out var control))
 			{
 				if (!ReferenceEquals(_contentColumnBody, control))
 				{
-					_contentColumn.RemoveContent(_contentColumnBody);
+					_contentColumn.DetachContent(_contentColumnBody);
 					_contentColumn.AddContent(control);
 					_contentColumnBody = control;
 				}
@@ -653,7 +658,7 @@ namespace SharpConsoleUI.Controls
 			{
 				if (!ReferenceEquals(_contentColumnBody, _contentPanel))
 				{
-					_contentColumn.RemoveContent(_contentColumnBody);
+					_contentColumn.DetachContent(_contentColumnBody);
 					_contentColumn.AddContent(_contentPanel);
 					_contentColumnBody = _contentPanel;
 				}

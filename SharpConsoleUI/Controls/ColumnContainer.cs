@@ -624,7 +624,40 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>
-		/// Removes a child control from this column and disposes it.
+		/// Removes a child from this column WITHOUT disposing it, so the caller can add it back or
+		/// place it elsewhere later.
+		/// </summary>
+		/// <remarks>
+		/// <see cref="RemoveContent"/> disposes what it removes, which is correct when the column
+		/// owns its children and is the right default. A caller that keeps its own reference and
+		/// intends to re-add the same instance needs this instead: a control whose root is a
+		/// <see cref="ScrollablePanelControl"/> does not merely detach on dispose, it CLEARS its
+		/// child list, so re-adding a disposed page yields an empty one.
+		/// </remarks>
+		/// <param name="content">The control to detach.</param>
+		/// <returns><c>true</c> if the control was a child of this column and was detached.</returns>
+		public bool DetachContent(IWindowControl content)
+		{
+			bool removed;
+			lock (_contentsLock)
+			{
+				removed = _contents.Remove(content);
+			}
+
+			if (removed)
+			{
+				content.Container = null;
+
+				(this as IWindowControl).GetParentWindow()?.ForceRebuildLayout();
+				Invalidate(Invalidation.Relayout);
+			}
+
+			return removed;
+		}
+
+		/// <summary>
+		/// Removes a child control from this column and disposes it. Use
+		/// <see cref="DetachContent"/> instead when the same instance will be added back later.
 		/// </summary>
 		/// <param name="content">The control to remove.</param>
 		public void RemoveContent(IWindowControl content)
