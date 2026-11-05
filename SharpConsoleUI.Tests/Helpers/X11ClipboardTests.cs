@@ -207,6 +207,15 @@ public class X11ClipboardTests
 		using (reader)
 		{
 			owner.SetText("shared answer");
+
+			// SETTING IS POSTED, exactly as in the test above. Until the server has processed it
+			// nobody owns the selection and a read answers "" instantly without ever asking the
+			// owner to convert - so the four readers below collapse onto nothing, ConversionsAsked
+			// never moves, and the final assertion sees 0 where it wants 1. Wait for ownership to
+			// land BEFORE slowing the owner down. This failed about one full-suite run in four
+			// under parallel load and never in isolation, which is what a setup race looks like.
+			Assert.Equal("shared answer", ReadUntil(reader, "shared answer"));
+
 			owner.DelayAnswersForTest(600);
 
 			int before = owner.ConversionsAsked;
