@@ -172,6 +172,36 @@ var daylight = Theme.FromPalette(new Palette
 `ThemeMode` is also surfaced on every theme via `ITheme.Mode`, so apps can read
 `windowSystem.Theme.Mode` to adapt their own content (e.g. choose a light or dark logo).
 
+### Checking contrast yourself
+
+The generator picks colors that stay legible by measuring them, and the same
+helpers are public for apps deriving their own. `PaletteColors` works in the
+color space the eye uses — relative luminance per WCAG, which linearizes the
+gamma-encoded channels first, rather than a weighted sum of the raw bytes:
+
+```csharp
+using SharpConsoleUI.Helpers;
+
+double ratio = PaletteColors.ContrastRatio(fg, surface);       // 1.0 to 21.0
+
+// Lift a color until it clears a floor against the surface it is painted on,
+// tinting or shading whichever direction gets there first.
+Color safe = PaletteColors.EnsureContrastRatio(accent, surface);
+
+// Text that reads on a measured surface, keeping a hint of its tint.
+Color label = PaletteColors.ReadableOnMeasured(surface);
+```
+
+Two floors are named, matching WCAG AA: `PaletteColors.TextContrast` (4.5:1 — a
+terminal cell is normal-size text) and `PaletteColors.GraphicContrast` (3:1, for
+interface components and graphical objects such as a scrollbar thumb or a slider
+track).
+
+The surface matters as much as the color. A value checked against the window
+background but painted on a raised one — a header strip, a tab row, a control
+fill — is not actually guaranteed anything, which is how a scrollbar thumb can
+measure 8:1 against the window and vanish into its own track.
+
 ### Built-in seed themes
 
 The library registers a handful of palette-generated themes out of the box, so every app gets a

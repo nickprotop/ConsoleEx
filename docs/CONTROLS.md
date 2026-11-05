@@ -296,6 +296,13 @@ PopulateForm(window);
 
 `ColumnContainer` and `Window` keep their existing native names (`AddContent`/`Contents` on `ColumnContainer`; `RemoveContent`/`GetControls()` on `Window`); the `IControlHost` members are implemented via explicit interface forwarding so the public APIs are unchanged.
 
+`ColumnContainer.RemoveContent` **disposes** the control it removes, which is
+what you want when it is going away for good. To take a control out and put it
+back later — swapping pages in and out of one slot, say — use `DetachContent`
+instead: same removal, no disposal, so the control is still usable afterwards.
+Removing a page with `RemoveContent` and re-adding it later gives you a disposed
+control that renders blank.
+
 ## Quick Reference
 
 ### Creating Controls

@@ -229,18 +229,35 @@ A chart of numbers alone rarely answers the question being asked. "Is this over
 the limit" needs the limit drawn.
 
 ```csharp
-chart.AddReferenceLine(150, Color.Red, "capacity");            // a horizontal limit
-chart.AddReferenceLine(deployTime, Color.Cyan1, "deploy",      // a vertical moment
-    ChartReferenceAxis.X);
+var chart = Controls.Chart()
+    .WithReferenceLine(150, Color.Red, "capacity")                 // a horizontal limit
+    .WithReferenceLine(14, Color.Magenta1, "deploy",               // a vertical moment
+        ChartReferenceAxis.X)
+    .WithValueMarker(90, "target", Color.Yellow)                   // an arrow at a value
+    .WithHighLowLabels()                                           // mark peak and trough
+    .AddSeries("heap", Color.Cyan1, samples)
+    .Build();
+```
 
-chart.AddValueMarker(90, "target", Color.Magenta1);            // an arrow at a value
-chart.ShowHighLowLabels = true;                                // mark peak and trough
+Or on the control, which is the same thing a step later:
+
+```csharp
+chart.AddReferenceLine(150, Color.Red, "capacity");
+chart.AddReferenceLine(14, Color.Magenta1, "deploy", ChartReferenceAxis.X);
+chart.AddValueMarker(90, "target", Color.Yellow);
+chart.ShowHighLowLabels = true;
 ```
 
 Reference lines are drawn **under** the data, because a limit is context rather
 than content — the series stays readable where it crosses one. A line outside
 the visible range is not drawn at all rather than clamped to an edge, which
 would claim a limit sits at the top of the chart when it is off the scale.
+
+A line measured against `ChartReferenceAxis.X` runs **down** the plot instead of
+across it: that is how a chart says "this happened here" rather than "stay under
+this". A value marker points an arrow at a reading on the vertical axis and names
+it. Together they turn a trace into a record — the deploy went out at sample 14,
+and the ceiling it pushed memory to was 90.
 
 ### Thresholds
 
@@ -256,6 +273,30 @@ cpu.SetThresholds(new ChartThreshold(70, Color.Yellow),
 Applied per point, so a series crossing a limit changes color **at** the
 crossing. A `Gradient` on the same series wins, since both set is a
 contradiction and the gradient is the more specific request.
+
+## Legend placement
+
+The legend sits on any of the four sides, and the choice is a trade of width
+against height:
+
+```csharp
+Controls.Chart()
+    .WithLegend(ChartLegendPosition.Bottom)   // the default
+    .WithLegend(ChartLegendPosition.Right)    // a key beside the data
+```
+
+**Top** and **bottom** cost a row and leave the plot its full width, listing the
+series along a line. **Left** and **right** cost columns and stack one series per
+row, which reads as a key beside the data. A side legend sizes itself to its
+longest series name, capped at a share of the chart, so one verbose name cannot
+eat the plot it labels; more series than the plot has rows lists what fits rather
+than painting over the axis labels below.
+
+Which is right depends on what the chart is short of — and on a narrow terminal
+that is almost always width.
+
+A colour bar (`WithColorBarLegend`) is a scale rather than a list, so it stays
+horizontal; asking for it on a side falls back to the bottom.
 
 ## Stacking
 
