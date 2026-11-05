@@ -70,6 +70,30 @@ namespace SharpConsoleUI.Controls
 			var inactUnfocFg = ColorResolver.ResolveTabHeaderForeground(_inactiveUnfocusedForeground, Container);
 			var inactUnfocBg = ColorResolver.ResolveTabHeaderBackground(_inactiveUnfocusedBackground, Container);
 
+			// The rule under the strip, and the accent marking the active tab within
+			// it. Both were hardcoded - Grey and Cyan1 - so the one part of the
+			// control that did not follow the theme was the part drawn largest: a
+			// bright cyan underline on a dark blue-grey palette read as a stray
+			// highlight from another application.
+			//
+			// The accent is drawn ON THE STRIP, so it needs a colour picked against
+			// the strip - which neither of the active tab's own colours is. Its
+			// background is often the window surface (that is what makes an active
+			// tab look joined to the content below), and its foreground when focused
+			// is text-on-fill, chosen to read against that fill rather than against
+			// this row. Taking either one painted the mark in something within a
+			// point or two of the background and it vanished.
+			//
+			// So: start from the active tab's accent - its focused fill, which IS
+			// the theme's accent colour, falling back to its text when unfocused -
+			// then guarantee it clears the contrast floor against the surface it
+			// actually lands on.
+			var ruleColor = ColorResolver.ResolveTabContentBorder(null, Container);
+
+			Color accentSeed = HasFocus ? activeFocBg : activeUnfocFg;
+			var accentColorResolved =
+				PaletteColors.EnsureContrastRatio(accentSeed, bgColor, PaletteColors.GraphicContrast);
+
 			int headerLeft = bounds.X + Margin.Left;
 			int headerRight = bounds.X + bounds.Width - Margin.Right;
 			int headerY = bounds.Y + Margin.Top;
@@ -174,7 +198,7 @@ namespace SharpConsoleUI.Controls
 				int separatorY = headerY + 1;
 				if (_headerStyle == TabHeaderStyle.Separator)
 				{
-					var sepColor = HasFocus ? Color.Cyan1 : Color.Grey;
+					var sepColor = HasFocus ? accentColorResolved : ruleColor;
 					for (int x2 = headerLeft; x2 < headerRight; x2++)
 						buffer.SetNarrowCell(x2, separatorY, '─', sepColor, bgColor);
 				}
@@ -182,8 +206,8 @@ namespace SharpConsoleUI.Controls
 				{
 					// When the tab strip has keyboard focus the entire separator row is
 					// drawn in the accent colour so it stands out as a highlighted band.
-					var sepColor = HasFocus ? Color.Cyan1 : Color.Grey;
-					var accentColor = Color.Cyan1;
+					var sepColor = HasFocus ? accentColorResolved : ruleColor;
+					var accentColor = accentColorResolved;
 
 					for (int x2 = headerLeft; x2 < headerRight; x2++)
 					{
