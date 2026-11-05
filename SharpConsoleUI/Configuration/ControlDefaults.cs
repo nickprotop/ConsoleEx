@@ -1430,6 +1430,15 @@ namespace SharpConsoleUI.Configuration
 		/// <summary>Cells between one legend entry and the next.</summary>
 		public const int ChartLegendGap = 2;
 
+		/// <summary>
+		/// The most of a chart's width a Left or Right legend may take, as a percentage.
+		/// </summary>
+		/// <remarks>
+		/// A side legend sizes itself to its longest series name, so one verbose
+		/// name would otherwise leave no plot to put a legend beside.
+		/// </remarks>
+		public const int ChartSideLegendMaxPercent = 40;
+
 		/// <summary>Colour of a legend entry whose series is hidden.</summary>
 		public static readonly Color ChartLegendHiddenColor = Color.Grey35;
 

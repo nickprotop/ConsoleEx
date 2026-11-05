@@ -40,9 +40,47 @@ namespace SharpConsoleUI.Controls
 		{
 			if (!LegendVisible) return 0;
 
-			// Only the stacked positions cost a row; left and right take columns,
-			// which the gutter already accounts for.
+			// Only the stacked positions cost a row; left and right take columns.
 			return _legendPosition is ChartLegendPosition.Top or ChartLegendPosition.Bottom ? 1 : 0;
+		}
+
+		/// <summary>Columns the last layout reserved for a side legend.</summary>
+		private int _lastLegendColumns;
+
+		/// <summary>True when the legend stands beside the plot rather than above or below it.</summary>
+		private bool LegendIsSide =>
+			LegendVisible && _legendPosition is ChartLegendPosition.Left or ChartLegendPosition.Right;
+
+		/// <summary>
+		/// Columns a side legend reserves from the plot.
+		/// </summary>
+		/// <remarks>
+		/// Measured from the widest entry rather than fixed, so a legend of short
+		/// names does not steal width a long one would need - and a single
+		/// runaway name cannot eat the plot, because the result is capped at a
+		/// fraction of the control. A colour bar is a scale, not a list, and
+		/// stays horizontal; asking for it on a side falls back to the bottom.
+		/// </remarks>
+		private int LegendColumns(int availableWidth)
+		{
+			if (!LegendIsSide || _legendStyle == ChartLegendStyle.ColorBar) return 0;
+
+			List<ChartSeries> series;
+			lock (_dataLock) { series = new List<ChartSeries>(_series); }
+			if (series.Count == 0) return 0;
+
+			int widest = 0;
+			foreach (var s in series)
+			{
+				int w = UnicodeWidth.GetStringWidth(s.Name);
+				if (w > widest) widest = w;
+			}
+
+			// swatch + space + name, then a gap separating it from the plot.
+			int needed = 1 + 1 + widest + ControlDefaults.ChartLegendGap;
+
+			int cap = Math.Max(0, availableWidth * ControlDefaults.ChartSideLegendMaxPercent / 100);
+			return Math.Min(needed, cap);
 		}
 
 		/// <summary>
@@ -66,6 +104,12 @@ namespace SharpConsoleUI.Controls
 			if (_legendStyle == ChartLegendStyle.ColorBar)
 			{
 				PaintColorBar(buffer, plot, clipRect, fg, bg, series);
+				return;
+			}
+
+			if (LegendIsSide)
+			{
+				PaintSideLegend(buffer, plot, clipRect, fg, bg, series);
 				return;
 			}
 
@@ -98,6 +142,63 @@ namespace SharpConsoleUI.Controls
 
 				_legendRegions.Add((s, new LayoutRect(x, row, entryWidth, 1)));
 				x += entryWidth;
+			}
+		}
+
+		/// <summary>
+		/// Draws a legend beside the plot, one series per row.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// Stacked rather than run along a line, because a side legend's whole
+		/// purpose is to trade width for height: a reader scans a column of names
+		/// the way they scan the series, and a horizontal list squeezed into a
+		/// narrow column would wrap into nonsense.
+		/// </para>
+		/// <para>
+		/// Entries start at the plot's top row. A name wider than the reserved
+		/// column is clipped by the buffer rather than wrapped - a legend is a key,
+		/// and half a name on two rows reads worse than a truncated one.
+		/// </para>
+		/// </remarks>
+		private void PaintSideLegend(CharacterBuffer buffer,
+			(int X, int Y, int Width, int Height) plot, LayoutRect clipRect,
+			Color fg, Color bg, List<ChartSeries> series)
+		{
+			// What PlotRect actually reserved, not a fresh measurement: recomputing
+			// here against the already-narrowed plot width would disagree with the
+			// layout and put the entries in the wrong column.
+			int columns = _lastLegendColumns;
+			if (columns <= 0) return;
+
+			// Left sits in the space before the plot; right in the space after it.
+			int x = _legendPosition == ChartLegendPosition.Left
+				? plot.X - columns
+				: plot.X + plot.Width + ControlDefaults.ChartLegendGap;
+
+			if (x < clipRect.X) x = clipRect.X;
+
+			for (int i = 0; i < series.Count; i++)
+			{
+				int row = plot.Y + i;
+
+				// One row each, and the plot's height is the budget: a chart with
+				// more series than rows lists what fits rather than painting over
+				// the axis labels underneath.
+				if (i >= plot.Height) break;
+				if (row < clipRect.Y || row >= clipRect.Bottom) continue;
+				if (x >= clipRect.Right) break;
+
+				var s = series[i];
+				Color swatch = s.IsVisible ? s.Color : ControlDefaults.ChartLegendHiddenColor;
+				Color label = s.IsVisible ? fg : ControlDefaults.ChartLegendHiddenColor;
+
+				buffer.SetNarrowCell(x, row, LegendSwatch, swatch, bg);
+
+				var cells = Parsing.MarkupParser.Parse(s.Name, label, bg);
+				buffer.WriteCellsClipped(x + 2, row, cells, clipRect);
+
+				_legendRegions.Add((s, new LayoutRect(x, row, columns, 1)));
 			}
 		}
 
