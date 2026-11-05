@@ -84,6 +84,26 @@ namespace SharpConsoleUI.Themes
 			// discussion #44). Dim(c) reduces a color's opacity to DisabledStateAlpha.
 			Color Dim(Color c) => c.WithAlpha(ControlDefaults.DisabledStateAlpha);
 
+			// Disabled TEXT, which has to recede and still be read: a user has to see what a control
+			// says to know what is unavailable to them. A flat alpha cannot promise that, because
+			// what lands on screen is the blend and how legible it is depends entirely on the
+			// surface. On Daylight every disabled label composited to 2.87:1, and a tab header - dim
+			// text damped a second time - reached 1.90:1. So: blend exactly as the compositor will,
+			// check THAT, and walk the alpha back up until the painted result clears the floor.
+			Color DimText(Color c, Color surface)
+			{
+				for (int alpha = ControlDefaults.DisabledStateAlpha; alpha <= 255; alpha += 10)
+				{
+					Color painted = surface.Mix(c, alpha / 255.0);
+					if (PaletteColors.ContrastRatio(painted, surface) >= PaletteColors.GraphicContrast)
+						return c.WithAlpha((byte)alpha);
+				}
+
+				// Fully opaque still fails: the colour itself is too close to the surface, so move
+				// the colour rather than its opacity.
+				return PaletteColors.EnsureContrastRatio(c, surface);
+			}
+
 			var t = new MutableTheme { Mode = mode };
 
 			// ===== ROLE SEED family (surface the resolved accents/status colors) =====
@@ -123,15 +143,15 @@ namespace SharpConsoleUI.Themes
 
 			t.DropdownBackgroundColor = raised;
 			t.DropdownForegroundColor = foreground;
-			t.DropdownDisabledForegroundColor = Dim(foreground);
+			t.DropdownDisabledForegroundColor = DimText(foreground, raised);
 			t.DropdownDisabledBackgroundColor = Dim(raised);
 
 			t.ListForegroundColor = foreground;
-			t.ListDisabledForegroundColor = Dim(foreground);
+			t.ListDisabledForegroundColor = DimText(foreground, background);
 			t.ListDisabledBackgroundColor = Dim(background);
 
 			t.CheckboxForegroundColor = foreground;
-			t.CheckboxDisabledForegroundColor = Dim(foreground);
+			t.CheckboxDisabledForegroundColor = DimText(foreground, background);
 
 			t.DatePickerDisabledBackgroundColor = Dim(raised);
 
@@ -151,7 +171,7 @@ namespace SharpConsoleUI.Themes
 			t.TabHeaderActiveBackgroundColor = background;
 			t.TabHeaderActiveForegroundColor = foreground;
 			t.TabHeaderDisabledBackgroundColor = Dim(raised);
-			t.TabHeaderDisabledForegroundColor = Dim(dimText);
+			t.TabHeaderDisabledForegroundColor = DimText(dimText, raised);
 
 			t.TableBackgroundColor = background;
 			t.TableForegroundColor = foreground;
@@ -177,14 +197,14 @@ namespace SharpConsoleUI.Themes
 			t.DatePickerForegroundColor = foreground;
 			t.DatePickerSegmentBackgroundColor = Raise(background, 0.2);
 			t.DatePickerSegmentForegroundColor = foreground;
-			t.DatePickerDisabledForegroundColor = Dim(foreground);
+			t.DatePickerDisabledForegroundColor = DimText(foreground, raised);
 			t.DatePickerCalendarHeaderColor = dimText;
 
 			t.TimePickerBackgroundColor = raised;
 			t.TimePickerForegroundColor = foreground;
 			t.TimePickerSegmentBackgroundColor = Raise(background, 0.2);
 			t.TimePickerSegmentForegroundColor = foreground;
-			t.TimePickerDisabledForegroundColor = Dim(foreground);
+			t.TimePickerDisabledForegroundColor = DimText(foreground, raised);
 
 			t.StatusBarBackgroundColor = raised;
 			t.StatusBarForegroundColor = foreground;
@@ -237,8 +257,12 @@ namespace SharpConsoleUI.Themes
 			// disabled text must therefore read against the WINDOW background (not against the opaque
 			// primary it would sit on when enabled) — so damp the window foreground, which is already
 			// contrast-guaranteed against the surface.
+			// The disabled fill is itself alpha-damped, so what the label actually lands on is
+			// primary blended over the window, not primary. Measuring against the stored colour
+			// rather than the composited one is how this pair stayed broken.
 			t.ButtonDisabledBackgroundColor = Dim(primary);
-			t.ButtonDisabledForegroundColor = Dim(foreground);
+			Color disabledButtonSurface = background.Mix(primary, ControlDefaults.DisabledStateAlpha / 255.0);
+			t.ButtonDisabledForegroundColor = DimText(foreground, disabledButtonSurface);
 
 			t.ListUnfocusedHighlightBackgroundColor = selectionBg.Mix(background, 0.35);
 			t.ListUnfocusedHighlightForegroundColor = PaletteColors.ReadableOn(selectionBg.Mix(background, 0.35));
@@ -251,8 +275,13 @@ namespace SharpConsoleUI.Themes
 
 			t.DropdownHighlightBackgroundColor = selectionBg;
 			t.DropdownHighlightForegroundColor = selectionFg;
-			t.DropdownFocusedForegroundColor = accentOnBackground;
+			// The focused row's label is TEXT on the blended focus surface below it, not on the
+			// window: accentOnBackground is guarded against the wrong thing here and left Crimson
+			// at 3.74:1 and Daylight at 2.92:1. Every neighbouring highlight pair already derives
+			// its foreground from its own surface; this one did not.
 			t.DropdownFocusedBackgroundColor = selectionBg.Mix(background, 0.4);
+			t.DropdownFocusedForegroundColor = PaletteColors.EnsureContrastRatio(
+				accentOnBackground, t.DropdownFocusedBackgroundColor!.Value, PaletteColors.TextContrast);
 
 			t.ListFocusedForegroundColor = accentOnBackground;
 			t.ListSelectedForegroundColor = selectionFg;

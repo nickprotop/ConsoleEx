@@ -75,7 +75,10 @@ public class PaletteWcagContrastTests
 		("TabHeaderForegroundColor", "TabHeaderBackgroundColor"),
 		("TabHeaderActiveForegroundColor", "TabHeaderActiveBackgroundColor"),
 		("DropdownForegroundColor", "DropdownBackgroundColor"),
+		("DropdownFocusedForegroundColor", "DropdownFocusedBackgroundColor"),
 		("DropdownHighlightForegroundColor", "DropdownHighlightBackgroundColor"),
+		// A checkbox and a radio have no resting fill, so this composites onto the window.
+		("CheckboxForegroundColor", "CheckboxBackgroundColor"),
 		("MenuDropdownForegroundColor", "MenuDropdownBackgroundColor"),
 		("MenuDropdownHighlightForegroundColor", "MenuDropdownHighlightBackgroundColor"),
 		("PromptInputForegroundColor", "PromptInputBackgroundColor"),
@@ -111,6 +114,20 @@ public class PaletteWcagContrastTests
 		// The desktop pattern is a graphical texture, not text: it is deliberately the faintest
 		// thing on screen and nobody reads it, but it still has to be perceptible as a pattern.
 		("DesktopForegroundColor", "DesktopBackgroundColor"),
+	};
+
+	/// <summary>
+	/// Alpha-damped pairs. Checked separately, and against the lower floor, because what reaches
+	/// the screen is the blend of these over their surface rather than the stored color.
+	/// </summary>
+	private static readonly (string Fg, string? Bg)[] DisabledPairs =
+	{
+		("ButtonDisabledForegroundColor", "ButtonDisabledBackgroundColor"),
+		("CheckboxDisabledForegroundColor", "CheckboxDisabledBackgroundColor"),
+		("DropdownDisabledForegroundColor", "DropdownDisabledBackgroundColor"),
+		("ListDisabledForegroundColor", "ListDisabledBackgroundColor"),
+		("TabHeaderDisabledForegroundColor", "TabHeaderDisabledBackgroundColor"),
+		("DatePickerDisabledForegroundColor", "DatePickerDisabledBackgroundColor"),
 	};
 
 	/// <summary>One sRGB channel, linearized per the WCAG definition.</summary>
@@ -157,6 +174,7 @@ public class PaletteWcagContrastTests
 
 			// A disabled color is deliberately damped with alpha; compositing it is the control's
 			// job and its faded look is the intent, so it is not held to the opaque minimum.
+			// DisabledStillLegible below holds those to their own, lower bar.
 			if (foreground.A != 255)
 				continue;
 
@@ -193,6 +211,46 @@ public class PaletteWcagContrastTests
 			bad.Count == 0,
 			$"{themeName} has graphical elements below WCAG AA ({NonTextMinimum:0.0}:1):\n  "
 			+ string.Join("\n  ", bad));
+	}
+
+	/// <summary>
+	/// Disabled text is meant to recede, but it still has to be READ: a user has to see what the
+	/// control says in order to know what is unavailable to them.
+	/// </summary>
+	/// <remarks>
+	/// Held to the graphical floor rather than the text floor, and composited over its surface
+	/// first, because the damping is alpha: the painted result is the blend, not the stored color.
+	/// This is the one place the suite checks the disabled pairs, which the opaque audits above
+	/// deliberately skip.
+	/// </remarks>
+	[Theory]
+	[MemberData(nameof(CatalogThemes))]
+	public void CatalogTheme_DisabledTextStaysLegible(string themeName)
+	{
+		var theme = new ThemeRegistryStateService().GetTheme(themeName)!;
+		Color windowBackground = theme.WindowBackgroundColor;
+		var bad = new List<string>();
+
+		foreach (var (fgName, bgName) in DisabledPairs)
+		{
+			Color foreground = Read(theme, fgName);
+			Color? background = bgName is null ? null : Read(theme, bgName);
+			Color surface = PaletteColors.EffectiveSurface(background, windowBackground);
+
+			// What the compositor actually puts on screen for a semi-transparent foreground.
+			Color painted = foreground.A == 255
+				? foreground
+				: surface.Mix(foreground, foreground.A / 255.0);
+
+			double ratio = ContrastRatio(painted, surface);
+			if (ratio < NonTextMinimum)
+				bad.Add($"{fgName} on {bgName ?? "WindowBackgroundColor"}: {ratio:0.00}:1 "
+					+ $"< {NonTextMinimum:0.0}:1 (painted {painted}, surface {surface})");
+		}
+
+		Assert.True(
+			bad.Count == 0,
+			$"{themeName} has disabled text that cannot be read:\n  " + string.Join("\n  ", bad));
 	}
 
 	/// <summary>
