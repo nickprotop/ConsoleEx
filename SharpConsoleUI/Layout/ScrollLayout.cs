@@ -356,20 +356,27 @@ namespace SharpConsoleUI.Layout
 			// A pinned band owns its strip outright: scrolling body content must be clipped OUT
 			// of those rows, or it paints over the band as soon as the body is long enough to
 			// reach them. A band itself clips to the viewport like anything else.
-			var (topBand, _, bottomBand) = Bands(node);
-			if (topBand.Count > 0 || bottomBand.Count > 0)
+			//
+			// PERF: this runs ONCE PER CHILD during the paint walk, so it must not allocate. Only
+			// the band ROW COUNTS are needed here (never the body list), so they are summed in one
+			// pass instead of calling Bands(), which materializes a list of every child: that made
+			// the paint walk O(children^2) in allocation, 97% of a scroll's total at 2,000 children.
+			var dock = child.Control?.Dock ?? Dock.None;
+			if (dock is not (Dock.Top or Dock.Bottom))
 			{
-				var dock = child.Control?.Dock ?? Dock.None;
-				if (dock is not (Dock.Top or Dock.Bottom))
+				int topRows = 0, bottomRows = 0;
+				foreach (var sibling in node.Children)
 				{
-					int topRows = 0;
-					foreach (var b in topBand)
-						if (b.IsVisible) topRows += BandHeight(b);
+					if (!sibling.IsVisible) continue;
+					switch (sibling.Control?.Dock ?? Dock.None)
+					{
+						case Dock.Top: topRows += BandHeight(sibling); break;
+						case Dock.Bottom: bottomRows += BandHeight(sibling); break;
+					}
+				}
 
-					int bottomRows = 0;
-					foreach (var b in bottomBand)
-						if (b.IsVisible) bottomRows += BandHeight(b);
-
+				if (topRows > 0 || bottomRows > 0)
+				{
 					viewportRect = new LayoutRect(
 						viewportRect.X,
 						viewportRect.Y + topRows,
