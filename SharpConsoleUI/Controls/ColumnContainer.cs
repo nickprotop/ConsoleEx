@@ -91,9 +91,22 @@ namespace SharpConsoleUI.Controls
 		private bool _propagatingWindowSystem = false;
 
 		/// <inheritdoc/>
+		/// <remarks>
+		/// Falls back to a LIVE lookup through the owning grid when the cache is empty. The cache is
+		/// filled by the grid's Container setter, which reads the window system off the new parent at
+		/// the moment of attachment. That read returns null whenever the grid is attached to a parent
+		/// that is not itself attached yet, which is the normal order for a built tree: a panel is
+		/// filled, the grid goes into the panel, and only then does the panel reach the window. The
+		/// cache was then never refilled, because nothing re-runs the grid's setter when the
+		/// GRANDPARENT is attached, so every control in the column resolved its colors through a null
+		/// window system and fell through to its own hardcoded literal: on the Radio Buttons demo
+		/// under Slate, cyan markers on an otherwise correctly themed page.
+		/// Reading through the owner on demand cannot go stale, since the owner's own Container
+		/// pointer is always current by the time anything paints.
+		/// </remarks>
 		public ConsoleWindowSystem? GetConsoleWindowSystem
 		{
-			get => _consoleWindowSystem;
+			get => _consoleWindowSystem ?? _owner?.Container?.GetConsoleWindowSystem;
 			set
 			{
 				// Avoid redundant work if value unchanged
