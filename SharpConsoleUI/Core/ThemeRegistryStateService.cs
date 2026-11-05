@@ -43,8 +43,14 @@ namespace SharpConsoleUI.Core
 				() => Themes.Theme.FromPalette(new Themes.Palette { Primary = Color.FromHex("#22C55E"), Background = Color.FromHex("#0F1A12") }));
 			RegisterTheme("Crimson", "Red accent, dark",
 				() => Themes.Theme.FromPalette(new Themes.Palette { Primary = Color.FromHex("#EF4444"), Background = Color.FromHex("#1A0F12") }));
+			// #94A3B8, not the #64748B this shipped with. The generator spends the primary on borders,
+			// scrollbar thumbs, slider and progress fills and focus marks, all of which sit on surfaces
+			// at or just above the window background. #64748B is a MID-GREY: against #0F172A it is only
+			// 3.75:1, where every sibling dark theme's accent sits near 8:1, so each of those derived
+			// elements landed as mud however carefully it was derived. This is one step lighter on the
+			// same ramp, so the theme still reads as cool blue-grey, at 6.96:1.
 			RegisterTheme("Slate", "Cool blue-grey accent, dark",
-				() => Themes.Theme.FromPalette(new Themes.Palette { Primary = Color.FromHex("#64748B"), Background = Color.FromHex("#0F172A") }));
+				() => Themes.Theme.FromPalette(new Themes.Palette { Primary = Color.FromHex("#94A3B8"), Background = Color.FromHex("#0F172A") }));
 			RegisterTheme("Daylight", "Blue accent on a light surface",
 				() => Themes.Theme.FromPalette(new Themes.Palette { Primary = Color.FromHex("#2563EB"), Background = Color.FromHex("#DFE3E9") }));
 		}

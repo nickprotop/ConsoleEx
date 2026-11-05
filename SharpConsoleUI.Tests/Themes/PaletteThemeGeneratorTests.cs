@@ -6,6 +6,7 @@
 // License: MIT
 // -----------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Reflection;
 using SharpConsoleUI;
 using SharpConsoleUI.Helpers;
@@ -72,9 +73,29 @@ public class PaletteThemeGeneratorTests
 		Assert.True(theme.WindowBackgroundColor.IsDark());
 	}
 
+	/// <summary>
+	/// Members that are deliberately null in EVERY palette, because null is their meaning rather
+	/// than an oversight: ITheme documents these as "Null means transparent", and the control they
+	/// belong to is a surface-text control that draws onto whatever is behind it.
+	/// </summary>
+	/// <remarks>
+	/// The tripwire below cannot tell "nobody derived this" from "the derived answer is no fill",
+	/// since both come out equal across two palettes. Listing the second case here keeps the
+	/// tripwire sharp for the first. A member only belongs here if null is a decision: if it is
+	/// null merely because nothing got round to setting it, that is exactly the miss being hunted.
+	/// </remarks>
+	private static readonly HashSet<string> IntentionallyTransparent = new()
+	{
+		// A checkbox and a radio paint a marker and a label onto the window surface. Giving them a
+		// resting fill put every one of them inside a visible slab; see
+		// SurfaceTextControlBackgroundTests.
+		"CheckboxBackgroundColor",
+	};
+
 	// TRIPWIRE: every ITheme color member must be DERIVED from the palette. Two palettes with entirely
 	// different cores must produce different values for every color member; any member equal across the
 	// two was left at a palette-independent constant (inherited ModernGray default or hardcoded) — a miss.
+	// The one exception is a member whose derived answer is "no fill at all"; see IntentionallyTransparent.
 	[Fact]
 	public void Generated_DerivesEveryColorMemberFromPalette()
 	{
@@ -104,6 +125,15 @@ public class PaletteThemeGeneratorTests
 		var notDerived = new System.Collections.Generic.List<string>();
 		foreach (var pr in typeof(ITheme).GetProperties(BindingFlags.Public | BindingFlags.Instance))
 		{
+			if (IntentionallyTransparent.Contains(pr.Name))
+			{
+				// Null is this member's derived answer, and it must stay null in BOTH palettes:
+				// that keeps the exemption honest, so a stray fill creeping back still fails here.
+				Assert.Null((Color?)pr.GetValue(a));
+				Assert.Null((Color?)pr.GetValue(b));
+				continue;
+			}
+
 			if (pr.PropertyType == typeof(Color))
 			{
 				var va = (Color)pr.GetValue(a)!;
