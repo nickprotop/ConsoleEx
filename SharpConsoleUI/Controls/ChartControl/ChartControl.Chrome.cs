@@ -115,8 +115,14 @@ namespace SharpConsoleUI.Controls
 				int y = plot.Y - 1;
 				if (y >= clipRect.Y && y < clipRect.Bottom)
 				{
+					// Inside any border, not at the control's outer edge: with a
+					// border that edge IS the frame, and the title overwrote it,
+					// leaving a hole the width of the text in the left side.
+					int x = bounds.X + Margin.Left;
+					if (_borderStyle != BorderStyle.None) x++;
+
 					var cells = MarkupParser.Parse(YAxis.Title, colour, bg);
-					buffer.WriteCellsClipped(bounds.X + Margin.Left, y, cells, clipRect);
+					buffer.WriteCellsClipped(x, y, cells, clipRect);
 				}
 			}
 
@@ -164,8 +170,14 @@ namespace SharpConsoleUI.Controls
 				var cells = MarkupParser.Parse(tick.Label, tick.Color ?? fg, bg);
 				int width = MarkupParser.StripLength(tick.Label);
 
-				// Right-aligned against the plot edge, so the numbers line up.
-				int x = plot.X - width - ControlDefaults.ChartAxisLabelPadding;
+				// Right-aligned against the plot edge, so the numbers line up - but
+				// against the LEGEND's edge when one stands to the left, since the
+				// gutter sits outside it. Aligning on plot.X there wrote the labels
+				// over the legend and the two ran together ("requests0").
+				int rightEdge = plot.X
+					- (_legendPosition == ChartLegendPosition.Left ? _lastLegendColumns : 0);
+
+				int x = rightEdge - width - ControlDefaults.ChartAxisLabelPadding;
 				if (x < bounds.X) x = bounds.X;
 
 				buffer.WriteCellsClipped(x, y, cells, clipRect);

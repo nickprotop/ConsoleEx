@@ -199,6 +199,44 @@ namespace SharpConsoleUI.Tests.Controls
 		}
 
 		[Fact]
+		public void AYAxisTitleDoesNotPunchThroughTheBorder()
+		{
+			// The Y title was written at the control's OUTER left edge, which with
+			// a border is the border column itself - so "req/s" overwrote the left
+			// edge and the frame had a hole in it. The title belongs inside the
+			// frame, like every other piece of chrome.
+			var (system, chart) = Build();
+			chart.BorderStyle = BorderStyle.Single;
+			chart.YAxis.Title = "req/s";
+			chart.AddSeries("a", Color.Red).SetValues(new[] { 1d, 5, 2 });
+
+			var snap = Draw(system);
+
+			Assert.Contains("req/s", TextOf(snap));
+
+			// Every row between the corners still carries its left and right edge.
+			int left = ColumnOf(snap, "\u250c");
+			Assert.True(left >= 0, "no top-left corner drawn");
+
+			int top = -1, bottom = -1;
+			for (int y = 0; y < snap.Height; y++)
+			{
+				char ch = (char)snap.GetCell(left, y).Character.Value;
+				if (ch == '\u250c') top = y;
+				if (ch == '\u2514') bottom = y;
+			}
+			Assert.True(top >= 0 && bottom > top, $"corners at {top}..{bottom}");
+
+			for (int y = top + 1; y < bottom; y++)
+			{
+				char ch = (char)snap.GetCell(left, y).Character.Value;
+				Assert.True(ch == '\u2502', $"row {y} left border is '{ch}', not a vertical edge");
+			}
+
+			GC.KeepAlive(system);
+		}
+
+		[Fact]
 		public void ChromeSurvivesATinyChart()
 		{
 			// Title, subtitle, both axis titles and a border, in a window with no
