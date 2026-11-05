@@ -42,6 +42,16 @@ namespace SharpConsoleUI.Layout
 		/// </summary>
 		private readonly IScrollOrigin? _origin;
 
+		// The pinned band rows, as the last arrange pass measured them. GetPaintClipRect needs them
+		// once per child to inset the body's clip, and they are a property of the PANEL, not of the
+		// child asking: recomputing them per child made the paint walk O(children^2) in TIME (four
+		// million sibling visits per scroll at 2,000 children, 66% of the frame). Arrange already
+		// computes both totals to place the bands, so it records them here and paint reads them.
+		// Arrange always precedes paint for a given frame, so these are never read stale; a tree that
+		// has not been arranged leaves them at zero, which is the no-bands case and the correct inset.
+		private int _bandTopRows;
+		private int _bandBottomRows;
+
 		/// <summary>
 		/// The last finite height this body was measured against — its real viewport. Kept because the
 		/// grid re-measures cells at unbounded height to discover wrapped sizes, and a viewport asked
@@ -293,6 +303,10 @@ namespace SharpConsoleUI.Layout
 				bottomY += h;
 			}
 
+			// Record for GetPaintClipRect (see the fields' note): the rows each band actually took.
+			_bandTopRows = topY - contentOriginY;
+			_bandBottomRows = bottomTotal;
+
 			int bodyViewport = Math.Max(0, contentViewportHeight - (topY - contentOriginY) - bottomTotal);
 
 			var (_, _, perFillHeight) = panel.ComputeFillMetrics(
@@ -357,32 +371,17 @@ namespace SharpConsoleUI.Layout
 			// of those rows, or it paints over the band as soon as the body is long enough to
 			// reach them. A band itself clips to the viewport like anything else.
 			//
-			// PERF: this runs ONCE PER CHILD during the paint walk, so it must not allocate. Only
-			// the band ROW COUNTS are needed here (never the body list), so they are summed in one
-			// pass instead of calling Bands(), which materializes a list of every child: that made
-			// the paint walk O(children^2) in allocation, 97% of a scroll's total at 2,000 children.
+			// PERF: this runs ONCE PER CHILD during the paint walk, so it must do O(1) work and
+			// allocate nothing. The band totals come from the arrange pass that preceded this paint
+			// (see _bandTopRows), because they describe the PANEL and do not vary by child.
 			var dock = child.Control?.Dock ?? Dock.None;
-			if (dock is not (Dock.Top or Dock.Bottom))
+			if (dock is not (Dock.Top or Dock.Bottom) && (_bandTopRows > 0 || _bandBottomRows > 0))
 			{
-				int topRows = 0, bottomRows = 0;
-				foreach (var sibling in node.Children)
-				{
-					if (!sibling.IsVisible) continue;
-					switch (sibling.Control?.Dock ?? Dock.None)
-					{
-						case Dock.Top: topRows += BandHeight(sibling); break;
-						case Dock.Bottom: bottomRows += BandHeight(sibling); break;
-					}
-				}
-
-				if (topRows > 0 || bottomRows > 0)
-				{
-					viewportRect = new LayoutRect(
-						viewportRect.X,
-						viewportRect.Y + topRows,
-						viewportRect.Width,
-						Math.Max(0, viewportRect.Height - topRows - bottomRows));
-				}
+				viewportRect = new LayoutRect(
+					viewportRect.X,
+					viewportRect.Y + _bandTopRows,
+					viewportRect.Width,
+					Math.Max(0, viewportRect.Height - _bandTopRows - _bandBottomRows));
 			}
 
 			return parentClipRect.Intersect(viewportRect);
