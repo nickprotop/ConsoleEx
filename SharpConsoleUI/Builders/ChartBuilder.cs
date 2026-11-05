@@ -57,6 +57,14 @@ namespace SharpConsoleUI.Builders
 			return this;
 		}
 
+		/// <summary>Names the control, so it can be found again with FindControl.</summary>
+		/// <param name="name">The name.</param>
+		public ChartBuilder WithName(string name)
+		{
+			_control.Name = name;
+			return this;
+		}
+
 		/// <summary>Sets the heading drawn above the plot.</summary>
 		/// <param name="title">The title text.</param>
 		public ChartBuilder WithTitle(string title)
@@ -322,6 +330,33 @@ namespace SharpConsoleUI.Builders
 		public ChartBuilder WithReferenceLine(double value, Color color, string? label = null)
 		{
 			_control.AddReferenceLine(value, color, label);
+			return this;
+		}
+
+		/// <summary>Draws a line across the plot at a value on the given axis.</summary>
+		/// <param name="value">Where the line sits.</param>
+		/// <param name="color">The line colour.</param>
+		/// <param name="label">Text at the line's end.</param>
+		/// <param name="axis">Which axis the value is measured against.</param>
+		/// <remarks>
+		/// A separate overload rather than an optional argument on the one above:
+		/// adding a parameter to a shipped public method rebuilds every caller,
+		/// and this library has adopters compiled against the three-argument form.
+		/// </remarks>
+		public ChartBuilder WithReferenceLine(double value, Color color, string? label,
+			ChartReferenceAxis axis)
+		{
+			_control.AddReferenceLine(value, color, label, axis);
+			return this;
+		}
+
+		/// <summary>Points an arrow and a label at a value on the vertical axis.</summary>
+		/// <param name="value">The value pointed at.</param>
+		/// <param name="label">The text beside the arrow.</param>
+		/// <param name="color">The marker colour.</param>
+		public ChartBuilder WithValueMarker(double value, string label, Color color)
+		{
+			_control.AddValueMarker(value, label, color);
 			return this;
 		}
 

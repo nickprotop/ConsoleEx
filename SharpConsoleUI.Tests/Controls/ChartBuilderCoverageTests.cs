@@ -285,5 +285,56 @@ namespace SharpConsoleUI.Tests.Controls
 			Assert.False(chart.ShowGaugeValue);
 		}
 
+		[Fact]
+		public void ANameIsReachableFromTheBuilder()
+		{
+			// Every other control builder has WithName; ChartBuilder did not, so a
+			// chart that had to be found later with FindControl could not be built
+			// fluently - the one thing a dashboard always needs.
+			var chart = new ChartBuilder().WithName("cpuChart").Build();
+
+			Assert.Equal("cpuChart", chart.Name);
+		}
+
+		[Fact]
+		public void AValueMarkerIsReachableFromTheBuilder()
+		{
+			// AddValueMarker had no fluent route, so a chart that wanted one had
+			// to be built and then assigned to - the exact mixed style this class
+			// exists to prevent.
+			var chart = new ChartBuilder()
+				.WithValueMarker(42, "peak", Color.Yellow)
+				.Build();
+
+			var marker = Assert.Single(chart.ValueMarkers);
+			Assert.Equal(42, marker.Value);
+			Assert.Equal("peak", marker.Label);
+			Assert.Equal(Color.Yellow, marker.Color);
+		}
+
+		[Fact]
+		public void AReferenceLineCanBeMeasuredAgainstTheXAxis()
+		{
+			// The control has taken an axis since reference lines existed; the
+			// builder only ever passed the Y default, so a vertical reference
+			// line - "the deploy happened here" - was unreachable fluently.
+			var chart = new ChartBuilder()
+				.WithReferenceLine(12, Color.Red, "deploy", ChartReferenceAxis.X)
+				.Build();
+
+			var line = Assert.Single(chart.ReferenceLines);
+			Assert.Equal(ChartReferenceAxis.X, line.Axis);
+			Assert.Equal(12, line.Value);
+			Assert.Equal("deploy", line.Label);
+		}
+
+		[Fact]
+		public void AReferenceLineStillDefaultsToTheYAxis()
+		{
+			var chart = new ChartBuilder().WithReferenceLine(80, Color.Red).Build();
+
+			Assert.Equal(ChartReferenceAxis.Y, Assert.Single(chart.ReferenceLines).Axis);
+		}
+
 	}
 }
