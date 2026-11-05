@@ -106,9 +106,20 @@ namespace SharpConsoleUI.Controls
 			int legendRows = LegendRows();
 			int topLegend = _legendPosition == ChartLegendPosition.Top ? legendRows : 0;
 
-			int x = bounds.X + Margin.Left + border + gutter;
+			// A Left or Right legend takes columns the way the Y labels do. Measured
+			// against the width left after the gutters, and remembered, so the paint
+			// pass places its entries in exactly the space layout set aside.
+			int beforeLegend = bounds.Width - Margin.Left - Margin.Right - (border * 2)
+				- gutter - rightGutter;
+			int legendColumns = LegendColumns(Math.Max(0, beforeLegend));
+			_lastLegendColumns = legendColumns;
+
+			int leftLegend = _legendPosition == ChartLegendPosition.Left ? legendColumns : 0;
+
+			int x = bounds.X + Margin.Left + border + gutter + leftLegend;
 			int y = bounds.Y + Margin.Top + border + titleRows + topLegend;
-			int width = bounds.Width - Margin.Left - Margin.Right - (border * 2) - gutter - rightGutter;
+			int width = bounds.Width - Margin.Left - Margin.Right - (border * 2) - gutter - rightGutter
+				- legendColumns;
 			int height = bounds.Height - Margin.Top - Margin.Bottom - (border * 2)
 				- titleRows - xLabelRows - xTitleRows - legendRows;
 
@@ -245,12 +256,22 @@ namespace SharpConsoleUI.Controls
 			if (plot.Width <= 0 || plot.Height <= 0) return;
 
 			// A fixed step fills the plot with as many steps as fit, so the X range
-			// is decided by the width rather than by the data. Points past the edge
-			// simply have not arrived on screen yet.
+			// is decided by the width rather than by the data.
 			if (_sizing == ChartSizing.FixedStep && !XAxis.Max.HasValue)
 			{
 				int steps = Math.Max(1, plot.Width / Math.Max(1, _stepWidth));
-				xMax = xMin + steps;
+
+				// Anchored on the NEWEST sample, not the oldest. A feed that trims
+				// its history keeps adding points with ever-larger X, and anchoring
+				// on xMin pinned the window to the start of the retained buffer: the
+				// newest samples landed past the right edge, invisible, while the
+				// oldest ones held the screen. The chart looked frozen at the right
+				// while data poured in behind it. Growing from the left, where the
+				// whole history still fits, is the same window as before.
+				if (xMax - xMin > steps)
+					xMin = xMax - steps;
+				else
+					xMax = xMin + steps;
 			}
 
 			if (_resampleToWidth)

@@ -267,5 +267,86 @@ namespace SharpConsoleUI.Tests.Controls
 			}
 			return -1;
 		}
+		[Fact]
+		public void AFixedStepFeedKeepsTheNEWESTSampleOnScreen()
+		{
+			// A live feed trims its history to a rolling window and keeps adding
+			// points with ever-larger X. The axis of a fixed-step chart spans only
+			// as many steps as the plot has room for, so once the retained history
+			// is LONGER than that, everything past the first screenful falls off
+			// the right edge - invisible. What stays on screen is the OLDEST part
+			// of the buffer, which barely changes, so the chart looks frozen at
+			// the right while new samples pile up out of view.
+			//
+			// The contract a monitor needs: whatever else scrolls away, the most
+			// recent sample is the one you can see.
+			var (system, chart) = Build();
+			chart.Sizing = ChartSizing.FixedStep;
+			chart.StepWidth = 2;
+			chart.YAxis.Min = 0;
+			chart.YAxis.Max = 100;
+
+			var s = chart.AddSeries("live", Color.Red);
+
+			// Fill well past one screenful, trimming as a live feed does.
+			const int window = 400;
+			for (int i = 0; i < 600; i++)
+			{
+				// A flat trace with ONE marker at the newest sample: a lone high
+				// point whose column can be found again after the window moves.
+				s.AddPoint(new ChartPoint(i, i == 599 ? 100 : 10));
+				s.TrimTo(window);
+			}
+
+			var before = Draw(system);
+			int markBefore = SpikeColumn(before);
+
+			// The marker is ON SCREEN to begin with. Anchored on the oldest sample
+			// it was not: it sat beyond the right edge with the rest of the recent
+			// history, and the screen held the stale front of the buffer.
+			Assert.True(markBefore >= 0, "the newest sample was never drawn");
+
+			// Twenty more flat samples arrive, with no new marker. The marker has
+			// to travel LEFT as the window slides over it - that is scrolling. A
+			// frozen feed leaves it exactly where it was.
+			for (int i = 600; i < 620; i++)
+			{
+				s.AddPoint(new ChartPoint(i, 10));
+				s.TrimTo(window);
+			}
+
+			// A series holds no reference back to its chart, so mutating points
+			// does not invalidate anything. A live feed repaints explicitly, and
+			// a test that does not is reading the previous frame.
+			chart.Invalidate(Invalidation.Repaint);
+
+			int markAfter = SpikeColumn(Draw(system));
+
+			Assert.True(markAfter >= 0,
+				"the marker scrolled off entirely after only twenty samples");
+			Assert.True(markAfter < markBefore,
+				$"the marker sat at column {markBefore} and is now at {markAfter} - "
+					+ "it did not move left, so the feed is frozen");
+			GC.KeepAlive(system);
+		}
+
+
+		/// <summary>The column of the lone high sample, or -1 when it is not on screen.</summary>
+		private static int SpikeColumn(CharacterBufferSnapshot snap)
+		{
+			// The feed is flat at 10 except for one sample at 100, so the spike is
+			// the only thing drawn in the plot's top quarter.
+			for (int x = 0; x < snap.Width; x++)
+			{
+				for (int y = 0; y < snap.Height / 4; y++)
+				{
+					var cell = snap.GetCell(x, y);
+					if (cell.Foreground == Color.Red || cell.Background == Color.Red) return x;
+				}
+			}
+			return -1;
+		}
+
+
 	}
 }
