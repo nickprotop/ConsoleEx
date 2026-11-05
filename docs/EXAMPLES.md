@@ -302,9 +302,15 @@ same code reaching the same decisions — only the final surface changed.
 [Drivers](DRIVERS.md) for the driver story behind it.
 
 ### DemoApp
-The flagship demo — six independent windows running simultaneously.
+The flagship demo — every control in the library, in windows you can open at once.
 
-![DemoApp](images/examples/demoapp.png)
+![DemoApp](images/examples/demoapp-windows-live.png)
+
+Nine windows at once, every one of them live: a FIGlet clock ticking, a 10,000-row
+virtual DataGrid, braille system charts redrawing four feeds, the markup reference,
+and a resizable grid dashboard — composited over a gradient desktop with a taskbar
+along the bottom. Nothing here is a mock-up or a still; it is one frame of the running
+application.
 
 ```bash
 dotnet run --project Examples/DemoApp
@@ -324,9 +330,9 @@ dotnet run --project Examples/DemoApp
 
 **Controls:** Ctrl+O to open demo windows, Alt+1-6 to switch
 
-| Markup, Gradients & International Text | File Explorer, DataGrid & Package Manager | NavigationView Launcher |
-|----------------------------------------|--------------------------------------------|-------------------------|
-| ![Markup Demo](images/examples/demoapp-markup.png) | ![Windows Demo](images/examples/demoapp-windows.png) | ![NavigationView](images/examples/demoapp-navigationview.png) |
+| Launcher & Demo Windows | Markup, Gradients & International Text | File Explorer, DataGrid & Package Manager | NavigationView Launcher |
+|-------------------------|----------------------------------------|--------------------------------------------|-------------------------|
+| ![DemoApp](images/examples/demoapp.png) | ![Markup Demo](images/examples/demoapp-markup.png) | ![Windows Demo](images/examples/demoapp-windows.png) | ![NavigationView](images/examples/demoapp-navigationview.png) |
 
 ---
 
