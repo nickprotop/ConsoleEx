@@ -36,7 +36,7 @@ tables here, updating the "Captured on" line.
 
 ## Baseline
 
-> **Captured on:** 2026-11-05, **SharpConsoleUI v2.10.8** (`c7fb3968`). AMD Ryzen 7 8845HS
+> **Captured on:** 2026-11-05, **SharpConsoleUI v2.10.8** (`a8a94c3c`). AMD Ryzen 7 8845HS
 > (8 physical / 16 logical cores), Ubuntu 26.04, .NET 10.0.9 (RyuJIT x86-64-v4),
 > BenchmarkDotNet v0.15.8. **`--job short`** (3 warmup + 3 iterations) — a fast pass, so the
 > `Error` column is wide; treat these as order-of-magnitude baselines, not precise figures.
@@ -110,36 +110,38 @@ measured region** because the real renderer rebuilds layout subtrees per frame.
 
 | Method              | Depth | Breadth | Mean          | Allocated    |
 |-------------------- |------ |-------- |--------------:|-------------:|
-| Measure             | 2     | 2       |       6.58 μs |      4.16 KB |
+| Measure             | 2     | 2       |       6.79 μs |      4.19 KB |
 | MeasureArrange      | 2     | 2       |       7.17 μs |      5.92 KB |
-| MeasureArrangePaint | 2     | 2       |      35.48 μs |     18.28 KB |
-| Measure             | 2     | 3       |      12.35 μs |      6.73 KB |
-| MeasureArrangePaint | 2     | 3       |      72.38 μs |     31.72 KB |
-| Measure             | 3     | 2       |      28.23 μs |     18.48 KB |
-| MeasureArrangePaint | 3     | 2       |     200.68 μs |    112.75 KB |
-| Measure             | 3     | 3       |      84.09 μs |     42.22 KB |
-| MeasureArrangePaint | 3     | 3       |     648.06 μs |    276.10 KB |
-| Measure             | 4     | 2       |     232.62 μs |    136.85 KB |
-| MeasureArrangePaint | 4     | 2       |   1,600.50 μs |    859.93 KB |
-| Measure             | 4     | 3       |   1,036.33 μs |    469.37 KB |
-| MeasureArrangePaint | 4     | 3       |   5,985.49 μs |   2653.46 KB |
+| MeasureArrangePaint | 2     | 2       |      37.36 μs |     18.34 KB |
+| Measure             | 2     | 3       |      12.40 μs |      6.76 KB |
+| MeasureArrangePaint | 2     | 3       |      72.80 μs |     31.80 KB |
+| Measure             | 3     | 2       |      28.34 μs |     18.53 KB |
+| MeasureArrangePaint | 3     | 2       |     200.85 μs |    113.02 KB |
+| Measure             | 3     | 3       |      83.83 μs |     42.32 KB |
+| MeasureArrangePaint | 3     | 3       |     596.49 μs |    275.15 KB |
+| Measure             | 4     | 2       |     230.22 μs |    136.97 KB |
+| MeasureArrangePaint | 4     | 2       |   1,533.50 μs |    859.72 KB |
+| Measure             | 4     | 3       |   1,112.63 μs |    469.68 KB |
+| MeasureArrangePaint | 4     | 3       |   5,996.21 μs |   2653.21 KB |
 
 *(Abridged — `MeasureArrange` tracks `Measure` closely; see the full report for every row.)*
 
 > ⚠️ **Finding — the layout engine scales super-linearly with node count.** Leaves grow as
 > `Breadth^Depth`, and time grows faster. From (depth 3, breadth 3) to (depth 4, breadth 3) the
-> node count grows ~3× but `Measure` time grows ~12× (84 μs → 1,036 μs) and
-> `MeasureArrangePaint` ~9× (648 μs → 5,985 μs). Paint dominates throughout: it is 5-7× the
+> node count grows ~3× but `Measure` time grows ~13× (84 μs → 1,113 μs) and
+> `MeasureArrangePaint` ~10× (596 μs → 5,996 μs). Paint dominates throughout: it is 5-7× the
 > cost of measure alone at every size. This is the per-frame `CreateSubtree` rebuild plus
 > redundant layout traversals. (Params are capped at depth 4 / breadth 3 for this reason; the
 > growth is exponential in node count and super-linear in time.)
 >
-> **This table did not move when the scroll-panel quadratic was fixed** (`1a1db9de`), and that is
-> informative rather than disappointing. This tree is all-nested-`ScrollablePanelControl`, but
-> with only 2–3 children per node: the per-child paint hook that was quadratic needs MANY children
-> under ONE panel before it compounds, which is the `ScrollBenchmarks` shape (2,000 children), not
-> this one. The super-linearity above is a separate, still-open problem — it is dominated by
-> `CreateSubtree` rebuilding subtrees per frame, not by allocation in the paint walk.
+> **This table did not move for either scroll-panel fix** (`1a1db9de`, `a8a94c3c`) — re-measured
+> after both: D4/B3 `MeasureArrangePaint` read 5,998 → 5,985 → 5,996 μs across the three commits.
+> That is informative rather than disappointing, and it is why the check was worth running: this tree is
+> all-nested-`ScrollablePanelControl`, but with only 2–3 children per node, and a per-child hook
+> doing per-panel work only compounds when ONE panel holds MANY children. That is the
+> `ScrollBenchmarks` shape (2,000 under one panel), not this one, where the same fixes are worth
+> 5–14×. The super-linearity above is therefore a **separate, still-open problem**, dominated by
+> `CreateSubtree` rebuilding subtrees per frame rather than by anything in the paint walk.
 
 #### ScrollLayout refactor — before / after (historical)
 
@@ -202,37 +204,46 @@ Scrolling a long markup document: a chat transcript, a log pane, a file view. Th
 stays warm throughout, so this measures layout + paint + diff, never parsing. `NoScrollReRender`
 is the control — the same window re-rendered without moving.
 
-| Method           | Lines | Mean        | Gen1    | Allocated | Alloc ratio |
-|----------------- |------ |------------:|--------:|----------:|------------:|
-| ScrollByOneLine  | 200   |    554.2 μs |       - | 106.52 KB |       1.51× |
-| ScrollPageDown   | 200   |    559.8 μs |       - | 105.99 KB |       1.50× |
-| NoScrollReRender | 200   |    366.3 μs |  0.4883 |  70.61 KB |       1.00× |
-| ScrollByOneLine  | 2,000 | 18,802.8 μs | 15.6250 | 765.21 KB |       1.85× |
-| ScrollPageDown   | 2,000 | 18,366.1 μs | 15.6250 | 764.65 KB |       1.85× |
-| NoScrollReRender | 2,000 | 15,892.3 μs |       - | 414.01 KB |       1.00× |
+| Method           | Lines | Mean       | Gen1    | Allocated | Alloc ratio |
+|----------------- |------ |-----------:|--------:|----------:|------------:|
+| ScrollByOneLine  | 200   |   461.9 μs |  0.4883 |  98.71 KB |       1.57× |
+| ScrollPageDown   | 200   |   449.5 μs |  0.4883 |  98.18 KB |       1.56× |
+| NoScrollReRender | 200   |   259.3 μs |       - |  62.80 KB |       1.00× |
+| ScrollByOneLine  | 2,000 | 3,617.5 μs | 27.3438 | 686.97 KB |       2.05× |
+| ScrollPageDown   | 2,000 | 3,391.0 μs | 31.2500 | 686.45 KB |       2.04× |
+| NoScrollReRender | 2,000 | 1,245.6 μs | 13.6719 | 335.91 KB |       1.00× |
 
-> ✅ **Fixed 2026-11-05 (`1a1db9de`) — the paint walk was quadratic in child count.**
-> `ScrollLayout.GetPaintClipRect` runs once per child, including the ones scrolled out of view,
-> and it called `Bands()`, which materializes a list of every child. N children each building an
-> N-entry list made one frame O(N²) in allocation. It only ever needed the pinned band row
-> counts, never the body list, so those are now summed without allocating.
+> ✅ **Fixed 2026-11-05, in two steps — `GetPaintClipRect` was quadratic twice over.** It runs
+> once per child during the paint walk, including for children scrolled out of view, so anything
+> it does per-panel is paid N times.
 >
-> | At 2,000 lines | Before | After | |
+> **`1a1db9de` removed the allocation.** It called `Bands()`, which materializes a list of every
+> child, so one frame built N lists of N entries.
+>
+> **`a8a94c3c` removed the time.** The first fix summed the band rows by scanning the siblings
+> instead, which is O(N) per child and left the walk quadratic in time rather than allocation —
+> four million sibling visits per scroll at 2,000 children, **74.5% of the whole frame**. The band
+> totals belong to the panel, and the arrange pass already computes them to place the bands, so it
+> records them and paint reads them in O(1).
+>
+> | At 2,000 lines | Before both | After both | |
 > |---|---:|---:|---|
-> | ScrollByOneLine | 32,046.7 KB | 765.2 KB | **41.9× less** |
-> | NoScrollReRender | 31,695.6 KB | 414.0 KB | **76.6× less** |
-> | Gen1 collections | 3,875 | 15.6 | **248× fewer** |
+> | ScrollByOneLine | 20,712.6 μs / 32,046.7 KB | 3,617.5 μs / 687.0 KB | **5.7× faster, 46.6× less** |
+> | NoScrollReRender | 17,935.8 μs / 31,695.6 KB | 1,245.6 μs / 335.9 KB | **14.4× faster, 94.4× less** |
+> | Gen1 collections | 3,875 | 27.3 | **142× fewer** |
 >
-> Per child per scroll stopped growing with the panel: it was 2,780 B at 250 children rising to
-> 32,342 B at 4,000, and is now 741 B falling to 325 B. At 4,000 children the saving is 99.5×.
+> Both costs now fall per child as the panel grows instead of climbing. Measured on the raw frame:
+> 1,000 → 8,000 children went 5.29 → 37.90 μs per child before, and 5.29 → 2.05 μs after. At 8,000
+> children a scroll was a visible 303 ms freeze; it is now a 16 ms frame.
 >
-> ⚠️ **Wall clock moved only ~10% (20.7 → 18.8 ms).** That gap is the standing finding here: this
-> path is **work-bound, not allocation-bound**. The 32 MB was pure garbage, so removing it buys
-> far fewer GC pauses (what a long session feels as the panel staying smooth) but not a cheaper
-> frame. The remaining ~15.9 ms of `NoScrollReRender` at 2,000 children is the real ceiling, and
-> it is per-node layout traversal, not allocation. Guarded by
-> `SharpConsoleUI.Tests/Layout/ScrollPaintClipScalingTests.cs`, which asserts the complexity
-> class rather than a byte budget.
+> **What a frame is made of now** (2,000 children): `Measure` 37%, painting the 38 genuinely
+> visible children 25%, this hook 4.8%. That is a healthy shape — the remaining lead is the
+> measure pass, which runs ~7 times per child per scroll and is the next thing to look at, not
+> this one.
+>
+> Guarded by `ScrollPaintClipScalingTests.cs` (allocation) and `ScrollBandClipTests.cs` (frame
+> cost, plus the band behaviour the cached totals could otherwise break). Both assert a complexity
+> class rather than an absolute budget, so they do not become machine fingerprints.
 
 ### StreamingAppendBenchmarks (macro — a reply arriving token by token)
 
