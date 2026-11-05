@@ -117,67 +117,85 @@ public class Program
 	/// <param name="args">Command-line arguments, for the capture helpers below.</param>
 	public static void Configure(ConsoleWindowSystem windowSystem, string[] args)
 	{
-			// Ocean Dots — the same configuration the Desktop Background demo's "Ocean Dots" button
-			// applies, made the default so the app opens on it.
-			windowSystem.DesktopBackground = new DesktopBackgroundConfig
-			{
-				Gradient = new GradientBackground(
-					ColorGradient.FromColors(new Color(10, 40, 90), new Color(5, 10, 25)),
-					GradientDirection.Vertical),
-				Pattern = DesktopPatterns.Dots
-			};
+		// Ocean Dots — the same configuration the Desktop Background demo's "Ocean Dots" button
+		// applies, made the default so the app opens on it.
+		windowSystem.DesktopBackground = new DesktopBackgroundConfig
+		{
+			Gradient = new GradientBackground(
+				ColorGradient.FromColors(new Color(10, 40, 90), new Color(5, 10, 25)),
+				GradientDirection.Vertical),
+			Pattern = DesktopPatterns.Dots
+		};
 
-			// Register a sample custom settings group
-			windowSystem.RegisterSettingsGroup("Demo", new Color(255, 200, 100), group =>
-			{
-				group.AddPage("About Demo", icon: "★", subtitle: "Demo application info",
-					content: panel =>
-					{
-						panel.AddControl(Controls.Markup()
-							.AddLine("[bold rgb(255,200,100)]Demo Application[/]")
-							.AddEmptyLine()
-							.AddLine("[dim]This is a sample custom settings page[/]")
-							.AddLine("[dim]registered via the extensibility API.[/]")
-							.Build());
-					});
-			});
-
-			LauncherWindow.Create(windowSystem);
-
-			// Command-line helpers for headless/automated capture:
-			//   --theme <Name>   switch to a registered theme before showing the UI
-			//   --demo "<Name>"  open a specific demo window by its launcher name on startup
-			for (int i = 0; i < args.Length - 1; i++)
-			{
-				if (args[i] == "--theme")
-					windowSystem.ThemeStateService.SwitchTheme(args[i + 1]);
-				else if (args[i] == "--demo")
-					LauncherWindow.LaunchByName(windowSystem, args[i + 1]);
-			}
-
-			// Shared logic: open/activate/recreate launcher
-			void OpenLauncher()
-			{
-				var launcher = windowSystem.Windows.Values
-					.FirstOrDefault(w => w.Title == "SharpConsoleUI Demo");
-
-				if (launcher != null)
+		// Register a sample custom settings group
+		windowSystem.RegisterSettingsGroup("Demo", new Color(255, 200, 100), group =>
+		{
+			group.AddPage("About Demo", icon: "★", subtitle: "Demo application info",
+				content: panel =>
 				{
-					if (launcher.State == WindowState.Minimized)
-						launcher.Restore();
-					windowSystem.SetActiveWindow(launcher);
-				}
-				else
-				{
-					LauncherWindow.Create(windowSystem);
-				}
+					panel.AddControl(Controls.Markup()
+						.AddLine("[bold rgb(255,200,100)]Demo Application[/]")
+						.AddEmptyLine()
+						.AddLine("[dim]This is a sample custom settings page[/]")
+						.AddLine("[dim]registered via the extensibility API.[/]")
+						.Build());
+				});
+		});
+
+		// The demo opens on Slate rather than the library default. This is a presentation choice
+		// for THIS app and deliberately not a change to the library: ModernGray remains the
+		// default every adopter gets, and changing that would restyle their applications on an
+		// upgrade without them asking.
+		//
+		// Applied BEFORE the launcher is built, and before --theme is read, so that a theme
+		// given on the command line still wins. Order matters for more than the colours: the
+		// launcher's theme dropdown snapshots the active theme when it is constructed, so a
+		// switch made after Create() leaves the dropdown displaying the wrong name while the
+		// rest of the UI repaints correctly.
+		const string DefaultTheme = "Slate";
+		windowSystem.ThemeStateService.SwitchTheme(DefaultTheme);
+
+		// Command-line helpers for headless/automated capture:
+		//   --theme <Name>   switch to a registered theme before showing the UI
+		//   --demo "<Name>"  open a specific demo window by its launcher name on startup
+		for (int i = 0; i < args.Length - 1; i++)
+		{
+			if (args[i] == "--theme")
+				windowSystem.ThemeStateService.SwitchTheme(args[i + 1]);
+		}
+
+		LauncherWindow.Create(windowSystem);
+
+		// --demo is applied after the launcher exists, because it opens a window on top of it.
+		for (int i = 0; i < args.Length - 1; i++)
+		{
+			if (args[i] == "--demo")
+				LauncherWindow.LaunchByName(windowSystem, args[i + 1]);
+		}
+
+		// Shared logic: open/activate/recreate launcher
+		void OpenLauncher()
+		{
+			var launcher = windowSystem.Windows.Values
+				.FirstOrDefault(w => w.Title == "SharpConsoleUI Demo");
+
+			if (launcher != null)
+			{
+				if (launcher.State == WindowState.Minimized)
+					launcher.Restore();
+				windowSystem.SetActiveWindow(launcher);
 			}
+			else
+			{
+				LauncherWindow.Create(windowSystem);
+			}
+		}
 
-			// Ctrl+L global shortcut
-			windowSystem.RegisterGlobalShortcut(ConsoleModifiers.Control, ConsoleKey.L, OpenLauncher);
+		// Ctrl+L global shortcut
+		windowSystem.RegisterGlobalShortcut(ConsoleModifiers.Control, ConsoleKey.L, OpenLauncher);
 
-			// Start menu action
-			var startMenu = windowSystem.BottomPanel!.FindElement<StartMenuElement>("startmenu")!;
-			startMenu.RegisterAction("Launcher", OpenLauncher, order: 0);
+		// Start menu action
+		var startMenu = windowSystem.BottomPanel!.FindElement<StartMenuElement>("startmenu")!;
+		startMenu.RegisterAction("Launcher", OpenLauncher, order: 0);
 	}
 }
