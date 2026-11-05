@@ -103,5 +103,62 @@ namespace SharpConsoleUI.Tests.Controls
 			Assert.True(brailleInk > 0, "braille painted nothing");
 			Assert.True(pixelInk > 0, "pixel painted nothing");
 		}
+
+		[Theory]
+		[InlineData(ChartRenderMode.Braille)]
+		[InlineData(ChartRenderMode.Ascii)]
+		public void AThresholdRecoloursTheGlyphLine(ChartRenderMode mode)
+		{
+			// Thresholds were a PIXEL-path feature: the glyph renderers coloured
+			// every cell with the flat series colour, so a braille chart drew a
+			// uniformly green trace no matter how far over its limits it went -
+			// while the identical chart in Pixel changed colour at each crossing.
+			// The showcase page promises "a threshold recolours the series at the
+			// crossing", which braille quietly did not do.
+			var system = TestWindowSystemBuilder.CreateTestSystem(60, 20);
+			var window = new Window(system) { Left = 0, Top = 0, Width = 60, Height = 20 };
+
+			var chart = new ChartControl
+			{
+				PlotType = ChartPlotType.Line,
+				RenderMode = mode,
+				PlotHeight = 12,
+				HorizontalAlignment = HorizontalAlignment.Stretch,
+			};
+			chart.YAxis.Min = 0;
+			chart.YAxis.Max = 100;
+
+			// A ramp from well under the limit to well over it, so the series has
+			// to carry all three colours at once.
+			var s = chart.AddSeries("cpu", Color.Green);
+			s.SetValues(new[] { 10d, 30, 50, 75, 80, 95, 98, 92, 60, 20 });
+			s.SetThresholds(new ChartThreshold(70, Color.Yellow), new ChartThreshold(90, Color.Red));
+
+			window.AddControl(chart);
+			system.AddWindow(window);
+
+			var snap = Draw(system);
+
+			Assert.True(Inked(snap, Color.Green) > 0, $"{mode}: nothing drew in the base colour");
+			Assert.True(Inked(snap, Color.Yellow) > 0, $"{mode}: the 70 threshold never coloured");
+			Assert.True(Inked(snap, Color.Red) > 0, $"{mode}: the 90 threshold never coloured");
+		}
+
+		/// <summary>Cells carrying a drawn glyph in the given colour.</summary>
+		private static int Inked(CharacterBufferSnapshot snap, Color c)
+		{
+			int n = 0;
+			for (int y = 0; y < snap.Height; y++)
+				for (int x = 0; x < snap.Width; x++)
+				{
+					var cell = snap.GetCell(x, y);
+					if (cell.Foreground != c) continue;
+
+					int ch = cell.Character.Value;
+					if (ch > 0x2800 && ch <= 0x28FF) n++;      // braille dots
+					else if (ch != ' ' && ch != 0x2800) n++;   // ascii plot glyph
+				}
+			return n;
+		}
 	}
 }

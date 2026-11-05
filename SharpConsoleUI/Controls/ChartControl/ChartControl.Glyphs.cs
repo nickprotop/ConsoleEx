@@ -108,6 +108,15 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <summary>Lays down the empty cell each glyph mode starts from.</summary>
+		/// <remarks>
+		/// Keeps whatever is ALREADY in a cell, repainting only its background.
+		/// Reference lines are drawn before the plot on purpose - a limit is
+		/// context, so the data belongs on top of it - and a blanket fill here
+		/// erased every one of them, which the pixel path never did because it
+		/// composites through a surface that leaves untouched cells alone. The
+		/// symptom was a braille chart silently losing its limits and event
+		/// lines while the identical chart in Pixel kept them.
+		/// </remarks>
 		private void PaintGlyphBackground(CharacterBuffer buffer,
 			(int X, int Y, int Width, int Height) plot, LayoutRect clipRect, Color bg, bool braille)
 		{
@@ -125,6 +134,18 @@ namespace SharpConsoleUI.Controls
 				{
 					int x = plot.X + col;
 					if (x < clipRect.X || x >= clipRect.Right) continue;
+
+					// Anything but a blank was put here deliberately by an earlier
+					// pass; give it the plot's background and leave the glyph and
+					// its colour alone.
+					var existing = buffer.GetCell(x, y);
+					char ch = (char)existing.Character.Value;
+					if (ch != ' ' && ch != '\0' && ch != BrailleHelpers.BrailleEmpty)
+					{
+						buffer.SetNarrowCell(x, y, ch, existing.Foreground, fill);
+						continue;
+					}
+
 					buffer.SetNarrowCell(x, y, empty, ControlDefaults.ChartGridlineColor, fill);
 				}
 			}
@@ -186,6 +207,11 @@ namespace SharpConsoleUI.Controls
 		{
 			Color fill = _plotBackground ?? bg;
 
+			// The value each column stands for, so a threshold can recolour the
+			// glyphs the way it recolours pixels. Built once per series rather
+			// than per cell: the lookup below runs for every cell of the plot.
+			double[]? columnValues = BuildColumnValues(series, points, plot.Width, xMin, xMax);
+
 			for (int row = 0; row < plot.Height; row++)
 			{
 				int y = plot.Y + row;
@@ -219,7 +245,7 @@ namespace SharpConsoleUI.Controls
 
 					Color colour = series.Gradient != null
 						? GradientColourAt(series, col, row, plot.Width, plot.Height)
-						: series.Color;
+						: ThresholdColourAt(series, col, columnValues);
 
 					buffer.SetNarrowCell(x, y, glyph, colour, fill);
 				}
@@ -234,6 +260,57 @@ namespace SharpConsoleUI.Controls
 					: RowInHalf(points[i].Y, yMin, yMax, plot.Height, half == ChartHalf.Upper);
 				RecordPoint(series, i, plot.X + col, plot.Y + row);
 			}
+		}
+
+		/// <summary>
+		/// The value each plot column carries, or null when the series has no
+		/// thresholds and nothing would consult it.
+		/// </summary>
+		/// <remarks>
+		/// A glyph cell spans several data points once the series is longer than
+		/// the plot is wide, so a column takes the HIGHEST value that lands in
+		/// it: a threshold marks the limit being exceeded, and the excursion is
+		/// what the reader needs to see. Averaging would hide a spike inside a
+		/// wide column, which is the one thing a threshold exists to show.
+		/// </remarks>
+		private static double[]? BuildColumnValues(ChartSeries series, List<ChartPoint> points,
+			int width, double xMin, double xMax)
+		{
+			if (series.Thresholds.Count == 0 || width <= 0 || points.Count == 0) return null;
+
+			var values = new double[width];
+			var seen = new bool[width];
+
+			foreach (var p in points)
+			{
+				int col = ValueToColumn(p.X, xMin, xMax, width);
+				if ((uint)col >= (uint)width) continue;
+
+				if (!seen[col] || p.Y > values[col])
+				{
+					values[col] = p.Y;
+					seen[col] = true;
+				}
+			}
+
+			// Columns between data points inherit the nearest value to their left,
+			// so the segment drawn across a gap keeps the colour of the point it
+			// came from rather than falling back to the series default.
+			double carry = values[0];
+			for (int i = 0; i < width; i++)
+			{
+				if (seen[i]) carry = values[i];
+				else values[i] = carry;
+			}
+
+			return values;
+		}
+
+		/// <summary>The colour a column takes, honouring the series' thresholds.</summary>
+		private static Color ThresholdColourAt(ChartSeries series, int col, double[]? columnValues)
+		{
+			if (columnValues == null || (uint)col >= (uint)columnValues.Length) return series.Color;
+			return series.ColorForValue(columnValues[col]);
 		}
 
 		private static void RasteriseLine(bool[,] grid, List<ChartPoint> points, int gw, int gh,

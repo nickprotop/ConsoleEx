@@ -106,6 +106,41 @@ namespace SharpConsoleUI.Tests.Controls
 			GC.KeepAlive(system);
 		}
 
+		[Theory]
+		[InlineData(ChartRenderMode.Braille)]
+		[InlineData(ChartRenderMode.Ascii)]
+		public void ReferenceLinesSurviveTheGlyphRenderers(ChartRenderMode mode)
+		{
+			// Reference lines are painted BEFORE the plot, because a limit is
+			// context rather than content. The glyph renderers then laid their own
+			// empty cell over every column of the plot before drawing, which wiped
+			// the lines out - so a braille chart silently lost every limit and
+			// event line it was given, while the same chart in Pixel kept them.
+			var (system, chart) = Build();
+			chart.RenderMode = mode;
+
+			// An OPAQUE plot background is the whole point. With a transparent one
+			// the glyph renderer skips laying down its empty cells entirely, and
+			// the lines survive by accident - which is why the first version of
+			// this test passed against the broken code.
+			chart.PlotBackground = Color.Grey19;
+			chart.YAxis.Min = 0;
+			chart.YAxis.Max = 100;
+			chart.XAxis.Min = 0;
+			chart.XAxis.Max = 10;
+			chart.AddSeries("a", Color.Red).SetValues(new[] { 10d, 40, 20, 50, 30 });
+			chart.AddReferenceLine(80, Color.Yellow, "limit");
+			chart.AddReferenceLine(5, Color.Cyan1, "deploy", ChartReferenceAxis.X);
+
+			var snap = Draw(system);
+
+			Assert.True(CountWith(snap, Color.Yellow) > 10,
+				$"the horizontal reference line did not survive {mode}");
+			Assert.True(CountWith(snap, Color.Cyan1) > 5,
+				$"the vertical reference line did not survive {mode}");
+			GC.KeepAlive(system);
+		}
+
 		[Fact]
 		public void ReferenceLinesCanBeCleared()
 		{
