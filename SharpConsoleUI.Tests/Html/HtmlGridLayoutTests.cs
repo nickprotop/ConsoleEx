@@ -87,12 +87,23 @@ namespace SharpConsoleUI.Tests.Html
 			</body></html>";
 
 			var htmlWithGap = @"<html><body>
-				<div style='display:grid; grid-template-columns: 1fr 1fr; gap: 16px'>
+				<div style='display:grid; grid-template-columns: 1fr 1fr; gap: 64px'>
 					<div>Left</div>
 					<div>Right</div>
 				</div>
 			</body></html>";
 
+			// 64px rather than 16px: columns are always separated by at least one
+			// space now, because adjacent runs of characters with nothing between
+			// them merge two words into a third. A 16px gap converts to exactly
+			// that one column, so the two cases were indistinguishable and the
+			// test measured nothing. A larger gap still has to show.
+			// 64px rather than 16px: columns are always separated by at least one
+			// space now, because two adjacent runs of characters with nothing
+			// between them merge into a word that is in neither cell. A 16px gap
+			// converts to exactly that one column, so the two cases became
+			// indistinguishable and the test measured nothing. A larger gap still
+			// has to show.
 			var linesNoGap = LayoutGrid(htmlNoGap, 40);
 			var linesWithGap = LayoutGrid(htmlWithGap, 40);
 

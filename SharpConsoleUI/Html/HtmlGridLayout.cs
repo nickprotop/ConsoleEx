@@ -93,7 +93,7 @@ namespace SharpConsoleUI.Html
 			// the columns belong underneath each other, which is what a browser
 			// does at its narrowest breakpoint. Stacking keeps every word readable
 			// and in order; honouring the grid keeps neither.
-			if (IsTooNarrowToHonour(colWidths))
+			if (IsTooNarrowToHonour(colWidths, availableForColumns))
 			{
 				return StackCells(children, maxWidth, defaultFg, defaultBg, linkColor);
 			}
@@ -142,8 +142,14 @@ namespace SharpConsoleUI.Html
 					{
 						if (c > 0)
 						{
-							// Add gap spaces
-							for (int g = 0; g < gap; g++)
+							// At least one space between columns, whatever the page
+							// asked for. A page's grid-gap is often zero because on
+							// a screen the tracks are already separated by position
+							// and whitespace inside each cell. Here the tracks are
+							// adjacent runs of characters, so a cell whose text
+							// fills its own width touched the next one and two
+							// words merged into a third that is in neither.
+							for (int g = 0; g < Math.Max(1, gap); g++)
 								rowCells.Add(new Cell(' ', defaultFg, defaultBg));
 						}
 
@@ -325,12 +331,17 @@ namespace SharpConsoleUI.Html
 		/// The narrowest a column may be before a grid is not worth honouring.
 		/// </summary>
 		/// <remarks>
-		/// Short enough that an ordinary two or three column layout still lays out
-		/// side by side, and long enough that a track cannot hold an English word
-		/// below it. Wrapping prose into anything narrower is what produced the
-		/// one-character-per-line column.
+		/// A track has to hold a phrase, not a syllable. Sixteen columns is two or
+		/// three words, which is the least that can be followed.
+		/// <para>
+		/// This was eight, chosen so a track could hold one English word. That
+		/// was too generous: a page's desktop media query asks for eight or
+		/// twelve tracks, which at terminal width are fifteen and ten columns -
+		/// above the old floor, and unreadable. The number that matters is not
+		/// whether a word fits but whether a reader can follow the text.
+		/// </para>
 		/// </remarks>
-		private const int MinimumTrackWidth = 8;
+		private const int MinimumTrackWidth = 16;
 
 		/// <summary>
 		/// Whether the computed tracks are too narrow for the grid to mean anything.
@@ -340,20 +351,46 @@ namespace SharpConsoleUI.Html
 		/// one is three columns wide still shreds whatever lands in it, and the
 		/// page reads as broken however well its neighbours fared.
 		/// </remarks>
-		private static bool IsTooNarrowToHonour(int[] colWidths)
+		private static bool IsTooNarrowToHonour(int[] colWidths, int available)
 		{
 			// A single column is not a grid, and stacking it would change nothing.
 			if (colWidths.Length < 2)
 				return false;
 
+			// Two measures, because neither alone is right.
+			//
+			// An absolute floor: below it a track holds a syllable rather than a
+			// phrase, whatever the window is doing. A proportional floor as well,
+			// because what makes a desktop grid unreadable here is not its width
+			// in characters but how many ways it divides the page: eight tracks
+			// is a set of ribbons at any window size a terminal has.
+			//
+			// The proportional test is what lets a two-column split of a narrow
+			// window still work - half of forty is a legitimate column - while
+			// rejecting the eight and twelve-track grids a page's desktop media
+			// query asks for.
+			int proportionalFloor = available / MaximumHonouredTracks;
+
 			foreach (var width in colWidths)
 			{
-				if (width < MinimumTrackWidth)
+				if (width < MinimumTrackWidth || width < proportionalFloor)
 					return true;
 			}
 
 			return false;
 		}
+
+		/// <summary>
+		/// The most ways a page may divide the width before it stops being a
+		/// layout and starts being a set of ribbons.
+		/// </summary>
+		/// <remarks>
+		/// Three columns of a terminal is already narrow for prose; four is the
+		/// point where a news headline stops being followable. A page's desktop
+		/// grid asking for eight or twelve tracks is not describing something a
+		/// terminal can show, so it is stacked instead.
+		/// </remarks>
+		private const int MaximumHonouredTracks = 4;
 
 		/// <summary>
 		/// Lays the cells out one under another, each at the full width.
