@@ -261,10 +261,81 @@ namespace SharpConsoleUI.Controls
 			}
 		}
 
+		/// <summary>The laid-out lines, for tests that need to read what was produced.</summary>
+		internal LayoutLine[] LayoutLines => _layoutResult.Lines ?? Array.Empty<LayoutLine>();
+
+		/// <summary>
+		/// The document row a viewport row names, once scrolling is accounted for.
+		/// </summary>
+		private int ContentRowAt(int positionY) => positionY - Margin.Top + _scrollOffset;
+
+		/// <summary>
+		/// Where a line's first cell is actually painted.
+		/// </summary>
+		/// <remarks>
+		/// A centred or right-aligned line is drawn inset from its stored X, and
+		/// every column on it is off by that inset unless the same sum is used to
+		/// read it back. Shared so the link hit-test and the selection hit-test
+		/// cannot drift apart.
+		/// </remarks>
+		private static int PaintedStartX(ref LayoutLine line, int renderWidth)
+		{
+			int startX = line.X;
+
+			if (line.Alignment == TextAlignment.Center && line.Width < renderWidth)
+				startX += (renderWidth - line.Width) / 2;
+			else if (line.Alignment == TextAlignment.Right && line.Width < renderWidth)
+				startX += renderWidth - line.Width;
+
+			return startX;
+		}
+
+		/// <summary>
+		/// Finds the line and column under a position, clamping rather than failing.
+		/// </summary>
+		/// <remarks>
+		/// The link hit-test below answers "no link here"; this answers "here" for
+		/// any position on a line. A drag that runs off the end of a short line
+		/// selects to its end, because a gesture that stops responding past the
+		/// last character feels stuck.
+		/// </remarks>
+		/// <param name="position">Control-relative mouse position.</param>
+		/// <param name="renderWidth">Columns the content is painted into.</param>
+		/// <param name="lineIndex">Index into <see cref="LayoutLines"/>.</param>
+		/// <param name="column">Cell index on that line, clamped to its length.</param>
+		/// <returns>False when no line occupies that row.</returns>
+		internal bool TryHitTestText(System.Drawing.Point position, int renderWidth, out int lineIndex, out int column)
+		{
+			lineIndex = 0;
+			column = 0;
+
+			var lines = _layoutResult.Lines;
+			if (lines == null) return false;
+
+			int contentY = ContentRowAt(position.Y);
+			int contentX = position.X - Margin.Left;
+
+			for (int i = 0; i < lines.Length; i++)
+			{
+				ref var line = ref lines[i];
+				if (line.Y != contentY) continue;
+
+				int relX = contentX - PaintedStartX(ref line, renderWidth);
+				if (relX < 0) relX = 0;
+				if (relX > line.Cells.Length) relX = line.Cells.Length;
+
+				lineIndex = i;
+				column = relX;
+				return true;
+			}
+
+			return false;
+		}
+
 		private (string Url, string Text, int LineIndex, int LinkIndex)? FindLinkAtPosition(
 			MouseEventArgs args, int viewportHeight, int renderWidth)
 		{
-			int contentY = args.Position.Y - Margin.Top + _scrollOffset;
+			int contentY = ContentRowAt(args.Position.Y);
 			int contentX = args.Position.X - Margin.Left;
 
 			var lines = _layoutResult.Lines;
@@ -276,19 +347,7 @@ namespace SharpConsoleUI.Controls
 				if (line.Y != contentY) continue;
 				if (line.Links == null) continue;
 
-				int lineStartX = line.X;
-
-				// Apply alignment offset
-				if (line.Alignment == TextAlignment.Center && line.Width < renderWidth)
-				{
-					lineStartX += (renderWidth - line.Width) / 2;
-				}
-				else if (line.Alignment == TextAlignment.Right && line.Width < renderWidth)
-				{
-					lineStartX += renderWidth - line.Width;
-				}
-
-				int relX = contentX - lineStartX;
+				int relX = contentX - PaintedStartX(ref line, renderWidth);
 				for (int j = 0; j < line.Links.Length; j++)
 				{
 					ref var link = ref line.Links[j];
