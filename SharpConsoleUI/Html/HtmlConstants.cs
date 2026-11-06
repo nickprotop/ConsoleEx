@@ -58,8 +58,70 @@ namespace SharpConsoleUI.Html
 
 		// Unit conversion ratios
 		public const double PxToCharRatio = 8.0;
+
+		/// <summary>
+		/// Pixels per terminal column, for an image whose width is declared in pixels.
+		/// </summary>
+		/// <remarks>
+		/// Kept for compatibility: image width is no longer a fixed px-per-column
+		/// ratio but a fraction of <see cref="CssViewportWidthPx"/>, because a
+		/// declared pixel width means nothing in columns until you know how wide
+		/// the page is. See <see cref="CssViewportWidthPx"/>.
+		/// </remarks>
+		[Obsolete("Image widths scale with the page; see CssViewportWidthPx. This value is no longer read.")]
 		public const double ImagePxToCharRatio = 1.0;
+
 		public const double EmToCharRatio = 2.0;
+
+		/// <summary>
+		/// The viewport width, in CSS pixels, that a page is treated as being laid out for.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// An image declares its width in pixels, and a terminal has no pixels, so
+		/// the two have to be related by something. A fixed pixels-per-column ratio
+		/// was tried twice and is wrong both ways round: at 1:1 every image on a
+		/// real page is wider than the terminal and so every image fills it,
+		/// thumbnail and hero alike; at 8:1 a 220px thumbnail lands on 28 columns
+		/// whatever the window is doing, which is right on a wide terminal and most
+		/// of a narrow one.
+		/// </para>
+		/// <para>
+		/// So a declared width is read as a FRACTION of the viewport a page was
+		/// written for - 220px of 1024px is a bit over a fifth of the page - and
+		/// that fraction is spent on the columns actually available. Relative sizes
+		/// survive, a thumbnail stays a thumbnail next to a hero image, and the
+		/// whole page scales with the window the way the page's own design intends.
+		/// </para>
+		/// <para>
+		/// A tablet-width viewport rather than a desktop one, because that is what a
+		/// terminal is closer to. It also matches how text-first pages are authored:
+		/// an encyclopedia serves its thumbnails at 250px for an article column
+		/// several times narrower than a 1920px screen, so measuring them against
+		/// 1920 rendered a readable thumbnail as a 16-column stamp.
+		/// </para>
+		/// </remarks>
+		public const double CssViewportWidthPx = 1024.0;
+
+		/// <summary>
+		/// The viewport height, in CSS pixels, a page is treated as being laid out for.
+		/// </summary>
+		/// <remarks>
+		/// Only reaches media queries and viewport-relative units; nothing in the
+		/// terminal layout is measured against it. Kept in the same 4:3 proportion
+		/// as <see cref="CssViewportWidthPx"/> so a page that asks about its own
+		/// shape gets a coherent answer.
+		/// </remarks>
+		public const double CssViewportHeightPx = 768.0;
+
+		/// <summary>
+		/// The root font size, in CSS pixels, that <c>em</c> and <c>rem</c> lengths resolve against.
+		/// </summary>
+		/// <remarks>
+		/// The browser default, and the <c>FontSize</c> given to AngleSharp's render
+		/// device, so a length computed by the stylesheet and one parsed here agree.
+		/// </remarks>
+		public const double CssRootFontSizePx = 16.0;
 
 		// Image alt text
 		public const string ImageAltPrefix = "[";

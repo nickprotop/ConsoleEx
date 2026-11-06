@@ -12,6 +12,7 @@ using System.Runtime.CompilerServices;
 using AngleSharp.Css;
 using AngleSharp.Css.Dom;
 using AngleSharp.Dom;
+using SharpConsoleUI.Helpers;
 
 namespace SharpConsoleUI.Html
 {
@@ -21,6 +22,18 @@ namespace SharpConsoleUI.Html
 	public struct ResolvedStyle
 	{
 		public Color Foreground;
+
+		/// <summary>
+		/// True when <see cref="Foreground"/> came from the page rather than from the caller's default.
+		/// </summary>
+		/// <remarks>
+		/// Lets a link keep a colour the page chose for it while still defaulting
+		/// to the theme's link colour when the page is silent. Without the
+		/// distinction an anchor is always repainted, so a page that styles its
+		/// own links - and whose background may have been adopted to match - loses
+		/// the one colour it cared most about.
+		/// </remarks>
+		public bool ForegroundFromPage;
 		public Color Background;
 		public TextDecoration Decorations;
 		public TextAlignment Alignment;
@@ -119,8 +132,28 @@ namespace SharpConsoleUI.Html
 		{
 			var cached = GetCachedStyle(element);
 			var style = cached.Style;
-			style.Foreground = cached.Foreground ?? defaultFg;
+
 			style.Background = cached.Background ?? defaultBg;
+
+			// A page picks its text colours for ITS background, and a terminal
+			// rarely has that background. Hacker News sets a:link to black, which
+			// is right on its cream page and invisible on a dark terminal: every
+			// story title vanished while the page looked merely empty.
+			//
+			// The page's choice is still honoured - the colour arrives as asked
+			// whenever it can be read - and only lifted to the floor when it
+			// cannot. EnsureContrastRatio moves it the shortest distance that
+			// works and keeps its hue, so a dark red link comes back a readable
+			// red rather than the theme's accent.
+			// Checked whether the colour came from the page or from the terminal.
+			// Only the page's own colours needed it at first, but once a page can
+			// supply the BACKGROUND too the default foreground is just as exposed:
+			// the terminal's white on a page's cream surface reads 1.09:1, which
+			// is the same invisible text arrived at from the other side.
+			style.ForegroundFromPage = cached.Foreground.HasValue;
+			style.Foreground = PaletteColors.EnsureContrastRatio(
+				cached.Foreground ?? defaultFg, style.Background, PaletteColors.TextContrast);
+
 			return style;
 		}
 
@@ -562,6 +595,67 @@ namespace SharpConsoleUI.Html
 			}
 
 			return 0;
+		}
+
+		/// <summary>
+		/// Parses a CSS length to CSS pixels, leaving the conversion to columns to the caller.
+		/// </summary>
+		/// <param name="value">A CSS length: <c>220px</c>, <c>12em</c>, <c>50%</c>, or a bare number.</param>
+		/// <returns>The length in CSS pixels, or null if it is absent, <c>auto</c>, or unparseable.</returns>
+		/// <remarks>
+		/// <para>
+		/// Images need the pixels, not the columns. <see cref="ParsePxToChars"/>
+		/// bakes in a fixed pixels-per-column ratio, which is right for a margin
+		/// (a margin IS a few columns however wide the window is) and wrong for an
+		/// image, whose size is relative to the page it was designed for. Dividing
+		/// first and rescaling after loses the precision and hides the decision.
+		/// </para>
+		/// <para>
+		/// A percentage resolves against the nominal viewport, so <c>width: 50%</c>
+		/// comes back as half of it and goes on to claim half the columns - which
+		/// is what the page asked for.
+		/// </para>
+		/// </remarks>
+		public static double? ParseCssPixels(string? value)
+		{
+			if (string.IsNullOrWhiteSpace(value))
+				return null;
+
+			value = value.Trim();
+			if (value.Equals("auto", StringComparison.OrdinalIgnoreCase) || value == "0")
+				return null;
+
+			var invariant = System.Globalization.CultureInfo.InvariantCulture;
+			const System.Globalization.NumberStyles Float = System.Globalization.NumberStyles.Float;
+
+			if (value.EndsWith("%", StringComparison.Ordinal))
+			{
+				if (double.TryParse(value.AsSpan(0, value.Length - 1), Float, invariant, out var pct) && pct > 0)
+					return HtmlConstants.CssViewportWidthPx * Math.Min(100.0, pct) / 100.0;
+				return null;
+			}
+
+			if (value.EndsWith("em", StringComparison.OrdinalIgnoreCase)
+				|| value.EndsWith("rem", StringComparison.OrdinalIgnoreCase))
+			{
+				int unitLength = value.EndsWith("rem", StringComparison.OrdinalIgnoreCase) ? 3 : 2;
+				if (double.TryParse(value.AsSpan(0, value.Length - unitLength), Float, invariant, out var em) && em > 0)
+					return em * HtmlConstants.CssRootFontSizePx;
+				return null;
+			}
+
+			if (value.EndsWith("px", StringComparison.OrdinalIgnoreCase))
+			{
+				if (double.TryParse(value.AsSpan(0, value.Length - 2), Float, invariant, out var px) && px > 0)
+					return px;
+				return null;
+			}
+
+			// A bare number in an HTML length context is pixels.
+			if (double.TryParse(value, Float, invariant, out var bare) && bare > 0)
+				return bare;
+
+			return null;
 		}
 	}
 }

@@ -34,39 +34,74 @@ namespace SharpConsoleUI.Html
 			if (string.IsNullOrEmpty(src))
 				return;
 
+			// Same-origin rule for local files, as a browser applies it: a page
+			// fetched over http(s) may not pull in file:// subresources. Without
+			// it, any site visited here could name a path on this machine and
+			// read the answer back off the screen.
+			//
+			// Enforced where the read is about to happen, and decided from the
+			// element's own document, so a caller cannot forget to pass the
+			// origin and quietly reopen the hole.
+			if (HtmlImageLoader.IsLocalFileUrl(src) && !MayReadLocalFiles(ctx.DocumentUrl))
+			{
+				// No suffix: the alt text is what the page author wrote for a
+				// reader who cannot see the image, and that is exactly the
+				// situation. Why it was blocked concerns the developer, not the
+				// reader, and a parenthetical here would appear mid-paragraph.
+				AddAltText(element, ctx, indent, suffix: null);
+				return;
+			}
+
 			var maxAvailableWidth = ctx.MaxWidth - indent;
 			if (maxAvailableWidth <= 0) maxAvailableWidth = 1;
 
-			// Determine image width: CSS (from background-loaded doc) → HTML attr → natural size
-			int effectiveWidth = maxAvailableWidth;
+			// What the page says this image is, in CSS pixels. Measured in one unit
+			// and converted in ONE place, which is the point: a stylesheet width and
+			// an attribute width used to be converted separately with different
+			// ratios, so the same declared size rendered eight times larger through
+			// one path than the other.
+			//
+			// A stylesheet width is layout intent and is taken as final. A width
+			// ATTRIBUTE is not reliably either: on a real encyclopedia article some
+			// carry the original file's resolution (width="3640" on a thumbnail
+			// served as 250 real pixels) and others a display size left over from a
+			// narrower layout (width="135" on that same 250-pixel file). Believed
+			// literally, one fills the page and the other is a smudge - in the same
+			// article, in adjacent paragraphs.
+			//
+			// So an attribute is reconciled against the pixels actually served,
+			// which is the one number the page cannot be wrong about. See
+			// ReconcileWithServedPixels.
+			double? cssWidth = CssDeclaredWidthPx(element, src, ctx);
+			double? attributeWidth = cssWidth == null ? AttributeWidthPx(element) : null;
+			double? declaredPx = cssWidth ?? attributeWidth;
 
-			// 1. Try CSS computed width from the CSS document (loaded in background)
-			//    Only query this specific img element — do NOT use for full layout.
-			if (ctx.CssDocument != null)
-			{
-				try
-				{
-					// Find matching img in CSS document by src attribute
-					var cssImg = ctx.CssDocument.QuerySelectorAll("img")
-						.FirstOrDefault(img => img.GetAttribute("src") == src);
-					if (cssImg != null)
-					{
-						var style = HtmlStyleResolver.Resolve(cssImg, ctx.DefaultFg, ctx.DefaultBg);
-						if (style.ExplicitWidth.HasValue && style.ExplicitWidth.Value > 0)
-							effectiveWidth = Math.Min(style.ExplicitWidth.Value, maxAvailableWidth);
-					}
-				}
-				catch { /* CSS resolution may fail — fall through */ }
-			}
+			int effectiveWidth = declaredPx.HasValue
+				? ScaleToColumns(declaredPx.Value, maxAvailableWidth)
+				: maxAvailableWidth;
 
-			// 2. If CSS didn't set a width, try HTML width attribute
-			if (effectiveWidth == maxAvailableWidth)
+			// One place that turns a decoded image into rows, so the reconciliation
+			// below cannot be applied on one path and forgotten on another.
+			Cell[][]? Render(Imaging.PixelBuffer buffer)
 			{
-				var widthAttr = element.GetAttribute("width");
-				if (widthAttr != null && int.TryParse(widthAttr, out int pxWidth) && pxWidth > 0)
-				{
-					effectiveWidth = Math.Min((int)Math.Ceiling(pxWidth / HtmlConstants.ImagePxToCharRatio), maxAvailableWidth);
-				}
+				// When only a width ATTRIBUTE declared the size, the pixels actually
+				// served decide instead. They are the one number a page cannot be
+				// wrong about, and a real encyclopedia article gets the attribute
+				// wrong in both directions at once: the original file's resolution
+				// on some images (3640 for a file served at 250 pixels) and a stale
+				// display size on others (135 for that same file). Believed
+				// literally those two neighbours render as a full-page photograph
+				// and a smudge; believed as served, both are the thumbnail the
+				// server prepared.
+				//
+				// A stylesheet width is left alone - showing a 1600px photograph as
+				// a 200px inset is real layout intent, not stale metadata.
+				int width = attributeWidth.HasValue && buffer.Width > 0
+					? ScaleToColumns(buffer.Width, maxAvailableWidth)
+					: effectiveWidth;
+
+				return HtmlImageLoader.RenderFromBuffer(buffer, width, ctx.DefaultBg,
+					ctx.GraphicsProtocol, declaredPx.HasValue);
 			}
 
 			Cell[][]? imageRows;
@@ -80,7 +115,7 @@ namespace SharpConsoleUI.Html
 					if (ctx.ImageCache.TryGetValue(normalizedSrc, out var cachedBuffer))
 					{
 						imageRows = cachedBuffer != null
-							? HtmlImageLoader.RenderFromBuffer(cachedBuffer, effectiveWidth, ctx.DefaultBg, ctx.GraphicsProtocol)
+							? Render(cachedBuffer)
 							: null;
 					}
 					else if (normalizedSrc.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
@@ -90,7 +125,19 @@ namespace SharpConsoleUI.Html
 						var decoded = HtmlImageLoader.DecodeDataUri(normalizedSrc);
 						ctx.ImageCache[normalizedSrc] = decoded;
 						imageRows = decoded != null
-							? HtmlImageLoader.RenderFromBuffer(decoded, effectiveWidth, ctx.DefaultBg, ctx.GraphicsProtocol)
+							? Render(decoded)
+							: null;
+					}
+					else if (HtmlImageLoader.IsLocalFileUrl(normalizedSrc))
+					{
+						// A local file needs no download, so there is nothing to wait
+						// for and nothing to show alt text in place of: read it here,
+						// the way an inline data image is read, and cache the result
+						// so a failure is not retried on every relayout.
+						var local = HtmlImageLoader.DecodeLocalFile(normalizedSrc);
+						ctx.ImageCache[normalizedSrc] = local;
+						imageRows = local != null
+							? Render(local)
 							: null;
 					}
 					else
@@ -101,7 +148,8 @@ namespace SharpConsoleUI.Html
 				}
 				else
 				{
-					imageRows = HtmlImageLoader.LoadAndRender(src, effectiveWidth, ctx.DefaultBg, ctx.GraphicsProtocol);
+					imageRows = HtmlImageLoader.LoadAndRender(src, effectiveWidth, ctx.DefaultBg,
+						ctx.GraphicsProtocol, declaredPx.HasValue);
 				}
 			}
 			catch (Exception ex)
@@ -122,25 +170,164 @@ namespace SharpConsoleUI.Html
 			}
 			else
 			{
-				// Fallback to alt text — truncate error to avoid dumping decoder lists
-				var alt = element.GetAttribute("alt") ?? "image";
-				var errorSuffix = "";
+				string? suffix = null;
 				if (imageError != null)
 				{
-					// Truncate long decoder error messages.
+					// Truncate long decoder error messages rather than dumping
+					// a decoder list into the page.
 					var shortError = imageError.Split('\n')[0];
 					if (shortError.Length > 60) shortError = shortError.Substring(0, 57) + "...";
-					errorSuffix = $" ({shortError})";
+					suffix = $" ({shortError})";
 				}
-				var imgText = HtmlConstants.ImageAltPrefix + alt + errorSuffix + HtmlConstants.ImageAltSuffix;
-				var effectiveAltWidth = ctx.MaxWidth - indent;
-				var cells = TextToCells(imgText, effectiveAltWidth > 0 ? effectiveAltWidth : 80,
-					ctx.DefaultFg, ctx.DefaultBg, TextDecoration.Dim | TextDecoration.Italic);
 
-				var line = new LayoutLine(0, indent, cells.Length, cells, TextAlignment.Left);
-				ctx.AddLine(line, indent);
+				AddAltText(element, ctx, indent, suffix);
 			}
 		}
 
+		/// <summary>
+		/// Writes an image's alt text in place of the image.
+		/// </summary>
+		/// <remarks>
+		/// What a reader gets whenever the picture does not arrive, for any
+		/// reason: not found, not decodable, or not permitted. One path, so a
+		/// newly blocked case cannot render as a blank gap.
+		/// </remarks>
+		private static void AddAltText(IElement element, BlockContext ctx, int indent, string? suffix)
+		{
+			var alt = element.GetAttribute("alt") ?? "image";
+			var text = HtmlConstants.ImageAltPrefix + alt + (suffix ?? "") + HtmlConstants.ImageAltSuffix;
+
+			var width = ctx.MaxWidth - indent;
+			var cells = TextToCells(text, width > 0 ? width : 80,
+				ctx.DefaultFg, ctx.DefaultBg, TextDecoration.Dim | TextDecoration.Italic);
+
+			ctx.AddLine(new LayoutLine(0, indent, cells.Length, cells, TextAlignment.Left), indent);
+		}
+
+		/// <summary>
+		/// Whether a document loaded from this URL is allowed to read local files.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// True for a document that came from a <c>file:</c> URL, and for one with
+		/// no origin at all - content handed to the control by the application
+		/// itself, which is not a remote page and has nothing to cross. False for
+		/// anything fetched over http(s).
+		/// </para>
+		/// <para>
+		/// The URL is the one the control loaded, not the parsed document's own
+		/// address: relative sources are resolved by rewriting attributes, so the
+		/// document itself always reports <c>about:blank</c> and cannot be asked.
+		/// </para>
+		/// </remarks>
+		private static bool MayReadLocalFiles(string? documentUrl)
+		{
+			if (string.IsNullOrEmpty(documentUrl)
+				|| documentUrl.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
+				return true;
+
+			return HtmlImageLoader.IsLocalFileUrl(documentUrl);
+		}
+
+		/// <summary>
+		/// Turns a width declared in CSS pixels into a number of terminal columns.
+		/// </summary>
+		/// <remarks>
+		/// The declared width is a fraction of the viewport the page was written
+		/// for (<see cref="HtmlConstants.CssViewportWidthPx"/>), and that fraction
+		/// is spent on the columns available here. See that constant for why a
+		/// fixed pixels-per-column ratio cannot work.
+		/// </remarks>
+		internal static int ScaleToColumns(double declaredPx, int maxAvailableWidth)
+		{
+			if (declaredPx <= 0 || maxAvailableWidth <= 0)
+				return maxAvailableWidth > 0 ? maxAvailableWidth : 1;
+
+			double fraction = Math.Min(1.0, declaredPx / HtmlConstants.CssViewportWidthPx);
+			int columns = (int)Math.Round(maxAvailableWidth * fraction);
+
+			// No minimum beyond one column. A floor was tried and removed: because
+			// the result is a pure fraction of the page, "big enough to deserve the
+			// floor" and "already at least the floor" are the same condition, so
+			// the branch could never run. An image that rounds to one column is one
+			// the page asked to be tiny, and one column is what tiny looks like
+			// here.
+			if (columns < 1) columns = 1;
+			if (columns > maxAvailableWidth) columns = maxAvailableWidth;
+			return columns;
+		}
+
+		/// <summary>
+		/// The width a stylesheet gives this image, in CSS pixels, if any.
+		/// </summary>
+		/// <remarks>
+		/// Only this one element is queried against the CSS document, never the
+		/// whole tree: the CSS document is a second parse loaded in the background
+		/// and using it for general layout would mean laying the page out twice.
+		/// </remarks>
+		private static double? CssDeclaredWidthPx(IElement element, string src, BlockContext ctx)
+		{
+			// An inline style is on the element in the document being laid out, so
+			// it is readable whether or not external CSS ever arrives. Checked
+			// first for that reason: it needs no second document and cannot go
+			// stale against one.
+			var styleAttribute = element.GetAttribute("style");
+			if (!string.IsNullOrEmpty(styleAttribute))
+			{
+				var inlineWidth = HtmlStyleResolver.ParseCssPixels(
+					InlineDeclaration(styleAttribute, "width"));
+				if (inlineWidth is > 0)
+					return inlineWidth;
+			}
+
+			if (ctx.CssDocument == null)
+				return null;
+
+			try
+			{
+				var cssImg = ctx.CssDocument.QuerySelectorAll("img")
+					.FirstOrDefault(img => img.GetAttribute("src") == src);
+				if (cssImg == null)
+					return null;
+
+				var style = HtmlStyleResolver.Resolve(cssImg, ctx.DefaultFg, ctx.DefaultBg);
+
+				// ExplicitWidth is already in columns, divided by the generic
+				// px-per-column ratio on the way through. Multiply back out to the
+				// pixels the stylesheet actually declared, so the one conversion
+				// above is the only one that decides a width.
+				if (style.ExplicitWidth is > 0)
+					return style.ExplicitWidth.Value * HtmlConstants.PxToCharRatio;
+			}
+			catch
+			{
+				// AngleSharp.Css throws on some malformed real-world CSS; an
+				// unknown width is better than no image.
+			}
+
+			return null;
+		}
+
+		/// <summary>Pulls one declaration out of an inline <c>style</c> attribute.</summary>
+		private static string? InlineDeclaration(string styleAttribute, string property)
+		{
+			foreach (var part in styleAttribute.Split(';'))
+			{
+				int colon = part.IndexOf(':');
+				if (colon <= 0) continue;
+				if (part.AsSpan(0, colon).Trim().Equals(property, StringComparison.OrdinalIgnoreCase))
+					return part.Substring(colon + 1).Trim();
+			}
+			return null;
+		}
+
+		/// <summary>The width the HTML <c>width</c> attribute gives, in CSS pixels, if any.</summary>
+		private static double? AttributeWidthPx(IElement element)
+		{
+			var widthAttr = element.GetAttribute("width");
+			if (widthAttr != null && int.TryParse(widthAttr, out int pxWidth) && pxWidth > 0)
+				return pxWidth;
+			return null;
+		}
 	}
 }
