@@ -20,6 +20,7 @@ HtmlControl parses and renders HTML content using the AngleSharp HTML parser, di
 | `LinkColor` | `Color` | Cyan | Color for unvisited links |
 | `VisitedLinkColor` | `Color` | Purple | Color for visited links |
 | `ShowImages` | `bool` | `false` | Enable half-block image rendering |
+| `UsePageBackground` | `bool` | `false` | Let a page paint its own background |
 | `ShowBulletPoints` | `bool` | `true` | Show bullet characters for `<ul>` lists |
 | `TabSize` | `int` | `4` | Tab stop width in characters |
 | `BlockSpacing` | `int` | `1` | Blank lines between block elements |
@@ -103,6 +104,14 @@ await html.LoadUrlAsync("https://example.com");
 html.SetContent(htmlString, "https://example.com/page/");
 ```
 
+### Loading a local page
+
+```csharp
+// file: URLs work for pages and images alike; a relative src on the page
+// resolves against the folder the page lives in
+await html.LoadUrlAsync("file:///home/me/saved/article.html");
+```
+
 ## Keyboard Support
 
 | Key | Action |
@@ -150,7 +159,53 @@ HtmlControl implements `IFocusableControl` and `IInteractiveControl`:
 `<table>`, `<thead>`, `<tbody>`, `<tfoot>`, `<tr>`, `<th>`, `<td>` — with column width calculation, borders, and header styling.
 
 ### Images
-`<img src="..." alt="...">` — rendered using half-block pixel art when `ShowImages` is enabled. Supports PNG, JPEG, BMP, GIF and TGA (not TIFF). Images respect the HTML `width` attribute. Progressive loading fetches and renders images in the background after initial text layout.
+`<img src="..." alt="...">` — rendered using half-block pixel art when `ShowImages` is enabled. Supports PNG, JPEG, BMP, GIF and TGA (not TIFF). Progressive loading fetches and renders images in the background after initial text layout. An image that cannot be loaded shows its `alt` text.
+
+#### How an image is sized
+
+A declared pixel width is read as a **fraction of a nominal 1024px viewport**, and that fraction is spent on the columns available. So a 220px thumbnail takes about a quarter of the page, and the same image is wider in a wide window than in a narrow one.
+
+| Declared | On a 120-column page | On a 60-column page |
+|----------|----------------------|---------------------|
+| `32px` | 4 columns | 2 columns |
+| `220px` | 26 columns | 13 columns |
+| `640px` | 75 columns | 38 columns |
+| `1024px` or more | full width | full width |
+
+The viewport is a tablet width rather than a desktop one, because that is closer to what a terminal is, and because text-first pages are authored for a narrow column: an encyclopedia serves its thumbnails at 250px for an article column several times narrower than a 1920px screen.
+
+The width is taken from the first of: a stylesheet `width`, an inline `style="width:..."`, the HTML `width` attribute, or the image's own pixel width. A size written in CSS and the same size written as an attribute mean the same thing. An image is never wider than the page.
+
+**A `width` attribute is reconciled against the pixels actually served.** Real pages get that attribute wrong in both directions at once: an encyclopedia article carries the original file's resolution on some images (`width="3640"` on a thumbnail served as 250 real pixels) and a stale display size on others (`width="135"` on that same file). Believed literally, those two neighbours render as a full-page photograph and a smudge. The served pixel width is the one number the page cannot be wrong about, so it decides. A **stylesheet** width is real layout intent, and is left alone: a page may legitimately show a 1600px photograph as a 200px inset.
+
+A fixed pixels-per-column ratio cannot do this job, which is why one is not used: at 1:1 every image on a real page is wider than the terminal and so every image fills it, thumbnail and hero alike; at a fixed 8:1 a thumbnail is a sensible size on a wide terminal and most of a narrow one. See `HtmlConstants.CssViewportWidthPx`.
+
+### Page colours
+
+A page picks its colours for its own background, which a terminal rarely has. Every resolved foreground is held to a contrast floor against the surface it is actually drawn on, so a page's colour arrives exactly as asked whenever it can be read, and is lifted the shortest distance that makes it legible when it cannot. The hue is kept, so a dark red link comes back a readable red rather than the theme's accent.
+
+Without this, Hacker News (`a:link { color:#000000 }`, chosen for its cream page) rendered every headline black on a dark terminal.
+
+Set `UsePageBackground` to let a page paint its own surface as well, from `bgcolor` or CSS, looked for on the body and down a single-child wrapper chain — which is where a classic page puts it (`body > center > table`). It is off by default because the control usually sits inside a themed window. The contrast floor applies either way, so neither setting can produce unreadable text:
+
+```csharp
+// Toggles live - setting it re-runs layout on the page already on screen
+html.UsePageBackground = true;
+```
+
+A table that declares `border="0"` is laid out without box-drawing lines, since that attribute means the table is positioning things rather than presenting data. Its columns still align. A table that declares a border, or says nothing, keeps its lines.
+
+### Local files
+
+`file:` URLs work for both pages and images, as they do in a browser:
+
+```csharp
+await html.LoadUrlAsync("file:///home/me/notes/page.html");
+```
+
+A relative `src` on such a page resolves against the page's own folder, so a document saved to disk opens with its pictures intact.
+
+**Same-origin rule.** A page fetched over `http`/`https` may **not** load `file:` images; those render as alt text. Without that rule any site could name a path on the machine and have the result rendered on screen. Content supplied directly through `SetContent` has no remote origin, so it may reference local files freely.
 
 ## Examples
 

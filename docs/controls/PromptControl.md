@@ -176,6 +176,19 @@ single-line mode.
 | `Ctrl+V` | Paste from clipboard |
 | `Ctrl+X` | Cut selection to clipboard |
 
+`SelectAll()` does the same from code, for the moment an application hands the
+control to the user with a value already in it. A browser's address bar is the
+example: focus it and the current URL is offered ready to be replaced by the
+next keystroke, but is still there to edit or leave alone.
+
+```csharp
+window.FocusManager.SetFocus(addressBar, FocusReason.Keyboard);
+addressBar.SelectAll();
+```
+
+Selecting an empty input leaves no selection rather than a zero-length one, so
+`HasSelection` stays `false` and the delete paths have nothing stale to act on.
+
 > Copy/paste works locally and over SSH. The control implements `IPasteTarget`. Paste is
 > **mode-dependent**: single-line flattens newlines to spaces, multiline inserts them verbatim.
 > Pasted text longer than `MaxLength` is truncated to fit rather than rejected. See
