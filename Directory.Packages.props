@@ -26,14 +26,14 @@
   </PropertyGroup>
 
   <ItemGroup Label="Library dependencies">
-    <PackageVersion Include="AngleSharp" Version="1.8.6" />
-    <PackageVersion Include="AngleSharp.Css" Version="1.2.2" />
-    <PackageVersion Include="Markdig" Version="1.5.1" />
+    <PackageVersion Include="AngleSharp" Version="1.9.1" />
+    <PackageVersion Include="AngleSharp.Css" Version="1.3.2" />
+    <PackageVersion Include="Markdig" Version="1.6.0" />
     <PackageVersion Include="StbImageSharp" Version="2.30.16" />
     <PackageVersion Include="StbImageWriteSharp" Version="1.16.7" />
     <PackageVersion Include="StbTrueTypeSharp" Version="1.26.13" />
-    <PackageVersion Include="TextMateSharp" Version="2.0.4" />
-    <PackageVersion Include="TextMateSharp.Grammars" Version="2.0.4" />
+    <PackageVersion Include="TextMateSharp" Version="2.0.5" />
+    <PackageVersion Include="TextMateSharp.Grammars" Version="2.0.5" />
     <PackageVersion Include="Wcwidth.Sources" Version="4.0.1" />
   </ItemGroup>
 
