@@ -578,9 +578,24 @@ namespace SharpConsoleUI.Html
 			var extraIndent = style.MarginLeft + style.PaddingLeft;
 			var totalIndent = indent + extraIndent;
 
-			// Add margin-top spacing
-			for (int i = 0; i < style.MarginTop + style.PaddingTop; i++)
-				ctx.AddEmptyLine(totalIndent);
+			// A wrapper that renders nothing costs nothing. A page is built from
+			// layout elements that exist to position their children on a screen;
+			// in a terminal they position nothing, and charging rows for one is
+			// paying for a service not rendered. Remembered here and compared
+			// after the children have run.
+			int linesBefore = ctx.Lines.Count;
+
+			// Margin above, requested in pixels and spent in rows. Capped: a page
+			// says 20px meaning a small gap on a tall screen, and a row is worth
+			// far more than a pixel. Uncapped, and multiplied by the dozens of
+			// nested wrappers a modern page is built from, a real article came out
+			// thirty six percent blank with runs of fourteen empty rows.
+			int topSpacing = CollapseSpacing(style.MarginTop + style.PaddingTop);
+			AddSpacing(ctx, totalIndent, topSpacing);
+
+			// Where this element's own content would start, so "did it render
+			// anything" asks about the content and not about its own margin.
+			int contentStart = ctx.Lines.Count;
 
 			// If display:grid, use grid layout engine
 			if (style.DisplayGrid == "grid" && !string.IsNullOrEmpty(style.GridTemplateColumns))
@@ -598,10 +613,35 @@ namespace SharpConsoleUI.Html
 			}
 			FlushInline(ctx, totalIndent);
 
-			// Add margin-bottom spacing
-			for (int i = 0; i < style.MarginBottom + style.PaddingBottom; i++)
-				ctx.AddEmptyLine(totalIndent);
+			// Nothing between the two marks means this element rendered nothing,
+			// so its margins buy nothing either. Take back the leading spacing as
+			// well: an empty wrapper should leave the page exactly as it found it.
+			if (ctx.Lines.Count == contentStart)
+			{
+				ctx.TruncateTo(linesBefore);
+				return;
+			}
+
+			AddSpacing(ctx, totalIndent, CollapseSpacing(style.MarginBottom + style.PaddingBottom));
 		}
+
+		/// <summary>
+		/// How many rows a block's requested vertical space is worth.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// A page asks in pixels, for a screen hundreds of pixels tall. A terminal
+		/// row is worth far more than a pixel, so the request is honoured in kind
+		/// rather than in amount: any margin at all becomes one row, and that is
+		/// the whole of it.
+		/// </para>
+		/// <para>
+		/// One row is enough to separate two blocks, which is what the margin is
+		/// for. More is what turned an article into a page the reader scrolls
+		/// through hunting for the text.
+		/// </para>
+		/// </remarks>
+		private static int CollapseSpacing(int requested) => requested > 0 ? 1 : 0;
 
 		private static void FlushInline(BlockContext ctx, int indent)
 		{
@@ -772,15 +812,84 @@ namespace SharpConsoleUI.Html
 
 			public void AddLine(LayoutLine line, int indent)
 			{
+				// A blank line arriving from a nested layout collapses the same
+				// way one asked for directly does. Grid and table rows are padded
+				// to their full width, so a visually empty row carries a hundred
+				// spaces rather than no cells: a page built out of layout tables
+				// kept long runs of them where its structure had been.
+				//
+				// An image row is never blank, whatever its cells look like: a
+				// half-block glyph is not whitespace.
+				if (!line.IsImage && IsBlank(line) && Lines.Count > 0 && IsBlank(Lines[^1]))
+					return;
+
 				line.Y = Lines.Count;
 				line.X = indent;
 				Lines.Add(line);
 			}
 
+			/// <summary>
+			/// Drops every line added after a mark, undoing an element that
+			/// turned out to render nothing.
+			/// </summary>
+			public void TruncateTo(int count)
+			{
+				if (count >= 0 && count < Lines.Count)
+					Lines.RemoveRange(count, Lines.Count - count);
+			}
+
+			/// <summary>
+			/// Adds a blank line, unless the page is already blank here.
+			/// </summary>
+			/// <remarks>
+			/// <para>
+			/// Blank lines come from many places at once - a block's own spacing,
+			/// the margins of every wrapper around it, the padding of each one -
+			/// and none of them can see the others. Each asks for a reasonable
+			/// gap; together they produced runs of fourteen empty rows, and a real
+			/// article that was thirty six percent blank.
+			/// </para>
+			/// <para>
+			/// Collapsing here rather than at each caller is what makes it hold:
+			/// the question "is there already a gap" has one answer, and only the
+			/// thing holding the lines can give it. A gap stays a gap; a gap does
+			/// not become a screenful.
+			/// </para>
+			/// <para>
+			/// Leading blanks are dropped for the same reason: a page that opens
+			/// with nested wrappers should not open with empty rows.
+			/// </para>
+			/// </remarks>
 			public void AddEmptyLine(int indent)
 			{
+				if (Lines.Count == 0)
+					return;
+
+				if (IsBlank(Lines[^1]))
+					return;
+
 				var line = new LayoutLine(Lines.Count, indent, 0, Array.Empty<Cell>(), TextAlignment.Left);
 				Lines.Add(line);
+			}
+
+			/// <summary>
+			/// Whether a line shows nothing, however many cells it holds.
+			/// </summary>
+			/// <remarks>
+			/// A line of spaces is as blank to a reader as a line of no cells.
+			/// Table and grid rows arrive padded to their full width, so asking
+			/// only about the cell count missed them and a page kept its runs of
+			/// empty rows where a layout table had been.
+			/// </remarks>
+			internal static bool IsBlank(LayoutLine line)
+			{
+				foreach (var cell in line.Cells)
+				{
+					if (!char.IsWhiteSpace((char)cell.Character.Value))
+						return false;
+				}
+
+				return true;
 			}
 		}
 
