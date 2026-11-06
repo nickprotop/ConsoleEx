@@ -208,7 +208,8 @@ namespace SharpConsoleUI.Html
 
 					if (ctx.CurrentX >= ctx.MaxWidth)
 					{
-						ctx.FinishLine();
+						// Out of room at a space: a wrap, not the author's break.
+						ctx.FinishLine(wrapped: true);
 						continue;
 					}
 
@@ -224,7 +225,7 @@ namespace SharpConsoleUI.Html
 					if (ctx.CurrentX > 0 && ctx.CurrentX + wordWidth > ctx.MaxWidth)
 					{
 						// Wrap to next line
-						ctx.FinishLine();
+						ctx.FinishLine(wrapped: true);
 					}
 
 					// If word is longer than maxWidth, break character by character
@@ -235,8 +236,10 @@ namespace SharpConsoleUI.Html
 							var safe = Helpers.TextSanitizer.IsUnsafeRune(rune)
 								? Helpers.TextSanitizer.ReplacementCharacter : rune;
 							int rw = Helpers.UnicodeWidth.GetRuneWidth(safe);
+							// A word longer than the whole line is broken mid-word,
+							// which is as much a wrap as any other.
 							if (ctx.CurrentX + rw > ctx.MaxWidth)
-								ctx.FinishLine();
+								ctx.FinishLine(wrapped: true);
 							ctx.AddCell(new Cell(safe, fg, bg, decorations), linkUrl);
 						}
 					}
@@ -367,7 +370,18 @@ namespace SharpConsoleUI.Html
 				CurrentX += runeWidth;
 			}
 
-			public void FinishLine()
+			/// <summary>
+			/// Closes the current line and starts the next.
+			/// </summary>
+			/// <param name="wrapped">
+			/// True when the line is being closed because the text would not fit,
+			/// so the rest of the same block continues on the next line. False for
+			/// a break the author wrote. The caller is the only thing that knows
+			/// which this is, and copied text depends on the answer: a wrap joined
+			/// with a newline puts a hard break every viewport width through a
+			/// paragraph the author wrote as one.
+			/// </param>
+			public void FinishLine(bool wrapped = false)
 			{
 				// Close any open link region for this line
 				CloseLinkRegion();
@@ -375,7 +389,8 @@ namespace SharpConsoleUI.Html
 				var cells = CurrentCells.ToArray();
 				LinkRegion[]? links = _currentLineLinks.Count > 0 ? _currentLineLinks.ToArray() : null;
 
-				Lines.Add(new LayoutLine(LineY, 0, cells.Length, cells, Alignment, links));
+				Lines.Add(new LayoutLine(LineY, 0, cells.Length, cells, Alignment, links,
+					isImage: false, continuesNextLine: wrapped));
 
 				LineY++;
 				CurrentCells.Clear();

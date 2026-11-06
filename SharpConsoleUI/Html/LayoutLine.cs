@@ -71,8 +71,28 @@ namespace SharpConsoleUI.Html
 		/// </remarks>
 		public bool IsImage;
 
+		/// <summary>
+		/// Whether this line ended because the text ran out of room, with the
+		/// rest of the same block continuing on the next line.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// False for a break the author wrote: a <c>&lt;br&gt;</c>, the end of a
+		/// paragraph, a newline inside a code block, a table row, an image row.
+		/// True only where the layout broke the line itself to make it fit.
+		/// </para>
+		/// <para>
+		/// Recorded rather than inferred. A line that happens to end exactly at
+		/// the margin is indistinguishable, by its length, from one that was
+		/// broken to fit, and the difference decides whether copied text carries
+		/// a newline the author never wrote. The inline flow knows which is which
+		/// at the moment it finishes the line, so it says so.
+		/// </para>
+		/// </remarks>
+		public bool ContinuesNextLine;
+
 		public LayoutLine(int y, int x, int width, Cell[] cells, TextAlignment alignment, LinkRegion[]? links = null,
-			bool isImage = false)
+			bool isImage = false, bool continuesNextLine = false)
 		{
 			Y = y;
 			X = x;
@@ -81,6 +101,7 @@ namespace SharpConsoleUI.Html
 			Alignment = alignment;
 			Links = links;
 			IsImage = isImage;
+			ContinuesNextLine = continuesNextLine;
 		}
 	}
 }

@@ -411,7 +411,8 @@ namespace SharpConsoleUI.Html
 							// of them.
 							var bulletIndent = indent;
 							line = new LayoutLine(0, bulletIndent, combined.Length, combined, line.Alignment,
-								ShiftLinks(line.Links, prefixCells.Length), line.IsImage);
+								ShiftLinks(line.Links, prefixCells.Length), line.IsImage,
+								line.ContinuesNextLine);
 							ctx.AddLine(line, bulletIndent);
 						}
 						else
@@ -487,7 +488,8 @@ namespace SharpConsoleUI.Html
 				// alone. Dropped here, a linked picture inside a blockquote was
 				// scrambled the moment it took focus.
 				var newLine = new LayoutLine(0, indent, newCells.Length, newCells,
-					line.Alignment, ShiftLinks(line.Links, barWidth), line.IsImage);
+					line.Alignment, ShiftLinks(line.Links, barWidth), line.IsImage,
+					line.ContinuesNextLine);
 				ctx.AddLine(newLine, indent);
 			}
 		}
@@ -520,9 +522,14 @@ namespace SharpConsoleUI.Html
 				// This is not reflow: no break is chosen by fitting words, nothing
 				// is joined, and the author's own breaks still start new lines. It
 				// is what a terminal does with a line too long for it.
-				foreach (var cells in TextToRows(rawLine, effectiveWidth, ctx.DefaultFg, codeBg))
+				var rows = TextToRows(rawLine, effectiveWidth, ctx.DefaultFg, codeBg);
+				for (int i = 0; i < rows.Count; i++)
 				{
-					var line = new LayoutLine(0, indent, cells.Length, cells, TextAlignment.Left);
+					// Every row but the last continues the same source line. The
+					// author wrote one line; the viewport broke it. Copying it as
+					// several would insert newlines that were never in the code.
+					var line = new LayoutLine(0, indent, rows[i].Length, rows[i], TextAlignment.Left,
+						links: null, isImage: false, continuesNextLine: i < rows.Count - 1);
 					ctx.AddLine(line, indent);
 				}
 			}
