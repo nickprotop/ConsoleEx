@@ -207,8 +207,29 @@ namespace SharpConsoleUI.Html
 		/// </remarks>
 		private static void AddAltText(IElement element, BlockContext ctx, int indent, string? suffix)
 		{
-			var alt = element.GetAttribute("alt") ?? "image";
-			var text = HtmlConstants.ImageAltPrefix + alt + (suffix ?? "") + HtmlConstants.ImageAltSuffix;
+			var alt = element.GetAttribute("alt");
+			string? href = EnclosingLinkUrl(element);
+
+			// A picture with nothing to say says nothing. Alt text is what the
+			// author wrote for a reader who cannot see the image, and an absent
+			// or empty one means there was nothing worth describing - which is
+			// exactly how a page marks a logo, an icon or a spacer. Inventing the
+			// word "image" turned those into a column of placeholders, each
+			// taking a line and saying less than the blank line it replaced. On
+			// one real news site, 63 of 134 images carried no alt attribute.
+			//
+			// Unless it is a link, where a placeholder earns its line: with
+			// nothing to land on the link cannot be followed at all, so the URL
+			// stands in - the page's own words rather than ours.
+			if (string.IsNullOrWhiteSpace(alt) && suffix == null)
+			{
+				if (href == null)
+					return;
+
+				alt = href;
+			}
+
+			var text = HtmlConstants.ImageAltPrefix + (alt ?? string.Empty) + (suffix ?? "") + HtmlConstants.ImageAltSuffix;
 
 			var width = ctx.MaxWidth - indent;
 			var cells = TextToCells(text, width > 0 ? width : 80,
@@ -218,7 +239,6 @@ namespace SharpConsoleUI.Html
 			// Text that reads as a link and does nothing is worse than either
 			// alternative, and this is the state a page is in for every image it
 			// has not finished loading.
-			string? href = EnclosingLinkUrl(element);
 			LinkRegion[]? links = href != null && cells.Length > 0
 				? new[] { new LinkRegion(0, cells.Length, href, text, HtmlInlineFlow.NextLinkId()) }
 				: null;

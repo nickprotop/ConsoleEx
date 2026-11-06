@@ -158,7 +158,23 @@ namespace SharpConsoleUI.Html
 							break;
 
 						case "img":
-							var alt = element.GetAttribute("alt") ?? "image";
+							// A picture with nothing to say says nothing. See
+							// HtmlBlockFlow.Image.AddAltText: an absent or empty alt
+							// is how a page marks a decorative image, and inventing
+							// a word for it fills the page with placeholders that
+							// carry no information.
+							//
+							// Inside a link the URL stands in, so the link still has
+							// something to land on and can be followed.
+							var alt = element.GetAttribute("alt");
+							if (string.IsNullOrWhiteSpace(alt))
+							{
+								if (linkUrl == null)
+									continue;
+
+								alt = linkUrl;
+							}
+
 							var imgText = HtmlConstants.ImageAltPrefix + alt + HtmlConstants.ImageAltSuffix;
 							var imgDecorations = decorations | TextDecoration.Dim | TextDecoration.Italic;
 							EmitText(imgText, fg, bg, imgDecorations, linkUrl, ctx, collapseWhitespace: false);
