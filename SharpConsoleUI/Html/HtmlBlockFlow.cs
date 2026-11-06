@@ -508,9 +508,23 @@ namespace SharpConsoleUI.Html
 			Color codeBg = ctx.DefaultBg.IsDark() ? ctx.DefaultBg.Tint(0.10) : ctx.DefaultBg.Shade(0.08);
 			foreach (var rawLine in rawLines)
 			{
-				var cells = TextToCells(rawLine, effectiveWidth, ctx.DefaultFg, codeBg);
-				var line = new LayoutLine(0, indent, cells.Length, cells, TextAlignment.Left);
-				ctx.AddLine(line, indent);
+				// A line too wide for the viewport continues onto further rows
+				// rather than losing its tail. TextToCells stops at the edge,
+				// which is right where a caller wants one row and no more, but
+				// here it meant the characters past that column were never laid
+				// out at all - not clipped at paint time, where scrolling could
+				// still reach them, but absent. Most code is wider than a terminal
+				// window, and the end of a line of code is usually the part that
+				// matters.
+				//
+				// This is not reflow: no break is chosen by fitting words, nothing
+				// is joined, and the author's own breaks still start new lines. It
+				// is what a terminal does with a line too long for it.
+				foreach (var cells in TextToRows(rawLine, effectiveWidth, ctx.DefaultFg, codeBg))
+				{
+					var line = new LayoutLine(0, indent, cells.Length, cells, TextAlignment.Left);
+					ctx.AddLine(line, indent);
+				}
 			}
 		}
 
@@ -634,6 +648,71 @@ namespace SharpConsoleUI.Html
 		/// Creates a Cell array from text with proper wide-character continuation cells.
 		/// Truncates at maxColumns (column width, not character count).
 		/// </summary>
+		/// <summary>
+		/// Lays text out as one or more rows, continuing rather than truncating.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// For preformatted text, where every character has to survive and none
+		/// may be reordered. A run too wide for the viewport continues on the next
+		/// row at the exact character where it ran out of room.
+		/// </para>
+		/// <para>
+		/// A wide glyph is never split across the boundary: two columns cannot be
+		/// halved, so it moves to the next row whole rather than leaving a stray
+		/// continuation cell behind.
+		/// </para>
+		/// <para>
+		/// Always returns at least one row, so a blank line in a code block stays
+		/// a blank line.
+		/// </para>
+		/// </remarks>
+		/// <param name="text">One source line, already split on newlines.</param>
+		/// <param name="maxColumns">Columns available to each row.</param>
+		/// <param name="fg">Foreground colour.</param>
+		/// <param name="bg">Background colour.</param>
+		/// <param name="decorations">Decorations applied to every cell.</param>
+		/// <returns>The rows the text occupies, in order.</returns>
+		private static List<Cell[]> TextToRows(string text, int maxColumns, Color fg, Color bg,
+			TextDecoration decorations = TextDecoration.None)
+		{
+			if (maxColumns < 1)
+				maxColumns = 1;
+
+			var rows = new List<Cell[]>();
+			var current = new List<Cell>();
+			int col = 0;
+
+			foreach (var rune in text.EnumerateRunes())
+			{
+				if (rune.Value == '\r') continue;
+
+				var safe = Helpers.TextSanitizer.IsUnsafeRune(rune)
+					? Helpers.TextSanitizer.ReplacementCharacter : rune;
+				int rw = Helpers.UnicodeWidth.GetRuneWidth(safe);
+				if (rw == 0) continue;
+
+				// No room for this glyph: start a row rather than drop it. A wide
+				// glyph that would straddle the edge moves whole.
+				if (col + rw > maxColumns && current.Count > 0)
+				{
+					rows.Add(current.ToArray());
+					current = new List<Cell>();
+					col = 0;
+				}
+
+				current.Add(new Cell(safe, fg, bg, decorations));
+				if (rw == 2)
+					current.Add(new Cell(' ', fg, bg) { IsWideContinuation = true });
+				col += rw;
+			}
+
+			// The last row, and the only row of an empty line: a blank line in a
+			// code block is part of the code.
+			rows.Add(current.ToArray());
+			return rows;
+		}
+
 		private static Cell[] TextToCells(string text, int maxColumns, Color fg, Color bg, TextDecoration decorations = TextDecoration.None)
 		{
 			var cells = new List<Cell>();
