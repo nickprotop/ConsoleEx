@@ -405,9 +405,13 @@ namespace SharpConsoleUI.Html
 							Array.Copy(prefixCells, 0, combined, 0, prefixCells.Length);
 							Array.Copy(line.Cells, 0, combined, prefixCells.Length, line.Cells.Length);
 
+							// Only this line gains the bullet, so only this line's
+							// regions move. The item's later lines are added below
+							// unchanged, which is right: nothing was put in front
+							// of them.
 							var bulletIndent = indent;
 							line = new LayoutLine(0, bulletIndent, combined.Length, combined, line.Alignment,
-								line.Links, line.IsImage);
+								ShiftLinks(line.Links, prefixCells.Length), line.IsImage);
 							ctx.AddLine(line, bulletIndent);
 						}
 						else
@@ -470,12 +474,20 @@ namespace SharpConsoleUI.Html
 				var barCell = new Cell(HtmlConstants.BlockquoteBar, HtmlConstants.DefaultBlockquoteBarColor, ctx.DefaultBg);
 				var spacer = new Cell(' ', bqFg, ctx.DefaultBg);
 
-				var newCells = new Cell[line.Cells.Length + 2];
+				const int barWidth = 2; // the bar and the space after it
+
+				var newCells = new Cell[line.Cells.Length + barWidth];
 				newCells[0] = barCell;
 				newCells[1] = spacer;
-				Array.Copy(line.Cells, 0, newCells, 2, line.Cells.Length);
+				Array.Copy(line.Cells, 0, newCells, barWidth, line.Cells.Length);
 
-				var newLine = new LayoutLine(0, indent, newCells.Length, newCells, line.Alignment, line.Links);
+				// IsImage travels too. A half-block image row carries one pixel in
+				// the glyph foreground and another in its background, and the focus
+				// highlight reads this flag to know it must leave those colours
+				// alone. Dropped here, a linked picture inside a blockquote was
+				// scrambled the moment it took focus.
+				var newLine = new LayoutLine(0, indent, newCells.Length, newCells,
+					line.Alignment, ShiftLinks(line.Links, barWidth), line.IsImage);
 				ctx.AddLine(newLine, indent);
 			}
 		}
@@ -684,6 +696,47 @@ namespace SharpConsoleUI.Html
 				var line = new LayoutLine(Lines.Count, indent, 0, Array.Empty<Cell>(), TextAlignment.Left);
 				Lines.Add(line);
 			}
+		}
+
+		/// <summary>
+		/// Moves every link region right by the cells prepended in front of it.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// A line that gains a prefix - a blockquote's bar, a list item's bullet -
+		/// is rebuilt with those cells in front, and everything after them moves.
+		/// A link region is a pair of column numbers into that same line, so it
+		/// has to move too.
+		/// </para>
+		/// <para>
+		/// Left where it was, a region covered the prefix and lost the end of its
+		/// own word: a link reading "LINK" after a bullet highlighted "&#8226; LI"
+		/// and a click on its last characters landed on nothing. Both rebuild
+		/// sites had this, so a link in any bulleted list - which is most link
+		/// lists on a page - had a click target two columns off.
+		/// </para>
+		/// </remarks>
+		/// <param name="links">The line's regions, or null when it has none.</param>
+		/// <param name="offset">How many cells were prepended.</param>
+		/// <returns>The shifted regions, or null when there were none.</returns>
+		private static LinkRegion[]? ShiftLinks(LinkRegion[]? links, int offset)
+		{
+			if (links == null || offset == 0)
+				return links;
+
+			var shifted = new LinkRegion[links.Length];
+			for (int i = 0; i < links.Length; i++)
+			{
+				var link = links[i];
+				shifted[i] = new LinkRegion(
+					link.StartX + offset,
+					link.EndX + offset,
+					link.Url,
+					link.Text,
+					link.LinkId);
+			}
+
+			return shifted;
 		}
 
 		/// <summary>
