@@ -152,8 +152,13 @@ namespace SharpConsoleUI.Controls
 
 			try
 			{
-				// Phase 1: Fetch HTML
-				var html = await _httpClient.GetStringAsync(url, linkedToken);
+				// Phase 1: Fetch HTML. A file: URL is read from disk rather than
+				// requested: HttpClient throws on a file URI, so opening an HTML
+				// file - the first thing anyone tries with an HTML widget - used to
+				// fail outright.
+				var html = Html.HtmlImageLoader.IsLocalFileUrl(url)
+					? await ReadLocalPageAsync(url, linkedToken)
+					: await _httpClient.GetStringAsync(url, linkedToken);
 				linkedToken.ThrowIfCancellationRequested();
 
 				_loadingStatus = "Rendering...";
@@ -208,14 +213,34 @@ namespace SharpConsoleUI.Controls
 					Core.AsyncEvent.Raise(LoadingCompleted, LoadingCompletedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 				}
 			}
-			catch (OperationCanceledException)
+			catch (OperationCanceledException) when (linkedToken.IsCancellationRequested)
 			{
+				// A real cancellation: something replaced this load. Nothing to
+				// report - the navigation that superseded it will report itself.
 				_isLoading = false;
 				_isNavigating = false;
 				_loadingStatus = null;
 				Core.AsyncEvent.Raise(LoadingCompleted, LoadingCompletedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 			}
+			catch (OperationCanceledException ex)
+			{
+				// A timeout, not a cancellation: HttpClient reports its own
+				// deadline as OperationCanceledException with nobody's token set.
+				// Treated as a cancel, it was reported as SUCCESS, so a host that
+				// accepts the connection and never answers - textfiles.com over
+				// https, which serves no TLS - left a blank page and no error at
+				// all. It is a failed load, and says so.
+				HandleLoadFailure(ex, $"The request to {url} timed out.");
+			}
 			catch (Exception ex)
+			{
+				HandleLoadFailure(ex, ex.Message);
+			}
+
+			// Local so both failure paths - a timeout and any other error - show
+			// the same page and raise the same events. They diverged once, and the
+			// quiet one reported a failed load as a success.
+			void HandleLoadFailure(Exception ex, string message)
 			{
 				_isLoading = false;
 				_isNavigating = false;
@@ -225,7 +250,7 @@ namespace SharpConsoleUI.Controls
 				var errorHtml = $"""
 					<h1 style="color: red">Error Loading Page</h1>
 					<p><b>URL:</b> {System.Net.WebUtility.HtmlEncode(url)}</p>
-					<p><b>Error:</b> {System.Net.WebUtility.HtmlEncode(ex.Message)}</p>
+					<p><b>Error:</b> {System.Net.WebUtility.HtmlEncode(message)}</p>
 					<hr>
 					<p style="color: gray">Press Home or type a new address to navigate elsewhere.</p>
 					""";
@@ -238,11 +263,30 @@ namespace SharpConsoleUI.Controls
 					RunLayout(layoutWidth);
 				}
 
+				Invalidate(Invalidation.Relayout);
 				Core.AsyncEvent.Raise(LoadError, LoadErrorAsync, this, new LoadErrorEventArgs(url, ex), Container?.GetConsoleWindowSystem?.LogService);
 				Core.AsyncEvent.Raise(LoadingCompleted, LoadingCompletedAsync, this, EventArgs.Empty, Container?.GetConsoleWindowSystem?.LogService);
 			}
 
 			Invalidate(Invalidation.Relayout);
+		}
+
+		/// <summary>
+		/// Reads a local HTML page from a <c>file:</c> URL.
+		/// </summary>
+		/// <param name="url">The <c>file:</c> URL to read.</param>
+		/// <param name="ct">Cancels the read.</param>
+		/// <returns>The page's text.</returns>
+		/// <remarks>
+		/// Off the UI thread, like every other fetch here: a local read is fast but
+		/// not instant, and a slow disk or a large file would otherwise stall the
+		/// render loop. A missing or unreadable file throws, which the caller
+		/// already turns into the same LoadError a failed download raises.
+		/// </remarks>
+		private static async Task<string> ReadLocalPageAsync(string url, CancellationToken ct)
+		{
+			var path = new Uri(url).LocalPath;
+			return await Task.Run(() => File.ReadAllText(path), ct).ConfigureAwait(false);
 		}
 
 		private async Task AnimateLoadingSpinnerAsync(CancellationToken ct)
@@ -276,14 +320,27 @@ namespace SharpConsoleUI.Controls
 
 				// Collect the remote image URLs from the HTML (a page often repeats an image — fetch
 				// once). Inline data: images need no download; layout decodes them in place.
-				var imageUrls = _layoutEngine.GetImageUrls(_rawHtml, _baseUrl)
+				var allImages = _layoutEngine.GetImageUrls(_rawHtml, _baseUrl).Distinct().ToList();
+				var imageUrls = allImages
 					.Where(u => u.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
 								u.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-					.Distinct().ToList();
+					.ToList();
+
+				// Nothing to download does NOT mean nothing to show. A URL load paints
+				// once with images off, for speed, and this phase is what paints again
+				// with them on. Returning here when the page's only images are local or
+				// inline left that second pass unrun, so they stayed as alt text
+				// forever - visible in the app while every isolated layout test passed,
+				// because laying out directly never comes through here.
 				if (imageUrls.Count == 0)
 				{
 					_loadingStatus = null;
+					if (allImages.Count > 0)
+						RelayoutWithImages();
 					Invalidate(Invalidation.Relayout);
+					if (raiseLoadingCompleted)
+						Core.AsyncEvent.Raise(LoadingCompleted, LoadingCompletedAsync, this, EventArgs.Empty,
+							Container?.GetConsoleWindowSystem?.LogService);
 					return;
 				}
 

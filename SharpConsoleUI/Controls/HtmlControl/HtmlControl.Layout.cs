@@ -50,7 +50,8 @@ namespace SharpConsoleUI.Controls
 				_layoutResult = _layoutEngine.Layout(
 					_rawHtml, width, fg, bg, _blockSpacing,
 					LinkColor, VisitedLinkColor, _baseUrl,
-					showImages: false);
+					showImages: false,
+					usePageBackground: _usePageBackground);
 			}
 			catch (Exception ex)
 			{
@@ -64,6 +65,48 @@ namespace SharpConsoleUI.Controls
 
 			_lastLayoutWidth = width;
 			InvalidateLinkCache();
+		}
+
+		/// <summary>
+		/// Re-runs layout with images enabled, for a page whose images need no download.
+		/// </summary>
+		/// <remarks>
+		/// A URL load paints first with images off so text appears immediately, and
+		/// the background image phase normally turns them on once downloads finish.
+		/// A page whose images are all local or inline has nothing to download, so
+		/// that phase would otherwise have no reason to run and the first,
+		/// deliberately image-less paint would be the final one.
+		/// </remarks>
+		private void RelayoutWithImages()
+		{
+			lock (_contentLock)
+			{
+				_imageCache ??= new Dictionary<string, Imaging.PixelBuffer?>();
+				RunLayout(_lastLayoutWidth > 0 ? _lastLayoutWidth : 80);
+			}
+		}
+
+		/// <summary>
+		/// Re-runs layout after a property that changes how the page is painted.
+		/// </summary>
+		/// <remarks>
+		/// The cached layout is keyed on width, so a style change at the same
+		/// width would otherwise paint the old result. Clearing the key is what
+		/// makes such a property take effect on a page already on screen, which
+		/// is the point of its being a property rather than a constructor
+		/// argument.
+		/// </remarks>
+		private void RelayoutForStyleChange()
+		{
+			lock (_contentLock)
+			{
+				int width = _lastLayoutWidth > 0 ? _lastLayoutWidth : 80;
+				_lastLayoutWidth = -1;
+				RunLayout(width);
+			}
+
+			InvalidateLinkCache();
+			Invalidate(Invalidation.Relayout);
 		}
 
 		private void RunLayout(int width)
@@ -96,7 +139,8 @@ namespace SharpConsoleUI.Controls
 					// For a URL load, the images downloaded so far — never re-download them
 					// synchronously on a resize, theme switch or CSS reload.
 					imageCache: _imageCache,
-					graphicsProtocol: gp);
+					graphicsProtocol: gp,
+					usePageBackground: _usePageBackground);
 			}
 			catch (Exception ex)
 			{
