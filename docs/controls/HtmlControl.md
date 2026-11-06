@@ -163,22 +163,36 @@ HtmlControl implements `IFocusableControl` and `IInteractiveControl`:
 
 #### How an image is sized
 
-A declared pixel width is read as a **fraction of a nominal 1024px viewport**, and that fraction is spent on the columns available. So a 220px thumbnail takes about a quarter of the page, and the same image is wider in a wide window than in a narrow one.
+A declared pixel width is read as a **fraction of a nominal 700px content column**, and that fraction is spent on the columns available. So a 220px thumbnail takes about a third of the page, and the same image is wider in a wide window than in a narrow one.
 
 | Declared | On a 120-column page | On a 60-column page |
 |----------|----------------------|---------------------|
-| `32px` | 4 columns | 2 columns |
-| `220px` | 26 columns | 13 columns |
-| `640px` | 75 columns | 38 columns |
-| `1024px` or more | full width | full width |
+| `32px` | 5 columns | 3 columns |
+| `220px` | 38 columns | 19 columns |
+| `500px` | 86 columns | 43 columns |
+| `700px` or more | full width | full width |
 
-The viewport is a tablet width rather than a desktop one, because that is closer to what a terminal is, and because text-first pages are authored for a narrow column: an encyclopedia serves its thumbnails at 250px for an article column several times narrower than a 1920px screen.
+The frame is the **content column, not the whole window**. A browser window also holds a sidebar, margins and chrome; the text and pictures live in a narrower column inside it, and that column is what an author sizes a picture for. An encyclopedia serves its thumbnails at 250px for a column around 700px wide, a bit over a third of the text beside them.
+
+A terminal renders none of that furniture, so its text runs the full width and the column *is* the line. Measuring those same 250px against a full 1024px window gave a picture about a quarter of a line that its own page gave over a third of, so every picture came out roughly half the size it reads at next to the same words.
+
+This is a different question from what the page is *told* about its viewport, which is a separate 1024x768 reported to media queries and viewport-relative units. See `HtmlConstants.CssContentWidthPx` and `HtmlConstants.CssViewportWidthPx`.
+
+There is no height cap. A tall image is a tall image and the document scrolls, exactly as in a browser; capping height to the viewport would also mean the same image rendered at different sizes in different window heights, so resizing would silently rewrite the page.
 
 The width is taken from the first of: a stylesheet `width`, an inline `style="width:..."`, the HTML `width` attribute, or the image's own pixel width. A size written in CSS and the same size written as an attribute mean the same thing. An image is never wider than the page.
 
 **A `width` attribute is reconciled against the pixels actually served.** Real pages get that attribute wrong in both directions at once: an encyclopedia article carries the original file's resolution on some images (`width="3640"` on a thumbnail served as 250 real pixels) and a stale display size on others (`width="135"` on that same file). Believed literally, those two neighbours render as a full-page photograph and a smudge. The served pixel width is the one number the page cannot be wrong about, so it decides. A **stylesheet** width is real layout intent, and is left alone: a page may legitimately show a 1600px photograph as a 200px inset.
 
-A fixed pixels-per-column ratio cannot do this job, which is why one is not used: at 1:1 every image on a real page is wider than the terminal and so every image fills it, thumbnail and hero alike; at a fixed 8:1 a thumbnail is a sensible size on a wide terminal and most of a narrow one. See `HtmlConstants.CssViewportWidthPx`.
+A fixed pixels-per-column ratio cannot do this job, which is why one is not used: at 1:1 every image on a real page is wider than the terminal and so every image fills it, thumbnail and hero alike; at a fixed 8:1 a thumbnail is a sensible size on a wide terminal and most of a narrow one.
+
+#### Linked images
+
+An `<img>` inside an `<a href>` is a link: clickable, hoverable, and a Tab stop, exactly like linked text. The whole picture is **one** target rather than one per rendered row, and it takes its place in the document's link order.
+
+The focus and hover highlights invert or brighten a link's cells, which on a half-block image would scramble the picture: each cell carries one pixel in its foreground and another in its background. A linked picture is marked in the column beside it instead, so nothing of the image is overwritten.
+
+When an image has not loaded, the `alt` text standing in for it carries the link too.
 
 ### Page colours
 
