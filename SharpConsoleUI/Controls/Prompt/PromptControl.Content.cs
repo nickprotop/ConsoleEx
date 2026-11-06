@@ -186,6 +186,37 @@ namespace SharpConsoleUI.Controls
 			_selectionAnchor >= 0 && _selectionAnchor <= DisplayText.Length && _selectionAnchor != _cursorPosition;
 
 		/// <summary>
+		/// Selects the whole input and puts the cursor at the end.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// The state the keyboard already reaches with Home then Shift+End, made
+		/// available to the application: an address bar can offer its current
+		/// value ready to be replaced, the way a browser does, instead of either
+		/// leaving the caret in the middle of it or blanking the field.
+		/// </para>
+		/// <para>
+		/// Selecting an empty input leaves no selection, rather than an anchor and
+		/// cursor that happen to coincide. Every other path treats a zero-length
+		/// range as no selection, and a stale anchor is what the delete path had
+		/// to be hardened against.
+		/// </para>
+		/// </remarks>
+		public void SelectAll()
+		{
+			var text = DisplayText;
+			if (text.Length == 0)
+			{
+				ClearSelection();
+				return;
+			}
+
+			_selectionAnchor = 0;
+			_cursorPosition = text.Length;
+			Invalidate(Invalidation.Repaint);
+		}
+
+		/// <summary>
 		/// Clears the current selection.
 		/// </summary>
 		private void ClearSelection()
