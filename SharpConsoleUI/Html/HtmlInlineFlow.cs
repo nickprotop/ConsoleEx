@@ -119,7 +119,21 @@ namespace SharpConsoleUI.Html
 
 						case "a":
 							var href = element.GetAttribute("href") ?? "";
-							childFg = ctx.LinkColor;
+
+							// Always the theme's link colour, held to the contrast
+							// floor against whatever surface the link lands on.
+							//
+							// Deferring to a page-specified colour was tried and
+							// does not work: AngleSharp's user-agent stylesheet
+							// gives EVERY anchor a default colour, so "the page
+							// styled this link" is true even for a page that said
+							// nothing, and the theme colour would never apply.
+							// Distinguishing an author rule from a UA rule is not
+							// worth the complexity, and the contrast floor already
+							// solves the case that prompted it - Hacker News's
+							// black links are now readable either way.
+							childFg = PaletteColors.EnsureContrastRatio(
+								ctx.LinkColor, childBg, PaletteColors.TextContrast);
 							childDecorations |= TextDecoration.Underline;
 							childLinkUrl = href;
 							break;

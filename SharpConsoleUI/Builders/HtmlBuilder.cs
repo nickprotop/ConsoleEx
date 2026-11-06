@@ -34,6 +34,7 @@ public sealed class HtmlBuilder : IControlBuilder<HtmlControl>
 	// Display options
 	private bool _showImages = false;
 	private bool _showBulletPoints = true;
+	private bool _usePageBackground;
 	private int _tabSize = 4;
 	private int _blockSpacing = 1;
 	private ScrollbarVisibility _scrollbarVisibility = ScrollbarVisibility.Auto;
@@ -153,6 +154,22 @@ public sealed class HtmlBuilder : IControlBuilder<HtmlControl>
 	public HtmlBuilder WithShowBulletPoints(bool show = true)
 	{
 		_showBulletPoints = show;
+		return this;
+	}
+
+	/// <summary>
+	/// Lets a page paint its own background instead of using the control's.
+	/// </summary>
+	/// <param name="use">True to adopt a background the page states.</param>
+	/// <returns>This builder.</returns>
+	/// <remarks>
+	/// Off by default. See <see cref="SharpConsoleUI.Controls.HtmlControl.UsePageBackground"/>;
+	/// text is held to the contrast floor against whichever surface is used, so
+	/// turning this on cannot make a page unreadable.
+	/// </remarks>
+	public HtmlBuilder WithUsePageBackground(bool use = true)
+	{
+		_usePageBackground = use;
 		return this;
 	}
 
@@ -348,6 +365,7 @@ public sealed class HtmlBuilder : IControlBuilder<HtmlControl>
 			Tag = _tag,
 			Visible = _visible,
 			ShowImages = _showImages,
+			UsePageBackground = _usePageBackground,
 			ShowBulletPoints = _showBulletPoints,
 			TabSize = _tabSize,
 			BlockSpacing = _blockSpacing,

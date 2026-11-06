@@ -83,11 +83,22 @@ namespace SharpConsoleUI.Controls
 		private CancellationTokenSource? _loadCts;
 		private static readonly HttpClient _httpClient = new()
 		{
+			// Well under HttpClient's 100-second default. A host that accepts the
+			// connection and then says nothing - textfiles.com over https, which
+			// serves no TLS - otherwise leaves the control spinning for a minute
+			// and a half before it can report anything, which reads as a hang
+			// rather than as a site that is down. Matches the image loader.
+			Timeout = TimeSpan.FromSeconds(PageFetchTimeoutSeconds),
 			DefaultRequestHeaders =
 			{
 				{ "User-Agent", "SharpConsoleUI/1.0 (HtmlControl; +https://github.com/nickprotop/ConsoleEx)" }
 			}
 		};
+
+		/// <summary>
+		/// How long a page fetch may take before it is abandoned and reported as an error.
+		/// </summary>
+		private const int PageFetchTimeoutSeconds = 15;
 
 		// Scroll state
 		private int _scrollOffset;
@@ -122,6 +133,7 @@ namespace SharpConsoleUI.Controls
 		// Null = follow the active theme accent (so links read on light themes); explicit set pins it.
 		private Color? _linkColor;
 		private Color _visitedLinkColor = HtmlConstants.DefaultVisitedLinkColor;
+		private bool _usePageBackground;
 		private bool _showImages;
 		private bool _showBulletPoints = true;
 		private int _tabSize = 4;
@@ -215,6 +227,39 @@ namespace SharpConsoleUI.Controls
 			{
 				if (SetProperty(ref _showImages, value))
 					OnShowImagesChanged();
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether a page may paint its own background.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// Off by default: the control sits inside a themed window, so a page
+		/// painting its own surface in the middle of it is a deliberate choice
+		/// rather than something that should change under an existing application
+		/// on upgrade.
+		/// </para>
+		/// <para>
+		/// On, a page that states a background - through <c>bgcolor</c> or CSS -
+		/// is drawn on it, and its text colours finally mean what the page
+		/// intended: Hacker News's black headlines on its own cream page instead
+		/// of black on a dark terminal. Text is still held to the contrast floor
+		/// against whichever surface ends up being used, so a page that colours
+		/// its text but not its background cannot become unreadable either way.
+		/// </para>
+		/// <para>
+		/// Setting it re-runs layout, so it can be toggled while a page is on
+		/// screen.
+		/// </para>
+		/// </remarks>
+		public bool UsePageBackground
+		{
+			get => _usePageBackground;
+			set
+			{
+				if (SetProperty(ref _usePageBackground, value))
+					RelayoutForStyleChange();
 			}
 		}
 
