@@ -448,7 +448,7 @@ public class PromptControlModernizationTests
 		system.Render.UpdateDisplay();
 
 		prompt.ProcessMouseEvent(Mouse(MouseFlags.Button1Pressed, 2, 0));   // before 'a'
-		prompt.ProcessMouseEvent(Mouse(MouseFlags.ReportMousePosition, 7, 0)); // after "alpha"
+		prompt.ProcessMouseEvent(Drag(7, 0));                               // after "alpha"
 
 		Assert.Equal("alpha", prompt.SelectedText);
 		System.GC.KeepAlive(system);
@@ -463,7 +463,7 @@ public class PromptControlModernizationTests
 
 		// Columns: prompt 0-1, 中 at 2-3, 文 at 4-5. Clicking column 4 is the start of 文 => index 1.
 		prompt.ProcessMouseEvent(Mouse(MouseFlags.Button1Pressed, 4, 0));
-		prompt.ProcessMouseEvent(Mouse(MouseFlags.ReportMousePosition, 6, 0));
+		prompt.ProcessMouseEvent(Drag(6, 0));
 
 		Assert.Equal("文", prompt.SelectedText);
 		System.GC.KeepAlive(system);
@@ -592,6 +592,29 @@ public class PromptControlModernizationTests
 	}
 
 	#endregion
+
+	/// <summary>
+	/// A motion-while-held frame, as a terminal actually sends one.
+	/// </summary>
+	/// <remarks>
+	/// SGR reports motion with a button down as the button plus the motion bit,
+	/// so the frame carries ReportMousePosition AND the button state. A bare
+	/// ReportMousePosition means the mouse moved with nothing held, and mouse
+	/// capture never routes one to a dragging control
+	/// (WindowEventDispatcher routes only Pressed, Dragged or Released frames).
+	/// </remarks>
+	private static MouseEventArgs Drag(int x, int y = 0)
+	{
+		var pos = new Point(x, y);
+		return new MouseEventArgs(
+			new List<MouseFlags>
+			{
+				MouseFlags.ReportMousePosition,
+				MouseFlags.Button1Pressed,
+				MouseFlags.Button1Dragged,
+			},
+			pos, pos, pos);
+	}
 
 	private static MouseEventArgs Mouse(MouseFlags flag, int x, int y)
 	{

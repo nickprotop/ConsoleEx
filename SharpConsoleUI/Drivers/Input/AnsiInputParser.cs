@@ -906,7 +906,25 @@ namespace SharpConsoleUI.Drivers.Input
 						flags.Add(isPress ? MouseFlags.Button3Pressed : MouseFlags.Button3Released);
 						flags.Add(MouseFlags.Button3Dragged);
 						break;
-						// baseButton 3 = motion with no button
+
+					case 3:
+						// Motion with no button held. Nothing to add: the frame is
+						// ReportMousePosition and only that, which is the whole
+						// meaning - the mouse moved, nobody is holding anything.
+						//
+						// Named explicitly because its emptiness is load-bearing.
+						// A reader who sees three cases and no fourth cannot tell
+						// whether this one was handled or forgotten, and a control
+						// that treats a bare ReportMousePosition as a drag will
+						// follow the pointer with no button down. PromptControl did
+						// exactly that: a selection dragged out with the mouse
+						// collapsed the moment the pointer stopped moving, because
+						// that is when the button-held frames give way to these.
+						//
+						// Contrast the press/release branch below, which DOES name
+						// button 3 and answers differently for M and m: there a
+						// release must be attributed to a button or it ends nothing.
+						break;
 				}
 			}
 			else

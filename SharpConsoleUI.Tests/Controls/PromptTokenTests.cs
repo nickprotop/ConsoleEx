@@ -645,6 +645,29 @@ public class PromptTokenTests
 		return (system, prompt);
 	}
 
+	/// <summary>
+	/// A motion-while-held frame, as a terminal actually sends one.
+	/// </summary>
+	/// <remarks>
+	/// SGR reports motion with a button down as the button plus the motion bit,
+	/// so the frame carries ReportMousePosition AND the button state. A bare
+	/// ReportMousePosition means the mouse moved with nothing held, and mouse
+	/// capture never routes one to a dragging control
+	/// (WindowEventDispatcher routes only Pressed, Dragged or Released frames).
+	/// </remarks>
+	private static MouseEventArgs Drag(int x, int y = 0)
+	{
+		var pos = new Point(x, y);
+		return new MouseEventArgs(
+			new List<MouseFlags>
+			{
+				MouseFlags.ReportMousePosition,
+				MouseFlags.Button1Pressed,
+				MouseFlags.Button1Dragged,
+			},
+			pos, pos, pos);
+	}
+
 	private static MouseEventArgs Mouse(MouseFlags flag, int x, int y = 0)
 	{
 		var pos = new Point(x, y);
@@ -677,8 +700,11 @@ public class PromptTokenTests
 	{
 		var (system, prompt) = HostWithToken("ab", "cd");
 
+		// A real motion-while-held frame carries the button state as well as the
+		// position: a bare ReportMousePosition means the mouse moved with nothing
+		// held, and mouse capture never routes one to a dragging control.
 		prompt.ProcessMouseEvent(Mouse(MouseFlags.Button1Pressed, 3));
-		prompt.ProcessMouseEvent(Mouse(MouseFlags.ReportMousePosition, 7));
+		prompt.ProcessMouseEvent(Drag(7));
 		prompt.ProcessMouseEvent(Mouse(MouseFlags.Button1Released, 7));
 
 		Press(prompt, ConsoleKey.Backspace);
