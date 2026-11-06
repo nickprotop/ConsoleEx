@@ -87,6 +87,46 @@ namespace SharpConsoleUI.Controls
 					}
 				}
 
+				// Selection runs on a Content gesture, AFTER the scrollbar has had
+				// its chance: ahead of it, a drag on the thumb would select text
+				// instead of scrolling.
+				//
+				// It subsumes the link click rather than sitting beside it, which
+				// is what MarkupControl does. A press anchors and consumes; a drag
+				// extends; a release that followed no movement is a click, and the
+				// link handling below runs for it. Leaving two handlers to agree
+				// about whether a drag happened is how the two gestures fight.
+				if (_enableSelection && route.Phase != GesturePhase.None
+					&& route.Region == HtmlGestureRegion.Content)
+				{
+					int selectionWidth = contentWidth - scrollbarWidth;
+
+					switch (route.Phase)
+					{
+						case GesturePhase.Down:
+							if (!HasFocus && CanFocusWithMouse)
+								this.GetParentWindow()?.FocusManager.SetFocus(this, FocusReason.Mouse);
+							BeginSelection(args.Position, selectionWidth);
+							args.Handled = true;
+							return true;
+
+						case GesturePhase.Move:
+							ExtendSelection(args.Position, selectionWidth);
+							args.Handled = true;
+							return true;
+
+						case GesturePhase.Up:
+							// A drag ends here and keeps what it selected. A click
+							// falls through to the link handling below.
+							if (EndSelection())
+							{
+								args.Handled = true;
+								return true;
+							}
+							break;
+					}
+				}
+
 				// A bare Button1Clicked with no prior captured press (some drivers/tests deliver a click
 				// without a separate Button1Pressed) landing on the scrollbar: synthesize a full click by
 				// dispatching Down (HandleScrollbarThumbPress already falls through to the arrow/track zone

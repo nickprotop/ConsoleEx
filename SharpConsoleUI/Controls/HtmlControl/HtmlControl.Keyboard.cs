@@ -23,6 +23,11 @@ namespace SharpConsoleUI.Controls
 			if (!_isEnabled || !HasFocus)
 				return false;
 
+			// Copy, before anything else: Ctrl+C with a selection means copy, and
+			// nothing below claims that combination.
+			if (TryCopySelection(key))
+				return true;
+
 			// Tab / Shift+Tab — navigate between links.
 			// At the boundary (last link forward, first link backward), return false
 			// to allow focus to leave the control.

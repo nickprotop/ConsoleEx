@@ -198,6 +198,18 @@ namespace SharpConsoleUI.Controls
 
 					buffer.WriteCellsClipped(screenX, screenY, line.Cells, tightClip);
 
+					// Selected cells take the selection colours. Skipped on an
+					// image row: its foreground and background are the two pixels
+					// of a half-block glyph, so recolouring does not highlight the
+					// picture, it destroys it. The focused-link highlight guards
+					// the same way, but its guard sits inside HighlightLinksOnLine
+					// and only runs for a line that has links, so this pass makes
+					// its own check.
+					if (HasSelection && !line.IsImage)
+					{
+						PaintSelectionOnLine(buffer, i, ref line, screenX, screenY, tightClip);
+					}
+
 					// Highlight links on this line (focused and hovered)
 					if (line.Links != null)
 					{
@@ -296,6 +308,39 @@ namespace SharpConsoleUI.Controls
 				}
 			}
 		}
+		/// <summary>
+		/// Recolours the selected cells of one rendered line.
+		/// </summary>
+		/// <remarks>
+		/// Colours are overridden rather than inverted. Inversion reads the cell's
+		/// own colours, so a run of text in different colours inverts into a run
+		/// of different highlights; one pair of colours makes a selection look
+		/// like one thing.
+		/// </remarks>
+		private void PaintSelectionOnLine(CharacterBuffer buffer, int lineIndex, ref LayoutLine line,
+			int screenX, int screenY, LayoutRect clipRect)
+		{
+			if (screenY < clipRect.Y || screenY >= clipRect.Bottom) return;
+
+			var fg = SelectionForegroundColor ?? DefaultSelectionForeground;
+			var bg = SelectionBackgroundColor ?? DefaultSelectionBackground;
+
+			for (int x = 0; x < line.Cells.Length; x++)
+			{
+				if (!IsCellSelected(lineIndex, x)) continue;
+
+				int cellX = screenX + x;
+				if (cellX < clipRect.X || cellX >= clipRect.Right) continue;
+
+				var cell = buffer.GetCell(cellX, screenY);
+				buffer.SetCell(cellX, screenY, new Cell(cell.Character, fg, bg, cell.Decorations)
+				{
+					IsWideContinuation = cell.IsWideContinuation,
+					Combiners = cell.Combiners,
+				});
+			}
+		}
+
 		/// <summary>
 		/// Highlights focused and hovered links on a rendered line by overriding cell colors.
 		/// </summary>
