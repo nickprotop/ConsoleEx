@@ -41,6 +41,17 @@ namespace SharpConsoleUI.Html
 		internal static void ResetLinkIds() => t_nextLinkId = 0;
 
 		/// <summary>
+		/// Takes the next link id from the document's sequence.
+		/// </summary>
+		/// <remarks>
+		/// For a link that is not made of inline text - an image, which is laid
+		/// out as block rows and never passes through the inline flow. It draws
+		/// from the same counter so a picture takes its place in the Tab order
+		/// instead of colliding with a text link or sitting outside the sequence.
+		/// </remarks>
+		internal static int NextLinkId() => t_nextLinkId++;
+
+		/// <summary>
 		/// Flows inline nodes into wrapped LayoutLines.
 		/// </summary>
 		public static List<LayoutLine> FlowInline(

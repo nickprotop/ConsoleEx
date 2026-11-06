@@ -160,9 +160,22 @@ namespace SharpConsoleUI.Html
 
 			if (imageRows != null && imageRows.Length > 0)
 			{
+				// A picture inside an <a> is a link, and the inline flow that
+				// builds links never sees it: an image is block rows, written
+				// here. One region per row, all sharing one id, so the whole
+				// picture is a single Tab stop rather than a dozen - the same
+				// thing the inline flow does for a link wrapped across lines.
+				string? href = EnclosingLinkUrl(element);
+				int linkId = href != null ? HtmlInlineFlow.NextLinkId() : 0;
+
 				foreach (var rowCells in imageRows)
 				{
-					var line = new LayoutLine(0, indent, rowCells.Length, rowCells, TextAlignment.Left);
+					LinkRegion[]? links = href != null && rowCells.Length > 0
+						? new[] { new LinkRegion(0, rowCells.Length, href, string.Empty, linkId) }
+						: null;
+
+					var line = new LayoutLine(0, indent, rowCells.Length, rowCells,
+						TextAlignment.Left, links, isImage: true);
 					ctx.AddLine(line, indent);
 				}
 
@@ -201,7 +214,39 @@ namespace SharpConsoleUI.Html
 			var cells = TextToCells(text, width > 0 ? width : 80,
 				ctx.DefaultFg, ctx.DefaultBg, TextDecoration.Dim | TextDecoration.Italic);
 
-			ctx.AddLine(new LayoutLine(0, indent, cells.Length, cells, TextAlignment.Left), indent);
+			// What this text stands in for may be a link, and then so is it.
+			// Text that reads as a link and does nothing is worse than either
+			// alternative, and this is the state a page is in for every image it
+			// has not finished loading.
+			string? href = EnclosingLinkUrl(element);
+			LinkRegion[]? links = href != null && cells.Length > 0
+				? new[] { new LinkRegion(0, cells.Length, href, text, HtmlInlineFlow.NextLinkId()) }
+				: null;
+
+			ctx.AddLine(new LayoutLine(0, indent, cells.Length, cells, TextAlignment.Left, links), indent);
+		}
+
+		/// <summary>
+		/// The URL of the nearest enclosing <c>&lt;a href&gt;</c>, or null.
+		/// </summary>
+		/// <remarks>
+		/// Walks ancestors rather than checking the parent, because a thumbnail
+		/// is rarely a direct child: an encyclopedia wraps it in a figure and a
+		/// span or two before the anchor. An anchor with no href is a named
+		/// target, not a link, and is skipped.
+		/// </remarks>
+		private static string? EnclosingLinkUrl(IElement element)
+		{
+			for (var e = element.ParentElement; e != null; e = e.ParentElement)
+			{
+				if (!string.Equals(e.TagName, "A", StringComparison.OrdinalIgnoreCase))
+					continue;
+
+				var href = e.GetAttribute("href");
+				return string.IsNullOrWhiteSpace(href) ? null : href;
+			}
+
+			return null;
 		}
 
 		/// <summary>

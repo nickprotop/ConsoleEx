@@ -314,6 +314,17 @@ namespace SharpConsoleUI.Controls
 
 				if (!isFocused && !isHovered) continue;
 
+				// A linked picture is highlighted by its border, not by its
+				// pixels. Both treatments below rewrite the cell's colours, and
+				// on a half-block image the foreground and background ARE the
+				// two pixels of that cell: inverting them scrambles the picture
+				// and brightening them washes it out.
+				if (line.IsImage)
+				{
+					MarkImageLink(buffer, ref link, screenX, screenY, clipRect, isFocused);
+					continue;
+				}
+
 				// Apply highlight colors
 				for (int x = link.StartX; x < link.EndX; x++)
 				{
@@ -338,6 +349,29 @@ namespace SharpConsoleUI.Controls
 					}
 				}
 			}
+		}
+
+		/// <summary>
+		/// Marks a focused or hovered picture without touching the picture.
+		/// </summary>
+		/// <remarks>
+		/// A half-block cell carries one pixel in its foreground and another in
+		/// its background, so the text treatments - inverting for focus,
+		/// brightening for hover - are not highlights here but damage. The
+		/// indicator goes in the column beside the image instead, which is the
+		/// indent the block flow already leaves, so nothing of the picture is
+		/// overwritten and a focused image is still obvious.
+		/// </remarks>
+		private void MarkImageLink(CharacterBuffer buffer, ref LinkRegion link,
+			int screenX, int screenY, LayoutRect clipRect, bool isFocused)
+		{
+			int markerX = screenX + link.StartX - 1;
+			if (markerX < clipRect.X || markerX >= clipRect.Right) return;
+			if (screenY < clipRect.Y || screenY >= clipRect.Bottom) return;
+
+			var accent = isFocused ? LinkColor : VisitedLinkColor;
+			var cell = buffer.GetCell(markerX, screenY);
+			buffer.SetNarrowCell(markerX, screenY, isFocused ? '┃' : '│', accent, cell.Background);
 		}
 	}
 }

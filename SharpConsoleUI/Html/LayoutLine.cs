@@ -59,7 +59,20 @@ namespace SharpConsoleUI.Html
 		public TextAlignment Alignment;
 		public LinkRegion[]? Links;
 
-		public LayoutLine(int y, int x, int width, Cell[] cells, TextAlignment alignment, LinkRegion[]? links = null)
+		/// <summary>
+		/// Whether these cells are a rendered picture rather than text.
+		/// </summary>
+		/// <remarks>
+		/// A half-block image carries one pixel in the glyph's foreground and
+		/// another in its background, so anything that swaps the two is not a
+		/// highlight but a scramble. The focused-link highlight does exactly
+		/// that, and an image can now be inside a link, so a row says what it is
+		/// and the highlight leaves its colours alone.
+		/// </remarks>
+		public bool IsImage;
+
+		public LayoutLine(int y, int x, int width, Cell[] cells, TextAlignment alignment, LinkRegion[]? links = null,
+			bool isImage = false)
 		{
 			Y = y;
 			X = x;
@@ -67,6 +80,7 @@ namespace SharpConsoleUI.Html
 			Cells = cells;
 			Alignment = alignment;
 			Links = links;
+			IsImage = isImage;
 		}
 	}
 }
