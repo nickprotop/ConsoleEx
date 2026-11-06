@@ -188,7 +188,7 @@ internal static class HtmlDemoWindow
 			File.WriteAllBytes(imagePath, GradientBmp(320, 160));
 
 		var pagePath = Path.Combine(dir, "local.html");
-		File.WriteAllText(pagePath, """
+		File.WriteAllText(pagePath, $$"""
             <h1>A page from your disk</h1>
             <p>This page was read over <code>file://</code>. Nothing was downloaded.</p>
             <p>The image below is referenced as <code>&lt;img src="gradient.bmp"&gt;</code> —
@@ -198,11 +198,38 @@ internal static class HtmlDemoWindow
             <p>A page saved from a browser keeps its pictures in a folder beside it.
             Resolving relative sources against the document means such a page opens
             intact, rather than as a wall of alt text.</p>
+
+            <h2>An image carried inside the markup</h2>
+            <p>This one has no file at all. Its pixels are base64 in the
+            <code>src</code> itself, as a <code>data:</code> URI, decoded during layout
+            with nothing fetched: <img src="{{SwatchDataUri(240, 120)}}" width="240"
+            alt="a blue-green swatch"> and the sentence continues underneath it.</p>
+            <p>It also sits <i>inside</i> this paragraph rather than beside it. A
+            terminal cell is twice as tall as it is wide, so a picture cannot share a
+            line of text and stay recognisable — it takes its own rows at the point
+            where it was written, and the words keep their order around it.</p>
+            <ul>
+              <li>A picture in a list item: <img src="{{SwatchDataUri(120, 60)}}" width="120" alt="a small swatch"></li>
+              <li>The bullet stays on the text, and is not repeated after the rows.</li>
+            </ul>
             <p><a href="about:home">← Back to the home page</a></p>
             """);
 
 		return new Uri(pagePath).AbsoluteUri;
 	}
+
+	/// <summary>
+	/// A colour swatch as a base64 <c>data:</c> URI, for an image carried inside
+	/// the markup rather than fetched.
+	/// </summary>
+	/// <remarks>
+	/// BMP keeps this honest about what it is demonstrating: no encoder, no
+	/// library call that might itself be the thing under test. The bytes are the
+	/// same ones <see cref="GradientBmp"/> builds, base64 of exactly that buffer,
+	/// which is what a page means by an embedded image.
+	/// </remarks>
+	private static string SwatchDataUri(int width, int height) =>
+		"data:image/bmp;base64," + Convert.ToBase64String(GradientBmp(width, height));
 
 	/// <summary>
 	/// A 24-bit BMP of a colour gradient, built by hand.
