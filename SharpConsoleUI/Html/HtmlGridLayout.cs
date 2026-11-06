@@ -50,8 +50,20 @@ namespace SharpConsoleUI.Html
 		{
 			// 1. Parse column definitions
 			var colDefs = ParseColumnDefs(gridTemplateColumns);
+
+			// A template we cannot read is a reason to stop arranging, never a
+			// reason to drop the words. Returning nothing here deleted whole
+			// sections of a page - the content was never laid out at all, so no
+			// amount of scrolling found it. Stacking is what a browser falls back
+			// to, and it keeps every word on the page.
 			if (colDefs.Count == 0)
-				return Array.Empty<LayoutLine>();
+			{
+				var fallback = new List<IElement>();
+				foreach (var child in gridElement.Children)
+					fallback.Add(child);
+
+				return StackCells(fallback, maxWidth, defaultFg, defaultBg, linkColor);
+			}
 
 			int colCount = colDefs.Count;
 
@@ -70,6 +82,21 @@ namespace SharpConsoleUI.Html
 
 			if (children.Count == 0)
 				return Array.Empty<LayoutLine>();
+
+			// A page designs its grid for a screen hundreds of pixels wide. A
+			// terminal has about a hundred columns in total, so a desktop grid of
+			// twelve or fifteen tracks leaves each one a few characters, and text
+			// wrapped into that prints one letter per line - a column of vertical
+			// confetti where an article should be.
+			//
+			// A screen that cannot give a column room for a word is a screen where
+			// the columns belong underneath each other, which is what a browser
+			// does at its narrowest breakpoint. Stacking keeps every word readable
+			// and in order; honouring the grid keeps neither.
+			if (IsTooNarrowToHonour(colWidths))
+			{
+				return StackCells(children, maxWidth, defaultFg, defaultBg, linkColor);
+			}
 
 			// 4. Assign children to rows
 			var result = new List<LayoutLine>();
@@ -156,6 +183,92 @@ namespace SharpConsoleUI.Html
 		/// Parses a CSS grid-template-columns string into column definitions.
 		/// Supports fr, px, and em units. Plain integers are treated as fixed char widths.
 		/// </summary>
+		/// <summary>
+		/// Rewrites <c>repeat(n, tracks)</c> into the tracks it stands for.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// The template is parsed by splitting on spaces, and <c>repeat()</c>
+		/// holds spaces of its own, so it arrived as the unparseable fragments
+		/// <c>repeat(15,</c> and <c>1fr)</c>. Neither matched a unit, the parse
+		/// produced no columns at all, and a grid with no columns returned no
+		/// lines - so every word inside it vanished from the page rather than
+		/// merely being laid out badly.
+		/// </para>
+		/// <para>
+		/// That is the common spelling: a page writes <c>repeat(12, 1fr)</c>
+		/// rather than twelve copies of <c>1fr</c>. Expanding it here keeps the
+		/// rest of the parser working on the plain list it was written for.
+		/// </para>
+		/// <para>
+		/// A count is clamped: <c>auto-fit</c> and <c>auto-fill</c> name no number
+		/// and are left for the caller's narrow-grid handling rather than guessed
+		/// at, and an absurd count cannot be used to allocate without bound.
+		/// </para>
+		/// </remarks>
+		private static string ExpandRepeats(string templateColumns)
+		{
+			const string marker = "repeat(";
+			const int maxRepeat = 64;
+
+			if (templateColumns.IndexOf(marker, StringComparison.OrdinalIgnoreCase) < 0)
+				return templateColumns;
+
+			var sb = new System.Text.StringBuilder(templateColumns.Length);
+			int i = 0;
+
+			while (i < templateColumns.Length)
+			{
+				int start = templateColumns.IndexOf(marker, i, StringComparison.OrdinalIgnoreCase);
+				if (start < 0)
+				{
+					sb.Append(templateColumns, i, templateColumns.Length - i);
+					break;
+				}
+
+				sb.Append(templateColumns, i, start - i);
+
+				int open = start + marker.Length;
+				int close = templateColumns.IndexOf(')', open);
+				if (close < 0)
+				{
+					// Unbalanced: leave the rest as written rather than inventing
+					// a shape for it.
+					sb.Append(templateColumns, start, templateColumns.Length - start);
+					break;
+				}
+
+				var inner = templateColumns.Substring(open, close - open);
+				int comma = inner.IndexOf(',');
+
+				if (comma > 0
+					&& int.TryParse(inner.Substring(0, comma).Trim(),
+						System.Globalization.NumberStyles.Integer,
+						System.Globalization.CultureInfo.InvariantCulture, out var count)
+					&& count > 0)
+				{
+					var tracks = inner.Substring(comma + 1).Trim();
+					for (int n = 0; n < Math.Min(count, maxRepeat); n++)
+					{
+						sb.Append(' ').Append(tracks);
+					}
+
+					sb.Append(' ');
+				}
+				else
+				{
+					// A count we cannot read - auto-fit, auto-fill, something new.
+					// One track stands in, so the grid still has a shape and its
+					// content is still laid out.
+					sb.Append(' ').Append(inner.Substring(comma + 1).Trim()).Append(' ');
+				}
+
+				i = close + 1;
+			}
+
+			return sb.ToString();
+		}
+
 		public static List<ColumnDef> ParseColumnDefs(string templateColumns)
 		{
 			var defs = new List<ColumnDef>();
@@ -163,7 +276,8 @@ namespace SharpConsoleUI.Html
 			if (string.IsNullOrWhiteSpace(templateColumns))
 				return defs;
 
-			var parts = templateColumns.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+			var parts = ExpandRepeats(templateColumns)
+				.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
 			foreach (var part in parts)
 			{
@@ -205,6 +319,81 @@ namespace SharpConsoleUI.Html
 			}
 
 			return defs;
+		}
+
+		/// <summary>
+		/// The narrowest a column may be before a grid is not worth honouring.
+		/// </summary>
+		/// <remarks>
+		/// Short enough that an ordinary two or three column layout still lays out
+		/// side by side, and long enough that a track cannot hold an English word
+		/// below it. Wrapping prose into anything narrower is what produced the
+		/// one-character-per-line column.
+		/// </remarks>
+		private const int MinimumTrackWidth = 8;
+
+		/// <summary>
+		/// Whether the computed tracks are too narrow for the grid to mean anything.
+		/// </summary>
+		/// <remarks>
+		/// One starved track is enough. A layout of twelve tracks where a single
+		/// one is three columns wide still shreds whatever lands in it, and the
+		/// page reads as broken however well its neighbours fared.
+		/// </remarks>
+		private static bool IsTooNarrowToHonour(int[] colWidths)
+		{
+			// A single column is not a grid, and stacking it would change nothing.
+			if (colWidths.Length < 2)
+				return false;
+
+			foreach (var width in colWidths)
+			{
+				if (width < MinimumTrackWidth)
+					return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// Lays the cells out one under another, each at the full width.
+		/// </summary>
+		/// <remarks>
+		/// What a browser does to a grid at its narrowest breakpoint, and the only
+		/// arrangement a terminal has room for. Order is preserved, so the page
+		/// still reads in the sequence it was written.
+		/// </remarks>
+		private static LayoutLine[] StackCells(
+			List<IElement> children,
+			int maxWidth,
+			Color defaultFg,
+			Color defaultBg,
+			Color? linkColor)
+		{
+			if (maxWidth < 1)
+				maxWidth = 1;
+
+			var stacked = new List<LayoutLine>();
+
+			foreach (var child in children)
+			{
+				var lines = HtmlBlockFlow.FlowBlocks(
+					child,
+					maxWidth,
+					defaultFg,
+					defaultBg,
+					blockSpacing: 0,
+					linkColor: linkColor);
+
+				foreach (var line in lines)
+				{
+					var placed = line;
+					placed.Y = stacked.Count;
+					stacked.Add(placed);
+				}
+			}
+
+			return stacked.ToArray();
 		}
 
 		private static int[] CalculateColumnWidths(List<ColumnDef> colDefs, int available)
