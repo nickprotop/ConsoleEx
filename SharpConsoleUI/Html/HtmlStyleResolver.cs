@@ -195,6 +195,23 @@ namespace SharpConsoleUI.Html
 			}
 		}
 
+		/// <summary>
+		/// The render device used when the browsing context registers none.
+		/// </summary>
+		/// <remarks>
+		/// Immutable and shared: AngleSharp only reads it. Device and viewport are
+		/// separate properties and both are set, because media queries and
+		/// relative lengths read the viewport pair.
+		/// </remarks>
+		private static readonly DefaultRenderDevice NominalDevice = new()
+		{
+			DeviceWidth = (int)HtmlConstants.CssViewportWidthPx,
+			DeviceHeight = (int)HtmlConstants.CssViewportHeightPx,
+			ViewPortWidth = (int)HtmlConstants.CssViewportWidthPx,
+			ViewPortHeight = (int)HtmlConstants.CssViewportHeightPx,
+			FontSize = (int)HtmlConstants.CssRootFontSizePx
+		};
+
 		private static IStyleCollection? CreateStyleCollection(IDocument document)
 		{
 			try
@@ -202,7 +219,14 @@ namespace SharpConsoleUI.Html
 				var window = document.DefaultView;
 				if (window == null)
 					return null;
-				var device = document.Context?.GetService<IRenderDevice>() ?? new DefaultRenderDevice();
+				// A bare DefaultRenderDevice reports a zero viewport, and a zero
+				// viewport makes every (min-width: N) false and every
+				// (max-width: N) true. The synchronous context registers no
+				// device, so this fallback is what the common path uses: it has
+				// to state the same nominal page the engine states everywhere
+				// else, or a page laid out before its CSS arrives gets a phone
+				// layout and the one laid out after gets a desktop one.
+				var device = document.Context?.GetService<IRenderDevice>() ?? NominalDevice;
 				return window.GetStyleCollection(device);
 			}
 			catch

@@ -105,13 +105,24 @@ namespace SharpConsoleUI.Html
 							   !path.EndsWith(".eot", StringComparison.OrdinalIgnoreCase);
 					}
 				})
-				// The same nominal viewport the image scale measures against, so a
-				// width the stylesheet computes as a percentage and the fraction
-				// taken of it afterwards refer to one page, not two.
+				// What the page is TOLD about its viewport: the frame its media
+				// queries and viewport-relative units resolve against. Not the
+				// frame an image is measured in - that is the narrower content
+				// column, because a browser window also holds furniture a terminal
+				// does not render. See HtmlConstants.CssContentWidthPx.
 				.WithRenderDevice(new AngleSharp.Css.DefaultRenderDevice
 				{
+					// Device* is the screen; ViewPort* is the window on it, and the
+					// two are separate properties. Media queries and relative units
+					// read the VIEWPORT, so setting only the device left it at zero:
+					// every (min-width: N) was false and every (max-width: N) true,
+					// whatever N said. A page got its phone layout and its desktop
+					// layout at once, and a vw length threw outright. Both pairs are
+					// set, to the same nominal page, so the answers agree.
 					DeviceWidth = (int)HtmlConstants.CssViewportWidthPx,
 					DeviceHeight = (int)HtmlConstants.CssViewportHeightPx,
+					ViewPortWidth = (int)HtmlConstants.CssViewportWidthPx,
+					ViewPortHeight = (int)HtmlConstants.CssViewportHeightPx,
 					FontSize = (int)HtmlConstants.CssRootFontSizePx
 				})
 				.WithCss();
