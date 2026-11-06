@@ -635,9 +635,12 @@ namespace SharpConsoleUI.Html
 		/// first and rescaling after loses the precision and hides the decision.
 		/// </para>
 		/// <para>
-		/// A percentage resolves against the nominal viewport, so <c>width: 50%</c>
-		/// comes back as half of it and goes on to claim half the columns - which
-		/// is what the page asked for.
+		/// A percentage resolves against the same content column the caller then
+		/// divides by, so <c>width: 50%</c> comes back as half of it and goes on
+		/// to claim half the columns - which is what the page asked for. The two
+		/// have to agree: resolving a percentage against one frame and measuring
+		/// it against a narrower one would silently inflate every percentage
+		/// width on the page.
 		/// </para>
 		/// </remarks>
 		public static double? ParseCssPixels(string? value)
@@ -655,7 +658,7 @@ namespace SharpConsoleUI.Html
 			if (value.EndsWith("%", StringComparison.Ordinal))
 			{
 				if (double.TryParse(value.AsSpan(0, value.Length - 1), Float, invariant, out var pct) && pct > 0)
-					return HtmlConstants.CssViewportWidthPx * Math.Min(100.0, pct) / 100.0;
+					return HtmlConstants.CssContentWidthPx * Math.Min(100.0, pct) / 100.0;
 				return null;
 			}
 

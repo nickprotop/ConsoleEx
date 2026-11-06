@@ -104,6 +104,37 @@ namespace SharpConsoleUI.Html
 		public const double CssViewportWidthPx = 1024.0;
 
 		/// <summary>
+		/// The width, in CSS pixels, of the content column a page's images are
+		/// measured against.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// A declared width is a fraction of something, and the viewport is the
+		/// wrong something. A browser window also holds a sidebar, margins and
+		/// chrome; the text and pictures live in a narrower column inside it, and
+		/// that column is what an author sizes a picture for. An encyclopedia
+		/// serves its thumbnails at 250 pixels for a column around 700 wide - a
+		/// bit over a third of the text beside them.
+		/// </para>
+		/// <para>
+		/// A terminal renders no sidebar, so the text runs the full width and the
+		/// column IS the line. Measuring those same 250 pixels against the whole
+		/// 1024 made every picture about a quarter of a line that its own page
+		/// gave over a third of, so pictures came out roughly half the size they
+		/// read at next to the same words. Measuring against the column restores
+		/// the proportion the reader actually sees.
+		/// </para>
+		/// <para>
+		/// <see cref="CssViewportWidthPx"/> stays what it is and keeps its own
+		/// job: it is what the page is TOLD about its viewport, for media queries
+		/// and viewport-relative units. This is the narrower frame a picture is
+		/// measured in. They are different questions and only coincidentally
+		/// about the same page.
+		/// </para>
+		/// </remarks>
+		public const double CssContentWidthPx = 700.0;
+
+		/// <summary>
 		/// The viewport height, in CSS pixels, a page is treated as being laid out for.
 		/// </summary>
 		/// <remarks>

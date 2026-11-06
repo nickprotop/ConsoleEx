@@ -233,17 +233,21 @@ namespace SharpConsoleUI.Html
 		/// Turns a width declared in CSS pixels into a number of terminal columns.
 		/// </summary>
 		/// <remarks>
-		/// The declared width is a fraction of the viewport the page was written
-		/// for (<see cref="HtmlConstants.CssViewportWidthPx"/>), and that fraction
-		/// is spent on the columns available here. See that constant for why a
-		/// fixed pixels-per-column ratio cannot work.
+		/// The declared width is a fraction of the content column the page was
+		/// written for (<see cref="HtmlConstants.CssContentWidthPx"/>), and that
+		/// fraction is spent on the columns available here. The column rather than
+		/// the whole viewport, because that is the frame an author sizes a picture
+		/// in, and in a terminal - which renders no sidebar - the column is the
+		/// line. See that constant for why, and
+		/// <see cref="HtmlConstants.CssViewportWidthPx"/> for why a fixed
+		/// pixels-per-column ratio cannot work.
 		/// </remarks>
 		internal static int ScaleToColumns(double declaredPx, int maxAvailableWidth)
 		{
 			if (declaredPx <= 0 || maxAvailableWidth <= 0)
 				return maxAvailableWidth > 0 ? maxAvailableWidth : 1;
 
-			double fraction = Math.Min(1.0, declaredPx / HtmlConstants.CssViewportWidthPx);
+			double fraction = Math.Min(1.0, declaredPx / HtmlConstants.CssContentWidthPx);
 			int columns = (int)Math.Round(maxAvailableWidth * fraction);
 
 			// No minimum beyond one column. A floor was tried and removed: because

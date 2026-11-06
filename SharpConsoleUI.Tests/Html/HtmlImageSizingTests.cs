@@ -84,8 +84,17 @@ namespace SharpConsoleUI.Tests.Html
 		/// re-derived by hand if the nominal viewport changed, and would not say
 		/// which of the two it was pinning.
 		/// </remarks>
+		/// <summary>An img tag declaring the given width in CSS pixels.</summary>
+		private static string Img(double declaredPx)
+		{
+			int px = (int)Math.Round(declaredPx);
+			// Served pixels match the declared width, so the attribute is taken at
+			// face value rather than reconciled against a different real size.
+			return $"<img src=\"{DataUriPng(px, Math.Max(1, px / 2))}\" width=\"{px}\" alt=\"a\">";
+		}
+
 		private static int Expected(int declaredPx, int pageWidth) =>
-			(int)Math.Round(pageWidth * Math.Min(1.0, declaredPx / HtmlConstants.CssViewportWidthPx));
+			(int)Math.Round(pageWidth * Math.Min(1.0, declaredPx / HtmlConstants.CssContentWidthPx));
 
 		[Fact]
 		public void AStylesheetWidthAndAnAttributeWidthAgree()
@@ -123,6 +132,73 @@ namespace SharpConsoleUI.Tests.Html
 			Assert.Equal(Expected(220, pageWidth), columns);
 			Assert.True(columns < pageWidth / 2,
 				$"a 220px thumbnail took {columns} of {pageWidth} columns");
+		}
+
+		[Fact]
+		public void AWidthIsAFractionOfTheContentColumn()
+		{
+			// The rule itself, stated once: a declared width is a fraction of the
+			// content column a page is written for, and that fraction is spent on
+			// the columns actually available.
+			//
+			// Checked at the ratios rather than against a remembered number, so
+			// the test says what the rule IS instead of what one constant happens
+			// to be. A quarter-column image gets a quarter of the line; a half
+			// gets a half.
+			int page = 120;
+			double column = HtmlConstants.CssContentWidthPx;
+
+			int quarter = RenderedImageWidth(Img(column / 4), page);
+			int half = RenderedImageWidth(Img(column / 2), page);
+
+			Assert.Equal(page / 4, quarter);
+			Assert.Equal(page / 2, half);
+		}
+
+		[Fact]
+		public void TheContentColumnIsNarrowerThanTheViewport()
+		{
+			// WHY there are two constants, and the thing that actually broke.
+			//
+			// A browser window holds a sidebar, margins and chrome; the text and
+			// pictures sit in a narrower column inside it, and that column is what
+			// an author sizes a picture for. A terminal renders none of that
+			// furniture, so its text runs the full width - the column IS the line.
+			//
+			// Measuring a picture against the whole window therefore shrinks it
+			// relative to the words beside it, by exactly the ratio between the
+			// two. Pinning the inequality is what stops the column constant being
+			// "corrected" back to the viewport, which is the regression this
+			// guards.
+			Assert.True(HtmlConstants.CssContentWidthPx < HtmlConstants.CssViewportWidthPx,
+				"the content column must be narrower than the viewport, or images "
+					+ "are measured against furniture a terminal does not render");
+		}
+
+		[Fact]
+		public void AnImageWiderThanTheColumnSpansTheLine()
+		{
+			// An image sized for the full column - or beyond it - is meant to span
+			// the text, so it spans the line. Expressed relative to the constant
+			// rather than as a literal, so it tests the clamp and not arithmetic
+			// on a number copied out of the source.
+			int page = 120;
+
+			Assert.Equal(page, RenderedImageWidth(Img(HtmlConstants.CssContentWidthPx), page));
+			Assert.Equal(page, RenderedImageWidth(Img(HtmlConstants.CssContentWidthPx * 3), page));
+		}
+
+		[Fact]
+		public void ASmallDecorationStaysADecoration()
+		{
+			// The guard on widening the scale: a small image must not become a
+			// picture. Stated as a fraction of the column so it holds whatever the
+			// column is - a fortieth of the text is a glyph at any width.
+			int page = 120;
+
+			int columns = RenderedImageWidth(Img(HtmlConstants.CssContentWidthPx / 40), page);
+
+			Assert.True(columns <= 4, $"a decoration took {columns} of {page} columns");
 		}
 
 		[Fact]
