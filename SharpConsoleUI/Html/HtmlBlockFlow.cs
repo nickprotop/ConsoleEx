@@ -233,17 +233,23 @@ namespace SharpConsoleUI.Html
 			var effectiveWidth = ctx.MaxWidth - indent;
 			if (effectiveWidth <= 0) effectiveWidth = 1;
 
-			var lines = HtmlInlineFlow.FlowInline(
-				element.ChildNodes,
-				effectiveWidth,
-				style.Foreground,
-				style.Background,
-				alignment: style.Alignment,
-				linkColor: ctx.LinkColor,
-				visitedLinkColor: ctx.VisitedLinkColor);
+			void FlowText(INodeList nodes)
+			{
+				var lines = HtmlInlineFlow.FlowInline(
+					nodes,
+					effectiveWidth,
+					style.Foreground,
+					style.Background,
+					alignment: style.Alignment,
+					linkColor: ctx.LinkColor,
+					visitedLinkColor: ctx.VisitedLinkColor);
 
-			foreach (var line in lines)
-				ctx.AddLine(line, indent);
+				foreach (var line in lines)
+					ctx.AddLine(line, indent);
+			}
+
+			if (!FlowInlineWithImages(element.ChildNodes, ctx, indent, FlowText))
+				FlowText(element.ChildNodes);
 
 			AddSpacing(ctx, indent, ctx.BlockSpacing);
 		}
@@ -263,18 +269,24 @@ namespace SharpConsoleUI.Html
 
 			var headingDecorations = decorations | style.Decorations;
 
-			var lines = HtmlInlineFlow.FlowInline(
-				element.ChildNodes,
-				effectiveWidth,
-				style.Foreground,
-				style.Background,
-				inheritedDecorations: headingDecorations,
-				alignment: style.Alignment,
-				linkColor: ctx.LinkColor,
-				visitedLinkColor: ctx.VisitedLinkColor);
+			void FlowText(INodeList nodes)
+			{
+				var lines = HtmlInlineFlow.FlowInline(
+					nodes,
+					effectiveWidth,
+					style.Foreground,
+					style.Background,
+					inheritedDecorations: headingDecorations,
+					alignment: style.Alignment,
+					linkColor: ctx.LinkColor,
+					visitedLinkColor: ctx.VisitedLinkColor);
 
-			foreach (var line in lines)
-				ctx.AddLine(line, indent);
+				foreach (var line in lines)
+					ctx.AddLine(line, indent);
+			}
+
+			if (!FlowInlineWithImages(element.ChildNodes, ctx, indent, FlowText))
+				FlowText(element.ChildNodes);
 
 			// Empty line after heading
 			AddSpacing(ctx, indent, 1);
@@ -361,38 +373,53 @@ namespace SharpConsoleUI.Html
 				var effectiveWidth = ctx.MaxWidth - itemIndent;
 				if (effectiveWidth <= 0) effectiveWidth = 1;
 
-				var wrapper = new NodeListWrapper(inlineNodes);
-				var lines = HtmlInlineFlow.FlowInline(
-					wrapper,
-					effectiveWidth,
-					ctx.DefaultFg,
-					ctx.DefaultBg,
-					linkColor: ctx.LinkColor,
-					visitedLinkColor: ctx.VisitedLinkColor);
+				// The bullet belongs on the first line of the item's text. An item
+				// may now emit several runs with pictures between them, so "first"
+				// is tracked across the whole item rather than per run - otherwise
+				// a bullet would be repeated after every picture.
+				bool prefixPending = true;
 
-				for (int i = 0; i < lines.Count; i++)
+				void FlowText(INodeList nodes)
 				{
-					var line = lines[i];
-					if (i == 0)
-					{
-						// First line: prepend bullet/number prefix
-						var prefixCells = new Cell[prefix.Length];
-						for (int j = 0; j < prefix.Length; j++)
-							prefixCells[j] = new Cell(prefix[j], ctx.DefaultFg, ctx.DefaultBg);
+					var lines = HtmlInlineFlow.FlowInline(
+						nodes,
+						effectiveWidth,
+						ctx.DefaultFg,
+						ctx.DefaultBg,
+						linkColor: ctx.LinkColor,
+						visitedLinkColor: ctx.VisitedLinkColor);
 
-						var combined = new Cell[prefixCells.Length + line.Cells.Length];
-						Array.Copy(prefixCells, 0, combined, 0, prefixCells.Length);
-						Array.Copy(line.Cells, 0, combined, prefixCells.Length, line.Cells.Length);
-
-						var bulletIndent = indent;
-						line = new LayoutLine(0, bulletIndent, combined.Length, combined, line.Alignment, line.Links);
-						ctx.AddLine(line, bulletIndent);
-					}
-					else
+					foreach (var flowed in lines)
 					{
-						ctx.AddLine(line, itemIndent);
+						var line = flowed;
+						if (prefixPending)
+						{
+							prefixPending = false;
+
+							// First line: prepend bullet/number prefix
+							var prefixCells = new Cell[prefix.Length];
+							for (int j = 0; j < prefix.Length; j++)
+								prefixCells[j] = new Cell(prefix[j], ctx.DefaultFg, ctx.DefaultBg);
+
+							var combined = new Cell[prefixCells.Length + line.Cells.Length];
+							Array.Copy(prefixCells, 0, combined, 0, prefixCells.Length);
+							Array.Copy(line.Cells, 0, combined, prefixCells.Length, line.Cells.Length);
+
+							var bulletIndent = indent;
+							line = new LayoutLine(0, bulletIndent, combined.Length, combined, line.Alignment,
+								line.Links, line.IsImage);
+							ctx.AddLine(line, bulletIndent);
+						}
+						else
+						{
+							ctx.AddLine(line, itemIndent);
+						}
 					}
 				}
+
+				var wrapper = new NodeListWrapper(inlineNodes);
+				if (!FlowInlineWithImages(inlineNodes, ctx, itemIndent, FlowText))
+					FlowText(wrapper);
 			}
 
 			// Process nested lists
@@ -483,8 +510,22 @@ namespace SharpConsoleUI.Html
 			var availWidth = ctx.MaxWidth - indent;
 			if (availWidth <= 0) availWidth = 1;
 
+			// A cell can hold a picture, and rendering one needs the same context
+			// the block flow carries. Handed over only when images are on, so a
+			// text-only page takes the path it always did.
+			var images = ctx.ShowImages
+				? new HtmlTableLayout.ImageContext
+				{
+					ImageCache = ctx.ImageCache,
+					CssDocument = ctx.CssDocument,
+					GraphicsProtocol = ctx.GraphicsProtocol,
+					DocumentUrl = ctx.DocumentUrl,
+					BlockSpacing = ctx.BlockSpacing,
+				}
+				: null;
+
 			var tableLines = HtmlTableLayout.LayoutTable(element, availWidth, ctx.DefaultFg, ctx.DefaultBg,
-				ctx.LinkColor, ctx.VisitedLinkColor);
+				ctx.LinkColor, ctx.VisitedLinkColor, images);
 			if (tableLines.Length == 0)
 				return;
 
@@ -643,6 +684,172 @@ namespace SharpConsoleUI.Html
 				var line = new LayoutLine(Lines.Count, indent, 0, Array.Empty<Cell>(), TextAlignment.Left);
 				Lines.Add(line);
 			}
+		}
+
+		/// <summary>
+		/// Lays out a run of inline nodes that holds a picture, as text rows and
+		/// image rows in the order they were written.
+		/// </summary>
+		/// <remarks>
+		/// For a caller that has a node run rather than an element - a table cell,
+		/// whose content is split into parts before it is laid out. The block flow
+		/// is the only thing that can emit image rows, so a cell holding a picture
+		/// comes here instead of to the inline flow, and gets the same text,
+		/// picture, text treatment a paragraph gets.
+		/// </remarks>
+		/// <param name="nodes">The run of inline nodes.</param>
+		/// <param name="maxWidth">Columns available to the run.</param>
+		/// <param name="defaultFg">Foreground for the text.</param>
+		/// <param name="defaultBg">Background for the text.</param>
+		/// <param name="blockSpacing">Blank lines between blocks.</param>
+		/// <param name="linkColor">Colour for unvisited links.</param>
+		/// <param name="visitedLinkColor">Colour for visited links.</param>
+		/// <param name="imageCache">Pictures already decoded.</param>
+		/// <param name="cssDocument">The page's stylesheet, for declared widths.</param>
+		/// <param name="graphicsProtocol">The terminal's graphics protocol, if any.</param>
+		/// <param name="documentUrl">The document's URL, which decides local-file access.</param>
+		/// <param name="inheritedDecorations">Decorations the container imposes, such as a header's weight.</param>
+		/// <returns>The run's lines, text and picture alike.</returns>
+		internal static List<LayoutLine> FlowInlineRunWithImages(
+			INodeList nodes,
+			int maxWidth,
+			Color defaultFg,
+			Color defaultBg,
+			int blockSpacing,
+			Color? linkColor,
+			Color? visitedLinkColor,
+			Dictionary<string, Imaging.PixelBuffer?>? imageCache,
+			IDocument? cssDocument,
+			Drivers.IGraphicsProtocol? graphicsProtocol,
+			string? documentUrl,
+			TextDecoration inheritedDecorations)
+		{
+			var ctx = new BlockContext
+			{
+				DocumentUrl = documentUrl,
+				MaxWidth = maxWidth,
+				DefaultFg = defaultFg,
+				DefaultBg = defaultBg,
+				BlockSpacing = blockSpacing,
+				LinkColor = linkColor,
+				VisitedLinkColor = visitedLinkColor,
+				ShowImages = true,
+				ImageCache = imageCache,
+				CssDocument = cssDocument,
+				GraphicsProtocol = graphicsProtocol,
+			};
+
+			void FlowText(INodeList run)
+			{
+				var flowed = HtmlInlineFlow.FlowInline(run, maxWidth, defaultFg, defaultBg,
+					inheritedDecorations, TextAlignment.Left, linkColor, visitedLinkColor);
+
+				foreach (var line in flowed)
+					ctx.AddLine(line, 0);
+			}
+
+			if (!FlowInlineWithImages(nodes, ctx, indent: 0, FlowText))
+				FlowText(nodes);
+
+			return ctx.Lines;
+		}
+
+		/// <summary>
+		/// Splits a run of inline nodes around any image that will render, and
+		/// emits the pieces in order: text, picture, text.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// An image is laid out as block rows, and the inline flow cannot emit
+		/// rows - its <c>img</c> case writes alt text. So a container that handed
+		/// all its children to the inline flow in one call turned every picture
+		/// inside it into alt text, and whether a picture appeared depended on
+		/// which element it happened to sit in. This is the one place that knows
+		/// how to interleave the two, so every such container behaves the same.
+		/// </para>
+		/// <para>
+		/// A terminal cell is twice as tall as it is wide, so a picture cannot sit
+		/// within a line of text and stay recognisable. It takes its own rows at
+		/// the point in the text where it was written, which keeps reading order
+		/// intact - the alternative, hoisting pictures out of the paragraph, moves
+		/// them away from the sentence that introduces them.
+		/// </para>
+		/// <para>
+		/// Returns false when there is nothing to split, so the caller keeps its
+		/// own single-call path. That matters beyond speed: a split costs a line
+		/// break, and a paragraph with no renderable picture must still lay out
+		/// exactly as it did before.
+		/// </para>
+		/// </remarks>
+		/// <param name="nodes">The inline nodes of one container.</param>
+		/// <param name="ctx">The block context images are emitted into.</param>
+		/// <param name="indent">Indent for the emitted image rows.</param>
+		/// <param name="flowText">
+		/// Emits one run of text nodes. Called once per run between pictures, and
+		/// never with an empty run, so a container holding only a picture gains no
+		/// blank line.
+		/// </param>
+		/// <returns>True if the run was split and emitted; false if it holds no renderable image.</returns>
+		private static bool FlowInlineWithImages(
+			IEnumerable<INode> nodes,
+			BlockContext ctx,
+			int indent,
+			Action<INodeList> flowText)
+		{
+			var all = nodes.ToList();
+
+			// Only an image that will actually render is worth a break. ShowImages
+			// off, or a missing src, means alt text in the text run as before.
+			//
+			// A picture is routinely wrapped - <a>, <span>, <figure> - so the test
+			// is "holds a renderable image", not "is one". Without that, a linked
+			// thumbnail inside a paragraph stayed alt text, which is how an
+			// encyclopedia writes nearly all of them.
+			static IElement[] ImagesOf(INode node)
+			{
+				if (node is not IElement element)
+					return Array.Empty<IElement>();
+
+				if (element.LocalName.Equals("img", StringComparison.OrdinalIgnoreCase))
+					return string.IsNullOrEmpty(element.GetAttribute("src"))
+						? Array.Empty<IElement>()
+						: new[] { element };
+
+				return element.QuerySelectorAll("img[src]").ToArray();
+			}
+
+			bool Renders(INode node) => ctx.ShowImages && ImagesOf(node).Length > 0;
+
+			if (!all.Any(Renders))
+				return false;
+
+			var run = new List<INode>();
+
+			void FlushRun()
+			{
+				if (run.Count == 0)
+					return;
+
+				flowText(new NodeListWrapper(run));
+				run.Clear();
+			}
+
+			foreach (var node in all)
+			{
+				var images = ctx.ShowImages ? ImagesOf(node) : Array.Empty<IElement>();
+				if (images.Length > 0)
+				{
+					FlushRun();
+					foreach (var image in images)
+						ProcessImage(image, ctx, indent);
+					continue;
+				}
+
+				run.Add(node);
+			}
+
+			FlushRun();
+			return true;
 		}
 
 		/// <summary>
