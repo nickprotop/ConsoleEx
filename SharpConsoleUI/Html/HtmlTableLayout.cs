@@ -67,6 +67,39 @@ namespace SharpConsoleUI.Html
 		}
 
 		/// <summary>
+		/// What a cell needs in order to render a picture rather than its alt text.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// Carried as one object rather than six more parameters: the table's
+		/// entry point is public API with existing overloads, and widening every
+		/// one of them for each field a picture happens to need would spread the
+		/// decode's requirements across a signature that is about tables.
+		/// </para>
+		/// <para>
+		/// Absent - which is what every existing caller passes - a cell behaves
+		/// exactly as it always did, and its images arrive as alt text.
+		/// </para>
+		/// </remarks>
+		public sealed class ImageContext
+		{
+			/// <summary>Pictures already decoded, keyed by source URL.</summary>
+			public Dictionary<string, Imaging.PixelBuffer?>? ImageCache;
+
+			/// <summary>The page's stylesheet, consulted for declared widths.</summary>
+			public IDocument? CssDocument;
+
+			/// <summary>The terminal's graphics protocol, when it has one.</summary>
+			public Drivers.IGraphicsProtocol? GraphicsProtocol;
+
+			/// <summary>The document's own URL, which decides local-file access.</summary>
+			public string? DocumentUrl;
+
+			/// <summary>Blank lines between blocks inside a cell.</summary>
+			public int BlockSpacing = 1;
+		}
+
+		/// <summary>
 		/// Lays out an HTML table element into LayoutLines with box-drawing borders.
 		/// </summary>
 		public static LayoutLine[] LayoutTable(
@@ -98,6 +131,31 @@ namespace SharpConsoleUI.Html
 			Color defaultBg,
 			Color? linkColor,
 			Color? visitedLinkColor)
+			=> LayoutTable(tableElement, maxWidth, defaultFg, defaultBg, linkColor, visitedLinkColor, null);
+
+		/// <summary>
+		/// Lays out an HTML table whose cells may hold pictures.
+		/// </summary>
+		/// <param name="tableElement">The <c>table</c> element.</param>
+		/// <param name="maxWidth">Columns available to the whole table.</param>
+		/// <param name="defaultFg">Foreground for ordinary cell text.</param>
+		/// <param name="defaultBg">Background for the table.</param>
+		/// <param name="linkColor">Colour for unvisited links inside cells.</param>
+		/// <param name="visitedLinkColor">Colour for visited links inside cells.</param>
+		/// <param name="images">
+		/// What a cell needs to render a picture. Null - the default everywhere
+		/// else - keeps the previous behaviour, where an image in a cell arrives
+		/// as its alt text.
+		/// </param>
+		/// <returns>The table's rendered lines, borders included.</returns>
+		public static LayoutLine[] LayoutTable(
+			IElement tableElement,
+			int maxWidth,
+			Color defaultFg,
+			Color defaultBg,
+			Color? linkColor,
+			Color? visitedLinkColor,
+			ImageContext? images)
 		{
 			// 1. Extract rows and cells
 			var rows = ExtractRows(tableElement);
@@ -137,7 +195,8 @@ namespace SharpConsoleUI.Html
 			if (drawBorders)
 				result.Add(MakeBorderLine(colWidths, borderColor, defaultBg,
 					HtmlConstants.TableTopLeft, HtmlConstants.TableHorizontal,
-					HtmlConstants.TableTopTee, HtmlConstants.TableTopRight));
+					HtmlConstants.TableTopTee, HtmlConstants.TableTopRight,
+					dividedAbove: null, dividedBelow: DividedBoundaries(rows[0], colCount)));
 
 			for (int r = 0; r < rows.Count; r++)
 			{
@@ -153,7 +212,7 @@ namespace SharpConsoleUI.Html
 					// A spanning cell is laid out at the width of every column it
 					// covers, plus the separator between them that it swallows.
 					var laid = LayoutCell(rows[r][c], SpanWidth(colWidths, c, rows[r][c].ColSpan),
-						defaultFg, defaultBg, linkColor, visitedLinkColor);
+						defaultFg, defaultBg, linkColor, visitedLinkColor, images);
 					cellLines.Add(laid);
 					if (laid.Count > maxLines)
 						maxLines = laid.Count;
@@ -267,7 +326,9 @@ namespace SharpConsoleUI.Html
 				{
 					result.Add(MakeBorderLine(colWidths, borderColor, defaultBg,
 						HtmlConstants.TableLeftTee, HtmlConstants.TableHorizontal,
-						HtmlConstants.TableCross, HtmlConstants.TableRightTee));
+						HtmlConstants.TableCross, HtmlConstants.TableRightTee,
+						dividedAbove: DividedBoundaries(rows[r], colCount),
+						dividedBelow: DividedBoundaries(rows[r + 1], colCount)));
 				}
 			}
 
@@ -275,7 +336,9 @@ namespace SharpConsoleUI.Html
 			if (drawBorders)
 				result.Add(MakeBorderLine(colWidths, borderColor, defaultBg,
 					HtmlConstants.TableBottomLeft, HtmlConstants.TableHorizontal,
-					HtmlConstants.TableBottomTee, HtmlConstants.TableBottomRight));
+					HtmlConstants.TableBottomTee, HtmlConstants.TableBottomRight,
+					dividedAbove: DividedBoundaries(rows[rows.Count - 1], colCount),
+					dividedBelow: null));
 
 			return result.ToArray();
 		}
@@ -297,7 +360,8 @@ namespace SharpConsoleUI.Html
 		/// </para>
 		/// </remarks>
 		private static List<LayoutLine> LayoutCell(TableCell cell, int width,
-			Color defaultFg, Color defaultBg, Color? linkColor, Color? visitedLinkColor)
+			Color defaultFg, Color defaultBg, Color? linkColor, Color? visitedLinkColor,
+			ImageContext? images)
 		{
 			if (cell.Element == null || width <= 0)
 				return new List<LayoutLine>();
@@ -320,7 +384,21 @@ namespace SharpConsoleUI.Html
 					&& string.Equals(nested.LocalName, "table", StringComparison.OrdinalIgnoreCase))
 				{
 					lines.AddRange(LayoutTable(nested, width, defaultFg, defaultBg,
-						linkColor, visitedLinkColor));
+						linkColor, visitedLinkColor, images));
+					continue;
+				}
+
+				// A picture in a cell is block content, the same as a picture in a
+				// paragraph, and the inline flow cannot emit rows. The block flow
+				// can, and it already knows how to interleave the two, so a part
+				// holding one is handed to it whole rather than flowed as text.
+				if (images != null && HoldsRenderableImage(part))
+				{
+					lines.AddRange(HtmlBlockFlow.FlowInlineRunWithImages(
+						part, width, defaultFg, defaultBg, images.BlockSpacing,
+						linkColor, visitedLinkColor, images.ImageCache,
+						images.CssDocument, images.GraphicsProtocol, images.DocumentUrl,
+						inherited));
 					continue;
 				}
 
@@ -358,6 +436,36 @@ namespace SharpConsoleUI.Html
 		/// flow already produces - splitting on it as well would break the run in
 		/// two and leave a blank line between the halves.
 		/// </remarks>
+		/// <summary>
+		/// Whether a run of cell nodes holds an image that would render.
+		/// </summary>
+		/// <remarks>
+		/// A picture is routinely wrapped - in a link, a figure, a span - so the
+		/// test is "contains one", not "is one". An <c>img</c> with no source
+		/// renders nothing, and must not divert the run away from the plain text
+		/// path that lays a cell out exactly as it always did.
+		/// </remarks>
+		private static bool HoldsRenderableImage(INodeList nodes)
+		{
+			foreach (var node in nodes)
+			{
+				if (node is not IElement element)
+					continue;
+
+				if (element.LocalName.Equals("img", StringComparison.OrdinalIgnoreCase))
+				{
+					if (!string.IsNullOrEmpty(element.GetAttribute("src")))
+						return true;
+					continue;
+				}
+
+				if (element.QuerySelector("img[src]") != null)
+					return true;
+			}
+
+			return false;
+		}
+
 		private static bool StartsItsOwnPart(string? tag) =>
 			HtmlBlockFlow.IsBlockTag(tag)
 			&& !string.Equals(tag, "br", StringComparison.OrdinalIgnoreCase);
@@ -912,7 +1020,9 @@ namespace SharpConsoleUI.Html
 			char left,
 			char horizontal,
 			char junction,
-			char right)
+			char right,
+			bool[]? dividedAbove = null,
+			bool[]? dividedBelow = null)
 		{
 			var cells = new List<Cell>();
 			cells.Add(new Cell(left, borderColor, bg));
@@ -923,12 +1033,77 @@ namespace SharpConsoleUI.Html
 					cells.Add(new Cell(horizontal, borderColor, bg));
 
 				if (c < colWidths.Length - 1)
-					cells.Add(new Cell(junction, borderColor, bg));
+				{
+					cells.Add(new Cell(
+						JunctionFor(c, junction, dividedAbove, dividedBelow),
+						borderColor, bg));
+				}
 			}
 
 			cells.Add(new Cell(right, borderColor, bg));
 
 			return new LayoutLine(0, 0, cells.Count, cells.ToArray(), TextAlignment.Left);
+		}
+
+		/// <summary>
+		/// The glyph where a horizontal rule crosses one column boundary.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// A junction is where vertical rules meet a horizontal one, so which arms
+		/// it needs depends on whether the rows on either side actually draw a
+		/// divider at this boundary. A cell spanning the table draws none, and the
+		/// rule beside it used to sprout a cross regardless - a stub of line
+		/// pointing into open space, which is what made an infobox look broken.
+		/// </para>
+		/// <para>
+		/// With neither neighbour divided the rule simply passes through. Callers
+		/// that know nothing about their neighbours - the top and bottom edges of
+		/// the table, which have rows on one side only - pass nothing and keep the
+		/// junction they asked for.
+		/// </para>
+		/// </remarks>
+		private static char JunctionFor(int boundary, char junction, bool[]? above, bool[]? below)
+		{
+			if (above == null && below == null)
+				return junction;
+
+			bool up = above != null && boundary < above.Length && above[boundary];
+			bool down = below != null && boundary < below.Length && below[boundary];
+
+			if (up && down) return HtmlConstants.TableCross;
+			if (up) return HtmlConstants.TableBottomTee;
+			if (down) return HtmlConstants.TableTopTee;
+
+			// Neither side is divided here: the rule runs straight through, which
+			// is what the eye expects under a cell that spans the boundary.
+			return HtmlConstants.TableHorizontal;
+		}
+
+		/// <summary>
+		/// Which column boundaries a row actually divides.
+		/// </summary>
+		/// <remarks>
+		/// A boundary is divided when the cell to its left ends there. A cell that
+		/// spans it swallows the boundary, so no vertical rule is drawn and the
+		/// horizontal rules beside it must not pretend otherwise.
+		/// </remarks>
+		private static bool[] DividedBoundaries(List<TableCell> row, int colCount)
+		{
+			var divided = new bool[Math.Max(0, colCount - 1)];
+
+			for (int c = 0; c < colCount - 1 && c < row.Count; c++)
+			{
+				// The boundary after column c survives unless the cell occupying
+				// c reaches past it. A covered column belongs to a span that began
+				// to its left, so it ends no cell of its own.
+				if (row[c].Covered)
+					continue;
+
+				divided[c] = row[c].ColSpan <= 1;
+			}
+
+			return divided;
 		}
 
 		private static int StringColumnWidth(string s)
