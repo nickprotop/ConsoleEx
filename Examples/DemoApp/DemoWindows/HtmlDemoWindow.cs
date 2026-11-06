@@ -322,7 +322,7 @@ internal static class HtmlDemoWindow
 			urlItem.Label = prefix + display;
 		}
 
-		void NavigateTo(string url, bool pushHistory)
+		void NavigateTo(string url, bool pushHistory, bool focusPage = false)
 		{
 			if (pushHistory && currentUrl != url)
 			{
@@ -344,15 +344,14 @@ internal static class HtmlDemoWindow
 				_ = htmlView.LoadUrlAsync(url);
 			}
 
-			// Whatever started the navigation - the address bar, a toolbar button,
-			// a bookmark, a link - the page is what you want to be driving once it
-			// arrives. Leaving focus on the control that was clicked means the
-			// first Page Down goes to a button instead of the document, which
-			// reads as the scroll keys being broken.
-			//
-			// Done here rather than in each handler so a new way to navigate
-			// cannot forget it.
-			FocusPage();
+			// Only the address bar hands the page focus on navigating. Typing an
+			// address is a one-shot errand: you are done with the field and want
+			// to be driving the document. Clicking a button is not - the toolbar
+			// and the bookmarks bar are places you click again, and pulling focus
+			// away on every press means the next click has to find its target
+			// anew and the highlight jumps off the bar you are working in.
+			if (focusPage)
+				FocusPage();
 		}
 
 		void FocusPage() =>
@@ -484,7 +483,7 @@ internal static class HtmlDemoWindow
 				var address = url.Trim();
 				if (string.IsNullOrEmpty(address))
 				{
-					NavigateTo(HomePseudoUrl, pushHistory: true);
+					NavigateTo(HomePseudoUrl, pushHistory: true, focusPage: true);
 					return;
 				}
 				if (!address.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
@@ -494,7 +493,7 @@ internal static class HtmlDemoWindow
 				{
 					address = "https://" + address;
 				}
-				NavigateTo(address, pushHistory: true);
+				NavigateTo(address, pushHistory: true, focusPage: true);
 			})
 			.Build();
 
