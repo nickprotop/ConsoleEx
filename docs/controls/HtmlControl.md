@@ -125,17 +125,75 @@ await html.LoadUrlAsync("file:///home/me/saved/article.html");
 | `Tab` | Focus next link |
 | `Shift+Tab` | Focus previous link |
 | `Enter` | Activate focused link (fires `LinkClicked`) |
+| `Ctrl+C` | Copy the selected text (see Selecting and copying) |
 
 ## Mouse Support
 
 | Action | Result |
 |--------|--------|
 | Click on link | Fires `LinkClicked` event |
+| Drag across text | Selects it (see Selecting and copying) |
 | Click on scrollbar | Scroll to position |
 | Drag scrollbar thumb | Smooth scrolling |
 | Mouse wheel | Scroll up/down |
 | Hover over link | Fires `LinkHover`, brightens link text |
 | Right-click | Fires `MouseRightClick` |
+
+## Selecting and copying
+
+Drag across the page to select text, and press `Ctrl+C` to copy it. A press
+that does not move is a click and follows the link it landed on, exactly as
+before; a press that moves is a drag and selects. That is how a browser
+behaves, and it means selection costs the control nothing it already did.
+
+**Copied text is what the document said, not what the screen showed.** A
+paragraph laid out at eighty columns is a dozen screen lines, and copying those
+verbatim would put a hard newline every eighty characters through text the
+author wrote as one paragraph. A break the author wrote - a `<br>`, the end of
+a paragraph, a newline in a code block - survives; a break the viewport
+imposed does not.
+
+Two things do not copy:
+
+- **A rendered picture.** Its cells are pixels rather than characters, and its
+  alt text is not kept once the image arrives, so a picture contributes nothing
+  and the text joins across it.
+- **Table structure.** A row copies as it renders, borders included. Cell
+  boundaries are gone by the time a row becomes a line, and recovering them
+  would cost more than it returns.
+
+### A note for existing users
+
+`EnableSelection` defaults to **`true`**, which differs from `MarkupControl`,
+where selection is opt-in. This control is a reading surface whose whole
+purpose is displaying prose, and a reader who cannot copy from it will conclude
+the feature is missing rather than look for a switch.
+
+It does change left-button handling: with selection live, the control consumes
+presses it previously let through. Click-to-follow-link is unaffected, so for
+anyone not dragging the visible behaviour is the same. If it does not suit your
+application, `EnableSelection = false` restores the previous handling exactly.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `EnableSelection` | `bool` | `true` | Whether dragging selects text |
+| `SelectionForegroundColor` | `Color?` | `null` | Foreground for selected cells |
+| `SelectionBackgroundColor` | `Color?` | `null` | Background for selected cells |
+| `CopyEnabled` | `bool` | `true` | Whether the copy key copies |
+| `CopyKey` | `ConsoleKey` | `C` | The key that copies |
+| `CopyModifiers` | `ConsoleModifiers` | `Control` | Modifiers for the copy key |
+
+`HtmlControl` implements `ISelectableControl`, so the window's `SelectionManager`
+coordinates it with any other selectable control: starting a selection in one
+clears the others.
+
+```csharp
+var html = HtmlBuilder.Create()
+    .WithContent(article)
+    .Build();
+
+html.SelectionChanged += (s, text) => status.SetContent($"{text.Length} characters selected");
+```
 
 ## Focus Behavior
 
