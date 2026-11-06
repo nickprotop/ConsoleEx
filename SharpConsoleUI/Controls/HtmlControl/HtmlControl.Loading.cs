@@ -53,6 +53,8 @@ namespace SharpConsoleUI.Controls
 				_rawHtml = html;
 				_baseUrl = baseUrl;
 				_currentUrl = null;
+				// The old selection addressed the old document's lines.
+				InvalidateSelectionForNewLayout();
 				// Text shows right away; remote images download in the background and pop in
 				// (inline data: images render immediately — HtmlBlockFlow decodes them in place)
 				_imageCache = _showImages ? new Dictionary<string, Imaging.PixelBuffer?>() : null;
@@ -172,6 +174,7 @@ namespace SharpConsoleUI.Controls
 					{
 						_rawHtml = html;
 						_baseUrl = url;
+						InvalidateSelectionForNewLayout();
 						_imageCache = _showImages ? new Dictionary<string, Imaging.PixelBuffer?>() : null;
 						int layoutWidth = _lastLayoutWidth > 0 ? _lastLayoutWidth : 80;
 						RunLayoutWithoutImages(layoutWidth);

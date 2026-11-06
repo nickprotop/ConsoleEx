@@ -28,10 +28,21 @@ namespace SharpConsoleUI.Tests.Html
 	public class HtmlTextExtractorTests
 	{
 		/// <summary>A line of plain text, with the given continuation state.</summary>
-		private static LayoutLine Line(string text, bool continues = false) =>
+		/// <summary>
+		/// A line of plain text.
+		/// </summary>
+		/// <param name="text">The line's characters.</param>
+		/// <param name="continues">Whether the layout broke this line.</param>
+		/// <param name="betweenWords">
+		/// Whether that break fell between words. True by default because a prose
+		/// wrap is the ordinary case; a code line or an over-long word broken
+		/// mid-token passes false, and rejoins with nothing rather than a space.
+		/// </param>
+		private static LayoutLine Line(string text, bool continues = false, bool betweenWords = true) =>
 			new LayoutLine(0, 0, text.Length,
 				text.Select(c => new Cell(c, Color.White, Color.Black)).ToArray(),
-				TextAlignment.Left, links: null, isImage: false, continuesNextLine: continues);
+				TextAlignment.Left, links: null, isImage: false, continuesNextLine: continues,
+				brokeBetweenWords: continues && betweenWords);
 
 		/// <summary>A rendered picture: cells that are pixels, carrying no text.</summary>
 		private static LayoutLine ImageLine(int width = 8) =>
@@ -109,6 +120,17 @@ namespace SharpConsoleUI.Tests.Html
 			var text = All(Line("alpha"), Line(""), Line("beta"));
 
 			Assert.Equal("alpha\n\nbeta", text);
+		}
+
+		[Fact]
+		public void ABreakInsideATokenRejoinsWithNothing()
+		{
+			// A code line, or a single word too long for the viewport: the break
+			// consumed no space, so putting one back would corrupt what is
+			// pasted. This is the distinction BrokeBetweenWords exists for.
+			var text = All(Line("alpha", continues: true, betweenWords: false), Line("beta"));
+
+			Assert.Equal("alphabeta", text);
 		}
 
 		[Fact]

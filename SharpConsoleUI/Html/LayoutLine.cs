@@ -91,8 +91,28 @@ namespace SharpConsoleUI.Html
 		/// </remarks>
 		public bool ContinuesNextLine;
 
+		/// <summary>
+		/// Whether the break that ended this line fell between words, so the
+		/// space it consumed belongs to the text.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// Only meaningful when <see cref="ContinuesNextLine"/> is true, and it is
+		/// the difference between rejoining with a space and rejoining with
+		/// nothing. A paragraph broken at a word boundary needs the space back; a
+		/// code line or a single long word broken mid-token does not, and giving
+		/// it one corrupts what is pasted.
+		/// </para>
+		/// <para>
+		/// Two bits rather than one because "the layout broke this line" and "the
+		/// break was between words" are different facts, and only the code that
+		/// performs the break knows the second.
+		/// </para>
+		/// </remarks>
+		public bool BrokeBetweenWords;
+
 		public LayoutLine(int y, int x, int width, Cell[] cells, TextAlignment alignment, LinkRegion[]? links = null,
-			bool isImage = false, bool continuesNextLine = false)
+			bool isImage = false, bool continuesNextLine = false, bool brokeBetweenWords = false)
 		{
 			Y = y;
 			X = x;
@@ -102,6 +122,7 @@ namespace SharpConsoleUI.Html
 			Links = links;
 			IsImage = isImage;
 			ContinuesNextLine = continuesNextLine;
+			BrokeBetweenWords = brokeBetweenWords;
 		}
 	}
 }

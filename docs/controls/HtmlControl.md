@@ -153,6 +153,10 @@ author wrote as one paragraph. A break the author wrote - a `<br>`, the end of
 a paragraph, a newline in a code block - survives; a break the viewport
 imposed does not.
 
+Dragging selects within what is on screen: the page does not scroll to follow a
+drag past the top or bottom edge, so selecting more than one screenful with the
+mouse is not possible yet.
+
 Two things do not copy:
 
 - **A rendered picture.** Its cells are pixels rather than characters, and its

@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------
 
 using System;
+using SharpConsoleUI.Extensions;
 using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Html;
 // System.Drawing.Point, not the layout Point: this is a mouse position.
@@ -238,6 +239,13 @@ namespace SharpConsoleUI.Controls
 			_selEndColumn = column;
 			_dragMoved = true;
 
+			// The window owns "which control holds the selection", and starting
+			// one here clears whatever held it before. Without telling it,
+			// ISelectableControl's single-owner promise is not kept and the
+			// window-level copy path never sees this selection at all.
+			if (HasSelection)
+				this.GetParentWindow()?.SelectionManager.SetActiveSelection(this);
+
 			SelectionChanged?.Invoke(this, GetSelectedText());
 			Invalidate(Invalidation.Repaint);
 		}
@@ -253,14 +261,29 @@ namespace SharpConsoleUI.Controls
 		/// </remarks>
 		private bool EndSelection()
 		{
-			bool wasDrag = _selecting && _dragMoved;
+			// Keyed on whether anything is SELECTED, not on whether the pointer
+			// moved. A drag out and back to its own anchor moves twice and selects
+			// nothing, and treating that as a drag swallowed the release so the
+			// link under it never fired.
+			bool selected = _selecting && HasSelection;
 			_selecting = false;
 
-			if (!wasDrag)
+			if (!selected)
 				ClearSelection();
 
-			return wasDrag;
+			return selected;
 		}
+
+		/// <summary>
+		/// Drops a selection whose coordinates no longer mean anything.
+		/// </summary>
+		/// <remarks>
+		/// A selection is a pair of line indices into one layout. Replace the
+		/// document or relay it out and those indices address different text, so
+		/// the selection has to go rather than silently come to mean something
+		/// else: it reported, highlighted and copied text the reader never chose.
+		/// </remarks>
+		internal void InvalidateSelectionForNewLayout() => ClearSelection();
 
 		/// <summary>Copies the selection when the key matches.</summary>
 		private bool TryCopySelection(ConsoleKeyInfo key)

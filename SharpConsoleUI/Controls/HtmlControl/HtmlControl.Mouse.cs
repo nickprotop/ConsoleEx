@@ -185,6 +185,19 @@ namespace SharpConsoleUI.Controls
 				return true;
 			}
 
+			// A click that is the tail of a drag follows no link. Release and
+			// click do not always arrive in one frame - the comment above notes
+			// drivers that split them - and when they split, the click arrives
+			// with the gesture capture already released, so the phase is None and
+			// the selection block above does not see it. Without this guard the
+			// reader is navigated away from the page they just selected text on.
+			if (args.HasFlag(MouseFlags.Button1Clicked) && _dragMoved && HasSelection)
+			{
+				_dragMoved = false;
+				args.Handled = true;
+				return true;
+			}
+
 			// Handle link click (non-scrollbar area)
 			if (!mouseOnScrollbar && args.HasFlag(MouseFlags.Button1Clicked))
 			{

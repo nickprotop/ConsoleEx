@@ -412,7 +412,7 @@ namespace SharpConsoleUI.Html
 							var bulletIndent = indent;
 							line = new LayoutLine(0, bulletIndent, combined.Length, combined, line.Alignment,
 								ShiftLinks(line.Links, prefixCells.Length), line.IsImage,
-								line.ContinuesNextLine);
+								line.ContinuesNextLine, line.BrokeBetweenWords);
 							ctx.AddLine(line, bulletIndent);
 						}
 						else
@@ -489,7 +489,7 @@ namespace SharpConsoleUI.Html
 				// scrambled the moment it took focus.
 				var newLine = new LayoutLine(0, indent, newCells.Length, newCells,
 					line.Alignment, ShiftLinks(line.Links, barWidth), line.IsImage,
-					line.ContinuesNextLine);
+					line.ContinuesNextLine, line.BrokeBetweenWords);
 				ctx.AddLine(newLine, indent);
 			}
 		}

@@ -88,19 +88,26 @@ namespace SharpConsoleUI.Html
 					text.Append(line.Cells[x].Character.ToString());
 				}
 
-				// A wrapped line often keeps the space it broke at, and joining
-				// with another would give two in every pasted paragraph.
-				if (line.ContinuesNextLine)
-				{
-					if (text.Length > 0 && text[^1] == ' ')
-						pending = string.Empty;
-					else
-						pending = " ";
-				}
-				else
+				if (!line.ContinuesNextLine)
 				{
 					pending = "\n";
+					continue;
 				}
+
+				// A break between words consumed a space that belongs to the text,
+				// so it is put back. A break inside a token - a code line or a
+				// single word too long for the viewport - consumed nothing, and
+				// inventing a space there corrupts what is pasted: a command or an
+				// identifier comes out with gaps the author never typed.
+				if (!line.BrokeBetweenWords)
+				{
+					pending = string.Empty;
+					continue;
+				}
+
+				// The wrap often leaves its space on the line already, and adding
+				// another would double it in every pasted paragraph.
+				pending = text.Length > 0 && text[^1] == ' ' ? string.Empty : " ";
 			}
 
 			return text.ToString();

@@ -208,8 +208,9 @@ namespace SharpConsoleUI.Html
 
 					if (ctx.CurrentX >= ctx.MaxWidth)
 					{
-						// Out of room at a space: a wrap, not the author's break.
-						ctx.FinishLine(wrapped: true);
+						// Out of room at a space: a wrap, not the author's break,
+						// and the space it fell on is part of the text.
+						ctx.FinishLine(wrapped: true, betweenWords: true);
 						continue;
 					}
 
@@ -224,8 +225,8 @@ namespace SharpConsoleUI.Html
 					// Check if word fits on current line
 					if (ctx.CurrentX > 0 && ctx.CurrentX + wordWidth > ctx.MaxWidth)
 					{
-						// Wrap to next line
-						ctx.FinishLine(wrapped: true);
+						// Wrap to next line, at the space before this word.
+						ctx.FinishLine(wrapped: true, betweenWords: true);
 					}
 
 					// If word is longer than maxWidth, break character by character
@@ -236,10 +237,11 @@ namespace SharpConsoleUI.Html
 							var safe = Helpers.TextSanitizer.IsUnsafeRune(rune)
 								? Helpers.TextSanitizer.ReplacementCharacter : rune;
 							int rw = Helpers.UnicodeWidth.GetRuneWidth(safe);
-							// A word longer than the whole line is broken mid-word,
-							// which is as much a wrap as any other.
+							// A word longer than the whole line is broken mid-word.
+							// A wrap, but not between words: no space was consumed,
+							// so rejoining must not invent one.
 							if (ctx.CurrentX + rw > ctx.MaxWidth)
-								ctx.FinishLine(wrapped: true);
+								ctx.FinishLine(wrapped: true, betweenWords: false);
 							ctx.AddCell(new Cell(safe, fg, bg, decorations), linkUrl);
 						}
 					}
@@ -381,7 +383,8 @@ namespace SharpConsoleUI.Html
 			/// with a newline puts a hard break every viewport width through a
 			/// paragraph the author wrote as one.
 			/// </param>
-			public void FinishLine(bool wrapped = false)
+			/// <param name="betweenWords"></param>
+			public void FinishLine(bool wrapped = false, bool betweenWords = false)
 			{
 				// Close any open link region for this line
 				CloseLinkRegion();
@@ -390,7 +393,7 @@ namespace SharpConsoleUI.Html
 				LinkRegion[]? links = _currentLineLinks.Count > 0 ? _currentLineLinks.ToArray() : null;
 
 				Lines.Add(new LayoutLine(LineY, 0, cells.Length, cells, Alignment, links,
-					isImage: false, continuesNextLine: wrapped));
+					isImage: false, continuesNextLine: wrapped, brokeBetweenWords: wrapped && betweenWords));
 
 				LineY++;
 				CurrentCells.Clear();

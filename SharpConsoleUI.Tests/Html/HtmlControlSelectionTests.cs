@@ -183,11 +183,18 @@ namespace SharpConsoleUI.Tests.Html
 			Assert.True(control.ContentHeight > Height,
 				"test precondition: the document should be taller than the viewport");
 
+			// Pressed below row 0: the top row is the up-arrow zone, and a press
+			// there is a discrete click rather than a thumb grab. Row 3 is on the
+			// thumb, which is what this test is about.
 			int scrollbarX = Width - 1;
-			control.ProcessMouseEvent(At(scrollbarX, 0, MouseFlags.Button1Pressed));
-			control.ProcessMouseEvent(DragTo(scrollbarX, Height - 1));
-			control.ProcessMouseEvent(At(scrollbarX, Height - 1, MouseFlags.Button1Released));
+			control.ProcessMouseEvent(At(scrollbarX, 3, MouseFlags.Button1Pressed));
+			control.ProcessMouseEvent(DragTo(scrollbarX, Height - 2));
+			control.ProcessMouseEvent(At(scrollbarX, Height - 2, MouseFlags.Button1Released));
 
+			// Both halves, as the plan required. Asserting only "nothing was
+			// selected" would also pass if the gesture had been dropped on the
+			// floor, which is not the same as the scrollbar having claimed it.
+			Assert.True(control.ScrollOffset > 0, "the thumb drag did not scroll");
 			Assert.False(control.HasSelection, "a scrollbar drag selected text");
 		}
 
