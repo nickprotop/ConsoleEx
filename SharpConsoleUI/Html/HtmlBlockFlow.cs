@@ -28,8 +28,33 @@ namespace SharpConsoleUI.Html
 			"p", "div", "h1", "h2", "h3", "h4", "h5", "h6",
 			"hr", "br", "ul", "ol", "li", "blockquote", "pre", "table",
 			"section", "article", "header", "footer", "nav", "main", "aside",
-			"figure", "figcaption", "details", "summary", "dl", "dt", "dd"
+			"figure", "figcaption", "details", "summary", "dl", "dt", "dd",
+
+			// Deprecated in HTML, and common on exactly the older, lighter pages a
+			// terminal browser gets pointed at. Missing here it fell through to the
+			// inline path, where a block child has no representation and was simply
+			// dropped: Hacker News wraps its whole body in <center><table> and
+			// rendered as three blank rows, with no error to explain it.
+			"center",
+
+			// Same class of omission, found while checking for others: all are
+			// block-level, all appear on real pages, and all would lose any block
+			// content nested inside them.
+			"fieldset", "form", "address", "caption", "figure", "noframes"
 		};
+
+		/// <summary>
+		/// Whether a tag is laid out as a block rather than flowed inline.
+		/// </summary>
+		/// <param name="tag">The element's local name; case does not matter.</param>
+		/// <returns>True when the tag starts its own line.</returns>
+		/// <remarks>
+		/// Exposed so the table layout can ask the same question with the same
+		/// answer. A second copy of this list would drift, and the drift would show
+		/// up as content silently vanishing inside a cell.
+		/// </remarks>
+		public static bool IsBlockTag(string? tag) =>
+			tag != null && BlockTags.Contains(tag);
 
 		private static readonly HashSet<string> SkipTags = new(StringComparer.OrdinalIgnoreCase)
 		{
@@ -50,10 +75,12 @@ namespace SharpConsoleUI.Html
 			bool showImages = false,
 			Dictionary<string, Imaging.PixelBuffer?>? imageCache = null,
 			IDocument? cssDocument = null,
-			Drivers.IGraphicsProtocol? graphicsProtocol = null)
+			Drivers.IGraphicsProtocol? graphicsProtocol = null,
+			string? documentUrl = null)
 		{
 			var ctx = new BlockContext
 			{
+				DocumentUrl = documentUrl,
 				MaxWidth = maxWidth,
 				DefaultFg = defaultFg,
 				DefaultBg = defaultBg,
@@ -403,6 +430,7 @@ namespace SharpConsoleUI.Html
 				ShowImages = ctx.ShowImages,
 				ImageCache = ctx.ImageCache,
 				CssDocument = ctx.CssDocument,
+				DocumentUrl = ctx.DocumentUrl,
 			};
 
 			ProcessChildren(element, innerCtx, bqIndent, listDepth);
@@ -455,7 +483,8 @@ namespace SharpConsoleUI.Html
 			var availWidth = ctx.MaxWidth - indent;
 			if (availWidth <= 0) availWidth = 1;
 
-			var tableLines = HtmlTableLayout.LayoutTable(element, availWidth, ctx.DefaultFg, ctx.DefaultBg, ctx.LinkColor);
+			var tableLines = HtmlTableLayout.LayoutTable(element, availWidth, ctx.DefaultFg, ctx.DefaultBg,
+				ctx.LinkColor, ctx.VisitedLinkColor);
 			if (tableLines.Length == 0)
 				return;
 
@@ -591,6 +620,12 @@ namespace SharpConsoleUI.Html
 			public bool ShowImages;
 			public Dictionary<string, Imaging.PixelBuffer?>? ImageCache;
 			public IDocument? CssDocument;
+
+			/// <summary>
+			/// Where this document came from, or null when the application supplied it
+			/// directly. Decides whether its images may be read from local files.
+			/// </summary>
+			public string? DocumentUrl;
 			public Drivers.IGraphicsProtocol? GraphicsProtocol;
 
 			public List<LayoutLine> Lines = new();
