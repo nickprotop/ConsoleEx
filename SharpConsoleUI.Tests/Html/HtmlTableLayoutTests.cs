@@ -9,6 +9,7 @@
 using SharpConsoleUI.Html;
 using SharpConsoleUI.Layout;
 using Spectre.Console;
+using System;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Html
@@ -200,13 +201,25 @@ namespace SharpConsoleUI.Tests.Html
 		}
 
 		[Fact]
-		public void Br_InsideCell_BecomesSpace()
+		public void Br_InsideCell_BreaksTheLine()
 		{
 			var lines = LayoutTable("<table><tr><td>Foo<br>Bar</td></tr></table>");
 			var text = HtmlTestHelpers.LinesToText(lines);
-			// <br> inside a table cell is rendered as a space separator — the cell is on one line
-			// with "Foo Bar" (we don't currently wrap on <br> inside cells).
-			Assert.Contains("Foo Bar", text);
+
+			// A <br> now does inside a cell what it does everywhere else: breaks
+			// the line. It used to collapse to a space, because a cell was a
+			// single string and had nowhere to put a second line; cells are laid
+			// out through the real inline flow now, so the break survives.
+			Assert.Contains("Foo", text);
+			Assert.Contains("Bar", text);
+			Assert.DoesNotContain("Foo Bar", text);
+
+			// And exactly one line apart - no blank row between them.
+			var rows = text.Split('\n');
+			int foo = Array.FindIndex(rows, l => l.Contains("Foo"));
+			int bar = Array.FindIndex(rows, l => l.Contains("Bar"));
+			Assert.True(foo >= 0 && bar == foo + 1,
+				$"expected Bar directly under Foo, got rows {foo} and {bar}");
 		}
 	}
 }
