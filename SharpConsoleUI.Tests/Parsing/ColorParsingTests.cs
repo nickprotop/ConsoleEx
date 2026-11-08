@@ -355,7 +355,7 @@ namespace SharpConsoleUI.Tests.Parsing
 		[Theory]
 		[InlineData("blue3", 0, 0, 175)]
 		[InlineData("red3", 175, 0, 0)]
-		[InlineData("gold31", 175, 175, 0)]
+		[InlineData("gold31", 215, 175, 0)]   // xterm 178; gold3 itself is 142
 		[InlineData("green3", 0, 175, 0)]
 		[InlineData("yellow3", 175, 215, 0)]
 		public void TryFromName_Xterm256_NumberedVariants_ReturnsCorrectRgb(string name, byte r, byte g, byte b)
@@ -390,9 +390,13 @@ namespace SharpConsoleUI.Tests.Parsing
 		}
 
 		[Theory]
-		[InlineData("gold3_1", 175, 175, 0)]
-		[InlineData("red3_1", 215, 0, 0)]
-		[InlineData("deeppink3_1", 215, 0, 135)]
+		// Each denotes the SECOND xterm slot carrying the repeated name, as
+		// red3_1 (160) and deeppink3_1 (162) already did; gold3_1 asserted
+		// gold3's own value (142) instead, matching a constant that had been
+		// copied from its neighbour.
+		[InlineData("gold3_1", 215, 175, 0)]   // xterm 178
+		[InlineData("red3_1", 215, 0, 0)]      // xterm 160
+		[InlineData("deeppink3_1", 215, 0, 135)] // xterm 162
 		public void TryFromName_Xterm256_UnderscoreVariants_ResolveCorrectly(string name, byte r, byte g, byte b)
 		{
 			Assert.True(Color.TryFromName(name, out var color));

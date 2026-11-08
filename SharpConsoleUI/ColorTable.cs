@@ -255,6 +255,13 @@ namespace SharpConsoleUI
 				["orangered1"] = Color.OrangeRed1,
 				["indianred1"] = Color.IndianRed1,
 				["indianred11"] = Color.IndianRed1_1,
+				// xterm 167, the second slot named "IndianRed". The convention
+				// elsewhere appends the occurrence number, but "indianred1" is
+				// already the distinct xterm name IndianRed (203), and lookup
+				// strips underscores, so Spectre's "indianred_1" cannot be
+				// spelled apart from it. Named for its occurrence instead, so
+				// the color is reachable at all.
+				["indianred2"] = Color.IndianRed_1,
 				["hotpink1"] = Color.HotPink_1,
 				["mediumorchid11"] = Color.MediumOrchid1_1,
 				["palevioletred1"] = Color.PaleVioletRed1,

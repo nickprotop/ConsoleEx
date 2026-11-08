@@ -268,7 +268,7 @@ namespace SharpConsoleUI
 		public static Color LightSalmon3 => new(175, 135, 95);
 		public static Color MediumPurple2_1 => new(175, 135, 215);
 		public static Color MediumPurple1 => new(175, 135, 255);
-		public static Color Gold3_1 => new(175, 175, 0);
+		public static Color Gold3_1 => new(215, 175, 0);        // #178
 		public static Color NavajoWhite3 => new(175, 175, 135);
 		public static Color LightSteelBlue3 => new(175, 175, 215);
 		public static Color Yellow3 => new(175, 215, 0);
@@ -305,8 +305,8 @@ namespace SharpConsoleUI
 		public static Color LightYellow3 => new(215, 215, 175);
 		public static Color LightSteelBlue1 => new(215, 215, 255);
 		public static Color Yellow2 => new(215, 255, 0);
-		public static Color DarkOliveGreen1_1 => new(215, 255, 95);
-		public static Color DarkOliveGreen1_2 => new(215, 255, 135);
+		public static Color DarkOliveGreen1_1 => new(215, 255, 135); // #192
+		public static Color DarkOliveGreen1_2 => new(215, 255, 135); // #192; kept as an alias of _1 (xterm repeats this name only twice)
 		public static Color DarkSeaGreen1_1 => new(215, 255, 175);
 		public static Color Red1 => new(255, 0, 0);
 		public static Color DeepPink2 => new(255, 0, 95);
@@ -349,7 +349,7 @@ namespace SharpConsoleUI
 		public static Color Grey54 => new(138, 138, 138);
 		public static Color Grey58 => new(148, 148, 148);
 		public static Color Grey62 => new(158, 158, 158);
-		public static Color Grey63 => new(160, 160, 160);
+		public static Color Grey63 => new(175, 135, 175);  // #139
 		public static Color Grey66 => new(168, 168, 168);
 		public static Color Grey69 => new(175, 175, 175);
 		public static Color Grey70 => new(178, 178, 178);
