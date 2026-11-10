@@ -75,8 +75,12 @@ namespace SharpConsoleUI.Controls
 
 	/// <summary>
 	/// Defines the visual presentation of messages belonging to a specific <see cref="ChatRole"/>.
-	/// All properties are init-only; create a new instance (or use <c>with</c> expressions) to customise.
+	/// All properties are init-only: construct a new instance to customise, carrying over whatever
+	/// the previous one set.
 	/// </summary>
+	/// <remarks>
+	/// This is a sealed class rather than a record, so <c>with</c> expressions do not apply to it.
+	/// </remarks>
 	public sealed class ChatRoleStyle
 	{
 		/// <summary>
@@ -152,6 +156,19 @@ namespace SharpConsoleUI.Controls
 		/// When <c>null</c> the panel's default background is used.
 		/// </summary>
 		public Color? Background { get; init; }
+
+		/// <summary>
+		/// The body's default text colour — what plain text and plain Markdown are drawn in.
+		/// When <c>null</c> (the default) the control's own resolution is kept, exactly as before.
+		/// </summary>
+		/// <remarks>
+		/// Only text that carries no colour of its own is affected. Markdown writes an explicit
+		/// colour for headings, inline code, links, quotes and table borders, and <c>[color]</c>
+		/// markup in the content names its own; all of those keep theirs. That is what makes this
+		/// usable for dimming a whole role — system notes drawn quieter than the conversation —
+		/// without flattening the content's own structure.
+		/// </remarks>
+		public Color? Foreground { get; init; }
 
 		/// <summary>
 		/// Whether this role's messages show the left rail by default. <c>null</c> (default) keeps the

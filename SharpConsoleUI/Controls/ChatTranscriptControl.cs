@@ -390,6 +390,12 @@ namespace SharpConsoleUI.Controls
 				{
 					entry.Body.EnableSelection = style.Selectable ?? MessagesSelectable;
 
+					// Assigned unconditionally, so clearing the role's colour RESETS the body
+					// rather than leaving the last one painted — the same "unset versus
+					// explicit" care the background takes above. ForegroundColor is already
+					// nullable, so null expresses "unset" directly.
+					entry.Body.ForegroundColor = style.Foreground;
+
 					// Re-render from the buffer so Markdown colours follow the current style. RenderBody
 					// reads the message's own MarkdownOverride itself, so the override survives this.
 					RenderBody(entry, style);
@@ -676,7 +682,13 @@ namespace SharpConsoleUI.Controls
 			}
 			else
 			{
-				var body = new MarkupControl(new List<string>()) { EnableSelection = style.Selectable ?? MessagesSelectable };
+				var body = new MarkupControl(new List<string>())
+				{
+					EnableSelection = style.Selectable ?? MessagesSelectable,
+					// Null leaves the control's own resolution alone, which is what every
+					// role that never sets this one gets.
+					ForegroundColor = style.Foreground,
+				};
 				panel.AddControl(body);
 				entry = new MessageEntry(id, role, author, panel, body: body, spinner: null, thinking: false);
 				entry.Buffer.Append(content);

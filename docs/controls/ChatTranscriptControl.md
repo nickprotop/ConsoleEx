@@ -339,6 +339,7 @@ Defines the visual presentation of messages for a given role. All properties are
 | `Selectable` | `bool?` | `null` | Per-role override for text selection. `null` inherits the control's `MessagesSelectable` baseline; `true` forces selection **on** for this role even when the master is off; `false` forces it **off** even when the master is on. A body resolves to `role.Selectable ?? MessagesSelectable`, so the two compose symmetrically (e.g. master off but `Assistant`/`Tool` output still selectable). |
 | `HeaderGradient` | `(Color From, Color To)?` | `null` | Optional gradient sweep applied to the header text. When non-`null`, the header is rendered with a color transition from `From` to `To`. |
 | `Background` | `Color?` | `null` | Optional background color for the message body area. Accepts colors with an alpha channel (via `Color.WithAlpha`) so the compositor blends the bubble over the window background. |
+| `Foreground` | `Color?` | `null` | The body's default text color, applied to plain text and plain Markdown. `null` keeps the control's own resolution. Content that colors itself keeps its own: Markdown writes explicit colors for headings, inline code, links, quotes and table borders, and `[color]` markup names its own. See [Dimming a whole role](#dimming-a-whole-role). |
 | `Rail` | `bool?` | `null` | Whether this role's messages show the left rail. `null` keeps the footer-gated rule; `true` rails every message of the role. A message's own `SetMessageRail` wins. |
 | `RailColor` | `Color?` | `null` | Color of this role's rail. `null` uses `MessageRailColor`, else a dimmed role color. A message's own `SetMessageRailColor` wins. |
 | `DefaultActions` | `IReadOnlyList<ChatMessageAction>?` | `null` | Footer actions seeded on every message of this role at creation. `null` (the default) adds no actions. An explicit `AddMessage(..., actions:, ...)` overload overrides these per message. See [Message Actions & Status](#message-actions--status). |
@@ -392,6 +393,32 @@ Set `Background = someColor.WithAlpha(value)` on a `ChatRoleStyle` to give messa
 ```
 
 No new code is needed — the compositor's existing Porter-Duff `Color.Blend` handles the blend.
+
+### Dimming a whole role
+
+`Foreground` sets the body's default text color, so a role can be drawn quieter than the rest of the conversation — system notes alongside the messages people are actually reading.
+
+```csharp
+chat.SetRoleStyle(ChatRole.System, new ChatRoleStyle
+{
+    Foreground = theme.Muted
+});
+```
+
+Only text that carries no color of its own is affected. Markdown writes an explicit color for headings, inline code, links, quotes and table borders, and `[color]` markup in the content names its own; all of those keep theirs. That is what makes this usable for dimming without flattening the content's structure.
+
+`null` (the default) keeps the control's own resolution, so a role that never sets it renders exactly as before.
+
+Like every role-style property, this is copied into a message when the message is **built**. To bring messages already on screen onto a new color — after a theme switch — set the style and then call `RestyleMessages()`:
+
+```csharp
+chat.SetRoleStyle(ChatRole.System, new ChatRoleStyle { Foreground = newTheme.Muted });
+chat.RestyleMessages();
+```
+
+Clearing it back to `null` and restyling returns the body to its default color rather than leaving the last one painted.
+
+This is the same rule `Background` follows, and it is why `SetRoleStyle` does not restyle on its own: a theme switch usually sets several role styles at once, and one `RestyleMessages()` after the last of them re-renders each message once instead of once per role.
 
 ### D. Thinking Indicator
 
