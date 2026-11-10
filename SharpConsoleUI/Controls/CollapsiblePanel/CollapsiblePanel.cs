@@ -802,16 +802,28 @@ namespace SharpConsoleUI.Controls
 		private IInteractiveControl? FindFocusedChild()
 		{
 			var focusManager = (this as IWindowControl).GetParentWindow()?.FocusManager;
+			if (focusManager == null) return null;
+
+			// The focus path, so a child that CONTAINS the focus is found as well as one that
+			// IS the focus. A field in a settings form is a control in a grid cell, and a grid
+			// is a transparent focus scope that never holds focus itself, so asking each child
+			// "are you focused?" finds nothing and the panel reports no cursor while the field
+			// still takes keys. GridControl and ScrollablePanelControl resolve their own focused
+			// child the same way.
+			var focused = focusManager.FocusedControl;
+			if (focused == null) return null;
+			var focusPath = focusManager.FocusPath;
+
 			List<IWindowControl> snapshot;
 			lock (_childrenLock) { snapshot = new List<IWindowControl>(_children); }
 			foreach (var content in snapshot)
 			{
-				if (content is IInteractiveControl ic
-					&& content is IFocusableControl fc
-					&& (focusManager?.IsFocused(fc) ?? false))
-				{
-					return ic;
-				}
+				if (ReferenceEquals(content, focused))
+					return content as IInteractiveControl;
+
+				// content is an ancestor of the focused control.
+				if (focusPath.Contains(content, ReferenceEqualityComparer.Instance))
+					return content as IInteractiveControl;
 			}
 			return null;
 		}

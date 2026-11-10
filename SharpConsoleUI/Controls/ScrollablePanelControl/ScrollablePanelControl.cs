@@ -926,9 +926,14 @@ namespace SharpConsoleUI.Controls
 						return null;
 
 					// Apply the horizontal scroll offset so the cursor tracks a horizontally-scrolled child.
+					//
+					// The MARGIN belongs here with the inset: content is painted at
+					// Margin.Left + ContentInsetLeft (see ComputeContentRegion, which says so in
+					// as many words), so a cursor that counted only the inset landed one column
+					// short of its own text for every panel given a margin. Same for the row.
 					return new System.Drawing.Point(
-						childPos.Value.X + ContentInsetLeft - _horizontalScrollOffset,
-						panelRelativeY + ContentInsetTop);
+						childPos.Value.X + Margin.Left + ContentInsetLeft - _horizontalScrollOffset,
+						panelRelativeY + Margin.Top + ContentInsetTop);
 				}
 			}
 			return null;
@@ -943,10 +948,10 @@ namespace SharpConsoleUI.Controls
 				int? childTop = FocusedChildContentTop(wc);
 				if (childTop.HasValue)
 				{
-					// Inverse of GetLogicalCursorPosition.
+					// Inverse of GetLogicalCursorPosition, margin included.
 					var childPos = new System.Drawing.Point(
-						position.X - ContentInsetLeft + _horizontalScrollOffset,
-						position.Y - childTop.Value + _verticalScrollOffset - ContentInsetTop);
+						position.X - Margin.Left - ContentInsetLeft + _horizontalScrollOffset,
+						position.Y - childTop.Value + _verticalScrollOffset - Margin.Top - ContentInsetTop);
 					cursorProvider.SetLogicalCursorPosition(childPos);
 				}
 			}
