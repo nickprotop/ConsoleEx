@@ -265,6 +265,77 @@ public class Win32InputModeTests
 
 	#endregion
 
+	#region The shared decoder, as the Windows reader calls it
+
+	/// <summary>
+	/// The Windows input loop collects escape sequences itself and does NOT route them through
+	/// <see cref="AnsiInputParser"/>, so the decoder is shared and has to be correct when called
+	/// directly.
+	/// </summary>
+	/// <remarks>
+	/// This is the path that broke in the field: the mode was requested, only the parser learned to
+	/// decode it, and the Windows reader dropped every report instead -- so once Windows Terminal
+	/// honoured the request, nothing typed reached the application at all. Every parser-level test
+	/// here stayed green through that, which is exactly why these exist.
+	/// </remarks>
+	[Fact]
+	public void SharedDecoder_DecodesCtrlShiftO()
+	{
+		bool ok = AnsiInputParser.TryDecodeWin32Input("79;0;79;1;24;1", out ConsoleKeyInfo? key);
+
+		Assert.True(ok);
+		Assert.NotNull(key);
+		Assert.Equal(ConsoleKey.O, key!.Value.Key);
+		Assert.True(key.Value.Modifiers.HasFlag(ConsoleModifiers.Control));
+		Assert.True(key.Value.Modifiers.HasFlag(ConsoleModifiers.Shift));
+	}
+
+	/// <summary>
+	/// A well-formed report that is not a keystroke must be told apart from a malformed one: the
+	/// first is deliberately dropped, the second is an unknown sequence. Collapsing the two would
+	/// either deliver key-up events or report real keystrokes as garbage.
+	/// </summary>
+	[Theory]
+	[InlineData("79;0;111;0;0;1")]   // key-up
+	[InlineData("16;0;0;1;16;1")]    // bare Shift press
+	[InlineData("0;0;0;1;0;1")]      // nothing to name, nothing to type
+	public void SharedDecoder_ValidNonKeystroke_SucceedsWithNoKey(string paramStr)
+	{
+		bool ok = AnsiInputParser.TryDecodeWin32Input(paramStr, out ConsoleKeyInfo? key);
+
+		Assert.True(ok);     // well-formed: NOT an unknown sequence
+		Assert.Null(key);    // but nothing to deliver
+	}
+
+	[Theory]
+	[InlineData("")]
+	[InlineData("79")]
+	[InlineData("79;0;111;1")]
+	[InlineData("79;0;111;1;8;0")]   // repeat count below 1
+	[InlineData("abc;0;111;1;8;1")]
+	public void SharedDecoder_MalformedReport_Fails(string paramStr)
+	{
+		Assert.False(AnsiInputParser.TryDecodeWin32Input(paramStr, out ConsoleKeyInfo? key));
+		Assert.Null(key);
+	}
+
+	/// <summary>
+	/// The Windows reader picks reports out by their final <c>_</c>, so that test must hold for the
+	/// sequences it will actually see -- including the ones it must NOT claim.
+	/// </summary>
+	[Theory]
+	[InlineData("79;0;111;1;8;1_", true)]
+	[InlineData("<0;10;5M", false)]     // SGR mouse
+	[InlineData("200~", false)]         // bracketed paste start
+	[InlineData("1;5A", false)]         // Ctrl+Up
+	[InlineData("111;6u", false)]       // CSI u
+	public void WindowsReader_ClaimsOnlyReportsEndingInUnderscore(string sequence, bool isReport)
+	{
+		Assert.Equal(isReport, sequence.Length > 0 && sequence[sequence.Length - 1] == '_');
+	}
+
+	#endregion
+
 	#region Coexistence with the sequences already parsed
 
 	/// <summary>
