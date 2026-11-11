@@ -56,14 +56,15 @@ system.RegisterGlobalShortcut(ConsoleModifiers.Control, ConsoleKey.O,
 system.RegisterGlobalShortcut(ConsoleModifiers.Control | ConsoleModifiers.Shift, ConsoleKey.O,
 	() => { Show("[bold magenta]SHORTCUT  Ctrl+Shift+O[/]"); return false; });
 
-// Which mechanism is in play, since two very different ones give the same
-// outcome: with VT input OFF the console reports the modifier itself, with it
-// ON only win32-input-mode can carry it.
+// Which mechanism is in play, since several give the same outcome. Says the
+// PROCESS's platform, not the machine's: run over SSH or in WSL from a Windows
+// desktop and this is a Unix process on a pty, where no console protocol exists
+// and Ctrl+Shift+letter cannot be recovered at all.
 if (system.ConsoleDriver is NetConsoleDriver net)
 {
 	Show(OperatingSystem.IsWindows()
-		? $"[grey]VT input: {(net.VirtualTerminalInputEnabled ? "ON (modifier needs win32-input-mode)" : "OFF (console reports the modifier itself)")}[/]"
-		: "[grey]VT input: n/a (not Windows)[/]");
+		? $"[grey]Windows console. VT input: {(net.VirtualTerminalInputEnabled ? "ON - the modifier can only arrive via win32-input-mode" : "OFF - the console reports the modifier itself")}[/]"
+		: "[grey]NOT a Windows console (Unix/pty - SSH and WSL land here). Ctrl+Shift+letter is unrecoverable unless the terminal sends modifyOtherKeys or CSI u.[/]");
 }
 
 var window = new WindowBuilder(system)
