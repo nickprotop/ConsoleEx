@@ -100,7 +100,6 @@ internal sealed class DiagnosticsServer : IDisposable
 		// live application is worth one line at the level that shows.
 		// Debug, not Warning. A client connects on every single call, so at
 		// Warning the log fills with this and buries whatever went wrong.
-		_system.LogService.LogDebug("Diagnostics client connected", "Diagnostics");
 		try
 		{
 			using var stream = new NetworkStream(client, ownsSocket: false);
@@ -142,7 +141,6 @@ internal sealed class DiagnosticsServer : IDisposable
 		{
 			// Information: the connect line is the one worth seeing by default; a
 			// matching disconnect at Warning would double the noise for no gain.
-			_system.LogService.LogInfo("Diagnostics client disconnected", "Diagnostics");
 		}
 	}
 

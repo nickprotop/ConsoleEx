@@ -30,7 +30,6 @@ namespace SharpConsoleUI
 					return;
 				}
 
-				_windowSystem?.LogService?.LogDebug($"Window state changed: {Title} ({previous_state} -> {value})", "Window");
 				_state = value;
 
 				switch (value)

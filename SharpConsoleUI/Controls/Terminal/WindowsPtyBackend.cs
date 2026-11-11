@@ -36,7 +36,6 @@ internal sealed class WindowsPtyBackend : IPtyBackend
 	public WindowsPtyBackend(string exe, string[]? args, int rows, int cols, string? workingDirectory = null, ILogService? logService = null)
 	{
 		_log = logService;
-		_log?.LogInfo($"WindowsPtyBackend: creating ConPTY ({rows}x{cols}) for exe='{exe}' cwd='{workingDirectory ?? "(inherit)"}'", "PTY");
 		// ── 1. Create anonymous pipes ─────────────────────────────────────────
 		//   Input pipe:  parent writes → ConPTY reads (keyboard input)
 		//   Output pipe: ConPTY writes → parent reads (terminal output)
@@ -112,7 +111,7 @@ internal sealed class WindowsPtyBackend : IPtyBackend
 			_hProcess = pi.hProcess;
 			_processId = pi.dwProcessId;
 			WinPtyNative.CloseHandle(pi.hThread); // we don't need the thread handle
-			_log?.LogInfo($"WindowsPtyBackend: ConPTY ready, childPid={_processId}", "PTY");
+			_log?.LogDebug($"WindowsPtyBackend: ConPTY ready, childPid={_processId}", "PTY");
 		}
 		finally
 		{
@@ -159,7 +158,6 @@ internal sealed class WindowsPtyBackend : IPtyBackend
 	public void Resize(int rows, int cols)
 	{
 		if (_hPcon == IntPtr.Zero) return;
-		_log?.LogDebug($"WindowsPtyBackend.Resize({rows}x{cols})", "PTY");
 		WinPtyNative.ResizePseudoConsole(
 			_hPcon,
 			new WinPtyNative.COORD { X = (short)cols, Y = (short)rows });
@@ -175,7 +173,6 @@ internal sealed class WindowsPtyBackend : IPtyBackend
 	public void BeginShutdown()
 	{
 		if (Interlocked.Exchange(ref _shutdownBegun, 1) != 0) return;
-		_log?.LogDebug($"WindowsPtyBackend.BeginShutdown: closing ConPTY, pid={_processId}", "PTY");
 
 		// Close input first — signals EOF to the child's stdin.
 		try { _inputStream?.Dispose(); } catch { }
@@ -195,7 +192,6 @@ internal sealed class WindowsPtyBackend : IPtyBackend
 	public void Dispose()
 	{
 		if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
-		_log?.LogDebug($"WindowsPtyBackend.Dispose: reaping pid={_processId}", "PTY");
 
 		// In case Dispose was reached without BeginShutdown.
 		BeginShutdown();

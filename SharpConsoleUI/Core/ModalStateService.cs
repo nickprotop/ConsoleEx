@@ -107,8 +107,6 @@ namespace SharpConsoleUI.Core
 
 			lock (_lock)
 			{
-				_logService?.LogDebug($"Modal pushed: {modal.Title} (parent: {parent?.Title ?? "None"})", "Modal");
-
 				var previousState = _currentState;
 
 				// Add to stack
@@ -142,8 +140,6 @@ namespace SharpConsoleUI.Core
 			{
 				if (!_modalStack.Contains(modal))
 					return;
-
-				_logService?.LogDebug($"Modal popped: {modal.Title}", "Modal");
 
 				var previousState = _currentState;
 

@@ -56,10 +56,8 @@ internal sealed class LinuxPtyBackend : IPtyBackend
 	public LinuxPtyBackend(string exe, string[]? args, int rows, int cols, string? workingDirectory = null, ILogService? logService = null)
 	{
 		_log = logService;
-		_log?.LogInfo($"LinuxPtyBackend: opening PTY ({rows}x{cols}) for exe='{exe}' cwd='{workingDirectory ?? "(inherit)"}'", "PTY");
 
 		(_masterFd, int slave) = PtyNative.Open(rows, cols);
-		_log?.LogDebug($"LinuxPtyBackend: openpty master={_masterFd} slave={slave}", "PTY");
 
 		// Spawn this same executable as the shim: --pty-shim <slave> <exe> [args]
 		var shimArgs = new List<string> { "--pty-shim", slave.ToString(), exe };
@@ -75,7 +73,7 @@ internal sealed class LinuxPtyBackend : IPtyBackend
 		_shimProc = Process.Start(psi) ?? throw new InvalidOperationException("PTY shim failed to start");
 		_childPid = _shimProc.Id;
 		PtyNative.close(slave);  // parent closes its copy of the slave fd
-		_log?.LogInfo($"LinuxPtyBackend: shim spawned, childPid={_childPid}", "PTY");
+		_log?.LogDebug($"LinuxPtyBackend: shim spawned, childPid={_childPid}", "PTY");
 	}
 
 	public int ChildProcessId => _childPid;
@@ -116,7 +114,6 @@ internal sealed class LinuxPtyBackend : IPtyBackend
 	{
 		int fd = Volatile.Read(ref _masterFd);
 		if (fd < 0) return;
-		_log?.LogDebug($"LinuxPtyBackend.Resize({rows}x{cols})", "PTY");
 		PtyNative.Resize(fd, rows, cols);
 	}
 
@@ -125,7 +122,6 @@ internal sealed class LinuxPtyBackend : IPtyBackend
 	{
 		if (Interlocked.Exchange(ref _shutdownBegun, 1) != 0) return;
 
-		_log?.LogDebug($"LinuxPtyBackend.BeginShutdown: SIGHUP to process group {_childPid}", "PTY");
 
 		// SIGHUP to the GROUP is what actually wakes a blocked read: the read then returns
 		// -1/EIO, which the read loop already treats as end-of-stream. Closing the fd would not
@@ -138,7 +134,6 @@ internal sealed class LinuxPtyBackend : IPtyBackend
 	{
 		if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
-		_log?.LogDebug($"LinuxPtyBackend.Dispose: tearing down pid {_childPid}", "PTY");
 
 		// Signal first in case Dispose was reached without BeginShutdown.
 		BeginShutdown();

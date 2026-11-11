@@ -1428,7 +1428,6 @@ namespace SharpConsoleUI
 		private void StartHostedCore()
 		{
 			_hostedStopped = false;
-			_logService.LogInfo("Console window system starting", "System");
 			_running = true;
 
 			// Capture the UI (main-loop) thread so IsOnUIThread / InvokeAsync work regardless of

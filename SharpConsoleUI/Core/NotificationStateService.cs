@@ -179,7 +179,6 @@ namespace SharpConsoleUI.Core
 				var id = GenerateNotificationId();
 				var previousState = _currentState;
 
-				_logService?.LogDebug($"Showing notification: {title} (ID: {id}, Severity: {severity.Name})", "Notification");
 
 				// Create the notification window
 				var notificationWindow = CreateNotificationWindow(id, title, message, severity, blockUi, parentWindow);
@@ -269,7 +268,6 @@ namespace SharpConsoleUI.Core
 				if (_activeNotifications.Count == 0)
 					return;
 
-				_logService?.LogDebug($"Dismissing all notifications ({_activeNotifications.Count} active)", "Notification");
 
 				var notificationsToDismiss = _activeNotifications.ToList();
 
@@ -440,7 +438,6 @@ namespace SharpConsoleUI.Core
 			{
 				var previousState = _currentState;
 
-				_logService?.LogDebug($"Dismissing notification: {notification.Title} (ID: {notification.Id})", "Notification");
 
 				// Cancel timeout if active
 				if (_timeoutCancellations.TryGetValue(notification.Id, out var cts))

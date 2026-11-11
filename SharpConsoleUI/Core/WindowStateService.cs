@@ -182,7 +182,6 @@ namespace SharpConsoleUI.Core
 
 			lock (_lock)
 			{
-				_logService?.LogDebug($"Registering window: {window.Title} (ZIndex: {GetMaxZIndex() + 1})", "WindowState");
 
 				// Calculate Z-index
 				window.ZIndex = GetMaxZIndex() + 1;
@@ -226,7 +225,6 @@ namespace SharpConsoleUI.Core
 				if (!_windows.TryRemove(window.Guid, out _))
 					return;
 
-				_logService?.LogDebug($"Unregistering window: {window.Title}", "WindowState");
 
 				var previousActive = _currentState.ActiveWindow;
 				var newState = CreateStateSnapshot();
@@ -378,7 +376,6 @@ namespace SharpConsoleUI.Core
 					return;
 
 				var previousActive = _currentState.ActiveWindow;
-				_logService?.LogTrace($"Active window changing: {previousActive?.Title ?? "None"} -> {window?.Title ?? "None"}", "WindowState");
 
 				// Update active status on windows
 				previousActive?.SetIsActive(false);
@@ -921,7 +918,6 @@ namespace SharpConsoleUI.Core
 
 			var context = _getWindowSystem();
 
-			_logService?.LogDebug($"Adding window: {window.Title} (GUID: {window.Guid})", "Window");
 
 			// Register window (handles ZIndex assignment and adding to collection)
 			RegisterWindow(window, activate: false);
@@ -930,7 +926,6 @@ namespace SharpConsoleUI.Core
 			if (window.IsModal && _modalStateService != null)
 			{
 				_modalStateService.PushModal(window, window.ParentWindow);
-				_logService?.LogDebug($"Modal window pushed: {window.Title}", "Modal");
 			}
 
 			// Activate the window if needed (through SetActiveWindow for modal logic)
@@ -941,7 +936,6 @@ namespace SharpConsoleUI.Core
 
 			window.WindowIsAdded();
 
-			_logService?.LogDebug($"Window added successfully: {window.Title}", "Window");
 			return window;
 		}
 
@@ -957,8 +951,6 @@ namespace SharpConsoleUI.Core
 				throw new InvalidOperationException("WindowSystemContext is not set");
 
 			var context = _getWindowSystem();
-
-			_logService?.LogDebug($"Closing modal window: {modalWindow.Title}", "Modal");
 
 			// Store the parent window before closing
 			Window? parentWindow = modalWindow.ParentWindow;
@@ -990,13 +982,11 @@ namespace SharpConsoleUI.Core
 			var context = _getWindowSystem();
 			if (!context.Windows.ContainsKey(window.Guid)) return false;
 
-			_logService?.LogDebug($"Closing window: {window.Title} (GUID: {window.Guid}, Force: {force})", "Window");
 
 			// STEP 1: Check if close is allowed BEFORE any state changes
 			// This fires OnClosing and respects IsClosable (unless forced)
 			if (!window.CanClose(force))
 			{
-				_logService?.LogDebug($"Window close cancelled by OnClosing handler: {window.Title}", "Window");
 				return false;
 			}
 
@@ -1284,14 +1274,12 @@ namespace SharpConsoleUI.Core
 			// Check if window is registered in the system
 			if (!context.Windows.ContainsKey(window.Guid))
 			{
-				_logService?.LogTrace($"Cannot activate unregistered window: {window.Title}", "WindowState");
 				return;
 			}
 
 			// Check if activation is blocked by modal service
 			if (_modalStateService != null && _modalStateService.IsActivationBlocked(window))
 			{
-				_logService?.LogTrace($"Window activation blocked by modal: {window.Title}", "Modal");
 				var blockingModal = _modalStateService.GetBlockingModal(window);
 				if (blockingModal != null && blockingModal != ActiveWindow)
 				{
@@ -1341,7 +1329,6 @@ namespace SharpConsoleUI.Core
 				}
 			}
 
-			_logService?.LogTrace($"Window activated: {windowToActivate.Title}", "Window");
 		}
 
 		/// <summary>

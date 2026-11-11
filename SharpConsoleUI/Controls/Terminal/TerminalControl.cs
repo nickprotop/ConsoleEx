@@ -91,8 +91,6 @@ public sealed class TerminalControl
 	internal TerminalControl(string exe, string[]? args, string? workingDirectory = null, ILogService? logService = null, Color? defaultBackground = null)
 	{
 		_log = logService;
-		_log?.LogInfo($"TerminalControl: creating for '{exe}' args=[{string.Join(" ", args ?? Array.Empty<string>())}] cwd='{workingDirectory ?? "(inherit)"}'", "Terminal");
-
 		if (OperatingSystem.IsLinux())
 		{
 			int rows = 24, cols = 80;
@@ -116,13 +114,11 @@ public sealed class TerminalControl
 
 		_readThread = new Thread(ReadLoop) { IsBackground = true, Name = "PTY-read" };
 		_readThread.Start();
-		_log?.LogInfo($"TerminalControl: PTY read thread started (childPid={_pty.ChildProcessId})", "Terminal");
 	}
 
 
 	private void ReadLoop()
 	{
-		_log?.LogDebug($"TerminalControl.ReadLoop: entering (pid={_pty.ChildProcessId})", "Terminal");
 		var buf = new byte[4096];
 		while (true)
 		{
@@ -137,7 +133,7 @@ public sealed class TerminalControl
 			Invalidate(Invalidation.Relayout);
 		}
 
-		_log?.LogInfo($"TerminalControl.ReadLoop: EOF reached (pid={_pty.ChildProcessId}), closeWindowOnExit={CloseWindowOnExit}", "Terminal");
+		_log?.LogDebug($"TerminalControl.ReadLoop: EOF reached (pid={_pty.ChildProcessId}), closeWindowOnExit={CloseWindowOnExit}", "Terminal");
 
 		// The read ended, so the session is over however it got here — the child exited on its
 		// own, or Dispose signalled it. Teardown therefore finishes HERE, on this thread, in both
@@ -285,7 +281,6 @@ public sealed class TerminalControl
 	public void Dispose()
 	{
 		if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
-		_log?.LogDebug("TerminalControl.Dispose", "Terminal");
 
 		// Wake the reader. On Linux this signals the child's process group, which is the only
 		// thing that unblocks a pending read; on Windows it closes the ConPTY. Either way it

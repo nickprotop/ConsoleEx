@@ -417,9 +417,10 @@ namespace SharpConsoleUI.Drivers
 		public void Start()
 		{
 			var log = _consoleWindowSystem?.LogService;
-			log?.LogInfo(
-				$"NetConsoleDriver.Start() entered (OS={RuntimeInformation.OSDescription}, Arch={RuntimeInformation.ProcessArchitecture}, RenderMode={RenderMode})",
-				"Driver");
+			if (log?.IsLevelEnabled(Logging.LogLevel.Debug) == true)
+				log.LogDebug(
+					$"Driver starting (OS={RuntimeInformation.OSDescription}, Arch={RuntimeInformation.ProcessArchitecture}, RenderMode={RenderMode})",
+					"Driver");
 
 			// Unix always uses raw mode to bypass ConsolePal
 			bool isUnix = !RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
@@ -428,7 +429,6 @@ namespace SharpConsoleUI.Drivers
 			// Enter raw mode before creating console buffer (so ioctl is available)
 			if (_useDirectAnsi)
 			{
-				log?.LogDebug("Entering raw terminal mode", "Driver");
 				if (!TerminalRawMode.EnterRawMode())
 				{
 					_useDirectAnsi = false; // Fallback to ConsolePal if raw mode fails
@@ -436,13 +436,12 @@ namespace SharpConsoleUI.Drivers
 				}
 				else
 				{
-					log?.LogInfo("Raw terminal mode active — ConsolePal bypassed on hot path", "Driver");
+					log?.LogDebug("Raw terminal mode active — ConsolePal bypassed on hot path", "Driver");
 				}
 			}
 
-			log?.LogDebug("Querying terminal size (ioctl on Unix)", "Driver");
 			var screenSize = ScreenSize; // Uses ioctl if _useDirectAnsi
-			log?.LogInfo($"Terminal size: {screenSize.Width}x{screenSize.Height}", "Driver");
+			log?.LogDebug($"Terminal size: {screenSize.Width}x{screenSize.Height}", "Driver");
 
 			if (RenderMode.Buffer == RenderMode)
 			{
@@ -473,7 +472,6 @@ namespace SharpConsoleUI.Drivers
 			// Provides clean slate and separates our output from the main screen
 			if (_useDirectAnsi)
 			{
-				log?.LogDebug("Entering alternate screen buffer", "Driver");
 				WriteOutput("\x1b[?1049h");
 			}
 
@@ -510,9 +508,7 @@ namespace SharpConsoleUI.Drivers
 
 			// Probe terminal VS16 widening support before input loops start.
 			// Uses DSR cursor position query to measure actual emoji width.
-			log?.LogDebug("Probing terminal capabilities (VS16 emoji widening)", "Driver");
 			ProbeTerminalCapabilities();
-			log?.LogDebug("Terminal capability probe complete", "Driver");
 
 			// Detect SSH / tmux / screen for clipboard (OSC 52) decisions, and wire the emitter
 			// so ClipboardHelper can route OSC 52 through this driver's locked output.
@@ -525,7 +521,6 @@ namespace SharpConsoleUI.Drivers
 			if (_useDirectAnsi)
 			{
 				// Unix: use raw /dev/tty reader — zero ConsolePal on hot path
-				log?.LogDebug("Starting raw /dev/tty input reader", "Driver");
 				_rawInputCts = new CancellationTokenSource();
 				var ttyStream = TerminalRawMode.TtyInputStream;
 				if (ttyStream == null)
@@ -566,20 +561,15 @@ namespace SharpConsoleUI.Drivers
 				// Windows or fallback: use Console.ReadKey-based InputLoop.
 				// Note: bracketed paste (and thus the Paste event) is produced only by the
 				// Unix raw-mode stdin reader above; this Console.ReadKey path never raises Paste.
-				log?.LogDebug("Starting Console.ReadKey input loop", "Driver");
 				var inputTask = Task.Run(InputLoop);
 			}
 
 			var resizeTask = Task.Run(ResizeLoop);
-			log?.LogInfo("NetConsoleDriver.Start() complete — input and resize loops running", "Driver");
 		}
 
 		/// <inheritdoc/>
 		public void Stop()
 		{
-			var log = _consoleWindowSystem?.LogService;
-			log?.LogInfo("NetConsoleDriver.Stop() entered", "Driver");
-
 			_running = false;
 
 			// Cancel raw input reader if active
@@ -697,7 +687,6 @@ namespace SharpConsoleUI.Drivers
 			// Unregister the OSC 52 emitter so a stopped driver doesn't keep a dangling delegate.
 			Helpers.ClipboardHelper.RegisterOsc52Emitter(null);
 
-			log?.LogInfo("NetConsoleDriver.Stop() complete", "Driver");
 		}
 
 		/// <inheritdoc/>

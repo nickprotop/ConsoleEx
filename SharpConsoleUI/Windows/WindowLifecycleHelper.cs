@@ -109,10 +109,6 @@ namespace SharpConsoleUI.Windows
 						{
 							window.CompleteClose();
 						}
-
-						window._windowSystem?.LogService?.LogDebug(
-							$"Window thread stopped gracefully within timeout",
-							"Window");
 					}
 					else
 					{

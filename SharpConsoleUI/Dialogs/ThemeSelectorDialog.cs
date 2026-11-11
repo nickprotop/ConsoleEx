@@ -29,7 +29,6 @@ public static class ThemeSelectorDialog
 	{
 		var themes = windowSystem.ThemeRegistryService.GetAvailableThemes();
 		var currentThemeName = windowSystem.Theme.Name;
-		var logService = windowSystem.LogService;
 
 		// Theme-derived markup colors so the dialog reads on any theme (a hardcoded [white]/[cyan1] would
 		// be invisible on a light theme). Accent for highlights, window foreground for body, a dimmed
@@ -39,11 +38,6 @@ public static class ThemeSelectorDialog
 		string fg = theme.WindowForegroundColor.ToMarkup();
 		string dim = theme.WindowForegroundColor.Mix(theme.WindowBackgroundColor, 0.45).ToMarkup();
 		var ruleColor = DialogColors.Rule(theme);
-
-		// Log available themes
-		logService?.LogInfo(
-			$"Available themes ({themes.Count}): {string.Join(", ", themes.Select(t => t.Name))}", "Theme");
-		logService?.LogInfo($"Current theme: {currentThemeName}", "Theme");
 
 		// Create modal window using WindowBuilder (no explicit colors - use theme defaults)
 		var builder = new WindowBuilder(windowSystem)
@@ -120,7 +114,6 @@ public static class ThemeSelectorDialog
 		{
 			if (item?.Tag is string themeName)
 			{
-				logService?.LogInfo($"Theme selected via double-click: {themeName}", "Theme");
 				windowSystem.ThemeStateService.SwitchTheme(themeName);
 				modal.Close();
 			}
@@ -135,7 +128,6 @@ public static class ThemeSelectorDialog
 				var selectedItem = themeList.SelectedItem;
 				if (selectedItem?.Tag is string themeName)
 				{
-					logService?.LogInfo($"Theme selected via Enter: {themeName}", "Theme");
 					windowSystem.ThemeStateService.SwitchTheme(themeName);
 					modal.Close();
 				}
@@ -144,7 +136,6 @@ public static class ThemeSelectorDialog
 			else if (e.KeyInfo.Key == ConsoleKey.Escape)
 			{
 				// Cancel with Escape key
-				logService?.LogDebug("Theme selector cancelled", "Theme");
 				modal.Close();
 				e.Handled = true;
 			}

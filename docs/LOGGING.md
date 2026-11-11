@@ -249,24 +249,38 @@ bridges above do the conversion for you.
 
 The framework logs under these categories:
 
-| Category | What |
-|---|---|
-| `System` | lifecycle: startup, the main loop, unhandled exceptions |
-| `Window` | window add, close, move, resize |
-| `WindowState` | state transitions (normal, minimized, maximized) |
-| `Focus` | focus moves and the focus path |
-| `Modal` | the modal stack |
-| `Interaction` | drag and resize gestures |
-| `Input` | keyboard and mouse |
-| `Render` / `Renderer` | layout and paint passes |
-| `Theme` | theme changes and colour resolution |
-| `Notification` | toasts and notifications |
-| `Flows` | multi-step flows and wizards |
-| `Diagnostics` | the diagnostics socket itself |
-| `Plugin`, `Layout` | plugin lifecycle, layout internals |
+Taken from the framework's own call sites, with the number of them, so a
+`--category` filter can be written without guessing:
 
-Both `Render` and `Renderer` appear in the framework's own calls. Filter on the prefix if
-you want every rendering entry.
+| Category | Calls | What |
+|---|---|---|
+| `Window` | 5 | window-thread teardown anomalies |
+| `System` | 5 | shutdown, unhandled exceptions |
+| `Driver` | 5 | console driver startup, terminal mode, size |
+| `Diagnostics` | 4 | the diagnostics socket itself |
+| `PTY` | 4 | pseudo-terminal backends: child pids, and children that refuse to die |
+| `Flows` | 3 | multi-step flows and wizards |
+| `Plugins` | 3 | plugin load failures and unload |
+| `Watchdog` | 2 | the main-loop watchdog |
+| `Renderer` | 2 | layout and paint passes (both guarded by level) |
+| `Terminal` | 2 | `TerminalControl` read-loop EOF |
+| `Render` | 1 | one error path in `ConsoleWindowSystem`; prefer `Renderer` |
+| `Interaction` | 1 | radio-group misconfiguration |
+| `Theme` | 1 | a theme name missing from the registry |
+| `AsyncEvent` | 1 | async event dispatch |
+
+**The framework logs almost nothing on the happy path, by design.** Opening, closing,
+moving, minimizing and activating a window, pushing a modal, showing a notification or
+switching a theme are all user actions whose result is on screen, so none of them is
+logged. What is logged is what you cannot see: a child process that outlived its
+terminal, a theme that was asked for and missing, a window thread that would not stop,
+an exception. Earlier versions traced all of it, and that instrumentation has been
+removed.
+
+So `Focus`, `Input`, `Layout`, `Modal`, `Notification`, `WindowState` and `Portal` are
+**not** categories. To inspect focus, the modal stack or layout, drive the app with
+`cxdbg` (`focus`, `window`, `tree`, `snapshot`), which answers live and costs nothing
+when you are not asking.
 
 Your own categories are whatever string you pass; they share the namespace with these, so
 something distinctive is worth using.

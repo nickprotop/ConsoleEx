@@ -96,7 +96,6 @@ namespace SharpConsoleUI.Core
 		/// <returns>The created portal.</returns>
 		public DesktopPortal CreatePortal(DesktopPortalOptions options)
 		{
-			_logService.LogDebug($"Creating desktop portal (DismissOnClick={options.DismissOnClickOutside}, Dim={options.DimBackground})", category: "Portal");
 
 			// Read the active window outside the lock (it re-enters the window system).
 			var activeWindow = _windowSystem.ActiveWindow;
@@ -109,7 +108,6 @@ namespace SharpConsoleUI.Core
 				_portals.Add(portal);
 			}
 
-			_logService.LogDebug($"Desktop portal created: {portal.Id}", category: "Portal");
 			return portal;
 		}
 
@@ -136,7 +134,6 @@ namespace SharpConsoleUI.Core
 				}
 			}
 
-			_logService.LogDebug($"Removing desktop portal: {portal.Id}", category: "Portal");
 
 			portal.OnDismiss?.Invoke();
 			portal.Content.Container = null;
@@ -169,7 +166,6 @@ namespace SharpConsoleUI.Core
 				_portals.Clear();
 			}
 
-			_logService.LogDebug($"Dismissing all desktop portals ({portalsCopy.Count})", category: "Portal");
 
 			foreach (var portal in portalsCopy)
 			{

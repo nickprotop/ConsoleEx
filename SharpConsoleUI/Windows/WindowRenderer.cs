@@ -218,7 +218,8 @@ namespace SharpConsoleUI.Windows
 		/// <param name="contentHeight">Available content height</param>
 		public void RebuildDOMTree(IReadOnlyList<IWindowControl> controls, int contentWidth, int contentHeight)
 		{
-			_logService?.LogDebug($"Rebuilding DOM tree for window '{_window.Title}' ({controls.Count} controls)", "Renderer");
+			if (_logService?.IsLevelEnabled(LogLevel.Debug) == true)
+				_logService.LogDebug($"Rebuilding DOM tree for window '{_window.Title}' ({controls.Count} controls)", "Renderer");
 
 			// Create the character buffer if needed
 			if (_buffer == null || _buffer.Width != contentWidth || _buffer.Height != contentHeight)
@@ -305,7 +306,9 @@ namespace SharpConsoleUI.Windows
 		{
 			if (_rootNode == null) return;
 
-			_logService?.LogTrace($"Performing layout for window '{_window.Title}' ({contentWidth}x{contentHeight}, {work})", "Renderer");
+			// Guarded: this runs on every layout pass, so the interpolation must not happen when Trace is off.
+			if (_logService?.IsLevelEnabled(LogLevel.Trace) == true)
+				_logService.LogTrace($"Performing layout for window '{_window.Title}' ({contentWidth}x{contentHeight}, {work})", "Renderer");
 
 			// Sync node visibility with control visibility before layout
 			SyncNodeVisibility();

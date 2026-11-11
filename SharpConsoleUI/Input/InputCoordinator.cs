@@ -530,12 +530,10 @@ namespace SharpConsoleUI.Input
 					// End interaction via service
 					if (IsDragging)
 					{
-						_logService.LogDebug($"Drag ended: {DragWindow?.Title}", "Interaction");
 						_windowStateService.EndDrag();
 					}
 					else if (IsResizing)
 					{
-						_logService.LogDebug($"Resize ended: {DragWindow?.Title}", "Interaction");
 						_windowStateService.EndResize();
 					}
 
@@ -623,7 +621,6 @@ namespace SharpConsoleUI.Input
 						var resizeDirection = GetResizeDirection(window, point);
 						if (resizeDirection != ResizeDirection.None && window.IsResizable)
 						{
-							_logService.LogDebug($"Resize started: {window.Title} ({resizeDirection})", "Interaction");
 							_windowStateService.StartResize(window, resizeDirection, point);
 							return;
 						}
@@ -631,7 +628,6 @@ namespace SharpConsoleUI.Input
 						// Check if we're starting a move operation (title bar area)
 						if (IsInTitleBar(window, point) && window.IsMovable)
 						{
-							_logService.LogDebug($"Drag started: {window.Title}", "Interaction");
 							_windowStateService.StartDrag(window, point);
 							return;
 						}

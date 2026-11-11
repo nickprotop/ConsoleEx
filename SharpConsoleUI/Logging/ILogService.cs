@@ -102,6 +102,23 @@ public interface ILogService
 	/// </summary>
 	bool IsEnabled { get; set; }
 
+	/// <summary>
+	/// Returns whether an entry at <paramref name="level"/> would be recorded.
+	/// </summary>
+	/// <param name="level">The level the caller is about to log at.</param>
+	/// <returns><c>true</c> if logging is enabled and <paramref name="level"/> meets <see cref="MinimumLevel"/>.</returns>
+	/// <remarks>
+	/// Guard a call site with this whenever building the message costs something, above all with an
+	/// interpolated string in a per-frame or per-event path: the level check inside the logger happens
+	/// AFTER the caller has already built the string, so an unguarded
+	/// <c>LogTrace($"...{x}...")</c> allocates on every call even with logging off.
+	/// <code>
+	/// if (log.IsLevelEnabled(LogLevel.Trace))
+	///     log.LogTrace($"expensive {ComputeDetail()}", "Renderer");
+	/// </code>
+	/// </remarks>
+	bool IsLevelEnabled(LogLevel level) => IsEnabled && level >= MinimumLevel;
+
 	#endregion
 
 	#region File Logging

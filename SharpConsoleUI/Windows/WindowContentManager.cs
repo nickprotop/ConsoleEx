@@ -59,7 +59,6 @@ namespace SharpConsoleUI.Windows
 			if (control == null)
 				throw new ArgumentNullException(nameof(control));
 
-			_logService?.LogDebug($"Control added to window '{_getWindowTitle()}': {control.GetType().Name}", "Window");
 
 			control.Container = container;
 			controls.Add(control);
@@ -90,7 +89,6 @@ namespace SharpConsoleUI.Windows
 			if (control == null)
 				throw new ArgumentNullException(nameof(control));
 
-			_logService?.LogDebug($"Control inserted into window '{_getWindowTitle()}' at index {index}: {control.GetType().Name}", "Window");
 
 			control.Container = container;
 			controls.Insert(index, control);
@@ -121,7 +119,6 @@ namespace SharpConsoleUI.Windows
 
 			if (controls.Remove(control))
 			{
-				_logService?.LogDebug($"Control removed from window '{_getWindowTitle()}': {control.GetType().Name}", "Window");
 
 				if (control is IInteractiveControl interactiveControl)
 				{

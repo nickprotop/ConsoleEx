@@ -265,7 +265,6 @@ namespace SharpConsoleUI.Core
 				}
 
 				// Log theme change
-				_logService?.LogInfo($"Theme changed from '{previousTheme?.Name}' to '{newTheme.Name}'", "Theme");
 
 				// Fire events
 				FireThemeChanged(previousTheme, newTheme);
@@ -302,7 +301,6 @@ namespace SharpConsoleUI.Core
 		/// </summary>
 		public void NotifyPropertyChanged()
 		{
-			_logService?.LogDebug("Theme property changed", "Theme");
 
 			ThreadPool.QueueUserWorkItem(_ =>
 			{

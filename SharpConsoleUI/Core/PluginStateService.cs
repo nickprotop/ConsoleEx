@@ -324,21 +324,18 @@ namespace SharpConsoleUI.Core
 				foreach (var theme in plugin.GetThemes())
 				{
 					_windowSystem.ThemeRegistryService.RegisterTheme(theme.Name, theme.Description, () => theme.Theme);
-					_logService?.LogDebug($"Registered theme: {theme.Name}", "Plugins");
 				}
 
 				// Register control factories
 				foreach (var control in plugin.GetControls())
 				{
 					_controlFactories[control.Name] = control.Factory;
-					_logService?.LogDebug($"Registered control: {control.Name}", "Plugins");
 				}
 
 				// Register window factories
 				foreach (var window in plugin.GetWindows())
 				{
 					_windowFactories[window.Name] = window.Factory;
-					_logService?.LogDebug($"Registered window: {window.Name}", "Plugins");
 				}
 
 				// Register legacy type-based services
@@ -346,7 +343,6 @@ namespace SharpConsoleUI.Core
 				foreach (var service in plugin.GetServices())
 				{
 					_legacyServices[service.ServiceType] = service.Instance;
-					_logService?.LogDebug($"Registered legacy service: {service.ServiceType.Name}", "Plugins");
 				}
 #pragma warning restore CS0618 // Type or member is obsolete
 
@@ -354,7 +350,6 @@ namespace SharpConsoleUI.Core
 				foreach (var servicePlugin in plugin.GetServicePlugins())
 				{
 					_services[servicePlugin.ServiceName] = servicePlugin;
-					_logService?.LogDebug($"Registered service plugin: {servicePlugin.ServiceName}", "Plugins");
 					ServiceRegistered?.Invoke(this, new ServiceRegisteredEventArgs(servicePlugin.ServiceName, servicePlugin));
 				}
 
@@ -368,7 +363,6 @@ namespace SharpConsoleUI.Core
 					}
 
 					_actionProviders[actionProvider.ProviderName] = actionProvider;
-					_logService?.LogDebug($"Registered action provider: {actionProvider.ProviderName}", "Plugins");
 				}
 
 				_loadedPlugins.Add(plugin);
@@ -411,7 +405,7 @@ namespace SharpConsoleUI.Core
 					PluginUnloaded?.Invoke(this, new PluginEventArgs(plugin));
 					StateChanged?.Invoke(this, new PluginStateChangedEventArgs(previousState, newState));
 
-					_logService?.LogInfo($"Unloaded plugin: {plugin.Info.Name}", "Plugins");
+					_logService?.LogDebug($"Unloaded plugin: {plugin.Info.Name}", "Plugins");
 				}
 			}
 		}

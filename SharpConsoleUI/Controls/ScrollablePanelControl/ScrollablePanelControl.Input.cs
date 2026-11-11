@@ -18,9 +18,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool ProcessKey(ConsoleKeyInfo key)
 		{
-			var log = GetConsoleWindowSystem?.LogService;
 			var focusedChild = GetFocusedChildFromCoordinator();
-			log?.LogTrace($"ScrollPanel.ProcessKey({key.Key}): HasFocus={HasFocus} _isEnabled={_isEnabled} focusedChild={focusedChild?.GetType().Name ?? "null"}", "Focus");
 
 			if (!HasFocus || !_isEnabled) return false;
 
@@ -47,7 +45,6 @@ namespace SharpConsoleUI.Controls
 				var childIsFocused = (managed != null && !ReferenceEquals(managed, this)) || focusedChild != null;
 				if (childIsFocused)
 				{
-					log?.LogTrace($"ScrollPanel.ProcessKey: Escape → saving child focus, moving focus to panel", "Focus");
 					// Save the child for restoration (SavedFocus for FocusScope protocol, _lastInternalFocusedChild for Tab restore)
 					var childToSave = managed ?? (focusedChild as IFocusableControl);
 					SavedFocus = childToSave;
@@ -67,7 +64,6 @@ namespace SharpConsoleUI.Controls
 					}
 					return true;
 				}
-				log?.LogTrace("ScrollPanel.ProcessKey: Escape in scroll mode → propagating to parent", "Focus");
 				_lastInternalFocusedChild = null;
 				return false;
 			}
@@ -80,7 +76,6 @@ namespace SharpConsoleUI.Controls
 				// Tab in scroll mode: restore last focused child
 				if (focusedChild == null && _lastInternalFocusedChild != null)
 				{
-					log?.LogTrace($"ScrollPanel.ProcessKey: Tab in scroll mode → restoring {_lastInternalFocusedChild.GetType().Name}", "Focus");
 					var restoreChild = _lastInternalFocusedChild;
 					_lastInternalFocusedChild = null;
 					if (restoreChild is IFocusableControl restoreFc)
@@ -354,12 +349,7 @@ namespace SharpConsoleUI.Controls
 				if (!Visible || !_isEnabled) return false;
 				if (ForceReceiveFocus) return true;
 
-				bool needsScrolling = NeedsScrolling();
-				bool hasFocusableChildren = HasFocusableChildren();
-
-				var result = needsScrolling || hasFocusableChildren;
-				GetConsoleWindowSystem?.LogService?.LogTrace($"ScrollPanel.CanReceiveFocus: needsScrolling={needsScrolling} hasFocusableChildren={hasFocusableChildren} result={result}", "Focus");
-				return result;
+				return NeedsScrolling() || HasFocusableChildren();
 			}
 		}
 

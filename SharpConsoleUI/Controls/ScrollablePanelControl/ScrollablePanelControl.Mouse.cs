@@ -51,12 +51,7 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc/>
 		public bool CanFocusWithMouse
 		{
-			get
-			{
-				var result = CanReceiveFocus;
-				GetConsoleWindowSystem?.LogService?.LogTrace($"ScrollPanel.CanFocusWithMouse: {result}", "Focus");
-				return result;
-			}
+			get => CanReceiveFocus;
 		}
 
 		/// <inheritdoc/>
@@ -157,8 +152,6 @@ namespace SharpConsoleUI.Controls
 		/// <inheritdoc />
 		public bool ProcessMouseEvent(MouseEventArgs args)
 		{
-			var log = GetConsoleWindowSystem?.LogService;
-
 			if (args.Handled) return false;
 
 			// Handle mouse wheel scrolling
@@ -505,9 +498,7 @@ namespace SharpConsoleUI.Controls
 		/// </summary>
 		private bool ForwardClickToChildForFocus(MouseEventArgs args)
 		{
-			var log = GetConsoleWindowSystem?.LogService;
 			var currentFocused = GetFocusedChildFromCoordinator();
-			log?.LogTrace($"ScrollPanel.ProcessMouseEvent: click pos={args.Position} HasFocus={HasFocus} focusedChild={currentFocused?.GetType().Name ?? "null"}", "Focus");
 			// Visible content width (accounting for the vertical scrollbar columns)
 			int contentWidth = VisibleContentWidth;
 
@@ -520,7 +511,6 @@ namespace SharpConsoleUI.Controls
 				// Use click target caching to ensure double-clicks go to the same child
 				// even if scroll position changes between clicks
 				var child = GetClickTargetChild(args, contentWidth);
-				log?.LogTrace($"ScrollPanel.ProcessMouseEvent: GetClickTargetChild={child?.GetType().Name ?? "null (empty space)"}", "Focus");
 
 				if (child != null)
 				{
@@ -554,7 +544,6 @@ namespace SharpConsoleUI.Controls
 						// mouse focus handling (Fix 1) set focus on the actual child control.
 
 						_lastInternalFocusedChild = null;
-						log?.LogTrace($"ScrollPanel.ProcessMouseEvent: focused child {child.GetType().Name}", "Focus");
 					}
 
 					// Forward mouse event to child (if it handles mouse events)
@@ -577,7 +566,6 @@ namespace SharpConsoleUI.Controls
 				{
 					// Clicked on empty space or non-focusable content:
 					// Move focus to the panel itself (scroll mode) so children lose focus.
-					log?.LogTrace("ScrollPanel.ProcessMouseEvent: click on empty space → entering scroll mode", "Focus");
 					var emptyClickWindow = (this as IWindowControl).GetParentWindow();
 					if (emptyClickWindow != null && CanReceiveFocus)
 					{
