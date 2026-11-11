@@ -38,6 +38,11 @@
   </ItemGroup>
 
   <ItemGroup Label="Public API surface">
+    <!-- Interfaces only, and part of our public surface: SharpConsoleUILoggerProvider
+         implements ILoggerProvider. Pinned at the net8.0-era floor on purpose. An
+         adopter on a newer MEL already resolves higher transitively; an adopter on
+         net8.0 is asked to absorb nothing. Raising this is their schedule, not ours. -->
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
     <!-- Deliberately behind its latest. SpectreRenderableControl takes an
          IRenderable and the builders take a Spectre Color, so this version is
          part of what an adopter has to absorb. Moving it is their decision to
@@ -49,6 +54,9 @@
   <ItemGroup Label="Build and test">
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="coverlet.collector" Version="10.1.0" />
+    <!-- Test-only: the bridge tests need a real LoggerFactory, which lives in the
+         implementation package. The library itself references only the Abstractions. -->
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="8.0.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.403" />
     <PackageVersion Include="xunit" Version="2.9.3" />

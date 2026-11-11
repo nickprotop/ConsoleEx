@@ -59,6 +59,7 @@
 		<PackageReference Include="AngleSharp" />
 		<PackageReference Include="AngleSharp.Css" />
 		<PackageReference Include="Markdig" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 		<PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" />
 		<PackageReference Include="StbImageSharp" />
 		<PackageReference Include="StbImageWriteSharp" />
