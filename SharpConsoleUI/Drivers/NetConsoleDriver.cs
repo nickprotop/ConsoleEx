@@ -474,6 +474,20 @@ namespace SharpConsoleUI.Drivers
 			WriteOutput("\x1b[?1002h");  // Enable button event tracking (drag mode)
 			WriteOutput("\x1b[?1003h");  // Enable any event mouse (motion tracking)
 
+			// win32-input-mode: ask the terminal to report the raw console key record instead of
+			// translating it to legacy ANSI. Windows only, because it is a Windows console protocol.
+			//
+			// This is the ONLY way to tell Ctrl+Shift+O from Ctrl+O there: conhost zeroes
+			// ControlKeyState on the legacy path once ENABLE_VIRTUAL_TERMINAL_INPUT is set, and the
+			// control byte 0x0F is identical for both chords (issue #95).
+			//
+			// Nothing is probed, and nothing depends on the answer. Windows Terminal and WezTerm
+			// honour it; classic conhost ignores the sequence entirely, and a terminal that ignores
+			// it simply keeps sending what it sent before, which the parser still decodes. The
+			// fallback is therefore the ABSENCE of a change rather than a second code path.
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+				WriteOutput("\x1b[?9001h");
+
 			// Disable autowrap to prevent terminal scroll when writing to bottom-right corner
 			WriteOutput("\x1b[?7l");
 
@@ -587,6 +601,9 @@ namespace SharpConsoleUI.Drivers
 				TerminalRawMode.WriteStdout("\x1b[0m");    // Reset ANSI attributes
 				TerminalRawMode.WriteStdout("\x1b[?25h");  // Make cursor visible
 				TerminalRawMode.WriteStdout("\x1b[?2004l"); // Disable bracketed paste
+															// Leaving win32-input-mode on would hand the user's shell a key encoding it does
+															// not speak; harmless on a terminal that never honoured the request.
+				TerminalRawMode.WriteStdout("\x1b[?9001l"); // Disable win32-input-mode
 				TerminalRawMode.WriteStdout("\x1b[?1049l"); // Leave alternate screen buffer
 			}
 
@@ -618,6 +635,7 @@ namespace SharpConsoleUI.Drivers
 				"\x1b[?7h" +
 				"\x1b[0m" +
 				"\x1b[?25h" +
+				"\x1b[?9001l" +   // Disable win32-input-mode
 				"\n";
 
 			// Write to /dev/tty on Unix
@@ -854,7 +872,7 @@ namespace SharpConsoleUI.Drivers
 		/// it must NOT bail the instant the next byte is momentarily unavailable, or a fast,
 		/// back-to-back bracketed-paste start marker (<c>ESC[200~</c>) gets split and its payload leaks
 		/// through the per-char parser and garbles (issue #42, consecutive-paste regression). Stops at
-		/// the final byte (letter / <c>~</c> / CR / Tab) so it does not consume the paste payload, and
+		/// the final byte (letter / <c>~</c> / <c>_</c> / CR / Tab) so it does not consume the paste payload, and
 		/// is bounded by <see cref="MaxAnsiSequenceChars"/>.
 		/// </summary>
 		internal static string ReadAnsiSequence(IConsoleKeySource source, List<ConsoleKeyInfo> sequence)
@@ -864,7 +882,11 @@ namespace SharpConsoleUI.Drivers
 			{
 				sequence.Add(k);
 				sb.Append(k.KeyChar);
-				if (char.IsLetter(k.KeyChar) || k.KeyChar == '~' || k.KeyChar == '\r' || k.KeyChar == '\t')
+				// '_' terminates a win32-input-mode report (ESC[Vk;Sc;Uc;Kd;Cs;Rc_), which contains
+				// no letter and no '~' — without it this reads to MaxAnsiSequenceChars on every
+				// keystroke and swallows whatever followed.
+				if (char.IsLetter(k.KeyChar) || k.KeyChar == '~' || k.KeyChar == '_'
+					|| k.KeyChar == '\r' || k.KeyChar == '\t')
 					break;
 			}
 			return sb.ToString();
@@ -1011,6 +1033,7 @@ namespace SharpConsoleUI.Drivers
 						TerminalRawMode.WriteStdout(mouseDisable);
 						TerminalRawMode.WriteStdout("\x1b[?7h\x1b[0m\x1b[?25h");
 						TerminalRawMode.WriteStdout("\x1b[?2004l"); // Disable bracketed paste
+						TerminalRawMode.WriteStdout("\x1b[?9001l"); // Disable win32-input-mode
 						TerminalRawMode.WriteStdout("\x1b[?1049l"); // Leave alternate screen
 					}
 					catch { }
@@ -1029,6 +1052,7 @@ namespace SharpConsoleUI.Drivers
 					"\x1b[?7h" +
 					"\x1b[0m" +
 					"\x1b[?25h" +
+					"\x1b[?9001l" +   // Disable win32-input-mode
 					"\n";
 
 				// Write to /dev/tty on Unix
@@ -1451,9 +1475,11 @@ namespace SharpConsoleUI.Drivers
 		/// set - the same limitation <see cref="NormalizeKey"/> documents for Shift+letter - so on
 		/// Windows Terminal the Shift read here is always absent and Ctrl+Shift+O still arrives as
 		/// Ctrl+O. Preserving it fixes the VT-input-off case and is where the modifier must survive
-		/// if it survives at all; recovering it under VT input needs <c>win32-input-mode</c>
-		/// (<c>CSI ?9001h</c>), which this driver does not request. Unix cannot distinguish them at
-		/// all without an extended protocol - see AnsiInputParser's Ctrl+Letter branch.</para>
+		/// if it survives at all. Recovering it under VT input needs <c>win32-input-mode</c>, which
+		/// the driver now requests (<c>CSI ?9001h</c>) and Windows Terminal and WezTerm honour; on a
+		/// terminal that ignores it, such as classic conhost, this path is what still runs and the
+		/// two chords stay indistinguishable. Unix cannot distinguish them at all without an
+		/// extended protocol - see AnsiInputParser's Ctrl+Letter branch.</para>
 		///
 		/// <para>Control is asserted rather than copied: a 0x01-0x1A character IS the Ctrl+letter
 		/// encoding, which is what reaching this path means, and some terminals report the character

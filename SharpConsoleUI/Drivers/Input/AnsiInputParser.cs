@@ -636,6 +636,13 @@ namespace SharpConsoleUI.Drivers.Input
 					DispatchTilde(numericPart, shift, alt, ctrl, events);
 					break;
 
+				// win32-input-mode: ESC [ Vk ; Sc ; Uc ; Kd ; Cs ; Rc _ — the raw Windows console
+				// key record, which is the only form that still carries ControlKeyState once
+				// ENABLE_VIRTUAL_TERMINAL_INPUT has zeroed it on the legacy path (issue #95).
+				case '_':
+					DispatchWin32Input(paramStr, events);
+					break;
+
 				// Kitty / fixterms "CSI u": ESC [ <code> ; <mod> u, where <code> is the Unicode
 				// code point of the key. The modifier section is optional, and Kitty appends
 				// further sections (event type, associated text) that are ignored here.
@@ -1023,6 +1030,138 @@ namespace SharpConsoleUI.Drivers.Input
 
 			// Row 1 collides with the modifier form; every other row is a report outright.
 			return row != 1 || col > 16;
+		}
+
+		/// <summary>
+		/// Decodes a win32-input-mode report, <c>CSI Vk ; Sc ; Uc ; Kd ; Cs ; Rc _</c>.
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// This is the Windows console key record verbatim: virtual key, scan code, Unicode
+		/// character, key-down flag, <c>ControlKeyState</c> and repeat count. It exists because
+		/// conhost zeroes <c>ControlKeyState</c> on the legacy path once
+		/// <c>ENABLE_VIRTUAL_TERMINAL_INPUT</c> is set, which is what makes Ctrl+Shift+O arrive as
+		/// Ctrl+O (issue #95). Here the modifiers survive.
+		/// </para>
+		/// <para>
+		/// Three things are deliberately dropped. Key-UP reports (<c>Kd=0</c>), because delivering
+		/// them doubles every keystroke. Bare modifier presses, because they type nothing and the
+		/// modifier reaches the application on the next real key. And malformed reports, which are
+		/// reported as unknown rather than guessed at - the same rule that stops a cursor-position
+		/// reply being delivered as F3.
+		/// </para>
+		/// <para>
+		/// The key is named from the virtual key using THIS library's spelling, not kitty's: Ctrl+H
+		/// stays <see cref="ConsoleKey.Backspace"/> rather than becoming Ctrl+'h'. A key must not
+		/// change identity because the terminal chose a richer encoding - controls and adopter code
+		/// test these names directly.
+		/// </para>
+		/// </remarks>
+		private void DispatchWin32Input(string paramStr, List<InputEvent> events)
+		{
+			var parts = paramStr.Split(';');
+
+			// All six fields are required: a short report is not this sequence.
+			if (parts.Length < 6
+				|| !int.TryParse(parts[0], out int vk)
+				|| !int.TryParse(parts[2], out int uc)
+				|| !int.TryParse(parts[3], out int keyDown)
+				|| !int.TryParse(parts[4], out int controlKeyState)
+				|| !int.TryParse(parts[5], out int repeatCount)
+				|| repeatCount < 1)
+			{
+				events.Add(new UnknownSequenceEvent(_pending.ToArray()));
+				return;
+			}
+
+			// A key-up is half of a keystroke already delivered on the way down.
+			if (keyDown == 0) return;
+
+			// A bare modifier press types nothing; the modifier arrives with the next real key.
+			if (IsModifierVirtualKey(vk)) return;
+
+			bool ctrl = (controlKeyState & (LeftCtrlPressed | RightCtrlPressed)) != 0;
+			bool alt = (controlKeyState & (LeftAltPressed | RightAltPressed)) != 0;
+			bool shift = (controlKeyState & ShiftPressed) != 0;
+
+			ConsoleKey key = VirtualKeyToConsoleKey(vk);
+			char c = uc == 0 ? '\0' : (char)uc;
+
+			// Neither a key to name nor a character to insert: nothing happened.
+			if (key == ConsoleKey.None && c == '\0') return;
+
+			events.Add(new KeyInputEvent(new ConsoleKeyInfo(c, key, shift, alt, ctrl)));
+		}
+
+		// ControlKeyState bits, as the Windows console reports them. Ctrl and Alt are reported per
+		// side, and either side means the modifier is held.
+		private const int RightAltPressed = 0x0001;
+		private const int LeftAltPressed = 0x0002;
+		private const int RightCtrlPressed = 0x0004;
+		private const int LeftCtrlPressed = 0x0008;
+		private const int ShiftPressed = 0x0010;
+
+		/// <summary>A key that only modifies others, and so is not itself a keystroke.</summary>
+		private static bool IsModifierVirtualKey(int vk) => vk switch
+		{
+			0x10 or 0x11 or 0x12 => true,   // Shift, Control, Menu(Alt)
+			0xA0 or 0xA1 => true,           // L/R Shift
+			0xA2 or 0xA3 => true,           // L/R Control
+			0xA4 or 0xA5 => true,           // L/R Menu(Alt)
+			0x14 => true,                   // Caps Lock
+			0x90 or 0x91 => true,           // Num Lock, Scroll Lock
+			_ => false,
+		};
+
+		/// <summary>
+		/// Maps a Windows virtual key code to the <see cref="ConsoleKey"/> this library reports,
+		/// or <see cref="ConsoleKey.None"/> when there is no name for it.
+		/// </summary>
+		/// <remarks>
+		/// <see cref="ConsoleKey"/>'s values are the virtual key codes for every key named here, so
+		/// the mapping is a RANGE CHECK rather than a table: casting an unvalidated code would
+		/// invent names for codes that have none. Letters, digits, function keys, the numeric keypad
+		/// and the named editing keys all pass through; anything else is left unnamed, and its
+		/// character still types.
+		/// </remarks>
+		private static ConsoleKey VirtualKeyToConsoleKey(int vk)
+		{
+			// Letters and digits: VK_A-VK_Z and VK_0-VK_9 equal ConsoleKey.A-Z / D0-D9.
+			if ((vk >= 0x41 && vk <= 0x5A) || (vk >= 0x30 && vk <= 0x39))
+				return (ConsoleKey)vk;
+
+			// F1-F24, numeric keypad, and the arrows/editing block.
+			if (vk >= 0x70 && vk <= 0x87) return (ConsoleKey)vk;   // VK_F1-VK_F24
+			if (vk >= 0x60 && vk <= 0x69) return (ConsoleKey)vk;   // VK_NUMPAD0-9
+			if (vk >= 0x21 && vk <= 0x28) return (ConsoleKey)vk;   // PageUp..DownArrow
+			if (vk >= 0x2D && vk <= 0x2E) return (ConsoleKey)vk;   // Insert, Delete
+
+			return vk switch
+			{
+				0x08 => ConsoleKey.Backspace,
+				0x09 => ConsoleKey.Tab,
+				0x0C => ConsoleKey.Clear,
+				0x0D => ConsoleKey.Enter,
+				0x13 => ConsoleKey.Pause,
+				0x1B => ConsoleKey.Escape,
+				0x20 => ConsoleKey.Spacebar,
+				0x29 => ConsoleKey.Select,
+				0x2A => ConsoleKey.Print,
+				0x2B => ConsoleKey.Execute,
+				0x2C => ConsoleKey.PrintScreen,
+				0x2F => ConsoleKey.Help,
+				0x5B => ConsoleKey.LeftWindows,
+				0x5C => ConsoleKey.RightWindows,
+				0x5D => ConsoleKey.Applications,
+				0x5F => ConsoleKey.Sleep,
+				0x6A => ConsoleKey.Multiply,
+				0x6B => ConsoleKey.Add,
+				0x6C => ConsoleKey.Separator,
+				0x6D => ConsoleKey.Subtract,
+				0x6E => ConsoleKey.Decimal,
+				0x6F => ConsoleKey.Divide,
+				_ => ConsoleKey.None,
+			};
 		}
 
 		/// <summary>
