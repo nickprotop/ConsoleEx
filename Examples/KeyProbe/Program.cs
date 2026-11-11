@@ -56,6 +56,16 @@ system.RegisterGlobalShortcut(ConsoleModifiers.Control, ConsoleKey.O,
 system.RegisterGlobalShortcut(ConsoleModifiers.Control | ConsoleModifiers.Shift, ConsoleKey.O,
 	() => { Show("[bold magenta]SHORTCUT  Ctrl+Shift+O[/]"); return false; });
 
+// Which mechanism is in play, since two very different ones give the same
+// outcome: with VT input OFF the console reports the modifier itself, with it
+// ON only win32-input-mode can carry it.
+if (system.ConsoleDriver is NetConsoleDriver net)
+{
+	Show(OperatingSystem.IsWindows()
+		? $"[grey]VT input: {(net.VirtualTerminalInputEnabled ? "ON (modifier needs win32-input-mode)" : "OFF (console reports the modifier itself)")}[/]"
+		: "[grey]VT input: n/a (not Windows)[/]");
+}
+
 var window = new WindowBuilder(system)
 	.WithTitle("KeyProbe - Ctrl+O vs Ctrl+Shift+O - Ctrl+Q quits")
 	.Maximized()

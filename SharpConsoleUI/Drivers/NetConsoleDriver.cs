@@ -235,7 +235,19 @@ namespace SharpConsoleUI.Drivers
 
 						// Best-effort: a console that refuses VT input still renders, it just loses
 						// the richer input encoding. Refusing to start would be worse.
-						SetConsoleMode(_inputHandle, mode);
+						//
+						// Whether it took is worth knowing rather than guessing: with VT input OFF
+						// the console reports ControlKeyState itself and Ctrl+Shift+letter works
+						// through the legacy path, while with it ON that state is zeroed and only
+						// win32-input-mode can carry the modifier. Two different mechanisms behind
+						// the same outcome, so the flag is recorded for diagnostics.
+						VirtualTerminalInputEnabled = SetConsoleMode(_inputHandle, mode)
+							&& GetConsoleMode(_inputHandle, out uint after)
+							&& (after & ENABLE_VIRTUAL_TERMINAL_INPUT) != 0;
+					}
+					else
+					{
+						VirtualTerminalInputEnabled = true;
 					}
 				}
 
@@ -909,6 +921,20 @@ namespace SharpConsoleUI.Drivers
 		{
 			_consoleBuffer?.SetCellsFromBuffer(destX, destY, source, srcX, srcY, width, fallbackBg);
 		}
+
+		/// <summary>
+		/// Whether <c>ENABLE_VIRTUAL_TERMINAL_INPUT</c> is actually active on the console input
+		/// handle. Always <c>false</c> off Windows, where the mode does not exist.
+		/// </summary>
+		/// <remarks>
+		/// Diagnostic, not a switch: nothing branches on it. It tells apart two consoles that behave
+		/// identically from the outside. With VT input OFF the console reports
+		/// <c>ControlKeyState</c> itself, so Ctrl+Shift+letter arrives intact through the legacy
+		/// path; with it ON that state is zeroed and the modifier survives only when the terminal
+		/// honours win32-input-mode. Knowing which one is in play is the difference between a
+		/// measurement and a guess when a key behaves differently on two Windows terminals.
+		/// </remarks>
+		public bool VirtualTerminalInputEnabled { get; private set; }
 
 		/// <inheritdoc />
 		public bool SupportsKittyGraphics => TerminalCapabilities.SupportsKittyGraphics;
