@@ -28,7 +28,7 @@ namespace SharpConsoleUI.Tests.Drivers;
 /// ANSI and reports the record itself, modifiers intact.
 /// </para>
 /// <para>
-/// Windows Terminal and WezTerm honour <c>CSI ?9001h</c>; classic conhost ignores it. Nothing is
+/// Windows Terminal, WezTerm and Windows 11 conhost honour <c>CSI ?9001h</c>. Nothing is
 /// probed -- the first well-formed report IS the evidence the request was honoured, and until one
 /// arrives decoding is unchanged. That makes the fallback the absence of a change rather than a
 /// second code path.

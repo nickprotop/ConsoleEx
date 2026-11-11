@@ -494,9 +494,10 @@ namespace SharpConsoleUI.Drivers
 			// control byte 0x0F is identical for both chords (issue #95).
 			//
 			// Nothing is probed, and nothing depends on the answer. Windows Terminal and WezTerm
-			// honour it; classic conhost ignores the sequence entirely, and a terminal that ignores
-			// it simply keeps sending what it sent before, which the parser still decodes. The
-			// fallback is therefore the ABSENCE of a change rather than a second code path.
+			// honour it, and so does classic conhost on Windows 11 - measured with KeyProbe under
+			// conhost.exe itself, VT input ON, Ctrl+O and Ctrl+Shift+O distinct. A terminal that
+			// ignores it simply keeps sending what it sent before, which the parser still decodes.
+			// The fallback is therefore the ABSENCE of a change rather than a second code path.
 			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 				WriteOutput("\x1b[?9001h");
 
@@ -1513,13 +1514,14 @@ namespace SharpConsoleUI.Drivers
 		///
 		/// <para><b>This is necessary but not sufficient under VT input.</b> conhost zeroes
 		/// <c>ControlKeyState</c> on every key record once <c>ENABLE_VIRTUAL_TERMINAL_INPUT</c> is
-		/// set - the same limitation <see cref="NormalizeKey"/> documents for Shift+letter - so on
-		/// Windows Terminal the Shift read here is always absent and Ctrl+Shift+O still arrives as
-		/// Ctrl+O. Preserving it fixes the VT-input-off case and is where the modifier must survive
-		/// if it survives at all. Recovering it under VT input needs <c>win32-input-mode</c>, which
-		/// the driver now requests (<c>CSI ?9001h</c>) and Windows Terminal and WezTerm honour; on a
-		/// terminal that ignores it, such as classic conhost, this path is what still runs and the
-		/// two chords stay indistinguishable. Unix cannot distinguish them at all without an
+		/// set - the same limitation <see cref="NormalizeKey"/> documents for Shift+letter - so under
+		/// VT input the Shift read here is always absent and Ctrl+Shift+O arrives as Ctrl+O.
+		/// Preserving it fixes the VT-input-off case and is where the modifier must survive if it
+		/// survives at all. Recovering it under VT input needs <c>win32-input-mode</c>, which the
+		/// driver now requests (<c>CSI ?9001h</c>) and which Windows Terminal, WezTerm and Windows 11
+		/// conhost all honour - keys then arrive as win32 reports and never reach this method. Only
+		/// on a terminal that ignores the request does this path still run under VT input, and there
+		/// the two chords stay indistinguishable. Unix cannot distinguish them at all without an
 		/// extended protocol - see AnsiInputParser's Ctrl+Letter branch.</para>
 		///
 		/// <para>Control is asserted rather than copied: a 0x01-0x1A character IS the Ctrl+letter
@@ -1599,9 +1601,11 @@ namespace SharpConsoleUI.Drivers
 		/// returned unchanged, and <see cref="ConsoleKeyInfo.KeyChar"/> and the modifiers are always
 		/// preserved — the raw character is what the CJK and bracketed-paste paths depend on (issue #42).</para>
 		///
-		/// <para><b>Known limitation — Shift is not reported under VT input on Windows.</b> conhost
+		/// <para><b>Known limitation — Shift is not reported on the legacy VT input path.</b> conhost
 		/// drops <c>SHIFT_PRESSED</c> before the driver ever sees the record, so Shift+W arrives as
-		/// <c>KeyChar='W'</c> with no Shift modifier:</para>
+		/// <c>KeyChar='W'</c> with no Shift modifier. Terminals that honour win32-input-mode (Windows
+		/// Terminal, WezTerm, Windows 11 conhost) deliver keys as win32 reports instead and do not
+		/// reach this method; the limitation remains for a terminal that ignores the request:</para>
 		/// <code>
 		/// VT off : Key=W(87)   Mods=Shift  KeyChar=0x57
 		/// VT on  : Key=W(87)   Mods=None   KeyChar=0x57

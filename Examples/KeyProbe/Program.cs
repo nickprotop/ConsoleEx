@@ -16,7 +16,7 @@
 // (0x0F) on a legacy stream, and conhost zeroes the modifier state once
 // ENABLE_VIRTUAL_TERMINAL_INPUT is set. The driver asks Windows terminals for
 // win32-input-mode, which reports the console record instead and keeps the
-// modifier. Windows Terminal and WezTerm honour it; classic conhost ignores it.
+// modifier. Windows Terminal, WezTerm and Windows 11 conhost all honour it.
 //
 // WHAT TO LOOK FOR
 //   Press Ctrl+O, then Ctrl+Shift+O.
