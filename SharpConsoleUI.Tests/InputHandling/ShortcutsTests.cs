@@ -1,4 +1,5 @@
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Drivers;
 using SharpConsoleUI.Tests.Infrastructure;
 using SharpConsoleUI.Windows;
 using Xunit;
@@ -515,4 +516,76 @@ public class ShortcutsTests
 	//
 	//    // Paste operation should complete without crash
 	//}
+
+	#region Issue #95 - Ctrl+letter must not fire on Ctrl+Shift+letter
+
+	// Ctrl+O and Ctrl+Shift+O reach the driver as the SAME control character (0x0F); only the
+	// record's Shift flag separates them. Both go through the driver's own rebuild so these tests
+	// exercise the code that lost it, rather than a key already built by hand.
+	private static ConsoleKeyInfo CtrlO() => NetConsoleDriver.BuildControlCharKey(
+		new ConsoleKeyInfo('\u000F', ConsoleKey.None, false, false, true));
+
+	private static ConsoleKeyInfo CtrlShiftO() => NetConsoleDriver.BuildControlCharKey(
+		new ConsoleKeyInfo('\u000F', ConsoleKey.None, true, false, true));
+
+	/// <summary>
+	/// The reporter's case: a shortcut registered for Ctrl+O fired on Ctrl+Shift+O as well.
+	/// </summary>
+	/// <remarks>
+	/// Driven end to end from the raw console record, because the lookup was never the faulty part
+	/// -- <c>TryHandleGlobalShortcut</c> matches the <c>(Modifiers, Key)</c> tuple exactly, so it can
+	/// only misfire when the event reaching it has already lost a modifier. The keystroke therefore
+	/// enters through <see cref="NetConsoleDriver.BuildControlCharKey"/>, the Windows driver boundary
+	/// that was discarding Shift (issue #95); injecting an already-built key instead would document
+	/// the contract while passing against the bug.
+	/// </remarks>
+	[Fact]
+	public void GlobalShortcut_CtrlLetter_DoesNotFireOnCtrlShiftLetter()
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system);
+		system.WindowStateService.AddWindow(window);
+
+		int ctrlO = 0;
+		system.RegisterGlobalShortcut(ConsoleModifiers.Control, ConsoleKey.O, () => ctrlO++);
+
+		// Ctrl+Shift+O: the registered Ctrl+O handler must stay untouched.
+		system.InputStateService.EnqueueKey(CtrlShiftO());
+		system.Input.ProcessInput();
+		Assert.Equal(0, ctrlO);
+
+		// Ctrl+O still works.
+		system.InputStateService.EnqueueKey(CtrlO());
+		system.Input.ProcessInput();
+		Assert.Equal(1, ctrlO);
+	}
+
+	/// <summary>
+	/// The capability the collapse denied the reporter: "it effectively means I can't also add
+	/// another shortcut using Ctrl+Shift+O for another action."
+	/// </summary>
+	[Fact]
+	public void GlobalShortcut_CtrlLetter_AndCtrlShiftLetter_AreIndependentBindings()
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system);
+		system.WindowStateService.AddWindow(window);
+
+		int plain = 0, shifted = 0;
+		system.RegisterGlobalShortcut(ConsoleModifiers.Control, ConsoleKey.O, () => plain++);
+		system.RegisterGlobalShortcut(
+			ConsoleModifiers.Control | ConsoleModifiers.Shift, ConsoleKey.O, () => shifted++);
+
+		system.InputStateService.EnqueueKey(CtrlO());
+		system.Input.ProcessInput();
+		Assert.Equal(1, plain);
+		Assert.Equal(0, shifted);
+
+		system.InputStateService.EnqueueKey(CtrlShiftO());
+		system.Input.ProcessInput();
+		Assert.Equal(1, plain);    // must not have fired a second time
+		Assert.Equal(1, shifted);
+	}
+
+	#endregion
 }

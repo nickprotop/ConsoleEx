@@ -1318,19 +1318,7 @@ namespace SharpConsoleUI.Drivers
 						// Map control characters
 						if (key.KeyChar >= '\u0001' && key.KeyChar <= '\u001A' && key.KeyChar != '\t' && key.KeyChar != '\r')
 						{
-							// Convert control character to corresponding letter (A-Z)
-							char baseChar = (char)(key.KeyChar + 'A' - 1);
-
-							// Create new ConsoleKeyInfo with the mapped key
-							var mappedKey = new ConsoleKeyInfo(
-								key.KeyChar,  // Keep original control character
-								(ConsoleKey)baseChar, // Map to corresponding letter's ConsoleKey
-								false,  // shift
-								false,  // alt
-								true    // ctrl
-							);
-
-							KeyPressed?.Invoke(this, mappedKey);
+							KeyPressed?.Invoke(this, BuildControlCharKey(key));
 							continue;
 						}
 
@@ -1439,6 +1427,53 @@ namespace SharpConsoleUI.Drivers
 				} // End lock(_consoleLock) - all Console I/O now protected
 				Thread.Sleep(10);
 			}
+		}
+
+		/// <summary>
+		/// Builds the Ctrl+letter event for a control character (0x01-0x1A), keeping the modifiers the
+		/// console reported alongside it.
+		/// </summary>
+		/// <param name="key">The key as the console delivered it, carrying a control character.</param>
+		/// <remarks>
+		/// A control code carries no case: Ctrl+O and Ctrl+Shift+O both arrive as 0x0F. The Shift that
+		/// distinguishes them is in the key record, not the character, so it is read from there rather
+		/// than inferred. This previously hardcoded every modifier, which collapsed the two keystrokes
+		/// into one <c>(Control, O)</c> event -- a shortcut registered for Ctrl+O then also fired on
+		/// Ctrl+Shift+O, and a separate Ctrl+Shift+O binding could never be reached (issue #95).
+		///
+		/// <para>Unlike the printable path, nothing is guessed here. <see cref="NormalizeKey"/>
+		/// deliberately does NOT infer Shift from an uppercase character, because that is wrong for a
+		/// key with no case (<c>5</c> versus <c>%</c>); this method only passes through what the
+		/// record already states, so an absent modifier stays absent.</para>
+		///
+		/// <para><b>This is necessary but not sufficient under VT input.</b> conhost zeroes
+		/// <c>ControlKeyState</c> on every key record once <c>ENABLE_VIRTUAL_TERMINAL_INPUT</c> is
+		/// set - the same limitation <see cref="NormalizeKey"/> documents for Shift+letter - so on
+		/// Windows Terminal the Shift read here is always absent and Ctrl+Shift+O still arrives as
+		/// Ctrl+O. Preserving it fixes the VT-input-off case and is where the modifier must survive
+		/// if it survives at all; recovering it under VT input needs <c>win32-input-mode</c>
+		/// (<c>CSI ?9001h</c>), which this driver does not request. Unix cannot distinguish them at
+		/// all without an extended protocol - see AnsiInputParser's Ctrl+Letter branch.</para>
+		///
+		/// <para>Control is asserted rather than copied: a 0x01-0x1A character IS the Ctrl+letter
+		/// encoding, which is what reaching this path means, and some terminals report the character
+		/// without the modifier flag.</para>
+		///
+		/// <para>The raw control character is preserved, because the terminal and VT100 paths consume
+		/// it.</para>
+		/// </remarks>
+		internal static ConsoleKeyInfo BuildControlCharKey(ConsoleKeyInfo key)
+		{
+			// Convert control character to corresponding letter (A-Z): 0x01 -> A, 0x1A -> Z.
+			char baseChar = (char)(key.KeyChar + 'A' - 1);
+
+			return new ConsoleKeyInfo(
+				key.KeyChar,            // Keep original control character
+				(ConsoleKey)baseChar,   // Map to corresponding letter's ConsoleKey
+				(key.Modifiers & ConsoleModifiers.Shift) != 0,
+				(key.Modifiers & ConsoleModifiers.Alt) != 0,
+				true                    // a 0x01-0x1A character is Ctrl+letter by definition
+			);
 		}
 
 		/// <summary>

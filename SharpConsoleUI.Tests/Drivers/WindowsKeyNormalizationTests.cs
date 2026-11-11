@@ -288,4 +288,87 @@ public class WindowsKeyNormalizationTests
 	}
 
 	#endregion
+
+	#region Ctrl+letter (the control-character branch, issue #95)
+
+	/// <summary>
+	/// Ctrl+Shift+letter must be distinguishable from Ctrl+letter.
+	/// </summary>
+	/// <remarks>
+	/// Ctrl+O and Ctrl+Shift+O both arrive as the same control character (0x0F) -- the control code
+	/// carries no case. The branch that rebuilds a letter from 0x01-0x1A used to hardcode every
+	/// modifier (<c>false, false, true</c>), discarding the Shift that the console DID report
+	/// alongside the character. Both keystrokes therefore produced an identical
+	/// <c>(Control, O)</c> event, so a shortcut registered for Ctrl+O also fired on Ctrl+Shift+O and
+	/// no separate Ctrl+Shift+O binding could ever be reached (issue #95).
+	///
+	/// <para>This is the one place the distinction is recoverable. Unlike the printable path -- where
+	/// conhost drops SHIFT_PRESSED under VT input, and where inferring Shift from an uppercase
+	/// character would be wrong for keys with no case (<c>5</c> versus <c>%</c>) -- here the modifier
+	/// is read from the record rather than guessed, so nothing is invented when it is absent.</para>
+	/// </remarks>
+	[Theory]
+	[InlineData('\u000F', ConsoleKey.O)]   // Ctrl+O  / Ctrl+Shift+O
+	[InlineData('\u0001', ConsoleKey.A)]
+	[InlineData('\u001A', ConsoleKey.Z)]
+	public void CtrlLetter_ReportsShiftWhenTheConsoleReportsIt(char controlChar, ConsoleKey expected)
+	{
+		var withShift = NetConsoleDriver.BuildControlCharKey(
+			new ConsoleKeyInfo(controlChar, ConsoleKey.None, true, false, true));
+		var withoutShift = NetConsoleDriver.BuildControlCharKey(
+			new ConsoleKeyInfo(controlChar, ConsoleKey.None, false, false, true));
+
+		Assert.Equal(expected, withShift.Key);
+		Assert.Equal(expected, withoutShift.Key);
+
+		// The whole point: the two keystrokes must not collapse into one event.
+		Assert.True(withShift.Modifiers.HasFlag(ConsoleModifiers.Shift));
+		Assert.False(withoutShift.Modifiers.HasFlag(ConsoleModifiers.Shift));
+		Assert.NotEqual(withShift.Modifiers, withoutShift.Modifiers);
+	}
+
+	/// <summary>Control is always set, and the raw control character always survives.</summary>
+	[Theory]
+	[InlineData('\u000F', ConsoleKey.O)]
+	[InlineData('\u0011', ConsoleKey.Q)]
+	public void CtrlLetter_KeepsControlAndItsRawCharacter(char controlChar, ConsoleKey expected)
+	{
+		var result = NetConsoleDriver.BuildControlCharKey(
+			new ConsoleKeyInfo(controlChar, ConsoleKey.None, false, false, true));
+
+		Assert.Equal(expected, result.Key);
+		Assert.Equal(controlChar, result.KeyChar);  // consumed by the terminal/VT100 paths
+		Assert.True(result.Modifiers.HasFlag(ConsoleModifiers.Control));
+	}
+
+	/// <summary>
+	/// Alt+Ctrl+letter keeps its Alt too. The old code dropped it, which made Ctrl+Alt+O
+	/// indistinguishable from Ctrl+O for the same reason Shift was.
+	/// </summary>
+	[Fact]
+	public void CtrlLetter_PreservesAltModifier()
+	{
+		var result = NetConsoleDriver.BuildControlCharKey(
+			new ConsoleKeyInfo('\u000F', ConsoleKey.None, false, true, true));
+
+		Assert.Equal(ConsoleKey.O, result.Key);
+		Assert.True(result.Modifiers.HasFlag(ConsoleModifiers.Alt));
+		Assert.True(result.Modifiers.HasFlag(ConsoleModifiers.Control));
+	}
+
+	/// <summary>
+	/// Control is asserted even when the record did not carry it: a 0x01-0x1A character IS the
+	/// Ctrl+letter encoding, which is what reaching this branch means.
+	/// </summary>
+	[Fact]
+	public void CtrlLetter_AssertsControlEvenWhenTheRecordOmitsIt()
+	{
+		var result = NetConsoleDriver.BuildControlCharKey(
+			new ConsoleKeyInfo('\u000F', ConsoleKey.None, false, false, false));
+
+		Assert.Equal(ConsoleKey.O, result.Key);
+		Assert.True(result.Modifiers.HasFlag(ConsoleModifiers.Control));
+	}
+
+	#endregion
 }

@@ -196,6 +196,17 @@ namespace SharpConsoleUI.Drivers.Input
 			}
 
 			// Ctrl+Letter: 0x01-0x1A (except Tab=0x09, Enter=0x0D)
+			//
+			// Shift is reported as absent, and here that is a fact rather than a shortcut: a control
+			// byte carries no case, so Ctrl+O and Ctrl+Shift+O are the SAME byte (0x0F) on a pty.
+			// Nothing in this stream distinguishes them. (The Windows driver's equivalent branch does
+			// report it, because a console key record carries the modifier alongside the character --
+			// see NetConsoleDriver.BuildControlCharKey and issue #95.) Recovering it on Unix needs a
+			// terminal sending one of the extended forms, which DO carry it and which this parser
+			// decodes: see TryModifyOtherKeys (CSI 27;mod;code~) and DispatchCsiU (CSI code;mod u).
+			// Verified against a real pty: tmux sends 0x0F for both Ctrl+O and Ctrl+Shift+O, while
+			// the extended forms reach the two shortcuts separately. The library does not itself
+			// negotiate either protocol, so whether they arrive is up to the terminal.
 			if (b >= 0x01 && b <= 0x1A)
 			{
 				switch (b)
@@ -614,7 +625,22 @@ namespace SharpConsoleUI.Drivers.Input
 						_state = State.Paste; // Parse loop must NOT overwrite this (positive-match reset only on CsiParam)
 						break;
 					}
+					// xterm modifyOtherKeys: ESC [ 27 ; <mod> ; <code> ~ — a modified key that has
+					// no control code of its own to arrive as. Three parameters, so a bare
+					// `ESC [ 27 ~` is untouched and still falls through below.
+					if (numericPart == "27" && TryModifyOtherKeys(paramStr, out var otherKey))
+					{
+						events.Add(otherKey);
+						break;
+					}
 					DispatchTilde(numericPart, shift, alt, ctrl, events);
+					break;
+
+				// Kitty / fixterms "CSI u": ESC [ <code> ; <mod> u, where <code> is the Unicode
+				// code point of the key. The modifier section is optional, and Kitty appends
+				// further sections (event type, associated text) that are ignored here.
+				case 'u':
+					DispatchCsiU(paramStr, events, _pending);
 					break;
 
 				// Legacy X10 mouse: CSI M <button> <x> <y> (3 raw bytes follow)
@@ -997,6 +1023,105 @@ namespace SharpConsoleUI.Drivers.Input
 
 			// Row 1 collides with the modifier form; every other row is a report outright.
 			return row != 1 || col > 16;
+		}
+
+		/// <summary>
+		/// Decodes xterm's <c>modifyOtherKeys</c> report, <c>CSI 27 ; mod ; code ~</c>.
+		/// </summary>
+		/// <param name="paramStr">The CSI parameter string, expected as <c>27;mod;code</c>.</param>
+		/// <param name="key">The decoded keystroke, when the form matches.</param>
+		/// <returns><c>true</c> when this was a well-formed report and <paramref name="key"/> is set.</returns>
+		/// <remarks>
+		/// A terminal sends this for a modified key that has no distinct control code: Ctrl+O and
+		/// Ctrl+Shift+O both collapse to 0x0F as a raw byte, and this form is how the two are told
+		/// apart (issue #95). Returning <c>false</c> leaves the sequence to the ordinary tilde
+		/// handling, so a bare <c>CSI 27 ~</c> and anything malformed are not turned into keys.
+		/// </remarks>
+		private static bool TryModifyOtherKeys(string paramStr, out KeyInputEvent key)
+		{
+			key = default!;
+
+			var parts = paramStr.Split(';');
+			if (parts.Length != 3) return false;
+			if (!int.TryParse(parts[2], out int codePoint)) return false;
+
+			DecodeXtermModifier(parts[1], out bool shift, out bool alt, out bool ctrl);
+			key = KeyFromCodePoint(codePoint, shift, alt, ctrl);
+			return true;
+		}
+
+		/// <summary>
+		/// Decodes the Kitty / fixterms <c>CSI u</c> form, <c>CSI code ; mod u</c>.
+		/// </summary>
+		/// <remarks>
+		/// The modifier section is optional (<c>CSI code u</c> is an unmodified key), and Kitty adds
+		/// further sections after it which carry event type and associated text; those are ignored,
+		/// but their presence must not stop the key decoding. A non-numeric code point is not a key
+		/// and is reported as an unknown sequence, the same as any other sequence this parser cannot
+		/// make sense of.
+		/// </remarks>
+		private static void DispatchCsiU(string paramStr, List<InputEvent> events, List<byte> pending)
+		{
+			var parts = paramStr.Split(';');
+
+			if (!int.TryParse(parts[0], out int codePoint))
+			{
+				events.Add(new UnknownSequenceEvent(pending.ToArray()));
+				return;
+			}
+
+			bool shift = false, alt = false, ctrl = false;
+			if (parts.Length >= 2)
+				DecodeXtermModifier(parts[1], out shift, out alt, out ctrl);
+
+			events.Add(KeyFromCodePoint(codePoint, shift, alt, ctrl));
+		}
+
+		/// <summary>
+		/// Decodes the xterm modifier parameter: 1 is none, and the value above that is a bitmask of
+		/// Shift(1) / Alt(2) / Ctrl(4). This is the same encoding the arrow keys already use.
+		/// </summary>
+		private static void DecodeXtermModifier(string value, out bool shift, out bool alt, out bool ctrl)
+		{
+			shift = false;
+			alt = false;
+			ctrl = false;
+
+			if (!int.TryParse(value, out int modCode)) return;
+
+			modCode--; // 1 means "no modifiers"
+			shift = (modCode & 1) != 0;
+			alt = (modCode & 2) != 0;
+			ctrl = (modCode & 4) != 0;
+		}
+
+		/// <summary>
+		/// Builds a keystroke from a Unicode code point reported by one of the modified-key forms.
+		/// </summary>
+		/// <remarks>
+		/// Keys with a name of their own keep it, so Ctrl+Enter reported this way is still
+		/// <see cref="ConsoleKey.Enter"/> rather than a letter. Everything else goes through
+		/// <see cref="CharToConsoleKey"/>, the mapping both input backends share, and keeps the
+		/// character it produced because the typing paths consume it.
+		/// </remarks>
+		private static KeyInputEvent KeyFromCodePoint(int codePoint, bool shift, bool alt, bool ctrl)
+		{
+			switch (codePoint)
+			{
+				case 13: return new KeyInputEvent(new ConsoleKeyInfo('\r', ConsoleKey.Enter, shift, alt, ctrl));
+				case 9: return new KeyInputEvent(new ConsoleKeyInfo('\t', ConsoleKey.Tab, shift, alt, ctrl));
+				case 8:
+				case 127: return new KeyInputEvent(new ConsoleKeyInfo('\b', ConsoleKey.Backspace, shift, alt, ctrl));
+				case 27: return new KeyInputEvent(new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, shift, alt, ctrl));
+				case 32: return new KeyInputEvent(new ConsoleKeyInfo(' ', ConsoleKey.Spacebar, shift, alt, ctrl));
+			}
+
+			char c = (char)codePoint;
+			ConsoleKey mapped = CharToConsoleKey(c);
+
+			// NoName means there is no sensible ConsoleKey; the character is still what was typed.
+			return new KeyInputEvent(new ConsoleKeyInfo(
+				c, mapped == ConsoleKey.NoName ? ConsoleKey.None : mapped, shift, alt, ctrl));
 		}
 
 		private static void ParseModifiers(string paramStr, out string numericPart, out bool shift, out bool alt, out bool ctrl)
