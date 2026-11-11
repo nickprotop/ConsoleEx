@@ -387,6 +387,7 @@ Full reference: [nickprotop.github.io/ConsoleEx/docfx/_site/CONTROLS.html](https
 | [Notifications](https://nickprotop.github.io/ConsoleEx/docs/NOTIFICATIONS.html) | Corner toasts (ToastService) + modal notifications |
 | [Dialogs](docs/DIALOGS.md) | Standalone Confirm / Prompt / Progress dialogs + file and system dialogs |
 | [Composable Flows](docs/FLOWS.md) | Multi-step wizards + FlowContext over the dialog primitives |
+| [Logging](docs/LOGGING.md) | The log service, LogViewerControl, file output, and the two-way Microsoft.Extensions.Logging bridge |
 | [Debugging](docs/DEBUGGING.md) | Inspect and drive a running app over a socket — snapshot, PNG, layout tree, real input |
 | [Drivers & Render Modes](docs/DRIVERS.md) | The driver, buffered rendering, and running headless |
 | [Screen Export](docs/EXPORT.md) | A window, a region or the desktop, as an image or text |

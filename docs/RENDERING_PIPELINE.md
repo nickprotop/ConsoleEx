@@ -1451,62 +1451,18 @@ Watch for:
 
 ### Logging
 
-**Method 1: Environment Variables**
+Rendering problems are often read out of the log rather than off the screen: the `Render`
+and `Renderer` categories carry the layout and paint passes, and `Trace` records them per
+frame.
 
-Enable debug logging via environment:
 ```bash
-export SHARPCONSOLEUI_DEBUG_LOG=/tmp/consoleui.log
-export SHARPCONSOLEUI_DEBUG_LEVEL=Debug
-dotnet run
+SHARPCONSOLEUI_DEBUG_LOG=/tmp/render.log SHARPCONSOLEUI_DEBUG_LEVEL=Trace dotnet run
 ```
 
-**Method 2: Programmatic Initialization (Recommended for Debugging)**
+Capture levels, the log viewer, file output, reading the buffer from outside with cxdbg and
+the `Microsoft.Extensions.Logging` bridges are all in **[Logging](LOGGING.md)**.
 
-Initialize logging directly in your code:
-```csharp
-var windowSystem = new ConsoleWindowSystem(RenderMode.Buffer);
-
-// Enable file logging programmatically
-windowSystem.LogService.EnableFileLogging("/tmp/debug.log");
-windowSystem.LogService.MinimumLevel = LogLevel.Debug;  // or LogLevel.Trace for maximum detail
-
-// Your application code...
-var window = new Window(windowSystem) { Title = "Test" };
-
-// Log custom debug information
-windowSystem.LogService.Log(LogLevel.Debug, "MyApp", "Window created");
-
-// Access logs programmatically
-var recentLogs = windowSystem.LogService.GetRecentLogs(50);
-foreach (var entry in recentLogs)
-{
-    // Process log entries (store, analyze, etc.)
-}
-```
-
-**Method 3: Subscribe to Log Events**
-
-Real-time log monitoring:
-```csharp
-windowSystem.LogService.LogAdded += (sender, entry) =>
-{
-    // Write to your own file, database, or monitoring system
-    File.AppendAllText("/tmp/myapp.log",
-        $"[{entry.Timestamp:HH:mm:ss.fff}] [{entry.Level}] {entry.Category}: {entry.Message}\n");
-};
-```
-
-**Log Categories to Search For:**
-- `[System]` - Overall system lifecycle
-- `[Render]` - Rendering operations
-- `[Window]` - Window lifecycle (create, close, show, hide)
-- `[WindowState]` - Window state management
-- `[Focus]` - Focus changes
-- `[Modal]` - Modal window handling
-- `[Interaction]` - Drag/resize events
-- `[Input]` - Keyboard/mouse input
-
-**Example Log Output:**
+**What a frame looks like in the log:**
 ```
 [14:23:45.123] [Debug] Window: Window created - ID: win_001, Title: 'Main Window'
 [14:23:45.134] [Trace] Render: UpdateDisplay started

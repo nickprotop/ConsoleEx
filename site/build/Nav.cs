@@ -100,6 +100,7 @@ internal static class Nav
 		new("Tooling & debugging",
 			"A terminal application is the one program you cannot printf-debug.",
 			[
+				new("LOGGING.md", "Logging", "The log service, the viewer, file output, and the two-way ILogger bridge."),
 				new("CXDBG.md", "cxdbg", "The debugger: attach to a running application, ask it questions, drive it.",
 					Source: "tools/cxdbg/README.md"),
 				new("DEBUGGING.md", "Debugging & the socket protocol", "The wire the debugger speaks, and what each verb answers."),

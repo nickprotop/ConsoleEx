@@ -312,13 +312,11 @@ export SHARPCONSOLEUI_DEBUG_LOG=/tmp/consoleui.log
 export SHARPCONSOLEUI_DEBUG_LEVEL=Debug
 ```
 
-**Log Levels:**
-- `Trace` - Most verbose (mouse events, render cycles, focus changes)
-- `Debug` - Significant operations (window add/close, drag/resize)
-- `Information` - General information messages
-- `Warning` - Default level - warnings only
-- `Error` - Errors only
-- `Critical` - Fatal errors only
+**Log Levels:** `Trace`, `Debug`, `Information`, `Warning` (the default), `Error`, `Critical`.
+
+This sets the CAPTURE level: below it an entry is never recorded, so no view filter brings
+it back. See **[Logging](LOGGING.md)** for the three filters, the log viewer, the
+`Microsoft.Extensions.Logging` bridges and reading the buffer from another process.
 
 ### Performance Metrics Override
 
