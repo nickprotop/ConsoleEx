@@ -30,6 +30,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The log page demonstrates the Microsoft.Extensions.Logging bridges both ways, so the
+         showcase needs a real LoggerFactory. The library itself references only the
+         Abstractions; this is the implementation package, for the demo's own pipeline. -->
+    <PackageReference Include="Microsoft.Extensions.Logging" />
     <ProjectReference Include="..\..\SharpConsoleUI\SharpConsoleUI.csproj" />
   </ItemGroup>
 
