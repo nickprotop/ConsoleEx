@@ -38,9 +38,9 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 
 	private ToolbarControl? _toolbar;
 	private DropdownControl? _levelDropdown;
-	private PromptControl? _searchBox;
 	private bool _isPaused;
 	private bool _showToolbar = true;
+	private bool _showRowSeparators;
 
 	private MarkupControl? _detailContent;
 	private ScrollablePanelControl? _detailPanel;
@@ -50,12 +50,22 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 	private bool _autoScroll = true;
 	private string? _title;
 	private bool _systemAttached;
+	private bool _globalFilterHotkey;
+	private Window? _hotkeyWindow;
 
 	/// <summary>Creates a new LogViewerControl bound to the specified log service.</summary>
 	/// <param name="logService">The log service to display entries from.</param>
 	public LogViewerControl(ILogService logService)
 	{
 		_logService = logService ?? throw new ArgumentNullException(nameof(logService));
+
+		// A log pane is a scrolling list: it wants the room it is given. The inner grid and
+		// table already Fill, but the control ITSELF defaulted to its content size, so adding
+		// one to a window without setting alignment produced a correct, empty-looking table
+		// with no room for rows. Fill is what every caller wanted; a caller who wants
+		// something else still sets these afterwards, as before.
+		VerticalAlignment = VerticalAlignment.Fill;
+		HorizontalAlignment = HorizontalAlignment.Stretch;
 
 		_dataSource = new LogTableDataSource(_logService);
 
@@ -66,12 +76,36 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 			VerticalAlignment = VerticalAlignment.Fill,
 			HorizontalAlignment = HorizontalAlignment.Stretch,
 			AutoScroll = _autoScroll,   // seed from the viewer's default intent (true)
+
+			// TableControl.ReadOnly defaults to TRUE, meaning "static display, no interaction",
+			// and it gates the INTERACTIVE filter ('/' and its footer) and column resize. The log
+			// viewer has never been a static display: it scrolls, selects a row and drives the
+			// detail pane from SelectedRowChanged. Leaving the default on silently disabled both
+			// features below while they looked enabled. Cell editing stays off regardless, since
+			// it needs InlineEditingEnabled too, which is false and not set here.
+			ReadOnly = false,
+
+			// Drag a column border to widen it. The category column is sized for the library's
+			// own short categories, so a reader looking at full type names from an
+			// ILogger<T> pipeline needs to be able to take the room from Message.
+			ColumnResizeEnabled = true,
+
+			// Click a header to sort. LogTableDataSource answers CanSort for every column and
+			// sorts on the underlying values, so Level orders by severity and Time by timestamp.
+			SortingEnabled = true,
+
+			// The full filter grammar over Time/Level/Category/Message: press '/' in the table,
+			// or type in the toolbar's Filter box. The table evaluates it itself against the
+			// source's cell values, including AND/OR, per-column terms and fuzzy fallback.
+			FilteringEnabled = true,
+			FuzzyFilterEnabled = true,
+
+			ShowRowSeparators = _showRowSeparators,
 			DataSource = _dataSource
 		};
 
 		_levelDropdown = BuildLevelDropdown();
-		_searchBox = BuildSearchBox();
-		_toolbar = BuildToolbar(_levelDropdown, _searchBox);
+		_toolbar = BuildToolbar(_levelDropdown);
 
 		_grid = new GridControl
 		{
@@ -103,6 +137,11 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 		// eviction/filter Reset) takes the same apply-only path; follow intent is owned by the input
 		// handlers, never inferred from which action the data source happened to raise.
 		_dataSource.CollectionChanged += (_, _) => ApplyTailFollow();
+
+		// Show the level the service is ACTUALLY on. The dropdown's first item is "All", so a
+		// viewer built over a service already set to Information used to read "All" while
+		// capturing nothing below Information: the control claimed a state it did not have.
+		SyncLevelDropdownSelection();
 	}
 
 	/// <summary>
@@ -167,6 +206,115 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 		set { _dataSource.ViewFilterCategory = value; OnPropertyChanged(); }
 	}
 
+	/// <summary>Gets or sets whether a separator line is drawn between rows.</summary>
+	/// <remarks>
+	/// Off by default: a log pane is usually dense, and separators halve how many entries fit.
+	/// Worth turning on for a short pane, or when entries wrap to several lines each.
+	/// </remarks>
+	public bool ShowRowSeparators
+	{
+		get => _showRowSeparators;
+		set { if (SetProperty(ref _showRowSeparators, value)) _table.ShowRowSeparators = value; }
+	}
+
+	/// <summary>Gets or sets whether a column border can be dragged to resize the column.</summary>
+	/// <remarks>
+	/// On by default. The category column is sized for short category names, so a reader looking
+	/// at full type names from an <c>ILogger&lt;T&gt;</c> pipeline widens it from Message.
+	/// </remarks>
+	public bool ColumnResizeEnabled
+	{
+		get => _table.ColumnResizeEnabled;
+		set { _table.ColumnResizeEnabled = value; OnPropertyChanged(); }
+	}
+
+	/// <summary>Gets or sets whether clicking a column header sorts by it.</summary>
+	/// <remarks>
+	/// On by default, cycling ascending, descending, then back to arrival order. Sorting is on
+	/// the underlying values, so Level orders by severity rather than alphabetically and Time by
+	/// the full timestamp rather than its displayed "HH:mm:ss". Entries with equal keys stay in
+	/// the order they arrived.
+	/// </remarks>
+	public bool SortingEnabled
+	{
+		get => _table.SortingEnabled;
+		set { _table.SortingEnabled = value; OnPropertyChanged(); }
+	}
+
+	/// <summary>Gets or sets whether the table's filter grammar is available.</summary>
+	/// <remarks>
+	/// On by default. Press '/' over the table, or type in the toolbar's Filter box. Plain text
+	/// matches any column; <c>category:Order</c> restricts to one; terms combine with AND and OR.
+	/// This is separate from <see cref="FilterLevel"/> and <see cref="FilterCategory"/>, which
+	/// narrow the projection before the table ever sees it.
+	/// </remarks>
+	public bool FilteringEnabled
+	{
+		get => _table.FilteringEnabled;
+		set { _table.FilteringEnabled = value; OnPropertyChanged(); }
+	}
+
+	/// <summary>
+	/// Gets or sets whether pressing <c>/</c> anywhere on the window opens the table's filter,
+	/// even when the viewer does not have focus. Off by default.
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// With focus already in the viewer, <c>/</c> opens the filter regardless of this property;
+	/// this is about claiming the key for the whole window. It hooks
+	/// <see cref="Window.PreviewKeyPressed"/>, which runs before any control sees the key, so it
+	/// is opt-in: a page where another control legitimately takes <c>/</c> (a terminal, a text
+	/// editor, a prompt) must not have the log pane intercepting it.
+	/// </para>
+	/// <para>
+	/// Even when on, the hotkey DECLINES while focus is on an interactive control other than this
+	/// viewer, so typing a slash into an edit box, a terminal or a prompt still types a slash.
+	/// It fires when focus is on a non-interactive control, on nothing at all, or on the viewer
+	/// itself. A plain <c>/</c> only: any modifier is left alone.
+	/// </para>
+	/// </remarks>
+	public bool GlobalFilterHotkey
+	{
+		get => _globalFilterHotkey;
+		set
+		{
+			if (!SetProperty(ref _globalFilterHotkey, value)) return;
+			if (value) HookHotkey(); else UnhookHotkey();
+		}
+	}
+
+	/// <summary>
+	/// Gets whether a filter is currently active, whether being typed or already applied.
+	/// </summary>
+	public bool IsFiltering => _table.IsFiltering;
+
+	/// <summary>Gets the active filter text, or null when no filter is applied.</summary>
+	public string? ActiveFilterText => _table.ActiveFilterText;
+
+	/// <summary>
+	/// Applies a filter using the table's grammar, as if it had been typed into the toolbar.
+	/// </summary>
+	/// <param name="filterText">
+	/// Plain text matches any column. <c>category:Order</c> restricts to one column, and terms
+	/// combine with AND and OR. Null or empty clears the filter.
+	/// </param>
+	/// <remarks>
+	/// This is the view's filter, applied by the table over the rows it is shown. It is separate
+	/// from <see cref="FilterLevel"/> and <see cref="FilterCategory"/>, which narrow the
+	/// projection before the table sees it, and from <see cref="ILogService.MinimumLevel"/>,
+	/// which decides what is captured at all.
+	/// </remarks>
+	public void ApplyFilterText(string? filterText)
+	{
+		if (string.IsNullOrEmpty(filterText))
+			_table.ClearFilter();
+		else
+			_table.ApplyFilter(filterText);
+	}
+
+	/// <summary>Clears any filter applied through the grammar.</summary>
+	public void ClearFilterText() => _table.ClearFilter();
+
 	/// <summary>Gets or sets a title shown above the log table.</summary>
 	public string? Title
 	{
@@ -223,18 +371,20 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 		return dd;
 	}
 
-	private PromptControl BuildSearchBox()
+	private ToolbarControl BuildToolbar(DropdownControl level)
 	{
-		var p = new PromptControl { Prompt = "Search:", InputWidth = ControlDefaults.LogViewerCategoryColumnWidth };
-		p.InputChanged += (_, text) => _dataSource.SearchText = string.IsNullOrEmpty(text) ? null : text;
-		return p;
-	}
+		// No filter box here on purpose. Filtering is the table's, reached with '/' over the
+		// table or set programmatically through ApplyFilterText, so the toolbar does not carry
+		// a second, weaker entry point to the same feature.
+		var toolbar = new ToolbarControl
+		{
+			Visible = _showToolbar,
 
-	private ToolbarControl BuildToolbar(DropdownControl level, PromptControl search)
-	{
-		var toolbar = new ToolbarControl { Visible = _showToolbar };
+			// ToolbarControl packs items edge to edge by default, which runs the level
+			// dropdown straight into the first button and the buttons into each other.
+			ItemSpacing = 2
+		};
 		toolbar.AddItem(level);
-		toolbar.AddItem(search);
 		toolbar.AddItem(Builders.Controls.Button("Pause").OnClick((_, _) => TogglePause()).Build());
 		toolbar.AddItem(Builders.Controls.Button("Clear").OnClick((_, _) => _logService.ClearLogs()).Build());
 		toolbar.AddItem(Builders.Controls.Button("Export").OnClick((_, _) => ExportAsync()).Build());
@@ -243,6 +393,14 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 
 	private void TogglePause() => IsPaused = !IsPaused;
 
+	/// <summary>
+	/// Points the dropdown at the service's current level.
+	/// </summary>
+	/// <remarks>
+	/// Called at construction and from <see cref="SetCaptureLevel"/>, and again on every
+	/// refresh, because an application can set <see cref="ILogService.MinimumLevel"/> directly
+	/// and the control has no event to learn that from.
+	/// </remarks>
 	private void SyncLevelDropdownSelection()
 	{
 		if (_levelDropdown == null) return;
@@ -474,7 +632,69 @@ public class LogViewerControl : BaseControl, IInteractiveControl, IFocusableCont
 		_dataSource.AttachSystem(system);
 		_dataSource.RebuildProjection(); // reconcile anything logged before attach
 		_systemAttached = true;
+
+		// The window is only reachable once attached, so a hotkey asked for before that
+		// (set on the control, or through the builder) is hooked here.
+		if (_globalFilterHotkey) HookHotkey();
 	}
+
+	/// <summary>
+	/// Subscribes to the containing window's key preview. Safe to call repeatedly.
+	/// </summary>
+	private void HookHotkey()
+	{
+		var window = Container?.GetConsoleWindowSystem is null ? null : FindWindow();
+		if (window == null || ReferenceEquals(window, _hotkeyWindow)) return;
+
+		UnhookHotkey();
+		_hotkeyWindow = window;
+		window.PreviewKeyPressed += OnWindowPreviewKey;
+	}
+
+	private void UnhookHotkey()
+	{
+		if (_hotkeyWindow == null) return;
+		_hotkeyWindow.PreviewKeyPressed -= OnWindowPreviewKey;
+		_hotkeyWindow = null;
+	}
+
+	/// <summary>Walks up the container chain to the window hosting this control.</summary>
+	private Window? FindWindow()
+	{
+		for (IContainer? c = Container; c != null; c = (c as IWindowControl)?.Container)
+			if (c is Window w) return w;
+		return null;
+	}
+
+	private void OnWindowPreviewKey(object? sender, KeyPressedEventArgs e)
+	{
+		if (!_globalFilterHotkey || !IsEnabled || !Visible) return;
+		if (e.Handled) return;
+
+		// A plain '/' only. Ctrl+/ and friends belong to whoever else wants them.
+		if (e.KeyInfo.KeyChar != '/' || e.KeyInfo.Modifiers != 0) return;
+
+		// Decline while another interactive control holds focus: a slash typed into a terminal,
+		// an edit box or a prompt is a slash, not a command to us. Focus on a non-interactive
+		// control, on nothing, or on this viewer is ours to claim.
+		var focused = _hotkeyWindow?.FocusManager?.FocusedControl;
+		if (focused is IInteractiveControl && !ReferenceEquals(focused, this) && !OwnsFocused(focused))
+			return;
+
+		// Take the keyboard with the filter, onto the TABLE and not merely onto this control.
+		// The hotkey fires without the viewer having focus, and the characters typed next travel
+		// the ordinary routing path: TableControl.ProcessKey opens with "if (!_isEnabled ||
+		// !HasFocus) return false", so the table itself has to hold focus or the prompt opens
+		// and silently swallows nothing while the user types.
+		_hotkeyWindow?.FocusManager?.SetFocus(_table, FocusReason.Keyboard);
+
+		_table.EnterFilterMode();
+		e.Handled = true;
+	}
+
+	/// <summary>True when the focused control is this viewer's own inner table or grid.</summary>
+	private bool OwnsFocused(object? focused)
+		=> ReferenceEquals(focused, _table) || ReferenceEquals(focused, _grid);
 
 	// Explicit AutoScroll-on / unpause: re-attach the table to the tail and jump to the bottom.
 	private void ResumeFollow()

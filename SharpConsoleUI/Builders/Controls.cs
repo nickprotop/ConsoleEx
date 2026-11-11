@@ -309,6 +309,22 @@ public static class Controls
 	public static TreeTableControlBuilder TreeTable() => new TreeTableControlBuilder();
 
 	/// <summary>
+	/// Creates a fluent builder for a <see cref="SharpConsoleUI.Controls.LogViewerControl"/> over the given log
+	/// service, normally <c>windowSystem.LogService</c>.
+	/// </summary>
+	/// <param name="logService">The service whose entries the viewer shows.</param>
+	/// <example>
+	/// <code>
+	/// Controls.LogViewer(windowSystem.LogService)
+	///     .WithTitle("Application log")
+	///     .WithFilterLevel(LogLevel.Information)
+	///     .Build()
+	/// </code>
+	/// </example>
+	public static LogViewerBuilder LogViewer(Logging.ILogService logService)
+		=> new LogViewerBuilder(logService);
+
+	/// <summary>
 	/// Creates a new panel builder for bordered content panels
 	/// </summary>
 	/// <returns>A new panel builder</returns>

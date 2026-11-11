@@ -8,6 +8,7 @@
 
 using System.Collections.Specialized;
 using SharpConsoleUI.Configuration;
+using SharpConsoleUI.Helpers;
 using SharpConsoleUI.Layout;
 using SharpConsoleUI.Logging;
 
@@ -39,6 +40,11 @@ internal sealed class LogTableDataSource : ITableDataSource, IDisposable
 	private string? _viewFilterCategory;
 	private string? _searchText;
 	private bool _subscribed;
+
+	// Sort state. null = the buffer's own order (oldest first), which is what a log reader
+	// wants by default and what tail-follow assumes.
+	private int _sortColumn = -1;
+	private SortDirection _sortDirection = SortDirection.None;
 
 	/// <summary>Creates a data source bound to the given log service and loads its current buffer.</summary>
 	public LogTableDataSource(ILogService logService)
@@ -111,7 +117,7 @@ internal sealed class LogTableDataSource : ITableDataSource, IDisposable
 		{
 			ColTime => e.Timestamp.ToString("HH:mm:ss"),
 			ColLevel => LevelText(e.Level),
-			ColCategory => e.Category ?? string.Empty,
+			ColCategory => CategoryText(e.Category),
 			ColMessage => MessageText(e),
 			_ => string.Empty
 		};
@@ -137,6 +143,37 @@ internal sealed class LogTableDataSource : ITableDataSource, IDisposable
 		}
 	}
 
+	/// <summary>
+	/// Every column of the log table is sortable.
+	/// </summary>
+	/// <remarks>
+	/// <see cref="TableControl.SortByColumn"/> refuses outright when the attached source says a
+	/// column cannot be sorted, so this is what makes header-click sorting work at all for logs.
+	/// </remarks>
+	public bool CanSort(int columnIndex) => columnIndex >= ColTime && columnIndex <= ColMessage;
+
+	/// <inheritdoc/>
+	public void Sort(int columnIndex, SortDirection direction)
+	{
+		lock (_lock)
+		{
+			_sortColumn = columnIndex;
+			_sortDirection = direction;
+		}
+		RebuildProjection();
+	}
+
+	/// <summary>Restores the buffer's own order, oldest first.</summary>
+	public void ClearSort()
+	{
+		lock (_lock)
+		{
+			_sortColumn = -1;
+			_sortDirection = SortDirection.None;
+		}
+		RebuildProjection();
+	}
+
 	/// <summary>Rebuilds the displayed projection from the full buffer under the current view filters.</summary>
 	public void RebuildProjection()
 	{
@@ -146,8 +183,56 @@ internal sealed class LogTableDataSource : ITableDataSource, IDisposable
 			foreach (var e in _logService.GetAllLogs())
 				if (PassesFilter(e))
 					_displayed.Add(e);
+
+			ApplySortLocked();
 		}
 		CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+	}
+
+	/// <summary>
+	/// Orders the projection in place. Caller holds <c>_lock</c>.
+	/// </summary>
+	/// <remarks>
+	/// Sorts on the UNDERLYING values, not on the rendered cell text: Level sorts by severity
+	/// (Trace..Critical) rather than alphabetically, where "ERROR" would fall before "WARNING",
+	/// and Time sorts by the timestamp rather than its "HH:mm:ss" rendering, which collapses
+	/// entries from different days and loses sub-second order.
+	/// </remarks>
+	private void ApplySortLocked()
+	{
+		if (_sortColumn < 0 || _sortDirection == SortDirection.None) return;
+
+		Comparison<LogEntry> compare = _sortColumn switch
+		{
+			ColTime => (a, b) => a.Timestamp.CompareTo(b.Timestamp),
+			ColLevel => (a, b) => ((int)a.Level).CompareTo((int)b.Level),
+			ColCategory => (a, b) => string.Compare(a.Category, b.Category, StringComparison.OrdinalIgnoreCase),
+			ColMessage => (a, b) => string.Compare(a.Message, b.Message, StringComparison.OrdinalIgnoreCase),
+			_ => (_, _) => 0
+		};
+
+		// Stable within equal keys: List.Sort is not stable, so ties fall back to arrival order,
+		// which for a log is the meaningful secondary key (every Error at the same second stays
+		// in the order it happened).
+		//
+		// Decorate-sort-undecorate rather than a dictionary of entry -> index: LogEntry is a
+		// record, so two identical lines (same timestamp, level, category and message, which a
+		// log produces all the time) are EQUAL by value and would share one dictionary slot,
+		// corrupting the tie-break. The index travels beside the entry instead.
+		int descending = _sortDirection == SortDirection.Descending ? -1 : 1;
+
+		var indexed = new (LogEntry Entry, int Arrival)[_displayed.Count];
+		for (int i = 0; i < _displayed.Count; i++) indexed[i] = (_displayed[i], i);
+
+		Array.Sort(indexed, (x, y) =>
+		{
+			int primary = compare(x.Entry, y.Entry);
+			if (primary != 0) return descending * primary;
+			return x.Arrival.CompareTo(y.Arrival);
+		});
+
+		_displayed.Clear();
+		foreach (var item in indexed) _displayed.Add(item.Entry);
 	}
 
 	private bool PassesFilter(LogEntry e)
@@ -162,6 +247,71 @@ internal sealed class LogTableDataSource : ITableDataSource, IDisposable
 			if (!inMsg && !inCat) return false;
 		}
 		return true;
+	}
+
+	/// <summary>
+	/// Fits a category into the category column, keeping the END of a dotted name.
+	/// </summary>
+	/// <remarks>
+	/// The table painter truncates from the left, which is right for a general cell but wrong
+	/// for a logger category: a <c>Microsoft.Extensions.Logging</c> category is a full type name
+	/// (<c>MyApp.Services.OrderProcessor</c>), and its leading namespace is the part that carries
+	/// no information while the trailing type name is the part the reader is looking for. Cutting
+	/// from the left of that string shows "MyApp.Services" and hides "OrderProcessor".
+	/// <para>
+	/// So a dotted name that does not fit is reduced from the FRONT, dropping whole segments while
+	/// they can be dropped, then character-trimmed if even the last segment is too long. The
+	/// library's own categories ("Window", "Focus", "Render") hold no dot and always fit, so they
+	/// are returned untouched. Only the DISPLAYED text changes: <see cref="LogEntry.Category"/>
+	/// keeps the full value, and the category filter and the search both read that, so a full type
+	/// name stays matchable even when it is shown shortened.
+	/// </para>
+	/// </remarks>
+	internal static string CategoryText(string? category)
+	{
+		if (string.IsNullOrEmpty(category)) return string.Empty;
+
+		int width = ControlDefaults.LogViewerCategoryColumnWidth;
+		if (width <= 0) return string.Empty;
+
+		// Measured in display columns, not UTF-16 units: a category may hold wide or
+		// combining characters, and the column budget is columns.
+		if (UnicodeWidth.GetStringWidth(category) <= width) return category;
+
+		// Drop leading dotted segments while a later one still fits.
+		int dot;
+		string candidate = category;
+		while ((dot = candidate.IndexOf('.')) >= 0)
+		{
+			candidate = candidate[(dot + 1)..];
+			if (UnicodeWidth.GetStringWidth(candidate) <= width) return candidate;
+		}
+
+		// The last segment alone is still too wide: keep its tail, which is the
+		// most specific part of a type name.
+		return TrimToWidthFromEnd(candidate, width);
+	}
+
+	/// <summary>Keeps the trailing <paramref name="width"/> display columns of <paramref name="text"/>.</summary>
+	private static string TrimToWidthFromEnd(string text, int width)
+	{
+		var runes = text.EnumerateRunes().ToList();
+		int used = 0;
+		int firstKept = runes.Count;
+
+		for (int i = runes.Count - 1; i >= 0; i--)
+		{
+			int w = UnicodeWidth.GetRuneWidth(runes[i]);
+			if (w < 0) w = 0;
+			if (used + w > width) break;
+			used += w;
+			firstKept = i;
+		}
+
+		var sb = new System.Text.StringBuilder(width);
+		for (int i = firstKept; i < runes.Count; i++)
+			sb.Append(runes[i].ToString());
+		return sb.ToString();
 	}
 
 	private static string LevelText(LogLevel level) => level switch
