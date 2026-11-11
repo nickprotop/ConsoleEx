@@ -1059,6 +1059,28 @@ namespace SharpConsoleUI.Drivers.Input
 		/// </remarks>
 		private void DispatchWin32Input(string paramStr, List<InputEvent> events)
 		{
+			if (!TryDecodeWin32Input(paramStr, out ConsoleKeyInfo? key))
+			{
+				events.Add(new UnknownSequenceEvent(_pending.ToArray()));
+				return;
+			}
+
+			if (key.HasValue)
+				events.Add(new KeyInputEvent(key.Value));
+		}
+
+		/// <summary>
+		/// Decodes the parameters of a win32-input-mode report (everything between <c>ESC [</c> and
+		/// the final <c>_</c>). Shared with the Windows reader in <see cref="NetConsoleDriver"/>,
+		/// which collects sequences itself rather than through this parser.
+		/// </summary>
+		/// <returns>
+		/// False when the report is malformed. True otherwise, with <paramref name="key"/> null when
+		/// the report is well-formed but is not a keystroke (key-up, bare modifier, nothing to name).
+		/// </returns>
+		internal static bool TryDecodeWin32Input(string paramStr, out ConsoleKeyInfo? key)
+		{
+			key = null;
 			var parts = paramStr.Split(';');
 
 			// All six fields are required: a short report is not this sequence.
@@ -1069,28 +1091,26 @@ namespace SharpConsoleUI.Drivers.Input
 				|| !int.TryParse(parts[4], out int controlKeyState)
 				|| !int.TryParse(parts[5], out int repeatCount)
 				|| repeatCount < 1)
-			{
-				events.Add(new UnknownSequenceEvent(_pending.ToArray()));
-				return;
-			}
+				return false;
 
 			// A key-up is half of a keystroke already delivered on the way down.
-			if (keyDown == 0) return;
+			if (keyDown == 0) return true;
 
 			// A bare modifier press types nothing; the modifier arrives with the next real key.
-			if (IsModifierVirtualKey(vk)) return;
+			if (IsModifierVirtualKey(vk)) return true;
 
 			bool ctrl = (controlKeyState & (LeftCtrlPressed | RightCtrlPressed)) != 0;
 			bool alt = (controlKeyState & (LeftAltPressed | RightAltPressed)) != 0;
 			bool shift = (controlKeyState & ShiftPressed) != 0;
 
-			ConsoleKey key = VirtualKeyToConsoleKey(vk);
+			ConsoleKey consoleKey = VirtualKeyToConsoleKey(vk);
 			char c = uc == 0 ? '\0' : (char)uc;
 
 			// Neither a key to name nor a character to insert: nothing happened.
-			if (key == ConsoleKey.None && c == '\0') return;
+			if (consoleKey == ConsoleKey.None && c == '\0') return true;
 
-			events.Add(new KeyInputEvent(new ConsoleKeyInfo(c, key, shift, alt, ctrl)));
+			key = new ConsoleKeyInfo(c, consoleKey, shift, alt, ctrl);
+			return true;
 		}
 
 		// ControlKeyState bits, as the Windows console reports them. Ctrl and Alt are reported per

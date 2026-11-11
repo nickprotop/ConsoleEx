@@ -1395,6 +1395,21 @@ namespace SharpConsoleUI.Drivers
 										continue;
 									}
 
+									// win32-input-mode report (ESC[Vk;Sc;Uc;Kd;Cs;Rc_). Once the terminal honours
+									// ?9001h EVERY keystroke arrives this way, so it must be decoded here too, not
+									// only in AnsiInputParser — falling through to MapAnsiToConsoleKeyInfo drops
+									// them all and no key reaches the application.
+									if (ansiSequence.Length > 0 && ansiSequence[ansiSequence.Length - 1] == '_')
+									{
+										if (Input.AnsiInputParser.TryDecodeWin32Input(
+												ansiSequence.ToString(0, ansiSequence.Length - 1), out ConsoleKeyInfo? win32Key)
+											&& win32Key.HasValue)
+										{
+											KeyPressed?.Invoke(this, win32Key.Value);
+										}
+										continue;
+									}
+
 									// Check if this is a SGR mouse sequence (format: ESC[<button;x;y M/m)
 									if (ansiSequence.ToString().StartsWith("<") && (ansiSequence.ToString().EndsWith("M") || ansiSequence.ToString().EndsWith("m")))
 									{
