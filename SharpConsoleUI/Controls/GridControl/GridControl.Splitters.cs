@@ -330,11 +330,16 @@ namespace SharpConsoleUI.Controls
 			for (int r = 0; r < rowSizes.Length; r++)
 			{
 				bool blocked = ColumnBoundaryBlockedAtRow(n, r);
-				// Draw the column glyph (║) across row r's y-range, and (when not the last row) across the row gap after it.
+				// Draw the column glyph (║) across row r's y-range, and across the row gap after it ONLY
+				// when a row splitter owns that gap - the junction pass then overwrites the crossing cell
+				// with '╬'. Without a row splitter there is nothing to cross: running the line through the
+				// gap would visually join two regions the grid does not connect, and no junction would ever
+				// be drawn over it. Reported from LazyDotIDE, where hiding the bottom panel removes its row
+				// splitter and the vertical ran on past the boundary.
 				int rowTop = bounds.Y + rowOffsets[r];
-				int rowEndExclusive = (r < rowSizes.Length - 1)
+				int rowEndExclusive = (r < rowSizes.Length - 1 && HasRowSplitterAfter(r))
 					? bounds.Y + rowOffsets[r + 1]                  // include the row gap after r
-					: bounds.Y + rowOffsets[r] + rowSizes[r];        // last row: no trailing gap
+					: bounds.Y + rowOffsets[r] + rowSizes[r];        // stop at the row's own edge
 				if (blocked) continue;
 				drewAny = true;
 				for (int y = rowTop; y < rowEndExclusive && y < botY; y++)
@@ -372,10 +377,13 @@ namespace SharpConsoleUI.Controls
 			for (int c = 0; c < colSizes.Length; c++)
 			{
 				bool blocked = RowBoundaryBlockedAtColumn(n, c);
+				// Same rule as the column run, in the other axis: cross the column gap after c only when
+				// a column splitter owns it, so a horizontal line never runs through a boundary that has
+				// no handle and no junction.
 				int colLeft = bounds.X + colOffsets[c];
-				int colEndExclusive = (c < colSizes.Length - 1)
+				int colEndExclusive = (c < colSizes.Length - 1 && HasColumnSplitterAfter(c))
 					? bounds.X + colOffsets[c + 1]                  // include the column gap after c
-					: bounds.X + colOffsets[c] + colSizes[c];        // last column: no trailing gap
+					: bounds.X + colOffsets[c] + colSizes[c];        // stop at the column's own edge
 				if (blocked) continue;
 				drewAny = true;
 				for (int x = colLeft; x < colEndExclusive && x < rightX; x++)

@@ -594,6 +594,63 @@ public class GridSplitterTests
 		Assert.Contains("╬", text);
 	}
 
+	/// <summary>
+	/// A COLUMN splitter must stop at a row boundary that has no row splitter, instead of
+	/// painting its glyph straight through the gap.
+	/// </summary>
+	/// <remarks>
+	/// The vertical run used to cover every row AND every inter-row gap unconditionally, with the
+	/// junction drawn afterwards only where a declared row splitter crossed. With a row gap but no
+	/// row splitter there is nothing to cross, so the line ran on unbroken and visually joined two
+	/// regions the grid does not connect. Reported from LazyDotIDE, where hiding the bottom panel
+	/// removes its row splitter and left the column splitter running past the boundary.
+	/// </remarks>
+	[Fact]
+	public void ColumnSplitter_StopsAtARowBoundaryThatHasNoRowSplitter()
+	{
+		var grid = new GridControl { Width = 24, Height = 10 };
+		grid.ColumnDefinitions.Add(GridLength.Cells(8));
+		grid.ColumnDefinitions.Add(GridLength.Cells(8));
+		grid.RowDefinitions.Add(GridLength.Cells(2));
+		grid.RowDefinitions.Add(GridLength.Cells(2));
+		grid.ColumnGap = 1;
+		grid.RowGap = 1;
+		grid.Place(new MarkupControl(new List<string> { "A" }), 0, 0);
+		grid.Place(new MarkupControl(new List<string> { "B" }), 0, 1);
+		grid.Place(new MarkupControl(new List<string> { "C" }), 1, 0);
+		grid.Place(new MarkupControl(new List<string> { "D" }), 1, 1);
+		grid.AddColumnSplitterAfter(0);   // no row splitter on purpose
+
+		var system = TestWindowSystemBuilder.CreateTestSystem(30, 14);
+		var window = new Window(system) { Left = 0, Top = 0, Width = 30, Height = 14 };
+		window.AddControl(grid);
+		system.AddWindow(window);
+		system.Render.UpdateDisplay();
+		system.Render.UpdateDisplay();
+
+		var lines = ContainerTestHelpers.StripAnsiCodes(
+			window.RenderAndGetVisibleContent()).Split('\n');
+
+		// Rows are 2 cells each with a 1-cell gap between them, so the gap row is the third
+		// line of the grid's own run. Find the vertical run, then assert the gap line in the
+		// middle of it carries no column glyph.
+		var verticalRows = new List<int>();
+		for (int i = 0; i < lines.Length; i++)
+			if (lines[i].Contains('║')) verticalRows.Add(i);
+
+		Assert.NotEmpty(verticalRows);
+
+		// The run must be split in two by the gap, not continuous: there is at least one line
+		// between the first and last vertical row that carries no glyph.
+		int first = verticalRows[0], last = verticalRows[^1];
+		bool hasBreak = false;
+		for (int i = first; i <= last; i++)
+			if (!lines[i].Contains('║')) { hasBreak = true; break; }
+
+		Assert.True(hasBreak,
+			"the column splitter painted straight through the row gap; it must stop at the boundary");
+	}
+
 	// ---- FIX #1: a splitter is a real Tab stop and loses focus when a cell takes focus ----
 
 	[Fact]
