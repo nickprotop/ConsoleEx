@@ -60,6 +60,7 @@ Create a builder with `Controls.Tree()`.
 ```csharp
 .WithGuide(TreeGuide.Line)               // Guide line style
 .WithIndent("  ")                        // Indent string per level
+.WithExpanderIndicators("▾ ", "▸ ")      // Expanded / collapsed indicator
 .WithColors(foreground, background)
 .WithBackgroundColor(color)
 .WithForegroundColor(color)
@@ -118,6 +119,8 @@ Create a builder with `Controls.Tree()`.
 | `SelectedNode` | `TreeNode?` | `null` | Currently selected node (null if none) |
 | `Guide` | `TreeGuide` | `Line` | Guide line style (`Line`, `Ascii`, `DoubleLine`, `BoldLine`) |
 | `Indent` | `string` | `"  "` | Indent string applied per level |
+| `ExpandedIndicator` | `string` | `"[-] "` | Text in front of an expanded node that has children |
+| `CollapsedIndicator` | `string` | `"[+] "` | Text in front of a collapsed node that has children |
 | `MaxVisibleItems` | `int?` | `null` | Max rows shown at once (fits available height if null) |
 | `Height` | `int?` | `null` | Explicit control height (content-based if null) |
 | `BackgroundColor` | `Color?` | `null` | Background color (uses theme if null) |
@@ -133,6 +136,41 @@ Create a builder with `Controls.Tree()`.
 | `HasFocus` | `bool` | `false` | Whether the tree has keyboard focus |
 | `CanReceiveFocus` | `bool` | `IsEnabled` | Whether the tree can receive focus |
 | `ContentWidth` | `int?` | computed | Rendered width in characters |
+
+### Expander indicators
+
+`ExpandedIndicator` and `CollapsedIndicator` are the text drawn in front of a node that has
+children. They default to `"[-] "` and `"[+] "`, which are plain ASCII and work on every
+terminal.
+
+```csharp
+var tree = new TreeControl
+{
+    ExpandedIndicator  = "▾ ",   // small triangle down
+    CollapsedIndicator = "▸ ",   // small triangle right
+};
+
+// or through the builder, which sets both together
+Controls.Tree().WithExpanderIndicators("▾ ", "▸ ").Build();
+```
+
+**Set both, to strings of the same display width.** The width of `ExpandedIndicator` is what
+node content is indented by AND what a click on the expander is hit-tested against, so a
+mismatched pair makes the two states shift horizontally and the click target mis-aim.
+
+**Prefer narrow glyphs.** Several obvious candidates are East Asian Ambiguous width and render
+2-wide on some terminals, which shifts the indent column there:
+
+| Glyph | Codepoint | Width | Safe |
+|-------|-----------|-------|------|
+| `▾` `▸` | U+25BE, U+25B8 | Narrow | Yes |
+| `▴` `◂` | U+25B4, U+25C2 | Narrow | Yes |
+| `▼` `▶` | U+25BC, U+25B6 | Ambiguous | Renders 2-wide on some terminals |
+| `▼` `▲` | U+25BC, U+25B2 | Ambiguous | Renders 2-wide on some terminals |
+
+The ambiguous forms are still a reasonable choice when you control the terminal, and both
+states shift together so the tree stays internally consistent; they are simply not safe to
+assume on an arbitrary one.
 
 ### TreeNode
 

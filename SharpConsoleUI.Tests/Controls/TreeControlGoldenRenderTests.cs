@@ -68,6 +68,41 @@ public class TreeControlGoldenRenderTests
 			Lines(SampleTree(TreeGuide.Line)));
 	}
 
+	/// <summary>
+	/// Custom expander indicators replace the default "[-] "/"[+] " and nothing else moves.
+	/// </summary>
+	/// <remarks>
+	/// The indicators were static readonly fields derived from ControlDefaults, so every tree in
+	/// a process drew the same ones. They are instance properties now; this pins that a control
+	/// with its own pair uses them, and that the guide and indent around them are untouched.
+	/// </remarks>
+	[Fact]
+	public void CustomExpanderIndicators_ReplaceTheDefaults()
+	{
+		var tree = SampleTree(TreeGuide.Line);
+		tree.ExpandedIndicator = "▾ ";
+		tree.CollapsedIndicator = "▸ ";
+
+		Assert.Equal(
+			["▾ A", "├─ a1", "├─ ▾ a2", "│  └─ a2x", "└─ ▸ a3", "B"],
+			Lines(tree));
+	}
+
+	/// <summary>
+	/// A wider indicator pushes the content it precedes, because the indent is measured from it.
+	/// </summary>
+	[Fact]
+	public void ExpanderIndicatorWidth_DrivesContentOffset()
+	{
+		var tree = SampleTree(TreeGuide.Line);
+		tree.ExpandedIndicator = "[--] ";
+		tree.CollapsedIndicator = "[++] ";
+
+		Assert.Equal(
+			["[--] A", "├─ a1", "├─ [--] a2", "│  └─ a2x", "└─ [++] a3", "B"],
+			Lines(tree));
+	}
+
 	[Fact]
 	public void AsciiGuides()
 	{

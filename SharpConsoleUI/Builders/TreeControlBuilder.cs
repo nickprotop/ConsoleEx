@@ -25,6 +25,8 @@ public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 	private readonly List<TreeNode> _rootNodes = new();
 	private TreeGuide _guide = TreeGuide.Line;
 	private string _indent = "  ";
+	private string? _expandedIndicator;
+	private string? _collapsedIndicator;
 	private int? _maxVisibleItems;
 	private Color? _backgroundColor;
 	private Color? _foregroundColor;
@@ -130,6 +132,26 @@ public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 	public TreeControlBuilder WithIndent(string indent)
 	{
 		_indent = indent ?? "  ";
+		return this;
+	}
+
+	/// <summary>
+	/// Sets the text drawn in front of a node that has children, for each state.
+	/// </summary>
+	/// <param name="expanded">Indicator for an expanded node. Defaults to "[-] " when null.</param>
+	/// <param name="collapsed">Indicator for a collapsed node. Defaults to "[+] " when null.</param>
+	/// <returns>The builder for chaining</returns>
+	/// <remarks>
+	/// Both are set together because they must share a display width: that width is what node
+	/// content is indented by and what a click on the expander is hit-tested against, so a
+	/// mismatched pair makes the two states shift and the click target mis-aim. Prefer narrow
+	/// glyphs - several obvious candidates (U+25BC, U+25B2) are East Asian Ambiguous and render
+	/// 2-wide on some terminals, while their small forms (U+25BE, U+25B4) are reliably 1-wide.
+	/// </remarks>
+	public TreeControlBuilder WithExpanderIndicators(string? expanded, string? collapsed)
+	{
+		_expandedIndicator = expanded;
+		_collapsedIndicator = collapsed;
 		return this;
 	}
 
@@ -480,6 +502,8 @@ public sealed class TreeControlBuilder : IControlBuilder<TreeControl>
 		{
 			Guide = _guide,
 			Indent = _indent,
+			ExpandedIndicator = _expandedIndicator ?? Configuration.ControlDefaults.TreeExpandedIndicator,
+			CollapsedIndicator = _collapsedIndicator ?? Configuration.ControlDefaults.TreeCollapsedIndicator,
 			MaxVisibleItems = _maxVisibleItems,
 			HorizontalAlignment = _horizontalAlignment,
 			VerticalAlignment = _verticalAlignment,

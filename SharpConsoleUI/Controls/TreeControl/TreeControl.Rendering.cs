@@ -14,9 +14,63 @@ namespace SharpConsoleUI.Controls
 {
 	public partial class TreeControl
 	{
-		// The expand indicators as markup, escaped once rather than per node per paint.
-		private static readonly string ExpandedIndicatorMarkup = Parsing.MarkupParser.Escape(TreeGuideHelper.GetExpanderText(true));
-		private static readonly string CollapsedIndicatorMarkup = Parsing.MarkupParser.Escape(TreeGuideHelper.GetExpanderText(false));
+		// The expand indicators as markup, escaped once per change rather than per node per paint.
+		private string _expandedIndicator = Configuration.ControlDefaults.TreeExpandedIndicator;
+		private string _collapsedIndicator = Configuration.ControlDefaults.TreeCollapsedIndicator;
+		private string _expandedIndicatorMarkup = Parsing.MarkupParser.Escape(Configuration.ControlDefaults.TreeExpandedIndicator);
+		private string _collapsedIndicatorMarkup = Parsing.MarkupParser.Escape(Configuration.ControlDefaults.TreeCollapsedIndicator);
+
+		/// <summary>
+		/// The text in front of an expanded node that has children. Defaults to
+		/// <see cref="Configuration.ControlDefaults.TreeExpandedIndicator"/> ("[-] ").
+		/// </summary>
+		/// <remarks>
+		/// Set this and <see cref="CollapsedIndicator"/> together, and to strings of the SAME
+		/// display width: the width is what the content is indented by and what a click on the
+		/// expander is hit-tested against, so a mismatched pair makes the two states shift and
+		/// mis-aim. A single narrow glyph plus a space is the usual choice.
+		///
+		/// Prefer narrow glyphs. Several obvious candidates (U+25BC, U+25B2) are East Asian
+		/// Ambiguous and render 2-wide on some terminals, which shifts the indent column there;
+		/// their small forms (U+25BE, U+25B4) are reliably 1-wide.
+		/// </remarks>
+		public string ExpandedIndicator
+		{
+			get => _expandedIndicator;
+			set
+			{
+				value ??= string.Empty;
+				if (_expandedIndicator == value) return;
+				_expandedIndicator = value;
+				_expandedIndicatorMarkup = Parsing.MarkupParser.Escape(value);
+				Invalidate(Invalidation.Relayout);
+			}
+		}
+
+		/// <summary>
+		/// The text in front of a collapsed node that has children. Defaults to
+		/// <see cref="Configuration.ControlDefaults.TreeCollapsedIndicator"/> ("[+] ").
+		/// </summary>
+		/// <remarks>See <see cref="ExpandedIndicator"/> for the width constraint.</remarks>
+		public string CollapsedIndicator
+		{
+			get => _collapsedIndicator;
+			set
+			{
+				value ??= string.Empty;
+				if (_collapsedIndicator == value) return;
+				_collapsedIndicator = value;
+				_collapsedIndicatorMarkup = Parsing.MarkupParser.Escape(value);
+				Invalidate(Invalidation.Relayout);
+			}
+		}
+
+		/// <summary>
+		/// The cells the expander takes, which is also the span a click toggles the node on.
+		/// Derived from <see cref="ExpandedIndicator"/> rather than the static default, so a
+		/// control with custom indicators indents and hit-tests against its own width.
+		/// </summary>
+		internal int ExpanderWidth => Helpers.UnicodeWidth.GetStringWidth(_expandedIndicator);
 
 		/// <summary>
 		/// Build the tree prefix for a node based on its depth and position
@@ -75,7 +129,7 @@ namespace SharpConsoleUI.Controls
 				bool[] ancestorIsLast = GetAncestorIsLastArray(node);
 				string prefix = BuildTreePrefix(depth, ancestorIsLast, guideChars);
 				string displayText = node.Text ?? string.Empty;
-				string expandIndicator = node.Children.Count > 0 ? ExpandedIndicatorMarkup : "";
+				string expandIndicator = node.Children.Count > 0 ? _expandedIndicatorMarkup : "";
 				int itemWidth = GetCachedTextLength(prefix + expandIndicator + displayText);
 				if (itemWidth > maxItemWidth) maxItemWidth = itemWidth;
 			}
@@ -257,7 +311,7 @@ namespace SharpConsoleUI.Controls
 
 				// Add expand/collapse indicator on the left side
 				// Escape brackets so Spectre markup in displayText (e.g. colored badges) is processed correctly
-				string expandIndicator = node.Children.Count > 0 ? (node.IsExpanded ? ExpandedIndicatorMarkup : CollapsedIndicatorMarkup) : "";
+				string expandIndicator = node.Children.Count > 0 ? (node.IsExpanded ? _expandedIndicatorMarkup : _collapsedIndicatorMarkup) : "";
 
 				// Build full node text
 				string nodeText = prefix + expandIndicator + displayText;

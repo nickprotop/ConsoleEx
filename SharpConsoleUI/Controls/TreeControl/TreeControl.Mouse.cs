@@ -371,7 +371,7 @@ namespace SharpConsoleUI.Controls
 						int indicatorStart = GetIndicatorStartColumn(nodeIndex);
 						bool clickedIndicator = indicatorStart >= 0 &&
 							args.Position.X >= indicatorStart &&
-							args.Position.X < indicatorStart + TreeGuideHelper.ExpanderWidth;
+							args.Position.X < indicatorStart + ExpanderWidth;
 
 						// Select without scrolling — item is already visible (user just clicked it)
 						SelectNodeNoScroll(nodeIndex);
