@@ -1126,8 +1126,30 @@ namespace SharpConsoleUI.Configuration
 		/// Double-line distinguishes the draggable splitter from single-line cell borders.</summary>
 		public const char GridRowSplitterGlyph = '═';
 
-		/// <summary>Junction glyph drawn where a GridControl COLUMN splitter crosses a ROW splitter (double-line cross, U+256C). Reliably 1-cell wide.</summary>
+		/// <summary>
+		/// Double-line cross, U+256C. Reliably 1-cell wide.
+		/// </summary>
+		/// <remarks>
+		/// No longer painted at a splitter crossing: its vertical strokes run the full cell height while
+		/// '═' sits high in its own cell, so the junction hung below the horizontal line and the vertical
+		/// appeared to continue through a boundary it stops at. Crossings now take
+		/// <see cref="GridRowSplitterGlyph"/>. Kept because it is public API.
+		/// </remarks>
 		public const char GridSplitterCrossGlyph = '╬';
+
+		/// <summary>
+		/// Glyph where a GridControl COLUMN splitter meets a ROW splitter from above and stops there
+		/// (double up-and-horizontal T, U+2569). Reliably 1-cell wide.
+		/// </summary>
+		/// <remarks>
+		/// A T, not a cross, because that is what the layout does: the vertical boundary ends at the
+		/// horizontal one. '╬' was painted here until it proved to carry its lower stroke below the
+		/// line in real fonts, so the vertical appeared to run on through a boundary it stops at.
+		/// Matches the double-line weight of <see cref="GridColumnSplitterGlyph"/> and
+		/// <see cref="GridRowSplitterGlyph"/>; U+2568 is the up-double/horizontal-single variant if a
+		/// single-line row glyph is ever adopted.
+		/// </remarks>
+		public const char GridSplitterTeeGlyph = '╩';
 
 		/// <summary>Cells a GridControl splitter nudges per arrow key (mirrors SplitterControl).</summary>
 		public const int GridSplitterKeyboardStep = 1;

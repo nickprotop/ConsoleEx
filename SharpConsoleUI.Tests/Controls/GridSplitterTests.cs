@@ -566,8 +566,13 @@ public class GridSplitterTests
 
 	// ---- FIX #2: a '┼' junction is drawn where a column splitter crosses a row splitter ----
 
+	/// <summary>
+	/// A crossing draws a T, because the vertical boundary ends at the horizontal one. A cross
+	/// ('╬') was painted here until it proved to hang its lower stroke below the line in real
+	/// fonts, making the vertical look like it ran straight through.
+	/// </summary>
 	[Fact]
-	public void CrossingColumnAndRowSplitters_DrawJunctionGlyph()
+	public void CrossingColumnAndRowSplitters_DrawATeeNotACross()
 	{
 		var grid = new GridControl { Width = 24, Height = 10 };
 		grid.ColumnDefinitions.Add(GridLength.Cells(8));
@@ -591,7 +596,12 @@ public class GridSplitterTests
 		system.Render.UpdateDisplay();
 
 		var text = ContainerTestHelpers.StripAnsiCodes(window.RenderAndGetVisibleContent());
-		Assert.Contains("╬", text);
+
+		// The crossing is a T: the vertical stops at the boundary, nothing hangs below it.
+		Assert.Contains("╩", text);
+		Assert.DoesNotContain("╬", text);
+		Assert.Contains("═", text);
+		Assert.Contains("║", text);
 	}
 
 	/// <summary>

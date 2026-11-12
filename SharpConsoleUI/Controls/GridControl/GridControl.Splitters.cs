@@ -307,9 +307,8 @@ namespace SharpConsoleUI.Controls
 					PaintRowSplitter(buffer, bounds, clipRect, s, colSizes, rowSizes, colOffsets, rowOffsets);
 			}
 
-			// FIX #2: draw a junction glyph where a column splitter crosses a row splitter. Done after the
-			// straight runs so it overwrites whichever line was last-writer at the crossing cell. Only draw at
-			// crossings where NEITHER line was span-skipped (a cell spanning the boundary owns that cell).
+			// Resolve every crossing cell AFTER the straight runs, so whichever line wrote there last does
+			// not decide what it looks like. See PaintSplitterCrossings.
 			PaintSplitterCrossings(buffer, bounds, clipRect, colSizes, rowSizes, colOffsets, rowOffsets);
 		}
 
@@ -426,8 +425,14 @@ namespace SharpConsoleUI.Controls
 			return false;
 		}
 
-		// FIX #2: write the '╬' junction at every (column-splitter, row-splitter) crossing that is drawn
-		// (i.e. neither line was span-skipped at that crossing). Uses the row splitter's resolved colour.
+		// Draw a T at every (column-splitter, row-splitter) crossing: the vertical boundary ENDS at the
+		// horizontal one, so the junction is '╩', not a cross.
+		//
+		// '╬' was the obvious choice and was wrong in practice: it carries its vertical strokes the full
+		// height of the cell while '═' sits high in its own, so the lower stroke hung below the line and
+		// the vertical read as running straight through a boundary it stops at. The cells were always
+		// right; the glyph was not. A T says what the layout actually does, and has no stroke below the
+		// line to hang.
 		private void PaintSplitterCrossings(CharacterBuffer buffer, LayoutRect bounds, LayoutRect clipRect,
 			int[] colSizes, int[] rowSizes, int[] colOffsets, int[] rowOffsets)
 		{
@@ -449,11 +454,11 @@ namespace SharpConsoleUI.Controls
 					// row.AfterIndex. A spanning cell only ever covers track cells, never the gap rows/cols,
 					// so a real crossing in the gap is never span-blocked — draw the junction.
 					if (gapX < clipRect.X || gapX >= clipRect.Right || gapY < clipRect.Y || gapY >= clipRect.Bottom) continue;
-					// The junction follows whichever crossing handle is highlighted (so it bolds/brightens with the
+					// The crossing follows whichever handle is highlighted (so it bolds/brightens with the
 					// active drag/focus), else the row handle's idle colour.
 					var active = IsSplitterHighlighted(col) ? col : row;
 					var (fg, bg) = ResolveSplitterColors(active);
-					WriteSplitterGlyph(buffer, gapX, gapY, ControlDefaults.GridSplitterCrossGlyph, active, fg, bg);
+					WriteSplitterGlyph(buffer, gapX, gapY, ControlDefaults.GridSplitterTeeGlyph, active, fg, bg);
 				}
 			}
 		}
