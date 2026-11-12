@@ -21,7 +21,7 @@
     <ProjectReference Include="../../../../SharpConsoleUI/SharpConsoleUI.csproj" />
   </ItemGroup>
   <ItemGroup Condition="!Exists('../../../../SharpConsoleUI/SharpConsoleUI.csproj')">
-    <PackageReference Include="SharpConsoleUI" Version="2.10.12" />
+    <PackageReference Include="SharpConsoleUI" Version="2.10.13" />
   </ItemGroup>
 
   <ItemGroup>
