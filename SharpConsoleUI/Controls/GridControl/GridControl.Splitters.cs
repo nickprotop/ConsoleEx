@@ -458,7 +458,29 @@ namespace SharpConsoleUI.Controls
 					// active drag/focus), else the row handle's idle colour.
 					var active = IsSplitterHighlighted(col) ? col : row;
 					var (fg, bg) = ResolveSplitterColors(active);
-					WriteSplitterGlyph(buffer, gapX, gapY, ControlDefaults.GridSplitterTeeGlyph, active, fg, bg);
+
+					// Which glyph depends on which of the four arms actually carry a line here.
+					// A fixed cross or a fixed T both draw arms into space: at the edge of a row
+					// splitter that is blocked under a spanning cell, the horizontal runs one way
+					// only, and a cross put a stub into the blocked side while a T cut the
+					// vertical that carried on below.
+					//
+					// The row splitter is drawn in the columns it is not blocked at, so the
+					// horizontal reaches LEFT from the crossing when the column before the
+					// boundary is unblocked, and RIGHT when the column after it is. The column
+					// splitter is drawn in the rows it is not blocked at, likewise above and below.
+					bool up = !ColumnBoundaryBlockedAtRow(col.AfterIndex, row.AfterIndex);
+					bool down = !ColumnBoundaryBlockedAtRow(col.AfterIndex, row.AfterIndex + 1);
+					bool left = !RowBoundaryBlockedAtColumn(row.AfterIndex, col.AfterIndex);
+					bool right = !RowBoundaryBlockedAtColumn(row.AfterIndex, col.AfterIndex + 1);
+
+					// Reuses the gridline resolver, which already maps four arms onto the cross,
+					// tee and corner of a BoxChars set. Splitters draw double-line, so it gets
+					// BoxChars.Double; a single-line caller would get the single-line set from the
+					// same table, so the two stay in step by construction.
+					char glyph = ResolveJunctionGlyph(Drawing.BoxChars.Double, up, down, left, right);
+
+					WriteSplitterGlyph(buffer, gapX, gapY, glyph, active, fg, bg);
 				}
 			}
 		}

@@ -567,12 +567,58 @@ public class GridSplitterTests
 	// ---- FIX #2: a '┼' junction is drawn where a column splitter crosses a row splitter ----
 
 	/// <summary>
-	/// A crossing draws a T, because the vertical boundary ends at the horizontal one. A cross
-	/// ('╬') was painted here until it proved to hang its lower stroke below the line in real
-	/// fonts, making the vertical look like it ran straight through.
+	/// Where a row-spanning cell blocks the row splitter on one side, the crossing draws the
+	/// one-sided tee rather than a cross or a bottom tee.
 	/// </summary>
+	/// <remarks>
+	/// Reported from LazyDotIDE with the explorer at full height: the explorer spans the row
+	/// boundary, so the horizontal runs only to the RIGHT of the column splitter while the
+	/// vertical carries on above and below. A '╩' there cut the vertical; a '╬' put a stub into
+	/// the blocked side. The answer is '╠' - vertical, joined from the right.
+	/// </remarks>
 	[Fact]
-	public void CrossingColumnAndRowSplitters_DrawATeeNotACross()
+	public void CrossingBesideARowSpanningCell_DrawsAOneSidedTee()
+	{
+		var grid = new GridControl { Width = 30, Height = 14 };
+		grid.ColumnDefinitions.Add(GridLength.Cells(8));
+		grid.ColumnDefinitions.Add(GridLength.Cells(8));
+		grid.RowDefinitions.Add(GridLength.Cells(3));
+		grid.RowDefinitions.Add(GridLength.Cells(3));
+		grid.ColumnGap = 1;
+		grid.RowGap = 1;
+
+		// Column 0 spans BOTH rows, so the row splitter is blocked on its left.
+		grid.Place(new MarkupControl(new List<string> { "A" }), 0, 0, rowSpan: 2);
+		grid.Place(new MarkupControl(new List<string> { "B" }), 0, 1);
+		grid.Place(new MarkupControl(new List<string> { "D" }), 1, 1);
+		grid.AddColumnSplitterAfter(0);
+		grid.AddRowSplitterAfter(0);
+
+		var system = TestWindowSystemBuilder.CreateTestSystem(36, 18);
+		var window = new Window(system) { Left = 0, Top = 0, Width = 36, Height = 18 };
+		window.AddControl(grid);
+		system.AddWindow(window);
+		system.Render.UpdateDisplay();
+		system.Render.UpdateDisplay();
+
+		var text = ContainerTestHelpers.StripAnsiCodes(window.RenderAndGetVisibleContent());
+
+		// Vertical, joined from the right: the vertical is unbroken and nothing points left.
+		Assert.Contains("╠", text);
+		Assert.DoesNotContain("╬", text);
+		Assert.DoesNotContain("╩", text);
+	}
+
+	/// <summary>
+	/// A crossing where all four arms carry a line draws a full cross.
+	/// </summary>
+	/// <remarks>
+	/// The glyph follows the arms: this grid has no spanning cells, so the column splitter runs
+	/// above AND below the row splitter and the horizontal runs both ways, which is a cross. A
+	/// fixed tee was painted here for a while and cut the vertical that carried on below it.
+	/// </remarks>
+	[Fact]
+	public void CrossingWithAllFourArms_DrawsACross()
 	{
 		var grid = new GridControl { Width = 24, Height = 10 };
 		grid.ColumnDefinitions.Add(GridLength.Cells(8));
@@ -597,9 +643,7 @@ public class GridSplitterTests
 
 		var text = ContainerTestHelpers.StripAnsiCodes(window.RenderAndGetVisibleContent());
 
-		// The crossing is a T: the vertical stops at the boundary, nothing hangs below it.
-		Assert.Contains("╩", text);
-		Assert.DoesNotContain("╬", text);
+		Assert.Contains("╬", text);
 		Assert.Contains("═", text);
 		Assert.Contains("║", text);
 	}
