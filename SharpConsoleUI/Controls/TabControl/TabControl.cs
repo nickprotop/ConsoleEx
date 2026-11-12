@@ -579,10 +579,25 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
+		/// <remarks>
+		/// The rows a tab's CONTENT actually gets: what this control was given, less the header.
+		///
+		/// The old version passed the child straight up to the parent container, which asks about
+		/// a control the parent has never heard of - the parent's child is this TabControl. A grid
+		/// would miss the lookup and answer with its own height, so a scrolling control inside a
+		/// tab believed it had the whole grid and never scrolled. Ask about THIS control instead,
+		/// and take the header off the answer.
+		/// </remarks>
 		public int? GetVisibleHeightForControl(IWindowControl control)
 		{
-			// Delegate to parent container
-			return Container?.GetVisibleHeightForControl(control);
+			int? outer = ActualHeight > 0
+				? ActualHeight
+				: Container?.GetVisibleHeightForControl(this);
+
+			if (outer is not int height || height <= 0)
+				return null;
+
+			return Math.Max(0, height - TabHeaderHeight);
 		}
 
 		#endregion

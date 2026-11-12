@@ -679,8 +679,28 @@ namespace SharpConsoleUI.Controls
 		}
 
 		/// <inheritdoc/>
-		public int? GetVisibleHeightForControl(IWindowControl control) =>
-			ActualHeight > 0 ? ActualHeight : null;
+		/// <remarks>
+		/// The height of the CELL the control occupies, not the grid's own. A scrolling control
+		/// asks this to learn how many rows it actually has; answering with the whole grid told a
+		/// list in a short row that all its items fitted, so it never scrolled. A control that is
+		/// not one of this grid's cells - or a grid that has not been arranged yet - falls back
+		/// to the grid height, which is the old answer and the best available.
+		/// </remarks>
+		public int? GetVisibleHeightForControl(IWindowControl control)
+		{
+			if (control != null)
+			{
+				foreach (var (cellControl, placement) in OrderedCells)
+				{
+					if (!ReferenceEquals(cellControl, control)) continue;
+					if (LayoutAlgorithm.TryGetCellRect(placement.Row, placement.Col, out var rect) && rect.Height > 0)
+						return rect.Height;
+					break;
+				}
+			}
+
+			return ActualHeight > 0 ? ActualHeight : null;
+		}
 
 		#endregion
 
