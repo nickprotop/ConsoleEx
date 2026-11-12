@@ -1405,6 +1405,48 @@ public class MenuControlTests
 		Assert.True(fileItem.IsOpen);
 	}
 
+	/// <summary>
+	/// An open dropdown closes when the click lands on a control that CONSUMES the click, not
+	/// only on empty space.
+	/// </summary>
+	/// <remarks>
+	/// Dismissal rode on Window.UnhandledMouseClick, which by definition never fires when a
+	/// control handles the event. So clicking the menu strip's own whitespace closed the menu,
+	/// and clicking a button, an editor or a tree - anything mouse-aware that returns true -
+	/// left it open. Reported from LazyDotIDE: a submenu could only be dismissed by clicking
+	/// whitespace on the menu strip.
+	/// </remarks>
+	[Fact]
+	public void ClickOnAConsumingControl_ClosesAnOpenDropdown()
+	{
+		var system = TestWindowSystemBuilder.CreateTestSystem();
+		var window = new Window(system) { Width = 80, Height = 30 };
+		var menu = CreateStandardMenu();
+		window.AddControl(menu);
+
+		// A button is mouse-aware and consumes a click, which is what made the old path skip
+		// UnhandledMouseClick entirely.
+		var button = new ButtonControl { Text = "Click me" };
+		window.AddControl(button);
+		window.FocusManager.SetFocus(menu, FocusReason.Programmatic);
+
+		window.RenderAndGetVisibleContent(
+			new List<Rectangle> { new Rectangle(0, 0, window.Width, window.Height) });
+
+		var fileItem = menu.Items[0];
+		menu.OpenDropdown("File");
+		Assert.True(fileItem.IsOpen);
+
+		// Click the button, well away from the menu strip.
+		var bounds = button.ActualWidth > 0
+			? new Point(button.ActualX + 1, button.ActualY)
+			: new Point(2, 4);
+		window.EventDispatcher!.ProcessMouseEvent(
+			new MouseEventArgs(new List<MouseFlags> { MouseFlags.Button1Pressed }, bounds, bounds, bounds));
+
+		Assert.False(fileItem.IsOpen);
+	}
+
 	[Fact]
 	public void CloseAllMenus_ClosesEverything()
 	{

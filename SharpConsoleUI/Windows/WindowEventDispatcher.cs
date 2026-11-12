@@ -361,6 +361,21 @@ namespace SharpConsoleUI.Windows
 							_window.SelectionManager.ClearSelection();
 						}
 
+						// A press outside every open window portal dismisses them, BEFORE the event is
+						// routed. Dismissal used to ride on UnhandledMouseClick, which by definition only
+						// fires when nothing handled the click - so an open menu closed when the strip's
+						// own whitespace was clicked and stayed open when the click landed on a button, an
+						// editor or a tree, because those consume the event and return first.
+						//
+						// Outside-press-dismisses is the behaviour of every menu, so it belongs here rather
+						// than in whatever control happened to be hit. The click still reaches its target:
+						// this only notifies the portal owner, it does not consume the frame.
+						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button3Pressed)
+							&& !IsPositionInsideAnyPortal(args))
+						{
+							DismissPortalOwnersOnOutsideClick(args);
+						}
+
 						// Centralized focus handling on click (left-click and right-click)
 						if (args.HasAnyFlag(MouseFlags.Button1Pressed, MouseFlags.Button1Clicked,
 											MouseFlags.Button3Pressed, MouseFlags.Button3Clicked))
@@ -456,6 +471,33 @@ namespace SharpConsoleUI.Windows
 		/// Used so that clicking inside an overlay (e.g. a context menu acting on the current text
 		/// selection) does not trigger the window-level clear-selection-on-press.
 		/// </summary>
+		/// <summary>
+		/// Tells every control that owns an open window portal that a press landed outside all of
+		/// them, so it can close.
+		/// </summary>
+		/// <remarks>
+		/// Routed through <see cref="Window.RaiseUnhandledMouseClick"/>, which is the event menus
+		/// already listen on; what changed is WHEN it fires. It previously fired only after routing
+		/// found nobody to take the click, which made dismissal depend on what happened to be under
+		/// the cursor. The event does not consume the frame, so the click still reaches its target:
+		/// clicking a button both closes the menu and presses the button, which is what a user
+		/// expects from a menu that is merely in the way.
+		/// </remarks>
+		private void DismissPortalOwnersOnOutsideClick(MouseEventArgs args)
+		{
+			var root = _window.RootLayoutNode;
+			if (root == null) return;
+
+			bool anyPortal = false;
+			root.Visit(node =>
+			{
+				if (node.PortalChildren.Count > 0) anyPortal = true;
+			});
+			if (!anyPortal) return;
+
+			_window.RaiseUnhandledMouseClick(args);
+		}
+
 		private bool IsPositionInsideAnyPortal(MouseEventArgs args)
 		{
 			var root = _window.RootLayoutNode;
