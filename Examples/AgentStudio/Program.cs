@@ -1,8 +1,11 @@
 // -----------------------------------------------------------------------
-// OpenCodeShowcase - AgentStudio TUI Showcase
+// AgentStudio - an agent-workbench UI, built as a showcase
 //
-// An OpenCode-inspired demo showcasing SharpConsoleUI capabilities
-// NOT a real AI coding agent - purely a visual showcase
+// The layout and controls of a multi-agent terminal workbench. The agents
+// are not real: nothing here talks to a model, and it is a visual showcase.
+//
+// cxagent grew out of this showcase and is built entirely on SharpConsoleUI:
+// https://github.com/nickprotop/cxagent
 //
 // Author: Nikolaos Protopapas
 // License: MIT

@@ -477,6 +477,10 @@ OpenCode-inspired TUI showcase demonstrating an AI coding agent interface aesthe
 dotnet run --project Examples/AgentStudio
 ```
 
+The agents are simulated; this example is the UI, not a working agent.
+[cxagent](https://github.com/nickprotop/cxagent), a multi-agent coding workbench
+for the terminal, grew out of this showcase and is built entirely on SharpConsoleUI.
+
 **Key Features:**
 - `ChatTranscriptControl` transcript of prompts, tool calls and streamed replies
 - Command palette modal (Ctrl+P) with a searchable command list
@@ -863,7 +867,6 @@ These examples demonstrate specific features without full screenshots.
 | **TabControlDemo** | Multi-page tabs, Ctrl+Tab switching, ScrollablePanel integration | `dotnet run --project Examples/TabControlDemo` |
 | **TableDemo** | TableControl with theme switching (F1-F3), markup in cells, rounded borders | `dotnet run --project Examples/TableDemo` |
 | **PanelDemo** | Panel mouse events (click, double-click, enter, leave, move) | `dotnet run --project Examples/PanelDemo` |
-| **BorderStyleDemo** | DoubleLine vs None border styles, runtime toggling | `dotnet run --project Examples/BorderStyleDemo` |
 | **SpectreMouseExample** | Mouse events on SpectreRenderableControl, event counters | `dotnet run --project Examples/SpectreMouseExample` |
 | **PluginShowcaseExample** | Plugin loading, DevDark theme, Debug Console, agnostic services | `dotnet run --project Examples/PluginShowcaseExample` |
 
@@ -893,7 +896,6 @@ These examples demonstrate specific features without full screenshots.
 | TabControlDemo | | | ✅ | | | |
 | TableDemo | | | | ✅ | | |
 | PanelDemo | | | ✅ | | | |
-| BorderStyleDemo | | | | | | |
 | SpectreMouseExample | | | ✅ | | | |
 | PluginShowcaseExample | | | | ✅ | ✅ | |
 

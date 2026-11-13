@@ -25,8 +25,12 @@ public class AgentStudioWindow : IDisposable
 	private StatusBarItem? _modeItem;
 	private ChatTranscriptControl? _transcript;
 	private MultilineEditControl? _inputArea;
-	private ProgressBarControl? _tokenBar;
-	private ProgressBarControl? _responseBar;
+	private SessionPanel? _sessionPanel;
+	private GridControl? _rootGrid;
+	private bool _sessionPanelShown = true;
+
+	/// <summary>Width of the session panel's column when shown.</summary>
+	private const int SessionPanelWidth = 30;
 
 	// State
 	private string _currentMode = "Build";
@@ -117,88 +121,11 @@ public class AgentStudioWindow : IDisposable
 
 		_mockAiService = new Services.MockAiService(_windowSystem, _transcript);
 
-		// Right-hand Session Info sidebar. The stat bars are now native ProgressBarControls
-		// (Token Usage = cyan, Response Time = green) stacked with their markup labels inside a
-		// ScrollablePanel. Field refs (_tokenBar/_responseBar) allow later updates from session stats.
-		var sidebarHeader = Controls.Markup()
-			.AddEmptyLine()
-			.AddLine("[cyan1 bold]Session Info[/]")
-			.AddEmptyLine()
-			.AddLine("[grey70 bold]Model[/]")
-			.AddLine("[cyan1]claude-sonnet-4-5[/]")
-			.AddEmptyLine()
-			.AddLine("[grey70 bold]Messages[/]")
-			.AddLine("[grey50]0 total[/]")
-			.AddLine("[grey35]━━━━━━━━━━━━━━━━━━━━━━[/]")
-			.AddEmptyLine()
-			.AddEmptyLine()
-			.WithForegroundColor(Color.Grey93)
-			.WithBackgroundColor(Color.Grey19)
-			.WithMargin(1, 0, 1, 0)
-			.Build();
-
-		var tokenLabel = Controls.Markup()
-			.AddLine("[grey70 bold]Token Usage[/]")
-			.WithForegroundColor(Color.Grey93)
-			.WithBackgroundColor(Color.Grey19)
-			.WithMargin(1, 0, 1, 0)
-			.Build();
-		// Token Usage: 2.5K / 10K = 25%
-		_tokenBar = Controls.ProgressBar()
-			.WithValue(2.5)
-			.WithMaxValue(10)
-			.ShowPercentage()
-			.WithFilledColor(Color.Cyan1)
-			.WithUnfilledColor(Color.Grey35)
-			.WithBackgroundColor(Color.Grey19)
-			.WithMargin(1, 0, 1, 0)
-			.Build();
-		var tokenSubLabel = Controls.Markup()
-			.AddLine("[grey50]2.5K / 10K tokens[/]")
-			.AddEmptyLine()
-			.AddEmptyLine()
-			.WithForegroundColor(Color.Grey93)
-			.WithBackgroundColor(Color.Grey19)
-			.WithMargin(1, 0, 1, 0)
-			.Build();
-
-		var responseLabel = Controls.Markup()
-			.AddLine("[grey70 bold]Response Time[/]")
-			.WithForegroundColor(Color.Grey93)
-			.WithBackgroundColor(Color.Grey19)
-			.WithMargin(1, 0, 1, 0)
-			.Build();
-		// Response Time: 45%
-		_responseBar = Controls.ProgressBar()
-			.WithValue(45)
-			.WithMaxValue(100)
-			.ShowPercentage()
-			.WithFilledColor(Color.Green)
-			.WithUnfilledColor(Color.Grey35)
-			.WithBackgroundColor(Color.Grey19)
-			.WithMargin(1, 0, 1, 0)
-			.Build();
-		var responseSubLabel = Controls.Markup()
-			.AddLine("[grey50]avg 0.8s[/]")
-			.WithForegroundColor(Color.Grey93)
-			.WithBackgroundColor(Color.Grey19)
-			.WithMargin(1, 0, 1, 0)
-			.Build();
-
-		var sidebar = Controls.ScrollablePanel()
-			.AddControl(sidebarHeader)
-			.AddControl(tokenLabel)
-			.AddControl(_tokenBar)
-			.AddControl(tokenSubLabel)
-			.AddControl(responseLabel)
-			.AddControl(_responseBar)
-			.AddControl(responseSubLabel)
-			.WithVerticalScroll()
-			.WithAlignment(HorizontalAlignment.Stretch)
-			.WithVerticalAlignment(VerticalAlignment.Fill)
-			.WithColors(Color.Grey93, Color.Grey19)
-			.WithMargin(2, 1, 1, 1)
-			.Build();
+		// Right-hand session panel: the "where you stand" column beside the transcript.
+		// Its sections, context gauge and Braille sparklines are the same primitives
+		// cxagent's panel is built from. F5 toggles it.
+		_sessionPanel = new SessionPanel();
+		var sidebar = _sessionPanel.Control;
 
 		// Input area
 		_inputArea = Controls.MultilineEdit()
@@ -222,6 +149,7 @@ public class AgentStudioWindow : IDisposable
 		hintBar.AddCenter("Ctrl+J", "Sessions", OpenSessions);
 		hintBar.AddCenter("Ctrl+P", "Commands", OpenCommands);
 		hintBar.AddCenter("Ctrl+S", "Send", HandleSendMessage);
+		hintBar.AddCenter("F5", "Panel", ToggleSessionPanel);
 
 		// The whole window is ONE flat 2D GridControl (no nesting):
 		//   columns: [0] conversation (Star) | [1] sidebar (30 cells)
@@ -233,7 +161,7 @@ public class AgentStudioWindow : IDisposable
 		// The grid's row layout + the two StatusBarControls carry the section framing
 		// (top bar / content / input / bottom bar) — no separator controls needed.
 		var root = Controls.Grid()
-			.Columns(GridLength.Star(1), GridLength.Cells(30))
+			.Columns(GridLength.Star(1), GridLength.Cells(SessionPanelWidth))
 			.Rows(GridLength.Auto(), GridLength.Star(1), GridLength.Auto(), GridLength.Auto())
 			.RowGap(1)
 			.ColumnGap(1)
@@ -249,10 +177,29 @@ public class AgentStudioWindow : IDisposable
 
 		// Fill the whole Session Info cell with the sidebar background so the panel's margin and its
 		// children's margins sit on a matching colour instead of exposing the darker window background.
+		_rootGrid = root;
 		var sidebarCell = root[1, 1];
-		sidebarCell.Background = Color.Grey19;
+		sidebarCell.Background = new Color(24, 26, 31);
 
 		_window.AddControl(root);
+	}
+
+	/// <summary>
+	/// Shows or hides the right-hand session panel (F5).
+	///
+	/// <para>Hiding the control is not enough on its own: the grid's column track keeps
+	/// its 30 cells and the transcript never gets them back. The COLUMN is what
+	/// collapses, and the control's Visible follows so a hidden panel takes no focus.</para>
+	/// </summary>
+	private void ToggleSessionPanel()
+	{
+		if (_sessionPanel == null || _rootGrid == null) return;
+
+		_sessionPanelShown = !_sessionPanelShown;
+		_sessionPanel.Visible = _sessionPanelShown;
+		_rootGrid.ColumnDefinitions[1] = _sessionPanelShown
+			? GridLength.Cells(SessionPanelWidth)
+			: GridLength.Cells(0);
 	}
 
 	/// <summary>Toggles between Build and Plan modes and refreshes the hint bar's mode indicator.</summary>
@@ -338,7 +285,13 @@ public class AgentStudioWindow : IDisposable
 				return;
 			}
 
-			if (e.KeyInfo.Key == ConsoleKey.Spacebar && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
+			if (e.KeyInfo.Key == ConsoleKey.F5)
+			{
+				// F5 shows and hides the session panel, as cxagent does.
+				ToggleSessionPanel();
+				e.Handled = true;
+			}
+			else if (e.KeyInfo.Key == ConsoleKey.Spacebar && e.KeyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
 			{
 				// Ctrl+Space to switch mode
 				ToggleMode();
@@ -396,6 +349,9 @@ public class AgentStudioWindow : IDisposable
 
 		// Add user message immediately
 		PostMessage(MessageRole.User, content);
+
+		// The session panel's figures move with the conversation. Simulated, like the rest.
+		_sessionPanel?.TurnCompleted(Random.Shared.Next(0, 4));
 
 		// Check for demo commands and run scenarios with animation
 		if (content.Contains("/analyze"))
