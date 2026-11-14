@@ -80,10 +80,18 @@ namespace SharpConsoleUI.Drivers.Input
 				// We use ReadAsync + Wait(timeout). If the timeout expires, we MUST
 				// await the ReadAsync to completion before continuing so that the
 				// pending async read doesn't race with the next synchronous Read.
-				if (events.Count == 0 && bytesRead == 1 && buffer[0] == 0x1B)
+				//
+				// A LOOP, NOT A SINGLE WAIT. After a timeout the pending ReadAsync captures the next
+				// keypress - and that keypress can itself be a lone ESC. Handled once, that second ESC
+				// went into the parser's pending state with no timeout of its own and sat there until
+				// some later key arrived: every other Escape press was delivered one key late (or never,
+				// if it was the last). Each lone ESC gets its own timeout, however many come in a row.
+				int pendingBytes = bytesRead;
+				while (events.Count == 0 && pendingBytes == 1 && buffer[0] == 0x1B)
 				{
 					var escWaitStart = DateTime.UtcNow;
 					bool gotMore = false;
+					pendingBytes = 0; // set again only when a timed-out ESC is followed by another read
 					try
 					{
 						var readTask = _stdin.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
@@ -122,7 +130,10 @@ namespace SharpConsoleUI.Drivers.Input
 							{
 								int moreBytes = readTask.GetAwaiter().GetResult();
 								if (moreBytes > 0)
+								{
 									events.AddRange(_parser.Parse(buffer.AsSpan(), moreBytes));
+									pendingBytes = moreBytes; // a lone ESC here goes round the loop again
+								}
 							}
 							catch { }
 						}
