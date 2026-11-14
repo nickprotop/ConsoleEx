@@ -90,6 +90,13 @@ public partial class TableControl
 		if (TryHandleKey(key))
 			return true;
 
+		// Keys that act on the table rather than on a row run BEFORE the row-count guard: a filter
+		// that matches nothing still has to be escapable, and '/' still has to start a new one.
+		// Without this a confirmed filter with no matches was a trap - ProcessKey returned false,
+		// so the window took the Escape and unfocused the table instead.
+		if (ProcessRowIndependentKey(key))
+			return true;
+
 		int rowCount = RowCount;
 		if (rowCount == 0) return false;
 
@@ -177,22 +184,6 @@ public partial class TableControl
 				}
 				return false;
 
-			case ConsoleKey.Escape:
-				// Escape clears confirmed filter
-				if (_filterMode == FilterMode.Confirmed)
-				{
-					ClearFilter();
-					return true;
-				}
-				// Escape deselects cell (back to row mode) when cell is selected
-				if (_cellNavigationEnabled && _selectedColumnIndex >= 0)
-				{
-					_selectedColumnIndex = -1;
-					Invalidate(Invalidation.Repaint);
-					return true;
-				}
-				return false;
-
 			case ConsoleKey.Enter:
 				if (_selectedRowIndex >= 0)
 				{
@@ -236,6 +227,43 @@ public partial class TableControl
 			case ConsoleKey.A when key.Modifiers.HasFlag(ConsoleModifiers.Control) && _multiSelectEnabled:
 				SelectAll();
 				return true;
+
+			default:
+				return false;
+		}
+	}
+
+	/// <summary>
+	/// Handles the keys that act on the table itself rather than on a row, and so must work on an
+	/// empty view: Escape (clear a confirmed filter, else deselect the current cell) and '/' (start
+	/// typing a filter). Returns false when the key is not one of them, or when there was nothing
+	/// for it to do.
+	/// </summary>
+	/// <remarks>
+	/// Called from <see cref="ProcessKey"/> ahead of the row-count guard. A confirmed filter that
+	/// matches no rows left the table with no way out before this existed: every key fell through,
+	/// and the window used the Escape to move focus away. Order within the method is unchanged from
+	/// when these lived in the main switch, so a populated table behaves exactly as it did.
+	/// </remarks>
+	private bool ProcessRowIndependentKey(ConsoleKeyInfo key)
+	{
+		switch (key.Key)
+		{
+			case ConsoleKey.Escape:
+				// Escape clears confirmed filter
+				if (_filterMode == FilterMode.Confirmed)
+				{
+					ClearFilter();
+					return true;
+				}
+				// Escape deselects cell (back to row mode) when cell is selected
+				if (_cellNavigationEnabled && _selectedColumnIndex >= 0)
+				{
+					_selectedColumnIndex = -1;
+					Invalidate(Invalidation.Repaint);
+					return true;
+				}
+				return false;
 
 			default:
 				// '/' enters filter mode
