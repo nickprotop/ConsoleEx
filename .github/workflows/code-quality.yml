@@ -50,7 +50,7 @@ jobs:
           dotnet-version: |
             8.0.x
             9.0.x
-            10.0.x
+            10.0.4xx
           cache: true
           cache-dependency-path: |
             SharpConsoleUI/SharpConsoleUI.csproj
@@ -145,7 +145,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 10.0.4xx
           cache: true
           cache-dependency-path: SharpConsoleUI.Tests/aot.test/AotSmoke.csproj
 

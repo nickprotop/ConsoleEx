@@ -1,0 +1,12 @@
+{
+  // SDK floor, not a preference: 10.0.403 is the first SDK whose bundled
+  // Microsoft.DotNet.ILCompiler (10.0.14) is patched for GHSA-p3jp-9v83-76w9
+  // (CVE-2026-111497, the Brotli decoder out-of-bounds write). Older SDKs bring a
+  // vulnerable AOT compiler and make `dotnet restore -p:PublishAot=true` report NU1903.
+  // The 10.0.3xx band ended at 10.0.303 (runtime 10.0.11) and can never reach the fix,
+  // so this has to cross a feature band; latestFeature accepts 10.0.4xx and later.
+  "sdk": {
+    "version": "10.0.403",
+    "rollForward": "latestFeature"
+  }
+}
