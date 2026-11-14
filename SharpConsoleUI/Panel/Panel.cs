@@ -34,6 +34,13 @@ public class Panel
 			{
 				_visible = value;
 				IsDirty = true;
+
+				// Tell the elements, so the periodic ones can drop their repaint schedules
+				// while nothing they draw is on screen. A clock in a hidden panel was still
+				// forcing a frame every second for the life of the process, to redraw a time
+				// nobody could read.
+				foreach (var element in AllElements()) element.OnOwnerReady();
+
 				// Desktop bounds change when visibility toggles — full screen clear needed
 				WindowSystem?.ForceFullRedraw();
 			}
@@ -245,6 +252,21 @@ public class Panel
 	public void MarkDirty()
 	{
 		IsDirty = true;
+	}
+
+	/// <summary>
+	/// Answers this panel's redraw request without painting it, for a panel that is hidden
+	/// and so has nothing to paint.
+	/// </summary>
+	/// <remarks>
+	/// <see cref="Render"/> clears the flag as its last act, which is the only path a visible
+	/// panel needs. A hidden one never gets there, and the flag is read by the main loop's
+	/// render decision regardless of visibility, so without this a panel marked dirty while
+	/// hidden kept the loop awake for the life of the process.
+	/// </remarks>
+	public void ClearDirty()
+	{
+		IsDirty = false;
 	}
 
 	#endregion

@@ -120,6 +120,13 @@ public class ClockElement : PanelElement, IDisposable
 
 	private void StartTimer()
 	{
+		// Nothing to refresh while the panel is hidden: the schedule is a standing request
+		// for a frame every second, and a frame to redraw a clock nobody can see held the
+		// whole render loop awake. Restored when the panel is shown again, because Panel
+		// re-notifies its elements on the visibility change.
+		if (Owner is { Visible: false })
+			return;
+
 		// Serviced by the frame, on the UI thread, rather than by a timer of this
 		// element's own on a pool thread. The old one kept ticking while the
 		// application was idle and read the machine clock rather than the system's.

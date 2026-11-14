@@ -192,6 +192,16 @@ namespace SharpConsoleUI
 			lock (_repaintLock) { _repaintSchedules.Remove(schedule); }
 		}
 
+		/// <summary>Test-only: how many periodic repaints are currently registered.</summary>
+		/// <remarks>
+		/// Each live schedule forces a frame at its interval whether or not anything on screen
+		/// changed, so "nothing is scheduled" is the observable form of "the loop can settle".
+		/// </remarks>
+		internal int RepaintScheduleCount
+		{
+			get { lock (_repaintLock) { return _repaintSchedules.Count; } }
+		}
+
 		/// <summary>
 		/// Runs whichever schedules are due. Called once per frame.
 		/// </summary>
@@ -2225,7 +2235,6 @@ namespace SharpConsoleUI
 		{
 			if (!_uiActionsPending) return;
 			_uiActionsPending = false;
-			bool anyDrained = false;
 
 			// The drain processes the WHOLE queue in this single main-loop iteration, but the heartbeat
 			// only fires once per iteration (at the loop top). A caller that floods EnqueueOnUIThread
@@ -2239,8 +2248,6 @@ namespace SharpConsoleUI
 
 			while (_uiActionQueue.TryDequeue(out var item))
 			{
-				anyDrained = true;
-
 				// Counted for as long as it runs. TryDequeue takes the action OUT
 				// of the queue before it executes, so between those two moments
 				// the work exists nowhere the system can see: the queue answers
@@ -2272,10 +2279,19 @@ namespace SharpConsoleUI
 				}
 			}
 
-			if (anyDrained)
-			{
-				Render.DesktopNeedsRender = true;
-			}
+			// A drained queue deliberately does NOT set DesktopNeedsRender. An action that
+			// changes something drawable invalidates what it changed - that is the framework's
+			// dirty contract, and SetProperty upholds it for every control property - so
+			// claiming the whole desktop needs repainting on behalf of every action was both
+			// unnecessary and unbounded: an application that posts work every frame (a progress
+			// pump, an await-continuation that re-enqueues) kept the flag true on every tick and
+			// sat at the frame cap forever, compositing frames that wrote nothing. The queue
+			// being non-empty is a reason to look, not a reason to paint.
+			//
+			// Actions that move a window or change desktop geometry still force the full redraw
+			// themselves, through ForceFullRedraw and the window-state paths, and the tick
+			// already shortens its sleep off _uiActionsPending, so queued work is still
+			// serviced promptly without a frame being manufactured for it.
 		}
 
 		/// <summary>

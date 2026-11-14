@@ -156,6 +156,34 @@ public class SpinnerControl : BaseControl, IColorRoleableControl
 		}
 	}
 
+	/// <summary>
+	/// Gets or sets whether the spinner is shown, stopping its animation while it is not.
+	/// </summary>
+	/// <remarks>
+	/// A hidden spinner animates nothing anyone can see, but the animation is a live frame
+	/// request: <c>HasActiveAnimations</c> is one of the main loop's reasons to render, so
+	/// leaving it running held the whole application at the frame cap for a glyph that was
+	/// not on screen. <see cref="IsSpinning"/> is left untouched, so showing the control
+	/// again resumes it and a spinner the application never started stays stopped.
+	/// </remarks>
+	public override bool Visible
+	{
+		get => base.Visible;
+		set
+		{
+			if (base.Visible == value) { base.Visible = value; return; }
+			base.Visible = value;
+			if (value)
+			{
+				if (_isSpinning && Container != null) StartAnimation();
+			}
+			else
+			{
+				StopAnimation();
+			}
+		}
+	}
+
 	/// <summary>Resolves the preset frame set for a style.</summary>
 	internal static string[] FramesForStyle(SpinnerStyle style) => style switch
 	{
@@ -279,7 +307,11 @@ public class SpinnerControl : BaseControl, IColorRoleableControl
 
 		// Lazily ensure the animation is registered: in nested containers the parent
 		// chain (and thus the window system) may not be wired when Container is first set.
-		if (_isSpinning && _animation == null)
+		// Gated on Visible as well, so this cannot re-arm the animation that hiding the
+		// control just stopped. Layout skips invisible nodes today and so never calls this,
+		// which makes the guard belt-and-braces rather than load-bearing - but the Visible
+		// contract is this control's to keep, not layout's to keep for it.
+		if (_isSpinning && _animation == null && Visible)
 			StartAnimation();
 
 		var frames = EffectiveFrames;

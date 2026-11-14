@@ -719,7 +719,17 @@ namespace SharpConsoleUI.Rendering
 			lastVisible = currentlyVisible;
 
 			if (!currentlyVisible)
+			{
+				// A hidden panel has nothing to paint, but its dirty flag still has to be
+				// answered. IsStatusBarDirty() is one of the main loop's shouldRender terms and
+				// does not ask whether a panel is visible, while the flag itself is cleared only
+				// by Panel.Render. Returning here without clearing it left the term true for the
+				// life of the process, so the loop rendered at the frame cap forever - laying out
+				// and compositing frames that wrote nothing - and hiding a panel was enough to
+				// start it, since the Visible setter marks it dirty on the way out.
+				panel?.ClearDirty();
 				return;
+			}
 
 			if (!panel!.IsDirty)
 				return;
