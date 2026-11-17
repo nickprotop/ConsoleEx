@@ -29,6 +29,7 @@ internal sealed class TableGeometry
 {
 	private readonly int[] _columnStarts;
 	private readonly int[] _columnWidths;
+	private readonly (int Row, int FirstLine, int Height)[] _rowBands;
 
 	/// <summary>Records the column layout of one paint.</summary>
 	/// <param name="contentLeft">Control-relative x where logical position 0 is drawn.</param>
@@ -38,9 +39,14 @@ internal sealed class TableGeometry
 	/// <param name="columnWidths">The width of each data column.</param>
 	/// <param name="checkboxWidth">The checkbox column's width at logical 0, or 0 without one.</param>
 	/// <param name="lines">Which lines the paint gave to the title, header, data rows and filter bar.</param>
+	/// <param name="rowBands">
+	/// Where each painted row landed: its display index, its first control-relative line, and how
+	/// many lines it took. Empty for a paint that drew no rows.
+	/// </param>
 	internal TableGeometry(int contentLeft, int contentRight, int horizontalScroll, int[] columnStarts, int[] columnWidths, int checkboxWidth,
-		TableLineBands lines)
+		TableLineBands lines, (int Row, int FirstLine, int Height)[]? rowBands = null)
 	{
+		_rowBands = rowBands ?? Array.Empty<(int, int, int)>();
 		ContentLeft = contentLeft;
 		ContentRight = contentRight;
 		HorizontalScroll = horizontalScroll;
@@ -73,6 +79,38 @@ internal sealed class TableGeometry
 
 	/// <summary>The logical start of a data column.</summary>
 	internal int GetColumnStart(int column) => _columnStarts[column];
+
+	/// <summary>Whether this paint recorded where its rows landed.</summary>
+	internal bool HasRowBands => _rowBands.Length > 0;
+
+	/// <summary>
+	/// The display row drawn at a control-relative line, or -1 when none was.
+	/// </summary>
+	/// <remarks>
+	/// A linear scan over the rows this paint drew, which is a screenful: a few dozen entries at
+	/// a terminal's height, so the search costs less than the binary search's bookkeeping would.
+	/// It is the only way to answer this once rows differ in height, since the old arithmetic
+	/// assumed every row was the same number of lines tall.
+	/// </remarks>
+	internal int GetRowAtLine(int y)
+	{
+		for (int i = 0; i < _rowBands.Length; i++)
+		{
+			var band = _rowBands[i];
+			if (y >= band.FirstLine && y < band.FirstLine + band.Height)
+				return band.Row;
+		}
+		return -1;
+	}
+
+	/// <summary>The lines a display row was drawn on, or (0, 0) when it was not drawn.</summary>
+	internal (int FirstLine, int Height) GetBandForRow(int row)
+	{
+		for (int i = 0; i < _rowBands.Length; i++)
+			if (_rowBands[i].Row == row)
+				return (_rowBands[i].FirstLine, _rowBands[i].Height);
+		return (0, 0);
+	}
 
 	/// <summary>The logical position drawn at a control-relative x, or -1 left of the content.</summary>
 	internal int ToLogical(int x) => x < ContentLeft ? -1 : x - ContentLeft + HorizontalScroll;

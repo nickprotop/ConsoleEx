@@ -51,6 +51,28 @@ public partial class TableControl
 	/// </remarks>
 	protected virtual string? GetCellPrefixMarkup(int dataRowIndex, int columnIndex) => null;
 
+	/// <summary>
+	/// The prefix for the lines of a wrapping row AFTER its first, where
+	/// <see cref="GetCellPrefixMarkup"/> gives the first line's.
+	/// </summary>
+	/// <param name="dataRowIndex">The row, in data order.</param>
+	/// <param name="columnIndex">The data column.</param>
+	/// <returns>Markup of the same display width as the row's own prefix, or null for none.</returns>
+	/// <remarks>
+	/// <para>
+	/// The default returns null, so a prefix appears on the row's first line only. That is right
+	/// for a prefix that marks the row, like a badge or a bullet, and wrong for one that draws
+	/// structure: a tree's guides have to carry down a tall row or the hierarchy stops reading
+	/// halfway through it.
+	/// </para>
+	/// <para>
+	/// Whatever this returns must be the same display width as
+	/// <see cref="GetCellPrefixMarkup"/> returned for the same row and column, or the value
+	/// column will start at a different x on the continuation lines.
+	/// </para>
+	/// </remarks>
+	protected virtual string? GetCellPrefixContinuationMarkup(int dataRowIndex, int columnIndex) => null;
+
 	/// <summary>The checkbox cell's text for one row.</summary>
 	/// <param name="row">The row being painted, or null over a data source.</param>
 	/// <param name="isChecked">Whether the row reads as checked.</param>
@@ -71,13 +93,23 @@ public partial class TableControl
 	/// The prefixes of one row's cells, indexed as the painter indexes columns (the checkbox column
 	/// first, in checkbox mode), or null when the row has none.
 	/// </summary>
-	private string?[]? GetCellPrefixes(int dataRowIndex, int dataColumnCount, int paintedColumnCount)
+	/// <param name="dataRowIndex">The row, in data order.</param>
+	/// <param name="dataColumnCount">How many data columns the row has.</param>
+	/// <param name="paintedColumnCount">How many columns the painter draws, checkbox included.</param>
+	/// <param name="line">
+	/// Which line of a wrapping row is being drawn. 0 is the row's own line and gets the prefix a
+	/// derived table supplies; a later line gets its continuation, so a tree's guides carry down a
+	/// tall row instead of stopping after its first line.
+	/// </param>
+	private string?[]? GetCellPrefixes(int dataRowIndex, int dataColumnCount, int paintedColumnCount, int line = 0)
 	{
 		string?[]? prefixes = null;
 		int shift = paintedColumnCount - dataColumnCount;
 		for (int c = 0; c < dataColumnCount; c++)
 		{
-			string? prefix = GetCellPrefixMarkup(dataRowIndex, c);
+			string? prefix = line == 0
+				? GetCellPrefixMarkup(dataRowIndex, c)
+				: GetCellPrefixContinuationMarkup(dataRowIndex, c);
 			if (string.IsNullOrEmpty(prefix)) continue;
 
 			prefixes ??= new string?[paintedColumnCount];
@@ -85,6 +117,103 @@ public partial class TableControl
 		}
 		return prefixes;
 	}
+
+	/// <summary>
+	/// One row's cells wrapped to their columns, so each painted line can be drawn by the same
+	/// row painter the single-line table has always used.
+	/// </summary>
+	/// <remarks>
+	/// Deliberately a string per cell per line rather than pre-parsed cells: that is what
+	/// <see cref="TableRowPainter.DrawDataRow"/> already takes, so every truncation, wide-glyph,
+	/// alignment and fade path in it keeps working untouched. Wrapping produces cells, and this
+	/// turns them back into text; the alternative was a second copy of that painter for tall
+	/// rows, which would drift from the original on the first bug fix to either.
+	/// </remarks>
+	private sealed class WrappedRow
+	{
+		private readonly string[][] _linesPerColumn;
+		private readonly bool[] _center;
+		private readonly IList<string> _original;
+
+		internal WrappedRow(string[][] linesPerColumn, bool[] center, IList<string> original)
+		{
+			_linesPerColumn = linesPerColumn;
+			_center = center;
+			_original = original;
+		}
+
+		/// <summary>What each column shows on one line of the row.</summary>
+		internal IList<string> LineCells(int line, int rowHeight)
+		{
+			var cells = new string[_linesPerColumn.Length];
+			for (int c = 0; c < _linesPerColumn.Length; c++)
+			{
+				string[] lines = _linesPerColumn[c];
+
+				// A cell shorter than the row sits on the row's first line, or in its middle
+				// when the column asks to be centred. Every other line of that column is blank.
+				int offset = _center[c] ? (rowHeight - lines.Length) / 2 : 0;
+				int index = line - offset;
+				cells[c] = index >= 0 && index < lines.Length ? lines[index] : string.Empty;
+			}
+			return cells;
+		}
+
+		/// <summary>The row's untouched cells, for the single-line path.</summary>
+		internal IList<string> Original => _original;
+	}
+
+	/// <summary>
+	/// Wraps a row's cells and reports how many lines it needs, or null when no column wraps.
+	/// </summary>
+	/// <remarks>
+	/// Returning null rather than a height-of-one WrappedRow is what keeps the non-wrapping table
+	/// on the code path it has always used: the caller passes the row's own cells straight to the
+	/// painter, with no wrap, no allocation and no per-cell round trip through the parser.
+	/// </remarks>
+	private WrappedRow? BuildWrappedRow(IList<string> rowCells, int[] colWidths,
+		List<TableColumn>? cols, Color fg, Color bg, int editCellIndex, out int rowHeight)
+	{
+		rowHeight = 1;
+		if (cols == null || !HasWrappingColumns) return null;
+
+		var linesPerColumn = new string[colWidths.Length][];
+		var center = new bool[colWidths.Length];
+		bool anyWrapped = false;
+
+		for (int c = 0; c < colWidths.Length; c++)
+		{
+			string text = c < rowCells.Count ? rowCells[c] : string.Empty;
+			var col = c < cols.Count ? cols[c] : null;
+			center[c] = col?.VerticalCenter == true;
+
+			// An editing cell stays one line: the caret moves through a single run of text, and
+			// wrapping it would move the caret to a line the cursor arithmetic knows nothing of.
+			if (col?.Wrap != true || c == editCellIndex)
+			{
+				linesPerColumn[c] = new[] { text };
+				continue;
+			}
+
+			var wrapped = TableCellWrapper.WrapCell(text, colWidths[c], col.MaxLines, fg, bg);
+			linesPerColumn[c] = wrapped
+				.Select(line => Parsing.MarkupParser.CellsToMarkup(line, fg, bg))
+				.ToArray();
+			if (wrapped.Count > 1) anyWrapped = true;
+			if (wrapped.Count > rowHeight) rowHeight = wrapped.Count;
+		}
+
+		// Every column fitted on one line, so this row is an ordinary row. Hand back null and let
+		// it paint through the original path with its own cells.
+		if (!anyWrapped)
+		{
+			rowHeight = 1;
+			return null;
+		}
+
+		return new WrappedRow(linesPerColumn, center, rowCells);
+	}
+
 
 	#endregion
 
@@ -479,6 +608,11 @@ public partial class TableControl
 		int startRow = _scrollOffset;
 		int endRow = Math.Min(rowCount, _scrollOffset + GetVisibleRowCount());
 
+		// Where each row actually landed. The hit test used to derive this by subtracting the
+		// chrome and dividing by a constant, which is only right while every row is the same
+		// height. Recording it makes a click resolve to the row that was drawn there.
+		var rowBands = new List<(int Row, int FirstLine, int Height)>(Math.Max(0, endRow - startRow));
+
 		for (int displayR = startRow; displayR < endRow && currentY < maxY; displayR++)
 		{
 			int dataR = MapDisplayToData(displayR);
@@ -619,25 +753,49 @@ public partial class TableControl
 					filterMatches = filterMatches.Select(m => (m.Column + 1, m.Start, m.Length)).ToList();
 			}
 
-			FillSideMargins(currentY);
-			TableRowPainter.DrawDataRow(buffer, style, startX, currentY, colWidths, clipRect,
-				rowCells, renderCols, effectiveRowFg, effectiveRowBg,
-				hScrollOffset: effectiveHScroll,
-				isSelected: isRowSel || isHovered,
-				selectedCellIndex: selectedCell, selectedCellBg: cellHighlightBg, selectedCellFg: cellHighlightFg,
-				editCellIndex: editCellIndex, editCursorPos: editCursorPos,
-				filterMatches: filterMatches,
-				trailingFillWidth: scrollbarGutter,
-				cellPrefixes: GetCellPrefixes(dataR, colCount, colWidths.Length));
+			// How many lines this row takes, and what each of its cells shows on each of them.
+			// Null when no column wraps, which keeps the original single-line call below exactly
+			// as it was rather than routing it through a general case with a height of one.
+			var wrapped = BuildWrappedRow(rowCells, colWidths, renderCols, effectiveRowFg, effectiveRowBg,
+				editCellIndex, out int rowHeight);
+
+			// A row taller than the space left would be drawn half on and half off the bottom
+			// edge. Stop before it, as the loop already does for a single-line row that does not
+			// fit: a partly drawn row reads as a rendering fault, while a missing one reads as
+			// more content below, which is what the scrollbar is already saying.
+			if (rowHeight > 1 && currentY + rowHeight > maxY && currentY > dataStartY)
+				break;
+
+			int rowTop = currentY;
+			for (int line = 0; line < rowHeight && currentY < maxY; line++)
+			{
+				FillSideMargins(currentY);
+				TableRowPainter.DrawDataRow(buffer, style, startX, currentY, colWidths, clipRect,
+					wrapped == null ? rowCells : wrapped.LineCells(line, rowHeight),
+					renderCols, effectiveRowFg, effectiveRowBg,
+					hScrollOffset: effectiveHScroll,
+					isSelected: isRowSel || isHovered,
+					selectedCellIndex: selectedCell, selectedCellBg: cellHighlightBg, selectedCellFg: cellHighlightFg,
+					// The edit cursor belongs to the value being typed, which is on the row's
+					// first line; a cursor repeated down a tall row would show one caret per line.
+					editCellIndex: line == 0 ? editCellIndex : -1,
+					editCursorPos: line == 0 ? editCursorPos : -1,
+					filterMatches: line == 0 ? filterMatches : null,
+					trailingFillWidth: scrollbarGutter,
+					cellPrefixes: GetCellPrefixes(dataR, colCount, colWidths.Length, line));
+
+				currentY++;
+			}
 
 			// Update row rendered position for hit testing (for in-memory rows)
 			if (_dataSource == null && rowSnapshot != null && dataR < rowSnapshot.Count)
 			{
-				rowSnapshot[dataR].RenderedY = currentY;
-				rowSnapshot[dataR].RenderedHeight = 1;
+				rowSnapshot[dataR].RenderedY = rowTop;
+				rowSnapshot[dataR].RenderedHeight = currentY - rowTop;
 			}
 
-			currentY++;
+			// Where each visible row landed, for the hit test to search instead of dividing.
+			rowBands.Add((displayR, rowTop - bounds.Y, currentY - rowTop));
 		}
 
 		// Pad with empty rows so the bottom border sits at the bottom of the allocated
@@ -744,7 +902,8 @@ public partial class TableControl
 		// Published once the paint is complete, so a hit test never sees half of one.
 		_geometry = new TableGeometry(contentLeft, startX - bounds.X + contentWidth - (hasBorder ? 1 : 0), effectiveHScroll, columnStarts,
 			(int[])dataColWidths.Clone(), _checkboxMode ? checkboxColWidth : 0,
-			new TableLineBands(titleLine, headerLine, dataStartY - bounds.Y, dataEndY - bounds.Y, filterBarTop, filterBarBottom));
+			new TableLineBands(titleLine, headerLine, dataStartY - bounds.Y, dataEndY - bounds.Y, filterBarTop, filterBarBottom),
+			rowBands.ToArray());
 
 		// Apply row animation overlays (flash, highlight, fade-out)
 		if (HasActiveRowAnimations)
