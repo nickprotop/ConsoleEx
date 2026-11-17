@@ -193,6 +193,12 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 
 	// Which data rows are displayed, in what order: one map for sort and filter together
 	private readonly TableRowView _rowView = new();
+
+	/// <summary>
+	/// How tall each wrapping row is, remembered between frames. Never consulted while no column
+	/// wraps, which is what keeps the single-line table free of per-row measuring.
+	/// </summary>
+	private readonly TableRowHeightCache _rowHeights = new();
 	// Above zero while ComputeDisplayRows or ResolveHidden/RemovedSelectedRow runs, when the rows must not change
 	private int _displayRowsHookDepth;
 
@@ -933,8 +939,64 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 			InvalidateColumnWidths();
 			// A renamed header changes what a column-specific filter matches.
 			lock (_tableLock) { _rowView.RecordReset(); }
+
+			// Wrap, MaxLines and Width all change how tall a row needs to be, and all three
+			// arrive here as width-affecting. The heights are measured at specific widths, so
+			// every remembered answer is now about a layout that no longer applies.
+			_rowHeights.InvalidateAll();
 		}
 		Container?.Invalidate(mode);
+	}
+
+	/// <summary>
+	/// Whether any column wraps, which is what decides between the measured row-height path and
+	/// the one-line-per-row arithmetic the table has always used.
+	/// </summary>
+	/// <remarks>
+	/// A table with no wrapping column must behave exactly as it did before wrapping existed, so
+	/// this guard is checked before anything consults the height cache. DataSource mode has no
+	/// TableColumn objects and so can never wrap.
+	/// </remarks>
+	internal bool HasWrappingColumns
+	{
+		get
+		{
+			if (_dataSource != null) return false;
+			lock (_tableLock)
+			{
+				for (int c = 0; c < _columns.Count; c++)
+					if (_columns[c].Wrap) return true;
+			}
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// How many lines a row occupies: 1 unless a wrapping column makes it taller.
+	/// </summary>
+	/// <param name="displayRow">The row, in display order.</param>
+	internal int GetRowHeight(int displayRow)
+	{
+		if (!HasWrappingColumns) return 1;
+
+		List<TableColumn> cols;
+		List<TableRow> rows;
+		lock (_tableLock)
+		{
+			cols = _columns.ToList();
+			rows = _rows.ToList();
+		}
+
+		// The widths the last paint used. Before the first paint they are 0, and a 0-wide column
+		// wraps to nothing, so the row is one line until there is a real layout to measure
+		// against - which is the right answer for a table that has not been drawn yet.
+		var widths = new int[cols.Count];
+		for (int c = 0; c < cols.Count; c++) widths[c] = cols[c].RenderedWidth;
+
+		int dataRow = _rowView.MapDisplayToData(displayRow);
+		if (dataRow < 0 || dataRow >= rows.Count) return 1;
+
+		return _rowHeights.GetHeight(displayRow, widths, _ => rows[dataRow].Cells, cols);
 	}
 
 	/// <summary>
@@ -954,6 +1016,12 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		{
 			InvalidateColumnWidths();
 			lock (_tableLock) { _rowView.RecordReset(); }
+
+			// New cell text wraps to a different number of lines, so this row's remembered
+			// height is about content it no longer holds. RecordReset above has already
+			// invalidated the display map, so which display index this row now sits at is not
+			// knowable here; drop every height rather than guess at one.
+			_rowHeights.InvalidateAll();
 		}
 		Container?.Invalidate(mode);
 
