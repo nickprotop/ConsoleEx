@@ -637,7 +637,14 @@ public partial class TableControl
 		// arithmetic, which is still correct for the uniform case it was written for.
 		var geometry = _geometry;
 		if (geometry != null && geometry.HasRowBands)
-			return geometry.GetRowAtLine(relativeY);
+		{
+			// The bands describe the last paint. Rows can be removed, or a filter applied, between
+			// that paint and this click, so the row they name may no longer exist: the arithmetic
+			// path has always rejected an index past the end and this has to as well, or a click
+			// in a shrinking table returns a row the caller cannot look up.
+			int banded = geometry.GetRowAtLine(relativeY);
+			return banded >= 0 && banded < RowCount ? banded : -1;
+		}
 
 		int dataStartY = 0;
 		bool hasBorder = _borderStyle != BorderStyle.None;

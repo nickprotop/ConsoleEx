@@ -98,6 +98,32 @@ public class TableCellWrapTests
 	}
 
 	[Fact]
+	public void WrapCell_TruncatingOnAWideGlyph_DoesNotLeaveHalfOfIt()
+	{
+		// The ellipsis replaces the line's last cell. When that cell is the second half of a
+		// wide glyph, replacing only it leaves a 2-wide character followed by a 1-wide ellipsis
+		// in a column with room for one of them: the half-drawn glyph the rendering rules forbid.
+		var lines = TableCellWrapper.WrapCell(
+			"\u4e2d\u6587\u6d4b\u8bd5\u4e2d\u6587\u6d4b\u8bd5\u4e2d\u6587\u6d4b\u8bd5",
+			10, 2, Color.White, Color.Black);
+
+		Assert.Equal(2, lines.Count);
+
+		var last = lines[1];
+		Assert.Equal(ControlDefaults.TableWrapEllipsis, last[^1].Character.Value);
+
+		// Every cell must account for exactly one column: no lead glyph without its continuation.
+		for (int i = 0; i < last.Count; i++)
+		{
+			if (last[i].IsWideContinuation) continue;
+			bool isWide = SharpConsoleUI.Helpers.UnicodeWidth.IsWideRune(last[i].Character);
+			bool hasContinuation = i + 1 < last.Count && last[i + 1].IsWideContinuation;
+			Assert.False(isWide && !hasContinuation,
+				$"cell {i} ('{last[i].Character}') is wide but has no continuation cell after it");
+		}
+	}
+
+	[Fact]
 	public void WrapCell_ZeroWidth_ReturnsOneEmptyLine()
 	{
 		var lines = TableCellWrapper.WrapCell(LongTitle, 0, 0, Color.White, Color.Black);

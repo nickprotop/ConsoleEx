@@ -189,10 +189,11 @@ public partial class TableControl
 	/// painter, with no wrap, no allocation and no per-cell round trip through the parser.
 	/// </remarks>
 	private WrappedRow? BuildWrappedRow(IList<string> rowCells, int[] colWidths,
-		List<TableColumn>? cols, Color fg, Color bg, int editCellIndex, out int rowHeight)
+		List<TableColumn>? cols, Color fg, Color bg, int editCellIndex, bool wrapsAnything,
+		out int rowHeight)
 	{
 		rowHeight = 1;
-		if (cols == null || !HasWrappingColumns) return null;
+		if (cols == null || !wrapsAnything) return null;
 
 		var linesPerColumn = new string[colWidths.Length][];
 		var align = new VerticalAlignment[colWidths.Length];
@@ -332,8 +333,10 @@ public partial class TableControl
 				int dataR = MapDisplayToData(displayR);
 				if (dataR < 0 || dataR >= rowSnapshot.Count) { height++; continue; }
 
+				// Keyed by DATA index, as GetRowHeight is, so the two agree and a remapped
+				// display order cannot hand back the height of a different row.
 				int rowCopy = dataR;
-				height += _rowHeights.GetHeight(displayR, colWidths,
+				height += _rowHeights.GetHeight(dataR, colWidths,
 					_ => rowSnapshot[rowCopy].Cells, colSnapshot);
 			}
 		}
@@ -648,10 +651,21 @@ public partial class TableControl
 		int startRow = _scrollOffset;
 		int endRow = Math.Min(rowCount, _scrollOffset + GetVisibleRowCount());
 
+		// Asked once per paint. HasWrappingColumns takes the table lock and walks the columns, and
+		// the row loop below would otherwise ask it per row through BuildWrappedRow.
+		bool wrapsAnything = HasWrappingColumns;
+
 		// Where each row actually landed. The hit test used to derive this by subtracting the
 		// chrome and dividing by a constant, which is only right while every row is the same
-		// height. Recording it makes a click resolve to the row that was drawn there.
-		var rowBands = new List<(int Row, int FirstLine, int Height)>(Math.Max(0, endRow - startRow));
+		// height; recording it makes a click resolve to the row that was drawn there.
+		//
+		// Recorded only for a wrapping table. With every row one line that arithmetic is exact and
+		// needs no bands, so a non-wrapping table should not pay a list plus a ToArray every frame
+		// for something nothing will read, and should keep resolving clicks against the live
+		// scroll offset rather than against the last paint.
+		var rowBands = wrapsAnything
+			? new List<(int Row, int FirstLine, int Height)>(Math.Max(0, endRow - startRow))
+			: null;
 
 		for (int displayR = startRow; displayR < endRow && currentY < maxY; displayR++)
 		{
@@ -797,7 +811,7 @@ public partial class TableControl
 			// Null when no column wraps, which keeps the original single-line call below exactly
 			// as it was rather than routing it through a general case with a height of one.
 			var wrapped = BuildWrappedRow(rowCells, colWidths, renderCols, effectiveRowFg, effectiveRowBg,
-				editCellIndex, out int rowHeight);
+				editCellIndex, wrapsAnything, out int rowHeight);
 
 			// A row taller than the space left would be drawn half on and half off the bottom
 			// edge. Stop before it, as the loop already does for a single-line row that does not
@@ -835,7 +849,7 @@ public partial class TableControl
 			}
 
 			// Where each visible row landed, for the hit test to search instead of dividing.
-			rowBands.Add((displayR, rowTop - bounds.Y, currentY - rowTop));
+			rowBands?.Add((displayR, rowTop - bounds.Y, currentY - rowTop));
 		}
 
 		// Pad with empty rows so the bottom border sits at the bottom of the allocated
@@ -943,7 +957,7 @@ public partial class TableControl
 		_geometry = new TableGeometry(contentLeft, startX - bounds.X + contentWidth - (hasBorder ? 1 : 0), effectiveHScroll, columnStarts,
 			(int[])dataColWidths.Clone(), _checkboxMode ? checkboxColWidth : 0,
 			new TableLineBands(titleLine, headerLine, dataStartY - bounds.Y, dataEndY - bounds.Y, filterBarTop, filterBarBottom),
-			rowBands.ToArray());
+			rowBands?.ToArray());
 
 		// Apply row animation overlays (flash, highlight, fade-out)
 		if (HasActiveRowAnimations)

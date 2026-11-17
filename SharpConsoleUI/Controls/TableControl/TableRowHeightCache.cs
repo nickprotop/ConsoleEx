@@ -52,9 +52,9 @@ internal sealed class TableRowHeightCache
 	internal int MeasureCount { get; private set; }
 
 	/// <summary>
-	/// The lines row <paramref name="displayRow"/> needs at these column widths.
+	/// The lines row <paramref name="dataRow"/> needs at these column widths.
 	/// </summary>
-	/// <param name="displayRow">The row, in display order.</param>
+	/// <param name="dataRow">The row, in DATA order: it follows the row through a sort or filter.</param>
 	/// <param name="colWidths">The widths this paint is using, one per data column.</param>
 	/// <param name="cellsForRow">Fetches a row's cell values; called only on a miss.</param>
 	/// <param name="cols">
@@ -62,7 +62,7 @@ internal sealed class TableRowHeightCache
 	/// TableColumn objects and so no column that can wrap: every row is then one line.
 	/// </param>
 	/// <returns>At least 1, never more than <see cref="ControlDefaults.TableMaxWrapLines"/>.</returns>
-	internal int GetHeight(int displayRow, int[] colWidths,
+	internal int GetHeight(int dataRow, int[] colWidths,
 		Func<int, IList<string>> cellsForRow, IReadOnlyList<TableColumn>? cols)
 	{
 		if (cols == null) return 1;
@@ -75,17 +75,17 @@ internal sealed class TableRowHeightCache
 			_widths = (int[])colWidths.Clone();
 		}
 
-		if (_heights.TryGetValue(displayRow, out int cached))
+		if (_heights.TryGetValue(dataRow, out int cached))
 			return cached;
 
-		int height = Measure(displayRow, colWidths, cellsForRow, cols);
+		int height = Measure(dataRow, colWidths, cellsForRow, cols);
 		MeasureCount++;
 
 		if (_heights.Count >= MaxEntries && _order.Count > 0)
 			_heights.Remove(_order.Dequeue());
 
-		_heights[displayRow] = height;
-		_order.Enqueue(displayRow);
+		_heights[dataRow] = height;
+		_order.Enqueue(dataRow);
 		return height;
 	}
 
@@ -94,10 +94,9 @@ internal sealed class TableRowHeightCache
 	/// displayed.
 	/// </summary>
 	/// <remarks>
-	/// There is deliberately no per-row counterpart. A cell change resets the display map, so the
-	/// display index the changed row now sits at is not knowable from the change itself, and a
-	/// per-row drop would have to guess. Dropping everything costs one rewrap of the visible rows
-	/// on the next frame, which is the same work a resize already pays.
+	/// Entries are keyed by DATA index, so a sort, a filter or a tree expansion needs no
+	/// invalidation at all: the key follows the row. What does need this is a change to the cells
+	/// themselves, and a column resize, which changes the width every answer was measured at.
 	/// </remarks>
 	internal void InvalidateAll()
 	{
@@ -107,10 +106,10 @@ internal sealed class TableRowHeightCache
 	}
 
 	/// <summary>The tallest wrapped cell in the row, which is the row's height.</summary>
-	private static int Measure(int displayRow, int[] colWidths,
+	private static int Measure(int dataRow, int[] colWidths,
 		Func<int, IList<string>> cellsForRow, IReadOnlyList<TableColumn> cols)
 	{
-		var cells = cellsForRow(displayRow);
+		var cells = cellsForRow(dataRow);
 		int tallest = 1;
 
 		for (int c = 0; c < cols.Count; c++)

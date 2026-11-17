@@ -382,6 +382,19 @@ public partial class TreeTableControl
 		var context = new TreeTableRowContext(view, dataRowIndex, _guide, _indent);
 		string guide = GetGuideContinuationMarkup(in context) ?? string.Empty;
 
+		// Fit the continuation to the width of the guide it continues. The built-in pair already
+		// agree, but GetGuideMarkup is an override point: a subclass that replaces only the guide
+		// gets a continuation built from the built-in glyphs, and any difference in width shifts
+		// the value column on every line after the first. Padding or trimming here keeps the
+		// column straight whatever a subclass returns, without making the override contract
+		// "and it must be this wide".
+		string rowGuide = view.GuideMarkup[dataRowIndex] ?? GetGuideMarkup(in context) ?? string.Empty;
+		int want = MarkupParser.StripLength(rowGuide);
+		int have = MarkupParser.StripLength(guide);
+
+		if (have < want) guide += new string(' ', want - have);
+		else if (have > want) guide = want == 0 ? string.Empty : MarkupParser.Truncate(guide, want);
+
 		// The expander is drawn once, on the row's line. Its width still has to be reserved here
 		// or the wrapped text would sit further left than the first line's.
 		string expander = view.ExpanderMarkup[dataRowIndex] ?? GetExpanderMarkup(in context) ?? string.Empty;

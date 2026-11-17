@@ -1005,16 +1005,30 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// How many lines a row occupies: 1 unless a wrapping column makes it taller.
 	/// </summary>
 	/// <param name="displayRow">The row, in display order.</param>
+	/// <remarks>
+	/// Cached by DATA index, not display index. A sort, a filter or a tree expansion remaps
+	/// display positions to different rows without any cell changing, so a cache keyed by display
+	/// index answers with the height of whatever used to sit there: a filtered table measured its
+	/// rows at the pre-filter heights and clipped them. The data index follows the row, so there
+	/// is no display-map change that has to remember to invalidate this - and there are fourteen
+	/// places that change it.
+	/// </remarks>
 	internal int GetRowHeight(int displayRow)
 	{
 		if (!HasWrappingColumns) return 1;
 
+		// Indexed under the lock rather than copied: this is called once per row examined, and
+		// GetVisibleRowCount is called several times a frame, so copying the row list here cost a
+		// full copy of the table per row on the paint path.
+		int dataRow = _rowView.MapDisplayToData(displayRow);
+
 		List<TableColumn> cols;
-		List<TableRow> rows;
+		IList<string> cells;
 		lock (_tableLock)
 		{
+			if (dataRow < 0 || dataRow >= _rows.Count) return 1;
 			cols = _columns.ToList();
-			rows = _rows.ToList();
+			cells = _rows[dataRow].Cells;
 		}
 
 		// The widths the last paint used. Before the first paint they are 0, and a 0-wide column
@@ -1023,10 +1037,7 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 		var widths = new int[cols.Count];
 		for (int c = 0; c < cols.Count; c++) widths[c] = cols[c].RenderedWidth;
 
-		int dataRow = _rowView.MapDisplayToData(displayRow);
-		if (dataRow < 0 || dataRow >= rows.Count) return 1;
-
-		return _rowHeights.GetHeight(displayRow, widths, _ => rows[dataRow].Cells, cols);
+		return _rowHeights.GetHeight(dataRow, widths, _ => cells, cols);
 	}
 
 	/// <summary>

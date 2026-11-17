@@ -93,10 +93,17 @@ internal static class TableCellWrapper
 	/// Puts the ellipsis at the end of a line that had more content after it.
 	/// </summary>
 	/// <remarks>
+	/// <para>
 	/// Overwrites the line's last cell when the line is full, rather than appending, because
 	/// appending would push the line one cell past the column and into its neighbour. The
 	/// overwritten cell keeps the line's own colours so the mark does not read as a different
 	/// value.
+	/// </para>
+	/// <para>
+	/// A wide glyph occupies two cells: the lead and a continuation. Overwriting only the
+	/// continuation would leave a 2-wide glyph followed by a 1-wide ellipsis in a column with room
+	/// for one of them, which is the half-drawn glyph the rendering rules forbid. Both cells go.
+	/// </para>
 	/// </remarks>
 	private static void MarkTruncated(List<Cell> line, int width, Color fg, Color bg)
 	{
@@ -113,8 +120,17 @@ internal static class TableCellWrapper
 		ellipsis = new Cell(ControlDefaults.TableWrapEllipsis, last.Foreground, last.Background);
 
 		if (line.Count < width)
+		{
 			line.Add(ellipsis);
-		else
-			line[^1] = ellipsis;
+			return;
+		}
+
+		line[^1] = ellipsis;
+
+		// The cell just replaced was the second half of a wide glyph, so its lead is now a 2-wide
+		// character with nowhere to put its other half. Blank it, leaving the ellipsis the only
+		// thing in those two columns.
+		if (line.Count >= 2 && last.IsWideContinuation)
+			line[^2] = new Cell(' ', last.Foreground, last.Background);
 	}
 }

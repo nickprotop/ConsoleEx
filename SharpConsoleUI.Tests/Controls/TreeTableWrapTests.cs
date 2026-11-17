@@ -207,6 +207,39 @@ public class TreeTableWrapTests
 		Assert.Contains(">>", lines[childLine]);
 	}
 
+	[Fact]
+	public void ACustomGuideOfADifferentWidth_StillAlignsItsContinuations()
+	{
+		// GetGuideMarkup is an override point, so a subclass can return a guide of any width.
+		// The continuation is fitted to it; without that the value column steps sideways on
+		// every line after the first.
+		var tree = new CustomGuideTree
+		{
+			BorderStyle = BorderStyle.None,
+			ShowHeader = false,
+			Height = 14,
+		};
+		tree.AddColumn(new TableColumn("Title", TextJustification.Left, 24) { Wrap = true });
+		var root = tree.AddRootRow("root");
+		root.AddChild(LongTitle);
+		tree.ExpandAll();
+
+		var buffer = new CharacterBuffer(44, 14);
+		var bounds = new LayoutRect(0, 0, 44, 14);
+		tree.PaintDOM(buffer, bounds, bounds, Color.White, Color.Black);
+
+		var lines = Enumerable.Range(0, 14)
+			.Select(y => string.Concat(Enumerable.Range(0, 44)
+				.Select(x => buffer.GetCell(x, y).Character.ToString())).TrimEnd())
+			.ToList();
+
+		int childLine = lines.FindIndex(l => l.Contains("The quick"));
+		int firstX = lines[childLine].IndexOf("The quick", StringComparison.Ordinal);
+		int contX = lines[childLine + 1].Length - lines[childLine + 1].TrimStart().Length;
+
+		Assert.Equal(firstX, contX);
+	}
+
 	private sealed class CustomGuideTree : TreeTableControl
 	{
 		protected override string GetGuideMarkup(in TreeTableRowContext context)

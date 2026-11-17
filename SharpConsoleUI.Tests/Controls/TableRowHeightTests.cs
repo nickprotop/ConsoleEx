@@ -8,6 +8,7 @@
 
 using SharpConsoleUI.Configuration;
 using SharpConsoleUI.Controls;
+using SharpConsoleUI.Layout;
 using Xunit;
 
 namespace SharpConsoleUI.Tests.Controls;
@@ -235,6 +236,44 @@ public class TableRowHeightTests
 		table.AddRow(FourLinesAtTwenty);
 
 		Assert.Equal(1, table.GetRowHeight(0));
+	}
+
+	[Fact]
+	public void Control_GetRowHeight_SurvivesAFilterRemappingTheRows()
+	{
+		// The height cache is keyed by DATA index for exactly this: a filter changes which row
+		// each display position holds without any cell changing, and a cache keyed by display
+		// index answered with the height of whatever used to sit there. A filtered table then
+		// measured its rows short and clipped the wrapped lines.
+		var table = new TableControl
+		{
+			BorderStyle = BorderStyle.None,
+			ShowHeader = false,
+			Height = 12,
+			FilteringEnabled = true,
+		};
+		table.AddColumn(new TableColumn("ID", TextJustification.Left, 4));
+		table.AddColumn(new TableColumn("Title", TextJustification.Left, 20) { Wrap = true });
+		table.AddRow("1", "keep short");
+		table.AddRow("2", "drop me");
+		table.AddRow("3", "keep " + FourLinesAtTwenty);
+
+		Paint(table);
+		Assert.Equal(1, table.GetRowHeight(1));   // "drop me"
+
+		table.ApplyFilter("keep");
+		Paint(table);
+
+		// Display row 1 is now the long row that was display row 2.
+		Assert.True(table.GetRowHeight(1) > 1,
+			$"after filtering, display row 1 is the long row but reports {table.GetRowHeight(1)}");
+	}
+
+	private static void Paint(TableControl table, int w = 40, int h = 12)
+	{
+		var buffer = new CharacterBuffer(w, h);
+		var bounds = new LayoutRect(0, 0, w, h);
+		table.PaintDOM(buffer, bounds, bounds, SharpConsoleUI.Color.White, SharpConsoleUI.Color.Black);
 	}
 
 	[Fact]
