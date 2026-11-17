@@ -1356,6 +1356,29 @@ namespace SharpConsoleUI.Configuration
 		public const int TableColumnWidthSampleRows = 50;
 
 		/// <summary>
+		/// Ends the last line of a wrapping table cell whose content did not fit in the column's
+		/// MaxLines (default: U+2026 HORIZONTAL ELLIPSIS).
+		/// </summary>
+		/// <remarks>
+		/// Deliberately a narrow glyph. The three-dot ellipsis is width 1 in every terminal, while
+		/// many of the obvious alternatives are East Asian Ambiguous Width: the library would
+		/// measure them as 1 and a terminal would draw them as 2, shifting every column to the
+		/// right of it by one cell on exactly the rows that were truncated.
+		/// </remarks>
+		public const char TableWrapEllipsis = '…';
+
+		/// <summary>
+		/// Most lines one wrapping TableControl row may occupy, whatever its content or MaxLines
+		/// (default: 64).
+		/// </summary>
+		/// <remarks>
+		/// A backstop, not a feature. A cell can hold a whole file, and a column one cell wide
+		/// would wrap it to as many lines as it has characters; without a ceiling a single row
+		/// could ask for a height larger than any terminal and stall the paint measuring it.
+		/// </remarks>
+		public const int TableMaxWrapLines = 64;
+
+		/// <summary>
 		/// Most rows one insert into a sorted or filtered TableControl may add for the display rows to be
 		/// updated in place; a larger insert recomputes them, which is then cheaper (default: 64).
 		/// </summary>

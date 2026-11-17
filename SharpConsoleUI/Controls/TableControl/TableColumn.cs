@@ -69,15 +69,77 @@ public class TableColumn
 		set { if (_minWidth == value) return; _minWidth = value; Owner?.OnColumnDisplayChanged(this, true, Invalidation.Relayout); }
 	}
 
-	private bool _noWrap = false;
+	private bool _wrap = false;
 
 	/// <summary>
-	/// Gets or sets whether text in this column should not wrap.
+	/// Gets or sets whether text in this column wraps onto further lines instead of being clipped
+	/// at the column's edge. Default is <c>false</c>.
 	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// A wrapping column makes its row as tall as the wrapped value needs, up to
+	/// <see cref="MaxLines"/>. Every other cell in that row is drawn on the row's first line
+	/// unless <see cref="VerticalCenter"/> is set. Wrapping is word-based: a word is broken only
+	/// when it alone is wider than the column.
+	/// </para>
+	/// <para>
+	/// Each visible row of a wrapping column is measured on render, so the saving of leaving this
+	/// off on a large table is real. It is off by default for that reason as well as for
+	/// compatibility.
+	/// </para>
+	/// </remarks>
+	public bool Wrap
+	{
+		get => _wrap;
+		set { if (_wrap == value) return; _wrap = value; Owner?.OnColumnDisplayChanged(this, true, Invalidation.Relayout); }
+	}
+
+	/// <summary>
+	/// Gets or sets whether text in this column should not wrap. This is the inverse of
+	/// <see cref="Wrap"/>: the two share one backing field and cannot disagree.
+	/// </summary>
+	/// <remarks>
+	/// Before the release that added <see cref="Wrap"/> this property was read by nothing, so it
+	/// reported <c>false</c> while no column ever wrapped. It now defaults to <c>true</c>, which
+	/// is what it always meant. No table renders differently; only the value reported changed.
+	/// </remarks>
 	public bool NoWrap
 	{
-		get => _noWrap;
-		set { if (_noWrap == value) return; _noWrap = value; Owner?.OnColumnDisplayChanged(this, false, Invalidation.Relayout); }
+		get => !Wrap;
+		set => Wrap = !value;
+	}
+
+	private int _maxLines = 0;
+
+	/// <summary>
+	/// Gets or sets the most lines a wrapping cell in this column may occupy. <c>0</c>, the
+	/// default, means no limit. Ignored when <see cref="Wrap"/> is <c>false</c>.
+	/// </summary>
+	/// <remarks>
+	/// When a value needs more lines than this allows, the last line kept ends with
+	/// <see cref="SharpConsoleUI.Configuration.ControlDefaults.TableWrapEllipsis"/> to show that
+	/// content was dropped. A value that fits within the limit gets no ellipsis.
+	/// </remarks>
+	public int MaxLines
+	{
+		get => _maxLines;
+		set { if (_maxLines == value) return; _maxLines = Math.Max(0, value); Owner?.OnColumnDisplayChanged(this, true, Invalidation.Relayout); }
+	}
+
+	private bool _verticalCenter = false;
+
+	/// <summary>
+	/// Gets or sets whether this column's cell is centred vertically within a row taller than one
+	/// line. Default is <c>false</c>, which puts it on the row's first line.
+	/// </summary>
+	/// <remarks>
+	/// Only has an effect in a row made tall by some other column's wrapping. It moves a cell
+	/// within a height that is already decided, so it never changes layout.
+	/// </remarks>
+	public bool VerticalCenter
+	{
+		get => _verticalCenter;
+		set { if (_verticalCenter == value) return; _verticalCenter = value; Owner?.OnColumnDisplayChanged(this, false, Invalidation.Repaint); }
 	}
 
 	private Color? _headerColor;

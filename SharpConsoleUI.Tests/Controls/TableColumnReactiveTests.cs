@@ -29,7 +29,13 @@ public class TableColumnReactiveTests
 	[Fact] public void Header_Relayout() { var (w, _, c) = Build(); Assert.Equal(FrameWork.None, w.PendingWork); c.Header = "FullName"; Assert.Equal(FrameWork.Relayout, w.PendingWork); }
 	[Fact] public void Width_Relayout() { var (w, _, c) = Build(); c.Width = 20; Assert.Equal(FrameWork.Relayout, w.PendingWork); }
 	[Fact] public void Alignment_Relayout() { var (w, _, c) = Build(); c.Alignment = TextJustification.Right; Assert.Equal(FrameWork.Relayout, w.PendingWork); }
-	[Fact] public void NoWrap_Relayout() { var (w, _, c) = Build(); c.NoWrap = true; Assert.Equal(FrameWork.Relayout, w.PendingWork); }
+	// NoWrap is the inverse of Wrap over one backing field, and defaults to true because no
+	// column wraps by default. Setting it to true is therefore a no-op; opting INTO wrapping
+	// (NoWrap = false) is the change that needs a relayout. Before Wrap existed this test set
+	// NoWrap = true, which was a state change only because the property defaulted to false
+	// while being read by nothing.
+	[Fact] public void NoWrap_Relayout() { var (w, _, c) = Build(); c.NoWrap = false; Assert.Equal(FrameWork.Relayout, w.PendingWork); }
+	[Fact] public void NoWrap_SetToItsDefault_IsANoOp() { var (w, _, c) = Build(); c.NoWrap = true; Assert.Equal(FrameWork.None, w.PendingWork); }
 	[Fact] public void HeaderColor_Repaint() { var (w, _, c) = Build(); c.HeaderColor = Color.Red; Assert.Equal(FrameWork.Repaint, w.PendingWork); }
 
 	[Fact]
