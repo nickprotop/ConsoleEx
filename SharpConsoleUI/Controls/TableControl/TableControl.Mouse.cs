@@ -630,6 +630,15 @@ public partial class TableControl
 		if (bands.HasValue && bands.Value.DataBottom >= 0 && !bands.Value.IsData(relativeY))
 			return -1;
 
+		// Once rows can differ in height the arithmetic below cannot answer this: it divides the
+		// distance from the top by a constant, which is exact only while every row is that many
+		// lines tall. The paint records where each row actually landed, so ask it. A paint that
+		// recorded no bands - an older geometry, or one that drew no rows - falls through to the
+		// arithmetic, which is still correct for the uniform case it was written for.
+		var geometry = _geometry;
+		if (geometry != null && geometry.HasRowBands)
+			return geometry.GetRowAtLine(relativeY);
+
 		int dataStartY = 0;
 		bool hasBorder = _borderStyle != BorderStyle.None;
 
@@ -754,8 +763,21 @@ public partial class TableControl
 	}
 
 	/// <summary>Returns the Y coordinate of the given display row index, for unit-testing row hit detection.</summary>
+	/// <remarks>
+	/// Answers from the last paint's recorded bands when it has them, so a test driving a table
+	/// with a wrapping column clicks the line the row was really drawn on. Without this the helper
+	/// would keep computing a uniform row height and every hit test built on it would aim at the
+	/// wrong line as soon as one row grew.
+	/// </remarks>
 	internal int RowYForTest(int displayIndex)
 	{
+		var geometry = _geometry;
+		if (geometry != null && geometry.HasRowBands)
+		{
+			var band = geometry.GetBandForRow(displayIndex);
+			if (band.Height > 0) return band.FirstLine;
+		}
+
 		int dataStartY = Margin.Top;
 		if (!string.IsNullOrEmpty(_title)) dataStartY++;
 		if (_borderStyle != BorderStyle.None) dataStartY++;
