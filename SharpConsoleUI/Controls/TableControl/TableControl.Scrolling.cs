@@ -126,6 +126,14 @@ public partial class TableControl
 	/// </summary>
 	public int GetVisibleRowCount()
 	{
+		// A wrapping column makes this a walk rather than a division: rows differ in height, so
+		// how many fit depends on WHICH rows, starting from the current scroll offset.
+		if (HasWrappingColumns)
+		{
+			int lines = AvailableDataLines();
+			return lines <= 0 ? 1 : CountVisibleRowsFrom(_scrollOffset, lines);
+		}
+
 		// Use actual rendered height if available (set during PaintDOM)
 		if (ActualHeight > 0)
 			return CalculateVisibleRowsFromHeight(ActualHeight);
@@ -141,6 +149,71 @@ public partial class TableControl
 
 		// No height constraint - all rows are visible (no scrollbar needed)
 		return RowCount;
+	}
+
+	/// <summary>
+	/// The lines left for data rows after the title, borders, header, scrollbar and filter bar,
+	/// at whichever height this control currently knows about.
+	/// </summary>
+	/// <remarks>
+	/// The chrome subtraction is the half of CalculateVisibleRowsFromHeight that does not assume
+	/// a uniform row height, so the wrapping path reuses it rather than keeping a second copy
+	/// that would drift the first time a piece of chrome changed.
+	/// </remarks>
+	private int AvailableDataLines()
+	{
+		int totalHeight =
+			ActualHeight > 0 ? ActualHeight
+			: Height ?? Container?.GetVisibleHeightForControl(this) ?? 0;
+
+		return totalHeight <= 0 ? 0 : Math.Max(0, totalHeight - ChromeHeight());
+	}
+
+	/// <summary>Lines this table spends on everything that is not a data row.</summary>
+	private int ChromeHeight()
+	{
+		int usedHeight = 0;
+		bool hasBorder = _borderStyle != BorderStyle.None;
+
+		usedHeight += Margin.Top + Margin.Bottom;
+		if (!string.IsNullOrEmpty(_title)) usedHeight++;
+		if (hasBorder) usedHeight++;                        // top border
+		if (_showHeader) usedHeight++;
+		if (_showHeader && hasBorder) usedHeight++;         // header separator
+		if (hasBorder) usedHeight++;                        // bottom border
+		if (ShouldShowHorizontalScrollbar()) usedHeight++;
+		if (_filteringEnabled && !_readOnly && hasBorder) usedHeight += 2;
+
+		return usedHeight;
+	}
+
+	/// <summary>
+	/// How many rows starting at <paramref name="firstRow"/> fit in <paramref name="availableLines"/>,
+	/// counting each row's real height.
+	/// </summary>
+	/// <remarks>
+	/// Always at least 1. A row taller than the whole viewport cannot fit, but reporting 0 rows
+	/// visible would leave nothing to draw, nothing to select and no way to scroll off it; one
+	/// partly shown row is the honest answer and the only usable one.
+	/// </remarks>
+	internal int CountVisibleRowsFrom(int firstRow, int availableLines)
+	{
+		int rowCount = RowCount;
+		if (rowCount == 0) return 0;
+
+		int used = 0;
+		int rows = 0;
+		bool separators = _showRowSeparators && _borderStyle != BorderStyle.None;
+
+		for (int r = Math.Max(0, firstRow); r < rowCount; r++)
+		{
+			int h = GetRowHeight(r) + (separators ? 1 : 0);
+			if (used + h > availableLines) break;
+			used += h;
+			rows++;
+		}
+
+		return Math.Max(1, rows);
 	}
 
 	private int CalculateVisibleRowsFromHeight(int totalHeight)
@@ -188,7 +261,32 @@ public partial class TableControl
 		}
 		else if (_selectedRowIndex >= _scrollOffset + visibleRows)
 		{
-			_scrollOffset = _selectedRowIndex - visibleRows + 1;
+			if (HasWrappingColumns)
+			{
+				// With rows of different heights, "the selection minus a row count" can land
+				// anywhere. Walk back from the selected row instead, taking rows while they fit,
+				// so the selected row is fully shown with as much above it as there is room for.
+				// A row taller than the viewport takes the offset to itself and no further, which
+				// shows its first lines rather than scrolling past it.
+				int lines = AvailableDataLines();
+				int used = 0;
+				int offset = _selectedRowIndex;
+				bool separators = _showRowSeparators && _borderStyle != BorderStyle.None;
+
+				for (int r = _selectedRowIndex; r >= 0; r--)
+				{
+					int h = GetRowHeight(r) + (separators ? 1 : 0);
+					if (r < _selectedRowIndex && used + h > lines) break;
+					used += h;
+					offset = r;
+				}
+
+				_scrollOffset = offset;
+			}
+			else
+			{
+				_scrollOffset = _selectedRowIndex - visibleRows + 1;
+			}
 		}
 
 		if (_scrollOffset != oldOffset)
