@@ -289,9 +289,114 @@ public int? GetColumnMinWidth(int columnIndex) => columnIndex switch
 };
 ```
 
+## Wrapping Cells
+
+A column can wrap its text onto further lines instead of clipping it at the column's edge. The
+row then grows to its tallest wrapped cell. This is off by default: a table with no wrapping
+column behaves and renders exactly as it always has.
+
+```csharp
+.AddColumn("ID", TextJustification.Right, 5)
+.AddColumn("Summary", TextJustification.Left, 34, null, wrap: true)
+```
+
+Or on the column itself:
+
+```csharp
+var summary = new TableColumn("Summary", TextJustification.Left, 34)
+{
+    Wrap = true,
+    MaxLines = 2,       // 0, the default, means no limit
+};
+```
+
+The case this exists for is a narrow identifier beside a long description in a space too narrow
+for both:
+
+```
+│   ID│Severity  │Summary                           │
+│  411│high      │Hidden panels kept the status bar  │
+│     │          │dirty forever, so an idle          │
+│     │          │application rendered at the frame  │
+│     │          │cap and burned a core.             │
+│  413│low       │Short summary.                     │
+```
+
+**Give a wrapping column a width.** An auto-width column is sized from its content, so it has
+nothing to wrap at.
+
+### How it wraps
+
+Wrapping follows the same rules as the rest of the library: it breaks on spaces, breaks inside a
+word only when that word alone is wider than the column, measures in display columns rather than
+characters (so wide and combining characters are counted correctly), and carries markup across
+the break, so a colour opened on one line is still open on the next. Escaped brackets stay
+escaped.
+
+Text re-wraps when the column is resized, including by a `WithColumnResize()` drag, and when the
+control's width changes.
+
+### MaxLines and the ellipsis
+
+`MaxLines` caps how many lines one cell may take. When a value needs more, the last line kept
+ends with `…` so a truncated cell reads as truncated. A value that fits inside the limit gets no
+ellipsis. `MaxLines = 1` behaves like no wrapping, plus the ellipsis.
+
+### Other cells in a tall row
+
+A cell that is not wrapping sits on the row's **first** line by default. `VerticalAlignment` moves
+it, using the same `Top` / `Center` / `Bottom` enum every other control uses:
+
+```csharp
+table.CellVerticalAlignment = VerticalAlignment.Center;   // every column
+table.Columns[3].VerticalAlignment = VerticalAlignment.Top;   // except this one
+```
+
+A column's own setting wins over the table's. `Fill` reads as `Top`, since a cell's text cannot
+stretch to fill a height. A cell as tall as its row is unaffected, there being nowhere to move it
+to, so the wrapping column itself always starts on the row's first line.
+
+Via the builder:
+
+```csharp
+.AddColumn("ID", TextJustification.Right, 5, null, wrap: false,
+           valign: VerticalAlignment.Center)
+```
+
+The selection highlight and the row background fill the whole height of the row, and an editing
+cell stays on one line.
+
+### What stays the same
+
+- `SelectedRowIndex`, `SelectedDataIndex` and `ScrollOffset` are **row** indices, not line counts.
+- Up and Down move one row, whatever its height; PageUp, PageDown and the scrollbar account for
+  the varying heights.
+- A click on any line of a tall row selects that row.
+- `GetRowTagAt`, `RowActivated` and `SelectedRowChanged` keep their meanings.
+
+### Cost
+
+Each **visible** row of a wrapping column is measured on render, and the heights are cached by row
+and column width. Only painted rows are ever measured, so a table of thousands of rows measures a
+screenful per frame rather than all of them. A table with no wrapping column measures nothing and
+runs the code it always did, which is why the default is off.
+
+A wrapping table also reports its real height when measured, so it can be hosted in a
+`ScrollablePanelControl` and the panel will scroll to the end of it.
+
+> `TableColumn.NoWrap` is the inverse of `Wrap` and shares one backing field with it. Before the
+> release that added `Wrap`, `NoWrap` was read by nothing: it reported `false` while no column
+> ever wrapped. It now defaults to `true`, which is what it always meant. No table renders
+> differently; only the value the property reports changed.
+
+See also: [TreeTableControl](TreeTableControl.md#wrapping-cells).
+
 ## ITableDataSource
 
 The `ITableDataSource` interface enables virtual data binding for large datasets. Only visible rows are queried — the control never loads all data into memory.
+
+> A `DataSource` table cannot wrap: wrapping is configured on `TableColumn`, and a data source
+> supplies its columns through `ITableDataSource` rather than as `TableColumn` objects.
 
 ```csharp
 public interface ITableDataSource : INotifyCollectionChanged

@@ -957,6 +957,30 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// this guard is checked before anything consults the height cache. DataSource mode has no
 	/// TableColumn objects and so can never wrap.
 	/// </remarks>
+	private VerticalAlignment _cellVerticalAlignment = VerticalAlignment.Top;
+
+	/// <summary>
+	/// Gets or sets where cells sit in a row taller than one line, for every column that does not
+	/// set its own <see cref="TableColumn.VerticalAlignment"/>. Default is
+	/// <see cref="VerticalAlignment.Top"/>.
+	/// </summary>
+	/// <remarks>
+	/// Only has an effect once a wrapping column can make a row taller than one line. Saves
+	/// repeating the same alignment on every column of a table whose cells are mostly short beside
+	/// one that wraps, which is the usual shape.
+	/// </remarks>
+	public VerticalAlignment CellVerticalAlignment
+	{
+		get => _cellVerticalAlignment;
+		set
+		{
+			if (_cellVerticalAlignment == value) return;
+			_cellVerticalAlignment = value;
+			OnPropertyChanged();
+			Invalidate(Invalidation.Repaint);
+		}
+	}
+
 	/// <summary>
 	/// How many row heights have actually been measured since this table was created, cache hits
 	/// excluded. Test-visible: this is what proves a large table measures only what it paints.

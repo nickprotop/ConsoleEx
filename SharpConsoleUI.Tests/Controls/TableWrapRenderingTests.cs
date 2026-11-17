@@ -57,7 +57,9 @@ public class TableWrapRenderingTests
 			ShowHeader = false,
 			Height = 10,
 		};
-		table.AddColumn(new TableColumn("ID", TextJustification.Left, 4) { VerticalCenter = verticalCenter });
+		var id = new TableColumn("ID", TextJustification.Left, 4);
+		if (verticalCenter) id.VerticalAlignment = VerticalAlignment.Center;
+		table.AddColumn(id);
 		table.AddColumn(new TableColumn("Title", TextJustification.Left, 20) { Wrap = wrap, MaxLines = maxLines });
 		table.AddRow("7", LongTitle);
 		table.AddRow("8", "second");
@@ -100,7 +102,7 @@ public class TableWrapRenderingTests
 	}
 
 	[Fact]
-	public void TallRow_VerticalCenter_MovesThePlainCellDown()
+	public void TallRow_CenterAlignment_MovesThePlainCellDown()
 	{
 		var centred = Paint(Build(wrap: true, verticalCenter: true));
 

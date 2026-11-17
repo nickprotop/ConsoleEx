@@ -46,6 +46,7 @@ public static class LauncherWindow
 					.AddItem("Form", subtitle: "Labeled inputs, validation, sections, hints", content: MakeInfoPanel("Form"))
 				.AddItem("Table", subtitle: "Interactive employee directory", content: MakeInfoPanel("Table"))
 				.AddItem("Tree Table", subtitle: "A table whose rows nest", content: MakeInfoPanel("Tree Table"))
+				.AddItem("Table Wrapping", subtitle: "A table column that wraps instead of clipping", content: MakeInfoPanel("Table Wrapping"))
 				.AddItem("DataGrid", subtitle: "Virtual DataGrid with 10K rows", content: MakeInfoPanel("DataGrid"))
 				.AddItem("Source Filtering", subtitle: "Data source handles its own filters", content: MakeInfoPanel("Source Filtering"))
 				.AddItem("Nerd Fonts", subtitle: "NerdFont icon showcase", content: MakeInfoPanel("Nerd Fonts"))
@@ -266,6 +267,7 @@ public static class LauncherWindow
 			"Form" => FormDemoWindow.Create(ws),
 			"Table" => TableDemoWindow.Create(ws),
 			"Tree Table" => TreeTableDemoWindow.Create(ws),
+			"Table Wrapping" => TableWrapDemoWindow.Create(ws),
 			"DataGrid" => DataGridWindow.Create(ws),
 			"Source Filtering" => SourceFilterDemoWindow.Create(ws),
 			"Nerd Fonts" => NerdFontWindow.Create(ws),
@@ -568,6 +570,21 @@ public static class LauncherWindow
 				"  - Tab/arrows for cell navigation",
 				"  - Drag column borders to resize",
 				"  - Markup-colored status column",
+			},
+			"Table Wrapping" => new List<string>
+			{
+				"[bold]Wrapping Cells[/]",
+				"",
+				"A narrow ID beside a long Summary, in a space",
+				"too narrow for both. The Summary column wraps;",
+				"the row grows to its tallest wrapped cell.",
+				"",
+				"[dim]Features:[/]",
+				"  - W toggles wrapping on the Summary column",
+				"  - L caps a cell at 2 lines, ending in an ellipsis",
+				"  - ID and Severity are centred in a tall row",
+				"  - Drag a column border to re-wrap at a new width",
+				"  - Up and Down move a row, not a line",
 			},
 			"Tree Table" => new List<string>
 			{

@@ -152,6 +152,41 @@ public abstract class TableControlBuilderBase<TSelf>
 	}
 
 	/// <summary>
+	/// Adds a column whose cells wrap onto further lines instead of being clipped.
+	/// </summary>
+	/// <param name="header">The column's header text.</param>
+	/// <param name="alignment">How cells in the column are aligned.</param>
+	/// <param name="width">A fixed width, or null for auto.</param>
+	/// <param name="minWidth">A minimum auto-width floor. See <see cref="TableColumn.MinWidth"/>.</param>
+	/// <param name="wrap">Whether the column's cells wrap. See <see cref="TableColumn.Wrap"/>.</param>
+	/// <param name="maxLines">
+	/// The most lines a wrapping cell may take, or 0 for no limit. See
+	/// <see cref="TableColumn.MaxLines"/>.
+	/// </param>
+	/// <param name="valign">
+	/// Where this column's cell sits in a row made tall by another column's wrapping. Null leaves
+	/// the table's <see cref="TableControl.CellVerticalAlignment"/> to decide.
+	/// </param>
+	/// <remarks>
+	/// A row is as tall as its tallest wrapping cell, so a wrapping column changes the height of
+	/// the rows rather than only their contents. Giving the column a width is usually what makes
+	/// wrapping useful: an auto-width column sized to its content has nothing to wrap at.
+	/// </remarks>
+	public TSelf AddColumn(string header, TextJustification alignment, int? width, int? minWidth,
+		bool wrap, int maxLines = 0, VerticalAlignment? valign = null)
+	{
+		var column = new TableColumn(header, alignment, width)
+		{
+			MinWidth = minWidth,
+			Wrap = wrap,
+			MaxLines = maxLines,
+		};
+		if (valign.HasValue) column.VerticalAlignment = valign.Value;
+		_columns.Add(column);
+		return Self;
+	}
+
+	/// <summary>
 	/// Adds multiple columns from header names.
 	/// </summary>
 	public TSelf WithColumns(params string[] headers)

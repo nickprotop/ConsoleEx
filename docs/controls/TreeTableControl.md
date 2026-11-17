@@ -105,6 +105,54 @@ Code written against a `TableControl` works on a tree table. Its inherited membe
 
 A tree table without nested rows draws, sorts, filters and selects exactly as a `TableControl`.
 
+## Wrapping Cells
+
+`TableColumn.Wrap` works on a tree table as it does on a table: the column wraps instead of
+clipping, and the row grows to its tallest wrapped cell. It is off by default. The full behaviour
+is documented under [TableControl: Wrapping Cells](TableControl.md#wrapping-cells); what follows is
+what the hierarchy adds.
+
+```csharp
+var tree = TreeTableControl.Create()
+    .AddColumn("Title", TextJustification.Left, 24, null, wrap: true)
+    .AddColumn("Size", TextJustification.Right, 6)
+    .Build();
+```
+
+**The guides continue down a tall row.** The row's own line carries its connector; the lines below
+carry the line that would pass through if the row were not sitting there, so the hierarchy still
+reads:
+
+```
+[-] root
+├─ [-] The quick brown f
+│      jumps over the la
+│  └─     nested child w
+│         fairly long ti
+└─     last child
+```
+
+A connector is never repeated on a continuation line, which would read as several siblings where
+there is one row, and the continuation is the same display width as the guide, so the value column
+starts at the same place on every line.
+
+Expanding, collapsing, [loading children on demand](#loading-children-on-demand) and
+[filtering](#filtering) are unaffected: a tall row is still one row, and a click on any of its
+lines selects it.
+
+### Customising the continuation
+
+`GetGuideContinuationMarkup` is the counterpart of `GetGuideMarkup` and can be overridden the same
+way. It must return markup of the same display width as the row's guide:
+
+```csharp
+protected override string GetGuideContinuationMarkup(in TreeTableRowContext context)
+    => context.Depth == 0 ? string.Empty : "   ";   // no guides on continuations
+```
+
+A subclass that overrides only `GetGuideMarkup` keeps working; its continuations are derived from
+the same context.
+
 ## Expanding and Collapsing
 
 ```csharp

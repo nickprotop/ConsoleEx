@@ -79,7 +79,7 @@ public class TableColumn
 	/// <para>
 	/// A wrapping column makes its row as tall as the wrapped value needs, up to
 	/// <see cref="MaxLines"/>. Every other cell in that row is drawn on the row's first line
-	/// unless <see cref="VerticalCenter"/> is set. Wrapping is word-based: a word is broken only
+	/// according to <see cref="VerticalAlignment"/>. Wrapping is word-based: a word is broken only
 	/// when it alone is wider than the column.
 	/// </para>
 	/// <para>
@@ -126,20 +126,29 @@ public class TableColumn
 		set { if (_maxLines == value) return; _maxLines = Math.Max(0, value); Owner?.OnColumnDisplayChanged(this, true, Invalidation.Relayout); }
 	}
 
-	private bool _verticalCenter = false;
+	private VerticalAlignment? _verticalAlignment;
 
 	/// <summary>
-	/// Gets or sets whether this column's cell is centred vertically within a row taller than one
-	/// line. Default is <c>false</c>, which puts it on the row's first line.
+	/// Gets or sets where this column's cell sits in a row taller than one line. Unset, the
+	/// table's <see cref="TableControl.CellVerticalAlignment"/> applies, which defaults to
+	/// <see cref="VerticalAlignment.Top"/>.
 	/// </summary>
 	/// <remarks>
-	/// Only has an effect in a row made tall by some other column's wrapping. It moves a cell
-	/// within a height that is already decided, so it never changes layout.
+	/// <para>
+	/// Only has an effect in a row made tall by some other column's wrapping: with every row one
+	/// line there is nowhere to align to. It moves a cell within a height that is already decided,
+	/// so it never changes layout.
+	/// </para>
+	/// <para>
+	/// <see cref="VerticalAlignment.Fill"/> is treated as <see cref="VerticalAlignment.Top"/>. A
+	/// cell's text cannot stretch to fill a height, and refusing a valid enum value would be
+	/// worse than giving it the sensible reading.
+	/// </para>
 	/// </remarks>
-	public bool VerticalCenter
+	public VerticalAlignment VerticalAlignment
 	{
-		get => _verticalCenter;
-		set { if (_verticalCenter == value) return; _verticalCenter = value; Owner?.OnColumnDisplayChanged(this, false, Invalidation.Repaint); }
+		get => _verticalAlignment ?? Owner?.CellVerticalAlignment ?? VerticalAlignment.Top;
+		set { if (_verticalAlignment == value) return; _verticalAlignment = value; Owner?.OnColumnDisplayChanged(this, false, Invalidation.Repaint); }
 	}
 
 	private Color? _headerColor;

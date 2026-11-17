@@ -132,13 +132,13 @@ public partial class TableControl
 	private sealed class WrappedRow
 	{
 		private readonly string[][] _linesPerColumn;
-		private readonly bool[] _center;
+		private readonly VerticalAlignment[] _align;
 		private readonly IList<string> _original;
 
-		internal WrappedRow(string[][] linesPerColumn, bool[] center, IList<string> original)
+		internal WrappedRow(string[][] linesPerColumn, VerticalAlignment[] align, IList<string> original)
 		{
 			_linesPerColumn = linesPerColumn;
-			_center = center;
+			_align = align;
 			_original = original;
 		}
 
@@ -149,14 +149,31 @@ public partial class TableControl
 			for (int c = 0; c < _linesPerColumn.Length; c++)
 			{
 				string[] lines = _linesPerColumn[c];
-
-				// A cell shorter than the row sits on the row's first line, or in its middle
-				// when the column asks to be centred. Every other line of that column is blank.
-				int offset = _center[c] ? (rowHeight - lines.Length) / 2 : 0;
-				int index = line - offset;
+				int index = line - VerticalOffset(_align[c], rowHeight, lines.Length);
 				cells[c] = index >= 0 && index < lines.Length ? lines[index] : string.Empty;
 			}
 			return cells;
+		}
+
+		/// <summary>
+		/// The line of the row a cell's first line goes on, given where the column wants to sit.
+		/// </summary>
+		/// <remarks>
+		/// Fill reads as Top: a cell's text cannot stretch to fill a height, and refusing a valid
+		/// enum value would be worse than giving it the sensible reading. A cell as tall as the
+		/// row gets offset 0 whatever the alignment, since there is nowhere to move it to.
+		/// </remarks>
+		private static int VerticalOffset(VerticalAlignment align, int rowHeight, int cellLines)
+		{
+			int slack = rowHeight - cellLines;
+			if (slack <= 0) return 0;
+
+			return align switch
+			{
+				VerticalAlignment.Center => slack / 2,
+				VerticalAlignment.Bottom => slack,
+				_ => 0,
+			};
 		}
 
 		/// <summary>The row's untouched cells, for the single-line path.</summary>
@@ -178,14 +195,14 @@ public partial class TableControl
 		if (cols == null || !HasWrappingColumns) return null;
 
 		var linesPerColumn = new string[colWidths.Length][];
-		var center = new bool[colWidths.Length];
+		var align = new VerticalAlignment[colWidths.Length];
 		bool anyWrapped = false;
 
 		for (int c = 0; c < colWidths.Length; c++)
 		{
 			string text = c < rowCells.Count ? rowCells[c] : string.Empty;
 			var col = c < cols.Count ? cols[c] : null;
-			center[c] = col?.VerticalCenter == true;
+			align[c] = col?.VerticalAlignment ?? CellVerticalAlignment;
 
 			// An editing cell stays one line: the caret moves through a single run of text, and
 			// wrapping it would move the caret to a line the cursor arithmetic knows nothing of.
@@ -211,7 +228,7 @@ public partial class TableControl
 			return null;
 		}
 
-		return new WrappedRow(linesPerColumn, center, rowCells);
+		return new WrappedRow(linesPerColumn, align, rowCells);
 	}
 
 
