@@ -327,6 +327,69 @@ public partial class TreeTableControl
 		return context.ShowsExpanderGutter ? new string(' ', TreeGuideHelper.ExpanderWidth) : string.Empty;
 	}
 
+	/// <summary>
+	/// The guides for the lines of a wrapping row after its first: the ancestors' verticals, and
+	/// a vertical in place of the row's own connector where the row has siblings below it.
+	/// </summary>
+	/// <param name="context">Where the row stands in what is displayed.</param>
+	/// <returns>Markup of the same display width as <see cref="GetGuideMarkup"/> gave the row.</returns>
+	/// <remarks>
+	/// A connector repeated down a tall row would read as several siblings where there is one
+	/// row, and no guide at all would leave the hierarchy stopping halfway through it. What
+	/// belongs there is the line that would pass through if the row were not sitting on it, which
+	/// is a vertical when the row has siblings below and a blank when it is the last of them.
+	/// </remarks>
+	protected virtual string GetGuideContinuationMarkup(in TreeTableRowContext context)
+	{
+		if (context.Depth == 0) return string.Empty;
+
+		var chars = TreeGuideHelper.GetGuideChars(context.Guide);
+		var builder = new StringBuilder();
+
+		// The ancestors' lines, exactly as the row's own guide draws them.
+		for (int depth = 1; depth < context.Depth; depth++)
+		{
+			builder.Append(context.IsLastSiblingAtDepth(depth) ? " " : chars.Vertical);
+			builder.Append(context.Indent);
+		}
+
+		// The row's own level: its connector's place is taken by the line that continues past it.
+		builder.Append(context.IsLastSiblingAtDepth(context.Depth) ? " " : chars.Vertical);
+
+		// The connector's horizontal and trailing space are blank here, so the value column
+		// starts at the same x on every line of the row.
+		builder.Append(' ', UnicodeWidth.GetStringWidth(chars.Horizontal) + 1);
+
+		return MarkupParser.Escape(builder.ToString());
+	}
+
+	/// <inheritdoc/>
+	protected override string? GetCellPrefixContinuationMarkup(int dataRowIndex, int columnIndex)
+	{
+		if (DataSource != null || columnIndex != _treeColumnIndex || !TryGetView(dataRowIndex, out var view))
+			return null;
+
+		string continuation = view.ContinuationPrefixMarkup[dataRowIndex] ??= BuildContinuationMarkup(view, dataRowIndex);
+		return continuation.Length == 0 ? null : continuation;
+	}
+
+	/// <summary>
+	/// Builds a row's continuation prefix: its guide continuation, padded to the width the
+	/// expander takes on the row's own line so the value stays aligned.
+	/// </summary>
+	private string BuildContinuationMarkup(TreeTableProjection view, int dataRowIndex)
+	{
+		var context = new TreeTableRowContext(view, dataRowIndex, _guide, _indent);
+		string guide = GetGuideContinuationMarkup(in context) ?? string.Empty;
+
+		// The expander is drawn once, on the row's line. Its width still has to be reserved here
+		// or the wrapped text would sit further left than the first line's.
+		string expander = view.ExpanderMarkup[dataRowIndex] ?? GetExpanderMarkup(in context) ?? string.Empty;
+		int expanderWidth = MarkupParser.StripLength(expander);
+
+		return expanderWidth == 0 ? guide : guide + new string(' ', expanderWidth);
+	}
+
 	/// <summary>Builds and keeps a row's guide, expander and the two together, where not built yet.</summary>
 	private string BuildPrefixMarkup(TreeTableProjection view, int dataRowIndex, out string guide, out string expander)
 	{

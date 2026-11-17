@@ -39,6 +39,7 @@ internal sealed class TreeTableProjection
 		GuideMarkup = new string?[count];
 		ExpanderMarkup = new string?[count];
 		PrefixMarkup = new string?[count];
+		ContinuationPrefixMarkup = new string?[count];
 	}
 
 	/// <summary>The hierarchy this was computed from.</summary>
@@ -80,12 +81,19 @@ internal sealed class TreeTableProjection
 	/// <summary>Each row's guide and expander together, as drawn in front of the value.</summary>
 	internal string?[] PrefixMarkup { get; }
 
+	/// <summary>
+	/// Each row's prefix for the lines of a wrapping row after its first: the guides that
+	/// continue past it, with the expander's width reserved but not drawn. Null until built.
+	/// </summary>
+	internal string?[] ContinuationPrefixMarkup { get; }
+
 	/// <summary>Drops the markup built so far, after a setting that changes how rows are drawn.</summary>
 	internal void ForgetMarkup()
 	{
 		Array.Clear(GuideMarkup);
 		Array.Clear(ExpanderMarkup);
 		Array.Clear(PrefixMarkup);
+		Array.Clear(ContinuationPrefixMarkup);
 	}
 
 	/// <summary>
