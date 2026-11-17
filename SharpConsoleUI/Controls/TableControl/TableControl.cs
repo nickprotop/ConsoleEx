@@ -957,6 +957,12 @@ public partial class TableControl : BaseControl, IInteractiveControl, IFocusable
 	/// this guard is checked before anything consults the height cache. DataSource mode has no
 	/// TableColumn objects and so can never wrap.
 	/// </remarks>
+	/// <summary>
+	/// How many row heights have actually been measured since this table was created, cache hits
+	/// excluded. Test-visible: this is what proves a large table measures only what it paints.
+	/// </summary>
+	internal int MeasuredRowHeightCountForTest => _rowHeights.MeasureCount;
+
 	internal bool HasWrappingColumns
 	{
 		get

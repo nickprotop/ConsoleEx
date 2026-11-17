@@ -300,7 +300,30 @@ public partial class TableControl
 		{
 			visibleRows = rowCount;
 		}
-		height += Math.Min(rowCount, visibleRows);
+		// A wrapping table has to ask for the lines it will DRAW, not the rows it holds. A host
+		// that reserved one line per row would give a five-row table five lines and then watch it
+		// paint twenty, so a ScrollablePanel could never scroll to its end.
+		//
+		// Measured at the widths THIS measure just computed rather than the last paint's: on the
+		// first measure there is no last paint, and on a reflow the old widths are exactly the
+		// ones that no longer apply.
+		if (HasWrappingColumns && colSnapshot != null && rowSnapshot != null)
+		{
+			int shown = Math.Min(rowCount, visibleRows);
+			for (int displayR = 0; displayR < shown; displayR++)
+			{
+				int dataR = MapDisplayToData(displayR);
+				if (dataR < 0 || dataR >= rowSnapshot.Count) { height++; continue; }
+
+				int rowCopy = dataR;
+				height += _rowHeights.GetHeight(displayR, colWidths,
+					_ => rowSnapshot[rowCopy].Cells, colSnapshot);
+			}
+		}
+		else
+		{
+			height += Math.Min(rowCount, visibleRows);
+		}
 		if (_showRowSeparators && hasBorder)
 		{
 			int visibleDataRows = Math.Min(rowCount, visibleRows);
